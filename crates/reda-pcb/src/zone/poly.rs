@@ -240,3 +240,65 @@ pub(crate) fn bounds(area: &Area) -> Option<(P, P)> {
     }
     Some((lo, hi))
 }
+
+/// The edges of an area as lines of no width, for measuring distances to it.
+pub(crate) fn boundary(area: &Area) -> Shape {
+    let mut prims = Vec::new();
+    for ring in area.iter().flatten() {
+        for i in 0..ring.len() {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            prims.push(Prim {
+                core: Core::Seg([a.x, a.y], [b.x, b.y]),
+                radius: 0,
+            });
+        }
+    }
+    Shape { prims }
+}
+
+/// The gap between two areas, the closest points on each (the middle of the overlap,
+/// twice, where they overlap) and whether they overlap with some area. `None` when either
+/// is empty.
+pub(crate) fn gap(a: &Area, b: &Area) -> Option<(f64, [Point; 2], bool)> {
+    if a.is_empty() || b.is_empty() {
+        return None;
+    }
+    let overlap = intersection(a, b);
+    if area_of(&overlap) == 0 {
+        let (ea, eb) = (boundary(a), boundary(b));
+        return Some((ea.distance(&eb).max(0.0), ea.closest_points(&eb), false));
+    }
+    if let Some((lo, hi)) = bounds(&overlap) {
+        let mid = Point::new(
+            reda_model::geom::Nm(lo[0] + (hi[0] - lo[0]) / 2),
+            reda_model::geom::Nm(lo[1] + (hi[1] - lo[1]) / 2),
+        );
+        return Some((0.0, [mid, mid], true));
+    }
+    None
+}
+
+/// Twice the signed area enclosed, outer contours less holes: 0 for shapes that only
+/// touch along an edge.
+fn area_of(area: &Area) -> i128 {
+    area.iter()
+        .flatten()
+        .map(|ring| {
+            (0..ring.len())
+                .map(|i| {
+                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                    i128::from(a.x) * i128::from(b.y) - i128::from(b.x) * i128::from(a.y)
+                })
+                .sum::<i128>()
+        })
+        .sum::<i128>()
+        .abs()
+}
+
+/// Whether two boxes come within `reach` of each other.
+pub(crate) fn boxes_within(a: (P, P), b: (P, P), reach: i64) -> bool {
+    a.0[0] - reach <= b.1[0]
+        && b.0[0] - reach <= a.1[0]
+        && a.0[1] - reach <= b.1[1]
+        && b.0[1] - reach <= a.1[1]
+}

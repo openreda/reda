@@ -23,6 +23,8 @@ pub struct Opening {
     pub kind: Kind,
     /// `None` means a negative expansion left nothing, which DRC must report.
     pub geometry: Option<PlacedPad>,
+    /// The copper the opening is over: the Pad or Via itself.
+    pub copper: PlacedPad,
     pub at: Point,
 }
 
@@ -114,6 +116,7 @@ fn pad_openings(
             side,
             kind: Kind::Mask,
             geometry,
+            copper: pad.clone(),
             at: pad.at,
         });
     }
@@ -142,6 +145,7 @@ fn pad_openings(
                 outline,
                 ..pad.clone()
             }),
+            copper: pad.clone(),
             at: pad.at,
         });
     }

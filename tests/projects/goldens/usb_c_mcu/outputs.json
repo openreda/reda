@@ -55,7 +55,16 @@
         "name": "UsbMcu-CPL.csv"
       }
     ],
-    "warnings": [],
+    "warnings": [
+      {
+        "args": {
+          "count": 2
+        },
+        "check": "drc_errors",
+        "objects": [],
+        "severity": "warning"
+      }
+    ],
     "zip": "outputs/JLCPCB/UsbMcu-JLCPCB.zip"
   },
   {

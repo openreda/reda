@@ -537,3 +537,48 @@ fn collapsed_openings_translate_both_sides_and_kinds_without_changing_check_argu
         assert!(arguments.contains(&expected));
     }
 }
+
+#[test]
+fn opening_a_board_runs_the_health_checks_without_opening_messages_or_dirtying_it() {
+    let home = TempDir::new("messages-health-home");
+    let work = TempDir::new("messages-health-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Demo").unwrap();
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "width": "0.25mm",
+                   "points": [{"x": "10mm", "y": "10mm"}, {"x": "15mm", "y": "10mm"}]}),
+        )
+        .unwrap();
+    shell.run("project.save", json!({})).unwrap();
+    let folder = work.path().join("Demo");
+
+    // Opened as saved: nothing to report, and the layout it opens with.
+    let mut clean = Shell::new(engine_in(home.path()));
+    clean.open_project(&folder).unwrap();
+    assert!(clean.message_groups().is_empty());
+    let layout = clean.layout().clone();
+    drop(clean);
+
+    // A second, zero-length Track, as a hand edit or merge can leave.
+    let path = folder.join("Demo.redapcb");
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let mut zero = file["tracks"][0].clone();
+    zero["uuid"] = json!("00000000-0000-4000-8000-0000000fff01");
+    zero["geometry"]["to"] = zero["geometry"]["from"].clone();
+    file["tracks"].as_array_mut().unwrap().push(zero);
+    std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&folder).unwrap();
+    let groups = shell.message_groups();
+    assert_eq!(groups.len(), 1, "{groups:?}");
+    let texts: Vec<&str> = groups[0].lines.iter().map(|l| l.text.as_str()).collect();
+    // Only the health checks ran: the other Track's dangling ends are not listed.
+    assert_eq!(texts, ["Track with no length"]);
+    assert_eq!(shell.layout(), &layout, "Messages is not opened");
+    assert!(!shell.engine().is_dirty());
+    // It runs no Command, so the Journal holds only the user's.
+    assert!(shell.engine().journal().iter().all(|e| e.id != "drc.run"));
+}

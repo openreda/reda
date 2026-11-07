@@ -18,7 +18,9 @@ pub mod rules;
 mod text;
 pub mod zone;
 
-pub use board::{DEFAULT_NET_CLASS, V01_LAYERS, board_fab_rules, new_board, seed_rules};
+pub use board::{
+    DEFAULT_NET_CLASS, V01_LAYERS, board_fab_rules, default_rules, new_board, seed_rules,
+};
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     MechanicalSet, MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, TrackDragPlan,

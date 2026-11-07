@@ -398,7 +398,7 @@ fn silkscreen_drc_uses_resolved_tenting_and_shrunken_openings() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|v| v["check"] == "silkscreen_over_pads"),
+            .any(|v| v["check"] == "silk_to_mask"),
         "{run}"
     );
 }

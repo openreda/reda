@@ -113,7 +113,7 @@ fn pad(engine: &TestEngine, footprint: Uuid, number: &str) -> Uuid {
 }
 
 #[test]
-fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
+fn silkscreen_over_exposed_pads_on_its_side_breaks_silk_to_mask() {
     let dir = TempDir::new("drc-silk");
     let mut engine = engine(&dir);
     let r = synced(&mut engine, 3);
@@ -160,7 +160,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
                "height": "0.8mm", "thickness": "0.15mm"}),
     ));
     let run = drc(&mut engine);
-    let mut found = objects_of(&run, "silkscreen_over_pads");
+    let mut found = objects_of(&run, "silk_to_mask");
     found.sort();
     let mut expected = vec![
         vec![across, r[0], pad(&engine, r[0], "1")],
@@ -169,11 +169,13 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     ];
     expected.sort();
     assert_eq!(found, expected, "{run:#}");
-    assert_eq!(of(&run, "silkscreen_over_pads")[0]["severity"], "warning");
-    for v in of(&run, "silkscreen_over_pads") {
+    assert_eq!(of(&run, "silk_to_mask")[0]["severity"], "warning");
+    for v in of(&run, "silk_to_mask") {
         assert_eq!(v["document"], common::PCB);
         assert!(v["at"].is_object());
         assert_eq!(v["layers"].as_array().unwrap().len(), 1);
+        assert_eq!(v["measured"], json!({"length": 0}));
+        assert_eq!(v["required"], json!({"length": 100_000}));
     }
 }
 

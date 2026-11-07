@@ -745,14 +745,373 @@
     },
     {
       "category": "pcb",
+      "description": "Removes what a health check finds, as one undo step: zero-length Tracks, micro-segments, duplicate Tracks and Vias (keeping the first), or Zones with no area. `objects` picks which; left out, all of them.",
+      "icon": "drc",
+      "id": "drc.fix",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Courtyards closer than `courtyard_clearance`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "$ref": "#/$defs/DrcCheck",
+            "description": "The health check whose findings to fix: `zero_length_track`, `micro_segment`,\n`duplicate_copper` or `zero_area_zone`."
+          },
+          "objects": {
+            "default": null,
+            "description": "The objects to remove, each one the check finds (for `duplicate_copper`, the\nduplicate, the last object of its Violation). Left out, everything it finds.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "check"
+        ],
+        "title": "DrcFixParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "removed": {
+            "description": "The objects removed.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "DrcFixResult",
+        "type": "object"
+      },
+      "title": "Fix Health Check Findings"
+    },
+    {
+      "category": "pcb",
       "description": "Checks the PCB with the DRC checks that are not Off, after refilling stale Zones, and returns the Violations: each with its check id, severity, message arguments and the UUIDs of the objects involved (a Pad as its Footprint then the Pad). Waived Violations are left out unless `include_waived`. `locally_edited` lists the Locally Edited Footprints.",
       "icon": "drc",
       "id": "drc.run",
       "kind": "query",
       "params": {
+        "$defs": {
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "shorted_copper",
+                "description": "Pads with different numbers touching on a Part that isn't a Net Tie.",
+                "type": "string"
+              },
+              {
+                "const": "net_tie_not_joined",
+                "description": "A Net Tie's Footprint that isn't a valid tie.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Courtyards closer than `courtyard_clearance`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "checks": {
+            "default": null,
+            "description": "Run only these checks; all that are not Off when left out. The health checks\nalone need no Zone refill, so a board can run them as it opens.",
+            "items": {
+              "$ref": "#/$defs/DrcCheck"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "include_waived": {
             "default": false,
             "description": "Also list the Violations that Waivers waive, each naming its Waiver.",
@@ -1120,17 +1479,52 @@
               },
               {
                 "const": "dangling",
-                "description": "Tracks and Vias that end unconnected.",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
                 "type": "string"
               },
               {
                 "const": "courtyard_overlap",
-                "description": "Overlapping courtyards.",
+                "description": "Courtyards closer than `courtyard_clearance`.",
                 "type": "string"
               },
               {
-                "const": "silkscreen_over_pads",
-                "description": "Silkscreen over exposed Pads.",
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
                 "type": "string"
               },
               {
@@ -1358,17 +1752,52 @@
               },
               {
                 "const": "dangling",
-                "description": "Tracks and Vias that end unconnected.",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
                 "type": "string"
               },
               {
                 "const": "courtyard_overlap",
-                "description": "Overlapping courtyards.",
+                "description": "Courtyards closer than `courtyard_clearance`.",
                 "type": "string"
               },
               {
-                "const": "silkscreen_over_pads",
-                "description": "Silkscreen over exposed Pads.",
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
                 "type": "string"
               },
               {
@@ -20562,12 +20991,17 @@
               "courtyard_overlap": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Overlapping courtyards."
+                "description": "Courtyards closer than `courtyard_clearance`."
               },
               "dangling": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Tracks and Vias that end unconnected."
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
+              },
+              "duplicate_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: Tracks or Vias that repeat one another exactly."
               },
               "edge_clearance": {
                 "$ref": "#/$defs/Severity",
@@ -20594,6 +21028,11 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "micro_segment": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Track no longer than the `micro_segment` length."
+              },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -20608,6 +21047,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "poor_connection": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Track end touching copper, with its centre outside that copper."
               },
               "rule_invalid": {
                 "$ref": "#/$defs/Severity",
@@ -20629,10 +21073,15 @@
                 "default": "error",
                 "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
               },
-              "silkscreen_over_pads": {
+              "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Silkscreen over exposed Pads."
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout."
+              },
+              "silk_to_mask": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -20648,6 +21097,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "A Via diameter or hole outside the `via_size` range."
+              },
+              "via_under_smd": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Via inside an SMD Pad."
+              },
+              "zero_area_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Zone whose outline encloses no area."
+              },
+              "zero_length_track": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Track whose ends coincide."
               }
             },
             "required": [
@@ -20666,8 +21130,15 @@
               "unrouted",
               "copper_without_net",
               "dangling",
+              "poor_connection",
+              "via_under_smd",
               "courtyard_overlap",
-              "silkscreen_over_pads",
+              "silk_to_mask",
+              "silk_to_edge",
+              "zero_length_track",
+              "micro_segment",
+              "duplicate_copper",
+              "zero_area_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -25180,7 +25651,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -25273,6 +25769,14 @@
                   "null"
                 ]
               },
+              "max_length": {
+                "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "min": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -25280,6 +25784,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
               },
               "percent": {
                 "description": "Signed change in area in percent, strictly above -100.",
@@ -25306,6 +25821,14 @@
               "tent_vias_top": {
                 "type": [
                   "boolean",
+                  "null"
+                ]
+              },
+              "tolerance": {
+                "description": "`dangling` only: stubs up to this long pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
                   "null"
                 ]
               },
@@ -25708,6 +26231,21 @@
               {
                 "const": "bottom",
                 "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
                 "type": "string"
               }
             ]
@@ -27230,12 +27768,17 @@
               "courtyard_overlap": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Overlapping courtyards."
+                "description": "Courtyards closer than `courtyard_clearance`."
               },
               "dangling": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Tracks and Vias that end unconnected."
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
+              },
+              "duplicate_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: Tracks or Vias that repeat one another exactly."
               },
               "edge_clearance": {
                 "$ref": "#/$defs/Severity",
@@ -27262,6 +27805,11 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "micro_segment": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Track no longer than the `micro_segment` length."
+              },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -27276,6 +27824,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "poor_connection": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Track end touching copper, with its centre outside that copper."
               },
               "rule_invalid": {
                 "$ref": "#/$defs/Severity",
@@ -27297,10 +27850,15 @@
                 "default": "error",
                 "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
               },
-              "silkscreen_over_pads": {
+              "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
-                "description": "Silkscreen over exposed Pads."
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout."
+              },
+              "silk_to_mask": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -27316,6 +27874,21 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "A Via diameter or hole outside the `via_size` range."
+              },
+              "via_under_smd": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Via inside an SMD Pad."
+              },
+              "zero_area_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Zone whose outline encloses no area."
+              },
+              "zero_length_track": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "Health check: a Track whose ends coincide."
               }
             },
             "required": [
@@ -27334,8 +27907,15 @@
               "unrouted",
               "copper_without_net",
               "dangling",
+              "poor_connection",
+              "via_under_smd",
               "courtyard_overlap",
-              "silkscreen_over_pads",
+              "silk_to_mask",
+              "silk_to_edge",
+              "zero_length_track",
+              "micro_segment",
+              "duplicate_copper",
+              "zero_area_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -31869,7 +32449,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -31962,6 +32567,14 @@
                   "null"
                 ]
               },
+              "max_length": {
+                "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "min": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -31969,6 +32582,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
               },
               "percent": {
                 "description": "Signed change in area in percent, strictly above -100.",
@@ -31995,6 +32619,14 @@
               "tent_vias_top": {
                 "type": [
                   "boolean",
+                  "null"
+                ]
+              },
+              "tolerance": {
+                "description": "`dangling` only: stubs up to this long pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
                   "null"
                 ]
               },
@@ -32397,6 +33029,21 @@
               {
                 "const": "bottom",
                 "description": "Only Components whose Footprint is on the bottom.",
+                "type": "string"
+              }
+            ]
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
                 "type": "string"
               }
             ]
@@ -38912,7 +39559,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -38927,9 +39599,24 @@
               }
             ]
           },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
+          },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -38998,10 +39685,32 @@
                 ],
                 "default": null
               },
+              "max_length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "min": {
                 "anyOf": [
                   {
                     "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
                   },
                   {
                     "type": "null"
@@ -39041,6 +39750,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "top": {
                 "anyOf": [
@@ -40552,7 +41272,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -40580,6 +41325,9 @@
               {
                 "format": "int32",
                 "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/SilkMaskMode"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
@@ -40592,6 +41340,21 @@
               "off"
             ],
             "type": "string"
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
           },
           "Winner": {
             "description": "A value that applies, and the record it comes from.",
@@ -40699,7 +41462,10 @@
               "tent_vias_top",
               "tent_vias_bottom",
               "expansion",
-              "percent"
+              "percent",
+              "mode",
+              "tolerance",
+              "max_length"
             ],
             "type": "string"
           },
@@ -40738,7 +41504,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -40876,7 +41667,10 @@
               "tent_vias_top",
               "tent_vias_bottom",
               "expansion",
-              "percent"
+              "percent",
+              "mode",
+              "tolerance",
+              "max_length"
             ],
             "type": "string"
           },
@@ -40915,7 +41709,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -40943,9 +41762,27 @@
               {
                 "format": "int32",
                 "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/SilkMaskMode"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -41139,7 +41976,10 @@
               "tent_vias_top",
               "tent_vias_bottom",
               "expansion",
-              "percent"
+              "percent",
+              "mode",
+              "tolerance",
+              "max_length"
             ],
             "type": "string"
           },
@@ -41178,7 +42018,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -41206,9 +42071,27 @@
               {
                 "format": "int32",
                 "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/SilkMaskMode"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -41280,7 +42163,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -41440,17 +42348,52 @@
               },
               {
                 "const": "dangling",
-                "description": "Tracks and Vias that end unconnected.",
+                "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance.",
+                "type": "string"
+              },
+              {
+                "const": "poor_connection",
+                "description": "A Track end touching copper, with its centre outside that copper.",
+                "type": "string"
+              },
+              {
+                "const": "via_under_smd",
+                "description": "A Via inside an SMD Pad.",
                 "type": "string"
               },
               {
                 "const": "courtyard_overlap",
-                "description": "Overlapping courtyards.",
+                "description": "Courtyards closer than `courtyard_clearance`.",
                 "type": "string"
               },
               {
-                "const": "silkscreen_over_pads",
-                "description": "Silkscreen over exposed Pads.",
+                "const": "silk_to_mask",
+                "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "zero_length_track",
+                "description": "Health check: a Track whose ends coincide.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Health check: a Track no longer than the `micro_segment` length.",
+                "type": "string"
+              },
+              {
+                "const": "duplicate_copper",
+                "description": "Health check: Tracks or Vias that repeat one another exactly.",
+                "type": "string"
+              },
+              {
+                "const": "zero_area_zone",
+                "description": "Health check: a Zone whose outline encloses no area.",
                 "type": "string"
               },
               {
@@ -41558,7 +42501,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -41636,6 +42604,14 @@
                   "null"
                 ]
               },
+              "max_length": {
+                "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "min": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -41643,6 +42619,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
               },
               "percent": {
                 "description": "Signed change in area in percent, strictly above -100.",
@@ -41669,6 +42656,14 @@
               "tent_vias_top": {
                 "type": [
                   "boolean",
+                  "null"
+                ]
+              },
+              "tolerance": {
+                "description": "`dangling` only: stubs up to this long pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
                   "null"
                 ]
               },
@@ -41719,6 +42714,21 @@
               "after"
             ],
             "type": "object"
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -41906,7 +42916,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -41936,9 +42971,24 @@
             },
             "type": "object"
           },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
+          },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance` `value`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -42007,10 +43057,32 @@
                 ],
                 "default": null
               },
+              "max_length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "min": {
                 "anyOf": [
                   {
                     "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
                   },
                   {
                     "type": "null"
@@ -42050,6 +43122,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               },
               "top": {
                 "anyOf": [
@@ -42220,7 +43303,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {
@@ -42313,6 +43421,14 @@
                   "null"
                 ]
               },
+              "max_length": {
+                "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "min": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -42320,6 +43436,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SilkMaskMode"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
               },
               "percent": {
                 "description": "Signed change in area in percent, strictly above -100.",
@@ -42349,6 +43476,14 @@
                   "null"
                 ]
               },
+              "tolerance": {
+                "description": "`dangling` only: stubs up to this long pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "top": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -42367,6 +43502,21 @@
               }
             },
             "type": "object"
+          },
+          "SilkMaskMode": {
+            "description": "What `silk_to_mask` measures silkscreen against.",
+            "oneOf": [
+              {
+                "const": "exposed_copper",
+                "description": "The exposed copper: the copper inside each resolved mask opening.",
+                "type": "string"
+              },
+              {
+                "const": "mask_opening",
+                "description": "The resolved mask openings themselves.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -42602,7 +43752,32 @@
               },
               {
                 "const": "edge_clearance",
-                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
                 "type": "string"
               },
               {

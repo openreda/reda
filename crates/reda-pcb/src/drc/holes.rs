@@ -101,21 +101,21 @@ fn via_size(board: &Board<'_>, report: &mut Report) {
 }
 
 /// One drilled hole on the board.
-struct DrillHole {
+pub(super) struct DrillHole {
     /// The Via, or the Footprint instance then the Pad, or the Free Pad.
-    objects: Vec<Uuid>,
+    pub objects: Vec<Uuid>,
     size: Hole,
     /// Its Net, which picks its rules.
     net: Option<Uuid>,
     /// Whether it is a Via's, which `via_size` limits rather than `hole_size`.
     via: bool,
-    /// The copper ring around a plated hole; `None` for a bare hole.
-    ring: Option<Nm>,
-    shape: Shape,
+    /// The copper ring around a plated hole; `None` for a bare (non-plated) hole.
+    pub ring: Option<Nm>,
+    pub shape: Shape,
 }
 
 /// Every hole, Vias first, then Footprint Pads, then Free Pads, each in UUID order.
-fn holes(board: &Board<'_>) -> Vec<DrillHole> {
+pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
     let pcb = board.pcb;
     let mut out = Vec::new();
     for via in pcb.vias() {

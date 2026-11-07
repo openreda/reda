@@ -109,6 +109,43 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
     ]
 }
 
+/// The board-wide values of the rule kinds no Fab Preset seeds, which start at fixed
+/// defaults: silkscreen 0.254 mm from the edge and 0.10 mm from exposed copper, courtyards
+/// and the dangling tolerance at 0, micro-segments up to 0.01 mm.
+pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
+    use reda_model::geom::Nm;
+    let value = |value| RuleValues {
+        value: Some(value),
+        ..RuleValues::default()
+    };
+    vec![
+        (RuleKind::SilkToEdge, value(Nm(254_000))),
+        (
+            RuleKind::SilkToMask,
+            RuleValues {
+                value: Some(Nm(100_000)),
+                mode: Some(reda_model::SilkMaskMode::ExposedCopper),
+                ..RuleValues::default()
+            },
+        ),
+        (RuleKind::CourtyardClearance, value(Nm::ZERO)),
+        (
+            RuleKind::Dangling,
+            RuleValues {
+                tolerance: Some(Nm::ZERO),
+                ..RuleValues::default()
+            },
+        ),
+        (
+            RuleKind::MicroSegment,
+            RuleValues {
+                max_length: Some(Nm(10_000)),
+                ..RuleValues::default()
+            },
+        ),
+    ]
+}
+
 /// The Fab Preset rules that seed a board like `pcb`'s board-wide records: their limits,
 /// preferred sizes and output seeds, whether enabled or not. Track and Via maximums and
 /// Net Class records have no place in a preset and are left out.
@@ -182,7 +219,8 @@ pub fn new_board(
         Object::LayerSet(InDocument::new(document, layers.clone())),
         Object::BoardSetup(InDocument::new(document, setup)),
     ];
-    for (kind, values) in seed_rules(rules) {
+    // The kinds no preset seeds come last, so the preset's records keep their UUIDs.
+    for (kind, values) in seed_rules(rules).into_iter().chain(default_rules()) {
         let rule = DesignRule {
             uuid: new_id(),
             kind,

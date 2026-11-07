@@ -16,7 +16,7 @@ fn engine(dir: &TempDir) -> TestEngine {
     engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
     // The test Nets are on no schematic, and the test Footprints' Designators sit on
     // their Pads.
-    for check in ["out_of_sync", "silkscreen_over_pads"] {
+    for check in ["out_of_sync", "silk_to_mask"] {
         engine.run_ok(
             "drc.set_severity",
             json!({"check": check, "severity": "off"}),

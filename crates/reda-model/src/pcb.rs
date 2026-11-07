@@ -31,7 +31,7 @@ pub use footprint::{
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
     Bounds, DesignRule, PortableClass, PortableRule, RuleField, RuleKind, RuleScope, RuleSet,
-    RuleValue, RuleValues,
+    RuleValue, RuleValues, SilkMaskMode,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
@@ -137,12 +137,27 @@ crate::check::severities! {
     unrouted => Unrouted = Error,
     /// Copper with no Net.
     copper_without_net => CopperWithoutNet = Warning,
-    /// Tracks and Vias that end unconnected.
+    /// Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`
+    /// tolerance.
     dangling => Dangling = Warning,
-    /// Overlapping courtyards.
+    /// A Track end touching copper, with its centre outside that copper.
+    poor_connection => PoorConnection = Warning,
+    /// A Via inside an SMD Pad.
+    via_under_smd => ViaUnderSmd = Warning,
+    /// Courtyards closer than `courtyard_clearance`.
     courtyard_overlap => CourtyardOverlap = Warning,
-    /// Silkscreen over exposed Pads.
-    silkscreen_over_pads => SilkscreenOverPads = Warning,
+    /// Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.
+    silk_to_mask => SilkToMask = Warning,
+    /// Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.
+    silk_to_edge => SilkToEdge = Warning,
+    /// Health check: a Track whose ends coincide.
+    zero_length_track => ZeroLengthTrack = Warning,
+    /// Health check: a Track no longer than the `micro_segment` length.
+    micro_segment => MicroSegment = Warning,
+    /// Health check: Tracks or Vias that repeat one another exactly.
+    duplicate_copper => DuplicateCopper = Warning,
+    /// Health check: a Zone whose outline encloses no area.
+    zero_area_zone => ZeroAreaZone = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
     /// A negative mask or paste expansion leaves no opening.
@@ -151,6 +166,22 @@ crate::check::severities! {
     rule_invalid => RuleInvalid = Error,
     /// A rule that allows less than a Fab Preset limit.
     rule_outside_preset => RuleOutsidePreset = Warning,
+}
+
+impl DrcCheck {
+    /// The health checks: data that passes the other checks but harms outputs. Only they
+    /// run when a board opens, and `drc.fix` removes what they find.
+    pub const HEALTH: [DrcCheck; 4] = [
+        DrcCheck::ZeroLengthTrack,
+        DrcCheck::MicroSegment,
+        DrcCheck::DuplicateCopper,
+        DrcCheck::ZeroAreaZone,
+    ];
+
+    /// Whether it is one of the [health checks](Self::HEALTH).
+    pub fn is_health(self) -> bool {
+        DrcCheck::HEALTH.contains(&self)
+    }
 }
 
 /// The board's own settings: its DRC severities. The design rules are records of their
@@ -814,10 +845,8 @@ impl PcbDocument {
             if track.width <= Nm::ZERO {
                 return Err(format!("Track {uuid} has no width"));
             }
-            let (from, to) = track.geometry.ends();
-            if from == to {
-                return Err(format!("Track {uuid} has no length"));
-            }
+            // A Track with no length is allowed, so a file holding one opens: the
+            // `zero_length_track` health check finds it and `drc.fix` removes it.
         }
         for via in self.vias.values() {
             let uuid = via.uuid;

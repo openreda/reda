@@ -232,3 +232,44 @@ fn a_rule_with_a_blocking_problem_still_opens_and_drc_reports_it() {
         json!([])
     );
 }
+
+#[test]
+fn a_rotation_stored_as_a_full_turn_is_normalised_on_load() {
+    let dir = TempDir::new("load-rotation-turn");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": 0, "y": 0}, "pads": [{"at": {"x": 0, "y": 0}, "width": 1_000_000, "height": 1_000_000}]}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0}),
+    );
+    engine.run_ok("project.save", json!({}));
+    let path = dir.path().join("Demo/Demo.redapcb");
+    let engine = open_after(&path, |f| {
+        f["footprints"][0]["rotation"] = json!(360_000);
+        f["texts"][0]["rotation"] = json!(360_000);
+    })
+    .expect("opens");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let footprint = pcb.footprints().next().unwrap();
+    assert_eq!(footprint.rotation.0, 0);
+    assert_eq!(pcb.texts().next().unwrap().rotation.0, 0);
+    // Normalising is not an edit: the Project opens clean.
+    assert!(!engine.is_dirty());
+}
+
+#[test]
+fn a_track_with_no_length_still_opens() {
+    let (_dir, path) = saved("load-zero-track");
+    let engine = open_after(&path, |f| {
+        let layer = f["layers"]["layers"][layer_index(f, "copper", Some("top"))]["uuid"].clone();
+        f["tracks"] = json!([{"uuid": "00000000-0000-4000-8000-0000000000f1", "layer": layer,
+            "width": 200_000,
+            "geometry": {"kind": "line", "from": {"x": 0, "y": 0}, "to": {"x": 0, "y": 0}}}]);
+    })
+    .expect("opens");
+    assert_eq!(engine.project().unwrap().pcb().unwrap().tracks().count(), 1);
+}

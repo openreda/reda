@@ -29,8 +29,18 @@ pub enum RuleKind {
     AnnularRing,
     /// Spacing between hole edges: `min`.
     HoleToHole,
-    /// Copper to the Board Outline and Board Cutouts: `value`.
+    /// Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.
     EdgeClearance,
+    /// Silkscreen to the Board Outline and Board Cutouts: `value`.
+    SilkToEdge,
+    /// Silkscreen to exposed copper or mask openings: `value`, `mode`.
+    SilkToMask,
+    /// Spacing between courtyards: `value`.
+    CourtyardClearance,
+    /// Dangling stubs up to `tolerance` long pass.
+    Dangling,
+    /// Tracks up to `max_length` long are micro-segments.
+    MicroSegment,
     /// Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.
     MaskExpansion,
     /// Solder-paste expansion per edge or signed percent change in area; no DRC severity.
@@ -39,7 +49,7 @@ pub enum RuleKind {
 
 impl RuleKind {
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 9] = [
+    pub const ALL: [RuleKind; 14] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -47,6 +57,11 @@ impl RuleKind {
         RuleKind::AnnularRing,
         RuleKind::HoleToHole,
         RuleKind::EdgeClearance,
+        RuleKind::SilkToEdge,
+        RuleKind::SilkToMask,
+        RuleKind::CourtyardClearance,
+        RuleKind::Dangling,
+        RuleKind::MicroSegment,
         RuleKind::MaskExpansion,
         RuleKind::PasteExpansion,
     ];
@@ -61,6 +76,11 @@ impl RuleKind {
             RuleKind::AnnularRing => "annular_ring",
             RuleKind::HoleToHole => "hole_to_hole",
             RuleKind::EdgeClearance => "edge_clearance",
+            RuleKind::SilkToEdge => "silk_to_edge",
+            RuleKind::SilkToMask => "silk_to_mask",
+            RuleKind::CourtyardClearance => "courtyard_clearance",
+            RuleKind::Dangling => "dangling",
+            RuleKind::MicroSegment => "micro_segment",
             RuleKind::MaskExpansion => "mask_expansion",
             RuleKind::PasteExpansion => "paste_expansion",
         }
@@ -82,7 +102,12 @@ impl RuleKind {
             ],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
-            RuleKind::EdgeClearance => &[Value],
+            RuleKind::EdgeClearance | RuleKind::SilkToEdge | RuleKind::CourtyardClearance => {
+                &[Value]
+            }
+            RuleKind::SilkToMask => &[Value, Mode],
+            RuleKind::Dangling => &[Tolerance],
+            RuleKind::MicroSegment => &[MaxLength],
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
             RuleKind::PasteExpansion => &[Expansion, Percent],
         }
@@ -92,7 +117,14 @@ impl RuleKind {
     pub fn required(self) -> &'static [RuleField] {
         use RuleField::*;
         match self {
-            RuleKind::Clearance | RuleKind::EdgeClearance => &[Value],
+            RuleKind::Clearance
+            | RuleKind::EdgeClearance
+            | RuleKind::SilkToEdge
+            | RuleKind::CourtyardClearance
+            // `mode` defaults to `exposed_copper`.
+            | RuleKind::SilkToMask => &[Value],
+            RuleKind::Dangling => &[Tolerance],
+            RuleKind::MicroSegment => &[MaxLength],
             RuleKind::TrackWidth => &[Min, Preferred],
             RuleKind::ViaSize => &[DiameterMin, DiameterPreferred, HoleMin, HolePreferred],
             RuleKind::HoleSize => &[Min, Max],
@@ -127,6 +159,9 @@ pub enum RuleField {
     TentViasBottom,
     Expansion,
     Percent,
+    Mode,
+    Tolerance,
+    MaxLength,
 }
 
 impl RuleField {
@@ -151,6 +186,9 @@ impl RuleField {
             RuleField::TentViasBottom => "tent_vias_bottom",
             RuleField::Expansion => "expansion",
             RuleField::Percent => "percent",
+            RuleField::Mode => "mode",
+            RuleField::Tolerance => "tolerance",
+            RuleField::MaxLength => "max_length",
         }
     }
 
@@ -172,20 +210,52 @@ pub enum RuleValue {
     Length(Nm),
     Flag(bool),
     Percent(i32),
+    Mode(SilkMaskMode),
+}
+
+/// What `silk_to_mask` measures silkscreen against.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SilkMaskMode {
+    /// The exposed copper: the copper inside each resolved mask opening.
+    #[default]
+    ExposedCopper,
+    /// The resolved mask openings themselves.
+    MaskOpening,
 }
 
 impl RuleValue {
     pub fn length(self) -> Option<Nm> {
         match self {
             RuleValue::Length(n) => Some(n),
-            RuleValue::Flag(_) | RuleValue::Percent(_) => None,
+            RuleValue::Flag(_) | RuleValue::Percent(_) | RuleValue::Mode(_) => None,
         }
     }
 
     pub fn flag(self) -> Option<bool> {
         match self {
             RuleValue::Flag(b) => Some(b),
-            RuleValue::Length(_) | RuleValue::Percent(_) => None,
+            RuleValue::Length(_) | RuleValue::Percent(_) | RuleValue::Mode(_) => None,
+        }
+    }
+
+    pub fn mode(self) -> Option<SilkMaskMode> {
+        match self {
+            RuleValue::Mode(m) => Some(m),
+            _ => None,
         }
     }
 }
@@ -245,6 +315,15 @@ pub struct RuleValues {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Signed change in area in percent, strictly above -100.
     pub percent: Option<i32>,
+    /// `silk_to_mask` only: what silkscreen keeps its distance from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<SilkMaskMode>,
+    /// `dangling` only: stubs up to this long pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tolerance: Option<Nm>,
+    /// `micro_segment` only: Tracks up to this long are micro-segments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<Nm>,
 }
 
 impl RuleValues {
@@ -272,6 +351,9 @@ impl RuleValues {
             RuleField::TentViasBottom => self.tent_vias_bottom.map(RuleValue::Flag),
             RuleField::Expansion => length(self.expansion),
             RuleField::Percent => self.percent.map(RuleValue::Percent),
+            RuleField::Mode => self.mode.map(RuleValue::Mode),
+            RuleField::Tolerance => length(self.tolerance),
+            RuleField::MaxLength => length(self.max_length),
         }
     }
 
@@ -303,6 +385,14 @@ impl RuleValues {
                 RuleField::TentViasBottom => self.tent_vias_bottom = flag,
                 _ => unreachable!(),
             }
+            return Ok(());
+        }
+        if field == RuleField::Mode {
+            self.mode = match value {
+                None => None,
+                Some(RuleValue::Mode(m)) => Some(m),
+                Some(_) => return Err(wrong()),
+            };
             return Ok(());
         }
         if field == RuleField::Percent {
@@ -337,6 +427,8 @@ impl RuleValues {
             RuleField::Top => self.top = n,
             RuleField::Bottom => self.bottom = n,
             RuleField::Expansion => self.expansion = n,
+            RuleField::Tolerance => self.tolerance = n,
+            RuleField::MaxLength => self.max_length = n,
             _ => unreachable!("handled above"),
         }
         Ok(())
@@ -363,11 +455,12 @@ fn type_name(field: RuleField) -> &'static str {
         | RuleField::TentViasTop
         | RuleField::TentViasBottom => "boolean",
         RuleField::Percent => "percentage",
+        RuleField::Mode => "mode (`exposed_copper` or `mask_opening`)",
         _ => "length",
     }
 }
 
-const ALL_FIELDS: [RuleField; 18] = [
+const ALL_FIELDS: [RuleField; 21] = [
     RuleField::Value,
     RuleField::IgnorePadToPad,
     RuleField::Min,
@@ -386,6 +479,9 @@ const ALL_FIELDS: [RuleField; 18] = [
     RuleField::TentViasBottom,
     RuleField::Expansion,
     RuleField::Percent,
+    RuleField::Mode,
+    RuleField::Tolerance,
+    RuleField::MaxLength,
 ];
 
 /// Where a rule record applies: filters that must all match. Empty is board-wide; v0.1
