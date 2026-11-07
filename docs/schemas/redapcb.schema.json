@@ -243,91 +243,104 @@
     },
     "DrcSeverities": {
       "additionalProperties": false,
-      "description": "The severity of every DRC check, stored next to the rules.",
+      "description": "The severity of every DRC check, stored next to the rules. A check left out has its\ndefault.",
       "properties": {
         "annular_ring": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "An annular ring below the minimum."
         },
         "clearance": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "Clearance between copper of different Nets."
         },
         "copper_without_net": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "Copper with no Net."
         },
         "courtyard_overlap": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "Overlapping courtyards."
         },
         "dangling": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "Tracks and Vias that end unconnected."
         },
         "edge_clearance": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "Copper too close to the Board Outline or a Board Cutout."
         },
         "footprint_outside_board": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "A Footprint outside the Board Outline."
         },
         "hole_size": {
           "$ref": "#/$defs/Severity",
-          "description": "A Via or Pad hole smaller than the minimum."
+          "default": "error",
+          "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range."
         },
         "hole_to_hole": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "Holes closer than the minimum spacing."
         },
         "keepout": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "An object inside a Keepout that forbids it."
         },
         "opening_collapsed": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "A negative mask or paste expansion leaves no opening."
         },
         "out_of_sync": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "The PCB out of sync with the schematic."
+        },
+        "rule_invalid": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause."
+        },
+        "rule_outside_preset": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A rule that allows less than a Fab Preset limit."
         },
         "short_circuit": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "Different Nets touching."
         },
         "silkscreen_over_pads": {
           "$ref": "#/$defs/Severity",
+          "default": "warning",
           "description": "Silkscreen over exposed Pads."
         },
         "track_width": {
           "$ref": "#/$defs/Severity",
-          "description": "A Track narrower than the minimum."
+          "default": "error",
+          "description": "A Track narrower than the minimum or wider than the maximum."
         },
         "unrouted": {
           "$ref": "#/$defs/Severity",
+          "default": "error",
           "description": "Connections the Ratsnest still shows."
+        },
+        "via_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Via diameter or hole outside the `via_size` range."
         }
       },
-      "required": [
-        "clearance",
-        "short_circuit",
-        "track_width",
-        "hole_size",
-        "annular_ring",
-        "hole_to_hole",
-        "edge_clearance",
-        "keepout",
-        "footprint_outside_board",
-        "unrouted",
-        "copper_without_net",
-        "dangling",
-        "courtyard_overlap",
-        "silkscreen_over_pads",
-        "out_of_sync",
-        "opening_collapsed"
-      ],
       "type": "object"
     },
     "Field": {

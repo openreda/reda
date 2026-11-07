@@ -100,6 +100,12 @@ impl Violation {
         self
     }
 
+    /// Names the rule record the Violation is about, with no measurement.
+    pub fn with_rule(mut self, rule: Uuid) -> Self {
+        self.rule = Some(rule);
+        self
+    }
+
     /// Records an area comparison in square nanometres.
     pub fn area(mut self, measured: i64, required: i64, limit: Limit, rule: Uuid) -> Self {
         self.measured = Some(Measurement::Area(measured));

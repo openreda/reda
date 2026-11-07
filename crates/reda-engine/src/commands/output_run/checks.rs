@@ -100,7 +100,8 @@ fn unassigned_footprints(project: &Project) -> Vec<Violation> {
 }
 
 /// The warnings of a run, in a fixed order: out of sync, Components without a Footprint,
-/// ERC errors, DRC errors, rules looser than the preset's minimums, missing fonts.
+/// ERC errors, DRC errors, rules outside the preset's limits (`rule_outside_preset`, as
+/// DRC reports it for this preset), missing fonts.
 pub(crate) fn warnings(
     project: &Project,
     pcb: &PcbDocument,
@@ -152,65 +153,16 @@ pub(crate) fn warnings(
                 .arg("count", i64::try_from(errors).unwrap_or(i64::MAX)),
         );
     }
-    found.extend(loose_rules(pcb, preset));
+    found.extend(reda_pcb::rules::presets::outside_preset_violations(
+        pcb,
+        &[reda_pcb::rules::presets::PresetRules {
+            name: preset.name.clone(),
+            rules: preset.rules,
+        }],
+        Severity::Warning,
+    ));
     for font in reda_pcb::missing_fonts(pcb, fonts) {
         found.push(Violation::new("missing_font", Severity::Warning).arg("font", font));
-    }
-    found
-}
-
-/// A `rule_below_preset` for each enabled rule record value, board-wide or a Net Class's,
-/// that allows less than the preset's minimum: `rule` (the kind), `value` (which of its
-/// values), `board` (the value), `minimum` (the preset's), `preset` (its name) and, for a
-/// class record, `net_class`. Its objects are the class, if any, then the record.
-fn loose_rules(pcb: &PcbDocument, preset: &FabPreset) -> Vec<Violation> {
-    use reda_model::{RuleField, RuleKind};
-    let min = preset.rules;
-    let minimum = |kind: RuleKind, field: RuleField| match (kind, field) {
-        (RuleKind::Clearance, RuleField::Value) => Some(min.clearance),
-        (RuleKind::TrackWidth, RuleField::Min) => Some(min.track_width),
-        (RuleKind::ViaSize, RuleField::DiameterMin) => Some(min.via_diameter),
-        (RuleKind::ViaSize, RuleField::HoleMin) => Some(min.via_hole),
-        (RuleKind::HoleSize, RuleField::Min) => Some(min.hole_min),
-        (RuleKind::AnnularRing, RuleField::Min) => Some(min.annular_ring),
-        (RuleKind::HoleToHole, RuleField::Min) => Some(min.hole_to_hole),
-        (RuleKind::EdgeClearance, RuleField::Value) => Some(min.edge_clearance),
-        _ => None,
-    };
-    let mut records: Vec<_> = pcb.rules().filter(|r| r.enabled).collect();
-    records.sort_by_key(|r| {
-        let rank = r
-            .scope
-            .net_class
-            .and_then(|c| pcb.net_class(c))
-            .map_or(0, |c| c.rank);
-        (rank, r.kind)
-    });
-    let mut found = Vec::new();
-    for record in records {
-        for &field in record.kind.fields() {
-            let (Some(value), Some(minimum)) =
-                (record.values.length(field), minimum(record.kind, field))
-            else {
-                continue;
-            };
-            if value >= minimum {
-                continue;
-            }
-            let class = record.scope.net_class.and_then(|c| pcb.net_class(c));
-            let mut v = Violation::new("rule_below_preset", Severity::Warning)
-                .arg("rule", record.kind.id())
-                .arg("value", field.path())
-                .arg("board", value)
-                .arg("minimum", minimum)
-                .arg("preset", preset.name.as_str());
-            if let Some(class) = class {
-                v = v
-                    .arg("net_class", class.name.as_str())
-                    .objects([class.uuid]);
-            }
-            found.push(v.objects([record.uuid]));
-        }
     }
     found
 }

@@ -11,6 +11,7 @@ use super::fab_file::FabPresetFile;
 use super::library::{FootprintFile, LibraryFile, PartFile, SymbolFile};
 use super::pcb_file::PcbFile;
 use super::project_file::ProjectFile;
+use super::rules_file::RulesFile;
 use super::sheet_file::SheetFile;
 use super::{FORMAT, FileKind};
 
@@ -25,6 +26,7 @@ pub fn schema(kind: FileKind) -> Value {
         FileKind::Footprint => schema_of::<FootprintFile>(),
         FileKind::Part => schema_of::<PartFile>(),
         FileKind::FabPreset => schema_of::<FabPresetFile>(),
+        FileKind::Rules => schema_of::<RulesFile>(),
     }
 }
 

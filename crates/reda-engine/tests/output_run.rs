@@ -445,13 +445,17 @@ fn rules_looser_than_the_preset_and_missing_fonts_only_warn() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|w| w["check"] == "rule_below_preset")
+        .find(|w| w["check"] == "rule_outside_preset")
         .unwrap_or_else(|| panic!("{warnings}"));
     assert_eq!(rule["args"]["rule"], "clearance");
     assert_eq!(rule["args"]["value"], "value");
     assert_eq!(rule["args"]["board"], 100_000);
     assert_eq!(rule["args"]["preset"], "Generic");
-    assert!(rule["args"]["minimum"].as_i64().unwrap() > 100_000);
+    assert_eq!(rule["args"]["limit"], "min");
+    assert_eq!(rule["args"]["preset_limit"], 160_000);
+    assert_eq!(rule["measured"], json!({"length": 100_000}));
+    assert_eq!(rule["required"], json!({"length": 160_000}));
+    assert!(rule["rule"].is_string());
     let font = warnings
         .as_array()
         .unwrap()

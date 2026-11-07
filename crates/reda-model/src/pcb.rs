@@ -29,7 +29,10 @@ pub use footprint::{
     FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
 };
 pub use placement::{FreePad, OutputOrigin};
-pub use rules::{Bounds, DesignRule, RuleField, RuleKind, RuleScope, RuleValue, RuleValues};
+pub use rules::{
+    Bounds, DesignRule, PortableClass, PortableRule, RuleField, RuleKind, RuleScope, RuleSet,
+    RuleValue, RuleValues,
+};
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
     StackupSeeds, StackupTotals,
@@ -102,15 +105,19 @@ impl LayerSet {
 crate::check::severities! {
     /// One DRC check, named as in [`DrcSeverities`].
     enum DrcCheck;
-    /// The severity of every DRC check, stored next to the rules.
+    /// The severity of every DRC check, stored next to the rules. A check left out has its
+    /// default.
+    #[serde(default)]
     struct DrcSeverities;
     /// Clearance between copper of different Nets.
     clearance => Clearance = Error,
     /// Different Nets touching.
     short_circuit => ShortCircuit = Error,
-    /// A Track narrower than the minimum.
+    /// A Track narrower than the minimum or wider than the maximum.
     track_width => TrackWidth = Error,
-    /// A Via or Pad hole smaller than the minimum.
+    /// A Via diameter or hole outside the `via_size` range.
+    via_size => ViaSize = Error,
+    /// A Pad, Free Pad or non-plated hole outside the `hole_size` range.
     hole_size => HoleSize = Error,
     /// An annular ring below the minimum.
     annular_ring => AnnularRing = Error,
@@ -136,6 +143,10 @@ crate::check::severities! {
     out_of_sync => OutOfSync = Warning,
     /// A negative mask or paste expansion leaves no opening.
     opening_collapsed => OpeningCollapsed = Warning,
+    /// A rule record with a blocking problem, which only a hand edit or a merge can cause.
+    rule_invalid => RuleInvalid = Error,
+    /// A rule that allows less than a Fab Preset limit.
+    rule_outside_preset => RuleOutsidePreset = Warning,
 }
 
 /// The board's own settings: its DRC severities. The design rules are records of their

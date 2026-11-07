@@ -1034,12 +1034,17 @@
               },
               {
                 "const": "track_width",
-                "description": "A Track narrower than the minimum.",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
                 "type": "string"
               },
               {
                 "const": "hole_size",
-                "description": "A Via or Pad hole smaller than the minimum.",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
                 "type": "string"
               },
               {
@@ -1100,6 +1105,16 @@
               {
                 "const": "opening_collapsed",
                 "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
                 "type": "string"
               }
             ]
@@ -1247,12 +1262,17 @@
               },
               {
                 "const": "track_width",
-                "description": "A Track narrower than the minimum.",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
                 "type": "string"
               },
               {
                 "const": "hole_size",
-                "description": "A Via or Pad hole smaller than the minimum.",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
                 "type": "string"
               },
               {
@@ -1313,6 +1333,16 @@
               {
                 "const": "opening_collapsed",
                 "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
                 "type": "string"
               }
             ]
@@ -13235,77 +13265,109 @@
           },
           "DrcSeverities": {
             "additionalProperties": false,
-            "description": "The severity of every DRC check, stored next to the rules.",
+            "description": "The severity of every DRC check, stored next to the rules. A check left out has its\ndefault.",
             "properties": {
               "annular_ring": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "An annular ring below the minimum."
               },
               "clearance": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Clearance between copper of different Nets."
               },
               "copper_without_net": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Copper with no Net."
               },
               "courtyard_overlap": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Overlapping courtyards."
               },
               "dangling": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Tracks and Vias that end unconnected."
               },
               "edge_clearance": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
               "footprint_outside_board": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "A Footprint outside the Board Outline."
               },
               "hole_size": {
                 "$ref": "#/$defs/Severity",
-                "description": "A Via or Pad hole smaller than the minimum."
+                "default": "error",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range."
               },
               "hole_to_hole": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Holes closer than the minimum spacing."
               },
               "keepout": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
               "opening_collapsed": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "A negative mask or paste expansion leaves no opening."
               },
               "out_of_sync": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "rule_invalid": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause."
+              },
+              "rule_outside_preset": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A rule that allows less than a Fab Preset limit."
               },
               "short_circuit": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Different Nets touching."
               },
               "silkscreen_over_pads": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Silkscreen over exposed Pads."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
-                "description": "A Track narrower than the minimum."
+                "default": "error",
+                "description": "A Track narrower than the minimum or wider than the maximum."
               },
               "unrouted": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Connections the Ratsnest still shows."
+              },
+              "via_size": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A Via diameter or hole outside the `via_size` range."
               }
             },
             "required": [
               "clearance",
               "short_circuit",
               "track_width",
+              "via_size",
               "hole_size",
               "annular_ring",
               "hole_to_hole",
@@ -13318,7 +13380,9 @@
               "courtyard_overlap",
               "silkscreen_over_pads",
               "out_of_sync",
-              "opening_collapsed"
+              "opening_collapsed",
+              "rule_invalid",
+              "rule_outside_preset"
             ],
             "type": "object"
           },
@@ -19118,77 +19182,109 @@
           },
           "DrcSeverities": {
             "additionalProperties": false,
-            "description": "The severity of every DRC check, stored next to the rules.",
+            "description": "The severity of every DRC check, stored next to the rules. A check left out has its\ndefault.",
             "properties": {
               "annular_ring": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "An annular ring below the minimum."
               },
               "clearance": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Clearance between copper of different Nets."
               },
               "copper_without_net": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Copper with no Net."
               },
               "courtyard_overlap": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Overlapping courtyards."
               },
               "dangling": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Tracks and Vias that end unconnected."
               },
               "edge_clearance": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
               },
               "footprint_outside_board": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "A Footprint outside the Board Outline."
               },
               "hole_size": {
                 "$ref": "#/$defs/Severity",
-                "description": "A Via or Pad hole smaller than the minimum."
+                "default": "error",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range."
               },
               "hole_to_hole": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Holes closer than the minimum spacing."
               },
               "keepout": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
               "opening_collapsed": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "A negative mask or paste expansion leaves no opening."
               },
               "out_of_sync": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "The PCB out of sync with the schematic."
+              },
+              "rule_invalid": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause."
+              },
+              "rule_outside_preset": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A rule that allows less than a Fab Preset limit."
               },
               "short_circuit": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Different Nets touching."
               },
               "silkscreen_over_pads": {
                 "$ref": "#/$defs/Severity",
+                "default": "warning",
                 "description": "Silkscreen over exposed Pads."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
-                "description": "A Track narrower than the minimum."
+                "default": "error",
+                "description": "A Track narrower than the minimum or wider than the maximum."
               },
               "unrouted": {
                 "$ref": "#/$defs/Severity",
+                "default": "error",
                 "description": "Connections the Ratsnest still shows."
+              },
+              "via_size": {
+                "$ref": "#/$defs/Severity",
+                "default": "error",
+                "description": "A Via diameter or hole outside the `via_size` range."
               }
             },
             "required": [
               "clearance",
               "short_circuit",
               "track_width",
+              "via_size",
               "hole_size",
               "annular_ring",
               "hole_to_hole",
@@ -19201,7 +19297,9 @@
               "courtyard_overlap",
               "silkscreen_over_pads",
               "out_of_sync",
-              "opening_collapsed"
+              "opening_collapsed",
+              "rule_invalid",
+              "rule_outside_preset"
             ],
             "type": "object"
           },
@@ -24667,7 +24765,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_below_preset {rule, value, board, minimum, preset, net_class?}`, `missing_font {font}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`.",
             "items": {
               "$ref": "#/$defs/Violation"
             },
@@ -30113,30 +30211,585 @@
     },
     {
       "category": "pcb",
-      "description": "Re-seeds the board-wide design rule records from one of the Project's Fab Preset copies, after `pcb.rules.fab_preset_diff` has shown what changes. Net Class records and DRC severities are kept. Returns the changes.",
+      "description": "Lists the copper a rule record (`rule`) or a Net Class's records (`net_class`) affect: the Nets they supply a value to, their Tracks, Vias, Free Pads and Zones (`objects`) and Pads (`pads`, as `selection.set` takes them). Objects whose every value another record overrides are left out. A board-wide record also affects copper on no Net.",
       "icon": "rules",
-      "id": "pcb.rules.apply_fab_preset",
-      "kind": "edit",
+      "id": "pcb.rules.affected",
+      "kind": "query",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Names one of the Project's Fab Preset copies.",
         "properties": {
-          "preset": {
-            "description": "The Project copy's UUID.",
+          "net_class": {
+            "default": null,
+            "description": "A Net Class: what its records affect.",
             "format": "uuid",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rule": {
+            "default": null,
+            "description": "A rule record.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
-        "required": [
-          "preset"
-        ],
-        "title": "PresetRef",
+        "title": "AffectedParams",
         "type": "object"
       },
       "presets": [],
       "result": {
         "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a record or Net Class affects.",
+        "properties": {
+          "nets": {
+            "description": "The Nets it supplies a value to, in Net order.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "objects": {
+            "description": "The Tracks, Vias, Free Pads and Zones on them, in that order; for a board-wide\nrecord also those on no Net.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pads": {
+            "description": "The Pads of Footprint instances on them.",
+            "items": {
+              "$ref": "#/$defs/PadRef"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets",
+          "objects",
+          "pads"
+        ],
+        "title": "Affected",
+        "type": "object"
+      },
+      "title": "Objects a Rule Affects"
+    },
+    {
+      "category": "pcb",
+      "description": "Explains the design rules for one or two copper objects (Tracks, Vias, Free Pads, Zones, Pads as `{footprint, pad}`, or Nets). Per kind: the winning values and the record each comes from, the records that lost, the disabled ones, and the DRC check's severity; for two objects, each one's `clearance` and `hole_to_hole` and which applied (`between`).",
+      "icon": "rules",
+      "id": "pcb.rules.applicable",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "RuleObject": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/PadRef"
+              }
+            ],
+            "description": "An object to explain: a Track, Via, Free Pad or Zone (or a Net) by UUID, or a Pad of a\nFootprint instance as `{footprint, pad}`."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "One or two objects.",
+            "items": {
+              "$ref": "#/$defs/RuleObject"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "ApplicableParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Between": {
+            "description": "Which of two objects' values applies between them.",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "object": {
+                "description": "The object whose value applied: 0 or 1. Equal values name the first.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/RuleValue"
+              }
+            },
+            "required": [
+              "field",
+              "value",
+              "rule",
+              "object"
+            ],
+            "type": "object"
+          },
+          "KindRules": {
+            "description": "One kind of rule as it applies to the objects.",
+            "properties": {
+              "between": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Between"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "For two objects and a kind that applies between them (`clearance`,\n`hole_to_hole`): the larger value, which applies."
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "objects": {
+                "description": "One entry per object, in the order given.",
+                "items": {
+                  "$ref": "#/$defs/ObjectRules"
+                },
+                "type": "array"
+              },
+              "severity": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Severity"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The severity of the DRC check that reports it; left out for kinds that shape\noutputs."
+              }
+            },
+            "required": [
+              "kind",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "Loser": {
+            "description": "A record that sets values another record wins, or a disabled record.",
+            "properties": {
+              "fields": {
+                "description": "The values it sets that lost; empty for a disabled record.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "net_class": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule"
+            ],
+            "type": "object"
+          },
+          "ObjectRules": {
+            "description": "One kind's records as they apply to one object.",
+            "properties": {
+              "disabled": {
+                "description": "Disabled records on the object's Net Classes, and a disabled board-wide record.",
+                "items": {
+                  "$ref": "#/$defs/Loser"
+                },
+                "type": "array"
+              },
+              "losers": {
+                "description": "Enabled records that set a value another record wins.",
+                "items": {
+                  "$ref": "#/$defs/Loser"
+                },
+                "type": "array"
+              },
+              "values": {
+                "description": "The winning values, in field order.",
+                "items": {
+                  "$ref": "#/$defs/Winner"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "values",
+              "losers",
+              "disabled"
+            ],
+            "type": "object"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleValue": {
+            "anyOf": [
+              {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "format": "int32",
+                "type": "integer"
+              }
+            ],
+            "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "Winner": {
+            "description": "A value that applies, and the record it comes from.",
+            "properties": {
+              "field": {
+                "description": "Which value, such as `diameter.min`.",
+                "type": "string"
+              },
+              "net_class": {
+                "description": "The record's Net Class; left out for the board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/RuleValue"
+              }
+            },
+            "required": [
+              "field",
+              "value",
+              "rule"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "kinds": {
+            "description": "Every rule kind, in file order.",
+            "items": {
+              "$ref": "#/$defs/KindRules"
+            },
+            "type": "array"
+          },
+          "nets": {
+            "description": "Each object's Net, in the order given; `null` for none.",
+            "items": {
+              "format": "uuid",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets",
+          "kinds"
+        ],
+        "title": "ApplicableResult",
+        "type": "object"
+      },
+      "title": "Applicable Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Re-seeds board-wide design rule values from one of the Project's Fab Preset copies: the chosen `rows` of `pcb.rules.fab_preset_diff`, or the rows it ticks. A row that no longer differs is skipped, and a blocking result for the board is refused. Net Class records and DRC severities are kept; class records the result breaks are returned in `class_problems`. Returns the rows applied.",
+      "icon": "rules",
+      "id": "pcb.rules.apply_fab_preset",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "RowRef": {
+            "additionalProperties": false,
+            "description": "One row of the preview to apply.",
+            "properties": {
+              "field": {
+                "$ref": "#/$defs/RuleField"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              }
+            },
+            "required": [
+              "kind",
+              "field"
+            ],
+            "type": "object"
+          },
+          "RuleField": {
+            "description": "One value of a rule record, by where it sits in `values`.",
+            "enum": [
+              "value",
+              "ignore_pad_to_pad",
+              "min",
+              "preferred",
+              "max",
+              "diameter_min",
+              "diameter_preferred",
+              "diameter_max",
+              "hole_min",
+              "hole_preferred",
+              "hole_max",
+              "top",
+              "bottom",
+              "from_hole_edge",
+              "tent_vias_top",
+              "tent_vias_bottom",
+              "expansion",
+              "percent"
+            ],
+            "type": "string"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "rows": {
+            "description": "The rows of `pcb.rules.fab_preset_diff` to apply; left out, the rows it ticks.",
+            "items": {
+              "$ref": "#/$defs/RowRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "title": "ApplyPresetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ClassProblem": {
+            "description": "A Net Class record that applying the rows would leave with a blocking problem. Class\nrecords never change; they are only flagged.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "message": {
+                "type": "string"
+              },
+              "net_class": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "description": "Which value, such as `min`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "net_class",
+              "kind",
+              "value",
+              "message"
+            ],
+            "type": "object"
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -30157,16 +30810,26 @@
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
+              "limit": {
+                "description": "Whether it is a limit the preset sets, rather than a preferred size or an output\nseed.",
+                "type": "boolean"
+              },
               "preset": {
                 "$ref": "#/$defs/RuleValue",
                 "description": "The preset's value."
+              },
+              "ticked": {
+                "description": "Whether the row starts ticked: limits and output seeds do; a preferred size only\nif the board's would fall outside the range the ticked limits make.",
+                "type": "boolean"
               }
             },
             "required": [
               "kind",
               "field",
               "board",
-              "preset"
+              "preset",
+              "limit",
+              "ticked"
             ],
             "type": "object"
           },
@@ -30265,15 +30928,23 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "changes": {
-            "description": "Every value that differs, in kind order; empty when they all match.",
+            "description": "Every value that differs, in kind order; empty when they all match. Applying\nreturns the rows it applied.",
             "items": {
               "$ref": "#/$defs/RuleChange"
+            },
+            "type": "array"
+          },
+          "class_problems": {
+            "description": "The Net Class records the ticked (or applied) rows would break.",
+            "items": {
+              "$ref": "#/$defs/ClassProblem"
             },
             "type": "array"
           }
         },
         "required": [
-          "changes"
+          "changes",
+          "class_problems"
         ],
         "title": "RuleChanges",
         "type": "object"
@@ -30282,7 +30953,52 @@
     },
     {
       "category": "pcb",
-      "description": "Lists the board-wide design rule values that applying one of the Project's Fab Preset copies would change, with the board's and the preset's values. `pcb.rules.apply_fab_preset` applies them.",
+      "description": "Writes the PCB's design rules to a `.redarules` file: every rule record, the DRC severities and the Net Class names, which another board's `pcb.rules.import` matches by name. Net membership is left out, because Net names differ per board.",
+      "icon": "rules",
+      "id": "pcb.rules.export",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Where to write the `.redarules` file. A relative path is taken from the Project\nfolder.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "RulesExportParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The file written.",
+            "type": "string"
+          },
+          "rules": {
+            "description": "How many rule records it holds.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "rules"
+        ],
+        "title": "RulesExportResult",
+        "type": "object"
+      },
+      "title": "Export Design Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Lists the board-wide design rule values that applying one of the Project's Fab Preset copies would change, with the board's and the preset's values, one row each. Limit rows start `ticked`; a preferred row only if the board's value would fall outside the new range. `class_problems` lists the Net Class records the ticked rows would break; class records never change. `pcb.rules.apply_fab_preset` applies the chosen rows.",
       "icon": "rules",
       "id": "pcb.rules.fab_preset_diff",
       "kind": "query",
@@ -30306,6 +31022,37 @@
       "presets": [],
       "result": {
         "$defs": {
+          "ClassProblem": {
+            "description": "A Net Class record that applying the rows would leave with a blocking problem. Class\nrecords never change; they are only flagged.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "message": {
+                "type": "string"
+              },
+              "net_class": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "description": "Which value, such as `min`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "net_class",
+              "kind",
+              "value",
+              "message"
+            ],
+            "type": "object"
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -30326,16 +31073,26 @@
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
+              "limit": {
+                "description": "Whether it is a limit the preset sets, rather than a preferred size or an output\nseed.",
+                "type": "boolean"
+              },
               "preset": {
                 "$ref": "#/$defs/RuleValue",
                 "description": "The preset's value."
+              },
+              "ticked": {
+                "description": "Whether the row starts ticked: limits and output seeds do; a preferred size only\nif the board's would fall outside the range the ticked limits make.",
+                "type": "boolean"
               }
             },
             "required": [
               "kind",
               "field",
               "board",
-              "preset"
+              "preset",
+              "limit",
+              "ticked"
             ],
             "type": "object"
           },
@@ -30434,20 +31191,590 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "changes": {
-            "description": "Every value that differs, in kind order; empty when they all match.",
+            "description": "Every value that differs, in kind order; empty when they all match. Applying\nreturns the rows it applied.",
             "items": {
               "$ref": "#/$defs/RuleChange"
+            },
+            "type": "array"
+          },
+          "class_problems": {
+            "description": "The Net Class records the ticked (or applied) rows would break.",
+            "items": {
+              "$ref": "#/$defs/ClassProblem"
             },
             "type": "array"
           }
         },
         "required": [
-          "changes"
+          "changes",
+          "class_problems"
         ],
         "title": "RuleChanges",
         "type": "object"
       },
       "title": "Preview Fab Preset Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Reads a `.redarules` file into the PCB as one undo step: the rule records of the chosen `kinds` (each overwrites the board's record of its kind and Net Class), and the DRC severities unless `severities` is false. Net Classes are matched by name, and a missing one is created empty. Records the file does not hold are kept. With `preview`, nothing changes and the result lists each overwrite, the new classes and the severity changes. A result that leaves a record with a blocking problem is refused.",
+      "icon": "rules",
+      "id": "pcb.rules.import",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "kinds": {
+            "default": null,
+            "description": "The rule kinds to import; left out, every kind in the file.",
+            "items": {
+              "$ref": "#/$defs/RuleKind"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "The `.redarules` file, as an absolute path.",
+            "type": "string"
+          },
+          "preview": {
+            "default": false,
+            "description": "Only report what would change.",
+            "type": "boolean"
+          },
+          "severities": {
+            "default": true,
+            "description": "Whether to take the file's DRC severities too.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "RulesImportParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Bounds": {
+            "additionalProperties": false,
+            "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "DrcCheck": {
+            "description": "One DRC check, named as in [`DrcSeverities`].",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets.",
+                "type": "string"
+              },
+              {
+                "const": "short_circuit",
+                "description": "Different Nets touching.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "A Track narrower than the minimum or wider than the maximum.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "An annular ring below the minimum.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Holes closer than the minimum spacing.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper too close to the Board Outline or a Board Cutout.",
+                "type": "string"
+              },
+              {
+                "const": "keepout",
+                "description": "An object inside a Keepout that forbids it.",
+                "type": "string"
+              },
+              {
+                "const": "footprint_outside_board",
+                "description": "A Footprint outside the Board Outline.",
+                "type": "string"
+              },
+              {
+                "const": "unrouted",
+                "description": "Connections the Ratsnest still shows.",
+                "type": "string"
+              },
+              {
+                "const": "copper_without_net",
+                "description": "Copper with no Net.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Tracks and Vias that end unconnected.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_overlap",
+                "description": "Overlapping courtyards.",
+                "type": "string"
+              },
+              {
+                "const": "silkscreen_over_pads",
+                "description": "Silkscreen over exposed Pads.",
+                "type": "string"
+              },
+              {
+                "const": "out_of_sync",
+                "description": "The PCB out of sync with the schematic.",
+                "type": "string"
+              },
+              {
+                "const": "opening_collapsed",
+                "description": "A negative mask or paste expansion leaves no opening.",
+                "type": "string"
+              },
+              {
+                "const": "rule_invalid",
+                "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause.",
+                "type": "string"
+              },
+              {
+                "const": "rule_outside_preset",
+                "description": "A rule that allows less than a Fab Preset limit.",
+                "type": "string"
+              }
+            ]
+          },
+          "Overwrite": {
+            "description": "One record an import writes.",
+            "properties": {
+              "after": {
+                "$ref": "#/$defs/RuleValues",
+                "description": "Its values after the import."
+              },
+              "before": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleValues"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Its values now; left out for a new class record."
+              },
+              "enabled": {
+                "description": "Whether it counts after the import.",
+                "type": "boolean"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "net_class": {
+                "description": "The Net Class, by name; left out for the board-wide record.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "description": "The record it replaces; left out for a new class record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "after",
+              "enabled"
+            ],
+            "type": "object"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleValues": {
+            "additionalProperties": false,
+            "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+            "properties": {
+              "bottom": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's copper diameter."
+              },
+              "expansion": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Bounds"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Via size only: the Via's drilled hole."
+              },
+              "ignore_pad_to_pad": {
+                "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "percent": {
+                "description": "Signed change in area in percent, strictly above -100.",
+                "format": "int32",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "tent_vias_bottom": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "tent_vias_top": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "value": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "SeverityChange": {
+            "description": "One DRC severity an import changes.",
+            "properties": {
+              "after": {
+                "$ref": "#/$defs/Severity"
+              },
+              "before": {
+                "$ref": "#/$defs/Severity"
+              },
+              "check": {
+                "$ref": "#/$defs/DrcCheck"
+              }
+            },
+            "required": [
+              "check",
+              "before",
+              "after"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What importing a rule set changes.",
+        "properties": {
+          "applied": {
+            "description": "Whether the board was changed.",
+            "type": "boolean"
+          },
+          "new_classes": {
+            "description": "The Net Classes created empty, because the board has none of that name.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "overwrites": {
+            "description": "Each record written, in the file's order.",
+            "items": {
+              "$ref": "#/$defs/Overwrite"
+            },
+            "type": "array"
+          },
+          "severities": {
+            "description": "The DRC severities that change.",
+            "items": {
+              "$ref": "#/$defs/SeverityChange"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "overwrites",
+          "new_classes",
+          "severities",
+          "applied"
+        ],
+        "title": "RulesImportResult",
+        "type": "object"
+      },
+      "title": "Import Design Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Fab Preset copy to the Project whose rules are the board-wide design rule values: limits, preferred sizes and mask and paste seeds. Net Class records are left out, because presets have no scope, and so are Track and Via maximums. Its other settings come from `from`. `fab_preset.save_user` then keeps it for new Projects.",
+      "icon": "save",
+      "id": "pcb.rules.save_as_preset",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "default": null,
+            "description": "The Project copy whose other settings (Gerber, drill, BOM, CPL, Stackup) it takes;\nleft out, the preset of the first Output Job for this PCB, else the Project's first\ncopy.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "The new Fab Preset's name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SaveAsPresetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "uuid": {
+            "description": "The new Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "SavedPreset",
+        "type": "object"
+      },
+      "title": "Save Rules as Fab Preset"
     },
     {
       "category": "pcb",
@@ -31030,6 +32357,260 @@
         "type": "object"
       },
       "title": "Set Design Rule"
+    },
+    {
+      "category": "pcb",
+      "description": "Checks every design rule record. `problems` are blocking: a negative value, `min` above `max` or `preferred` outside the range, judged on a record's effective values; `pcb.rules.set` refuses them, but a file can hold them after a merge, and DRC reports them as `rule_invalid`. `notes` never block: a value outside the limit of a Fab Preset an Output Job of this PCB uses, a class weaker than the board, a class with no Nets, an override equal to what it inherits, a disabled board-wide mask or paste record, and a Net whose classes combine into an invalid range.",
+      "icon": "rules",
+      "id": "pcb.rules.validate",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Note": {
+            "description": "Something worth knowing about the rules that never blocks.",
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleKind"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "message": {
+                "description": "The note in words.",
+                "type": "string"
+              },
+              "net": {
+                "description": "The Net it is about (`net_range_invalid`).",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net_class": {
+                "description": "The Net Class it is about, if one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "$ref": "#/$defs/NoteKind"
+              },
+              "preset": {
+                "description": "The Fab Preset (`outside_preset`).",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "description": "The record it is about, if one.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "value": {
+                "description": "Which value, such as `min`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "note",
+              "message"
+            ],
+            "type": "object"
+          },
+          "NoteKind": {
+            "description": "What a note is about.",
+            "oneOf": [
+              {
+                "const": "outside_preset",
+                "description": "A value allows less than a Fab Preset limit (`preset` names it).",
+                "type": "string"
+              },
+              {
+                "const": "weaker_than_board",
+                "description": "A Net Class record allows less than the board-wide record.",
+                "type": "string"
+              },
+              {
+                "const": "class_without_nets",
+                "description": "A Net Class that no Net is in.",
+                "type": "string"
+              },
+              {
+                "const": "same_as_inherited",
+                "description": "A Net Class record value equal to the board-wide one it would inherit.",
+                "type": "string"
+              },
+              {
+                "const": "outputs_change",
+                "description": "A disabled board-wide `mask_expansion` or `paste_expansion` record, which changes\nthe outputs.",
+                "type": "string"
+              },
+              {
+                "const": "net_range_invalid",
+                "description": "A Net whose classes combine into an invalid range, though neither is wrong alone.",
+                "type": "string"
+              }
+            ]
+          },
+          "Problem": {
+            "description": "A rule record that cannot be used as it stands.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "message": {
+                "description": "The problem in words.",
+                "type": "string"
+              },
+              "net_class": {
+                "description": "The record's Net Class; left out for a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "problem": {
+                "$ref": "#/$defs/ProblemKind"
+              },
+              "rule": {
+                "description": "The record.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "value": {
+                "description": "Which value, such as `diameter.min`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "kind",
+              "value",
+              "problem",
+              "message"
+            ],
+            "type": "object"
+          },
+          "ProblemKind": {
+            "description": "What makes a rule record's values unusable.",
+            "oneOf": [
+              {
+                "const": "negative",
+                "description": "A negative length.",
+                "type": "string"
+              },
+              {
+                "const": "min_above_max",
+                "description": "`min` above `max`.",
+                "type": "string"
+              },
+              {
+                "const": "preferred_outside",
+                "description": "`preferred` outside the range.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The result of validating the rules.",
+        "properties": {
+          "notes": {
+            "description": "Notes, which never block.",
+            "items": {
+              "$ref": "#/$defs/Note"
+            },
+            "type": "array"
+          },
+          "problems": {
+            "description": "Blocking problems, record by record in file order.",
+            "items": {
+              "$ref": "#/$defs/Problem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "problems",
+          "notes"
+        ],
+        "title": "Validation",
+        "type": "object"
+      },
+      "title": "Validate Design Rules"
     },
     {
       "category": "pcb",

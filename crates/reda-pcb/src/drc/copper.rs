@@ -98,23 +98,42 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
     }
 }
 
-/// Tracks narrower than the `track_width` minimum that applies to their Net.
+/// Tracks narrower than the `track_width` minimum or wider than the maximum that applies
+/// to their Net.
 fn track_width(board: &Board<'_>, report: &mut Report) {
     for track in board.pcb.tracks() {
-        let Some(minimum) = net_rules(board.pcb, track.net).track_width.min else {
+        let range = net_rules(board.pcb, track.net).track_width;
+        let Some(found) = range.breach(track.width) else {
             continue;
         };
-        if track.width < minimum {
-            let source = resolve(board.pcb, track.net, RuleKind::TrackWidth, RuleField::Min)
-                .expect("minimum applies");
-            report.add(DrcCheck::TrackWidth, |v| {
-                v.length(track.width, minimum, Limit::Min, source.rule)
-                    .arg("minimum", minimum)
-                    .arg("actual", track.width)
-                    .object(track.uuid)
-            });
-        }
+        let field = match found.0 {
+            Limit::Min => RuleField::Min,
+            Limit::Max => RuleField::Max,
+        };
+        let source = resolve(board.pcb, track.net, RuleKind::TrackWidth, field)
+            .expect("a breached limit applies");
+        report.add(DrcCheck::TrackWidth, |v| {
+            breach(v, track.width, found, source.rule).object(track.uuid)
+        });
     }
+}
+
+/// A Violation of a size `actual` beyond a `(limit, bound)`: its measurement and the
+/// `actual`, `limit` and `minimum` or `maximum` arguments.
+pub(super) fn breach(
+    v: reda_model::Violation,
+    actual: reda_model::geom::Nm,
+    (limit, bound): (Limit, reda_model::geom::Nm),
+    rule: reda_model::Uuid,
+) -> reda_model::Violation {
+    let (name, word) = match limit {
+        Limit::Min => ("minimum", "min"),
+        Limit::Max => ("maximum", "max"),
+    };
+    v.length(actual, bound, limit, rule)
+        .arg(name, bound)
+        .arg("actual", actual)
+        .arg("limit", word)
 }
 
 /// Pads, Free Pads, Tracks and Vias inside a Keepout that forbids them on one of their

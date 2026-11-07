@@ -53,9 +53,10 @@ pub use pcb::{
     DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
     FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout,
     Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin,
-    PadConnection, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, RuleField, RuleKind,
-    RuleScope, RuleValue, RuleValues, Side, Stackup, StackupEntry, StackupSeeds, StackupTotals,
-    TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone, ZoneFills,
+    PadConnection, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule,
+    RuleField, RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, Side, Stackup, StackupEntry,
+    StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone,
+    ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

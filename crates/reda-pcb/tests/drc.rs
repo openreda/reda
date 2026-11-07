@@ -275,14 +275,17 @@ fn small_holes_thin_rings_and_crowded_holes_are_reported() {
     let crowding = via(&mut engine, "30.9mm", "0.7mm", "0.3mm");
     let run = drc(&mut engine);
     assert_eq!(
-        actuals(&run, "hole_size"),
-        [
-            (vec![small_hole], 200_000),
-            (vec![footprint, npth], 200_000)
-        ],
+        actuals(&run, "via_size"),
+        [(vec![small_hole], 200_000), (vec![thin_ring], 500_000)],
         "{run:#}"
     );
-    assert_eq!(of(&run, "hole_size")[0]["args"]["minimum"], 300_000);
+    assert_eq!(of(&run, "via_size")[0]["args"]["minimum"], 300_000);
+    assert_eq!(
+        actuals(&run, "hole_size"),
+        [(vec![footprint, npth], 200_000)],
+        "{run:#}"
+    );
+    assert_eq!(of(&run, "hole_size")[0]["args"]["minimum"], 500_000);
     assert_eq!(
         actuals(&run, "annular_ring"),
         [(vec![thin_ring], 100_000), (vec![footprint, pth], 100_000)],
@@ -290,7 +293,8 @@ fn small_holes_thin_rings_and_crowded_holes_are_reported() {
     );
     assert_eq!(of(&run, "annular_ring")[0]["args"]["minimum"], 200_000);
     for (check, measured, required) in [
-        ("hole_size", 200_000, 300_000),
+        ("via_size", 200_000, 300_000),
+        ("hole_size", 200_000, 500_000),
         ("annular_ring", 100_000, 200_000),
         ("hole_to_hole", 250_000, 500_000),
     ] {

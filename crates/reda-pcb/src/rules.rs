@@ -8,10 +8,18 @@
 //!   still supply routing defaults.
 //! - Between two objects, each one's value is resolved and the larger applies.
 
+pub mod explain;
+pub mod presets;
+pub mod transfer;
+pub mod validation;
+
 use reda_model::geom::Nm;
 use reda_model::{
-    DesignRule, PasteExpansion, PcbDocument, RuleField, RuleKind, RuleValue, RuleValues, Uuid,
+    DesignRule, Limit, PasteExpansion, PcbDocument, RuleField, RuleKind, RuleValue, RuleValues,
+    Uuid,
 };
+use schemars::JsonSchema;
+use serde::Serialize;
 
 /// A resolved value and the rule record it came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,10 +116,24 @@ impl SizeRange {
         self.min.map_or(size, |min| size.max(min))
     }
 
+    /// Which limit `size` breaks, and that limit's value: the minimum before the maximum.
+    pub fn breach(&self, size: Nm) -> Option<(Limit, Nm)> {
+        breach(self.min, self.max, size)
+    }
+
     /// The size a Tool or Command starts with: the preferred size, clipped into the range.
     pub fn default_size(&self) -> Nm {
         self.clip(self.preferred)
     }
+}
+
+/// Which of the limits `min` and `max` the size breaks, and that limit's value: below the
+/// minimum before above the maximum.
+pub fn breach(min: Option<Nm>, max: Option<Nm>, size: Nm) -> Option<(Limit, Nm)> {
+    if let Some(min) = min.filter(|min| size < *min) {
+        return Some((Limit::Min, min));
+    }
+    max.filter(|max| size > *max).map(|max| (Limit::Max, max))
 }
 
 fn range(
@@ -227,11 +249,89 @@ pub fn effective_values(board: &DesignRule, record: &DesignRule) -> RuleValues {
     values
 }
 
+/// What makes a rule record's values unusable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProblemKind {
+    /// A negative length.
+    Negative,
+    /// `min` above `max`.
+    MinAboveMax,
+    /// `preferred` outside the range.
+    PreferredOutside,
+}
+
+/// One blocking problem of a rule record: which value, and what is wrong with it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BlockingProblem {
+    pub field: RuleField,
+    pub problem: ProblemKind,
+}
+
+impl BlockingProblem {
+    /// The problem in words, such as "`min` is above `max`".
+    pub fn message(&self) -> String {
+        let path = self.field.path();
+        match self.problem {
+            ProblemKind::Negative => format!("`{path}` cannot be negative"),
+            ProblemKind::MinAboveMax => {
+                let max = path.replace("min", "max");
+                format!("`{path}` is above `{max}`")
+            }
+            ProblemKind::PreferredOutside => format!("`{path}` is outside the range"),
+        }
+    }
+}
+
+/// The `[min, preferred, max]` triples of a kind; `hole_size` has no preferred value.
+pub(crate) fn triples(kind: RuleKind) -> &'static [[Option<RuleField>; 3]] {
+    use RuleField::*;
+    match kind {
+        RuleKind::TrackWidth => &[[Some(Min), Some(Preferred), Some(Max)]],
+        RuleKind::HoleSize => &[[Some(Min), None, Some(Max)]],
+        RuleKind::ViaSize => &[
+            [
+                Some(DiameterMin),
+                Some(DiameterPreferred),
+                Some(DiameterMax),
+            ],
+            [Some(HoleMin), Some(HolePreferred), Some(HoleMax)],
+        ],
+        _ => &[],
+    }
+}
+
+/// The problems of the range `lo..=hi` holding `mid`, each named by its field.
+pub(crate) fn range_problems(
+    [min, preferred, max]: [Option<RuleField>; 3],
+    get: impl Fn(RuleField) -> Option<Nm>,
+) -> Vec<BlockingProblem> {
+    let mut problems = Vec::new();
+    let (lo, hi) = (min.and_then(&get), max.and_then(&get));
+    if let (Some(field), Some(lo), Some(hi)) = (min, lo, hi)
+        && lo > hi
+    {
+        problems.push(BlockingProblem {
+            field,
+            problem: ProblemKind::MinAboveMax,
+        });
+    }
+    if let Some(field) = preferred
+        && let Some(mid) = get(field)
+        && (lo.is_some_and(|lo| mid < lo) || hi.is_some_and(|hi| mid > hi))
+    {
+        problems.push(BlockingProblem {
+            field,
+            problem: ProblemKind::PreferredOutside,
+        });
+    }
+    problems
+}
+
 /// The blocking problems of `record`, judged on its effective values: a negative value,
 /// `min` above `max`, or `preferred` outside the range, with `board` the board-wide
-/// record of its kind. Each is `(field, message)`.
-pub fn blocking_problems(board: &DesignRule, record: &DesignRule) -> Vec<(RuleField, String)> {
-    use RuleField::*;
+/// record of its kind. Negative values come first, then each range's.
+pub fn blocking_problems(board: &DesignRule, record: &DesignRule) -> Vec<BlockingProblem> {
     let values = effective_values(board, record);
     let mut problems = Vec::new();
     for &field in record.kind.fields() {
@@ -241,36 +341,14 @@ pub fn blocking_problems(board: &DesignRule, record: &DesignRule) -> Vec<(RuleFi
         ) && let Some(n) = values.length(field)
             && n < Nm::ZERO
         {
-            problems.push((field, format!("`{}` cannot be negative", field.path())));
+            problems.push(BlockingProblem {
+                field,
+                problem: ProblemKind::Negative,
+            });
         }
     }
-    let triples: &[[RuleField; 3]] = match record.kind {
-        RuleKind::TrackWidth | RuleKind::HoleSize => &[[Min, Preferred, Max]],
-        RuleKind::ViaSize => &[
-            [DiameterMin, DiameterPreferred, DiameterMax],
-            [HoleMin, HolePreferred, HoleMax],
-        ],
-        _ => &[],
-    };
-    for &[min, preferred, max] in triples {
-        let (lo, mid, hi) = (
-            values.length(min),
-            values.length(preferred),
-            values.length(max),
-        );
-        if let (Some(lo), Some(hi)) = (lo, hi)
-            && lo > hi
-        {
-            problems.push((min, format!("`{}` is above `{}`", min.path(), max.path())));
-        }
-        if let Some(mid) = mid
-            && (lo.is_some_and(|lo| mid < lo) || hi.is_some_and(|hi| mid > hi))
-        {
-            problems.push((
-                preferred,
-                format!("`{}` is outside the range", preferred.path()),
-            ));
-        }
+    for &triple in triples(record.kind) {
+        problems.extend(range_problems(triple, |f| values.length(f)));
     }
     problems
 }

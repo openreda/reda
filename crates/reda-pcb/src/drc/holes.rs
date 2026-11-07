@@ -7,25 +7,36 @@ use reda_model::{DrcCheck, Hole, Limit, PadKind, PcbDocument, RuleField, RuleKin
 use super::{Board, Report};
 use crate::copper::shape::{Core, Prim, Shape};
 use crate::placed::{self, PlacedPad};
-use crate::rules::{hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
+use crate::rules::{breach, hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
+    via_size(board, report);
     let holes = holes(board);
-    for hole in &holes {
-        let actual = hole.size.width.min(hole.size.height);
-        let Some(minimum) = hole.minimum else {
+    for hole in holes.iter().filter(|h| !h.via) {
+        let rules = net_rules(board.pcb, hole.net);
+        let (narrow, wide) = (
+            hole.size.width.min(hole.size.height),
+            hole.size.width.max(hole.size.height),
+        );
+        let found = breach(rules.hole_min, None, narrow)
+            .map(|b| (narrow, b))
+            .or_else(|| breach(None, rules.hole_max, wide).map(|b| (wide, b)));
+        let Some((actual, found)) = found else {
             continue;
         };
-        if actual < minimum {
-            report.add(DrcCheck::HoleSize, |v| {
-                v.length(actual, minimum, Limit::Min, hole.rule)
-                    .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
-                    .on_layers(board.pcb.copper_layers().map(|l| l.uuid))
-                    .arg("minimum", minimum)
-                    .arg("actual", actual)
-                    .objects(hole.objects.iter().copied())
-            });
-        }
+        let field = match found.0 {
+            Limit::Min => RuleField::Min,
+            Limit::Max => RuleField::Max,
+        };
+        let rule = resolve(board.pcb, hole.net, RuleKind::HoleSize, field)
+            .expect("a breached limit applies")
+            .rule;
+        report.add(DrcCheck::HoleSize, |v| {
+            super::copper::breach(v, actual, found, rule)
+                .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
+                .on_layers(board.pcb.copper_layers().map(|l| l.uuid))
+                .objects(hole.objects.iter().copied())
+        });
     }
     for hole in &holes {
         let minimum = net_rules(board.pcb, hole.net).annular_ring;
@@ -54,6 +65,40 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     }
 }
 
+/// Vias whose diameter or hole lies outside the `via_size` range of their Net: one
+/// Violation per Via and part, the diameter first, `part` naming which.
+fn via_size(board: &Board<'_>, report: &mut Report) {
+    use RuleField::*;
+    let pcb = board.pcb;
+    for via in pcb.vias() {
+        let rules = net_rules(pcb, via.net);
+        for (part, size, range, [min, max]) in [
+            (
+                "diameter",
+                via.diameter,
+                rules.via_diameter,
+                [DiameterMin, DiameterMax],
+            ),
+            ("hole", via.hole, rules.via_hole, [HoleMin, HoleMax]),
+        ] {
+            let Some(found) = range.breach(size) else {
+                continue;
+            };
+            let field = if found.0 == Limit::Min { min } else { max };
+            let rule = resolve(pcb, via.net, RuleKind::ViaSize, field)
+                .expect("a breached limit applies")
+                .rule;
+            report.add(DrcCheck::ViaSize, |v| {
+                super::copper::breach(v, size, found, rule)
+                    .located(pcb.uuid, via.at)
+                    .on_layers(pcb.copper_layers().map(|l| l.uuid))
+                    .arg("part", part)
+                    .object(via.uuid)
+            });
+        }
+    }
+}
+
 /// One drilled hole on the board.
 struct DrillHole {
     /// The Via, or the Footprint instance then the Pad, or the Free Pad.
@@ -61,9 +106,8 @@ struct DrillHole {
     size: Hole,
     /// Its Net, which picks its rules.
     net: Option<Uuid>,
-    /// The smallest hole the rules allow it; `None` where the limit is absent.
-    minimum: Option<Nm>,
-    rule: Uuid,
+    /// Whether it is a Via's, which `via_size` limits rather than `hole_size`.
+    via: bool,
     /// The copper ring around a plated hole; `None` for a bare hole.
     ring: Option<Nm>,
     shape: Shape,
@@ -79,9 +123,7 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             objects: vec![via.uuid],
             size,
             net: via.net,
-            minimum: net_rules(pcb, via.net).via_hole.min,
-            rule: resolve(pcb, via.net, RuleKind::ViaSize, RuleField::HoleMin)
-                .map_or(pcb.board_rule(RuleKind::ViaSize).uuid, |s| s.rule),
+            via: true,
             ring: Some(Nm((via.diameter.0 - via.hole.0) / 2)),
             shape: hole_shape((via.at, via.at), size),
         });
@@ -93,9 +135,7 @@ fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             objects,
             size,
             net: pad.net,
-            minimum: net_rules(pcb, pad.net).hole_min,
-            rule: resolve(pcb, pad.net, RuleKind::HoleSize, RuleField::Min)
-                .map_or(pcb.board_rule(RuleKind::HoleSize).uuid, |s| s.rule),
+            via: false,
             ring,
             shape: hole_shape(pad.hole_ends()?, size),
         })
