@@ -185,6 +185,8 @@ fn soic() -> Footprint {
             FootprintText {
                 field: "MPN".into(),
                 style: TextStyle {
+                    justify: reda_model::TextJustify::CENTER,
+                    knockout: None,
                     font: "Noto Sans".into(),
                     height: Nm::from_um(600),
                     thickness: Nm::from_um(90),
@@ -545,4 +547,23 @@ fn the_generator_stays_out_of_the_copy_and_its_hash() {
         assert_eq!(again.footprints[0].hash, copy.footprints[0].hash);
         assert_eq!(again.hash, copy.hash);
     }
+}
+
+#[test]
+fn footprint_text_defaults_to_center_when_justification_is_omitted() {
+    let mut file: serde_json::Value =
+        serde_json::from_slice(&write_footprint(&soic()).unwrap()).unwrap();
+    for text in file["texts"].as_array_mut().unwrap() {
+        text["style"].as_object_mut().unwrap().remove("justify");
+    }
+    let read = read_footprint(
+        Path::new("default.redafp"),
+        &serde_json::to_vec(&file).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        read.texts
+            .iter()
+            .all(|text| text.style.justify == reda_model::TextJustify::CENTER)
+    );
 }

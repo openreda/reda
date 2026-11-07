@@ -1147,3 +1147,8 @@ tab-out-of-sync = { $tab }, out of sync: { $count ->
    *[other] { $count } changes
 }
 check-opening-collapsed = Mask or paste opening collapsed
+
+properties-text-frame-omitted = Text Frame: { $count ->
+    [one] 1 line omitted
+   *[other] { $count } lines omitted
+    }

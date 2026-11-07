@@ -164,6 +164,14 @@ impl<'c, 'e> Applier<'c, 'e> {
                         .instances
                         .get_mut(instance)
                         .expect("a planned instance");
+                    if let Some(old) = self
+                        .cx
+                        .project()?
+                        .pcb_document(self.pcb)
+                        .and_then(|p| p.footprint_copy(i.footprint))
+                    {
+                        reda_pcb::placed::remap_text_overrides(i, &old.footprint, &copy.footprint);
+                    }
                     i.footprint = copy.uuid;
                     i.pads = blank_pads(&copy);
                 }
@@ -343,7 +351,7 @@ impl<'c, 'e> Applier<'c, 'e> {
             in_bom: c.in_bom,
             in_cpl: c.in_cpl,
             not_fitted: c.not_fitted,
-            designator_text: None,
+            text_overrides: Vec::new(),
             pads: blank_pads(&copy),
         };
         let uuid = instance.uuid;

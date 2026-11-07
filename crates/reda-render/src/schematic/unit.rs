@@ -308,11 +308,17 @@ fn draw_fields(
             place.apply(entry.offset),
             style(height, HAlign::Left),
         );
+        if let Some(item) = b.scene.items.last_mut() {
+            item.child = Some(crate::Child::Field {
+                unit: unit.uuid,
+                field: name.to_owned(),
+            });
+        }
     }
     let n = auto.len() as i64;
     let turned = place.rotation.normalized().0;
     let above = (45_000..135_000).contains(&turned) || (225_000..315_000).contains(&turned);
-    for (i, (_, color, text)) in auto.into_iter().enumerate() {
+    for (i, (name, color, text)) in auto.into_iter().enumerate() {
         let i = i as i64;
         let (at, h) = if above {
             let bottom = hi.y.0 + FIELD_GAP + FIELD_TEXT.0 / 2;
@@ -329,5 +335,11 @@ fn draw_fields(
             )
         };
         b.text(unit.uuid, color, &text, at, style(FIELD_TEXT, h));
+        if let Some(item) = b.scene.items.last_mut() {
+            item.child = Some(crate::Child::Field {
+                unit: unit.uuid,
+                field: name.to_owned(),
+            });
+        }
     }
 }

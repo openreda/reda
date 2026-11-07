@@ -192,7 +192,7 @@ impl Command for MechanicalPlace {
             in_bom: copy.part.in_bom,
             in_cpl: copy.part.in_cpl,
             not_fitted: false,
-            designator_text: None,
+            text_overrides: Vec::new(),
             pads,
         };
         cx.tx()?.insert(Object::FootprintInstance(InDocument::new(

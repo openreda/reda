@@ -42,7 +42,7 @@
   "net_classes": [],
   "nets": [],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000024","layer":"00000000-0000-4000-8000-000000000007","text":"$${REF}","font":"Hershey Roman Simplex","position":{"x":1000000,"y":1000000},"height":1000000,"thickness":150000}
+    {"uuid":"00000000-0000-4000-8000-000000000024","layer":"00000000-0000-4000-8000-000000000007","text":"$${REF}","position":{"x":1000000,"y":1000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}}
   ],
   "graphics": []
 }

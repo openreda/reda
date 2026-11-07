@@ -1,121 +1,258 @@
-//! `pcb.designator_text.set`: moving, turning, resizing or hiding one Footprint's
-//! Designator text.
+//! Sparse field text placement, including the legacy single-Designator command.
+
+use std::collections::BTreeSet;
 
 use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
     Unavailable,
 };
-use reda_model::{FootprintText, InDocument, Object, TextStyle, Uuid};
+use reda_model::{FootprintTextOverride, InDocument, Object, TextAutoposition, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
 use super::Placed;
 use crate::commands::outline::PointParam;
-use crate::commands::{needs_pcb, pcb, positive};
-use crate::placed::{Frame, designator_text};
+use crate::commands::text::StyleParam;
+use crate::commands::{needs_pcb, pcb};
+use crate::placed::Frame;
 
 pub(super) fn register_all(registry: &mut Registry) {
+    registry.add(FootprintTextSet);
     registry.add(DesignatorTextSet);
 }
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct DesignatorTextSetParams {
-    /// The Footprint whose Designator text to change.
-    pub footprint: Uuid,
-    /// Where the text centre goes on the board.
-    #[serde(default)]
+pub struct FootprintTextSetParams {
+    pub instances: Vec<Uuid>,
+    /// Select every entry drawing this field, across the instances.
+    pub field: Option<String>,
+    /// Select individual entries by their stable Footprint text UUIDs.
+    pub texts: Option<Vec<Uuid>>,
+    pub autoposition: Option<TextAutoposition>,
+    /// Anchor in board coordinates. Moving text sets `manual`.
     pub at: Option<PointParam>,
-    /// Its direction on the board, counter-clockwise.
-    #[serde(default)]
+    /// Reading direction in board coordinates.
     pub rotation: Option<Angle>,
-    /// The text height; the pen width follows it.
-    #[serde(default)]
-    pub size: Option<Length>,
-    #[serde(default)]
+    pub style: Option<StyleParam>,
     pub visible: Option<bool>,
-    /// Go back to the Footprint's own placement; nothing else may be given with it.
+    #[serde(default)]
+    pub reset: bool,
+}
+
+pub struct FootprintTextSet;
+impl Command for FootprintTextSet {
+    const META: Meta = Meta {
+        id: "pcb.footprint.text.set",
+        title: "Set Footprint Text",
+        description: "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; moving text sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
+        category: "pcb",
+        icon: "text_edit",
+        kind: Kind::Edit,
+    };
+    type Params = FootprintTextSetParams;
+    type Output = Placed;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Placed, CommandError> {
+        set_texts(cx, p)
+    }
+}
+
+fn set_texts(cx: &mut Context<'_>, p: FootprintTextSetParams) -> Result<Placed, CommandError> {
+    if p.instances.is_empty() {
+        return Err(CommandError::invalid_params(
+            "/instances",
+            "choose at least one Footprint",
+        ));
+    }
+    if p.field.is_some() == p.texts.is_some() {
+        return Err(CommandError::invalid_params(
+            "/field",
+            "choose exactly one of field or texts",
+        ));
+    }
+    if p.field.as_ref().is_some_and(|f| f.trim().is_empty())
+        || p.texts.as_ref().is_some_and(Vec::is_empty)
+    {
+        return Err(CommandError::invalid_params(
+            "/field",
+            "choose a field or text entries",
+        ));
+    }
+    let edits = p.at.is_some()
+        || p.rotation.is_some()
+        || p.style.is_some()
+        || p.visible.is_some()
+        || p.autoposition.is_some();
+    if p.reset && edits {
+        return Err(CommandError::invalid_params(
+            "/reset",
+            "reset takes no other changes",
+        ));
+    }
+    if p.at.is_some()
+        && p.autoposition
+            .is_some_and(|a| a != TextAutoposition::Manual)
+    {
+        return Err(CommandError::invalid_params(
+            "/autoposition",
+            "an explicit anchor uses manual placement",
+        ));
+    }
+    let pcb = pcb(cx)?;
+    let mut updates = Vec::new();
+    let mut seen = BTreeSet::new();
+    for uuid in &p.instances {
+        if !seen.insert(*uuid) {
+            continue;
+        }
+        let mut instance = pcb.footprint(*uuid).cloned().ok_or_else(|| {
+            CommandError::invalid_params(
+                "/instances",
+                format!("{uuid} is not a Footprint on the board"),
+            )
+        })?;
+        let copy = pcb
+            .footprint_copy(instance.footprint)
+            .expect("committed Footprint copy");
+        let entries: Vec<_> = copy
+            .footprint
+            .texts
+            .iter()
+            .filter(|text| {
+                p.field
+                    .as_ref()
+                    .is_some_and(|field| text.field.eq_ignore_ascii_case(field))
+                    || p.texts.as_ref().is_some_and(|ids| ids.contains(&text.uuid))
+            })
+            .collect();
+        if entries.is_empty() {
+            return Err(CommandError::rejected(format!(
+                "{} has no matching text entries",
+                instance.designator
+            )));
+        }
+        if let Some(ids) = &p.texts
+            && ids.iter().any(|id| !entries.iter().any(|t| t.uuid == *id))
+        {
+            return Err(CommandError::invalid_params(
+                "/texts",
+                "a text entry does not belong to a selected Footprint",
+            ));
+        }
+        let frame = Frame::of(&instance);
+        for entry in entries {
+            let current = instance
+                .text_overrides
+                .iter()
+                .find(|o| o.text == entry.uuid)
+                .cloned();
+            instance.text_overrides.retain(|o| o.text != entry.uuid);
+            if p.reset {
+                continue;
+            }
+            let mut change = current.unwrap_or_else(|| FootprintTextOverride::new(entry.uuid));
+            if let Some(at) = &p.at {
+                change.at = Some(frame.local(at.point()));
+                change.autoposition = Some(TextAutoposition::Manual);
+            }
+            if let Some(rotation) = p.rotation {
+                change.rotation = Some(frame.local_angle(rotation.millideg()));
+            }
+            if let Some(position) = p.autoposition {
+                change.autoposition = Some(position);
+            }
+            if let Some(style) = &p.style {
+                let mut resolved = change.style.clone().unwrap_or_else(|| entry.style.clone());
+                style.apply(&mut resolved)?;
+                change.style = (resolved != entry.style).then_some(resolved);
+            }
+            if let Some(visible) = p.visible {
+                change.visible = (visible != entry.visible).then_some(visible);
+            }
+            if !change.is_empty() {
+                instance.text_overrides.push(change);
+            }
+        }
+        instance.text_overrides.sort_by_key(|o| o.text);
+        updates.push(instance);
+    }
+    let document = pcb.uuid;
+    let objects = updates.iter().map(|i| i.uuid).collect();
+    for instance in updates {
+        cx.tx()?.replace(Object::FootprintInstance(InDocument::new(
+            document, instance,
+        )))?;
+    }
+    Ok(Placed { objects })
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DesignatorTextSetParams {
+    pub footprint: Uuid,
+    pub at: Option<PointParam>,
+    pub rotation: Option<Angle>,
+    pub size: Option<Length>,
+    pub visible: Option<bool>,
     #[serde(default)]
     pub reset: bool,
 }
 
 pub struct DesignatorTextSet;
-
 impl Command for DesignatorTextSet {
     const META: Meta = Meta {
         id: "pcb.designator_text.set",
         title: "Set Designator Text",
-        description: "Moves, turns, resizes or hides one Footprint's Designator text. `at` \
-                      and `rotation` are on the board; the text keeps its place relative to \
-                      the Footprint when the Footprint moves. `reset` goes back to the \
-                      Footprint's own placement. Allowed on locked Footprints.",
+        description: "Moves, turns, resizes or hides one Footprint's primary Designator text using sparse text overrides. Anchors and rotations are on the board. Reset restores the Footprint defaults. Allowed on locked Footprints.",
         category: "pcb",
         icon: "text",
         kind: Kind::Edit,
     };
     type Params = DesignatorTextSetParams;
     type Output = Placed;
-
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
-
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: DesignatorTextSetParams,
-    ) -> Result<Placed, CommandError> {
-        let pcb = pcb(cx)?;
-        let Some(instance) = pcb.footprint(p.footprint) else {
-            return Err(CommandError::invalid_params(
-                "/footprint",
-                format!("{} is not a Footprint on the board", p.footprint),
-            ));
-        };
-        let edits =
-            p.at.is_some() || p.rotation.is_some() || p.size.is_some() || p.visible.is_some();
-        if p.reset && edits {
-            return Err(CommandError::invalid_params(
-                "/reset",
-                "reset takes no other changes",
-            ));
-        }
-        let mut instance = instance.clone();
-        if p.reset {
-            instance.designator_text = None;
-        } else {
-            let frame = Frame::of(&instance);
-            let Some(current) = designator_text(pcb, &instance) else {
-                return Err(CommandError::rejected(format!(
-                    "{} has no Designator text: its Footprint draws none",
-                    instance.designator
-                )));
-            };
-            let style = match p.size {
-                Some(size) => TextStyle {
-                    font: current.style.font.clone(),
-                    ..TextStyle::of_height(positive("/size", size)?)
-                },
-                None => current.style.clone(),
-            };
-            let text = FootprintText {
-                at: p.at.map_or(current.at, |at| frame.local(at.point())),
-                rotation: p
-                    .rotation
-                    .map_or(current.rotation, |r| frame.local_angle(r.millideg())),
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Placed, CommandError> {
+        let board = pcb(cx)?;
+        let instance = board.footprint(p.footprint).ok_or_else(|| {
+            CommandError::invalid_params("/footprint", "not a Footprint on the board")
+        })?;
+        let primary = board
+            .footprint_copy(instance.footprint)
+            .and_then(|c| c.footprint.designator_text())
+            .ok_or_else(|| CommandError::rejected("this Footprint draws no Designator text"))?
+            .uuid;
+        let style = p
+            .size
+            .map(|size| {
+                let height = crate::commands::positive("/size", size)?;
+                Ok::<_, CommandError>(StyleParam {
+                    font: None,
+                    height: Some(size),
+                    thickness: Some(Length::from(reda_model::geom::Nm(height.0 * 3 / 20))),
+                    justify: None,
+                    knockout: None,
+                    clear_knockout: false,
+                })
+            })
+            .transpose()?;
+        set_texts(
+            cx,
+            FootprintTextSetParams {
+                instances: vec![p.footprint],
+                field: None,
+                texts: Some(vec![primary]),
+                at: p.at,
+                rotation: p.rotation,
                 style,
-                visible: p.visible.unwrap_or(current.visible),
-                ..current
-            };
-            instance.designator_text = Some(text);
-        }
-        let document = pcb.uuid;
-        let uuid = instance.uuid;
-        cx.tx()?.replace(Object::FootprintInstance(InDocument::new(
-            document, instance,
-        )))?;
-        Ok(Placed {
-            objects: vec![uuid],
-        })
+                visible: p.visible,
+                reset: p.reset,
+                autoposition: None,
+            },
+        )
     }
 }

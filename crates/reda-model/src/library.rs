@@ -287,6 +287,7 @@ pub struct FootprintText {
     /// The text centre, relative to the Footprint origin.
     pub at: Point,
     pub rotation: Millideg,
+    #[serde(deserialize_with = "footprint_text_style")]
     pub style: TextStyle,
     pub layer: FootprintLayer,
     #[serde(default = "yes", skip_serializing_if = "is_true")]
@@ -319,31 +320,94 @@ impl FootprintText {
     }
 }
 
-/// How a Footprint text is drawn.
+/// Footprint entries default to centre; free PCB text defaults to left/bottom.
+fn footprint_text_style<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<TextStyle, D::Error> {
+    let mut value = serde_json::Value::deserialize(deserializer)?;
+    if let Some(fields) = value.as_object_mut() {
+        fields
+            .entry("justify")
+            .or_insert_with(|| serde_json::json!({"h":"center","v":"center"}));
+    }
+    serde_json::from_value(value).map_err(serde::de::Error::custom)
+}
+
+/// The shared style of free PCB text and Footprint field text.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TextStyle {
-    /// The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing
-    /// on this machine draws as Noto Sans.
+    /// The named family. A missing family draws as bundled Noto Sans.
     pub font: String,
-    /// The capital height.
+    /// Capital height.
     pub height: Nm,
-    /// The pen width of stroke-font text; outline fonts are filled and ignore it.
+    /// Stroke-font pen width; outline fonts ignore it.
     pub thickness: Nm,
+    #[serde(default)]
+    pub justify: TextJustify,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knockout: Option<TextKnockout>,
 }
 
 impl TextStyle {
-    /// The default pen width as a fraction of the height (`.0 / .1`).
     pub const PEN: (i64, i64) = (3, 20);
 
-    /// Hershey text `height` high, with the default pen width for that height.
+    /// Centred Hershey text, the default for Footprint entries.
     pub fn of_height(height: Nm) -> TextStyle {
         TextStyle {
             font: crate::HERSHEY_FONT.to_owned(),
             height,
             thickness: Nm(height.0 * TextStyle::PEN.0 / TextStyle::PEN.1),
+            justify: TextJustify::CENTER,
+            knockout: None,
         }
     }
+}
+
+/// How a text block sits on its anchor. Bottom is the last line's baseline.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextJustify {
+    pub h: TextHJustify,
+    pub v: TextVJustify,
+}
+
+impl TextJustify {
+    pub const CENTER: Self = Self {
+        h: TextHJustify::Center,
+        v: TextVJustify::Center,
+    };
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextHJustify {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextVJustify {
+    Top,
+    Center,
+    #[default]
+    Bottom,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextKnockout {
+    pub margin: Nm,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextFrame {
+    pub width: Nm,
+    pub height: Nm,
 }
 
 /// A drawn shape. Lines, arcs and outlines are stroked with the graphic's width.

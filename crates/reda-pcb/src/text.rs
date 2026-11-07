@@ -3,18 +3,23 @@
 //! draw from this, so they agree glyph for glyph.
 
 mod footprint;
+mod knockout;
 
 use std::sync::OnceLock;
 
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::text::display;
-use reda_model::{HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, Uuid};
+use reda_model::{
+    HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, TextHJustify, TextVJustify, Uuid,
+};
 use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-pub use footprint::{FOOTPRINT_TEXT_PEN, board_layer, element_texts, footprint_texts};
+pub use footprint::{
+    FOOTPRINT_TEXT_PEN, board_layer, element_texts, footprint_texts, placed_field_texts,
+};
 
 /// The distance from one baseline to the next, as a multiple of the capital height
 /// (`LINE_PITCH.0 / LINE_PITCH.1`).
@@ -33,6 +38,8 @@ pub struct PlacedText {
     pub drawn_font: String,
     /// Whether the family the text names is missing on this machine.
     pub missing_font: bool,
+    /// Wrapped lines omitted because their whole capital height or width did not fit.
+    pub dropped_lines: usize,
     /// The pen width of the strokes.
     pub stroke_width: Nm,
     /// Stroke-font glyphs: capsules of `stroke_width` from `a` to `b`.
@@ -101,6 +108,11 @@ pub fn missing_fonts(pcb: &PcbDocument, fonts: &Fonts) -> Vec<String> {
     let mut missing: Vec<String> = pcb
         .texts()
         .map(|t| t.font.clone())
+        .chain(
+            pcb.footprints()
+                .flat_map(|instance| footprint_texts(pcb, instance, fonts))
+                .map(|t| t.font.clone()),
+        )
         .filter(|f| font_is_missing(f, fonts))
         .collect();
     missing.sort();
@@ -123,10 +135,71 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
     let pitch = text.height.0 * LINE_PITCH.0 / LINE_PITCH.1;
     let mut strokes = Vec::new();
     let mut fill = Fill::default();
-    for (i, line) in display(&text.text).split('\n').enumerate() {
-        let drop = pitch * i as i64;
-        let at = |p: Point| place.apply(Point::new(p.x, p.y - Nm(drop)));
+    let displayed = display(&text.text);
+    let mut lines: Vec<String> = displayed.split('\n').map(str::to_owned).collect();
+    let mut dropped_lines = 0;
+    if let Some(frame) = text.frame {
+        lines = lines
+            .into_iter()
+            .flat_map(|line| wrap_line(&line, frame.width, font, text.height))
+            .collect();
+        let capacity = if frame.height < text.height {
+            0
+        } else {
+            1 + (frame.height.0 - text.height.0) / pitch
+        } as usize;
+        dropped_lines = lines.len().saturating_sub(capacity);
+        lines.truncate(capacity);
+    }
+    let block_height = if lines.is_empty() {
+        0
+    } else {
+        text.height.0 + pitch * (lines.len() as i64 - 1)
+    };
+    let (left, bottom, width, box_height) = text.frame.map_or((0, 0, 0, 0), |frame| {
+        let left = match text.justify.h {
+            TextHJustify::Left => 0,
+            TextHJustify::Center => -frame.width.0 / 2,
+            TextHJustify::Right => -frame.width.0,
+        };
+        let bottom = match text.justify.v {
+            TextVJustify::Bottom => 0,
+            TextVJustify::Center => -frame.height.0 / 2,
+            TextVJustify::Top => -frame.height.0,
+        };
+        (left, bottom, frame.width.0, frame.height.0)
+    });
+    let top = if text.frame.is_some() {
+        bottom
+            + match text.justify.v {
+                TextVJustify::Top => box_height,
+                TextVJustify::Center => (box_height + block_height) / 2,
+                TextVJustify::Bottom => block_height,
+            }
+    } else {
+        match text.justify.v {
+            TextVJustify::Top => 0,
+            TextVJustify::Center => block_height / 2,
+            TextVJustify::Bottom => block_height,
+        }
+    };
+    for (i, line) in lines.iter().enumerate() {
         let geometry = layout(line, font, text.height, noto_sans());
+        if text
+            .frame
+            .is_some_and(|frame| geometry.advance > frame.width)
+        {
+            dropped_lines += 1;
+            continue;
+        }
+        let dx = left
+            + match text.justify.h {
+                TextHJustify::Left => 0,
+                TextHJustify::Center => (width - geometry.advance.0) / 2,
+                TextHJustify::Right => width - geometry.advance.0,
+            };
+        let baseline = top - text.height.0 - pitch * i as i64;
+        let at = |p: Point| Point::new(p.x + Nm(dx), p.y + Nm(baseline));
         strokes.extend(geometry.strokes.iter().map(|s| Stroke {
             a: at(s.a),
             b: at(s.b),
@@ -137,16 +210,61 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
         fill.indices
             .extend(geometry.fill.indices.iter().map(|i| i + base));
     }
+    if let Some(knockout) = text.knockout {
+        let frame = text
+            .frame
+            .map(|frame| (left, bottom, left + frame.width.0, bottom + frame.height.0));
+        fill = knockout::flatten(&strokes, text.thickness, &fill, frame, knockout.margin);
+        strokes.clear();
+    }
+    for stroke in &mut strokes {
+        stroke.a = place.apply(stroke.a);
+        stroke.b = place.apply(stroke.b);
+    }
+    for point in &mut fill.points {
+        *point = place.apply(*point);
+    }
     PlacedText {
         uuid: text.uuid,
         layer: text.layer,
         font: text.font.clone(),
         drawn_font,
         missing_font: matches!(resolved, Resolved::Missing),
+        dropped_lines,
         stroke_width: text.thickness,
         strokes,
         fill,
     }
+}
+
+/// Wrap at whitespace where possible, otherwise between complete Unicode characters.
+fn wrap_line(line: &str, width: Nm, font: Font<'_>, height: Nm) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    for ch in line.chars() {
+        current.push(ch);
+        while layout(&current, font, height, noto_sans()).advance > width {
+            let Some((last, _)) = current.char_indices().next_back().filter(|(at, _)| *at > 0)
+            else {
+                break;
+            };
+            if let Some((at, _)) = current
+                .char_indices()
+                .rev()
+                .find(|(at, c)| *at > 0 && c.is_whitespace())
+            {
+                lines.push(current[..at].trim_end().to_owned());
+                current = current[at..].trim_start().to_owned();
+            } else {
+                lines.push(current[..last].to_owned());
+                current = current[last..].to_owned();
+            }
+        }
+    }
+    if !current.is_empty() || lines.is_empty() {
+        lines.push(current);
+    }
+    lines
 }
 
 /// Mirror, then rotate, then move: text-local coordinates (y-up, origin at the start of the

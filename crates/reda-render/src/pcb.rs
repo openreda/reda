@@ -73,6 +73,9 @@ pub struct BoardGraphic {
 /// Text laid out on the board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardText {
+    pub align: crate::Align,
+    /// Optional independent field text identity beneath its owning Footprint.
+    pub child: Option<crate::Child>,
     /// The text object, or the Footprint instance for its Designator and text.
     pub object: Uuid,
     pub layer: Uuid,

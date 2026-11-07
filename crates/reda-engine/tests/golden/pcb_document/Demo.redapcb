@@ -62,8 +62,8 @@
   ],
   "nets": [],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-000000000027","layer":"00000000-0000-4000-8000-000000000007","text":"Demo\nrev A","font":"Hershey Roman Simplex","position":{"x":5000000,"y":70000000},"height":2000000,"thickness":150000,"rotation":90000},
-    {"uuid":"00000000-0000-4000-8000-000000000028","layer":"00000000-0000-4000-8000-00000000000e","text":"Bottom","font":"Noto Sans","position":{"x":5000000,"y":5000000},"height":1000000,"thickness":150000,"mirrored":true}
+    {"uuid":"00000000-0000-4000-8000-000000000027","layer":"00000000-0000-4000-8000-000000000007","text":"Demo\nrev A","position":{"x":5000000,"y":70000000},"font":"Hershey Roman Simplex","height":2000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"rotation":90000},
+    {"uuid":"00000000-0000-4000-8000-000000000028","layer":"00000000-0000-4000-8000-00000000000e","text":"Bottom","position":{"x":5000000,"y":5000000},"font":"Noto Sans","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"mirrored":true}
   ],
   "graphics": [
     {"uuid":"00000000-0000-4000-8000-000000000029","layer":"00000000-0000-4000-8000-000000000007","width":150000,"shape":{"kind":"line","from":{"x":1000000,"y":1000000},"to":{"x":9000000,"y":1000000}}},

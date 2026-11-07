@@ -78,11 +78,22 @@ fn footprint(
             fill: g.fill,
         });
     }
-    out.texts.extend(
-        footprint_texts(pcb, instance, fonts)
-            .iter()
-            .map(|t| board_text(object, t, text_geometry(t, fonts))),
-    );
+    out.texts
+        .extend(footprint_texts(pcb, instance, fonts).iter().map(|t| {
+            let mut text = board_text(object, t, text_geometry(t, fonts));
+            if pcb.footprint_copy(instance.footprint).is_some_and(|copy| {
+                copy.footprint
+                    .texts
+                    .iter()
+                    .any(|entry| entry.uuid == t.uuid)
+            }) {
+                text.child = Some(reda_render::Child::FootprintText {
+                    footprint: object,
+                    text: t.uuid,
+                });
+            }
+            text
+        }));
 }
 
 fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
@@ -101,6 +112,8 @@ fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
 
 fn board_text(object: Uuid, text: &PcbText, laid: PlacedText) -> BoardText {
     BoardText {
+        align: text.justify.into(),
+        child: None,
         object,
         layer: text.layer,
         text: text.text.clone(),

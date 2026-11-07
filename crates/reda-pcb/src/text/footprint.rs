@@ -6,8 +6,8 @@
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    DESIGNATOR_FIELD, Footprint, FootprintInstance, FootprintLayer, FootprintText, HERSHEY_FONT,
-    LayerKind, PcbDocument, PcbText, Shape, Side, TextStyle, Uuid, VALUE_FIELD, field_text,
+    DESIGNATOR_FIELD, Footprint, FootprintInstance, FootprintLayer, FootprintText, LayerKind,
+    PcbDocument, PcbText, Shape, Side, TextAutoposition, TextStyle, Uuid, VALUE_FIELD, field_text,
 };
 
 use crate::placed::{self, Bounds, Frame};
@@ -30,8 +30,8 @@ pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
     pcb.layers().find(kind, Some(side)).map(|l| l.uuid)
 }
 
-/// Every text a placed Footprint draws, as PCB text whose `uuid` is the instance: the
-/// text shapes of its drawing (Hershey, anchored at the start of the baseline), then each
+/// Every text a placed Footprint draws, as PCB text retaining each field entry's UUID: the
+/// text shapes of its drawing (Hershey, anchored at the last baseline), then each
 /// of its field texts (centred on its placement) when visible and the instance has that
 /// field. Text on a Layer the board lacks is left out.
 pub fn footprint_texts(
@@ -64,21 +64,96 @@ pub fn footprint_texts(
             ));
         }
     }
-    for entry in placed::instance_texts(pcb, instance) {
+    for entry in placed_field_texts(pcb, instance, fonts) {
         let text = field_text(&entry.field, &instance.designator, &instance.fields);
         if !entry.visible || text.is_empty() {
             continue;
         }
-        out.extend(centred_text(pcb, object, text, &frame.text(&entry), fonts));
+        out.extend(centred_text(pcb, object, text, &entry, fonts));
     }
     out
+}
+
+/// Resolved field text placements in board coordinates, including Autoposition.
+pub fn placed_field_texts(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+    fonts: &Fonts,
+) -> Vec<FootprintText> {
+    use TextAutoposition::*;
+    let frame = Frame::of(instance);
+    let copy = pcb
+        .footprint_copy(instance.footprint)
+        .expect("committed Footprint copy");
+    let local_box = crate::cluster::footprint_box(&copy.footprint);
+    let corners = [
+        local_box.min,
+        Point::new(local_box.max.x, local_box.min.y),
+        local_box.max,
+        Point::new(local_box.min.x, local_box.max.y),
+    ];
+    let bounds = Bounds::of_points(corners.map(|p| frame.point(p))).expect("four corners");
+    placed::instance_texts(pcb, instance)
+        .into_iter()
+        .map(|entry| {
+            let mut placed = frame.text(&entry);
+            let mode = instance
+                .text_overrides
+                .iter()
+                .find(|o| o.text == entry.uuid)
+                .and_then(|o| o.autoposition)
+                .unwrap_or_default();
+            if mode == Manual {
+                return placed;
+            }
+            // Automatic placements read upright on both sides and after any Footprint turn.
+            placed.rotation = Millideg::ZERO;
+            let content = field_text(&entry.field, &instance.designator, &instance.fields);
+            let Some(mut probe) = centred_text(pcb, instance.uuid, content, &placed, fonts) else {
+                return placed;
+            };
+            probe.position = Point::default();
+            let geometry = super::text_geometry(&probe, fonts);
+            let r = Nm(geometry.stroke_width.0 / 2);
+            let ink = geometry
+                .fill
+                .points
+                .iter()
+                .map(|&p| Bounds::of_point(p))
+                .chain(
+                    geometry
+                        .strokes
+                        .iter()
+                        .flat_map(|s| [s.a, s.b])
+                        .map(|p| Bounds {
+                            min: Point::new(p.x - r, p.y - r),
+                            max: Point::new(p.x + r, p.y + r),
+                        }),
+                )
+                .reduce(Bounds::union)
+                .unwrap_or_else(|| Bounds::of_point(Point::default()));
+            let mid = |a: Nm, b: Nm| Nm((a.0 + b.0) / 2);
+            let x = match mode {
+                LeftAbove | LeftCenter | LeftBelow => bounds.min.x - ink.max.x,
+                RightAbove | RightCenter | RightBelow => bounds.max.x - ink.min.x,
+                _ => mid(bounds.min.x, bounds.max.x) - mid(ink.min.x, ink.max.x),
+            };
+            let y = match mode {
+                LeftAbove | CenterAbove | RightAbove => bounds.max.y - ink.min.y,
+                LeftBelow | CenterBelow | RightBelow => bounds.min.y - ink.max.y,
+                _ => mid(bounds.min.y, bounds.max.y) - mid(ink.min.y, ink.max.y),
+            };
+            placed.at = Point::new(x, y);
+            placed
+        })
+        .collect()
 }
 
 /// Every text a Footprint draws as the Footprint editor shows it, unplaced (at its own
 /// origin, top side), on the board Layers of `pcb`, each with the UUID of its graphic or
 /// field text: its drawing's text shapes, then its field texts, laid out exactly as on a
 /// board. The Designator shows as `designator`, the value as `value` and any other field
-/// as its name. Each PCB text's `uuid` is the Footprint's.
+/// as its name. Field texts retain their entry UUIDs.
 pub fn element_texts(
     pcb: &PcbDocument,
     footprint: &Footprint,
@@ -133,50 +208,36 @@ fn pcb_text(
         uuid: object,
         layer,
         text: text.to_owned(),
-        font: HERSHEY_FONT.to_owned(),
         position,
-        height,
-        thickness: Nm(height.0 * FOOTPRINT_TEXT_PEN.0 / FOOTPRINT_TEXT_PEN.1),
+        style: TextStyle {
+            justify: Default::default(),
+            ..TextStyle::of_height(height)
+        },
+        frame: None,
         rotation,
         mirrored,
     }
 }
 
-/// A field text centred on its placement, mirrored on a bottom Layer: the centre of the
-/// glyphs' box (strokes and fill) lands on `at`. This is the one place the canvas, the
-/// Gerber silkscreen and DRC centre Footprint text.
+/// A field text at its shared style anchor, mirrored on a bottom Layer. The canvas,
+/// fabrication plots and DRC all resolve its justification through `text_geometry`.
 fn centred_text(
     pcb: &PcbDocument,
-    object: Uuid,
+    _object: Uuid,
     text: &str,
     placement: &FootprintText,
-    fonts: &Fonts,
+    _fonts: &Fonts,
 ) -> Option<PcbText> {
     let layer = board_layer(pcb, placement.layer)?;
     let mirrored = placement.layer.is_bottom();
-    let styled = |position: Point, rotation: Millideg, mirrored: bool| PcbText {
-        uuid: object,
+    Some(PcbText {
+        uuid: placement.uuid,
         layer,
         text: text.to_owned(),
-        font: placement.style.font.clone(),
-        position,
-        height: placement.style.height,
-        thickness: placement.style.thickness,
-        rotation,
+        position: placement.at,
+        style: placement.style.clone(),
+        frame: None,
+        rotation: placement.rotation,
         mirrored,
-    };
-    // Lay it out upright at the origin to find its centre, then move that onto `at`.
-    let probe = styled(Point::default(), Millideg::ZERO, false);
-    let laid = super::text_geometry(&probe, fonts);
-    let points = laid.strokes.iter().flat_map(|s| [s.a, s.b]);
-    let points = points.chain(laid.fill.points.iter().copied());
-    let centre = Bounds::of_points(points).map_or(Point::default(), |b| b.center());
-    let centre = if mirrored {
-        Point::new(-centre.x, centre.y)
-    } else {
-        centre
-    };
-    let d = placed::rotate(centre, Point::default(), placement.rotation);
-    let position = Point::new(placement.at.x - d.x, placement.at.y - d.y);
-    Some(styled(position, placement.rotation, mirrored))
+    })
 }
