@@ -13442,6 +13442,64 @@
             ],
             "type": "object"
           },
+          "FootprintTextOverride": {
+            "additionalProperties": false,
+            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "autoposition": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextAutoposition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
           "FrameSize": {
             "anyOf": [
               {
@@ -14091,13 +14149,39 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
-                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
               },
+              "frame": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextFrame"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "layer": {
                 "description": "The Layer it is drawn on.",
@@ -14110,7 +14194,7 @@
               },
               "position": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first line's baseline."
+                "description": "The anchor of the text block or Text Frame."
               },
               "rotation": {
                 "description": "Counter-clockwise about `position`; left out when 0.",
@@ -14122,7 +14206,7 @@
                 "type": "string"
               },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -14135,10 +14219,11 @@
               "uuid",
               "layer",
               "text",
-              "font",
               "position",
+              "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
           },
@@ -14195,17 +14280,6 @@
               "designator": {
                 "type": "string"
               },
-              "designator_text": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/FootprintText"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Where this instance draws its Designator text, when moved from the Footprint's own\nplacement."
-              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -14244,6 +14318,13 @@
               },
               "side": {
                 "$ref": "#/$defs/Side"
+              },
+              "text_overrides": {
+                "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
+                "items": {
+                  "$ref": "#/$defs/FootprintTextOverride"
+                },
+                "type": "array"
               },
               "uuid": {
                 "format": "uuid",
@@ -17428,21 +17509,111 @@
             ],
             "type": "string"
           },
-          "TextStyle": {
+          "TextAutoposition": {
+            "enum": [
+              "manual",
+              "left_above",
+              "center_above",
+              "right_above",
+              "left_center",
+              "center",
+              "right_center",
+              "left_below",
+              "center_below",
+              "right_below"
+            ],
+            "type": "string"
+          },
+          "TextFrame": {
             "additionalProperties": false,
-            "description": "How a Footprint text is drawn.",
             "properties": {
-              "font": {
-                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
-                "type": "string"
-              },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "The shared style of free PCB text and Footprint field text.",
+            "properties": {
+              "font": {
+                "type": "string"
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -17450,9 +17621,18 @@
             "required": [
               "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           },
           "TrackGeometry": {
             "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
@@ -19002,6 +19182,64 @@
             ],
             "type": "object"
           },
+          "FootprintTextOverride": {
+            "additionalProperties": false,
+            "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+            "properties": {
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "autoposition": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextAutoposition"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "text": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "visible": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "type": "object"
+          },
           "FrameSize": {
             "anyOf": [
               {
@@ -19651,13 +19889,39 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "font": {
-                "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
                 "type": "string"
               },
+              "frame": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextFrame"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "layer": {
                 "description": "The Layer it is drawn on.",
@@ -19670,7 +19934,7 @@
               },
               "position": {
                 "$ref": "#/$defs/Point",
-                "description": "The left end of the first line's baseline."
+                "description": "The anchor of the text block or Text Frame."
               },
               "rotation": {
                 "description": "Counter-clockwise about `position`; left out when 0.",
@@ -19682,7 +19946,7 @@
                 "type": "string"
               },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
@@ -19695,10 +19959,11 @@
               "uuid",
               "layer",
               "text",
-              "font",
               "position",
+              "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
           },
@@ -19755,17 +20020,6 @@
               "designator": {
                 "type": "string"
               },
-              "designator_text": {
-                "anyOf": [
-                  {
-                    "$ref": "#/$defs/FootprintText"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Where this instance draws its Designator text, when moved from the Footprint's own\nplacement."
-              },
               "fields": {
                 "$ref": "#/$defs/Fields",
                 "description": "The value is `fields.value`."
@@ -19804,6 +20058,13 @@
               },
               "side": {
                 "$ref": "#/$defs/Side"
+              },
+              "text_overrides": {
+                "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
+                "items": {
+                  "$ref": "#/$defs/FootprintTextOverride"
+                },
+                "type": "array"
               },
               "uuid": {
                 "format": "uuid",
@@ -23009,21 +23270,111 @@
             ],
             "type": "string"
           },
-          "TextStyle": {
+          "TextAutoposition": {
+            "enum": [
+              "manual",
+              "left_above",
+              "center_above",
+              "right_above",
+              "left_center",
+              "center",
+              "right_center",
+              "left_below",
+              "center_below",
+              "right_below"
+            ],
+            "type": "string"
+          },
+          "TextFrame": {
             "additionalProperties": false,
-            "description": "How a Footprint text is drawn.",
             "properties": {
-              "font": {
-                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
-                "type": "string"
-              },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
+          "TextStyle": {
+            "additionalProperties": false,
+            "description": "The shared style of free PCB text and Footprint field text.",
+            "properties": {
+              "font": {
+                "type": "string"
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -23031,9 +23382,18 @@
             "required": [
               "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           },
           "TrackGeometry": {
             "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
@@ -25500,7 +25860,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves, turns, resizes or hides one Footprint's Designator text. `at` and `rotation` are on the board; the text keeps its place relative to the Footprint when the Footprint moves. `reset` goes back to the Footprint's own placement. Allowed on locked Footprints.",
+      "description": "Moves, turns, resizes or hides one Footprint's primary Designator text using sparse text overrides. Anchors and rotations are on the board. Reset restores the Footprint defaults. Allowed on locked Footprints.",
       "icon": "text",
       "id": "pcb.designator_text.set",
       "kind": "edit",
@@ -25563,17 +25923,14 @@
               {
                 "type": "null"
               }
-            ],
-            "description": "Where the text centre goes on the board."
+            ]
           },
           "footprint": {
-            "description": "The Footprint whose Designator text to change.",
             "format": "uuid",
             "type": "string"
           },
           "reset": {
             "default": false,
-            "description": "Go back to the Footprint's own placement; nothing else may be given with it.",
             "type": "boolean"
           },
           "rotation": {
@@ -25584,9 +25941,7 @@
               {
                 "type": "null"
               }
-            ],
-            "default": null,
-            "description": "Its direction on the board, counter-clockwise."
+            ]
           },
           "size": {
             "anyOf": [
@@ -25596,12 +25951,9 @@
               {
                 "type": "null"
               }
-            ],
-            "default": null,
-            "description": "The text height; the pen width follows it."
+            ]
           },
           "visible": {
-            "default": null,
             "type": [
               "boolean",
               "null"
@@ -26124,6 +26476,286 @@
         "type": "object"
       },
       "title": "Edit Footprint Properties"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes field text across placed Footprints with sparse overrides. Select by field or text entry UUIDs. Anchors and rotations use board coordinates; moving text sets manual placement. Reset restores the Footprint defaults. Allowed on locked Footprints.",
+      "icon": "text_edit",
+      "id": "pcb.footprint.text.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "KnockoutParam": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "StyleParam": {
+            "additionalProperties": false,
+            "description": "Sparse shared style patch, used when changing Footprint text across instances.",
+            "properties": {
+              "clear_knockout": {
+                "default": false,
+                "type": "boolean"
+              },
+              "font": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "height": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "justify": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextJustify"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/KnockoutParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "thickness": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "TextAutoposition": {
+            "enum": [
+              "manual",
+              "left_above",
+              "center_above",
+              "right_above",
+              "left_center",
+              "center",
+              "right_center",
+              "left_below",
+              "center_below",
+              "right_below"
+            ],
+            "type": "string"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Anchor in board coordinates. Moving text sets `manual`."
+          },
+          "autoposition": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextAutoposition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field": {
+            "description": "Select every entry drawing this field, across the instances.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instances": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reset": {
+            "default": false,
+            "type": "boolean"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Angle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reading direction in board coordinates."
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StyleParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "texts": {
+            "description": "Select individual entries by their stable Footprint text UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "instances"
+        ],
+        "title": "FootprintTextSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Set Footprint Text"
     },
     {
       "category": "pcb",
@@ -30129,6 +30761,34 @@
               }
             ]
           },
+          "FrameParam": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "KnockoutParam": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -30142,6 +30802,39 @@
                 "type": "string"
               }
             ]
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -30155,6 +30848,16 @@
               "null"
             ]
           },
+          "frame": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FrameParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "height": {
             "anyOf": [
               {
@@ -30166,6 +30869,27 @@
             ],
             "default": null,
             "description": "The capital height; 1 mm when left out."
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextJustify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "knockout": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnockoutParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "layer": {
             "description": "The Layer: copper, silkscreen, mechanical or documentation.",
@@ -30333,6 +31057,12 @@
                 "description": "The family it was drawn in: the one it names, or Noto Sans when that is missing.",
                 "type": "string"
               },
+              "dropped_lines": {
+                "description": "Wrapped lines omitted because their whole capital height or width did not fit.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
               "fill": {
                 "$ref": "#/$defs/Fill",
                 "description": "Outline-font glyphs (including characters the stroke font lacks), filled."
@@ -30374,6 +31104,7 @@
               "font",
               "drawn_font",
               "missing_font",
+              "dropped_lines",
               "stroke_width",
               "strokes",
               "fill"
@@ -30466,6 +31197,34 @@
               }
             ]
           },
+          "FrameParam": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "$ref": "#/$defs/Length"
+              },
+              "width": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "KnockoutParam": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -30479,16 +31238,67 @@
                 "type": "string"
               }
             ]
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "clear_frame": {
+            "default": false,
+            "type": "boolean"
+          },
+          "clear_knockout": {
+            "default": false,
+            "type": "boolean"
+          },
           "font": {
             "default": null,
             "type": [
               "string",
               "null"
+            ]
+          },
+          "frame": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FrameParam"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "height": {
@@ -30501,6 +31311,27 @@
               }
             ],
             "default": null
+          },
+          "justify": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TextJustify"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "knockout": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnockoutParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "layer": {
             "description": "A new Layer: copper, silkscreen, mechanical or documentation.",
@@ -35619,21 +36450,76 @@
             ],
             "type": "string"
           },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "TextStyle": {
             "additionalProperties": false,
-            "description": "How a Footprint text is drawn.",
+            "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
-                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -35641,9 +36527,18 @@
             "required": [
               "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           },
           "Unit": {
             "additionalProperties": false,
@@ -37604,21 +38499,76 @@
             ],
             "type": "string"
           },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "TextStyle": {
             "additionalProperties": false,
-            "description": "How a Footprint text is drawn.",
+            "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
-                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -37626,9 +38576,18 @@
             "required": [
               "font",
               "height",
-              "thickness"
+              "thickness",
+              "justify"
             ],
             "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           },
           "Unit": {
             "additionalProperties": false,
@@ -41822,21 +42781,76 @@
             ],
             "type": "string"
           },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
           "TextStyle": {
             "additionalProperties": false,
-            "description": "How a Footprint text is drawn.",
+            "description": "The shared style of free PCB text and Footprint field text.",
             "properties": {
               "font": {
-                "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
                 "type": "string"
               },
               "height": {
-                "description": "The capital height.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "thickness": {
-                "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
               }
@@ -41847,6 +42861,14 @@
               "thickness"
             ],
             "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
           },
           "Unit": {
             "additionalProperties": false,

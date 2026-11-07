@@ -184,3 +184,17 @@ fn both_library_canvases_share_click_toggle_smallest_stack_and_filter_rules() {
         );
     }
 }
+
+#[test]
+fn footprint_editor_prefers_active_layer_pads_over_smaller_inactive_graphics() {
+    let mut c = canvas("footprint");
+    let pad:Uuid = run(&mut c.h,"library.footprint.pad.add",json!({"footprint":c.document,"number":"1","kind":"smd","shape":"rect","at":{"x":0,"y":0},"width":"8mm","height":"8mm"}))["result"]["pad"].as_str().unwrap().parse().unwrap();
+    c.h.run();
+    let at = screen(&c, 0.0, 0.0);
+    click(&mut c, at, Modifiers::NONE);
+    assert_eq!(
+        c.h.state().shell().selection().objects,
+        [pad],
+        "the active copper Layer wins before size ordering"
+    );
+}

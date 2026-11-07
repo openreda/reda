@@ -281,6 +281,7 @@ fn component_field_text_can_be_selected_and_moved_alone_but_cannot_be_deleted() 
             .unwrap();
         (run.at.x.0 as f64 / MIL, run.at.y.0 as f64 / MIL)
     };
+    run(&mut h, "selection.set", json!({"objects":[unit]}));
     let at = screen(&h, x + 10.0, y);
     h.drag_at(at);
     h.drop_at(at);
@@ -539,6 +540,68 @@ fn explicitly_selected_parent_and_field_move_the_text_once() {
         unit.field_text("designator"),
         Some(&old),
         "the child keeps its local offset, without a second move"
+    );
+}
+
+#[test]
+fn dragging_a_selected_field_preserves_and_moves_the_other_selected_fields() {
+    let dir = TempDir::new("canvas-multiple-fields");
+    let mut h = harness(&dir);
+    let first = resistor_and_wire(&mut h);
+    let second = run(
+        &mut h,
+        "schematic.component.place",
+        json!({"document":SHEET,"part":R_10K,"at":{"x":"1000mil","y":0}}),
+    )["result"]["unit"]
+        .clone();
+    for (unit, x) in [(&first, "300mil"), (&second, "1300mil")] {
+        run(
+            &mut h,
+            "schematic.field.move",
+            json!({"unit":unit,"field":"designator","at":{"x":x,"y":"500mil"}}),
+        );
+    }
+    run(
+        &mut h,
+        "selection.set",
+        json!({"fields":[{"unit":first,"field":"designator"},{"unit":second,"field":"designator"}]}),
+    );
+    h.run();
+    let at = screen(&h, 310.0, 500.0);
+    h.drag_at(at);
+    h.run();
+    h.hover_at(at + vec2(60.0, 0.0));
+    h.run();
+    h.drop_at(at + vec2(60.0, 0.0));
+    h.run();
+    assert_eq!(
+        h.state().shell().selection().fields.len(),
+        2,
+        "a drag never deselects another field"
+    );
+    let sheet = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .schematic_sheet(sheet())
+        .unwrap();
+    let offsets: Vec<_> = [first, second]
+        .iter()
+        .map(|id| {
+            sheet
+                .unit(id.as_str().unwrap().parse().unwrap())
+                .unwrap()
+                .field_text("designator")
+                .unwrap()
+                .offset
+        })
+        .collect();
+    assert!(offsets[0].x.0 > 300 * 25_400);
+    assert_eq!(
+        offsets[0], offsets[1],
+        "both fields move by the same delta in their parent frames"
     );
 }
 

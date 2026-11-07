@@ -254,11 +254,43 @@ fn designator_text_selects_and_drags_alone_refuses_delete_and_follows_its_parent
     w.h.state_mut()
         .shell_mut()
         .run(
-            "pcb.move",
-            json!({"objects":[footprint],"by":{"x":"1mm","y":0}}),
+            "selection.set",
+            json!({"objects":[footprint],"texts":[{"footprint":footprint,"text":text.text}]}),
         )
         .unwrap();
-    assert_eq!(anchor(&w).x.0, from.x.0 + 1_000_000);
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document":w.pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let grab = on_screen(&w, from);
+    w.h.drag_at(grab);
+    w.h.run();
+    w.h.hover_at(grab + egui::vec2(50.0, 0.0));
+    w.h.run();
+    w.h.drop_at(grab + egui::vec2(50.0, 0.0));
+    w.h.run();
+    let moved = footprint_at(&w);
+    assert!(moved.x.0 > 0);
+    assert_eq!(
+        anchor(&w),
+        from + moved,
+        "a parent move carries its child once"
+    );
+    assert_eq!(
+        shell(&w)
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .footprint(footprint)
+            .unwrap()
+            .text_overrides,
+        before.text_overrides,
+        "the child keeps its local placement"
+    );
 }
 
 #[test]
@@ -350,6 +382,69 @@ fn protected_objects_are_skipped_by_click_but_pick_list_shows_locks_and_selects_
         [footprint],
         "explicit list picks can select protected objects"
     );
+}
+
+#[test]
+fn footprint_body_ranks_before_zones_and_keepouts_then_the_board_outline() {
+    let mut w = window();
+    let mut add = |id: &str, p: serde_json::Value| {
+        w.h.state_mut().shell_mut().run(id, p).unwrap()["result"]["uuid"]
+            .as_str()
+            .unwrap()
+            .parse::<Uuid>()
+            .unwrap()
+    };
+    let outline = add(
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
+    );
+    let vertices =
+        |size: &str| json!([{"x":0,"y":0},{"x":size,"y":0},{"x":size,"y":size},{"x":0,"y":size}]);
+    let zone = add(
+        "pcb.zone.add",
+        json!({"layer":"copper_top","vertices":vertices("4mm")}),
+    );
+    let keepout = add("pcb.keepout.add", json!({"vertices":vertices("8mm")}));
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "selection.filter.set",
+            json!({"document":w.pcb,"kinds":{"pad":false,"footprint_text":false}}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document":w.pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let at = on_screen(&w, Point::default());
+    let click = |w: &mut Window| {
+        w.h.drag_at(at);
+        w.h.drop_at(at);
+        w.h.run();
+    };
+    click(&mut w);
+    assert_eq!(shell(&w).selection().objects, [w.footprint]);
+    for (kind, expected) in [
+        ("footprint_instance", zone),
+        ("zone", keepout),
+        ("keepout", outline),
+    ] {
+        w.h.state_mut()
+            .shell_mut()
+            .run(
+                "selection.filter.set",
+                json!({"document":w.pcb,"kinds":{kind:false}}),
+            )
+            .unwrap();
+        click(&mut w);
+        assert_eq!(
+            shell(&w).selection().objects,
+            [expected],
+            "the next tier wins after filtering {kind}"
+        );
+    }
 }
 
 #[test]

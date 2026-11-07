@@ -177,7 +177,7 @@ fn a_wire_is_picked_on_any_of_its_segments_and_enclosed_only_whole() {
 }
 
 #[test]
-fn shift_adds_to_the_selection_and_mod_toggles() {
+fn shift_toggles_the_selection_and_mod_replaces() {
     let current = [id(2), id(3)];
     assert_eq!(combine(&current, &[id(4)], Combine::Replace), [id(4)]);
     assert_eq!(
@@ -194,8 +194,8 @@ fn shift_adds_to_the_selection_and_mod_toggles() {
         ..egui::Modifiers::NONE
     };
     assert_eq!(Combine::of(mods(false, false)), Combine::Replace);
-    assert_eq!(Combine::of(mods(true, false)), Combine::Add);
-    assert_eq!(Combine::of(mods(false, true)), Combine::Toggle);
+    assert_eq!(Combine::of(mods(true, false)), Combine::Toggle);
+    assert_eq!(Combine::of(mods(false, true)), Combine::Replace);
 }
 
 #[test]

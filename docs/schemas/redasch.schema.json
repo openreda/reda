@@ -1665,21 +1665,76 @@
       ],
       "type": "string"
     },
+    "TextHJustify": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "type": "string"
+    },
+    "TextJustify": {
+      "additionalProperties": false,
+      "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+      "properties": {
+        "h": {
+          "$ref": "#/$defs/TextHJustify"
+        },
+        "v": {
+          "$ref": "#/$defs/TextVJustify"
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ],
+      "type": "object"
+    },
+    "TextKnockout": {
+      "additionalProperties": false,
+      "properties": {
+        "margin": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "margin"
+      ],
+      "type": "object"
+    },
     "TextStyle": {
       "additionalProperties": false,
-      "description": "How a Footprint text is drawn.",
+      "description": "The shared style of free PCB text and Footprint field text.",
       "properties": {
         "font": {
-          "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
           "type": "string"
         },
         "height": {
-          "description": "The capital height.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "thickness": {
-          "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         }
@@ -1690,6 +1745,14 @@
         "thickness"
       ],
       "type": "object"
+    },
+    "TextVJustify": {
+      "enum": [
+        "top",
+        "center",
+        "bottom"
+      ],
+      "type": "string"
     },
     "Unit": {
       "additionalProperties": false,

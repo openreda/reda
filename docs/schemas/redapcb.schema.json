@@ -491,17 +491,6 @@
         "designator": {
           "type": "string"
         },
-        "designator_text": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FootprintText"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Where this instance draws its Designator text, when moved from the Footprint's own\nplacement."
-        },
         "fields": {
           "$ref": "#/$defs/Fields",
           "description": "The value is `fields.value`."
@@ -540,6 +529,13 @@
         },
         "side": {
           "$ref": "#/$defs/Side"
+        },
+        "text_overrides": {
+          "description": "Sparse placement/style overrides, sorted by the UUID of the Footprint text entry.",
+          "items": {
+            "$ref": "#/$defs/FootprintTextOverride"
+          },
+          "type": "array"
         },
         "uuid": {
           "format": "uuid",
@@ -639,6 +635,64 @@
         "rotation",
         "style",
         "layer"
+      ],
+      "type": "object"
+    },
+    "FootprintTextOverride": {
+      "additionalProperties": false,
+      "description": "An instance changes only the properties present here; the Footprint supplies the rest.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "autoposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextAutoposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rotation": {
+          "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "visible": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "text"
       ],
       "type": "object"
     },
@@ -1520,16 +1574,42 @@
     },
     "PcbText": {
       "additionalProperties": false,
-      "description": "Free text on a PCB Layer.\n\nThe text starts at `position`, the left end of its first baseline; each further line\n(after a `\\n`) sits one line pitch below. Mirroring flips it about the vertical line\nthrough `position`, then the rotation turns it about the same point.",
+      "description": "Free text on a PCB Layer.\n\n`position` is its justification anchor. Mirroring and rotation apply about it.",
       "properties": {
         "font": {
-          "description": "The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed\nfont. A family missing on this machine draws as Noto Sans.",
           "type": "string"
         },
+        "frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextFrame"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "height": {
-          "description": "The capital height.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "layer": {
           "description": "The Layer it is drawn on.",
@@ -1542,7 +1622,7 @@
         },
         "position": {
           "$ref": "#/$defs/Point",
-          "description": "The left end of the first line's baseline."
+          "description": "The anchor of the text block or Text Frame."
         },
         "rotation": {
           "description": "Counter-clockwise about `position`; left out when 0.",
@@ -1554,7 +1634,7 @@
           "type": "string"
         },
         "thickness": {
-          "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         },
@@ -1567,8 +1647,8 @@
         "uuid",
         "layer",
         "text",
-        "font",
         "position",
+        "font",
         "height",
         "thickness"
       ],
@@ -2042,21 +2122,111 @@
       ],
       "type": "string"
     },
-    "TextStyle": {
+    "TextAutoposition": {
+      "enum": [
+        "manual",
+        "left_above",
+        "center_above",
+        "right_above",
+        "left_center",
+        "center",
+        "right_center",
+        "left_below",
+        "center_below",
+        "right_below"
+      ],
+      "type": "string"
+    },
+    "TextFrame": {
       "additionalProperties": false,
-      "description": "How a Footprint text is drawn.",
       "properties": {
-        "font": {
-          "description": "The font family, such as `Hershey Roman Simplex` or `Noto Sans`. A family missing\non this machine draws as Noto Sans.",
-          "type": "string"
-        },
         "height": {
-          "description": "The capital height.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "TextHJustify": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "type": "string"
+    },
+    "TextJustify": {
+      "additionalProperties": false,
+      "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+      "properties": {
+        "h": {
+          "$ref": "#/$defs/TextHJustify"
+        },
+        "v": {
+          "$ref": "#/$defs/TextVJustify"
+        }
+      },
+      "required": [
+        "h",
+        "v"
+      ],
+      "type": "object"
+    },
+    "TextKnockout": {
+      "additionalProperties": false,
+      "properties": {
+        "margin": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "margin"
+      ],
+      "type": "object"
+    },
+    "TextStyle": {
+      "additionalProperties": false,
+      "description": "The shared style of free PCB text and Footprint field text.",
+      "properties": {
+        "font": {
+          "type": "string"
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "thickness": {
-          "description": "The pen width of stroke-font text; outline fonts are filled and ignore it.",
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
         }
@@ -2067,6 +2237,14 @@
         "thickness"
       ],
       "type": "object"
+    },
+    "TextVJustify": {
+      "enum": [
+        "top",
+        "center",
+        "bottom"
+      ],
+      "type": "string"
     },
     "Track": {
       "additionalProperties": false,

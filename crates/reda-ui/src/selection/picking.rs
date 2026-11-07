@@ -89,6 +89,24 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
             return None;
         }
     }
+    if crate::bars::document_type(shell, document) == Some(crate::bars::DocumentType::Footprint) {
+        let active = shell
+            .document_tab(document)
+            .and_then(|t| t.scene.layers.as_deref())
+            .and_then(|ls| {
+                ls.iter()
+                    .rev()
+                    .find(|c| matches!(c.layer, SceneLayer::Board(_)))
+            })
+            .map(|c| c.layer);
+        return Some(
+            if Some(item.layer) == active || item.layer == SceneLayer::Drill {
+                0
+            } else {
+                1
+            },
+        );
+    }
     let Some(project) = shell
         .engine()
         .project()
@@ -309,9 +327,11 @@ pub fn box_selection(
 #[derive(Clone, Debug)]
 pub struct MovingText {
     document: Uuid,
-    child: Child,
+    targets: Vec<(Child, reda_engine::model::geom::Point)>,
+    objects: Vec<Uuid>,
+    schematic: bool,
+    keep_connections: bool,
     grab: reda_engine::model::geom::Point,
-    start: reda_engine::model::geom::Point,
     by: reda_engine::model::geom::Point,
 }
 
@@ -334,40 +354,115 @@ pub fn text_pointer(
     let mut consumed = moving.is_some();
     for event in events {
         if moving.is_none() {
-            if let Pointer::DragStart { from, at, .. } = *event {
+            if let Pointer::DragStart {
+                from,
+                at,
+                modifiers,
+            } = *event
+            {
                 let hit = hit(shell, document, from, tolerance)?;
-                let item = shell
+                let current = shell.selection().clone();
+                let child = shell
                     .document_tab(document)?
                     .scene
                     .scene
                     .items
                     .iter()
-                    .find(|i| i.child.as_ref().is_some_and(|c| c.id() == hit))?;
-                let child = item.child.clone()?;
-                if matches!(child, Child::Pad { .. })
-                    || (shell.selection().objects.contains(&child.owner())
-                        && rules::allowed(shell, document, child.owner())
+                    .filter_map(|i| i.child.as_ref())
+                    .find(|c| c.id() == hit)
+                    .cloned();
+                let standalone_text = current
+                    .fields
+                    .iter()
+                    .any(|f| !current.objects.contains(&f.unit))
+                    || current
+                        .texts
+                        .iter()
+                        .any(|t| !current.objects.contains(&t.footprint));
+                let parent_selected = child.as_ref().is_some_and(|c| {
+                    current.objects.contains(&c.owner())
+                        && rules::allowed(shell, document, c.owner())
                         && !(shell.preferences().editing.protect_locked_objects
-                            && rules::locked(shell, document, child.owner())))
+                            && rules::locked(shell, document, c.owner()))
+                });
+                if matches!(child, Some(Child::Pad { .. }))
+                    || (parent_selected && !standalone_text)
+                    || (child.is_none() && !(current.objects.contains(&hit) && standalone_text))
                 {
                     return None;
                 }
-                let reda_engine::render::Primitive::Glyphs(run) = &item.primitive else {
-                    return None;
+                let mut keys = current.canvas_ids();
+                let already_selected = keys.contains(&hit) || parent_selected;
+                if !already_selected && !modifiers.shift {
+                    keys.clear();
+                }
+                if !keys.contains(&hit) {
+                    keys.push(hit);
+                }
+                let picked = if already_selected {
+                    current.clone()
+                } else {
+                    selected(shell, document, &keys)
                 };
-                let start = run.at;
+                let schematic = crate::bars::document_type(shell, document)
+                    == Some(crate::bars::DocumentType::Schematic);
+                let objects: Vec<_> = picked
+                    .objects
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        rules::allowed(shell, document, *id)
+                            && !(shell.preferences().editing.protect_locked_objects
+                                && rules::locked(shell, document, *id))
+                            && shell
+                                .engine()
+                                .project()
+                                .and_then(|p| p.object(*id))
+                                .is_some_and(|o| {
+                                    o.scope() == reda_engine::model::Scope::Document(document)
+                                        && (schematic
+                                            || matches!(
+                                                o.object_type(),
+                                                reda_engine::model::ObjectType::FootprintInstance
+                                                    | reda_engine::model::ObjectType::FreePad
+                                                    | reda_engine::model::ObjectType::OutputOrigin
+                                            ))
+                                })
+                    })
+                    .collect();
+                let text_ids = picked.canvas_ids();
+                let mut targets = Vec::new();
+                for item in &shell.document_tab(document)?.scene.scene.items {
+                    let Some(child) = &item.child else {
+                        continue;
+                    };
+                    if matches!(child, Child::Pad { .. })
+                        || !text_ids.contains(&child.id())
+                        || objects.contains(&child.owner())
+                        || !rules::allowed(shell, document, child.id())
+                        || targets.iter().any(|(seen, _)| seen == child)
+                    {
+                        continue;
+                    }
+                    if let reda_engine::render::Primitive::Glyphs(run) = &item.primitive {
+                        targets.push((child.clone(), run.at));
+                    }
+                }
                 let grab = snap_to_grid(from, shell.grid(document));
                 let by = snap_to_grid(at, shell.grid(document)) - grab;
-                commands.push((
-                    "selection.set".into(),
-                    serde_json::to_value(selected(shell, document, &[hit]))
-                        .expect("selection serializes"),
-                ));
+                if picked != current {
+                    commands.push((
+                        "selection.set".into(),
+                        serde_json::to_value(picked).expect("selection serializes"),
+                    ));
+                }
                 moving = Some(MovingText {
                     document,
-                    child,
+                    targets,
+                    objects,
+                    schematic,
+                    keep_connections: !modifiers.command,
                     grab,
-                    start,
                     by,
                 });
                 consumed = true;
@@ -385,12 +480,42 @@ pub fn text_pointer(
             Pointer::DragEnd(at) => {
                 m.by = snap_to_grid(at, shell.grid(document)) - m.grab;
                 if m.by != Point::default() {
-                    let at = m.start + m.by;
-                    commands.push(match &m.child {
-                        Child::Field {unit,field} => ("schematic.field.move".into(), json!({"unit":unit,"field":field,"at":{"x":at.x.0,"y":at.y.0}})),
-                        Child::FootprintText {footprint,text} => ("pcb.footprint.text.set".into(), json!({"instances":[footprint],"texts":[text],"at":{"x":at.x.0,"y":at.y.0}})),
-                        Child::Pad {..} => unreachable!(),
-                    });
+                    let mut steps = Vec::new();
+                    if !m.objects.is_empty() {
+                        let id = if m.schematic {
+                            if m.keep_connections {
+                                "schematic.drag"
+                            } else {
+                                "schematic.move"
+                            }
+                        } else {
+                            "pcb.move"
+                        };
+                        steps.push(json!({"id":id,"params":{"objects":m.objects,"by":{"x":m.by.x.0,"y":m.by.y.0}}}));
+                    }
+                    for (child, start) in &m.targets {
+                        let at = *start + m.by;
+                        let (id, params) = match child {
+                            Child::Field { unit, field } => (
+                                "schematic.field.move",
+                                json!({"unit":unit,"field":field,"at":{"x":at.x.0,"y":at.y.0}}),
+                            ),
+                            Child::FootprintText { footprint, text } => (
+                                "pcb.footprint.text.set",
+                                json!({"instances":[footprint],"texts":[text],"at":{"x":at.x.0,"y":at.y.0}}),
+                            ),
+                            Child::Pad { .. } => unreachable!(),
+                        };
+                        steps.push(json!({"id":id,"params":params}));
+                    }
+                    if steps.len() == 1 {
+                        commands.push((
+                            steps[0]["id"].as_str().expect("step id").into(),
+                            steps[0]["params"].clone(),
+                        ));
+                    } else if !steps.is_empty() {
+                        commands.push(("batch".into(), json!({"commands":steps})));
+                    }
                 }
                 moving = None;
             }
@@ -399,7 +524,15 @@ pub fn text_pointer(
     }
     if consumed {
         if let Some(tab) = shell.document_tab_mut(document) {
-            let ids: Vec<_> = moving.iter().map(|m| m.child.id()).collect();
+            let ids: Vec<_> = moving
+                .iter()
+                .flat_map(|m| {
+                    m.objects
+                        .iter()
+                        .copied()
+                        .chain(m.targets.iter().map(|(child, _)| child.id()))
+                })
+                .collect();
             tab.live = LiveHandle::new(None, &ids, &[]);
             tab.moving_offset = moving
                 .as_ref()
