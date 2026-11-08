@@ -574,3 +574,5 @@ mod overbars;
 mod frame;
 #[path = "schematic_scene/cross_references.rs"]
 mod cross_references;
+#[path = "schematic_scene/not_fitted.rs"]
+mod not_fitted;

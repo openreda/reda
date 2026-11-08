@@ -24,7 +24,7 @@ use reda_model::net_name::overbars;
 /// `schematic.nets` result's `junctions`).
 ///
 /// Draw order: the paper, frame, Border Zones and title block, free lines and rectangles, free text,
-/// then Units (body, Pins, fields), Wires,
+/// then Units (body, Pins, fields, a Not Fitted overlay), Wires,
 /// Junctions, Net Labels, No-Connect Markers, Ports and Power Ports; each kind in UUID order.
 pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> Option<Scene> {
     schematic_scene_styled(project, sheet, junctions, &SchematicStyle::default())
@@ -61,7 +61,12 @@ pub fn schematic_scene_styled(
     frame::build(&mut b, project, body, style.canvas);
     drawing::graphics(&mut b, body);
     drawing::texts(&mut b, body);
-    unit::build(&mut b, body, style);
+    unit::build(
+        &mut b,
+        body,
+        style,
+        project.props().schematic.not_fitted_display,
+    );
     drawing::wires(&mut b, body);
     drawing::junctions(&mut b, body, junctions);
     drawing::net_labels(&mut b, body, style.single_negation);

@@ -112,12 +112,9 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
         .project()
         .filter(|p| p.pcb_document(document).is_some())
     else {
-        use reda_engine::render::{ColorKey, Primitive, SchematicColor};
+        use reda_engine::render::{ColorKey, Primitive};
         let body = kind == FilterKind::Unit
-            && matches!(
-                item.color,
-                ColorKey::Schematic(SchematicColor::Body | SchematicColor::BodyFill)
-            )
+            && matches!(item.color, ColorKey::Schematic(c) if c.is_unit_body())
             && !matches!(item.primitive, Primitive::Glyphs(_));
         return Some(u8::from(body));
     };

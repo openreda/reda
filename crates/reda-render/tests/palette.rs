@@ -36,10 +36,16 @@ fn every_ink_kind_stands_out_from_the_paper_in_both_themes() {
     for theme in [Theme::Dark, Theme::Light] {
         let paper = color(theme, SchematicColor::Paper);
         for &kind in SchematicColor::ALL {
-            // Fills and tints sit under ink rather than being ink.
+            // Fills and tints sit under ink rather than being ink, and a masked body is
+            // meant to fade.
             if matches!(
                 kind,
-                SchematicColor::Paper | SchematicColor::BodyFill | SchematicColor::EmptyField
+                SchematicColor::Paper
+                    | SchematicColor::BodyFill
+                    | SchematicColor::EmptyField
+                    | SchematicColor::MaskedBody
+                    | SchematicColor::MaskedFill
+                    | SchematicColor::MaskedPin
             ) {
                 continue;
             }
