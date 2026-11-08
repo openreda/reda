@@ -13,6 +13,7 @@ pub mod cluster;
 mod commands;
 pub mod copper;
 pub mod drc;
+pub mod keepout;
 pub mod placed;
 pub mod rules;
 mod text;

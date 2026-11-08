@@ -41,7 +41,7 @@ pub use stackup::{
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
 pub use zone::{
-    FillShape, Keepout, PourOver, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    FillShape, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, PourOver, Restriction, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 
 /// Which face of the board a sided Layer is on.
@@ -498,6 +498,15 @@ impl PcbDocument {
         self.keepouts.get(&uuid)
     }
 
+    /// The copper Layers `keepout` applies to, top to bottom: its own, or every copper
+    /// Layer.
+    pub fn keepout_layers(&self, keepout: &Keepout) -> Vec<Uuid> {
+        self.copper_layers()
+            .map(|l| l.uuid)
+            .filter(|l| keepout.on_layer(*l))
+            .collect()
+    }
+
     /// The Zone Cutouts, sorted by UUID.
     pub fn zone_cutouts(&self) -> impl Iterator<Item = &ZoneCutout> {
         self.zone_cutouts.values()
@@ -943,16 +952,24 @@ impl PcbDocument {
         }
         for keepout in self.keepouts.values() {
             let uuid = keepout.uuid;
-            if keepout.layers.is_empty() || !keepout.layers.iter().all(|l| is_copper(*l)) {
-                return Err(format!(
-                    "Keepout {uuid} must apply to one or more copper Layers"
-                ));
+            if keepout.layer.is_some_and(|l| !is_copper(l)) {
+                return Err(format!("Keepout {uuid} is not on a copper Layer"));
             }
-            if !keepout.copper && !keepout.vias {
-                return Err(format!("Keepout {uuid} forbids nothing"));
+            if keepout.restrict.is_empty() {
+                return Err(format!("Keepout {uuid} restricts nothing"));
             }
-            reda_geom::check_contour(&keepout.vertices)
-                .map_err(|e| format!("Keepout {uuid}: {e}"))?;
+            match &keepout.shape {
+                KeepoutShape::Polygon { vertices } => reda_geom::check_contour(vertices)
+                    .map_err(|e| format!("Keepout {uuid}: {e}"))?,
+                KeepoutShape::Line { vertices, width } => {
+                    if vertices.len() < 2 {
+                        return Err(format!("Keepout {uuid} needs two or more line vertices"));
+                    }
+                    if *width <= Nm::ZERO {
+                        return Err(format!("Keepout {uuid} needs a positive line width"));
+                    }
+                }
+            }
         }
         for cutout in self.zone_cutouts.values() {
             let uuid = cutout.uuid;

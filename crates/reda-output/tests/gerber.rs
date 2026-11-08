@@ -748,3 +748,45 @@ fn outputs_leave_shelved_zones_out() {
     engine.run_ok("pcb.zone.restore", json!({}));
     assert_eq!(regions(&engine), 1);
 }
+
+#[test]
+fn keepouts_and_zone_cutouts_are_never_plotted() {
+    let dir = TempDir::new("gerber-keepouts");
+    let mut engine = board(&dir);
+    let gnd = net(&mut engine, "GND");
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": gnd, "width": "0.25mm",
+               "points": [pt(2.0, 2.0), pt(10.0, 2.0)]}),
+    );
+    let before: Vec<(String, Vec<u8>)> = plot(&engine)
+        .into_iter()
+        .map(|f| (f.name, f.bytes))
+        .collect();
+    // Keepouts that restrict nothing here, of both shapes, and a Zone Cutout with no Zone.
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"vertices": rect(15.0, 5.0, 20.0, 10.0), "restrict": ["vias", "footprints"]}),
+    );
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"layer": "copper_bottom", "shape": "line", "width": "1mm",
+               "vertices": [pt(5.0, 15.0), pt(25.0, 15.0)], "restrict": ["tracks"]}),
+    );
+    engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer": "copper_top", "vertices": rect(22.0, 5.0, 25.0, 10.0)}),
+    );
+    let after: Vec<(String, Vec<u8>)> = plot(&engine)
+        .into_iter()
+        .map(|f| (f.name, f.bytes))
+        .collect();
+    assert_eq!(names_of(&after), names_of(&before));
+    for ((name, a), (_, b)) in after.iter().zip(&before) {
+        assert!(a == b, "{name} changed");
+    }
+}
+
+fn names_of(files: &[(String, Vec<u8>)]) -> Vec<&str> {
+    files.iter().map(|(n, _)| n.as_str()).collect()
+}

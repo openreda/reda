@@ -255,3 +255,62 @@ fn an_out_of_sync_violation_can_be_waived() {
     assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
     assert_eq!(run["waived"], 1);
 }
+
+fn square(x0: i64, y0: i64, x1: i64, y1: i64) -> Value {
+    json!([{"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}])
+}
+
+#[test]
+fn a_footprint_is_checked_by_its_courtyard_against_keepouts_restricting_footprints() {
+    let dir = TempDir::new("drc-keepout-footprints");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 1);
+    // R1's courtyard spans x 8.5–11.5 mm, y 9.25–10.75 mm; its Pads end at x 11.225 mm
+    // and y 10.475 mm.
+    move_to(&mut engine, r[0], 10 * MM, 10 * MM);
+    // Over the courtyard's corner but clear of the Pads by more than the clearance.
+    let corner = square(11_300_000, 10_700_000, 13 * MM, 11 * MM);
+    let keepout = uuid(
+        &engine.run_ok(
+            "pcb.keepout.add",
+            json!({"layer": "copper_top", "vertices": corner}),
+        )["result"]["uuid"],
+    );
+    let keepouts = |e: &mut TestEngine| objects_of(&drc(e), "keepout");
+    assert!(
+        keepouts(&mut engine).is_empty(),
+        "Footprints are not restricted by default"
+    );
+
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "restrict": ["footprints"]}),
+    );
+    let run = drc(&mut engine);
+    assert_eq!(objects_of(&run, "keepout"), [vec![r[0], keepout]], "{run:#}");
+    let v = &of(&run, "keepout")[0];
+    assert_eq!(v["severity"], "error");
+    let courtyard = pcb(&engine)
+        .layers()
+        .find(reda_model::LayerKind::Courtyard, Some(reda_model::Side::Top))
+        .unwrap()
+        .uuid;
+    assert_eq!(v["layers"], json!([courtyard]));
+
+    // The bottom copper's side is the other side; every Layer covers both.
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "layer": "copper_bottom"}),
+    );
+    assert!(keepouts(&mut engine).is_empty());
+    engine.run_ok("pcb.keepout.set", json!({"keepout": keepout, "layer": null}));
+    assert_eq!(keepouts(&mut engine), [vec![r[0], keepout]]);
+
+    // With no clearance: a courtyard exactly touching passes.
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout,
+               "vertices": square(11_500_000, 10_700_000, 13 * MM, 11 * MM)}),
+    );
+    assert!(keepouts(&mut engine).is_empty());
+}

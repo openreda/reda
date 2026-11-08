@@ -7,7 +7,7 @@
 use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Millideg, Nm};
 use reda_model::{
-    ConnectionStyle, ConnectionTarget, FillShape, PadKind, PcbDocument, PourOver, Uuid, Zone,
+    ConnectionStyle, ConnectionTarget, FillShape, PadKind, PcbDocument, PourOver, Restriction, Uuid, Zone,
     ZoneConnection,
 };
 
@@ -55,11 +55,17 @@ pub(super) fn fill_zone(
     }
     let mut area = poly::polygon(poly::contour(vertices));
     area = within_board(pcb, zone, area);
-    // Keepouts forbidding copper, and Zone Cutouts, which cut exactly to their edge.
+    // Keepouts restricting Zones, grown by the clearance (none under
+    // `zero_keepout_clearance`), and Zone Cutouts, which cut exactly to their edge.
+    let keepout_clearance = if crate::keepout::zero_clearance(pcb) {
+        0
+    } else {
+        clearance_to(pcb, zone, None).0
+    };
     let keepouts: Vec<Vec<Contour>> = pcb
         .keepouts()
-        .filter(|k| k.copper && k.layers.contains(&layer))
-        .map(|k| vec![poly::contour(&k.vertices)])
+        .filter(|k| k.restricts(Restriction::Zones) && k.on_layer(layer))
+        .flat_map(|k| crate::keepout::grown(k, keepout_clearance))
         .chain(
             pcb.zone_cutouts()
                 .filter(|c| c.layer == layer)

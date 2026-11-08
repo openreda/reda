@@ -17,12 +17,13 @@ use crate::canvas::PaletteHandle;
 use crate::view_state::LayerView;
 
 /// The kinds of board object the Layers panel can hide, in its order.
-pub const VIEW_TYPES: [ObjectType; 8] = [
+pub const VIEW_TYPES: [ObjectType; 9] = [
     ObjectType::FootprintInstance,
     ObjectType::Track,
     ObjectType::Via,
     ObjectType::Zone,
     ObjectType::Keepout,
+    ObjectType::ZoneCutout,
     ObjectType::FreePad,
     ObjectType::PcbText,
     ObjectType::PcbGraphic,

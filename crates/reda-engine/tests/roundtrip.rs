@@ -12,10 +12,10 @@ use reda_engine::model::{
     BoardCutout, BoardOutline, BoardSetup, Column, ColumnSource, ComponentRef, ComponentType,
     CopperEntry, DielectricEntry, DocumentEntry, DocumentKind, DrcCheck, DrcSeverities, ErcCheck,
     ErcSettings, FabPreset, FileNaming, FootprintCopy, FootprintInstance, FrameSize, FreePad,
-    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, Layer, LayerKind, LayerSet,
+    GerberSettings, GraphicShape, Hole, InDocument, Justify, Keepout, KeepoutShape, Layer, LayerKind, LayerSet,
     LayerSpan, Net, NetClass, NetLabel, NoConnect, Object, Orientation, OutputJob, OutputOrigin,
     Outputs, PadKind, PadNet, PadShape, PartEntry, PcbGraphic, PcbText, Port, PortDirection,
-    PourOver, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
+    PourOver, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties, Restriction,
     ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
     Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
     ZoneCutout, ZoneNameScheme,
@@ -530,10 +530,20 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 doc,
                 Keepout {
                     uuid: id(),
-                    layers: vec![layer],
-                    vertices,
-                    copper: true,
-                    vias: !bottom,
+                    layer: (!bottom).then_some(layer),
+                    shape: if bottom {
+                        KeepoutShape::Line {
+                            vertices,
+                            width: Nm(250_000),
+                        }
+                    } else {
+                        KeepoutShape::Polygon { vertices }
+                    },
+                    restrict: if bottom {
+                        Restriction::ALL.into_iter().collect()
+                    } else {
+                        Restriction::defaults()
+                    },
                 },
             )));
             let mut waived = vec![id(), layer];

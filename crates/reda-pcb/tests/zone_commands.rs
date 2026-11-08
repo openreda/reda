@@ -577,7 +577,7 @@ fn every_polygon_object_comes_from_graphics_the_same_way() {
         } else if let Some(c) = pcb.zone_cutout(made) {
             c.vertices.clone()
         } else if let Some(k) = pcb.keepout(made) {
-            k.vertices.clone()
+            k.vertices().to_vec()
         } else if let Some(c) = pcb.cutout(made) {
             c.vertices.clone()
         } else {
@@ -723,12 +723,45 @@ fn a_zone_cutout_removes_every_zone_fill_on_its_layer_inside_it() {
     assert!((filled(0) - half).abs() < MM * MM / 100, "{}", filled(0));
     assert!(filled(1) > 99 * MM * MM, "other Layers keep their fill");
     let _ = (top, bottom);
+
+    // `set` moves it to another Layer and changes its outline; each refills what it cuts.
+    engine.run_ok(
+        "pcb.zone_cutout.set",
+        json!({"cutout": cutout, "layer": "copper_bottom", "vertices": rect(0, 0, 10, 2)}),
+    );
+    let stored = pcb(&engine).zone_cutout(cutout).unwrap().clone();
+    let bottom_layer = pcb(&engine).copper_layers().nth(1).unwrap().uuid;
+    assert_eq!(stored.layer, bottom_layer);
+    assert_eq!(stored.vertices.len(), 4);
+    assert_eq!(state(&mut engine, top), "stale");
+    assert_eq!(state(&mut engine, bottom), "stale");
+    engine.run_ok("pcb.zone.fill", json!({}));
+    let rows = engine.run_ok("pcb.zone.list", json!({}));
+    let filled = |layer: usize| {
+        rows["layers"][layer]["zones"][0]["filled_area"]
+            .as_i64()
+            .unwrap()
+    };
+    assert!(filled(0) > 99 * MM * MM, "the top is whole again");
+    assert!((filled(1) - 80 * MM * MM).abs() < MM * MM / 100, "{}", filled(1));
+    // What is left out stays; a non-copper Layer, a bad outline or an unknown UUID is refused.
+    engine.run_ok("pcb.zone_cutout.set", json!({"cutout": cutout}));
+    assert_eq!(pcb(&engine).zone_cutout(cutout), Some(&stored));
+    for (params, at) in [
+        (json!({"cutout": cutout, "layer": "silkscreen_top"}), "/layer"),
+        (json!({"cutout": cutout, "vertices": rect(0, 0, 0, 0)}), "/vertices"),
+        (json!({"cutout": Uuid::from_u128(0xdead)}), "/cutout"),
+    ] {
+        let err = engine.run_err("pcb.zone_cutout.set", params);
+        assert_eq!(err.details.unwrap()["pointer"], at);
+    }
+
     engine.run_ok(
         "pcb.zone_cutout.delete",
         json!({"cutouts": [cutout.to_string()]}),
     );
-    assert_eq!(state(&mut engine, top), "stale");
-    assert_eq!(state(&mut engine, bottom), "filled");
+    assert_eq!(state(&mut engine, top), "filled");
+    assert_eq!(state(&mut engine, bottom), "stale");
 }
 
 #[test]
