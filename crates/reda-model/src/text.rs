@@ -232,6 +232,10 @@ pub fn object_texts(object: &Object) -> Vec<(String, &str)> {
         }
         Object::SheetText(t) => out.push(("text".to_owned(), t.text.as_str())),
         Object::PcbText(t) => out.push(("text".to_owned(), t.text.as_str())),
+        Object::Dimension(d) => {
+            out.push(("prefix".to_owned(), d.prefix.as_str()));
+            out.push(("suffix".to_owned(), d.suffix.as_str()));
+        }
         Object::FootprintInstance(f) => fields_texts(&f.fields, &mut out),
         _ => {}
     }

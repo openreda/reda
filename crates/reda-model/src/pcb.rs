@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::{FootprintCopy, Object, Severity, Uuid, Waiver};
 
 mod copper;
+mod dimension;
 mod footprint;
 mod graphics;
 mod placement;
@@ -24,6 +25,10 @@ mod stackup;
 mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
+pub use dimension::{
+    ArrowPosition, Dimension, DimensionEnd, DimensionFormat, DimensionTextPosition, DimensionUnits,
+    Hotspot, HotspotRef,
+};
 
 pub use footprint::{
     FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
@@ -279,6 +284,7 @@ pub struct PcbDocument {
     pub(crate) nets: BTreeMap<Uuid, Net>,
     pub(crate) texts: BTreeMap<Uuid, PcbText>,
     pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
+    pub(crate) dimensions: BTreeMap<Uuid, Dimension>,
     pub(crate) footprint_copies: BTreeMap<Uuid, FootprintCopy>,
     pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
     pub(crate) tracks: BTreeMap<Uuid, Track>,
@@ -304,6 +310,7 @@ impl PcbDocument {
             nets: BTreeMap::new(),
             texts: BTreeMap::new(),
             graphics: BTreeMap::new(),
+            dimensions: BTreeMap::new(),
             footprint_copies: BTreeMap::new(),
             footprints: BTreeMap::new(),
             tracks: BTreeMap::new(),
@@ -426,6 +433,15 @@ impl PcbDocument {
 
     pub fn graphic(&self, uuid: Uuid) -> Option<&PcbGraphic> {
         self.graphics.get(&uuid)
+    }
+
+    /// The Dimensions, sorted by UUID.
+    pub fn dimensions(&self) -> impl Iterator<Item = &Dimension> {
+        self.dimensions.values()
+    }
+
+    pub fn dimension(&self, uuid: Uuid) -> Option<&Dimension> {
+        self.dimensions.get(&uuid)
     }
 
     /// The part table: the copies of the Footprints in use, sorted by UUID.
@@ -564,6 +580,7 @@ impl PcbDocument {
             nets => Net,
             texts => PcbText,
             graphics => PcbGraphic,
+            dimensions => Dimension,
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
@@ -600,6 +617,7 @@ impl PcbDocument {
             nets => Net,
             texts => PcbText,
             graphics => PcbGraphic,
+            dimensions => Dimension,
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
@@ -625,6 +643,7 @@ impl PcbDocument {
         self.nets.remove(&uuid);
         self.texts.remove(&uuid);
         self.graphics.remove(&uuid);
+        self.dimensions.remove(&uuid);
         self.footprint_copies.remove(&uuid);
         self.footprints.remove(&uuid);
         self.tracks.remove(&uuid);
@@ -647,6 +666,7 @@ impl PcbDocument {
             && self.nets.is_empty()
             && self.texts.is_empty()
             && self.graphics.is_empty()
+            && self.dimensions.is_empty()
             && self.footprint_copies.is_empty()
             && self.footprints.is_empty()
             && self.tracks.is_empty()
@@ -726,7 +746,8 @@ impl PcbDocument {
             .texts
             .values()
             .map(|t| (t.uuid, t.layer))
-            .chain(self.graphics.values().map(|g| (g.uuid, g.layer)));
+            .chain(self.graphics.values().map(|g| (g.uuid, g.layer)))
+            .chain(self.dimensions.values().map(|d| (d.uuid, d.layer)));
         for (uuid, layer) in drawn {
             if self.layers().layer(layer).is_none() {
                 return Err(format!(

@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
-    BoardCutout, BoardOutline, BoardSetup, DesignRule, FootprintInstance, FreePad, InDocument,
-    Keepout, LayerSet, Net, NetClass, OutputOrigin, PcbGraphic, PcbText, Stackup, Track, Via, Zone,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, FootprintInstance, FreePad,
+    InDocument, Keepout, LayerSet, Net, NetClass, OutputOrigin, PcbGraphic, PcbText, Stackup,
+    Track, Via, Zone,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -55,6 +56,7 @@ pub enum Object {
     Waiver(InDocument<Waiver>),
     PcbText(InDocument<PcbText>),
     PcbGraphic(InDocument<PcbGraphic>),
+    Dimension(InDocument<Dimension>),
     FootprintInstance(InDocument<FootprintInstance>),
     Track(InDocument<Track>),
     Via(InDocument<Via>),
@@ -133,6 +135,8 @@ pub enum ObjectType {
     PcbText,
     /// A line, arc or rectangle on a PCB Layer.
     PcbGraphic,
+    /// A measured distance drawn on a PCB Layer.
+    Dimension,
     /// A Footprint placed on the board, with its Component's data and a Net per Pad.
     FootprintInstance,
     /// One copper segment on a copper Layer.
@@ -185,6 +189,7 @@ impl Object {
             Object::Waiver(o) => o.uuid,
             Object::PcbText(o) => o.uuid,
             Object::PcbGraphic(o) => o.uuid,
+            Object::Dimension(o) => o.uuid,
             Object::FootprintInstance(o) => o.uuid,
             Object::Track(o) => o.uuid,
             Object::Via(o) => o.uuid,
@@ -228,6 +233,7 @@ impl Object {
             Object::Waiver(_) => ObjectType::Waiver,
             Object::PcbText(_) => ObjectType::PcbText,
             Object::PcbGraphic(_) => ObjectType::PcbGraphic,
+            Object::Dimension(_) => ObjectType::Dimension,
             Object::FootprintInstance(_) => ObjectType::FootprintInstance,
             Object::Track(_) => ObjectType::Track,
             Object::Via(_) => ObjectType::Via,
@@ -272,6 +278,7 @@ impl Object {
             Object::Waiver(o) => Scope::Document(o.document),
             Object::PcbText(o) => Scope::Document(o.document),
             Object::PcbGraphic(o) => Scope::Document(o.document),
+            Object::Dimension(o) => Scope::Document(o.document),
             Object::FootprintInstance(o) => Scope::Document(o.document),
             Object::Track(o) => Scope::Document(o.document),
             Object::Via(o) => Scope::Document(o.document),

@@ -520,6 +520,8 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
 
 - **A Dimension** is its own object, in a `dimensions` table in `.redapcb`, on any Layer that takes graphics. v0.1 has one linear type, at any angle. Other types are v0.7.
 - **Ends:** `a` and `b` each hold a `point` and an optional `ref {object, hotspot}`. The Tool attaches to the [Hotspot](editing.md#cursor-snapping) under the click, or to free space. `point` is kept current, so the Dimension survives losing its reference.
+  - `hotspot` is `origin` (Footprint), `{pad: <uuid>}` (a Footprint's Pad), `center` (Free Pad, Via, arc), `start` or `end` (Track, line, arc), `anchor` (text) or `{vertex: <n>}` (outline, cutout, Zone, Keepout, rectangle). After every edit, before it commits, a followed end moves onto its Hotspot, or drops its `ref` if the Hotspot is gone. Undo and redo replay that with the edit.
+  - The value is measured along `rotation`, which defaults to the line from `a` to `b`. The dimension line sits `offset` to the left of `a`, looking along `rotation`.
 - **Value:** derived, never stored. The Dimension follows its references, and its value updates.
 - **Fields:**
   - `layer`, `rotation`
@@ -527,7 +529,7 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - `text_position`: `automatic`, the aligned options, `unidirectional` or `manual`, and the text [style](#text-style)
   - `units`: mm, mil, in, cm or `automatic`; `precision`; `format`: `none`, `value`, `value_unit` or `value_bracketed_unit`; `prefix`; `suffix`
 - **Moving:**
-  - A Dimension with a reference can't move alone. Select it with its objects to move them together.
+  - A Dimension with a reference can't move alone. Select it with its objects to move them together. `pcb.move`, `pcb.rotate` and `pcb.flip` take Dimensions and refuse one without its referenced objects.
   - Handles adjust the text position, the extension length and each end.
 - **Deleting a reference:** the GUI asks whether to delete the Dimension too. A Command keeps it, with no `ref`.
 - **Commands:** `pcb.dimension.add`, `set`, `delete` and `explode`. `explode` replaces it with free lines and text, and only undo reverses it.

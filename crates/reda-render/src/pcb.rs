@@ -63,7 +63,7 @@ impl BoardPad {
 /// A Footprint's drawn shape, on a board Layer. Text shapes come as [`BoardText`]s.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardGraphic {
-    /// The Footprint instance.
+    /// The Footprint instance, or the Dimension it draws.
     pub object: Uuid,
     pub layer: Uuid,
     pub shape: Shape,

@@ -1,4 +1,5 @@
-//! Arranging what is placed on the board: Footprints, Free Pads and the Output Origin.
+//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions and the
+//! Output Origin.
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked Footprints refuse every Op.
@@ -10,7 +11,8 @@ mod turn;
 use reda_command::{CommandError, Context, Registry};
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    Corners, FootprintInstance, FreePad, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid,
+    Corners, Dimension, DimensionTextPosition, FootprintInstance, FreePad, InDocument, Object,
+    OutputOrigin, PcbDocument, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -37,6 +39,7 @@ pub(super) enum Item {
     Footprint(Box<FootprintInstance>),
     FreePad(Box<FreePad>),
     Origin(OutputOrigin),
+    Dimension(Box<Dimension>),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -56,6 +59,7 @@ impl Item {
             Item::Footprint(f) => f.uuid,
             Item::FreePad(p) => p.uuid,
             Item::Origin(o) => o.uuid,
+            Item::Dimension(d) => d.uuid,
         }
     }
 
@@ -64,6 +68,7 @@ impl Item {
             Item::Footprint(f) => f.at,
             Item::FreePad(p) => p.at,
             Item::Origin(o) => o.at,
+            Item::Dimension(d) => d.a.point,
         }
     }
 
@@ -72,10 +77,14 @@ impl Item {
             Item::Footprint(f) => footprint_bounds(pcb, f),
             Item::FreePad(p) => free_pad_bounds(p),
             Item::Origin(o) => Bounds::of_point(o.at),
+            Item::Dimension(d) => Bounds::of_point(d.a.point).union(Bounds::of_point(d.b.point)),
         }
     }
 
     fn apply(&mut self, op: Op) {
+        if let Item::Dimension(d) = self {
+            return move_dimension(d, op);
+        }
         let (at, rotation, side) = match self {
             Item::Footprint(f) => (&mut f.at, Some(&mut f.rotation), Some(&mut f.side)),
             Item::FreePad(p) => {
@@ -85,6 +94,7 @@ impl Item {
                 (&mut p.at, Some(&mut p.rotation), None)
             }
             Item::Origin(o) => (&mut o.at, None, None),
+            Item::Dimension(_) => unreachable!("moved above"),
         };
         match op {
             Op::Translate(by) => *at = *at + by,
@@ -114,6 +124,34 @@ impl Item {
             Item::Footprint(f) => Object::FootprintInstance(InDocument::new(document, *f)),
             Item::FreePad(p) => Object::FreePad(InDocument::new(document, *p)),
             Item::Origin(o) => Object::OutputOrigin(InDocument::new(document, o)),
+            Item::Dimension(d) => Object::Dimension(InDocument::new(document, *d)),
+        }
+    }
+}
+
+/// Moves a Dimension's free ends and manual text by `op`, and turns or mirrors its
+/// direction. Ends that follow a Hotspot are left to follow it.
+fn move_dimension(d: &mut Dimension, op: Op) {
+    let point = |p: Point| match op {
+        Op::Translate(by) => p + by,
+        Op::Rotate(about, angle) => rotate(p, about, angle),
+        Op::Flip(x) => Point::new(x * 2 - p.x, p.y),
+    };
+    for end in [&mut d.a, &mut d.b] {
+        if end.reference.is_none() {
+            end.point = point(end.point);
+        }
+    }
+    if let DimensionTextPosition::Manual(at) = &mut d.text_position {
+        *at = point(*at);
+    }
+    match op {
+        Op::Translate(_) => {}
+        Op::Rotate(_, angle) => d.rotation = (d.rotation + angle).normalized(),
+        Op::Flip(_) => {
+            // The direction mirrors left-right, so the side the line sits on swaps.
+            d.rotation = (Millideg::from_deg(180) - d.rotation).normalized();
+            d.offset = -d.offset;
         }
     }
 }
@@ -155,15 +193,45 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
             Item::FreePad(Box::new(p.clone()))
         } else if let Some(o) = pcb.output_origin().filter(|o| o.uuid == uuid) {
             Item::Origin(o.clone())
+        } else if let Some(d) = pcb.dimension(uuid) {
+            Item::Dimension(Box::new(d.clone()))
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
-                format!("{uuid} is not a Footprint, Free Pad or Output Origin on the board"),
+                format!(
+                    "{uuid} is not a Footprint, Free Pad, Dimension or Output Origin on the \
+                     board"
+                ),
             ));
         };
         items.push(item);
     }
+    refuse_lone_dimensions(&items)?;
     Ok(items)
+}
+
+/// `rejected` when a Dimension would move without an object it references: it can only
+/// move together with them.
+fn refuse_lone_dimensions(items: &[Item]) -> Result<(), CommandError> {
+    for item in items {
+        let Item::Dimension(d) = item else {
+            continue;
+        };
+        let left: Vec<Uuid> = d
+            .references()
+            .into_iter()
+            .filter(|r| !items.iter().any(|i| i.uuid() == *r))
+            .collect();
+        if !left.is_empty() {
+            let mut err = CommandError::rejected(
+                "a Dimension with a reference can't move alone; select it with the \
+                 objects it references to move them together",
+            );
+            err.details = Some(json!({ "dimension": d.uuid, "references": left }));
+            return Err(err);
+        }
+    }
+    Ok(())
 }
 
 /// `rejected` when any of `items` is a locked Footprint.

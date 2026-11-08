@@ -737,3 +737,52 @@ fn scoped_opening_rules_and_disabled_board_fallback_change_the_plotted_geometry(
     assert!(scoped.contains(mm(0.49) as f64, 0.0));
     assert!(!scoped.contains(mm(0.51) as f64, 0.0));
 }
+
+/// A Dimension plots as the lines and text it is laid out as
+/// ([`reda_pcb::dimension::drawing`]), on its own Layer and no other.
+#[test]
+fn dimensions_plot_as_their_lines_and_text_on_their_layer() {
+    let dir = TempDir::new("gerber-dimension");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "pcb.dimension.add",
+        json!({"layer": "silkscreen_top", "a": {"point": pt(2.0, 2.0)},
+               "b": {"point": pt(22.0, 2.0)}, "width": "0.2mm", "extension_width": "0.1mm"}),
+    );
+    engine.run_ok(
+        "pcb.dimension.add",
+        json!({"layer": "copper_bottom", "a": {"point": pt(2.0, 18.0)},
+               "b": {"point": pt(2.0, 8.0)}}),
+    );
+    let files = plot(&engine);
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let expected = |layer: Uuid| -> Vec<Draw> {
+        let mut out = Vec::new();
+        for d in pcb.dimensions().filter(|d| d.layer == layer) {
+            let drawn = reda_pcb::dimension::drawing(d, &Fonts::default());
+            out.extend(
+                drawn
+                    .lines
+                    .iter()
+                    .map(|l| ((l.from.x.0, l.from.y.0), (l.to.x.0, l.to.y.0), l.width.0)),
+            );
+            out.extend(strokes(&drawn.text.into_iter().collect::<Vec<_>>()));
+        }
+        out.sort();
+        out
+    };
+    let silk = pcb
+        .layers()
+        .find(LayerKind::Silkscreen, Some(Side::Top))
+        .unwrap()
+        .uuid;
+    let top = draws(&layer(&files, "Demo.GTO"));
+    assert!(top.len() > 7, "lines and text strokes: {top:?}");
+    assert_eq!(top, expected(silk));
+    assert!(top.contains(&((mm(2.0), mm(4.0)), (mm(22.0), mm(4.0)), mm(0.2))));
+    assert!(top.contains(&((mm(2.0), mm(2.5)), (mm(2.0), mm(4.5)), mm(0.1))));
+    let bottom = layer(&files, "Demo.GBL");
+    let copper_bottom = pcb.copper_layers().last().unwrap().uuid;
+    assert_eq!(bottom.draws().count(), expected(copper_bottom).len());
+    assert!(layer(&files, "Demo.GTL").draws().next().is_none());
+}

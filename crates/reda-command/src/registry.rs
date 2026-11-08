@@ -67,7 +67,14 @@ impl Registered {
 /// Every registered Command, keyed by id. It always holds the built-in `batch`.
 pub struct Registry {
     commands: BTreeMap<&'static str, Registered>,
+    settles: Vec<Settle>,
 }
+
+/// Work done after every edit, before its transaction commits, to keep derived data in
+/// the Project current: a Dimension following the object it references, say. It runs once
+/// per edit Command, once at the end of a `batch` and on a preview, but never on undo or
+/// redo, which replay changes that already include it.
+pub type Settle = fn(&mut Transaction<'_>) -> Result<(), CommandError>;
 
 impl Default for Registry {
     fn default() -> Registry {
@@ -81,7 +88,10 @@ impl Default for Registry {
                 result_schema: schema::result_schema::<Vec<Value>>(),
             },
         );
-        Registry { commands }
+        Registry {
+            commands,
+            settles: Vec::new(),
+        }
     }
 }
 
@@ -128,6 +138,15 @@ impl Registry {
         if self.commands.insert(id, entry).is_some() {
             panic!("Command {id} is registered twice");
         }
+    }
+
+    /// Adds a [`Settle`] step, run after every edit in the order added.
+    pub fn add_settle(&mut self, settle: Settle) {
+        self.settles.push(settle);
+    }
+
+    fn settle(&self, tx: &mut Transaction<'_>) -> Result<(), CommandError> {
+        self.settles.iter().try_for_each(|settle| settle(tx))
     }
 
     pub fn get(&self, id: &str) -> Option<Meta> {
@@ -273,7 +292,11 @@ impl Registry {
                         params,
                     );
                     let result = run.result?;
-                    (result, run.tx.commit()?, run.step)
+                    let mut tx = run.tx;
+                    if run.step.is_none() {
+                        self.settle(&mut tx)?;
+                    }
+                    (result, tx.commit()?, run.step)
                 };
                 let history = &mut session.history;
                 match step {
@@ -355,7 +378,9 @@ impl Registry {
                 params,
             );
             let result = run.result?;
-            run.tx.commit()?;
+            let mut tx = run.tx;
+            self.settle(&mut tx)?;
+            tx.commit()?;
             result
         };
         Ok((copy, result))
@@ -416,6 +441,7 @@ impl Registry {
             }
             results.push(result);
         }
+        self.settle(&mut tx)?;
         let changes = tx.commit()?;
         session.history.record(batch::META.title, &changes);
         Ok(envelope(&changes, Value::Array(results)))
