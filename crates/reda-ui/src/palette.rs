@@ -14,8 +14,10 @@ mod go_to;
 mod rows;
 
 use std::cmp::Reverse;
+use std::collections::HashMap;
 
-use crate::bars;
+use crate::bars::{self, Binding, Item};
+use crate::i18n;
 use crate::shell::Shell;
 
 pub use draw::{Palette, PaletteOutcome, remember_command_field};
@@ -39,6 +41,9 @@ pub struct Entry {
     pub icon: String,
     pub description: String,
     pub shortcut: Option<String>,
+    /// Where the menus of the current context have it, such as `Edit › Select Similar…`;
+    /// `None` when no menu has it, or several menu items run it with different params.
+    pub menu_path: Option<String>,
     /// Why it cannot run now, or `None` when it can.
     pub unavailable: Option<String>,
 }
@@ -46,11 +51,13 @@ pub struct Entry {
 /// Every Command and Preset in `shell`'s registry, as they stand now.
 pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
     let registry = shell.engine().registry();
+    let paths = menu_paths(shell);
     let entry = |id: String, title: String, icon: &str, description: &str| {
         // The window is never headless.
         let unavailable = shell.engine().available(&id, false).err();
         Entry {
             shortcut: shortcut(&id),
+            menu_path: paths.get(&id).cloned(),
             unavailable: unavailable.map(|e| e.message),
             title,
             icon: icon.to_owned(),
@@ -81,6 +88,57 @@ pub fn entries(shell: &Shell, shortcut: Shortcuts<'_>) -> Vec<Entry> {
         }
     }
     out
+}
+
+/// The menu path of each Command or Preset id in the menus of the active Document's type:
+/// the first menu item that runs it as a Command or Preset, or the only one that runs it
+/// with fixed params.
+fn menu_paths(shell: &Shell) -> HashMap<String, String> {
+    fn walk(
+        shell: &Shell,
+        items: &[Item],
+        path: &mut Vec<String>,
+        plain: &mut HashMap<String, String>,
+        raw: &mut HashMap<String, Vec<String>>,
+    ) {
+        for item in items {
+            match item {
+                Item::Separator => {}
+                Item::Submenu(menu) => {
+                    path.push(i18n::translate(&menu.title, &[]));
+                    walk(shell, &menu.items, path, plain, raw);
+                    path.pop();
+                }
+                Item::Action(action) => {
+                    let title = bars::resolve(shell, action).title;
+                    let full = path.iter().chain([&title]).cloned();
+                    let full: Vec<String> = full.collect();
+                    // `›`: the UI font has no `▸`.
+                    let full = full.join(" › ");
+                    match &action.binding {
+                        Binding::Command(id) | Binding::Preset(id) => {
+                            plain.entry(id.clone()).or_insert(full);
+                        }
+                        Binding::Raw { command, .. } => {
+                            raw.entry(command.clone()).or_default().push(full);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let bars = bars::for_document(bars::active_type(shell));
+    let (mut plain, mut raw) = (HashMap::new(), HashMap::new());
+    for menu in &bars.menus {
+        let mut path = vec![i18n::translate(&menu.title, &[])];
+        walk(shell, &menu.items, &mut path, &mut plain, &mut raw);
+    }
+    for (command, mut paths) in raw {
+        if paths.len() == 1 {
+            plain.entry(command).or_insert(paths.remove(0));
+        }
+    }
+    plain
 }
 
 /// The entries that match `query`, best first: by match score, then those that can run,

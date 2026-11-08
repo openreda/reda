@@ -191,14 +191,16 @@ fn draw_row(
     .selected(selected)
     .frame_when_inactive(selected)
     .min_size(egui::vec2(ui.available_width(), 0.0));
-    let mut right = row.unavailable.clone().or_else(|| row.detail.clone());
+    // The menu path, the shortcut, then why it cannot run now.
+    let mut parts: Vec<String> = [&row.menu_path, &row.detail, &row.unavailable]
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect();
     if row.recent {
-        let recent = tr!("palette-recent");
-        right = Some(match right {
-            Some(text) => format!("{text} · {recent}"),
-            None => recent,
-        });
+        parts.push(tr!("palette-recent"));
     }
+    let right = (!parts.is_empty()).then(|| parts.join("  ·  "));
     if let Some(right) = right {
         button = button.right_text(RichText::new(right).weak());
     }

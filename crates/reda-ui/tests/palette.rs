@@ -301,3 +301,45 @@ fn empty_it_shows_recent_items_then_the_documents() {
     assert!(rows[..3].iter().all(|r| r.recent));
     assert!(!rows[3].recent);
 }
+
+#[test]
+fn command_rows_show_their_menu_path_in_the_current_context() {
+    let home = TempDir::new("palette-home");
+    let shell = Shell::new(engine_in(home.path()));
+    let entries = palette::entries(&shell, &no_shortcuts);
+    let path = |id: &str| entry(&entries, id).menu_path.clone();
+    assert_eq!(path("app.quit").as_deref(), Some("File › Quit"));
+    // The first menu that has it.
+    assert_eq!(path("project.save").as_deref(), Some("File › Save All"));
+    assert_eq!(
+        path("view.theme.set:dark").as_deref(),
+        Some("View › Theme › Dark")
+    );
+    // A raw binding names its Command when it is the only menu item for it.
+    assert_eq!(path("edit.undo").as_deref(), Some("Edit › Undo"));
+    // In no menu: nothing.
+    assert_eq!(path("app.dialog.open:palette"), None);
+    // Schematic menus only once a sheet is active.
+    assert_eq!(path("schematic.dialog.open:select_similar"), None);
+
+    let work = TempDir::new("palette-work");
+    let mut shell = demo_shell(work.path());
+    shell
+        .run("document.open", json!({ "document": SHEET }))
+        .unwrap();
+    let entries = palette::entries(&shell, &no_shortcuts);
+    let path = |id: &str| entry(&entries, id).menu_path.clone();
+    // Several menu items run it with different params: no one path.
+    assert_eq!(
+        path("schematic.dialog.open:select_similar").as_deref(),
+        Some("Edit › Select Similar…")
+    );
+    assert_eq!(path("schematic.align"), None);
+    // The row carries it.
+    let rows = Sources::of(&shell, &no_shortcuts).rows(">select similar", &[]);
+    let row = rows
+        .iter()
+        .find(|r| r.target == Target::Run("schematic.dialog.open:select_similar".into()))
+        .unwrap();
+    assert_eq!(row.menu_path.as_deref(), Some("Edit › Select Similar…"));
+}

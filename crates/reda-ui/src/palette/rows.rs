@@ -102,6 +102,8 @@ pub struct Row {
     /// What the right of the row shows: a Command's shortcut, a Component's value, a
     /// Document's kind.
     pub detail: Option<String>,
+    /// A Command's place in the menus, such as `Edit › Select Similar…`.
+    pub menu_path: Option<String>,
     /// The hover text.
     pub description: String,
     /// Why it cannot be chosen now, or `None` when it can.
@@ -256,6 +258,7 @@ fn row(
         title,
         icon: icon.to_owned(),
         detail,
+        menu_path: None,
         description,
         unavailable: None,
         recent: false,
@@ -268,6 +271,7 @@ fn command_row(e: &Entry) -> Row {
         title: e.title.clone(),
         icon: e.icon.clone(),
         detail: e.shortcut.clone(),
+        menu_path: e.menu_path.clone(),
         description: e.description.clone(),
         unavailable: e.unavailable.clone(),
         recent: false,

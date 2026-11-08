@@ -301,7 +301,11 @@ fn mod_p_opens_it_empty_in_the_command_field_s_place_without_dimming() {
     h.key_press_modifiers(Modifiers::COMMAND | Modifiers::SHIFT, Key::P);
     h.run();
     assert_eq!(query(&h), ">");
-    h.get_by_label_contains("Save All");
+    // Command rows show their menu path (shortcuts: `palette.rs`).
+    h.get_by_role_and_label(Role::TextInput, "Command Palette")
+        .type_text("save all");
+    h.run();
+    h.get_by_label_contains("File › Save All");
 }
 
 #[test]
