@@ -1,18 +1,20 @@
-//! Plotting a PCB Document to Gerber files: the outer copper Layers (Zone fills, Tracks,
-//! Vias, Pads and copper text and drawing), the Solder Mask and Paste ([`openings`]), the
-//! Silkscreen ([`artwork`]) and the Board Outline as the Profile.
+//! Plotting a PCB Document to Gerber files: the copper Layers (Zone fills, Tracks, Vias,
+//! Pads and copper text and drawing), the Solder Mask and Paste ([`openings`]), the
+//! Silkscreen ([`artwork`]) and the Board Outline as the Profile, with the aperture
+//! functions and attributes of `outputs.md`.
 
 mod artwork;
 mod openings;
 
-use reda_command::{Fonts, Timestamp};
+use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
     GerberSettings, LayerKind, PadKind, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
+use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
 
-use crate::gerber::{Gerber, MacroShape, NO_FUNCTION, Template, escape};
+use crate::gerber::{Gerber, MacroShape, Template, escape};
 
 /// The pen the Profile is drawn with.
 const PROFILE_PEN: Nm = Nm(100_000);
@@ -23,7 +25,27 @@ pub struct Plot<'a> {
     pub instances: &'a [crate::BoardInstance<'a>],
     pub gerber: &'a GerberSettings,
     pub fonts: &'a Fonts,
-    pub created: Timestamp,
+    /// The REDA version the files name as their generator, such as `0.1.0`; tests inject
+    /// a fixed one so goldens survive releases.
+    pub version: &'a str,
+    /// What the files are a part of (`.Part`).
+    pub part: Part,
+}
+
+/// The Gerber `.Part` file attribute: what the files describe. v0.1 writes single boards.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Part {
+    /// One PCB.
+    #[default]
+    Single,
+}
+
+impl Part {
+    fn attribute(self) -> &'static str {
+        match self {
+            Part::Single => "Single",
+        }
+    }
 }
 
 /// Per-board geometry context; the writer owns the instance transform.
@@ -43,19 +65,61 @@ pub struct OutputFile {
     pub bytes: Vec<u8>,
 }
 
-/// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and Silkscreen,
-/// then the Profile.
-pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
+/// A file a run leaves out because it would hold nothing: an empty Silkscreen or Paste.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SkippedFile {
+    /// The name it would have had, such as `Demo.GBP`.
+    pub name: String,
+    /// What it would have held, such as `paste_bottom`.
+    pub function: &'static str,
+}
+
+/// The Gerber files of a plot, and the empty ones left out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Gerbers {
+    pub files: Vec<OutputFile>,
+    pub skipped: Vec<SkippedFile>,
+}
+
+/// A coordinate the Gerber format can't hold (beyond ±2147.483647 mm, Gerber
+/// specification §3.4.1), which blocks the run.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CoordinateOutOfRange {
+    /// The file it was found in, such as `Demo.GTL`.
+    pub file: String,
+    /// The point, in output coordinates (after the origin).
+    pub at: Point,
+}
+
+/// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and
+/// Silkscreen, then the Profile. Copper, Solder Mask and the Profile are always written,
+/// because a missing mask file could read as "no mask"; an empty Silkscreen or Paste is
+/// left out and listed in `skipped`. A coordinate beyond the format's range is an error.
+pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
+    let mut out = Gerbers {
+        files: Vec::new(),
+        skipped: Vec::new(),
+    };
     let Some(first) = plot.instances.first() else {
-        return Vec::new();
+        return Ok(out);
     };
     let name = &plot.project.props().name;
-    let file = |extension: &str, function, bytes| OutputFile {
-        name: format!("{name}.{extension}"),
-        function,
-        bytes,
+    let mut add = |extension: &str, function, rendered: Rendered, optional: bool| {
+        let name = format!("{name}.{extension}");
+        if let Some(at) = rendered.out_of_range {
+            return Err(CoordinateOutOfRange { file: name, at });
+        }
+        if optional && rendered.empty {
+            out.skipped.push(SkippedFile { name, function });
+        } else {
+            out.files.push(OutputFile {
+                name,
+                function,
+                bytes: rendered.bytes,
+            });
+        }
+        Ok(())
     };
-    let mut files = Vec::new();
     let copper = first.pcb.copper_layers().count();
     for i in 0..copper {
         let number = i + 1;
@@ -64,7 +128,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
             i if i + 1 == copper => ("GBL".to_owned(), "copper_bottom", "Bot"),
             i => (format!("G{i}"), "copper_inner", "Inr"),
         };
-        let bytes = render(
+        let rendered = render(
             plot,
             format!("Copper,L{number},{attribute}"),
             "Positive",
@@ -74,62 +138,59 @@ pub fn gerber_files(plot: &Plot<'_>) -> Vec<OutputFile> {
                 }
             },
         );
-        files.push(file(&extension, function, bytes));
+        add(&extension, function, rendered, false)?;
     }
     for (extension, function, side) in [
         ("GTS", "solder_mask_top", Side::Top),
         ("GBS", "solder_mask_bottom", Side::Bottom),
     ] {
-        let bytes = render(
+        let rendered = render(
             plot,
             format!("Soldermask,{}", openings::side_name(side)),
             "Negative",
             |board, g| openings::mask(board, side, g),
         );
-        files.push(file(extension, function, bytes));
+        add(extension, function, rendered, false)?;
     }
     for (extension, function, side) in [
         ("GTP", "paste_top", Side::Top),
         ("GBP", "paste_bottom", Side::Bottom),
     ] {
-        let bytes = render(
+        let rendered = render(
             plot,
             format!("Paste,{}", openings::side_name(side)),
             "Positive",
             |board, g| openings::paste(board, side, g),
         );
-        files.push(file(extension, function, bytes));
+        add(extension, function, rendered, true)?;
     }
     for (extension, function, side) in [
         ("GTO", "silkscreen_top", Side::Top),
         ("GBO", "silkscreen_bottom", Side::Bottom),
     ] {
-        if first
-            .pcb
-            .layers()
-            .find(LayerKind::Silkscreen, Some(side))
-            .is_some()
-        {
-            let bytes = render(
-                plot,
-                format!("Legend,{}", openings::side_name(side)),
-                "Positive",
-                |board, g| {
-                    if let Some(layer) = board.pcb.layers().find(LayerKind::Silkscreen, Some(side))
-                    {
-                        artwork::silkscreen(board, layer.uuid, side, g);
-                    }
-                },
-            );
-            files.push(file(extension, function, bytes));
-        }
+        let rendered = render(
+            plot,
+            format!("Legend,{}", openings::side_name(side)),
+            "Positive",
+            |board, g| {
+                if let Some(layer) = board.pcb.layers().find(LayerKind::Silkscreen, Some(side)) {
+                    artwork::silkscreen(board, layer.uuid, side, g);
+                }
+            },
+        );
+        add(extension, function, rendered, true)?;
     }
-    files.push(file(
-        "GKO",
-        "profile",
-        render(plot, "Profile,NP".into(), "Positive", profile),
-    ));
-    files
+    let rendered = render(plot, "Profile,NP".into(), "Positive", profile);
+    add("GKO", "profile", rendered, false)?;
+    Ok(out)
+}
+
+/// One plotted file: its bytes, whether it plots nothing of its own (the Board Outline
+/// that `outline_on_every_plot` adds aside), and any coordinate out of range.
+struct Rendered {
+    bytes: Vec<u8>,
+    empty: bool,
+    out_of_range: Option<Point>,
 }
 
 fn render(
@@ -137,42 +198,54 @@ fn render(
     function: String,
     polarity: &str,
     draw: impl Fn(&BoardPlot<'_>, &mut Gerber),
-) -> Vec<u8> {
+) -> Rendered {
+    let is_profile = function.starts_with("Profile");
     let mut g = Gerber::new(plot.gerber.x2_attributes);
-    for instance in plot.instances {
-        g.set_transform(instance.transform);
-        draw(
-            &BoardPlot {
-                pcb: instance.pcb,
-                fills: instance.fills,
-                fonts: plot.fonts,
-            },
-            &mut g,
-        );
+    let boards = || {
+        plot.instances.iter().map(|instance| {
+            (
+                instance.transform,
+                BoardPlot {
+                    pcb: instance.pcb,
+                    fills: instance.fills,
+                    fonts: plot.fonts,
+                },
+            )
+        })
+    };
+    for (transform, board) in boards() {
+        g.set_transform(transform);
+        draw(&board, &mut g);
     }
-    g.finish(&file_attributes_with(plot, function, polarity))
+    let empty = g.is_empty();
+    if plot.gerber.outline_on_every_plot && !is_profile {
+        for (transform, board) in boards() {
+            g.set_transform(transform);
+            profile(&board, &mut g);
+        }
+    }
+    let out_of_range = g.out_of_range();
+    Rendered {
+        bytes: g.finish(&gerber_attributes(plot, function, polarity)),
+        empty,
+        out_of_range,
+    }
 }
 
-/// The file attributes of a positive image: what every file starts with, then `function`
-/// and the polarity.
+/// The file attributes every fabrication file starts with: the generator with REDA's
+/// version, the Project and the coordinate arrangement. No `.CreationDate`: the same
+/// design and REDA version give the same bytes.
 pub(crate) fn file_attributes(plot: &Plot<'_>, function: String) -> Vec<(&'static str, String)> {
-    file_attributes_with(plot, function, "Positive")
-}
-
-/// The file attributes every file starts with, then `function` and `polarity`.
-fn file_attributes_with(
-    plot: &Plot<'_>,
-    function: String,
-    polarity: &str,
-) -> Vec<(&'static str, String)> {
     let props = plot.project.props();
     let revision = match props.properties.revision.as_str() {
         "" => "-",
         r => r,
     };
     vec![
-        (".GenerationSoftware", "openreda,REDA".into()),
-        (".CreationDate", creation_date(plot.created)),
+        (
+            ".GenerationSoftware",
+            format!("openreda,REDA,{}", escape(plot.version)),
+        ),
         (
             ".ProjectId",
             format!(
@@ -187,17 +260,19 @@ fn file_attributes_with(
             crate::instance::coordinates_id(plot.instances).to_string(),
         ),
         (".FileFunction", function),
-        (".FilePolarity", polarity.into()),
     ]
 }
 
-/// `ms` since the Unix epoch as an ISO 8601 UTC time, `2026-01-01T00:00:00+00:00`.
-fn creation_date(created: Timestamp) -> String {
-    let c = crate::civil::Civil::of(created);
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}+00:00",
-        c.year, c.month, c.day, c.hour, c.minute, c.second
-    )
+/// A Gerber file's attributes: the common ones, then `.Part` and the polarity.
+fn gerber_attributes(
+    plot: &Plot<'_>,
+    function: String,
+    polarity: &str,
+) -> Vec<(&'static str, String)> {
+    let mut attributes = file_attributes(plot, function);
+    attributes.insert(3, (".Part", plot.part.attribute().into()));
+    attributes.push((".FilePolarity", polarity.into()));
+    attributes
 }
 
 /// The `.N` attribute value of `net`, escaped; `None` for no Net.
@@ -205,21 +280,13 @@ fn net_name(pcb: &PcbDocument, net: Option<Uuid>) -> Option<String> {
     net.and_then(|n| pcb.net(n)).map(|n| escape(&n.name))
 }
 
-/// The `.N` object attribute of `net`, if it has one.
+/// The `.N` object attribute every copper object carries: empty for no Net.
 fn net_attribute(net: &Option<String>) -> Vec<(&'static str, &str)> {
-    net.as_deref().map(|n| (".N", n)).into_iter().collect()
+    vec![(".N", net.as_deref().unwrap_or(""))]
 }
 
-/// Twice the signed area of a ring (positive when counter-clockwise).
-fn twice_area(ring: &[Point]) -> i128 {
-    let n = ring.len();
-    (0..n)
-        .map(|i| {
-            let (a, b) = (ring[i], ring[(i + 1) % n]);
-            i128::from(a.x.0) * i128::from(b.y.0) - i128::from(b.x.0) * i128::from(a.y.0)
-        })
-        .sum()
-}
+/// The attributes of copper that belongs to no Net: text, drawing.
+pub(crate) const NO_NET: [(&str, &str); 1] = [(".N", "")];
 
 fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     let pcb = plot.pcb;
@@ -229,7 +296,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     let fills = reda_pcb::zone::layer_fills(pcb, plot.fills);
     for fill in fills.iter().filter(|f| f.layer == layer) {
         for shape in &fill.shapes {
-            let area = twice_area(&shape.outer).abs();
+            let area = crate::gerber::contour::twice_area(&shape.outer).abs();
             shapes.push((area, net_name(pcb, fill.net), shape));
         }
     }
@@ -281,6 +348,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
             outer == Some(&layer)
         }
     };
+    let mask_defined = mask_defined_pads(pcb);
     for instance in pcb.footprints() {
         for pad in placed::placed_pads(pcb, instance) {
             if on_layer(&pad) {
@@ -288,7 +356,15 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
                 let net = net_name(pcb, pad.net);
                 let mut attrs = vec![(".P", pin.as_str())];
                 attrs.extend(net_attribute(&net));
-                flash_pad(g, &pad, &attrs);
+                let function = match pad.kind {
+                    PadKind::Smd if mask_defined.contains(&(instance.uuid, pad.pad)) => {
+                        "SMDPad,SMDef"
+                    }
+                    PadKind::Smd => "SMDPad,CuDef",
+                    _ => "ComponentPad",
+                };
+                let (template, at) = pad_template(&pad);
+                g.flash(template, function, at, &attrs);
             }
         }
     }
@@ -296,12 +372,41 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
         let pad = placed::placed_free_pad(free);
         if on_layer(&pad) {
             let net = net_name(pcb, pad.net);
-            flash_pad(g, &pad, &net_attribute(&net));
+            let (template, at) = pad_template(&pad);
+            g.flash(template, "OtherPad,FreePad", at, &net_attribute(&net));
         }
     }
 
     // Copper text and drawing carry no current.
-    artwork::draw_layer(g, plot, layer, "NonConductor");
+    artwork::draw_layer(g, plot, layer, "NonConductor", &NO_NET);
+}
+
+/// The Footprint SMD Pads, as `(Footprint, Pad)`, whose resolved Solder Mask opening lies
+/// inside the copper on all sides: the mask, not the copper, defines what gets solder.
+fn mask_defined_pads(pcb: &PcbDocument) -> std::collections::BTreeSet<(Uuid, Uuid)> {
+    resolved::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.kind == Kind::Mask && o.copper.kind == PadKind::Smd)
+        .filter_map(|o| {
+            let opening = o.geometry?;
+            let [footprint, pad] = o.objects[..] else {
+                return None;
+            };
+            inside_on_all_sides(&o.copper, &opening).then_some((footprint, pad))
+        })
+        .collect()
+}
+
+/// Whether `opening` is `copper` shrunk on every side: the same frame and shape, grown
+/// by one negative amount.
+fn inside_on_all_sides(copper: &PlacedPad, opening: &PlacedPad) -> bool {
+    let (c, o) = (&copper.outline, &opening.outline);
+    let shrink = Nm((o.width.0 - c.width.0) / 2);
+    shrink < Nm::ZERO
+        && o.height.0 - c.height.0 == 2 * shrink.0
+        && copper.at == opening.at
+        && copper.rotation == opening.rotation
+        && c.grown(shrink).as_ref() == Some(o)
 }
 
 /// The aperture of a Pad and where it is flashed: a standard aperture at the copper's
@@ -337,17 +442,6 @@ fn pad_template(pad: &PlacedPad) -> (Template, Point) {
         _ => Template::RoundRect(w, h, radius, rot),
     };
     (template, centre)
-}
-
-fn flash_pad(g: &mut Gerber, pad: &PlacedPad, attrs: &[(&str, &str)]) {
-    let function = match pad.kind {
-        PadKind::Smd => "SMDPad,CuDef",
-        PadKind::PlatedThroughHole => "ComponentPad",
-        // Only the Solder Mask opens over a non-plated hole; no pad function fits it.
-        PadKind::NonPlated => NO_FUNCTION,
-    };
-    let (template, at) = pad_template(pad);
-    g.flash(template, function, at, attrs);
 }
 
 /// The Board Outline and the Board Cutouts drawn with a thin pen.

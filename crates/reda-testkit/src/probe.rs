@@ -17,6 +17,7 @@ pub fn probe_engine() -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .version(crate::TEST_VERSION)
             .commands(probe_commands)
             .build(),
     )

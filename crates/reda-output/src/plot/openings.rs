@@ -5,13 +5,21 @@ use reda_model::Side;
 use reda_pcb::openings::{self, Kind};
 use reda_pcb::placed::PlacedPad;
 
-use super::{BoardPlot, flash_pad};
+use super::{BoardPlot, pad_template};
 use crate::gerber::Gerber;
+
+/// The aperture function of what is not copper: mask, paste and ink.
+pub(super) const MATERIAL: &str = "Material";
+
+fn flash(g: &mut Gerber, opening: &PlacedPad) {
+    let (template, at) = pad_template(opening);
+    g.flash(template, MATERIAL, at, &[]);
+}
 
 /// The Solder Mask file of `side`.
 pub(super) fn mask(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
     for opening in mask_openings(plot, side) {
-        flash_pad(g, &opening, &[]);
+        flash(g, &opening);
     }
 }
 
@@ -31,7 +39,7 @@ pub(super) fn paste(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
         .filter(|o| o.side == side && o.kind == Kind::Paste)
         .filter_map(|o| o.geometry)
     {
-        flash_pad(g, &opening, &[]);
+        flash(g, &opening);
     }
 }
 

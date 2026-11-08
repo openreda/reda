@@ -18,6 +18,10 @@ pub use probe::{probe_commands, probe_engine};
 pub use scenario::{run_scenarios, scenario_failures};
 pub use slow::slow_commands;
 
+/// The REDA version every test engine names as the generator of its output files, so
+/// goldens stay the same across releases.
+pub const TEST_VERSION: &str = "0.0.0-test";
+
 use std::path::Path;
 
 /// Asserts that the file at `path` holds exactly `actual`.

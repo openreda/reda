@@ -20,6 +20,7 @@ pub fn test_engine() -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .version(crate::TEST_VERSION)
             .user_dirs(None)
             .starter_library(None)
             .build(),
@@ -33,6 +34,7 @@ pub fn test_engine_in(home: &Path) -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .version(crate::TEST_VERSION)
             .user_dirs(Some(UserDirs::under(home)))
             .starter_library(None)
             .build(),
@@ -51,6 +53,7 @@ pub fn test_engine_with_library(library: &Path) -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .version(crate::TEST_VERSION)
             .user_dirs(None)
             .starter_library(Some(library.to_owned()))
             .build(),
@@ -64,6 +67,7 @@ pub fn test_engine_with_trash(trash: &Path) -> TestEngine {
         Engine::builder()
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
+            .version(crate::TEST_VERSION)
             .user_dirs(None)
             .starter_library(None)
             .trash(FolderTrash(trash.to_owned()))

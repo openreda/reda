@@ -70,25 +70,35 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         .iter()
         .map(|f| f["name"].as_str().unwrap())
         .collect();
+    // An empty board: copper, mask and Profile are always written, while the empty
+    // Silkscreen and Paste are left out and reported.
     assert_eq!(
-        names[..11],
+        names[..7],
         [
             "Demo.GTL",
             "Demo.GBL",
             "Demo.GTS",
             "Demo.GBS",
-            "Demo.GTP",
-            "Demo.GBP",
-            "Demo.GTO",
-            "Demo.GBO",
             "Demo.GKO",
             "Demo-PTH.drl",
             "Demo-NPTH.drl"
         ]
     );
     assert_eq!(out["files"][0]["function"], "copper_top");
-    assert_eq!(out["files"][9]["function"], "drill_plated");
-    assert_eq!(out["files"][10]["function"], "drill_non_plated");
+    assert_eq!(out["files"][5]["function"], "drill_plated");
+    assert_eq!(out["files"][6]["function"], "drill_non_plated");
+    assert_eq!(
+        out["skipped"],
+        json!([
+            {"name": "Demo.GTP", "function": "paste_top"},
+            {"name": "Demo.GBP", "function": "paste_bottom"},
+            {"name": "Demo.GTO", "function": "silkscreen_top"},
+            {"name": "Demo.GBO", "function": "silkscreen_bottom"},
+        ])
+    );
+    for name in ["Demo.GTP", "Demo.GTO"] {
+        assert!(!folder.join(name).exists(), "{name} is not written");
+    }
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
@@ -101,8 +111,13 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         assert_eq!(zipped, loose, "{name}");
         let text = String::from_utf8(loose).unwrap();
         assert!(
-            name.ends_with(".csv") || text.contains("TF.CreationDate,2026-01-01T00:00:00+00:00"),
-            "the time comes from the injected Clock"
+            !text.contains("CreationDate"),
+            "{name}: no date in the files"
+        );
+        assert!(
+            name.ends_with(".csv")
+                || text.contains("TF.GenerationSoftware,openreda,REDA,0.0.0-test"),
+            "{name}: the version comes from the engine"
         );
     }
     assert!(!engine.is_dirty(), "running a job is not an edit");
@@ -292,6 +307,27 @@ fn duplicate_designators_block_the_run() {
     let blocker = &err.details.as_ref().unwrap()["blockers"][0];
     assert_eq!(blocker["args"]["designator"], "TP");
     assert_eq!(blocker["objects"].as_array().unwrap().len(), 2);
+    assert!(
+        !dir.path().join("Demo/outputs").exists(),
+        "nothing is written"
+    );
+}
+
+#[test]
+fn a_coordinate_a_gerber_file_cannot_hold_blocks_the_run() {
+    let dir = TempDir::new("output-range");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "width": "0.2mm",
+               "points": [pt(5.0, 5.0), {"x": "2147.5mm", "y": "5mm"}]}),
+    );
+    let err = engine.run_err("output.job.run", json!({"job": JOB}));
+    assert_eq!(err.code, ErrorCode::Rejected);
+    assert_eq!(blockers(&err), ["coordinate_out_of_range"]);
+    let blocker = &err.details.as_ref().unwrap()["blockers"][0];
+    assert_eq!(blocker["args"]["file"], "Demo.GTL");
+    assert_eq!(blocker["args"]["x"], 2_147_500_000i64);
     assert!(
         !dir.path().join("Demo/outputs").exists(),
         "nothing is written"
@@ -494,6 +530,7 @@ fn a_designator_shared_only_between_a_sheet_and_the_board_does_not_block() {
     let dir = TempDir::new("output-dup-sync");
     let mut engine = TestEngine(
         reda_engine::Engine::builder()
+            .version(reda_testkit::TEST_VERSION)
             .ids(reda_command::SeededIds::new(0))
             .clock(reda_command::FixedClock::EPOCH)
             .user_dirs(None)

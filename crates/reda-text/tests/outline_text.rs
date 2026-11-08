@@ -140,3 +140,40 @@ fn sample_strings_triangulate_into_valid_meshes() {
         );
     }
 }
+
+fn twice_area(ring: &[Point]) -> i128 {
+    (0..ring.len())
+        .map(|i| {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            i128::from(a.x.0) * i128::from(b.y.0) - i128::from(b.x.0) * i128::from(a.y.0)
+        })
+        .sum()
+}
+
+#[test]
+fn each_glyph_keeps_its_simplified_contours_as_regions_with_holes() {
+    // "O" is one ring with one hole, "B" one ring with two, "i" two pieces without holes.
+    let o = noto("O", CAP_714_UM);
+    assert_eq!(o.regions.len(), 1);
+    assert_eq!(o.regions[0].holes.len(), 1);
+    assert_eq!(noto("B", CAP_714_UM).regions[0].holes.len(), 2);
+    let i = noto("i", CAP_714_UM);
+    assert_eq!(i.regions.len(), 2);
+    assert!(i.regions.iter().all(|r| r.holes.is_empty()));
+    // The regions cover what the triangles cover: outer area less the holes'.
+    let region_area: i128 = o
+        .regions
+        .iter()
+        .map(|r| {
+            twice_area(&r.outer).abs() - r.holes.iter().map(|h| twice_area(h).abs()).sum::<i128>()
+        })
+        .sum();
+    assert_eq!(region_area, o.fill.double_area());
+    // The middle of the "O" is in the hole, its left stroke is in the outer ring.
+    let hole = &o.regions[0].holes[0];
+    let (lo, hi) = hole.iter().fold((i64::MAX, i64::MIN), |(lo, hi), p| {
+        (lo.min(p.x.0), hi.max(p.x.0))
+    });
+    let outer_left = o.regions[0].outer.iter().map(|p| p.x.0).min().unwrap();
+    assert!(outer_left < lo && lo < hi);
+}

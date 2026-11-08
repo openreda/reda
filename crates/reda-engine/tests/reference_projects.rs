@@ -67,6 +67,7 @@ fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
     // theirs.
     let mut engine = TestEngine(
         Engine::builder()
+            .version(reda_testkit::TEST_VERSION)
             .ids(SeededIds::new(1 << 32))
             .clock(FixedClock::EPOCH)
             .user_dirs(None)
