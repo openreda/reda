@@ -21,7 +21,7 @@ use reda_model::net_name::overbars;
 /// itself: pass `reda_schematic::connectivity::derive(sheet).junctions` (or the
 /// `schematic.nets` result's `junctions`).
 ///
-/// Draw order: the paper, frame and title block, free lines and rectangles, free text,
+/// Draw order: the paper, frame, Border Zones and title block, free lines and rectangles, free text,
 /// then Units (body, Pins, fields), Wires,
 /// Junctions, Net Labels, No-Connect Markers, Ports and Power Ports; each kind in UUID order.
 pub fn schematic_scene(project: &Project, sheet: Uuid, junctions: &[Point]) -> Option<Scene> {
@@ -37,6 +37,9 @@ pub struct SchematicStyle {
     /// Single '\' Negation: a leading backslash draws an overbar over a whole Net Label,
     /// Port or Power Port name.
     pub single_negation: bool,
+    /// Drawn for the canvas rather than an output: empty title fields are tinted and a
+    /// revision the sheet takes from the Project is greyed.
+    pub canvas: bool,
 }
 
 /// [`schematic_scene`] drawn in `style`.
@@ -50,7 +53,7 @@ pub fn schematic_scene_styled(
     let mut b = Builder {
         scene: Scene::new(SceneSource::Schematic(sheet)),
     };
-    frame::build(&mut b, project, body);
+    frame::build(&mut b, project, body, style.canvas);
     drawing::graphics(&mut b, body);
     drawing::texts(&mut b, body);
     unit::build(&mut b, body, style);

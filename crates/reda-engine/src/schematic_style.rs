@@ -16,10 +16,11 @@ pub enum Drawn {
 
 /// The [`SchematicStyle`] `project`'s sheets are drawn in with `preferences`.
 pub fn schematic_style(project: &Project, preferences: &Preferences, drawn: Drawn) -> SchematicStyle {
-    let _ = (project, drawn);
+    let _ = project;
     let schematic = &preferences.schematic;
     SchematicStyle {
         unit_suffix: schematic.unit_suffix,
         single_negation: schematic.single_negation,
+        canvas: drawn == Drawn::Canvas,
     }
 }

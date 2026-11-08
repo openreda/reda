@@ -570,3 +570,5 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
 
 #[path = "schematic_scene/overbars.rs"]
 mod overbars;
+#[path = "schematic_scene/frame.rs"]
+mod frame;

@@ -36,7 +36,11 @@ fn every_ink_kind_stands_out_from_the_paper_in_both_themes() {
     for theme in [Theme::Dark, Theme::Light] {
         let paper = color(theme, SchematicColor::Paper);
         for &kind in SchematicColor::ALL {
-            if matches!(kind, SchematicColor::Paper | SchematicColor::BodyFill) {
+            // Fills and tints sit under ink rather than being ink.
+            if matches!(
+                kind,
+                SchematicColor::Paper | SchematicColor::BodyFill | SchematicColor::EmptyField
+            ) {
                 continue;
             }
             let c = contrast(color(theme, kind), paper);
