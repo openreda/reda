@@ -49,6 +49,9 @@ pub fn apply(
             "the Change List no longer matches the preview; run sync.preview again",
         ));
     }
+    if let Some(block) = &plan.list.duplicate_nets {
+        return Err(CommandError::rejected(block.message.clone()));
+    }
     let known: BTreeSet<&str> = plan.list.changes().map(|c| c.id.as_str()).collect();
     for (i, id) in unticked.iter().enumerate() {
         if !known.contains(id.as_str()) {

@@ -12,7 +12,8 @@ const STYLE: &str = "body{font-family:sans-serif;margin:2em;color:#222}\
 table{border-collapse:collapse;margin:.5em 0 1.5em}\
 th,td{border:1px solid #ccc;padding:.25em .6em;text-align:left;vertical-align:top}\
 th{background:#f0f0f0}.error{color:#b00020}.warning{color:#8a5a00}\
-.muted{color:#777}code{font-size:90%}";
+.muted{color:#777}code{font-size:90%}.problem{color:#b00020}.note{color:#8a5a00}\
+.banner{border:1px solid #b00020;padding:.5em 1em;color:#b00020}";
 
 /// The whole page for `report`.
 pub(super) fn page(report: &Report, header: &Header) -> String {
@@ -237,9 +238,16 @@ fn decimal(n: i64, unit: i64) -> String {
 fn change_list(out: &mut String, list: &Value) {
     let _ = writeln!(
         out,
-        "<p>{} change(s) pending.</p>",
+        "<p>{} change(s) pending; Problem rows can't apply and are not counted.</p>",
         list["count"].as_u64().unwrap_or(0)
     );
+    if let Some(block) = list.get("duplicate_nets") {
+        let _ = writeln!(
+            out,
+            "<p id=\"duplicate-nets\" class=\"banner\">{}</p>",
+            esc(block["message"].as_str().unwrap_or_default())
+        );
+    }
     let groups = list["groups"].as_array().cloned().unwrap_or_default();
     out.push_str("<section id=\"changes\">\n");
     if groups.is_empty() {
@@ -254,15 +262,25 @@ fn change_list(out: &mut String, list: &Value) {
                 continue;
             };
             let details: Vec<String> = (fields.iter())
-                .filter(|(k, _)| !matches!(k.as_str(), "id" | "kind" | "requires" | "status"))
+                .filter(|(k, _)| {
+                    !matches!(
+                        k.as_str(),
+                        "id" | "kind" | "requires" | "status" | "message"
+                    )
+                })
                 .map(|(k, v)| format!("{}: {}", esc(k), esc(&plain(v))))
                 .collect();
+            let status = change["status"].as_str().unwrap_or_default();
+            let message = match change["message"].as_str() {
+                Some(m) => format!("<br>{}", esc(m)),
+                None => String::new(),
+            };
             let _ = writeln!(
                 out,
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td><code>{}</code></td></tr>",
+                "<tr><td>{}</td><td>{}</td><td class=\"{status}\">{}{message}</td><td><code>{}</code></td></tr>",
                 esc(change["kind"].as_str().unwrap_or_default()),
                 details.join("<br>"),
-                esc(&change.get("status").map(plain).unwrap_or_default()),
+                esc(status),
                 esc(change["id"].as_str().unwrap_or_default())
             );
         }

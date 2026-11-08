@@ -34,11 +34,16 @@ impl Command for SyncPreview {
         id: "sync.preview",
         title: "Preview Update PCB from Schematic",
         description: "Compares the Schematic Sheets with the PCB Document and returns the \
-                      pending Change List, grouped by kind (components, footprints, \
-                      component data, Nets, Pad Nets). Each change has a stable id and the \
-                      ids it requires; unticking a change also unticks every change that \
-                      requires it. `count` is the out-of-sync count, `hash` goes to \
-                      `sync.apply`. Nothing is stored.",
+                      pending Change List, one group per kind of change in a fixed order \
+                      (add_components, remove_components, change_footprints, designators, \
+                      fields, component_types, in_bom, in_cpl, not_fitted, add_nets, \
+                      rename_nets, remove_nets, pad_nets). Each change has a stable id, the \
+                      ids it requires (unticking a change also unticks every change that \
+                      requires it) and a status: `ok`, `note` (applies; `message` says what \
+                      follows) or `problem` (can't apply; `message` says why). `count` is \
+                      the out-of-sync count and leaves out Problem rows; `hash` goes to \
+                      `sync.apply`; `duplicate_nets` is set while that ERC Violation stands \
+                      and blocks the apply. Nothing is stored.",
         category: "sync",
         icon: "sync",
         kind: Kind::Query,
@@ -61,6 +66,7 @@ pub struct SyncApplyParams {
     /// The `hash` of the previewed Change List.
     pub hash: String,
     /// Ids of changes to leave out; the changes that require them are left out too.
+    /// Problem rows are always left out.
     #[serde(default)]
     pub exclude: Vec<String>,
 }
@@ -70,8 +76,8 @@ pub struct SyncApplyParams {
 pub struct SyncApplyResult {
     /// The ids of the changes carried out, in list order.
     pub applied: Vec<String>,
-    /// The ids left out (excluded or depending on an excluded one), in list order. They
-    /// show up again in the next preview.
+    /// The ids left out (excluded, Problem rows, or depending on one of those), in list
+    /// order. They show up again in the next preview.
     pub left_out: Vec<String>,
     /// The Footprints added, in the order they were placed (sheet, then Designator).
     pub footprints: Vec<AddedFootprint>,
@@ -104,8 +110,11 @@ impl Command for SyncApply {
                       transaction, leaving out the `exclude`d changes and every change that \
                       requires one. New Footprints go into a fresh cluster outside the Board \
                       Outline (at the origin with no outline), grouped by sheet and sorted \
-                      by Designator. Fails with `conflict` when the Change List no longer \
-                      matches `hash`.",
+                      by Designator. Problem rows are skipped, with the changes requiring \
+                      them, and reported in `left_out`. Fails with `conflict` when the \
+                      Change List no longer matches `hash`, and is rejected while a \
+                      `duplicate_nets` Violation stands (with the check Off or the \
+                      Violation waived, Nets with one board name merge into one PCB Net).",
         category: "sync",
         icon: "sync",
         kind: Kind::Edit,
