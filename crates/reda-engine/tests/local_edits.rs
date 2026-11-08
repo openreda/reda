@@ -232,6 +232,13 @@ fn a_footprint_change_removes_local_edits_and_its_row_lists_them() {
         json!([{"pad": pad["uuid"], "number": "1", "property": "width",
                 "original": pad["width"], "edited": 2_000_000}])
     );
+    // The row's Note says so.
+    assert_eq!(swap["status"], "note", "{swap}");
+    let message = swap["message"].as_str().unwrap();
+    assert!(
+        message.contains("1 local Pad or graphics edit"),
+        "{message}"
+    );
 
     sync(&mut engine);
     let after = instance(&mut engine, "R1");
