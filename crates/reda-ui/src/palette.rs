@@ -1,21 +1,27 @@
-//! The Command Palette (`Mod+Shift+P`): a fuzzy search over every Command and Preset the
-//! Shell's registry holds, each with its shortcut and, when it cannot run now, the reason.
+//! The Palette (`Mod+P`, or `Mod+Shift+P` on Commands): a fuzzy search, scoped by the
+//! query's first character as in VS Code ([`Scope`]), over the open Project's Documents,
+//! Components and Nets and every Command and Preset the Shell's registry holds, each
+//! Command with its shortcut and, when it cannot run now, the reason.
 //!
-//! Picking an entry calls it with no params through
+//! Picking a Command calls it with no params through
 //! [`Dialogs::call`](crate::command_dialog::Dialogs::call), so a Command that needs params
 //! opens its form. Shortcuts come from a lookup the window is given (the Keymap's); the
 //! Palette has none of its own.
 
 mod draw;
 mod fuzzy;
+mod go_to;
+mod rows;
 
 use std::cmp::Reverse;
 
 use crate::bars;
 use crate::shell::Shell;
 
-pub use draw::{Palette, PaletteOutcome};
+pub use draw::{Palette, PaletteOutcome, remember_command_field};
 pub use fuzzy::score;
+pub use go_to::go_to;
+pub use rows::{Row, Scope, Sources, Target};
 
 /// The shortcut of a Command or Preset id, as the Keymap shows it, if it has one.
 pub type Shortcuts<'a> = &'a dyn Fn(&str) -> Option<String>;

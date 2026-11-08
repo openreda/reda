@@ -7,7 +7,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::keymap::{self, Chord};
-use reda_ui::palette::{self, Entry};
+use reda_ui::palette::{self, Entry, Row, Scope, Sources, Target};
 use reda_ui::shell::Shell;
 use serde_json::json;
 
@@ -168,4 +168,136 @@ fn an_empty_search_lists_available_entries_before_unavailable_ones() {
     let mut sorted = titles.clone();
     sorted.sort_by_key(|t| t.to_lowercase());
     assert_eq!(titles, sorted);
+}
+
+const SHEET: &str = "00000000-0000-4000-8000-000000000002";
+const PCB: &str = "00000000-0000-4000-8000-000000000003";
+const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
+
+/// A Project with R1 and R2 on Sheet 1, joined by the Net SIG, and a PCB.
+fn demo_shell(work: &Path) -> Shell {
+    let library =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../reda-schematic/tests/library/Test");
+    let engine = Engine::builder()
+        .ids(reda_ui::engine::command::SeededIds::new(0))
+        .clock(reda_ui::engine::command::FixedClock::EPOCH)
+        .user_dirs(None)
+        .starter_library(Some(library))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.new_project(work, "Demo").unwrap();
+    for x in ["0mm", "10mm"] {
+        shell
+            .run(
+                "schematic.component.place",
+                json!({"document": SHEET, "part": R_10K, "at": {"x": x, "y": 0}}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "schematic.wire.add",
+            json!({"document": SHEET, "points": [
+                {"x": "0mm", "y": "-3.81mm"}, {"x": "10mm", "y": "-3.81mm"}]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "schematic.net_label.add",
+            json!({"document": SHEET, "name": "SIG", "at": {"x": "5mm", "y": "-3.81mm"}}),
+        )
+        .unwrap();
+    shell
+}
+
+fn titles(rows: &[Row]) -> Vec<&str> {
+    rows.iter().map(|r| r.title.as_str()).collect()
+}
+
+fn uuid(s: &str) -> reda_ui::engine::model::Uuid {
+    s.parse().unwrap()
+}
+
+#[test]
+fn the_first_character_picks_the_scope() {
+    assert_eq!(Scope::of(">save"), (Scope::Commands, "save"));
+    assert_eq!(Scope::of("@R12"), (Scope::Components, "R12"));
+    assert_eq!(Scope::of("#GND"), (Scope::Nets, "GND"));
+    assert_eq!(Scope::of(":Sheet"), (Scope::Documents, "Sheet"));
+    assert_eq!(Scope::of("?"), (Scope::Help, ""));
+    assert_eq!(Scope::of("R12"), (Scope::GoTo, "R12"));
+    assert_eq!(Scope::of(""), (Scope::GoTo, ""));
+}
+
+#[test]
+fn each_scope_searches_its_own_kind_of_row() {
+    let work = TempDir::new("palette-work");
+    let shell = demo_shell(work.path());
+    let sources = Sources::of(&shell, &no_shortcuts);
+
+    let rows = sources.rows(">save al", &[]);
+    assert_eq!(rows[0].target, Target::Run("project.save".into()));
+    assert!(rows.iter().all(|r| matches!(r.target, Target::Run(_))));
+
+    let rows = sources.rows("@R2", &[]);
+    assert_eq!(titles(&rows), ["R2"]);
+    assert!(matches!(rows[0].target, Target::Component(_)));
+    assert_eq!(rows[0].detail.as_deref(), Some("10k"));
+    // Empty, a scope lists all its rows, Components in natural order.
+    assert_eq!(titles(&sources.rows("@", &[])), ["R1", "R2"]);
+
+    let rows = sources.rows("#SIG", &[]);
+    assert_eq!(titles(&rows), ["SIG"]);
+    assert_eq!(rows[0].target, Target::Net("SIG".into()));
+
+    let rows = sources.rows(":", &[]);
+    assert_eq!(titles(&rows), ["Sheet 1", "Demo"]);
+    assert_eq!(rows[0].target, Target::Document(uuid(SHEET)));
+    assert_eq!(rows[1].target, Target::Document(uuid(PCB)));
+
+    // No prefix: Documents, Components and Nets, but no Commands.
+    let rows = sources.rows("s", &[]);
+    assert!(titles(&rows).contains(&"Sheet 1"));
+    assert!(titles(&rows).contains(&"SIG"));
+    assert!(rows.iter().all(|r| !matches!(r.target, Target::Run(_))));
+    let rows = sources.rows("r1", &[]);
+    assert_eq!(titles(&rows)[0], "R1");
+
+    // `?` lists the prefixes; choosing one fills it in.
+    let rows = sources.rows("?", &[]);
+    let prefixes: Vec<&Target> = rows.iter().map(|r| &r.target).collect();
+    assert_eq!(
+        prefixes,
+        [
+            &Target::Prefix(Scope::Commands),
+            &Target::Prefix(Scope::Components),
+            &Target::Prefix(Scope::Nets),
+            &Target::Prefix(Scope::Documents),
+            &Target::Prefix(Scope::Help),
+        ]
+    );
+    assert_eq!(titles(&rows)[0], ">");
+    assert_eq!(rows[0].detail.as_deref(), Some("Commands"));
+}
+
+#[test]
+fn empty_it_shows_recent_items_then_the_documents() {
+    let work = TempDir::new("palette-work");
+    let shell = demo_shell(work.path());
+    let sources = Sources::of(&shell, &no_shortcuts);
+    assert_eq!(titles(&sources.rows("", &[])), ["Sheet 1", "Demo"]);
+
+    let r2 = sources.rows("@R2", &[])[0].target.clone();
+    let recent = [
+        r2,
+        Target::Run("project.save".into()),
+        Target::Document(uuid(PCB)),
+        // Gone since: left out.
+        Target::Net("NOWHERE".into()),
+    ];
+    let rows = sources.rows("", &recent);
+    assert_eq!(titles(&rows), ["R2", "Save All", "Demo", "Sheet 1"]);
+    assert!(rows[..3].iter().all(|r| r.recent));
+    assert!(!rows[3].recent);
 }

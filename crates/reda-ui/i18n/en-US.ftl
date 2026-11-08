@@ -854,8 +854,18 @@ form-yes = Yes
 form-no = No
 form-choose = Choose…
 palette-title = Command Palette
-palette-hint = Type a Command…
-palette-nothing = No Command matches.
+palette-hint = Go to a Document, Component or Net; > Commands, ? for more
+palette-nothing = Nothing matches.
+palette-recent = recently used
+palette-scope-go-to = Documents, Components and Nets
+palette-scope-commands = Commands
+palette-scope-components = Components
+palette-scope-nets = Nets
+palette-scope-documents = Documents
+palette-scope-help = These prefixes
+palette-kind-schematic = Schematic Sheet
+palette-kind-pcb = PCB
+palette-kind-net = Net
 
 ## Routing (pcb::route)
 tool-route = Route
