@@ -255,3 +255,23 @@ fn an_out_of_sync_violation_can_be_waived() {
     assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
     assert_eq!(run["waived"], 1);
 }
+
+#[test]
+fn a_dimension_on_the_silkscreen_is_checked_like_its_lines_and_text() {
+    let dir = TempDir::new("drc-silk-dimension");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 1);
+    move_to(&mut engine, r[0], 10 * MM, 10 * MM);
+    // Its left extension line runs up through R1's Pad 1 at x = 9.225 mm.
+    let dimension = created(&engine.run_ok(
+        "pcb.dimension.add",
+        json!({"layer": "silkscreen_top", "a": {"point": {"x": "9.2mm", "y": "8mm"}},
+               "b": {"point": {"x": "14mm", "y": "8mm"}}, "offset": "4mm"}),
+    ));
+    let run = drc(&mut engine);
+    assert_eq!(
+        objects_of(&run, "silk_to_mask"),
+        vec![vec![dimension, r[0], pad(&engine, r[0], "1")]],
+        "{run:#}"
+    );
+}

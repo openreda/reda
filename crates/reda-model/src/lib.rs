@@ -54,14 +54,16 @@ pub use pad::{
     PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget, ConnectionValue, CopperEntry,
-    DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities,
-    FillShape, FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT,
-    InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass,
-    OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule,
-    PourOver, RuleField, RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode,
-    Stackup, StackupEntry, StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track,
-    TrackGeometry, Via, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    ArrowPosition, BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget,
+    ConnectionValue, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
+    DielectricEntry, Dimension, DimensionEnd, DimensionFormat, DimensionTextPosition,
+    DimensionUnits, DrcCheck, DrcSeverities, FillShape, FootprintInstance, FootprintTextRef,
+    FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument, Keepout, Layer,
+    LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef,
+    PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver, RuleField, RuleKind,
+    RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry,
+    StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone,
+    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
