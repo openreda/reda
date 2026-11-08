@@ -35827,7 +35827,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`) and the Excellon drill files (plated and non-plated) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`) and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -35924,7 +35924,7 @@
             "description": "A file the run left out because it would have held nothing.",
             "properties": {
               "function": {
-                "description": "What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top` or\n`silkscreen_bottom`. Copper, Solder Mask and the Profile are always written.",
+                "description": "What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `drill_plated`, `drill_non_plated` or `drill_mixed`. Copper,\nSolder Mask and the Profile are always written.",
                 "type": "string"
               },
               "name": {
@@ -36073,7 +36073,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `bom` or `cpl`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `bom` or `cpl`.",
                 "type": "string"
               },
               "name": {
@@ -36103,7 +36103,7 @@
             "type": "array"
           },
           "skipped": {
-            "description": "The Gerber files left out because they would have been empty: a Silkscreen or Paste\nwith nothing on it.",
+            "description": "The files left out because they would have been empty: a Silkscreen or Paste with\nnothing on it, or a drill file with no holes.",
             "items": {
               "$ref": "#/$defs/SkippedFile"
             },
