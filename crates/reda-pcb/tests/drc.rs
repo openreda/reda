@@ -250,14 +250,20 @@ fn smd_and_through_hole_pads_are_restricted_separately() {
         .clone();
     let footprint = uuid(&placed["footprint"]);
     let [smd, tht] = [uuid(&placed["pads"][0]), uuid(&placed["pads"][1])];
-    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout").iter().map(objects).collect();
+    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout")
+        .iter()
+        .map(objects)
+        .collect();
     assert_eq!(found, [vec![footprint, smd, smd_only]]);
 
     engine.run_ok(
         "pcb.keepout.set",
         json!({"keepout": smd_only, "restrict": ["tht_pads"]}),
     );
-    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout").iter().map(objects).collect();
+    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout")
+        .iter()
+        .map(objects)
+        .collect();
     assert_eq!(found, [vec![footprint, tht, smd_only]]);
 }
 
@@ -284,9 +290,9 @@ fn copper_keeps_the_clearance_from_a_keepout_unless_zero_keepout_clearance() {
     assert_eq!(v["measured"], json!({"length": 100_000}));
     assert_eq!(v["args"]["required"], 160_000);
     assert_eq!(v["args"]["actual"], 100_000);
-    let board = engine.run_ok("pcb.rules.set", json!({"kind": "clearance"}))["result"]["rule"]
-        ["uuid"]
-        .clone();
+    let board =
+        engine.run_ok("pcb.rules.set", json!({"kind": "clearance"}))["result"]["rule"]["uuid"]
+            .clone();
     assert_eq!(v["rule"], board);
 
     engine.run_ok(

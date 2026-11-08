@@ -7,8 +7,8 @@
 use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Millideg, Nm};
 use reda_model::{
-    ConnectionStyle, ConnectionTarget, FillShape, PadKind, PcbDocument, PourOver, Restriction, Uuid, Zone,
-    ZoneConnection,
+    ConnectionStyle, ConnectionTarget, FillShape, PadKind, PcbDocument, PourOver, Restriction,
+    Uuid, Zone, ZoneConnection,
 };
 
 use super::poly::{

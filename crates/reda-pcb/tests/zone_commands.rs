@@ -743,13 +743,23 @@ fn a_zone_cutout_removes_every_zone_fill_on_its_layer_inside_it() {
             .unwrap()
     };
     assert!(filled(0) > 99 * MM * MM, "the top is whole again");
-    assert!((filled(1) - 80 * MM * MM).abs() < MM * MM / 100, "{}", filled(1));
+    assert!(
+        (filled(1) - 80 * MM * MM).abs() < MM * MM / 100,
+        "{}",
+        filled(1)
+    );
     // What is left out stays; a non-copper Layer, a bad outline or an unknown UUID is refused.
     engine.run_ok("pcb.zone_cutout.set", json!({"cutout": cutout}));
     assert_eq!(pcb(&engine).zone_cutout(cutout), Some(&stored));
     for (params, at) in [
-        (json!({"cutout": cutout, "layer": "silkscreen_top"}), "/layer"),
-        (json!({"cutout": cutout, "vertices": rect(0, 0, 0, 0)}), "/vertices"),
+        (
+            json!({"cutout": cutout, "layer": "silkscreen_top"}),
+            "/layer",
+        ),
+        (
+            json!({"cutout": cutout, "vertices": rect(0, 0, 0, 0)}),
+            "/vertices",
+        ),
         (json!({"cutout": Uuid::from_u128(0xdead)}), "/cutout"),
     ] {
         let err = engine.run_err("pcb.zone_cutout.set", params);

@@ -287,12 +287,19 @@ fn a_footprint_is_checked_by_its_courtyard_against_keepouts_restricting_footprin
         json!({"keepout": keepout, "restrict": ["footprints"]}),
     );
     let run = drc(&mut engine);
-    assert_eq!(objects_of(&run, "keepout"), [vec![r[0], keepout]], "{run:#}");
+    assert_eq!(
+        objects_of(&run, "keepout"),
+        [vec![r[0], keepout]],
+        "{run:#}"
+    );
     let v = &of(&run, "keepout")[0];
     assert_eq!(v["severity"], "error");
     let courtyard = pcb(&engine)
         .layers()
-        .find(reda_model::LayerKind::Courtyard, Some(reda_model::Side::Top))
+        .find(
+            reda_model::LayerKind::Courtyard,
+            Some(reda_model::Side::Top),
+        )
         .unwrap()
         .uuid;
     assert_eq!(v["layers"], json!([courtyard]));
@@ -303,7 +310,10 @@ fn a_footprint_is_checked_by_its_courtyard_against_keepouts_restricting_footprin
         json!({"keepout": keepout, "layer": "copper_bottom"}),
     );
     assert!(keepouts(&mut engine).is_empty());
-    engine.run_ok("pcb.keepout.set", json!({"keepout": keepout, "layer": null}));
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "layer": null}),
+    );
     assert_eq!(keepouts(&mut engine), [vec![r[0], keepout]]);
 
     // With no clearance: a courtyard exactly touching passes.
@@ -313,4 +323,24 @@ fn a_footprint_is_checked_by_its_courtyard_against_keepouts_restricting_footprin
                "vertices": square(11_500_000, 10_700_000, 13 * MM, 11 * MM)}),
     );
     assert!(keepouts(&mut engine).is_empty());
+}
+
+#[test]
+fn a_dimension_on_the_silkscreen_is_checked_like_its_lines_and_text() {
+    let dir = TempDir::new("drc-silk-dimension");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 1);
+    move_to(&mut engine, r[0], 10 * MM, 10 * MM);
+    // Its left extension line runs up through R1's Pad 1 at x = 9.225 mm.
+    let dimension = created(&engine.run_ok(
+        "pcb.dimension.add",
+        json!({"layer": "silkscreen_top", "a": {"point": {"x": "9.2mm", "y": "8mm"}},
+               "b": {"point": {"x": "14mm", "y": "8mm"}}, "offset": "4mm"}),
+    ));
+    let run = drc(&mut engine);
+    assert_eq!(
+        objects_of(&run, "silk_to_mask"),
+        vec![vec![dimension, r[0], pad(&engine, r[0], "1")]],
+        "{run:#}"
+    );
 }

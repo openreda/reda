@@ -212,10 +212,7 @@ pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
                 .vias()
                 .filter(|v| pcb.span_layers(v.span).contains(&zone.layer))
                 .collect();
-            let keepouts: Vec<_> = pcb
-                .keepouts()
-                .filter(|k| k.on_layer(zone.layer))
-                .collect();
+            let keepouts: Vec<_> = pcb.keepouts().filter(|k| k.on_layer(zone.layer)).collect();
             let cutouts: Vec<_> = zone_cutouts
                 .iter()
                 .filter(|c| c.layer == zone.layer)

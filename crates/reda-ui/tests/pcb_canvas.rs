@@ -935,13 +935,15 @@ fn a_zone_cutout_has_a_layers_panel_row_and_a_selection_filter_kind() {
     assert_eq!(shell(&w).selection().objects, [cutout]);
 
     // Its Selection Filter kind keeps it from being picked.
-    let kinds = w
-        .h
-        .state_mut()
-        .shell_mut()
-        .run("selection.filter.set", json!({"document": w.pcb}))
-        .unwrap();
-    assert!(kinds.to_string().contains("\"kind\":\"zone_cutout\""), "{kinds}");
+    let kinds =
+        w.h.state_mut()
+            .shell_mut()
+            .run("selection.filter.set", json!({"document": w.pcb}))
+            .unwrap();
+    assert!(
+        kinds.to_string().contains("\"kind\":\"zone_cutout\""),
+        "{kinds}"
+    );
     w.h.state_mut()
         .shell_mut()
         .run(

@@ -222,21 +222,43 @@ fn a_keepout_is_on_one_layer_or_all_a_polygon_or_a_line_and_restricts_chosen_kin
 
     // What a Keepout can't be.
     let refused = [
-        (json!({"vertices": square("0mm", "0mm", "1mm", "1mm"), "restrict": []}), "/restrict"),
-        (json!({"shape": "line", "vertices": square("0mm", "0mm", "1mm", "1mm")}), "/width"),
-        (json!({"vertices": square("0mm", "0mm", "1mm", "1mm"), "width": "1mm"}), "/width"),
-        (json!({"shape": "line", "width": "1mm", "vertices": [{"x": 0, "y": 0}]}), "/vertices"),
-        (json!({"layer": "silkscreen_top", "vertices": square("0mm", "0mm", "1mm", "1mm")}), "/layer"),
+        (
+            json!({"vertices": square("0mm", "0mm", "1mm", "1mm"), "restrict": []}),
+            "/restrict",
+        ),
+        (
+            json!({"shape": "line", "vertices": square("0mm", "0mm", "1mm", "1mm")}),
+            "/width",
+        ),
+        (
+            json!({"vertices": square("0mm", "0mm", "1mm", "1mm"), "width": "1mm"}),
+            "/width",
+        ),
+        (
+            json!({"shape": "line", "width": "1mm", "vertices": [{"x": 0, "y": 0}]}),
+            "/vertices",
+        ),
+        (
+            json!({"layer": "silkscreen_top", "vertices": square("0mm", "0mm", "1mm", "1mm")}),
+            "/layer",
+        ),
     ];
     for (params, at) in refused {
         let err = engine.run_err("pcb.keepout.add", params.clone());
-        assert_eq!((err.code, pointer(&err)), (ErrorCode::InvalidParams, at), "{params}");
+        assert_eq!(
+            (err.code, pointer(&err)),
+            (ErrorCode::InvalidParams, at),
+            "{params}"
+        );
     }
     let err = engine.run_err(
         "pcb.keepout.set",
         json!({"keepout": all.to_string(), "shape": "line"}),
     );
-    assert_eq!((err.code, pointer(&err)), (ErrorCode::InvalidParams, "/width"));
+    assert_eq!(
+        (err.code, pointer(&err)),
+        (ErrorCode::InvalidParams, "/width")
+    );
 
     engine.run_ok("pcb.keepout.delete", json!({"keepouts": [all.to_string()]}));
     assert!(pcb(&engine).keepout(all).is_none());
@@ -262,7 +284,10 @@ fn a_keepout_is_stored_with_its_layer_shape_and_restrictions() {
     let keepouts = file["keepouts"].as_array().unwrap();
     assert_eq!(keepouts.len(), 2);
     let polygon = keepouts.iter().find(|k| k["shape"] == "polygon").unwrap();
-    assert!(polygon.get("layer").is_none(), "every Layer is stored as no Layer");
+    assert!(
+        polygon.get("layer").is_none(),
+        "every Layer is stored as no Layer"
+    );
     assert!(polygon.get("width").is_none());
     assert_eq!(
         polygon["restrict"],
@@ -314,7 +339,11 @@ fn the_clearance_queries_report_the_keepouts_copper_would_enter() {
     assert_eq!(out["clear"], true, "Tracks may cross a Via Keepout");
     // Outside, but closer than the 0.3 mm clearance: edge 0.2 mm away.
     let out = track(&mut engine, "copper_top", "2.3mm");
-    assert_eq!(out["keepouts"], json!([tracks]), "copper keeps the clearance");
+    assert_eq!(
+        out["keepouts"],
+        json!([tracks]),
+        "copper keeps the clearance"
+    );
     assert_eq!(track(&mut engine, "copper_top", "2.45mm")["clear"], true);
 
     let via = |e: &mut TestEngine, x: &str| {
@@ -350,9 +379,12 @@ fn zero_keepout_clearance_is_set_on_the_board_wide_clearance_record_only() {
         "pcb.rules.set",
         json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
     );
-    assert_eq!(out["result"]["rule"]["values"]["zero_keepout_clearance"], true);
-    let class = engine.run_ok("pcb.net_class.add", json!({"name": "Power"}))["result"]["uuid"]
-        .clone();
+    assert_eq!(
+        out["result"]["rule"]["values"]["zero_keepout_clearance"],
+        true
+    );
+    let class =
+        engine.run_ok("pcb.net_class.add", json!({"name": "Power"}))["result"]["uuid"].clone();
     let err = engine.run_err(
         "pcb.rules.set",
         json!({"kind": "clearance", "scope": {"net_class": class},

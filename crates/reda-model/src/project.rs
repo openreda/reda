@@ -390,6 +390,7 @@ impl Project {
             Object::Waiver(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
+            Object::Dimension(o) => o.document,
             Object::FootprintInstance(o) => o.document,
             Object::Track(o) => o.document,
             Object::Via(o) => o.document,
@@ -568,6 +569,9 @@ impl Project {
             }
             Some(Object::PcbGraphic(o)) => {
                 self.pcb_mut(o.document).graphics.insert(uuid, o.object);
+            }
+            Some(Object::Dimension(o)) => {
+                self.pcb_mut(o.document).dimensions.insert(uuid, o.object);
             }
             Some(Object::FootprintInstance(o)) => {
                 self.pcb_mut(o.document).footprints.insert(uuid, o.object);

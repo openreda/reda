@@ -200,7 +200,7 @@ fn silk_side(layer: FootprintLayer) -> Option<Side> {
     }
 }
 
-/// Every piece of silkscreen on the board, Footprints' first. Footprint text is laid out
+/// Every piece of silkscreen on the board, Footprints' first, Dimensions last. Footprint text is laid out
 /// by [`footprint_texts`], as the canvas and the Gerber silkscreen lay it out.
 pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
     let side_of = |layer: Uuid| {
@@ -269,6 +269,27 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
             side,
             area: text_area(&text_geometry(text, fonts)),
         });
+    }
+    // A Dimension is checked as the lines and text it plots as.
+    for dimension in pcb.dimensions() {
+        let Some(side) = side_of(dimension.layer) else {
+            continue;
+        };
+        let drawn = crate::dimension::drawing(dimension, fonts);
+        for line in &drawn.lines {
+            out.push(Silk {
+                objects: vec![dimension.uuid],
+                side,
+                area: strokes_area(&[vec![line.from, line.to]], line.width.0),
+            });
+        }
+        if let Some(text) = &drawn.text {
+            out.push(Silk {
+                objects: vec![dimension.uuid],
+                side,
+                area: text_area(&text_geometry(text, fonts)),
+            });
+        }
     }
     out
 }

@@ -4,6 +4,7 @@
 //! flipping, locking and arranging Footprints, their Designator text, Mechanical Parts,
 //! Free Pads and the Output Origin.
 //!
+//! Dimensions (their Hotspots, values and layout) are in [`dimension`].
 //! Copper connectivity and the Ratsnest are in [`copper`], the rule resolver in
 //! [`rules`], Zone fill in [`zone`], the design rules check in [`drc`], and the packing
 //! of new Footprints into clusters outside the board in [`cluster`].
@@ -12,6 +13,7 @@ mod board;
 pub mod cluster;
 mod commands;
 pub mod copper;
+pub mod dimension;
 pub mod drc;
 pub mod keepout;
 pub mod placed;

@@ -7,13 +7,15 @@
 //! edge-exact. Touching an edge-exact Keepout is allowed; overlapping it never is.
 
 use reda_model::geom::{Millideg, Nm, Point, Vertex};
-use reda_model::{Keepout, KeepoutShape, PadKind, PcbDocument, Restriction, RuleField, RuleKind, Uuid};
+use reda_model::{
+    Keepout, KeepoutShape, PadKind, PcbDocument, Restriction, RuleField, RuleKind, Uuid,
+};
 
 use crate::copper::shape::{BoardShape as _, Shape, arc_points};
-use reda_model::geom::grown::TOUCH;
 use crate::copper::{Item, Proposal};
 use crate::rules::{clearance_between, resolve_pair};
 use crate::zone::poly::{self, Area, Contour};
+use reda_model::geom::grown::TOUCH;
 
 /// The area `keepout` covers: inside its polygon, or within half the width of its line.
 pub(crate) fn area(keepout: &Keepout) -> Area {
@@ -117,7 +119,11 @@ pub(crate) struct KeepoutHit {
 /// and its edges.
 enum Measure {
     Line(Shape),
-    Polygon { area: Area, edges: Shape, corners: Vec<Point> },
+    Polygon {
+        area: Area,
+        edges: Shape,
+        corners: Vec<Point>,
+    },
 }
 
 impl Measure {
@@ -164,9 +170,10 @@ impl Measure {
                     .map(|p| Point::new(Nm(p[0]), Nm(p[1])))
                     .find(|p| poly::inside(area, *p))
                     .or_else(|| {
-                        corners.iter().copied().find(|c| {
-                            copper.distance(&Shape::disc(*c, Nm::ZERO)) < -TOUCH
-                        })
+                        corners
+                            .iter()
+                            .copied()
+                            .find(|c| copper.distance(&Shape::disc(*c, Nm::ZERO)) < -TOUCH)
                     });
                 match inside {
                     Some(p) => (-1.0, [p, p]),

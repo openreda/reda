@@ -1,6 +1,6 @@
 //! What a PCB Scene needs from `reda-pcb`: placed Pads and Footprint drawing, laid-out
-//! text, the Ratsnest and Zone fill states. `reda-render` does not depend on `reda-pcb`,
-//! so the engine works these out and hands them over ([`reda_render::BoardParts`]).
+//! text, Dimensions as lines and text, the Ratsnest and Zone fill states. `reda-render`
+//! does not depend on `reda-pcb`, so the engine works these out and hands them over ([`reda_render::BoardParts`]).
 
 use reda_command::Fonts;
 use reda_model::{FootprintInstance, PcbDocument, PcbText, Project, Shape, Uuid};
@@ -24,6 +24,25 @@ pub(crate) fn board_geometry(project: &Project, pcb: &PcbDocument, fonts: &Fonts
         pcb.texts()
             .map(|t| board_text(t.uuid, t, text_geometry(t, fonts))),
     );
+    for dimension in pcb.dimensions() {
+        let drawn = reda_pcb::dimension::drawing(dimension, fonts);
+        out.graphics
+            .extend(drawn.lines.iter().map(|line| BoardGraphic {
+                object: dimension.uuid,
+                layer: dimension.layer,
+                shape: Shape::Line {
+                    start: line.from,
+                    end: line.to,
+                },
+                width: line.width,
+                fill: false,
+            }));
+        out.texts.extend(
+            drawn
+                .text
+                .map(|t| board_text(dimension.uuid, &t, text_geometry(&t, fonts))),
+        );
+    }
     let fills = project.zone_fills(pcb.uuid);
     let copper = Copper::of(project).expect("the Project's PCB Document");
     out.ratsnest = copper

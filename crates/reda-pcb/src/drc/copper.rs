@@ -4,8 +4,8 @@ use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_
 
 use super::{Board, Report, item_objects};
 use crate::copper::shape::{BoardShape as _, Shape};
-use crate::rules::{net_rules, resolve, resolve_pair};
 use crate::keepout;
+use crate::rules::{net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);

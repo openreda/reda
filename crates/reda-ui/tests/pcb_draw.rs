@@ -166,7 +166,10 @@ fn a_zone_is_refused_off_copper_and_k_draws_a_keepout_on_every_copper_layer() {
     run(&mut b.shell, "tool.finish", json!({}));
     assert_eq!(b.edits_since(start), ["pcb.keepout.add"]);
     let keepout = b.pcb().keepouts().next().unwrap().clone();
-    assert_eq!(keepout.layer, None, "a drawn Keepout is on every copper Layer");
+    assert_eq!(
+        keepout.layer, None,
+        "a drawn Keepout is on every copper Layer"
+    );
     assert_eq!(b.pcb().keepout_layers(&keepout).len(), 2);
 }
 

@@ -2,6 +2,7 @@
 //! the Project has none.
 
 mod copper;
+mod dimension;
 mod drc;
 mod find;
 mod free_pad;
@@ -57,6 +58,7 @@ pub fn register_all_with_user(
     text::register_all(registry);
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
+    dimension::register_all(registry);
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);
