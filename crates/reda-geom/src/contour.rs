@@ -87,6 +87,8 @@ pub enum ContourError {
     Branch(Point),
     /// The segments close into more than one loop.
     SeveralLoops,
+    /// Two segment ends that should meet are `size` apart, the gap's middle at `at`.
+    Gap { at: Point, size: Nm },
 }
 
 impl fmt::Display for ContourError {
@@ -109,6 +111,12 @@ impl fmt::Display for ContourError {
                 write!(f, "three or more segment ends meet at {}", at(p))
             }
             ContourError::SeveralLoops => f.write_str("the segments form more than one loop"),
+            ContourError::Gap { at: p, size } => write!(
+                f,
+                "the segments do not close: a gap of {} nm at {}",
+                size.0,
+                at(p)
+            ),
         }
     }
 }
@@ -219,6 +227,85 @@ pub fn chain(segments: &[Segment]) -> Result<Vec<Vertex>, ContourError> {
     }
     check_contour(&out)?;
     Ok(out)
+}
+
+/// [`chain`], with segment ends that come within `tolerance` of each other taken as
+/// meeting: each group of such ends moves to the lowest of them (by x, then y). An open
+/// end with another open end nearby is reported as a [`ContourError::Gap`] between the
+/// two, with its size; a segment whose ends merge is dropped.
+pub fn chain_within(segments: &[Segment], tolerance: Nm) -> Result<Vec<Vertex>, ContourError> {
+    let mut ends: Vec<Point> = segments.iter().flat_map(|s| [s.from, s.to]).collect();
+    ends.sort_by_key(|p| (p.x.0, p.y.0));
+    ends.dedup();
+    let near = |a: Point, b: Point| distance(a, b) <= tolerance.0 as f64;
+    // Group ends within the tolerance of one another, transitively.
+    let mut group: Vec<usize> = (0..ends.len()).collect();
+    fn root(group: &mut [usize], mut i: usize) -> usize {
+        while group[i] != i {
+            group[i] = group[group[i]];
+            i = group[i];
+        }
+        i
+    }
+    for i in 0..ends.len() {
+        for j in i + 1..ends.len() {
+            if near(ends[i], ends[j]) {
+                let (a, b) = (root(&mut group, i), root(&mut group, j));
+                group[a.max(b)] = a.min(b);
+            }
+        }
+    }
+    let snap = |p: Point, group: &mut [usize]| {
+        let i = ends.binary_search_by_key(&(p.x.0, p.y.0), |e| (e.x.0, e.y.0));
+        let i = i.expect("every end is listed");
+        ends[root(group, i)]
+    };
+    let mut snapped = Vec::with_capacity(segments.len());
+    for s in segments {
+        let (from, to) = (snap(s.from, &mut group), snap(s.to, &mut group));
+        if from != to {
+            snapped.push(Segment::arc(from, to, s.sweep));
+        }
+    }
+    match chain(&snapped) {
+        Err(ContourError::OpenEnd(_)) => {
+            // The closest pair of open ends is the gap to report.
+            let mut count: BTreeMap<(i64, i64), usize> = BTreeMap::new();
+            for s in &snapped {
+                for p in [s.from, s.to] {
+                    *count.entry((p.x.0, p.y.0)).or_default() += 1;
+                }
+            }
+            let open: Vec<Point> = count
+                .iter()
+                .filter(|(_, n)| *n % 2 == 1)
+                .map(|(&(x, y), _)| Point::new(Nm(x), Nm(y)))
+                .collect();
+            let mut best: Option<(f64, Point, Point)> = None;
+            for (i, &a) in open.iter().enumerate() {
+                for &b in &open[i + 1..] {
+                    let d = distance(a, b);
+                    if best.is_none_or(|(bd, _, _)| d < bd) {
+                        best = Some((d, a, b));
+                    }
+                }
+            }
+            match best {
+                Some((d, a, b)) => Err(ContourError::Gap {
+                    at: Point::new(Nm((a.x.0 + b.x.0) / 2), Nm((a.y.0 + b.y.0) / 2)),
+                    size: Nm(d.round() as i64),
+                }),
+                None => Err(ContourError::OpenEnd(
+                    open.first().copied().unwrap_or(ends[0]),
+                )),
+            }
+        }
+        other => other,
+    }
+}
+
+fn distance(a: Point, b: Point) -> f64 {
+    ((a.x.0 - b.x.0) as f64).hypot((a.y.0 - b.y.0) as f64)
 }
 
 /// The centre of the arc from `from` to `to` sweeping `sweep` (non-zero, under a full

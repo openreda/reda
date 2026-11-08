@@ -3,7 +3,8 @@
 //! progress bar with Cancel), then hand the outcome back to the engine's Journal.
 //!
 //! Only Commands that read the Project and write files elsewhere may be detached (today
-//! `output.job.run`): an edit must run on the engine's own session. The one thing such a
+//! `output.job.run` and `pcb.zone.fill`, the window's background refill): an edit must
+//! run on the engine's own session. The one thing such a
 //! run may change in its copy is derived data, the Zone fills it computed, and
 //! [`Engine::finish`] keeps those, as a run on the engine would have.
 
@@ -18,6 +19,7 @@ use crate::journal::JournalEntry;
 fn detachable() -> Registry {
     let mut registry = Registry::new();
     crate::commands::output_run::register_all(&mut registry);
+    crate::commands::zone_fill::register_all(&mut registry);
     registry
 }
 

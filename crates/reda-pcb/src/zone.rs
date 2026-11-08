@@ -11,19 +11,21 @@
 //! from the true arc.
 
 use crate::copper::shape::BoardShape as _;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Nm;
 use reda_model::{PcbDocument, Uuid, Zone, ZoneFill, ZoneFills};
 
 mod cache;
-mod fill;
+pub(crate) mod fill;
 mod merge;
+mod names;
 pub(crate) mod poly;
 
 pub use cache::{decode, encode};
 pub(crate) use fill::shape_copper;
 pub use merge::{LayerFill, layer_fills};
+pub use names::{NO_NET, name, names};
 
 use crate::copper::shape::Shape;
 use crate::copper::{Copper, Proposal};
@@ -35,11 +37,58 @@ const FILL_VERSION: u32 = 2;
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.
 pub const ARC_TOLERANCE: Nm = reda_model::geom::grown::ARC_TOLERANCE;
 
-/// `pcb`'s Zones in fill order: highest priority first, then by UUID.
-fn fill_order(pcb: &PcbDocument) -> Vec<&Zone> {
-    let mut zones: Vec<&Zone> = pcb.zones().collect();
-    zones.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.uuid.cmp(&b.uuid)));
+/// `pcb`'s unshelved Zones in fill order: highest priority first, then by UUID.
+pub fn fill_order(pcb: &PcbDocument) -> Vec<&Zone> {
+    let mut zones: Vec<&Zone> = pcb.active_zones().collect();
+    zones.sort_by(pour_order);
     zones
+}
+
+/// Every Zone of `pcb`, shelved ones too, in fill order.
+pub(crate) fn fill_order_all(pcb: &PcbDocument) -> Vec<&Zone> {
+    let mut zones: Vec<&Zone> = pcb.zones().collect();
+    zones.sort_by(pour_order);
+    zones
+}
+
+/// The pour order: higher priority first; a tie goes to the lower UUID.
+pub fn pour_order(a: &&Zone, b: &&Zone) -> std::cmp::Ordering {
+    b.priority.cmp(&a.priority).then(a.uuid.cmp(&b.uuid))
+}
+
+/// The Zones on Layer `layer`, shelved ones too, in pour order: the order the Zones
+/// panel lists and `pcb.zone.reorder` takes.
+pub fn layer_order(pcb: &PcbDocument, layer: Uuid) -> Vec<&Zone> {
+    let mut zones: Vec<&Zone> = pcb.zones().filter(|z| z.layer == layer).collect();
+    zones.sort_by(pour_order);
+    zones
+}
+
+/// `zones` and every Zone that depends on them: the lower-priority Zones on the same
+/// Layer whose outlines overlap one of them, and so on down.
+pub fn dependents(pcb: &PcbDocument, zones: &[Uuid]) -> BTreeSet<Uuid> {
+    let order = fill_order(pcb);
+    let mut out: BTreeSet<Uuid> = zones.iter().copied().collect();
+    let outline_box = |z: &Zone| reda_model::geom::contour_bounds(pcb.zone_vertices(z));
+    for (i, zone) in order.iter().enumerate() {
+        if !out.contains(&zone.uuid) {
+            continue;
+        }
+        let Some(b) = outline_box(zone) else { continue };
+        for lower in &order[i + 1..] {
+            if lower.layer == zone.layer
+                && outline_box(lower).is_some_and(|l| {
+                    l.min.x <= b.max.x
+                        && b.min.x <= l.max.x
+                        && l.min.y <= b.max.y
+                        && b.min.y <= l.max.y
+                })
+            {
+                out.insert(lower.uuid);
+            }
+        }
+    }
+    out
 }
 
 /// Fills every Zone of `pcb`. `step(done, total)` is called before each Zone (and once
@@ -56,11 +105,26 @@ pub fn refill(
     stored: Option<&ZoneFills>,
     step: &mut dyn FnMut(usize, usize) -> bool,
 ) -> Option<ZoneFills> {
+    refill_only(pcb, stored, None, step)
+}
+
+/// Fills the Zones `only` names and those that [depend](dependents) on them, keeping
+/// every other Zone's stored fill as it is, current or stale; `None` refills every Zone
+/// that is missing or stale, as [`refill`] does. Shelved Zones are never filled.
+pub fn refill_only(
+    pcb: &PcbDocument,
+    stored: Option<&ZoneFills>,
+    only: Option<&[Uuid]>,
+    step: &mut dyn FnMut(usize, usize) -> bool,
+) -> Option<ZoneFills> {
     let hashes = input_hashes(pcb);
+    let forced = only.map(|only| dependents(pcb, only));
     let current = |zone: &Zone| {
-        stored
-            .and_then(|s| s.zones.get(&zone.uuid))
-            .filter(|f| f.inputs == hashes[&zone.uuid])
+        let kept = stored.and_then(|s| s.zones.get(&zone.uuid));
+        match &forced {
+            Some(forced) => kept.filter(|_| !forced.contains(&zone.uuid)),
+            None => kept.filter(|f| f.inputs == hashes[&zone.uuid]),
+        }
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
@@ -109,8 +173,8 @@ pub fn refill(
 
 /// Each Zone's input hash, by UUID: everything its fill depends on. That is the Zone
 /// itself, the Layers, rules, board edge, Net Classes and Nets, Footprints and Free Pads,
-/// the Tracks, Vias and Keepouts on its Layer, and the hashes of the higher-priority
-/// Zones on its Layer (whose fills it keeps clear of or merges with). Text, graphics and
+/// the Tracks, Vias, Keepouts and Zone Cutouts on its Layer, and the hashes of the
+/// higher-priority unshelved Zones on its Layer (whose fills it keeps clear of or merges with). Text, graphics and
 /// copper on other Layers are left out, so an edit there leaves the Zone current.
 pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
     let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, &n.classes)).collect();
@@ -126,6 +190,7 @@ pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
         .collect();
     let free_pads: Vec<_> = pcb.free_pads().collect();
     let cutouts: Vec<_> = pcb.cutouts().collect();
+    let zone_cutouts: Vec<_> = pcb.zone_cutouts().collect();
     let mut shared = reda_command::Fingerprint::new();
     shared.add(&FILL_VERSION);
     shared.add(pcb.layers());
@@ -153,9 +218,14 @@ pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
                 .keepouts()
                 .filter(|k| k.layers.contains(&zone.layer))
                 .collect();
+            let cutouts: Vec<_> = zone_cutouts
+                .iter()
+                .filter(|c| c.layer == zone.layer)
+                .collect();
             let mut f = reda_command::Fingerprint::new();
             f.add(&shared);
             f.add(&zone.layer);
+            f.add(&cutouts);
             f.add(&tracks);
             f.add(&vias);
             f.add(&keepouts);
@@ -200,6 +270,8 @@ pub enum FillState {
     Stale,
     /// Never filled: only the outline is drawn.
     Unfilled,
+    /// Shelved: not filled, and hidden from the canvas, until restored.
+    Shelved,
 }
 
 /// The state of every Zone of `pcb` given the stored `fills`, each judged by its own
@@ -210,6 +282,7 @@ pub fn status(pcb: &PcbDocument, fills: Option<&ZoneFills>) -> FillStatus {
         .zones()
         .map(|z| {
             let state = match fills.and_then(|f| f.zones.get(&z.uuid)) {
+                _ if z.shelved => FillState::Shelved,
                 Some(f) if f.inputs == hashes[&z.uuid] => FillState::Filled,
                 Some(_) => FillState::Stale,
                 None => FillState::Unfilled,
@@ -221,7 +294,9 @@ pub fn status(pcb: &PcbDocument, fills: Option<&ZoneFills>) -> FillStatus {
         })
         .collect();
     FillStatus {
-        needs_refill: zones.iter().any(|z| z.state != FillState::Filled),
+        needs_refill: zones
+            .iter()
+            .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
         zones,
     }
 }

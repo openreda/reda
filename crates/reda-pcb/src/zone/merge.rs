@@ -21,7 +21,7 @@ pub struct LayerFill {
 pub fn layer_fills(pcb: &PcbDocument, fills: &ZoneFills) -> Vec<LayerFill> {
     let order: Vec<Uuid> = pcb.layers().layers.iter().map(|l| l.uuid).collect();
     let mut groups: BTreeMap<(usize, Option<Uuid>), Vec<&Vec<FillShape>>> = BTreeMap::new();
-    for zone in pcb.zones() {
+    for zone in pcb.active_zones() {
         let (Some(fill), Some(layer)) = (
             fills.zones.get(&zone.uuid),
             order.iter().position(|l| *l == zone.layer),

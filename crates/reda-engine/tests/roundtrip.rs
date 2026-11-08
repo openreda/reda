@@ -18,6 +18,7 @@ use reda_engine::model::{
     PourOver, PowerPort, PowerPortStyle, Project, ProjectFabPreset, ProjectProperties,
     ProjectProps, Severity, SheetFrame, SheetGraphic, SheetShape, SheetSize, SheetText, Side,
     Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid, Via, Waiver, Wire, Zone,
+    ZoneCutout, ZoneNameScheme,
 };
 use reda_engine::model::{DesignRule, FabRules, PreferredSeeds, RuleKind, RuleScope, RuleValues};
 use reda_engine::store::{encode, load_from};
@@ -263,6 +264,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     let setup = BoardSetup {
         uuid: id(),
         severities,
+        zone_name_scheme: ZoneNameScheme::LayernameNetPxxx,
     };
     let seeded = reda_engine::pcb::seed_rules(&fab_rules(seed.rules));
     for (kind, values) in seeded.into_iter().chain(reda_engine::pcb::default_rules()) {
@@ -498,9 +500,11 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 doc,
                 Zone {
                     uuid: id(),
+                    name: bottom.then(|| format!("Pour {}", width.0)),
                     layer,
                     net,
                     vertices: vertices.clone(),
+                    follows_outline: false,
                     clearance: bottom.then_some(width),
                     min_width: (!bottom).then_some(Nm(width.0 + 1)),
                     pour_over: if bottom {
@@ -511,6 +515,15 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                     remove_unconnected: bottom,
                     min_island_area: width.0 * 3,
                     priority: width.0 as u32 % 7,
+                    shelved: !bottom,
+                },
+            )));
+            objects.push(Object::ZoneCutout(InDocument::new(
+                doc,
+                ZoneCutout {
+                    uuid: id(),
+                    layer,
+                    vertices: vertices.clone(),
                 },
             )));
             objects.push(Object::Keepout(InDocument::new(
