@@ -23928,40 +23928,50 @@
           "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "copper": {
-                "description": "Whether copper (Tracks, Pads, Zone fills) is forbidden inside.",
-                "type": "boolean"
+              "layer": {
+                "description": "The copper Layer; left out for every copper Layer.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
-              "layers": {
-                "description": "The copper Layers it applies to, top to bottom.",
+              "restrict": {
+                "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
                 "items": {
-                  "format": "uuid",
-                  "type": "string"
+                  "$ref": "#/$defs/Restriction"
                 },
-                "type": "array"
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind",
+                "description": "`polygon` or `line`."
               },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
               },
               "vertices": {
-                "description": "The outline; the last vertex joins the first.",
                 "items": {
                   "$ref": "#/$defs/Vertex"
                 },
                 "type": "array"
               },
-              "vias": {
-                "description": "Whether Vias are forbidden inside.",
-                "type": "boolean"
+              "width": {
+                "description": "A line's width; only for `line`.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
             "required": [
               "uuid",
-              "layers",
+              "shape",
               "vertices",
-              "copper",
-              "vias"
+              "restrict"
             ],
             "type": "object"
           },
@@ -24389,6 +24399,14 @@
               "bottom_left",
               "bottom",
               "bottom_right"
+            ],
+            "type": "string"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
             ],
             "type": "string"
           },
@@ -26901,12 +26919,40 @@
             ],
             "type": "object"
           },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -27183,6 +27229,13 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "zero_keepout_clearance": {
+                "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -28524,7 +28577,7 @@
               },
               {
                 "const": "keepout",
-                "description": "An area where copper or Vias may not go.",
+                "description": "An area on one or every copper Layer that keeps out the kinds of object it restricts.",
                 "type": "string"
               },
               {
@@ -31253,40 +31306,50 @@
           "InDocument28": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
-              "copper": {
-                "description": "Whether copper (Tracks, Pads, Zone fills) is forbidden inside.",
-                "type": "boolean"
+              "layer": {
+                "description": "The copper Layer; left out for every copper Layer.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
-              "layers": {
-                "description": "The copper Layers it applies to, top to bottom.",
+              "restrict": {
+                "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
                 "items": {
-                  "format": "uuid",
-                  "type": "string"
+                  "$ref": "#/$defs/Restriction"
                 },
-                "type": "array"
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind",
+                "description": "`polygon` or `line`."
               },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
               },
               "vertices": {
-                "description": "The outline; the last vertex joins the first.",
                 "items": {
                   "$ref": "#/$defs/Vertex"
                 },
                 "type": "array"
               },
-              "vias": {
-                "description": "Whether Vias are forbidden inside.",
-                "type": "boolean"
+              "width": {
+                "description": "A line's width; only for `line`.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
             "required": [
               "uuid",
-              "layers",
+              "shape",
               "vertices",
-              "copper",
-              "vias"
+              "restrict"
             ],
             "type": "object"
           },
@@ -31714,6 +31777,14 @@
               "bottom_left",
               "bottom",
               "bottom_right"
+            ],
+            "type": "string"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
             ],
             "type": "string"
           },
@@ -34247,12 +34318,40 @@
             ],
             "type": "object"
           },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -34529,6 +34628,13 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "zero_keepout_clearance": {
+                "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -41836,7 +41942,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Keepout: an area inside `vertices` on some copper Layers where copper, Vias or both may not go. Zone fills leave it empty.",
+      "description": "Adds a Keepout on copper `layer`, or on every copper Layer if left out: a `polygon` (default) inside `vertices`, or a `line` through them `width` wide. It keeps out the kinds in `restrict` (default: Tracks, Vias, Zones, SMD and through-hole Pads; `footprints` is checked by Courtyard). Copper keeps the normal clearance from it unless `zero_keepout_clearance` is set. It is never plotted.",
       "icon": "keepout",
       "id": "pcb.keepout.add",
       "kind": "edit",
@@ -41856,6 +41962,14 @@
               }
             ]
           },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -41866,6 +41980,34 @@
               {
                 "description": "A number and a unit: nm, um, mm, mil or in.",
                 "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
                 "type": "string"
               }
             ]
@@ -41903,39 +42045,55 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "copper": {
-            "default": null,
-            "description": "Whether copper (Tracks, Pads, Zone fills) is forbidden inside. Default: true.",
+          "layer": {
+            "description": "One copper Layer; left out, every copper Layer, including any added later.",
             "type": [
-              "boolean",
+              "string",
               "null"
             ]
           },
-          "layers": {
-            "description": "The copper Layers it applies to. Default: every copper Layer.",
+          "restrict": {
+            "default": null,
+            "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.\nDefault: all but `footprints`.",
             "items": {
-              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
-              "type": "string"
+              "$ref": "#/$defs/Restriction"
             },
             "type": [
               "array",
               "null"
-            ]
+            ],
+            "uniqueItems": true
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KeepoutShapeKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`polygon` (default) or `line`."
           },
           "vertices": {
-            "description": "The outline's vertices in order; the last joins the first.",
+            "description": "A polygon's outline, the last vertex joining the first; or a line's points.",
             "items": {
               "$ref": "#/$defs/VertexParam"
             },
             "type": "array"
           },
-          "vias": {
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": null,
-            "description": "Whether Vias are forbidden inside. Default: true.",
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "description": "A line's width; only for `line`."
           }
         },
         "required": [
@@ -41965,7 +42123,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Keepout along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes.",
+      "description": "Adds a polygon Keepout along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes.",
       "icon": "keepout",
       "id": "pcb.keepout.add_from_graphics",
       "kind": "edit",
@@ -41985,19 +42143,39 @@
                 "type": "string"
               }
             ]
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "copper": {
-            "default": null,
-            "description": "Whether copper is forbidden inside. Default: true.",
-            "type": [
-              "boolean",
-              "null"
-            ]
-          },
           "graphics": {
             "description": "Free lines, arcs and outlined rectangles forming one closed loop.",
             "items": {
@@ -42011,14 +42189,10 @@
             "description": "Keep the graphics as well; by default they are removed.",
             "type": "boolean"
           },
-          "layers": {
-            "description": "The copper Layers it applies to. Default: every copper Layer.",
-            "items": {
-              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
-              "type": "string"
-            },
+          "layer": {
+            "description": "One copper Layer; left out, every copper Layer.",
             "type": [
-              "array",
+              "string",
               "null"
             ]
           },
@@ -42026,13 +42200,17 @@
             "$ref": "#/$defs/LoopMode",
             "description": "`centerline` (default) or `outer_edge`."
           },
-          "vias": {
+          "restrict": {
             "default": null,
-            "description": "Whether Vias are forbidden inside. Default: true.",
+            "description": "What it keeps out. Default: all but `footprints`.",
+            "items": {
+              "$ref": "#/$defs/Restriction"
+            },
             "type": [
-              "boolean",
+              "array",
               "null"
-            ]
+            ],
+            "uniqueItems": true
           }
         },
         "required": [
@@ -42109,7 +42287,7 @@
     },
     {
       "category": "pcb",
-      "description": "Changes a Keepout's Layers, outline or what it forbids; what is left out stays as it is.",
+      "description": "Changes a Keepout's Layer (`null` for every copper Layer), shape, vertices, line width or what it restricts; what is left out stays as it is.",
       "icon": "keepout",
       "id": "pcb.keepout.set",
       "kind": "edit",
@@ -42129,6 +42307,14 @@
               }
             ]
           },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -42139,6 +42325,34 @@
               {
                 "description": "A number and a unit: nm, um, mm, mil or in.",
                 "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
                 "type": "string"
               }
             ]
@@ -42176,27 +42390,40 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "copper": {
-            "default": null,
-            "type": [
-              "boolean",
-              "null"
-            ]
-          },
           "keepout": {
             "description": "The Keepout's UUID.",
             "format": "uuid",
             "type": "string"
           },
-          "layers": {
+          "layer": {
+            "description": "One copper Layer; `null` for every copper Layer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restrict": {
+            "default": null,
             "items": {
-              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
-              "type": "string"
+              "$ref": "#/$defs/Restriction"
             },
             "type": [
               "array",
               "null"
-            ]
+            ],
+            "uniqueItems": true
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KeepoutShapeKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "`polygon` or `line`."
           },
           "vertices": {
             "items": {
@@ -42207,12 +42434,17 @@
               "null"
             ]
           },
-          "vias": {
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": null,
-            "type": [
-              "boolean",
-              "null"
-            ]
+            "description": "A line's width."
           }
         },
         "required": [
@@ -43013,7 +43245,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -43110,7 +43342,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -43317,6 +43549,14 @@
                   {
                     "type": "null"
                   }
+                ]
+              },
+              "zero_keepout_clearance": {
+                "default": null,
+                "description": "`clearance`, board-wide only: Keepout edges are exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
                 ]
               }
             },
@@ -44797,7 +45037,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -45032,6 +45272,7 @@
             "enum": [
               "value",
               "ignore_pad_to_pad",
+              "zero_keepout_clearance",
               "min",
               "preferred",
               "max",
@@ -45075,7 +45316,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -45283,6 +45524,7 @@
             "enum": [
               "value",
               "ignore_pad_to_pad",
+              "zero_keepout_clearance",
               "min",
               "preferred",
               "max",
@@ -45326,7 +45568,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -45658,6 +45900,7 @@
             "enum": [
               "value",
               "ignore_pad_to_pad",
+              "zero_keepout_clearance",
               "min",
               "preferred",
               "max",
@@ -45701,7 +45944,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -45876,7 +46119,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -46259,7 +46502,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -46521,6 +46764,13 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "zero_keepout_clearance": {
+                "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -46889,7 +47139,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -47001,7 +47251,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -47209,6 +47459,14 @@
                     "type": "null"
                   }
                 ]
+              },
+              "zero_keepout_clearance": {
+                "default": null,
+                "description": "`clearance`, board-wide only: Keepout edges are exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -47347,7 +47605,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -47624,6 +47882,13 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "zero_keepout_clearance": {
+                "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               }
             },
             "type": "object"
@@ -47898,7 +48163,7 @@
             "oneOf": [
               {
                 "const": "clearance",
-                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
               },
               {
@@ -51249,6 +51514,112 @@
         "type": "object"
       },
       "title": "Delete Zone Cutout"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes a Zone Cutout's copper `layer` or outline `vertices`; what is left out stays as it is.",
+      "icon": "keepout",
+      "id": "pcb.zone_cutout.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "VertexParam": {
+            "additionalProperties": false,
+            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "properties": {
+              "sweep": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The edge to the next vertex: left out for a straight edge, otherwise an arc sweeping\nthis angle, counter-clockwise when positive."
+              },
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "cutout": {
+            "description": "The Zone Cutout's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "layer": {
+            "description": "The copper Layer whose Zones it cuts.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vertices": {
+            "description": "The outline's vertices in order; the last joins the first.",
+            "items": {
+              "$ref": "#/$defs/VertexParam"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "cutout"
+        ],
+        "title": "ZoneCutoutSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Change Zone Cutout"
     },
     {
       "category": "project",

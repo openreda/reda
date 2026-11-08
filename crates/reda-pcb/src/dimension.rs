@@ -80,7 +80,7 @@ pub fn hotspot_point(pcb: &PcbDocument, reference: &HotspotRef) -> Option<Point>
                 return vertex(contour(&cutout.vertices), i);
             }
             if let Some(keepout) = pcb.keepout(uuid) {
-                return vertex(contour(&keepout.vertices), i);
+                return vertex(contour(keepout.vertices()), i);
             }
             match pcb.graphic(uuid)?.shape {
                 GraphicShape::Rect { from, to, .. } => vertex(
