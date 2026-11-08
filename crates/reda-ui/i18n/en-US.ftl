@@ -487,6 +487,8 @@ violation-zero-length-track = Track with no length
 violation-micro-segment = Track { $length } long, no longer than { $max_length }
 violation-duplicate-copper = Copper repeated exactly
 violation-zero-area-zone = Zone with no area
+violation-dead-copper = Piece of { $net } fill touching no copper of its Net
+violation-empty-zone = { $net } Zone with nothing left to fill
 violation-out-of-sync = The PCB is out of sync with the schematic
 violation-opening-collapsed =
     The { $side ->
@@ -582,6 +584,8 @@ check-zero-length-track = Zero-Length Track
 check-micro-segment = Micro-Segment
 check-duplicate-copper = Duplicate Copper
 check-zero-area-zone = Zero-Area Zone
+check-dead-copper = Dead Copper
+check-empty-zone = Empty Zone
 check-out-of-sync = Out of Sync
 
 ## Crash recovery and Crash Reports

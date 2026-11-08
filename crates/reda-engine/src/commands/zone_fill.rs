@@ -103,7 +103,7 @@ impl Command for ZoneFill {
             .iter()
             .map(|z| FilledZone {
                 zone: z.uuid,
-                islands: fills.zones.get(&z.uuid).map_or(0, Vec::len),
+                islands: fills.zones.get(&z.uuid).map_or(0, |f| f.shapes.len()),
             })
             .collect();
         let session = cx.session()?;

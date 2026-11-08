@@ -318,6 +318,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -1379,6 +1389,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -1594,6 +1614,16 @@
               {
                 "const": "zero_area_zone",
                 "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
                 "type": "string"
               },
               {
@@ -2119,6 +2149,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -2389,6 +2429,16 @@
               {
                 "const": "zero_area_zone",
                 "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
                 "type": "string"
               },
               {
@@ -21746,6 +21796,11 @@
                 "default": "warning",
                 "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
               },
+              "dead_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area."
+              },
               "duplicate_copper": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -21755,6 +21810,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
+              },
+              "empty_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Zone with a Net and nothing left to fill."
               },
               "footprint_outside_board": {
                 "$ref": "#/$defs/Severity",
@@ -21887,6 +21947,8 @@
               "micro_segment",
               "duplicate_copper",
               "zero_area_zone",
+              "dead_copper",
+              "empty_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -23375,19 +23437,30 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
-                "description": "The gap kept to other Nets' copper; the Net Classes' clearance wins when larger.",
+                "description": "The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the\nlarger of it and the rule applies.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "layer": {
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
                 "type": "string"
               },
-              "min_width": {
-                "description": "The narrowest copper the fill may leave: thinner necks are removed.",
+              "min_island_area": {
+                "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "min_width": {
+                "description": "The narrowest copper the fill may leave: thinner necks are removed. Left out, the\nNet's `track_width` minimum.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "net": {
                 "description": "Its PCB Net; left out for a fill on no Net.",
@@ -23397,8 +23470,9 @@
                   "null"
                 ]
               },
-              "pad_connection": {
-                "$ref": "#/$defs/PadConnection"
+              "pour_over": {
+                "$ref": "#/$defs/PourOver",
+                "description": "How the fill treats same-Net Zones and Tracks."
               },
               "priority": {
                 "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
@@ -23406,19 +23480,9 @@
                 "minimum": 0,
                 "type": "integer"
               },
-              "remove_islands": {
-                "description": "Whether pieces of fill that touch no copper of the Net are dropped.",
+              "remove_unconnected": {
+                "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
                 "type": "boolean"
-              },
-              "thermal_gap": {
-                "description": "With thermal relief: the gap around each Pad of the Net.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "thermal_spoke_width": {
-                "description": "With thermal relief: the width of the spokes.",
-                "format": "int64",
-                "type": "integer"
               },
               "uuid": {
                 "format": "uuid",
@@ -23436,12 +23500,9 @@
               "uuid",
               "layer",
               "vertices",
-              "clearance",
-              "min_width",
-              "pad_connection",
-              "thermal_gap",
-              "thermal_spoke_width",
-              "remove_islands",
+              "pour_over",
+              "remove_unconnected",
+              "min_island_area",
               "priority"
             ],
             "type": "object"
@@ -25428,21 +25489,6 @@
             ],
             "type": "object"
           },
-          "PadConnection": {
-            "description": "How a Zone's fill joins the Pads of its own Net.",
-            "oneOf": [
-              {
-                "const": "thermal",
-                "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
-                "type": "string"
-              },
-              {
-                "const": "solid",
-                "description": "The fill runs straight into the Pad.",
-                "type": "string"
-              }
-            ]
-          },
           "PadKind": {
             "enum": [
               "smd",
@@ -26181,6 +26227,26 @@
             ],
             "type": "string"
           },
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
+            "oneOf": [
+              {
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
+                "type": "string"
+              }
+            ]
+          },
           "PowerPortStyle": {
             "description": "The fixed, built-in look of a Power Port.",
             "oneOf": [
@@ -26428,6 +26494,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -26533,6 +26609,14 @@
                   "null"
                 ]
               },
+              "min_area": {
+                "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -26560,6 +26644,17 @@
                   "null"
                 ]
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join SMD Pads."
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -26571,6 +26666,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join through-hole Pads."
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -26595,6 +26701,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join Vias."
               }
             },
             "type": "object"
@@ -28523,6 +28640,11 @@
                 "default": "warning",
                 "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
               },
+              "dead_copper": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area."
+              },
               "duplicate_copper": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -28532,6 +28654,11 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "Copper too close to the Board Outline or a Board Cutout."
+              },
+              "empty_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A Zone with a Net and nothing left to fill."
               },
               "footprint_outside_board": {
                 "$ref": "#/$defs/Severity",
@@ -28664,6 +28791,8 @@
               "micro_segment",
               "duplicate_copper",
               "zero_area_zone",
+              "dead_copper",
+              "empty_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -30152,19 +30281,30 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "clearance": {
-                "description": "The gap kept to other Nets' copper; the Net Classes' clearance wins when larger.",
+                "description": "The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the\nlarger of it and the rule applies.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "layer": {
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
                 "type": "string"
               },
-              "min_width": {
-                "description": "The narrowest copper the fill may leave: thinner necks are removed.",
+              "min_island_area": {
+                "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "min_width": {
+                "description": "The narrowest copper the fill may leave: thinner necks are removed. Left out, the\nNet's `track_width` minimum.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "net": {
                 "description": "Its PCB Net; left out for a fill on no Net.",
@@ -30174,8 +30314,9 @@
                   "null"
                 ]
               },
-              "pad_connection": {
-                "$ref": "#/$defs/PadConnection"
+              "pour_over": {
+                "$ref": "#/$defs/PourOver",
+                "description": "How the fill treats same-Net Zones and Tracks."
               },
               "priority": {
                 "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
@@ -30183,19 +30324,9 @@
                 "minimum": 0,
                 "type": "integer"
               },
-              "remove_islands": {
-                "description": "Whether pieces of fill that touch no copper of the Net are dropped.",
+              "remove_unconnected": {
+                "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
                 "type": "boolean"
-              },
-              "thermal_gap": {
-                "description": "With thermal relief: the gap around each Pad of the Net.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "thermal_spoke_width": {
-                "description": "With thermal relief: the width of the spokes.",
-                "format": "int64",
-                "type": "integer"
               },
               "uuid": {
                 "format": "uuid",
@@ -30213,12 +30344,9 @@
               "uuid",
               "layer",
               "vertices",
-              "clearance",
-              "min_width",
-              "pad_connection",
-              "thermal_gap",
-              "thermal_spoke_width",
-              "remove_islands",
+              "pour_over",
+              "remove_unconnected",
+              "min_island_area",
               "priority"
             ],
             "type": "object"
@@ -32226,21 +32354,6 @@
             ],
             "type": "object"
           },
-          "PadConnection": {
-            "description": "How a Zone's fill joins the Pads of its own Net.",
-            "oneOf": [
-              {
-                "const": "thermal",
-                "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
-                "type": "string"
-              },
-              {
-                "const": "solid",
-                "description": "The fill runs straight into the Pad.",
-                "type": "string"
-              }
-            ]
-          },
           "PadKind": {
             "enum": [
               "smd",
@@ -32979,6 +33092,26 @@
             ],
             "type": "string"
           },
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
+            "oneOf": [
+              {
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
+                "type": "string"
+              }
+            ]
+          },
           "PowerPortStyle": {
             "description": "The fixed, built-in look of a Power Port.",
             "oneOf": [
@@ -33226,6 +33359,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -33331,6 +33474,14 @@
                   "null"
                 ]
               },
+              "min_area": {
+                "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -33358,6 +33509,17 @@
                   "null"
                 ]
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join SMD Pads."
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -33369,6 +33531,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join through-hole Pads."
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -33393,6 +33566,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join Vias."
               }
             },
             "type": "object"
@@ -40186,6 +40370,34 @@
       "kind": "edit",
       "params": {
         "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "AreaValue": {
+            "description": "An area: integer square nanometres, or a number and an area unit (nm2, um2, mm2, mil2, in2, also written with ², or sqmil) such as \"0.0645mm2\" or \"100sqmil\".",
+            "oneOf": [
+              {
+                "description": "Square nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and an area unit.",
+                "format": "area",
+                "type": "string"
+              }
+            ]
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -40257,6 +40469,91 @@
               "values"
             ],
             "type": "object"
+          },
+          "ConnectionParam": {
+            "additionalProperties": false,
+            "description": "A Zone connection's values to change; `null` clears one.",
+            "properties": {
+              "angle": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "0, 45 or 90 degrees in the object's own frame."
+              },
+              "gap": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The clear ring around a relieved or unconnected object."
+              },
+              "spoke_width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "spokes": {
+                "default": null,
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "`relief`, `solid` or `none`."
+              }
+            },
+            "type": "object"
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -40336,6 +40633,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -40364,7 +40671,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -40455,6 +40762,17 @@
                 ],
                 "default": null
               },
+              "min_area": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AreaValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -40485,6 +40803,16 @@
                 ],
                 "default": null
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "default": null,
                 "type": [
@@ -40497,6 +40825,16 @@
                 "type": [
                   "boolean",
                   "null"
+                ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "tolerance": {
@@ -40531,6 +40869,16 @@
                   }
                 ],
                 "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "type": "object"
@@ -41884,6 +42232,26 @@
             ],
             "type": "object"
           },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
           "KindRules": {
             "description": "One kind of rule as it applies to the objects.",
             "properties": {
@@ -42049,6 +42417,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -42076,6 +42454,26 @@
               },
               {
                 "$ref": "#/$defs/SilkMaskMode"
+              },
+              {
+                "description": "An area in square nanometres.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/ConnectionStyle"
+              },
+              {
+                "description": "A spoke count.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
@@ -42213,7 +42611,23 @@
               "percent",
               "mode",
               "tolerance",
-              "max_length"
+              "max_length",
+              "min_area",
+              "through_hole_style",
+              "through_hole_spokes",
+              "through_hole_spoke_width",
+              "through_hole_gap",
+              "through_hole_angle",
+              "smd_style",
+              "smd_spokes",
+              "smd_spoke_width",
+              "smd_gap",
+              "smd_angle",
+              "via_style",
+              "via_spokes",
+              "via_spoke_width",
+              "via_gap",
+              "via_angle"
             ],
             "type": "string"
           },
@@ -42278,6 +42692,16 @@
               {
                 "const": "micro_segment",
                 "description": "Tracks up to `max_length` long are micro-segments.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
                 "type": "string"
               },
               {
@@ -42352,6 +42776,26 @@
             ],
             "type": "object"
           },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -42418,7 +42862,23 @@
               "percent",
               "mode",
               "tolerance",
-              "max_length"
+              "max_length",
+              "min_area",
+              "through_hole_style",
+              "through_hole_spokes",
+              "through_hole_spoke_width",
+              "through_hole_gap",
+              "through_hole_angle",
+              "smd_style",
+              "smd_spokes",
+              "smd_spoke_width",
+              "smd_gap",
+              "smd_angle",
+              "via_style",
+              "via_spokes",
+              "via_spoke_width",
+              "via_gap",
+              "via_angle"
             ],
             "type": "string"
           },
@@ -42486,6 +42946,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -42513,6 +42983,26 @@
               },
               {
                 "$ref": "#/$defs/SilkMaskMode"
+              },
+              {
+                "description": "An area in square nanometres.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/ConnectionStyle"
+              },
+              {
+                "description": "A spoke count.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
@@ -42661,6 +43151,26 @@
             ],
             "type": "object"
           },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -42727,7 +43237,23 @@
               "percent",
               "mode",
               "tolerance",
-              "max_length"
+              "max_length",
+              "min_area",
+              "through_hole_style",
+              "through_hole_spokes",
+              "through_hole_spoke_width",
+              "through_hole_gap",
+              "through_hole_angle",
+              "smd_style",
+              "smd_spokes",
+              "smd_spoke_width",
+              "smd_gap",
+              "smd_angle",
+              "via_style",
+              "via_spokes",
+              "via_spoke_width",
+              "via_gap",
+              "via_angle"
             ],
             "type": "string"
           },
@@ -42795,6 +43321,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -42822,6 +43358,26 @@
               },
               {
                 "$ref": "#/$defs/SilkMaskMode"
+              },
+              {
+                "description": "An area in square nanometres.",
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "$ref": "#/$defs/ConnectionStyle"
+              },
+              {
+                "description": "A spoke count.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
               }
             ],
             "description": "One resolved value of a known rule field, serialized for previews. The field supplies\nits unit; persisted input is deserialized through the typed [`RuleValues`] fields."
@@ -42940,6 +43496,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -43020,6 +43586,26 @@
               }
             },
             "type": "object"
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
           },
           "DrcCheck": {
             "description": "One DRC check, named as in [`DrcSeverities`].",
@@ -43142,6 +43728,16 @@
               {
                 "const": "zero_area_zone",
                 "description": "Health check: a Zone whose outline encloses no area.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area.",
+                "type": "string"
+              },
+              {
+                "const": "empty_zone",
+                "description": "A Zone with a Net and nothing left to fill.",
                 "type": "string"
               },
               {
@@ -43278,6 +43874,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -43368,6 +43974,14 @@
                   "null"
                 ]
               },
+              "min_area": {
+                "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -43395,6 +44009,17 @@
                   "null"
                 ]
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join SMD Pads."
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -43406,6 +44031,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join through-hole Pads."
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -43430,6 +44066,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join Vias."
               }
             },
             "type": "object"
@@ -43477,6 +44124,57 @@
                 "type": "string"
               }
             ]
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -43575,6 +44273,34 @@
       "kind": "edit",
       "params": {
         "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "AreaValue": {
+            "description": "An area: integer square nanometres, or a number and an area unit (nm2, um2, mm2, mil2, in2, also written with ², or sqmil) such as \"0.0645mm2\" or \"100sqmil\".",
+            "oneOf": [
+              {
+                "description": "Square nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and an area unit.",
+                "format": "area",
+                "type": "string"
+              }
+            ]
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -43614,6 +44340,91 @@
               }
             },
             "type": "object"
+          },
+          "ConnectionParam": {
+            "additionalProperties": false,
+            "description": "A Zone connection's values to change; `null` clears one.",
+            "properties": {
+              "angle": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "0, 45 or 90 degrees in the object's own frame."
+              },
+              "gap": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The clear ring around a relieved or unconnected object."
+              },
+              "spoke_width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "spokes": {
+                "default": null,
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "`relief`, `solid` or `none`."
+              }
+            },
+            "type": "object"
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
           },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
@@ -43693,6 +44504,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -43736,7 +44557,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "bottom": {
                 "anyOf": [
@@ -43827,6 +44648,17 @@
                 ],
                 "default": null
               },
+              "min_area": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AreaValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -43857,6 +44689,16 @@
                 ],
                 "default": null
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "default": null,
                 "type": [
@@ -43869,6 +44711,16 @@
                 "type": [
                   "boolean",
                   "null"
+                ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "tolerance": {
@@ -43903,6 +44755,16 @@
                   }
                 ],
                 "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "type": "object"
@@ -43978,6 +44840,26 @@
               }
             },
             "type": "object"
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
           },
           "DesignRule": {
             "additionalProperties": false,
@@ -44080,6 +44962,16 @@
                 "type": "string"
               },
               {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
                 "const": "mask_expansion",
                 "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
                 "type": "string"
@@ -44185,6 +45077,14 @@
                   "null"
                 ]
               },
+              "min_area": {
+                "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "mode": {
                 "anyOf": [
                   {
@@ -44212,6 +45112,17 @@
                   "null"
                 ]
               },
+              "smd": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join SMD Pads."
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -44223,6 +45134,17 @@
                   "boolean",
                   "null"
                 ]
+              },
+              "through_hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join through-hole Pads."
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -44247,6 +45169,17 @@
                   "integer",
                   "null"
                 ]
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`zone_connection` only: how fills join Vias."
               }
             },
             "type": "object"
@@ -44265,6 +45198,57 @@
                 "type": "string"
               }
             ]
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -44526,6 +45510,16 @@
               {
                 "const": "micro_segment",
                 "description": "Tracks up to `max_length` long are micro-segments.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
                 "type": "string"
               },
               {
@@ -46036,7 +47030,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a copper Zone: a solid fill on a Net inside the outline `vertices` on one copper Layer, keeping clear of other Nets' copper. The Zone is filled by `pcb.zone.fill`.",
+      "description": "Adds a copper Zone: a solid fill on a Net inside the outline `vertices` on one copper Layer, keeping clear of other Nets' copper. A value left out takes a fixed default, never a Preference. How the fill joins Pads and Vias comes from the `zone_connection` rule. The Zone is filled by `pcb.zone.fill`.",
       "icon": "zone",
       "id": "pcb.zone.add",
       "kind": "edit",
@@ -46056,6 +47050,20 @@
               }
             ]
           },
+          "AreaValue": {
+            "description": "An area: integer square nanometres, or a number and an area unit (nm2, um2, mm2, mil2, in2, also written with ², or sqmil) such as \"0.0645mm2\" or \"100sqmil\".",
+            "oneOf": [
+              {
+                "description": "Square nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and an area unit.",
+                "format": "area",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -46070,17 +47078,22 @@
               }
             ]
           },
-          "PadConnection": {
-            "description": "How a Zone's fill joins the Pads of its own Net.",
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
             "oneOf": [
               {
-                "const": "thermal",
-                "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
                 "type": "string"
               },
               {
-                "const": "solid",
-                "description": "The fill runs straight into the Pad.",
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
                 "type": "string"
               }
             ]
@@ -46128,11 +47141,23 @@
               }
             ],
             "default": null,
-            "description": "The gap to other Nets' copper. Default: the board's clearance rule."
+            "description": "The gap to other Nets' copper, where it is larger than the clearance rule's. Left\nout, the rule alone applies."
           },
           "layer": {
             "description": "The copper Layer, such as `copper_bottom`.",
             "type": "string"
+          },
+          "min_island_area": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AreaValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Fill pieces smaller than this area are dropped, connected or not. Default: 0."
           },
           "min_width": {
             "anyOf": [
@@ -46144,7 +47169,7 @@
               }
             ],
             "default": null,
-            "description": "The narrowest copper the fill may leave. Default: the board's Track width rule."
+            "description": "The narrowest copper the fill may leave. Left out, the Net's `track_width` minimum."
           },
           "net": {
             "default": null,
@@ -46155,17 +47180,17 @@
               "null"
             ]
           },
-          "pad_connection": {
+          "pour_over": {
             "anyOf": [
               {
-                "$ref": "#/$defs/PadConnection"
+                "$ref": "#/$defs/PourOver"
               },
               {
                 "type": "null"
               }
             ],
             "default": null,
-            "description": "`thermal` (default) or `solid`."
+            "description": "How the fill treats same-Net copper: `zones_only` (default), `all` or `none`."
           },
           "priority": {
             "default": null,
@@ -46177,37 +47202,13 @@
               "null"
             ]
           },
-          "remove_islands": {
+          "remove_unconnected": {
             "default": null,
             "description": "Whether fill pieces touching no copper of the Net are dropped. Default: true.",
             "type": [
               "boolean",
               "null"
             ]
-          },
-          "thermal_gap": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "The thermal gap around Pads. Default: the Zone's clearance."
-          },
-          "thermal_spoke_width": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "The thermal spoke width. Default: the Zone's minimum width."
           },
           "vertices": {
             "description": "The outline's vertices in order; the last joins the first.",
@@ -46375,7 +47376,7 @@
               },
               {
                 "const": "stale",
-                "description": "Filled, but the board has changed since: the fill is drawn dimmed until refilled.",
+                "description": "Filled, but something its fill depends on has changed since: the fill is drawn\ndimmed until refilled.",
                 "type": "string"
               },
               {
@@ -46407,7 +47408,7 @@
         "description": "Where a PCB Document's stored fills stand.",
         "properties": {
           "needs_refill": {
-            "description": "Whether the status bar should say \"Zones need refilling\": some Zone has no fill\nyet or the board changed since the fills were made.",
+            "description": "Whether the status bar should say \"Zones need refilling\": some Zone has no fill\nyet or has changed inputs since it was filled.",
             "type": "boolean"
           },
           "zones": {
@@ -46490,7 +47491,7 @@
               },
               {
                 "const": "stale",
-                "description": "Filled, but the board has changed since: the fill is drawn dimmed until refilled.",
+                "description": "Filled, but something its fill depends on has changed since: the fill is drawn\ndimmed until refilled.",
                 "type": "string"
               },
               {
@@ -46599,6 +47600,20 @@
               }
             ]
           },
+          "AreaValue": {
+            "description": "An area: integer square nanometres, or a number and an area unit (nm2, um2, mm2, mil2, in2, also written with ², or sqmil) such as \"0.0645mm2\" or \"100sqmil\".",
+            "oneOf": [
+              {
+                "description": "Square nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and an area unit.",
+                "format": "area",
+                "type": "string"
+              }
+            ]
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -46613,17 +47628,22 @@
               }
             ]
           },
-          "PadConnection": {
-            "description": "How a Zone's fill joins the Pads of its own Net.",
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
             "oneOf": [
               {
-                "const": "thermal",
-                "description": "A gap around the Pad crossed by four spokes, so the Pad solders easily.",
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
                 "type": "string"
               },
               {
-                "const": "solid",
-                "description": "The fill runs straight into the Pad.",
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
                 "type": "string"
               }
             ]
@@ -46670,7 +47690,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "A new clearance, or `null` to leave only the rule."
           },
           "layer": {
             "description": "A new copper Layer.",
@@ -46678,6 +47699,17 @@
               "string",
               "null"
             ]
+          },
+          "min_island_area": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AreaValue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "min_width": {
             "anyOf": [
@@ -46688,7 +47720,8 @@
                 "type": "null"
               }
             ],
-            "default": null
+            "default": null,
+            "description": "A new minimum width, or `null` for the Net's `track_width` minimum."
           },
           "net": {
             "default": null,
@@ -46699,10 +47732,10 @@
               "null"
             ]
           },
-          "pad_connection": {
+          "pour_over": {
             "anyOf": [
               {
-                "$ref": "#/$defs/PadConnection"
+                "$ref": "#/$defs/PourOver"
               },
               {
                 "type": "null"
@@ -46719,34 +47752,12 @@
               "null"
             ]
           },
-          "remove_islands": {
+          "remove_unconnected": {
             "default": null,
             "type": [
               "boolean",
               "null"
             ]
-          },
-          "thermal_gap": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "thermal_spoke_width": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/Length"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
           },
           "vertices": {
             "description": "A new outline.",

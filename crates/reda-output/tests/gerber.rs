@@ -428,7 +428,7 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
     let mut expected = Vec::new();
     for zone in pcb.zones() {
         let name = pcb.net(zone.net.unwrap()).unwrap().name.clone();
-        for shape in &fills.zones[&zone.uuid] {
+        for shape in &fills.zones[&zone.uuid].shapes {
             expected.push((true, closed(&shape.outer), Some(name.clone())));
             for hole in &shape.holes {
                 expected.push((false, closed(hole), None));

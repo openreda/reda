@@ -55,17 +55,27 @@ fn zone_fills_are_drawn_filled_stale_or_not_at_all() {
     assert!(triangles(&scene, board.zone).iter().all(|c| *c == fill));
     assert_eq!(outline(&scene, board.zone), 4);
 
-    // A new Zone makes the board's fills stale, and it has never been filled itself.
+    // A new Zone on the other Layer has never been filled, and leaves the bottom fill
+    // current: staleness is per Zone.
     let second = engine.run_ok(
         "pcb.zone.add",
         json!({"layer": "copper_top", "vertices": rect(20.0, 2.0, 28.0, 6.0)}),
     );
     let second = uuid(&second["result"]["uuid"]);
     let scene = engine.document_scene(board.pcb).unwrap();
-    assert!(!triangles(&scene, board.zone).is_empty());
-    assert!(triangles(&scene, board.zone).iter().all(|c| *c == stale));
+    assert!(triangles(&scene, board.zone).iter().all(|c| *c == fill));
     assert!(triangles(&scene, second).is_empty());
     assert_eq!(outline(&scene, second), 4);
+
+    // A Zone on the bottom Layer changes what the bottom fill depends on: it is stale.
+    engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "vertices": rect(20.0, 2.0, 28.0, 6.0),
+               "priority": 1}),
+    );
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert!(!triangles(&scene, board.zone).is_empty());
+    assert!(triangles(&scene, board.zone).iter().all(|c| *c == stale));
 }
 
 #[test]

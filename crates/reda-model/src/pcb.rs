@@ -30,8 +30,8 @@ pub use footprint::{
 };
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
-    Bounds, DesignRule, PortableClass, PortableRule, RuleField, RuleKind, RuleScope, RuleSet,
-    RuleValue, RuleValues, SilkMaskMode,
+    Bounds, ConnectionTarget, ConnectionValue, DesignRule, PortableClass, PortableRule, RuleField,
+    RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
@@ -40,7 +40,7 @@ pub use stackup::{
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
-pub use zone::{FillShape, Keepout, PadConnection, Zone, ZoneFills};
+pub use zone::{FillShape, Keepout, PourOver, Zone, ZoneFill, ZoneFills};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -158,6 +158,10 @@ crate::check::severities! {
     duplicate_copper => DuplicateCopper = Warning,
     /// Health check: a Zone whose outline encloses no area.
     zero_area_zone => ZeroAreaZone = Warning,
+    /// A kept piece of fill touching no copper of its Net, above the `dead_copper` area.
+    dead_copper => DeadCopper = Warning,
+    /// A Zone with a Net and nothing left to fill.
+    empty_zone => EmptyZone = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
     /// A negative mask or paste expansion leaves no opening.
@@ -877,13 +881,14 @@ impl PcbDocument {
                 return Err(format!("Zone {uuid} is on a Net that does not exist"));
             }
             reda_geom::check_contour(&zone.vertices).map_err(|e| format!("Zone {uuid}: {e}"))?;
-            if zone.min_width <= Nm::ZERO || zone.thermal_spoke_width <= Nm::ZERO {
-                return Err(format!(
-                    "Zone {uuid} needs a positive minimum width and spoke width"
-                ));
+            if zone.min_width.is_some_and(|w| w <= Nm::ZERO) {
+                return Err(format!("Zone {uuid} needs a positive minimum width"));
             }
-            if zone.clearance < Nm::ZERO || zone.thermal_gap < Nm::ZERO {
-                return Err(format!("Zone {uuid} has a negative clearance or gap"));
+            if zone.clearance.is_some_and(|c| c < Nm::ZERO) {
+                return Err(format!("Zone {uuid} has a negative clearance"));
+            }
+            if zone.min_island_area < 0 {
+                return Err(format!("Zone {uuid} has a negative minimum island area"));
             }
         }
         for keepout in self.keepouts.values() {

@@ -19,9 +19,9 @@
     {"uuid":"00000000-0000-4000-8000-000000000013","kind":"documentation"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-000000000024","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-000000000026","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000023"},
+      {"uuid":"00000000-0000-4000-8000-000000000025"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
     ]}
   ],
@@ -40,10 +40,12 @@
     {"uuid":"00000000-0000-4000-8000-00000000001f","kind":"silk_to_mask","scope":{},"values":{"value":100000,"mode":"exposed_copper"}},
     {"uuid":"00000000-0000-4000-8000-000000000020","kind":"courtyard_clearance","scope":{},"values":{"value":0}},
     {"uuid":"00000000-0000-4000-8000-000000000021","kind":"dangling","scope":{},"values":{"tolerance":0}},
-    {"uuid":"00000000-0000-4000-8000-000000000022","kind":"micro_segment","scope":{},"values":{"max_length":10000}}
+    {"uuid":"00000000-0000-4000-8000-000000000022","kind":"micro_segment","scope":{},"values":{"max_length":10000}},
+    {"uuid":"00000000-0000-4000-8000-000000000023","kind":"dead_copper","scope":{},"values":{"min_area":64516000000}},
+    {"uuid":"00000000-0000-4000-8000-000000000024","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}}
   ],
-  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
-  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000027","vertices":[
+  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
+  "board_outline": {"uuid":"00000000-0000-4000-8000-000000000029","vertices":[
     {"x":2000000,"y":0},
     {"x":38000000,"y":0,"sweep":90000},
     {"x":40000000,"y":2000000},
@@ -56,21 +58,21 @@
   "board_cutouts": [],
   "net_classes": [],
   "nets": [
-    {"uuid":"00000000-0000-4000-8000-000000000087","name":"CV"},
-    {"uuid":"00000000-0000-4000-8000-000000000088","name":"DIS"},
-    {"uuid":"00000000-0000-4000-8000-000000000089","name":"GND"},
-    {"uuid":"00000000-0000-4000-8000-00000000008a","name":"LED"},
-    {"uuid":"00000000-0000-4000-8000-00000000008b","name":"OUT"},
-    {"uuid":"00000000-0000-4000-8000-00000000008c","name":"THR"},
-    {"uuid":"00000000-0000-4000-8000-00000000008d","name":"VCC"}
+    {"uuid":"00000000-0000-4000-8000-000000000089","name":"CV"},
+    {"uuid":"00000000-0000-4000-8000-00000000008a","name":"DIS"},
+    {"uuid":"00000000-0000-4000-8000-00000000008b","name":"GND"},
+    {"uuid":"00000000-0000-4000-8000-00000000008c","name":"LED"},
+    {"uuid":"00000000-0000-4000-8000-00000000008d","name":"OUT"},
+    {"uuid":"00000000-0000-4000-8000-00000000008e","name":"THR"},
+    {"uuid":"00000000-0000-4000-8000-00000000008f","name":"VCC"}
   ],
   "texts": [
-    {"uuid":"00000000-0000-4000-8000-0000000000c0","layer":"00000000-0000-4000-8000-000000000007","text":"555 BLINKY","position":{"x":24000000,"y":25000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000c1","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","position":{"x":34000000,"y":3000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"mirrored":true}
+    {"uuid":"00000000-0000-4000-8000-0000000000c2","layer":"00000000-0000-4000-8000-000000000007","text":"555 BLINKY","position":{"x":24000000,"y":25000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000c3","layer":"00000000-0000-4000-8000-00000000000e","text":"REV A","position":{"x":34000000,"y":3000000},"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"left","v":"bottom"},"mirrored":true}
   ],
   "graphics": [],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-00000000008e","hash":"466903ef6f00fac68be6b77ccdaa45da","footprint":{"uuid":"ccb154ef-2442-491a-b1d0-d39c9fb13e8e","name":"CAPMP3216X180N","description":"Moulded polarised chip capacitor, 3216 metric, IPC-7351 Nominal","height":1800000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000090","hash":"466903ef6f00fac68be6b77ccdaa45da","footprint":{"uuid":"ccb154ef-2442-491a-b1d0-d39c9fb13e8e","name":"CAPMP3216X180N","description":"Moulded polarised chip capacitor, 3216 metric, IPC-7351 Nominal","height":1800000},"pads":[
       {"uuid":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-1300000,"y":0},"rotation":0,"width":1500000,"height":1800000,"corner_ratio":25000},
       {"uuid":"7dd31955-ae9a-4c5f-8efe-77eab8376875","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1300000,"y":0},"rotation":0,"width":1500000,"height":1800000,"corner_ratio":25000}
     ],"graphics":[
@@ -82,7 +84,7 @@
       {"uuid":"d6ef970c-55de-4625-8aa2-423b7d975180","field":"Value","at":{"x":0,"y":-1750000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"f8072667-5437-4fe6-86a5-6b8a957119c3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":800000,"thickness":120000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000090","hash":"171ba3231f9afdd826f5fa16e65e4b43","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000092","hash":"171ba3231f9afdd826f5fa16e65e4b43","footprint":{"uuid":"2f30e497-fa3d-473c-89eb-c952d32ae866","name":"CAPC1608X55N","description":"Chip capacitor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
       {"uuid":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000},
       {"uuid":"bd932504-1656-47c8-a605-c381e71de73c","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
@@ -93,7 +95,7 @@
       {"uuid":"9dd1b274-9c71-4195-8c2e-dd89d3a15ce3","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"b31b86e1-a5a4-40a7-b516-7c2bfe9fe031","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000093","hash":"3770e81d0d091f3d1490638d299e4bfb","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000095","hash":"3770e81d0d091f3d1490638d299e4bfb","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
       {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000},
       {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
@@ -105,7 +107,7 @@
       {"uuid":"68127592-062c-43f9-9f7f-15c75d5bc9c0","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"fc5a1da4-a477-4e33-a0c3-e21a2e8ca40b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000095","hash":"9c7acb87bfab89bf7602ee0d90e34794","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000097","hash":"9c7acb87bfab89bf7602ee0d90e34794","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -120,7 +122,7 @@
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"f1df2496-ae83-446e-8b38-1147ebc7f2b9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000097","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000099","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
       {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000},
       {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
@@ -131,7 +133,7 @@
       {"uuid":"c857cef7-4c11-4e1a-a3f0-cc25b527e5db","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"ddcb0681-ecb9-417f-a85f-29fd9134dffe","field":"Designator","at":{"x":0,"y":1450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009b","hash":"609347e38dd46eaac78ce59f6463a86a","footprint":{"uuid":"7afee21e-6914-4820-8f71-a396e8dd3ac1","name":"SOIC127P600X175-8N","description":"SOIC-8, 1.27 mm pitch, IPC-7351 Nominal","height":1750000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000009d","hash":"609347e38dd46eaac78ce59f6463a86a","footprint":{"uuid":"7afee21e-6914-4820-8f71-a396e8dd3ac1","name":"SOIC127P600X175-8N","description":"SOIC-8, 1.27 mm pitch, IPC-7351 Nominal","height":1750000},"pads":[
       {"uuid":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":-2725000,"y":635000},"rotation":0,"width":1450000,"height":600000,"corner_ratio":25000},
       {"uuid":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","number":"6","kind":"smd","shape":"rounded_rect","at":{"x":2725000,"y":-635000},"rotation":0,"width":1450000,"height":600000,"corner_ratio":25000},
       {"uuid":"20777590-eae8-4eba-9d3b-44255933e7e6","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-2725000,"y":1905000},"rotation":0,"width":1450000,"height":600000,"corner_ratio":25000},
@@ -150,7 +152,7 @@
       {"uuid":"d7545d6e-6b36-41e7-9859-fdcc939ccbc7","field":"Designator","at":{"x":0,"y":3450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"f3299e97-2a70-4f02-9547-4cef2d354731","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009d","hash":"67289e378ee6eb01f1b615ecfdebd99d","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000009f","hash":"67289e378ee6eb01f1b615ecfdebd99d","footprint":{"uuid":"5b59cdab-565f-4f43-8563-7b49605b64f5","name":"MountingHole_M3","description":"Mounting hole for M3, 3.2 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":3000000},"pads":[
       {"uuid":"4b5efa83-470e-4f52-b548-506a36d274ea","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000}}
     ],"graphics":[
       {"uuid":"5e771c7c-f442-40c2-a129-51230861d7ba","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":100000},
@@ -163,96 +165,96 @@
     ]}
   ],
   "footprints": [
-    {"uuid":"00000000-0000-4000-8000-00000000008f","component":{"uuid":"00000000-0000-4000-8000-00000000003c"},"footprint":"00000000-0000-4000-8000-00000000008e","at":{"x":33000000,"y":14365000},"rotation":0,"side":"top","designator":"C1","fields":{"value":"10u","description":"Polarised capacitor (tantalum or electrolytic)","keywords":"C capacitor polarised electrolytic tantalum"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","net":"00000000-0000-4000-8000-00000000008c"},
-      {"pad":"7dd31955-ae9a-4c5f-8efe-77eab8376875","net":"00000000-0000-4000-8000-000000000089"}
+    {"uuid":"00000000-0000-4000-8000-000000000091","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"footprint":"00000000-0000-4000-8000-000000000090","at":{"x":33000000,"y":14365000},"rotation":0,"side":"top","designator":"C1","fields":{"value":"10u","description":"Polarised capacitor (tantalum or electrolytic)","keywords":"C capacitor polarised electrolytic tantalum"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","net":"00000000-0000-4000-8000-00000000008e"},
+      {"pad":"7dd31955-ae9a-4c5f-8efe-77eab8376875","net":"00000000-0000-4000-8000-00000000008b"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000091","component":{"uuid":"00000000-0000-4000-8000-00000000004e"},"footprint":"00000000-0000-4000-8000-000000000090","at":{"x":26500000,"y":13095000},"rotation":0,"side":"top","designator":"C2","fields":{"value":"10n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-000000000089"},
-      {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-000000000087"}
+    {"uuid":"00000000-0000-4000-8000-000000000093","component":{"uuid":"00000000-0000-4000-8000-000000000050"},"footprint":"00000000-0000-4000-8000-000000000092","at":{"x":26500000,"y":13095000},"rotation":0,"side":"top","designator":"C2","fields":{"value":"10n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-00000000008b"},
+      {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-000000000089"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000092","component":{"uuid":"00000000-0000-4000-8000-000000000050"},"footprint":"00000000-0000-4000-8000-000000000090","at":{"x":16000000,"y":21000000},"rotation":0,"side":"top","designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-000000000089"},
-      {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-00000000008d"}
+    {"uuid":"00000000-0000-4000-8000-000000000094","component":{"uuid":"00000000-0000-4000-8000-000000000052"},"footprint":"00000000-0000-4000-8000-000000000092","at":{"x":16000000,"y":21000000},"rotation":0,"side":"top","designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-00000000008b"},
+      {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-00000000008f"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000094","component":{"uuid":"00000000-0000-4000-8000-000000000046"},"footprint":"00000000-0000-4000-8000-000000000093","at":{"x":11212500,"y":11000000},"rotation":90000,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","net":"00000000-0000-4000-8000-00000000008a"},
-      {"pad":"b034cab0-2c1e-489e-9521-1346c8e2152b","net":"00000000-0000-4000-8000-000000000089"}
+    {"uuid":"00000000-0000-4000-8000-000000000096","component":{"uuid":"00000000-0000-4000-8000-000000000048"},"footprint":"00000000-0000-4000-8000-000000000095","at":{"x":11212500,"y":11000000},"rotation":90000,"side":"top","designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","net":"00000000-0000-4000-8000-00000000008c"},
+      {"pad":"b034cab0-2c1e-489e-9521-1346c8e2152b","net":"00000000-0000-4000-8000-00000000008b"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000096","component":{"uuid":"00000000-0000-4000-8000-000000000055"},"footprint":"00000000-0000-4000-8000-000000000095","at":{"x":5000000,"y":15000000},"rotation":0,"side":"top","designator":"J1","fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"51072fb9-94c3-4b5d-80bf-636681ace084","net":"00000000-0000-4000-8000-00000000008d"},
-      {"pad":"75bf775f-bdf6-476e-a21c-ac73893d1705","net":"00000000-0000-4000-8000-000000000089"}
+    {"uuid":"00000000-0000-4000-8000-000000000098","component":{"uuid":"00000000-0000-4000-8000-000000000057"},"footprint":"00000000-0000-4000-8000-000000000097","at":{"x":5000000,"y":15000000},"rotation":0,"side":"top","designator":"J1","fields":{"value":"Header 1x2","description":"1 × 2 pin header, 2.54 or 1.27 mm pitch","keywords":"J connector pin header"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"51072fb9-94c3-4b5d-80bf-636681ace084","net":"00000000-0000-4000-8000-00000000008f"},
+      {"pad":"75bf775f-bdf6-476e-a21c-ac73893d1705","net":"00000000-0000-4000-8000-00000000008b"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000098","component":{"uuid":"00000000-0000-4000-8000-000000000033"},"footprint":"00000000-0000-4000-8000-000000000097","at":{"x":27000000,"y":19000000},"rotation":0,"side":"top","designator":"R1","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000008d"},
-      {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-000000000088"}
-    ]},
-    {"uuid":"00000000-0000-4000-8000-000000000099","component":{"uuid":"00000000-0000-4000-8000-000000000035"},"footprint":"00000000-0000-4000-8000-000000000097","at":{"x":27000000,"y":15635000},"rotation":0,"side":"top","designator":"R2","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-000000000088"},
-      {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000008c"}
-    ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009a","component":{"uuid":"00000000-0000-4000-8000-00000000003e"},"footprint":"00000000-0000-4000-8000-000000000097","at":{"x":12000000,"y":14365000},"rotation":180000,"side":"top","designator":"R3","fields":{"value":"330","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000008b"},
+    {"uuid":"00000000-0000-4000-8000-00000000009a","component":{"uuid":"00000000-0000-4000-8000-000000000035"},"footprint":"00000000-0000-4000-8000-000000000099","at":{"x":27000000,"y":19000000},"rotation":0,"side":"top","designator":"R1","fields":{"value":"1k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000008f"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000008a"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009c","component":{"uuid":"00000000-0000-4000-8000-00000000002b"},"footprint":"00000000-0000-4000-8000-00000000009b","at":{"x":20000000,"y":15000000},"rotation":0,"side":"top","designator":"U1","fields":{"value":"NE555","description":"555 timer","keywords":"U timer 555 oscillator"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
-      {"pad":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","net":"00000000-0000-4000-8000-00000000008c"},
-      {"pad":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","net":"00000000-0000-4000-8000-00000000008c"},
-      {"pad":"20777590-eae8-4eba-9d3b-44255933e7e6","net":"00000000-0000-4000-8000-000000000089"},
-      {"pad":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","net":"00000000-0000-4000-8000-00000000008b"},
-      {"pad":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","net":"00000000-0000-4000-8000-000000000087"},
-      {"pad":"8649cfc2-5efc-416c-8313-5016450c45bc","net":"00000000-0000-4000-8000-00000000008d"},
-      {"pad":"880f64de-ae75-40bf-b748-f23d621d70eb","net":"00000000-0000-4000-8000-000000000088"},
-      {"pad":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","net":"00000000-0000-4000-8000-00000000008d"}
+    {"uuid":"00000000-0000-4000-8000-00000000009b","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"footprint":"00000000-0000-4000-8000-000000000099","at":{"x":27000000,"y":15635000},"rotation":0,"side":"top","designator":"R2","fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000008a"},
+      {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000008e"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009e","footprint":"00000000-0000-4000-8000-00000000009d","at":{"x":4000000,"y":26000000},"rotation":0,"side":"top","designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000009c","component":{"uuid":"00000000-0000-4000-8000-000000000040"},"footprint":"00000000-0000-4000-8000-000000000099","at":{"x":12000000,"y":14365000},"rotation":180000,"side":"top","designator":"R3","fields":{"value":"330","description":"Resistor","keywords":"R resistor"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000008d"},
+      {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000008c"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000009e","component":{"uuid":"00000000-0000-4000-8000-00000000002d"},"footprint":"00000000-0000-4000-8000-00000000009d","at":{"x":20000000,"y":15000000},"rotation":0,"side":"top","designator":"U1","fields":{"value":"NE555","description":"555 timer","keywords":"U timer 555 oscillator"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+      {"pad":"0bce11ec-346f-4972-ab9f-4f8ba97a7b51","net":"00000000-0000-4000-8000-00000000008e"},
+      {"pad":"1e438b59-6d5a-47a8-bac7-1a60cbb01b18","net":"00000000-0000-4000-8000-00000000008e"},
+      {"pad":"20777590-eae8-4eba-9d3b-44255933e7e6","net":"00000000-0000-4000-8000-00000000008b"},
+      {"pad":"3a831966-e50e-4317-ac7a-e5cb1d78df2d","net":"00000000-0000-4000-8000-00000000008d"},
+      {"pad":"42a3f917-58b7-482f-b69b-32fbfefbb2e8","net":"00000000-0000-4000-8000-000000000089"},
+      {"pad":"8649cfc2-5efc-416c-8313-5016450c45bc","net":"00000000-0000-4000-8000-00000000008f"},
+      {"pad":"880f64de-ae75-40bf-b748-f23d621d70eb","net":"00000000-0000-4000-8000-00000000008a"},
+      {"pad":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","net":"00000000-0000-4000-8000-00000000008f"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-0000000000a0","footprint":"00000000-0000-4000-8000-00000000009f","at":{"x":4000000,"y":26000000},"rotation":0,"side":"top","designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000009f","footprint":"00000000-0000-4000-8000-00000000009d","at":{"x":36000000,"y":4000000},"rotation":0,"side":"top","designator":"H2","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000a1","footprint":"00000000-0000-4000-8000-00000000009f","at":{"x":36000000,"y":4000000},"rotation":0,"side":"top","designator":"H2","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]}
   ],
   "tracks": [
-    {"uuid":"00000000-0000-4000-8000-0000000000a0","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":400000,"geometry":{"kind":"line","from":{"x":5000000,"y":16270000},"to":{"x":7730000,"y":19000000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a1","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":400000,"geometry":{"kind":"line","from":{"x":7730000,"y":19000000},"to":{"x":26212500,"y":19000000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a2","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":400000,"geometry":{"kind":"line","from":{"x":22475000,"y":16905000},"to":{"x":22475000,"y":19000000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a3","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":400000,"geometry":{"kind":"line","from":{"x":15212500,"y":21000000},"to":{"x":15212500,"y":19000000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a4","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":13095000},"to":{"x":19400000,"y":13095000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a6","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":16905000},"to":{"x":20600000,"y":16905000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a8","layer":"00000000-0000-4000-8000-00000000000b","net":"00000000-0000-4000-8000-00000000008d","width":250000,"geometry":{"kind":"line","from":{"x":19400000,"y":13095000},"to":{"x":20600000,"y":16905000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a9","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":15635000},"to":{"x":19400000,"y":15635000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000aa","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":19400000,"y":15635000},"to":{"x":20600000,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000ab","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":20600000,"y":14365000},"to":{"x":22475000,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000ac","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":14365000},"to":{"x":31687500,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000ad","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":15635000},"to":{"x":27787500,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000ae","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000088","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":15635000},"to":{"x":26212500,"y":15635000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000af","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000088","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":19000000},"to":{"x":27787500,"y":17600000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b0","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000088","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":17600000},"to":{"x":26212500,"y":17600000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b1","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000088","width":250000,"geometry":{"kind":"line","from":{"x":26212500,"y":17600000},"to":{"x":26212500,"y":15635000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b2","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000087","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":13095000},"to":{"x":25712500,"y":13095000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b3","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":14365000},"to":{"x":12787500,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b4","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008a","width":250000,"geometry":{"kind":"line","from":{"x":11212500,"y":14365000},"to":{"x":11212500,"y":11812500}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b5","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":16905000},"to":{"x":15600000,"y":16905000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b7","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":16787500,"y":21000000},"to":{"x":17800000,"y":21000000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b9","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":27287500,"y":13095000},"to":{"x":28900000,"y":13095000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000bb","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":34312500,"y":14365000},"to":{"x":36000000,"y":14365000}}},
-    {"uuid":"00000000-0000-4000-8000-0000000000bd","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":11212500,"y":10187500},"to":{"x":11212500,"y":8600000}}}
+    {"uuid":"00000000-0000-4000-8000-0000000000a2","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":400000,"geometry":{"kind":"line","from":{"x":5000000,"y":16270000},"to":{"x":7730000,"y":19000000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a3","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":400000,"geometry":{"kind":"line","from":{"x":7730000,"y":19000000},"to":{"x":26212500,"y":19000000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a4","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":400000,"geometry":{"kind":"line","from":{"x":22475000,"y":16905000},"to":{"x":22475000,"y":19000000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a5","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":400000,"geometry":{"kind":"line","from":{"x":15212500,"y":21000000},"to":{"x":15212500,"y":19000000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a6","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":13095000},"to":{"x":19400000,"y":13095000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a8","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008f","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":16905000},"to":{"x":20600000,"y":16905000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000aa","layer":"00000000-0000-4000-8000-00000000000b","net":"00000000-0000-4000-8000-00000000008f","width":250000,"geometry":{"kind":"line","from":{"x":19400000,"y":13095000},"to":{"x":20600000,"y":16905000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000ab","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008e","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":15635000},"to":{"x":19400000,"y":15635000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000ac","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008e","width":250000,"geometry":{"kind":"line","from":{"x":19400000,"y":15635000},"to":{"x":20600000,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000ad","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008e","width":250000,"geometry":{"kind":"line","from":{"x":20600000,"y":14365000},"to":{"x":22475000,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000ae","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008e","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":14365000},"to":{"x":31687500,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000af","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008e","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":15635000},"to":{"x":27787500,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b0","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008a","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":15635000},"to":{"x":26212500,"y":15635000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b1","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008a","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":19000000},"to":{"x":27787500,"y":17600000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b2","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008a","width":250000,"geometry":{"kind":"line","from":{"x":27787500,"y":17600000},"to":{"x":26212500,"y":17600000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b3","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008a","width":250000,"geometry":{"kind":"line","from":{"x":26212500,"y":17600000},"to":{"x":26212500,"y":15635000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b4","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-000000000089","width":250000,"geometry":{"kind":"line","from":{"x":22475000,"y":13095000},"to":{"x":25712500,"y":13095000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b5","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008d","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":14365000},"to":{"x":12787500,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b6","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008c","width":250000,"geometry":{"kind":"line","from":{"x":11212500,"y":14365000},"to":{"x":11212500,"y":11812500}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b7","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":17525000,"y":16905000},"to":{"x":15600000,"y":16905000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b9","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":16787500,"y":21000000},"to":{"x":17800000,"y":21000000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000bb","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":27287500,"y":13095000},"to":{"x":28900000,"y":13095000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000bd","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":34312500,"y":14365000},"to":{"x":36000000,"y":14365000}}},
+    {"uuid":"00000000-0000-4000-8000-0000000000bf","layer":"00000000-0000-4000-8000-00000000000a","net":"00000000-0000-4000-8000-00000000008b","width":250000,"geometry":{"kind":"line","from":{"x":11212500,"y":10187500},"to":{"x":11212500,"y":8600000}}}
   ],
   "vias": [
-    {"uuid":"00000000-0000-4000-8000-0000000000a5","at":{"x":19400000,"y":13095000},"net":"00000000-0000-4000-8000-00000000008d","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000a7","at":{"x":20600000,"y":16905000},"net":"00000000-0000-4000-8000-00000000008d","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b6","at":{"x":15600000,"y":16905000},"net":"00000000-0000-4000-8000-000000000089","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000b8","at":{"x":17800000,"y":21000000},"net":"00000000-0000-4000-8000-000000000089","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000ba","at":{"x":28900000,"y":13095000},"net":"00000000-0000-4000-8000-000000000089","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000bc","at":{"x":36000000,"y":14365000},"net":"00000000-0000-4000-8000-000000000089","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
-    {"uuid":"00000000-0000-4000-8000-0000000000be","at":{"x":11212500,"y":8600000},"net":"00000000-0000-4000-8000-000000000089","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}}
+    {"uuid":"00000000-0000-4000-8000-0000000000a7","at":{"x":19400000,"y":13095000},"net":"00000000-0000-4000-8000-00000000008f","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000a9","at":{"x":20600000,"y":16905000},"net":"00000000-0000-4000-8000-00000000008f","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000b8","at":{"x":15600000,"y":16905000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000ba","at":{"x":17800000,"y":21000000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000bc","at":{"x":28900000,"y":13095000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000be","at":{"x":36000000,"y":14365000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
+    {"uuid":"00000000-0000-4000-8000-0000000000c0","at":{"x":11212500,"y":8600000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}}
   ],
   "zones": [
-    {"uuid":"00000000-0000-4000-8000-0000000000bf","layer":"00000000-0000-4000-8000-00000000000b","net":"00000000-0000-4000-8000-000000000089","vertices":[
+    {"uuid":"00000000-0000-4000-8000-0000000000c1","layer":"00000000-0000-4000-8000-00000000000b","net":"00000000-0000-4000-8000-00000000008b","vertices":[
       {"x":500000,"y":500000},
       {"x":39500000,"y":500000},
       {"x":39500000,"y":29500000},
       {"x":500000,"y":29500000}
-    ],"clearance":100000,"min_width":100000,"pad_connection":"thermal","thermal_gap":100000,"thermal_spoke_width":100000,"remove_islands":true,"priority":0}
+    ],"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,"priority":0}
   ]
 }

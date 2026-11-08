@@ -54,14 +54,14 @@ pub use pad::{
     PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
-    BoardCutout, BoardOutline, BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS,
-    DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities, FillShape,
-    FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, InDocument, Keepout,
-    Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin,
-    PadConnection, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule,
-    RuleField, RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup,
-    StackupEntry, StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track,
-    TrackGeometry, Via, Zone, ZoneFills,
+    BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget, ConnectionValue, CopperEntry,
+    DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule, DielectricEntry, DrcCheck, DrcSeverities,
+    FillShape, FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT,
+    InDocument, Keepout, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass,
+    OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule,
+    PourOver, RuleField, RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode,
+    Stackup, StackupEntry, StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track,
+    TrackGeometry, Via, Zone, ZoneFill, ZoneFills,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

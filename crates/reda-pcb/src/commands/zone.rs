@@ -1,11 +1,11 @@
 //! Zones and Keepouts: adding, changing and deleting them. Filling is in
 //! `reda_engine` (it writes the `.reda/` cache); the fill queries are in `zone_fill`.
 
+use reda_command::AreaValue;
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Length, Meta, Registry, Unavailable,
 };
-use reda_model::geom::Nm;
-use reda_model::{InDocument, Keepout, Object, PadConnection, PcbDocument, Uuid, Zone};
+use reda_model::{InDocument, Keepout, Object, PcbDocument, PourOver, Uuid, Zone};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -35,24 +35,22 @@ pub struct ZoneAddParams {
     /// The Net's UUID; left out for a fill on no Net.
     #[serde(default)]
     pub net: Option<Uuid>,
-    /// The gap to other Nets' copper. Default: the board's clearance rule.
+    /// The gap to other Nets' copper, where it is larger than the clearance rule's. Left
+    /// out, the rule alone applies.
     #[serde(default)]
     pub clearance: Option<Length>,
-    /// The narrowest copper the fill may leave. Default: the board's Track width rule.
+    /// The narrowest copper the fill may leave. Left out, the Net's `track_width` minimum.
     #[serde(default)]
     pub min_width: Option<Length>,
-    /// `thermal` (default) or `solid`.
+    /// How the fill treats same-Net copper: `zones_only` (default), `all` or `none`.
     #[serde(default)]
-    pub pad_connection: Option<PadConnection>,
-    /// The thermal gap around Pads. Default: the Zone's clearance.
-    #[serde(default)]
-    pub thermal_gap: Option<Length>,
-    /// The thermal spoke width. Default: the Zone's minimum width.
-    #[serde(default)]
-    pub thermal_spoke_width: Option<Length>,
+    pub pour_over: Option<PourOver>,
     /// Whether fill pieces touching no copper of the Net are dropped. Default: true.
     #[serde(default)]
-    pub remove_islands: Option<bool>,
+    pub remove_unconnected: Option<bool>,
+    /// Fill pieces smaller than this area are dropped, connected or not. Default: 0.
+    #[serde(default)]
+    pub min_island_area: Option<AreaValue>,
     /// Higher fills first where Zones overlap. Default: 0.
     #[serde(default)]
     pub priority: Option<u32>,
@@ -63,8 +61,10 @@ impl Command for ZoneAdd {
         id: "pcb.zone.add",
         title: "Add Zone",
         description: "Adds a copper Zone: a solid fill on a Net inside the outline `vertices` \
-                      on one copper Layer, keeping clear of other Nets' copper. The Zone is \
-                      filled by `pcb.zone.fill`.",
+                      on one copper Layer, keeping clear of other Nets' copper. A value left \
+                      out takes a fixed default, never a Preference. How the fill joins Pads \
+                      and Vias comes from the `zone_connection` rule. The Zone is filled by \
+                      `pcb.zone.fill`.",
         category: "pcb",
         icon: "zone",
         kind: reda_command::Kind::Edit,
@@ -82,23 +82,12 @@ impl Command for ZoneAdd {
         let layer = copper_layer(pcb, p.layer, "/layer")?;
         let vertices = contour(&p.vertices)?;
         let net = existing_net(pcb, p.net, "/net")?;
-        let rules = crate::rules::net_rules(pcb, net);
-        let clearance = match p.clearance {
-            Some(c) => non_negative("/clearance", c)?,
-            None => rules.clearance.unwrap_or(Nm::ZERO),
-        };
-        let min_width = match p.min_width {
-            Some(w) => positive("/min_width", w)?,
-            None => rules.track_width.min.unwrap_or(rules.track_width.preferred),
-        };
-        let thermal_gap = match p.thermal_gap {
-            Some(g) => non_negative("/thermal_gap", g)?,
-            None => clearance,
-        };
-        let thermal_spoke_width = match p.thermal_spoke_width {
-            Some(w) => positive("/thermal_spoke_width", w)?,
-            None => min_width,
-        };
+        let clearance = p
+            .clearance
+            .map(|c| non_negative("/clearance", c))
+            .transpose()?;
+        let min_width = p.min_width.map(|w| positive("/min_width", w)).transpose()?;
+        let min_island_area = island_area(p.min_island_area)?.unwrap_or(0);
         let uuid = cx.new_id();
         let zone = Zone {
             uuid,
@@ -107,10 +96,9 @@ impl Command for ZoneAdd {
             vertices,
             clearance,
             min_width,
-            pad_connection: p.pad_connection.unwrap_or(PadConnection::Thermal),
-            thermal_gap,
-            thermal_spoke_width,
-            remove_islands: p.remove_islands.unwrap_or(true),
+            pour_over: p.pour_over.unwrap_or_default(),
+            remove_unconnected: p.remove_unconnected.unwrap_or(true),
+            min_island_area,
             priority: p.priority.unwrap_or(0),
         };
         cx.tx()?
@@ -136,18 +124,20 @@ pub struct ZoneSetParams {
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Uuid>")]
     pub net: Option<Option<Uuid>>,
+    /// A new clearance, or `null` to leave only the rule.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub clearance: Option<Option<Length>>,
+    /// A new minimum width, or `null` for the Net's `track_width` minimum.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub min_width: Option<Option<Length>>,
     #[serde(default)]
-    pub clearance: Option<Length>,
+    pub pour_over: Option<PourOver>,
     #[serde(default)]
-    pub min_width: Option<Length>,
+    pub remove_unconnected: Option<bool>,
     #[serde(default)]
-    pub pad_connection: Option<PadConnection>,
-    #[serde(default)]
-    pub thermal_gap: Option<Length>,
-    #[serde(default)]
-    pub thermal_spoke_width: Option<Length>,
-    #[serde(default)]
-    pub remove_islands: Option<bool>,
+    pub min_island_area: Option<AreaValue>,
     #[serde(default)]
     pub priority: Option<u32>,
 }
@@ -183,22 +173,19 @@ impl Command for ZoneSet {
             zone.net = existing_net(pcb, net, "/net")?;
         }
         if let Some(c) = p.clearance {
-            zone.clearance = non_negative("/clearance", c)?;
+            zone.clearance = c.map(|c| non_negative("/clearance", c)).transpose()?;
         }
         if let Some(w) = p.min_width {
-            zone.min_width = positive("/min_width", w)?;
+            zone.min_width = w.map(|w| positive("/min_width", w)).transpose()?;
         }
-        if let Some(c) = p.pad_connection {
-            zone.pad_connection = c;
+        if let Some(pour_over) = p.pour_over {
+            zone.pour_over = pour_over;
         }
-        if let Some(g) = p.thermal_gap {
-            zone.thermal_gap = non_negative("/thermal_gap", g)?;
+        if let Some(r) = p.remove_unconnected {
+            zone.remove_unconnected = r;
         }
-        if let Some(w) = p.thermal_spoke_width {
-            zone.thermal_spoke_width = positive("/thermal_spoke_width", w)?;
-        }
-        if let Some(r) = p.remove_islands {
-            zone.remove_islands = r;
+        if let Some(area) = island_area(p.min_island_area)? {
+            zone.min_island_area = area;
         }
         if let Some(priority) = p.priority {
             zone.priority = priority;
@@ -206,6 +193,17 @@ impl Command for ZoneSet {
         cx.tx()?
             .replace(Object::Zone(InDocument::new(document, zone)))?;
         Ok(())
+    }
+}
+
+/// A `min_island_area` param in square nanometres; negative areas are refused.
+fn island_area(area: Option<AreaValue>) -> Result<Option<i64>, CommandError> {
+    match area {
+        Some(a) if a.0 < 0 => Err(CommandError::invalid_params(
+            "/min_island_area",
+            "the minimum island area cannot be negative",
+        )),
+        a => Ok(a.map(|a| a.0)),
     }
 }
 
