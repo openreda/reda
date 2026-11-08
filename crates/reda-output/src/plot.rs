@@ -65,7 +65,8 @@ pub struct OutputFile {
     pub bytes: Vec<u8>,
 }
 
-/// A file a run leaves out because it would hold nothing: an empty Silkscreen or Paste.
+/// A file a run leaves out because it would hold nothing: an empty Silkscreen or Paste, or
+/// a drill file with no holes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SkippedFile {
     /// The name it would have had, such as `Demo.GBP`.

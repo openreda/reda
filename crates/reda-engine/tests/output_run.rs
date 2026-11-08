@@ -23,6 +23,14 @@ fn new_project(engine: &mut TestEngine, dir: &TempDir) {
     );
 }
 
+/// A plated hole, so the run writes a PTH file.
+fn via(engine: &mut TestEngine) {
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at": pt(5.0, 5.0), "diameter": "0.6mm", "hole": "0.3mm"}),
+    );
+}
+
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
     new_project(&mut engine, dir);
@@ -71,22 +79,13 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         .map(|f| f["name"].as_str().unwrap())
         .collect();
     // An empty board: copper, mask and Profile are always written, while the empty
-    // Silkscreen and Paste are left out and reported.
+    // Silkscreen and Paste and the drill files with no holes are left out and reported.
     assert_eq!(
-        names[..7],
-        [
-            "Demo.GTL",
-            "Demo.GBL",
-            "Demo.GTS",
-            "Demo.GBS",
-            "Demo.GKO",
-            "Demo-PTH.drl",
-            "Demo-NPTH.drl"
-        ]
+        names[..5],
+        ["Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GKO"]
     );
+    assert!(!names.iter().any(|n| n.ends_with(".drl")), "{names:?}");
     assert_eq!(out["files"][0]["function"], "copper_top");
-    assert_eq!(out["files"][5]["function"], "drill_plated");
-    assert_eq!(out["files"][6]["function"], "drill_non_plated");
     assert_eq!(
         out["skipped"],
         json!([
@@ -94,9 +93,11 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
             {"name": "Demo.GBP", "function": "paste_bottom"},
             {"name": "Demo.GTO", "function": "silkscreen_top"},
             {"name": "Demo.GBO", "function": "silkscreen_bottom"},
+            {"name": "Demo-PTH.drl", "function": "drill_plated"},
+            {"name": "Demo-NPTH.drl", "function": "drill_non_plated"},
         ])
     );
-    for name in ["Demo.GTP", "Demo.GTO"] {
+    for name in ["Demo.GTP", "Demo.GTO", "Demo-PTH.drl", "Demo-NPTH.drl"] {
         assert!(!folder.join(name).exists(), "{name} is not written");
     }
 
@@ -127,6 +128,7 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
 fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     let dir = TempDir::new("output-overwrite");
     let mut engine = board(&dir);
+    via(&mut engine);
     run(&mut engine);
     let folder = dir.path().join("Demo/outputs/Generic");
     std::fs::write(folder.join("Demo.GTL"), b"old").unwrap();
@@ -143,6 +145,12 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
         assert!(!folder.join(name).exists(), "Gerber turned off: {name}");
     }
     assert!(folder.join("Demo-PTH.drl").exists());
+    std::fs::write(folder.join("Demo-NPTH.drl"), b"old").unwrap();
+    run(&mut engine);
+    assert!(
+        !folder.join("Demo-NPTH.drl").exists(),
+        "a drill file with no holes drops the last run's"
+    );
 
     engine.run_ok(
         "output.job.set",
@@ -654,7 +662,7 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
                 "Gerber and drill declare the same coordinate system"
             );
             assert!(
-                drill.contains(&format!("X{x}.0Y{y}.0\n")),
+                drill.contains(&format!("X{x}.000Y{y}.000\n")),
                 "{preset}, origin={origin}: {drill}"
             );
             let cpl = read("Demo-CPL.csv");
@@ -671,4 +679,50 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
             }
         }
     }
+}
+
+#[test]
+fn merge_drill_writes_one_drill_file_and_drops_the_split_ones() {
+    let dir = TempDir::new("output-merge-drill");
+    let mut engine = board(&dir);
+    via(&mut engine);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "non_plated", "shape": "circle", "at": pt(20.0, 10.0),
+               "width": "3.2mm", "hole": {"width": "3.2mm"}}),
+    );
+    run(&mut engine);
+    let folder = dir.path().join("Demo/outputs/Generic");
+    assert!(folder.join("Demo-PTH.drl").exists());
+    assert!(folder.join("Demo-NPTH.drl").exists());
+
+    // Turn `merge_drill` on in the Project's copy of the preset, then reopen.
+    engine.run_ok("project.save", json!({}));
+    let file = dir.path().join("Demo/Demo.reda");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("\"merge_drill\":false"));
+    std::fs::write(
+        &file,
+        text.replace("\"merge_drill\":false", "\"merge_drill\":true"),
+    )
+    .unwrap();
+    engine.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    let out = run(&mut engine);
+    let drills: Vec<&Value> = out["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["name"].as_str().unwrap().ends_with(".drl"))
+        .collect();
+    assert_eq!(
+        drills,
+        [&json!({"name": "Demo.drl", "function": "drill_mixed"})]
+    );
+    let merged = std::fs::read_to_string(folder.join("Demo.drl")).unwrap();
+    assert!(
+        merged.contains("TF.FileFunction,MixedPlating,1,2,Drill"),
+        "{merged}"
+    );
+    assert!(!folder.join("Demo-PTH.drl").exists());
+    assert!(!folder.join("Demo-NPTH.drl").exists());
 }

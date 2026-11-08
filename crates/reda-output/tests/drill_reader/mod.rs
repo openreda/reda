@@ -1,5 +1,6 @@
 //! A small Excellon reader of our own for the drill tests: the header's tools and comment
-//! attributes, then drill hits and routed slots in absolute metric coordinates.
+//! attributes, then drill hits, routed slots and `G85` slots in absolute metric coordinates.
+//! Every number must have exactly three decimals, and every line must be printable ASCII.
 
 use std::collections::BTreeMap;
 
@@ -12,6 +13,8 @@ pub struct Hit {
     pub to: Option<(i64, i64)>,
     /// The `TA.AperFunction` of the tool, if the file has attributes.
     pub function: Option<String>,
+    /// The `TA.DrillTolerance` of the tool, as written.
+    pub tolerance: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -31,7 +34,7 @@ fn nm(text: &str) -> i64 {
         None => (1, text),
     };
     let (whole, frac) = text.split_once('.').expect("XNC numbers have a point");
-    assert!(frac.len() <= 6, "finer than a nanometre: {text}");
+    assert_eq!(frac.len(), 3, "not three decimals: {text}");
     let whole: i64 = if whole.is_empty() {
         0
     } else {
@@ -51,15 +54,23 @@ fn xy(text: &str) -> (i64, i64) {
     (nm(x), nm(y))
 }
 
-type Tool = (i64, Option<String>);
+/// A tool's diameter, `.AperFunction` and `.DrillTolerance`.
+type Tool = (i64, Option<String>, Option<String>);
 
 pub fn read(bytes: &[u8]) -> Drill {
     let text = std::str::from_utf8(bytes).expect("ASCII");
+    for line in text.lines() {
+        assert!(
+            line.chars().all(|c| (' '..='~').contains(&c)),
+            "not printable ASCII: {line:?}"
+        );
+    }
     let mut lines = text.lines();
     assert_eq!(lines.next(), Some("M48"), "starts with M48");
     let mut drill = Drill::default();
     let mut tools: BTreeMap<String, Tool> = BTreeMap::new();
     let mut function = None;
+    let mut tolerance = None;
     for line in lines.by_ref() {
         if line == "%" {
             break;
@@ -68,13 +79,15 @@ pub fn read(bytes: &[u8]) -> Drill {
             drill.file.insert(name.into(), value.into());
         } else if let Some(attr) = line.strip_prefix("; #@! TA.AperFunction,") {
             function = Some(attr.to_string());
+        } else if let Some(attr) = line.strip_prefix("; #@! TA.DrillTolerance,") {
+            tolerance = Some(attr.to_string());
         } else if line.starts_with(';') || line == "FMAT,2" {
             // a comment, or the format line
         } else if line == "METRIC" {
             drill.metric = true;
         } else if let Some(def) = line.strip_prefix('T') {
             let (n, dia) = def.split_once('C').expect("T<n>C<diameter>");
-            tools.insert(n.into(), (nm(dia), function.take()));
+            tools.insert(n.into(), (nm(dia), function.take(), tolerance.take()));
         } else {
             panic!("unexpected header line {line:?}");
         }
@@ -95,23 +108,34 @@ pub fn read(bytes: &[u8]) -> Drill {
         } else if line == "M15" {
             plunged = Some(route_from.take().expect("G00 before M15"));
         } else if let Some(p) = line.strip_prefix("G01") {
-            let (diameter, function) = current();
+            let (diameter, function, tolerance) = current();
             let at = plunged.expect("M15 before G01");
             drill.hits.push(Hit {
                 diameter,
                 at,
                 to: Some(xy(p)),
                 function,
+                tolerance,
             });
         } else if line == "M16" {
             plunged = None;
+        } else if let Some((from, to)) = line.split_once("G85") {
+            let (diameter, function, tolerance) = current();
+            drill.hits.push(Hit {
+                diameter,
+                at: xy(from),
+                to: Some(xy(to)),
+                function,
+                tolerance,
+            });
         } else if line.starts_with('X') {
-            let (diameter, function) = current();
+            let (diameter, function, tolerance) = current();
             drill.hits.push(Hit {
                 diameter,
                 at: xy(line),
                 to: None,
                 function,
+                tolerance,
             });
         } else {
             panic!("unexpected body line {line:?}");
