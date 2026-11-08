@@ -7,6 +7,8 @@ mod unit;
 
 pub use unit::symbol_scene;
 
+use std::collections::BTreeMap;
+
 use reda_model::geom::{Nm, Point};
 use reda_model::{Project, UnitSuffix, Uuid};
 
@@ -40,6 +42,9 @@ pub struct SchematicStyle {
     /// Drawn for the canvas rather than an output: empty title fields are tinted and a
     /// revision the sheet takes from the Project is greyed.
     pub canvas: bool,
+    /// Each Port's cross-reference note, such as `[2:B3]`, keyed by Port UUID: derived
+    /// from the Project and the styles it uses (see `reda_schematic::cross_ref::notes`).
+    pub cross_references: BTreeMap<Uuid, String>,
 }
 
 /// [`schematic_scene`] drawn in `style`.
@@ -61,7 +66,7 @@ pub fn schematic_scene_styled(
     drawing::junctions(&mut b, body, junctions);
     drawing::net_labels(&mut b, body, style.single_negation);
     drawing::no_connects(&mut b, body);
-    ports::ports(&mut b, body, style.single_negation);
+    ports::ports(&mut b, body, style);
     ports::power_ports(&mut b, body, style.single_negation);
     Some(b.scene)
 }

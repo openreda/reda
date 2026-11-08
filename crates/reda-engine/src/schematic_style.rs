@@ -14,13 +14,18 @@ pub enum Drawn {
     Output,
 }
 
-/// The [`SchematicStyle`] `project`'s sheets are drawn in with `preferences`.
+/// The [`SchematicStyle`] `project`'s sheets are drawn in with `preferences`: the
+/// drawing Preferences, and the Port Cross-References the Project shows.
 pub fn schematic_style(project: &Project, preferences: &Preferences, drawn: Drawn) -> SchematicStyle {
-    let _ = project;
     let schematic = &preferences.schematic;
     SchematicStyle {
         unit_suffix: schematic.unit_suffix,
         single_negation: schematic.single_negation,
         canvas: drawn == Drawn::Canvas,
+        cross_references: reda_schematic::cross_ref::notes(
+            project,
+            (project.props().schematic)
+                .cross_reference_styles(schematic.cross_reference_styles()),
+        ),
     }
 }

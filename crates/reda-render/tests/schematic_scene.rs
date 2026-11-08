@@ -572,3 +572,5 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
 mod overbars;
 #[path = "schematic_scene/frame.rs"]
 mod frame;
+#[path = "schematic_scene/cross_references.rs"]
+mod cross_references;

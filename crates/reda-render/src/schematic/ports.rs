@@ -2,7 +2,8 @@
 //!
 //! Both are drawn in their own frame, then turned by their rotation about their connection
 //! point. A Port is a flag reaching along +x from its point (or -x when its Wire leaves
-//! along +x, so the flag reaches away from the Wire), with its name inside: pointed
+//! along +x, so the flag reaches away from the Wire), with its name inside and its
+//! cross-reference note past its far end. The flag is pointed
 //! at the far end for `out`, at the connection end for `in`, at both for `bidirectional`.
 //! A Power Port is a stem with a fixed symbol at its end and its name beyond; ground
 //! styles hang down (-y), the rest stand up (+y).
@@ -10,7 +11,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{Port, PortDirection, PowerPortStyle, SchematicSheet, Uuid};
 
-use super::{Builder, plain_name};
+use super::{Builder, SchematicStyle, plain_name};
 use crate::color::SchematicColor as C;
 use crate::scene::{Align, HAlign, Primitive, VAlign};
 use crate::text::{TextStyle, advance};
@@ -24,6 +25,8 @@ const FLAG_HALF: i64 = 1_016_000;
 const FLAG_TIP: i64 = FLAG_HALF;
 /// Room between a Port's name and its outline.
 const FLAG_PAD: i64 = 508_000;
+/// Room between a Port's flag and its cross-reference note.
+const NOTE_GAP: i64 = 508_000;
 /// A Power Port's stem.
 const STEM: i64 = 1_270_000;
 /// Half the width of a Power Port's symbol.
@@ -100,7 +103,28 @@ impl Local<'_> {
     }
 }
 
-pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
+impl Local<'_> {
+    /// A Port's cross-reference note, starting at `start` and reading away from the
+    /// flag.
+    fn note(&mut self, note: &str, start: (i64, i64)) {
+        let at = self.place(start);
+        self.b.text(
+            self.object,
+            self.color,
+            note,
+            at,
+            TextStyle {
+                height: NAME_TEXT,
+                rotation: self.rotation,
+                align: Align::new(HAlign::Left, VAlign::Middle),
+                view_label: false,
+            },
+        );
+    }
+}
+
+pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet, style: &SchematicStyle) {
+    let single_negation = style.single_negation;
     let (h, tip, pad) = (FLAG_HALF, FLAG_TIP, FLAG_PAD);
     for port in sheet.ports() {
         let shown = plain_name(&port.name, single_negation);
@@ -133,6 +157,9 @@ pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet, single_negation: bo
         };
         l.closed(outline);
         l.name(&port.name, single_negation, (len / 2, 0));
+        if let Some(note) = style.cross_references.get(&port.uuid) {
+            l.note(note, (len + NOTE_GAP, 0));
+        }
     }
 }
 
