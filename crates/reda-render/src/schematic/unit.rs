@@ -221,10 +221,11 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
         },
     );
     if pin.name_visible {
-        b.text(
+        b.name(
             object,
             C::PinName,
             &pin.name,
+            false,
             body_end + along(NAME_GAP),
             TextStyle {
                 height: PIN_TEXT,

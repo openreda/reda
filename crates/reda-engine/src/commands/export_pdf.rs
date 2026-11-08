@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::DocumentKind;
-use reda_render::{Palette, PdfInfo, RenderTheme, SchematicStyle, schematic_scene_styled, to_pdf};
+use reda_render::{Palette, PdfInfo, RenderTheme, schematic_scene_styled, to_pdf};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -74,15 +74,13 @@ impl Command for ExportPdf {
             }
             _ => p.path.clone(),
         };
-        // Drawn as this user draws sheets (the Unit Suffix); headless, the defaults.
-        let style = SchematicStyle {
-            unit_suffix: session
-                .user_dirs
-                .as_ref()
-                .map_or_else(Default::default, |dirs| {
-                    crate::preferences::load(dirs).values.schematic.unit_suffix
-                }),
-        };
+        // Drawn as this user draws sheets; headless, with the defaults.
+        let preferences = crate::preferences::current(session.user_dirs.as_ref());
+        let style = crate::schematic_style::schematic_style(
+            project,
+            &preferences,
+            crate::schematic_style::Drawn::Output,
+        );
         let scenes: Vec<_> = project
             .documents()
             .filter(|d| d.kind == DocumentKind::Schematic)

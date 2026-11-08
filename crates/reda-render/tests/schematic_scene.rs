@@ -554,7 +554,10 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
             project,
             sheet(),
             &[],
-            &SchematicStyle { unit_suffix: style },
+            &SchematicStyle {
+                unit_suffix: style,
+                ..SchematicStyle::default()
+            },
         )
         .unwrap();
         [&a, &b, &r].map(|u| field_runs(&scene, u)[0].0.clone())
@@ -564,3 +567,6 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
     let default = schematic_scene(project, sheet(), &[]).unwrap();
     assert_eq!(field_runs(&default, &a)[0].0, "U1A");
 }
+
+#[path = "schematic_scene/overbars.rs"]
+mod overbars;

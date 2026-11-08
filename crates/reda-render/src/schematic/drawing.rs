@@ -57,7 +57,7 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
     }
 }
 
-pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
     for label in sheet.net_labels() {
         // Above the Wire as read, extending the way the label points.
         let reading = reading_direction(label.rotation);
@@ -67,10 +67,11 @@ pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
             HAlign::Right
         };
         let (dx, dy) = rotate(0, LABEL_GAP, reading);
-        b.text(
+        b.name(
             label.uuid,
             C::NetLabel,
             &label.name,
+            single_negation,
             Point::new(label.at.x + Nm(dx), label.at.y + Nm(dy)),
             TextStyle {
                 height: LABEL_TEXT,

@@ -10,7 +10,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{Port, PortDirection, PowerPortStyle, SchematicSheet, Uuid};
 
-use super::Builder;
+use super::{Builder, plain_name};
 use crate::color::SchematicColor as C;
 use crate::scene::{Align, HAlign, Primitive, VAlign};
 use crate::text::{TextStyle, advance};
@@ -82,12 +82,13 @@ impl Local<'_> {
 
     /// The name, centred on `center` and running along the object's rotation (turned to
     /// read left to right when that would read upside down).
-    fn name(&mut self, name: &str, center: (i64, i64)) {
+    fn name(&mut self, name: &str, single_negation: bool, center: (i64, i64)) {
         let at = self.place(center);
-        self.b.text(
+        self.b.name(
             self.object,
             self.color,
             name,
+            single_negation,
             at,
             TextStyle {
                 height: NAME_TEXT,
@@ -99,10 +100,11 @@ impl Local<'_> {
     }
 }
 
-pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
     let (h, tip, pad) = (FLAG_HALF, FLAG_TIP, FLAG_PAD);
     for port in sheet.ports() {
-        let len = tip + pad + advance(&port.name, NAME_TEXT).0 + pad + tip;
+        let shown = plain_name(&port.name, single_negation);
+        let len = tip + pad + advance(&shown, NAME_TEXT).0 + pad + tip;
         let outline: &[(i64, i64)] = match port.direction {
             PortDirection::Out => &[(0, h), (len - tip, h), (len, 0), (len - tip, -h), (0, -h)],
             PortDirection::In => &[(0, 0), (tip, h), (len, h), (len, -h), (tip, -h)],
@@ -130,7 +132,7 @@ pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet) {
             rotation,
         };
         l.closed(outline);
-        l.name(&port.name, (len / 2, 0));
+        l.name(&port.name, single_negation, (len / 2, 0));
     }
 }
 
@@ -149,7 +151,7 @@ fn wire_on_flag_side(sheet: &SchematicSheet, port: &Port) -> bool {
     })
 }
 
-pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
     let (s, w) = (STEM, SYMBOL_HALF);
     for port in sheet.power_ports() {
         let mut l = Local {
@@ -215,7 +217,7 @@ pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet) {
         };
         if !port.hide_name {
             let beyond = NAME_GAP + NAME_TEXT.0 / 2;
-            l.name(&port.name, (0, reach + reach.signum() * beyond));
+            l.name(&port.name, single_negation, (0, reach + reach.signum() * beyond));
         }
     }
 }
