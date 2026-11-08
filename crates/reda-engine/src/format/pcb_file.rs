@@ -74,6 +74,12 @@
 //!       …
 //!     ],"copper":true,"vias":true}
 //!   ],
+//!   "zone_cutouts": [
+//!     {"uuid":"…","layer":"…","vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ]}
+//!   ],
 //!   "waivers": [
 //!     {"uuid":"…","check":"clearance","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"…"}
 //!   ]
@@ -89,16 +95,17 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts` and `waivers` (of DRC
-//! Violations) are left out while the board has none, `output_origin` while it is not
-//! set. Zone fills are never stored here: they live in the `.reda/` cache.
+//! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
+//! `zone_cutouts` and `waivers` (of DRC Violations) are left out while the board has none,
+//! `output_origin` while it is not set. Zone fills are never stored here: they live in the
+//! `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, FootprintInstance,
     FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument,
-    PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone,
+    PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -171,6 +178,9 @@ pub(crate) struct PcbFile {
     /// The Keepouts; left out while the board has none.
     #[serde(default)]
     keepouts: Vec<Keepout>,
+    /// The Zone Cutouts; left out while the board has none.
+    #[serde(default)]
+    zone_cutouts: Vec<ZoneCutout>,
     /// The Waivers of DRC Violations, sorted by UUID; left out while the board has none.
     #[serde(default)]
     waivers: Vec<Waiver>,
@@ -188,6 +198,9 @@ struct PcbRow {
 struct BoardRow {
     #[schemars(schema_with = "super::schema::uuid")]
     uuid: Uuid,
+    /// How Zones with no typed name are named; left out for `NET_LXX_PXXX`.
+    #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
+    zone_name_scheme: ZoneNameScheme,
 }
 
 pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalError> {
@@ -196,7 +209,13 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
     w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
-    w.field("board", &BoardRow { uuid: setup.uuid })?;
+    w.field(
+        "board",
+        &BoardRow {
+            uuid: setup.uuid,
+            zone_name_scheme: setup.zone_name_scheme,
+        },
+    )?;
     w.table("rules", pcb.rules(), |r| r.uuid)?;
     w.field("severities", &setup.severities)?;
     if let Some(outline) = pcb.outline() {
@@ -238,6 +257,9 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     if pcb.keepouts().next().is_some() {
         w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
     }
+    if pcb.zone_cutouts().next().is_some() {
+        w.containers("zone_cutouts", pcb.zone_cutouts(), |c| c.uuid, "vertices")?;
+    }
     if pcb.waivers().next().is_some() {
         w.table("waivers", pcb.waivers(), |r| r.uuid)?;
     }
@@ -269,6 +291,7 @@ pub(crate) fn read_pcb_file(
             BoardSetup {
                 uuid: file.board.uuid,
                 severities: file.severities,
+                zone_name_scheme: file.board.zone_name_scheme,
             },
         )),
     ];
@@ -355,6 +378,11 @@ pub(crate) fn read_pcb_file(
         file.keepouts
             .into_iter()
             .map(|k| Object::Keepout(InDocument::new(doc, k))),
+    );
+    objects.extend(
+        file.zone_cutouts
+            .into_iter()
+            .map(|c| Object::ZoneCutout(InDocument::new(doc, c))),
     );
     objects.extend(
         file.waivers

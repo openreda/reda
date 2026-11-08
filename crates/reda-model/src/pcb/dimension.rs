@@ -117,7 +117,7 @@ impl DimensionEnd {
 #[serde(deny_unknown_fields)]
 pub struct HotspotRef {
     /// The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board
-    /// Cutout, Zone or Keepout.
+    /// Cutout, Zone, Zone Cutout or Keepout.
     pub object: Uuid,
     pub hotspot: Hotspot,
 }
@@ -138,7 +138,8 @@ pub enum Hotspot {
     Anchor,
     /// The centre of the Pad with this UUID in a Footprint's copy.
     Pad(Uuid),
-    /// A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic
+    /// A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows
+    /// the Board Outline), Zone Cutout, Keepout or rectangle graphic
     /// (corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).
     Vertex(usize),
 }

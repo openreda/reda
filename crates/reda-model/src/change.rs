@@ -12,7 +12,7 @@ use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{
     BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, FootprintInstance, FreePad,
     InDocument, Keepout, LayerSet, Net, NetClass, OutputOrigin, PcbGraphic, PcbText, Stackup,
-    Track, Via, Zone,
+    Track, Via, Zone, ZoneCutout,
 };
 use crate::{
     DocumentEntry, Footprint, FootprintCopy, LibraryElement, NetLabel, NoConnect, Part, PartEntry,
@@ -62,6 +62,7 @@ pub enum Object {
     Via(InDocument<Via>),
     Zone(InDocument<Zone>),
     Keepout(InDocument<Keepout>),
+    ZoneCutout(InDocument<ZoneCutout>),
     FreePad(InDocument<FreePad>),
     OutputOrigin(InDocument<OutputOrigin>),
     // Left out of schemas so the catalogue is the same with and without the feature.
@@ -147,6 +148,8 @@ pub enum ObjectType {
     Zone,
     /// An area where copper or Vias may not go.
     Keepout,
+    /// An area on a copper Layer where every Zone's fill is removed.
+    ZoneCutout,
     /// A Pad placed directly on the board, belonging to no Footprint.
     FreePad,
     /// Where the editor and relative manufacturing outputs measure coordinates from.
@@ -195,6 +198,7 @@ impl Object {
             Object::Via(o) => o.uuid,
             Object::Zone(o) => o.uuid,
             Object::Keepout(o) => o.uuid,
+            Object::ZoneCutout(o) => o.uuid,
             Object::FreePad(o) => o.uuid,
             Object::OutputOrigin(o) => o.uuid,
             #[cfg(feature = "test-objects")]
@@ -239,6 +243,7 @@ impl Object {
             Object::Via(_) => ObjectType::Via,
             Object::Zone(_) => ObjectType::Zone,
             Object::Keepout(_) => ObjectType::Keepout,
+            Object::ZoneCutout(_) => ObjectType::ZoneCutout,
             Object::FreePad(_) => ObjectType::FreePad,
             Object::OutputOrigin(_) => ObjectType::OutputOrigin,
             #[cfg(feature = "test-objects")]
@@ -284,6 +289,7 @@ impl Object {
             Object::Via(o) => Scope::Document(o.document),
             Object::Zone(o) => Scope::Document(o.document),
             Object::Keepout(o) => Scope::Document(o.document),
+            Object::ZoneCutout(o) => Scope::Document(o.document),
             Object::FreePad(o) => Scope::Document(o.document),
             Object::OutputOrigin(o) => Scope::Document(o.document),
             #[cfg(feature = "test-objects")]

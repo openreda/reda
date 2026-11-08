@@ -396,6 +396,7 @@ impl Project {
             Object::Via(o) => o.document,
             Object::Zone(o) => o.document,
             Object::Keepout(o) => o.document,
+            Object::ZoneCutout(o) => o.document,
             Object::FreePad(o) => o.document,
             Object::OutputOrigin(o) => o.document,
             _ => return Ok(()),
@@ -586,6 +587,9 @@ impl Project {
             }
             Some(Object::Keepout(o)) => {
                 self.pcb_mut(o.document).keepouts.insert(uuid, o.object);
+            }
+            Some(Object::ZoneCutout(o)) => {
+                self.pcb_mut(o.document).zone_cutouts.insert(uuid, o.object);
             }
             Some(Object::FreePad(o)) => {
                 self.pcb_mut(o.document).free_pads.insert(uuid, o.object);

@@ -45,7 +45,9 @@ pub use stackup::{
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
-pub use zone::{FillShape, Keepout, PourOver, Zone, ZoneFill, ZoneFills};
+pub use zone::{
+    FillShape, Keepout, PourOver, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -167,6 +169,8 @@ crate::check::severities! {
     dead_copper => DeadCopper = Warning,
     /// A Zone with a Net and nothing left to fill.
     empty_zone => EmptyZone = Warning,
+    /// A shelved Zone, whose copper outputs leave out.
+    shelved_zone => ShelvedZone = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
     /// A negative mask or paste expansion leaves no opening.
@@ -200,6 +204,9 @@ impl DrcCheck {
 pub struct BoardSetup {
     pub uuid: Uuid,
     pub severities: DrcSeverities,
+    /// How Zones with no typed name are named.
+    #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
+    pub zone_name_scheme: ZoneNameScheme,
 }
 
 /// The closed shape of the board's physical edge.
@@ -291,6 +298,7 @@ pub struct PcbDocument {
     pub(crate) vias: BTreeMap<Uuid, Via>,
     pub(crate) zones: BTreeMap<Uuid, Zone>,
     pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
+    pub(crate) zone_cutouts: BTreeMap<Uuid, ZoneCutout>,
     pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
     pub(crate) output_origins: BTreeMap<Uuid, OutputOrigin>,
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
@@ -317,6 +325,7 @@ impl PcbDocument {
             vias: BTreeMap::new(),
             zones: BTreeMap::new(),
             keepouts: BTreeMap::new(),
+            zone_cutouts: BTreeMap::new(),
             free_pads: BTreeMap::new(),
             output_origins: BTreeMap::new(),
             waivers: BTreeMap::new(),
@@ -505,6 +514,31 @@ impl PcbDocument {
         self.keepouts.get(&uuid)
     }
 
+    /// The Zone Cutouts, sorted by UUID.
+    pub fn zone_cutouts(&self) -> impl Iterator<Item = &ZoneCutout> {
+        self.zone_cutouts.values()
+    }
+
+    pub fn zone_cutout(&self, uuid: Uuid) -> Option<&ZoneCutout> {
+        self.zone_cutouts.get(&uuid)
+    }
+
+    /// The Zones that take part in the design: every Zone but the shelved ones, sorted
+    /// by UUID. Fill, DRC, connectivity, the canvas and outputs see only these.
+    pub fn active_zones(&self) -> impl Iterator<Item = &Zone> {
+        self.zones.values().filter(|z| !z.shelved)
+    }
+
+    /// The outline of `zone`: its own vertices, or the Board Outline's while it follows
+    /// the outline (none while the board has no outline).
+    pub fn zone_vertices<'a>(&'a self, zone: &'a Zone) -> &'a [Vertex] {
+        if zone.follows_outline {
+            self.outline().map_or(&[], |o| &o.vertices[..])
+        } else {
+            &zone.vertices
+        }
+    }
+
     /// The copper Layers, top to bottom.
     pub fn copper_layers(&self) -> impl Iterator<Item = &Layer> {
         self.layers()
@@ -587,6 +621,7 @@ impl PcbDocument {
             vias => Via,
             zones => Zone,
             keepouts => Keepout,
+            zone_cutouts => ZoneCutout,
             free_pads => FreePad,
             output_origins => OutputOrigin,
             waivers => Waiver
@@ -624,6 +659,7 @@ impl PcbDocument {
             vias => Via,
             zones => Zone,
             keepouts => Keepout,
+            zone_cutouts => ZoneCutout,
             free_pads => FreePad,
             output_origins => OutputOrigin,
             waivers => Waiver
@@ -650,6 +686,7 @@ impl PcbDocument {
         self.vias.remove(&uuid);
         self.zones.remove(&uuid);
         self.keepouts.remove(&uuid);
+        self.zone_cutouts.remove(&uuid);
         self.free_pads.remove(&uuid);
         self.output_origins.remove(&uuid);
         self.waivers.remove(&uuid);
@@ -673,6 +710,7 @@ impl PcbDocument {
             && self.vias.is_empty()
             && self.zones.is_empty()
             && self.keepouts.is_empty()
+            && self.zone_cutouts.is_empty()
             && self.free_pads.is_empty()
             && self.output_origins.is_empty()
             && self.waivers.is_empty()
@@ -901,7 +939,19 @@ impl PcbDocument {
             if !net_exists(zone.net) {
                 return Err(format!("Zone {uuid} is on a Net that does not exist"));
             }
-            reda_geom::check_contour(&zone.vertices).map_err(|e| format!("Zone {uuid}: {e}"))?;
+            if zone.follows_outline {
+                if !zone.vertices.is_empty() {
+                    return Err(format!(
+                        "Zone {uuid} follows the Board Outline and has vertices too"
+                    ));
+                }
+            } else {
+                reda_geom::check_contour(&zone.vertices)
+                    .map_err(|e| format!("Zone {uuid}: {e}"))?;
+            }
+            if zone.name.as_deref().is_some_and(|n| n.trim().is_empty()) {
+                return Err(format!("Zone {uuid} has an empty name"));
+            }
             if zone.min_width.is_some_and(|w| w <= Nm::ZERO) {
                 return Err(format!("Zone {uuid} needs a positive minimum width"));
             }
@@ -924,6 +974,14 @@ impl PcbDocument {
             }
             reda_geom::check_contour(&keepout.vertices)
                 .map_err(|e| format!("Keepout {uuid}: {e}"))?;
+        }
+        for cutout in self.zone_cutouts.values() {
+            let uuid = cutout.uuid;
+            if !is_copper(cutout.layer) {
+                return Err(format!("Zone Cutout {uuid} is not on a copper Layer"));
+            }
+            reda_geom::check_contour(&cutout.vertices)
+                .map_err(|e| format!("Zone Cutout {uuid}: {e}"))?;
         }
         Ok(())
     }

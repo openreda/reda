@@ -66,6 +66,10 @@
           "format": "uuid",
           "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
           "type": "string"
+        },
+        "zone_name_scheme": {
+          "$ref": "#/$defs/ZoneNameScheme",
+          "description": "How Zones with no typed name are named; left out for `NET_LXX_PXXX`."
         }
       },
       "required": [
@@ -635,6 +639,11 @@
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "A rule that allows less than a Fab Preset limit."
+        },
+        "shelved_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A shelved Zone, whose copper outputs leave out."
         },
         "short_circuit": {
           "$ref": "#/$defs/Severity",
@@ -1355,7 +1364,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+          "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
           "properties": {
             "vertex": {
               "format": "uint",
@@ -1378,7 +1387,7 @@
           "$ref": "#/$defs/Hotspot"
         },
         "object": {
-          "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+          "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
           "format": "uuid",
           "type": "string"
         }
@@ -3065,6 +3074,10 @@
             "null"
           ]
         },
+        "follows_outline": {
+          "description": "Whether the outline is the Board Outline, following its later edits; the fill\nkeeps the edge clearance from it. Left out when false.",
+          "type": "boolean"
+        },
         "layer": {
           "description": "The copper Layer it fills.",
           "format": "uuid",
@@ -3080,6 +3093,13 @@
           "format": "int64",
           "type": [
             "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "Its typed name, unique on the board. Left out, it shows a name derived from the\nboard's [`ZoneNameScheme`], which is never stored.",
+          "type": [
+            "string",
             "null"
           ]
         },
@@ -3105,12 +3125,16 @@
           "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
           "type": "boolean"
         },
+        "shelved": {
+          "description": "Whether it is shelved: kept in the file but hidden from the canvas and skipped by\nfill, DRC, connectivity and outputs. Left out when false.",
+          "type": "boolean"
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
         },
         "vertices": {
-          "description": "The outline the fill stays inside; the last vertex joins the first.",
+          "description": "The outline the fill stays inside; the last vertex joins the first. Empty while\nthe Zone [follows the Board Outline](Self::follows_outline).",
           "items": {
             "$ref": "#/$defs/Vertex"
           },
@@ -3120,7 +3144,6 @@
       "required": [
         "uuid",
         "layer",
-        "vertices",
         "pour_over",
         "remove_unconnected",
         "min_island_area",
@@ -3178,6 +3201,59 @@
         }
       },
       "type": "object"
+    },
+    "ZoneCutout": {
+      "additionalProperties": false,
+      "description": "A Zone Cutout: removes the fill of every Zone on its copper Layer inside its outline,\nexactly to its edge. It belongs to no one Zone and is never plotted.",
+      "properties": {
+        "layer": {
+          "description": "The copper Layer whose Zones it cuts.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "vertices": {
+          "description": "The outline; the last vertex joins the first.",
+          "items": {
+            "$ref": "#/$defs/Vertex"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "vertices"
+      ],
+      "type": "object"
+    },
+    "ZoneNameScheme": {
+      "description": "How a Zone with no typed name is named: its Net (`NONET` for none), its copper Layer\nas `Lxx` (copper number) or by name, and `Pxxx`, counting the Zones of that Net and\nLayer in priority order.",
+      "oneOf": [
+        {
+          "const": "NET_LXX_PXXX",
+          "description": "Such as `GND_L01_P000`.",
+          "type": "string"
+        },
+        {
+          "const": "LXX_NET_PXXX",
+          "description": "Such as `L01_GND_P000`.",
+          "type": "string"
+        },
+        {
+          "const": "NET_LAYERNAME_PXXX",
+          "description": "Such as `GND_Top_P000`.",
+          "type": "string"
+        },
+        {
+          "const": "LAYERNAME_NET_PXXX",
+          "description": "Such as `Top_GND_P000`.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -3339,6 +3415,14 @@
       "description": "The Waivers of DRC Violations, sorted by UUID; left out while the board has none.",
       "items": {
         "$ref": "#/$defs/Waiver"
+      },
+      "type": "array"
+    },
+    "zone_cutouts": {
+      "default": [],
+      "description": "The Zone Cutouts; left out while the board has none.",
+      "items": {
+        "$ref": "#/$defs/ZoneCutout"
       },
       "type": "array"
     },

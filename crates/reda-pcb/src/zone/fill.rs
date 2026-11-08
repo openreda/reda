@@ -1,8 +1,8 @@
-//! Filling one Zone: its outline, cut back from the board edge, Keepouts, other Nets'
-//! copper and higher-priority fills, thinned to the minimum width, joined to the Pads and
-//! Vias of its Net as the `zone_connection` rule says, with islands dropped as
-//! `remove_unconnected` and `min_island_area` say. `pour_over` decides whether same-Net
-//! Tracks and Zones merge with the fill or keep clear of it.
+//! Filling one Zone: its outline, cut back from the board edge, Keepouts, Zone Cutouts,
+//! other Nets' copper and higher-priority fills, thinned to the minimum width, joined to
+//! the Pads and Vias of its Net as the `zone_connection` rule says, with islands dropped
+//! as `remove_unconnected` and `min_island_area` say. `pour_over` decides whether
+//! same-Net Tracks and Zones merge with the fill or keep clear of it.
 
 use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Millideg, Nm};
@@ -49,12 +49,22 @@ pub(super) fn fill_zone(
     before: &[Filled<'_>],
 ) -> Area {
     let layer = zone.layer;
-    let mut area = poly::polygon(poly::contour(&zone.vertices));
+    let vertices = pcb.zone_vertices(zone);
+    if vertices.is_empty() {
+        return Vec::new();
+    }
+    let mut area = poly::polygon(poly::contour(vertices));
     area = within_board(pcb, zone, area);
+    // Keepouts forbidding copper, and Zone Cutouts, which cut exactly to their edge.
     let keepouts: Vec<Vec<Contour>> = pcb
         .keepouts()
         .filter(|k| k.copper && k.layers.contains(&layer))
         .map(|k| vec![poly::contour(&k.vertices)])
+        .chain(
+            pcb.zone_cutouts()
+                .filter(|c| c.layer == layer)
+                .map(|c| vec![poly::contour(&c.vertices)]),
+        )
         .collect();
     if !keepouts.is_empty() {
         area = difference(&area, &union(keepouts));
@@ -316,7 +326,7 @@ fn spokes(frame: &Frame, min_width: Nm) -> Vec<Contour> {
 }
 
 /// Stored shapes back as an area.
-pub(super) fn to_area(shapes: &[FillShape]) -> Area {
+pub(crate) fn to_area(shapes: &[FillShape]) -> Area {
     shapes
         .iter()
         .map(|shape| {

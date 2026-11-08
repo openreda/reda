@@ -40,7 +40,10 @@ fn copper_without_net(board: &Board<'_>, report: &mut Report) {
         .map(|p| p.uuid);
     let vias = pcb.vias().filter(|v| v.net.is_none()).map(|v| v.uuid);
     let tracks = pcb.tracks().filter(|t| t.net.is_none()).map(|t| t.uuid);
-    let zones = pcb.zones().filter(|z| z.net.is_none()).map(|z| z.uuid);
+    let zones = pcb
+        .active_zones()
+        .filter(|z| z.net.is_none())
+        .map(|z| z.uuid);
     for uuid in free_pads.chain(vias).chain(tracks).chain(zones) {
         report.add(DrcCheck::CopperWithoutNet, |v| v.object(uuid));
     }

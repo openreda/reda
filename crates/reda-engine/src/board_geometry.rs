@@ -61,7 +61,7 @@ pub(crate) fn board_geometry(project: &Project, pcb: &PcbDocument, fonts: &Fonts
             let state = match z.state {
                 FillState::Filled => ZoneFillState::Filled,
                 FillState::Stale => ZoneFillState::Stale,
-                FillState::Unfilled => ZoneFillState::Unfilled,
+                FillState::Unfilled | FillState::Shelved => ZoneFillState::Unfilled,
             };
             (z.zone, state)
         })

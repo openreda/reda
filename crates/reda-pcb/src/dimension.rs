@@ -74,7 +74,10 @@ pub fn hotspot_point(pcb: &PcbDocument, reference: &HotspotRef) -> Option<Point>
                 return vertex(contour(&cutout.vertices), i);
             }
             if let Some(zone) = pcb.zone(uuid) {
-                return vertex(contour(&zone.vertices), i);
+                return vertex(contour(pcb.zone_vertices(zone)), i);
+            }
+            if let Some(cutout) = pcb.zone_cutout(uuid) {
+                return vertex(contour(&cutout.vertices), i);
             }
             if let Some(keepout) = pcb.keepout(uuid) {
                 return vertex(contour(&keepout.vertices), i);

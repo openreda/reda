@@ -63,7 +63,7 @@ pub use pcb::{
     PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver, RuleField, RuleKind,
     RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry,
     StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone,
-    ZoneFill, ZoneFills,
+    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

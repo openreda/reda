@@ -6,6 +6,7 @@ mod dimension;
 mod drc;
 mod find;
 mod free_pad;
+pub mod from_graphics;
 mod graphic;
 mod layer;
 mod mechanical;

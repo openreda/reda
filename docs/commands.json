@@ -328,6 +328,11 @@
                 "type": "string"
               },
               {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -1399,6 +1404,11 @@
                 "type": "string"
               },
               {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -1624,6 +1634,11 @@
               {
                 "const": "empty_zone",
                 "description": "A Zone with a Net and nothing left to fill.",
+                "type": "string"
+              },
+              {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
                 "type": "string"
               },
               {
@@ -2159,6 +2174,11 @@
                 "type": "string"
               },
               {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -2439,6 +2459,11 @@
               {
                 "const": "empty_zone",
                 "description": "A Zone with a Net and nothing left to fill.",
+                "type": "string"
+              },
+              {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
                 "type": "string"
               },
               {
@@ -22018,6 +22043,11 @@
                 "default": "warning",
                 "description": "A rule that allows less than a Fab Preset limit."
               },
+              "shelved_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A shelved Zone, whose copper outputs leave out."
+              },
               "short_circuit": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -22096,6 +22126,7 @@
               "zero_area_zone",
               "dead_copper",
               "empty_zone",
+              "shelved_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -22886,7 +22917,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
                 "properties": {
                   "vertex": {
                     "format": "uint",
@@ -22909,7 +22940,7 @@
                 "$ref": "#/$defs/Hotspot"
               },
               "object": {
-                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
                 "format": "uuid",
                 "type": "string"
               }
@@ -23316,6 +23347,10 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "zone_name_scheme": {
+                "$ref": "#/$defs/ZoneNameScheme",
+                "description": "How Zones with no typed name are named."
               }
             },
             "required": [
@@ -23813,6 +23848,10 @@
                   "null"
                 ]
               },
+              "follows_outline": {
+                "description": "Whether the outline is the Board Outline, following its later edits; the fill\nkeeps the edge clearance from it. Left out when false.",
+                "type": "boolean"
+              },
               "layer": {
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
@@ -23828,6 +23867,13 @@
                 "format": "int64",
                 "type": [
                   "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "Its typed name, unique on the board. Left out, it shows a name derived from the\nboard's [`ZoneNameScheme`], which is never stored.",
+                "type": [
+                  "string",
                   "null"
                 ]
               },
@@ -23853,12 +23899,16 @@
                 "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
                 "type": "boolean"
               },
+              "shelved": {
+                "description": "Whether it is shelved: kept in the file but hidden from the canvas and skipped by\nfill, DRC, connectivity and outputs. Left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
               },
               "vertices": {
-                "description": "The outline the fill stays inside; the last vertex joins the first.",
+                "description": "The outline the fill stays inside; the last vertex joins the first. Empty while\nthe Zone [follows the Board Outline](Self::follows_outline).",
                 "items": {
                   "$ref": "#/$defs/Vertex"
                 },
@@ -23868,7 +23918,6 @@
             "required": [
               "uuid",
               "layer",
-              "vertices",
               "pour_over",
               "remove_unconnected",
               "min_island_area",
@@ -23917,6 +23966,81 @@
             "type": "object"
           },
           "InDocument29": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer whose Zones it cuts.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "description": "The outline; the last vertex joins the first.",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "vertices"
+            ],
+            "type": "object"
+          },
+          "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "entries": {
+                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "items": {
+                  "$ref": "#/$defs/StackupEntry"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "description": "The surface finish, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mask_color": {
+                "description": "The solder mask colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "silk_color": {
+                "description": "The silkscreen colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished thickness you order.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "InDocument30": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -24062,55 +24186,7 @@
             ],
             "type": "object"
           },
-          "InDocument3": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "entries": {
-                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
-                "items": {
-                  "$ref": "#/$defs/StackupEntry"
-                },
-                "type": "array"
-              },
-              "finish": {
-                "description": "The surface finish, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "mask_color": {
-                "description": "The solder mask colour, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "silk_color": {
-                "description": "The silkscreen colour, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "thickness": {
-                "description": "The finished thickness you order.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "thickness",
-              "entries"
-            ],
-            "type": "object"
-          },
-          "InDocument30": {
+          "InDocument31": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -25569,7 +25645,7 @@
                 "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "zone_cutout",
                     "type": "string"
                   }
                 },
@@ -25580,6 +25656,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument30",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument31",
                 "properties": {
                   "type": {
                     "const": "output_origin",
@@ -28052,6 +28141,31 @@
               }
             },
             "type": "object"
+          },
+          "ZoneNameScheme": {
+            "description": "How a Zone with no typed name is named: its Net (`NONET` for none), its copper Layer\nas `Lxx` (copper number) or by name, and `Pxxx`, counting the Zones of that Net and\nLayer in priority order.",
+            "oneOf": [
+              {
+                "const": "NET_LXX_PXXX",
+                "description": "Such as `GND_L01_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LXX_NET_PXXX",
+                "description": "Such as `L01_GND_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "NET_LAYERNAME_PXXX",
+                "description": "Such as `GND_Top_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LAYERNAME_NET_PXXX",
+                "description": "Such as `Top_GND_P000`.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -28411,6 +28525,11 @@
               {
                 "const": "keepout",
                 "description": "An area where copper or Vias may not go.",
+                "type": "string"
+              },
+              {
+                "const": "zone_cutout",
+                "description": "An area on a copper Layer where every Zone's fill is removed.",
                 "type": "string"
               },
               {
@@ -29249,6 +29368,11 @@
                 "default": "warning",
                 "description": "A rule that allows less than a Fab Preset limit."
               },
+              "shelved_zone": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning",
+                "description": "A shelved Zone, whose copper outputs leave out."
+              },
               "short_circuit": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -29327,6 +29451,7 @@
               "zero_area_zone",
               "dead_copper",
               "empty_zone",
+              "shelved_zone",
               "out_of_sync",
               "opening_collapsed",
               "rule_invalid",
@@ -30117,7 +30242,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
                 "properties": {
                   "vertex": {
                     "format": "uint",
@@ -30140,7 +30265,7 @@
                 "$ref": "#/$defs/Hotspot"
               },
               "object": {
-                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
                 "format": "uuid",
                 "type": "string"
               }
@@ -30547,6 +30672,10 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "zone_name_scheme": {
+                "$ref": "#/$defs/ZoneNameScheme",
+                "description": "How Zones with no typed name are named."
               }
             },
             "required": [
@@ -31044,6 +31173,10 @@
                   "null"
                 ]
               },
+              "follows_outline": {
+                "description": "Whether the outline is the Board Outline, following its later edits; the fill\nkeeps the edge clearance from it. Left out when false.",
+                "type": "boolean"
+              },
               "layer": {
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
@@ -31059,6 +31192,13 @@
                 "format": "int64",
                 "type": [
                   "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "Its typed name, unique on the board. Left out, it shows a name derived from the\nboard's [`ZoneNameScheme`], which is never stored.",
+                "type": [
+                  "string",
                   "null"
                 ]
               },
@@ -31084,12 +31224,16 @@
                 "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
                 "type": "boolean"
               },
+              "shelved": {
+                "description": "Whether it is shelved: kept in the file but hidden from the canvas and skipped by\nfill, DRC, connectivity and outputs. Left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
               },
               "vertices": {
-                "description": "The outline the fill stays inside; the last vertex joins the first.",
+                "description": "The outline the fill stays inside; the last vertex joins the first. Empty while\nthe Zone [follows the Board Outline](Self::follows_outline).",
                 "items": {
                   "$ref": "#/$defs/Vertex"
                 },
@@ -31099,7 +31243,6 @@
             "required": [
               "uuid",
               "layer",
-              "vertices",
               "pour_over",
               "remove_unconnected",
               "min_island_area",
@@ -31148,6 +31291,81 @@
             "type": "object"
           },
           "InDocument29": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer whose Zones it cuts.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "description": "The outline; the last vertex joins the first.",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "vertices"
+            ],
+            "type": "object"
+          },
+          "InDocument3": {
+            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
+            "properties": {
+              "entries": {
+                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "items": {
+                  "$ref": "#/$defs/StackupEntry"
+                },
+                "type": "array"
+              },
+              "finish": {
+                "description": "The surface finish, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mask_color": {
+                "description": "The solder mask colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "silk_color": {
+                "description": "The silkscreen colour, as typed; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "thickness": {
+                "description": "The finished thickness you order.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "InDocument30": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -31293,55 +31511,7 @@
             ],
             "type": "object"
           },
-          "InDocument3": {
-            "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
-            "properties": {
-              "entries": {
-                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
-                "items": {
-                  "$ref": "#/$defs/StackupEntry"
-                },
-                "type": "array"
-              },
-              "finish": {
-                "description": "The surface finish, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "mask_color": {
-                "description": "The solder mask colour, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "silk_color": {
-                "description": "The silkscreen colour, as typed; left out when unset.",
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "thickness": {
-                "description": "The finished thickness you order.",
-                "format": "int64",
-                "type": "integer"
-              },
-              "uuid": {
-                "format": "uuid",
-                "type": "string"
-              }
-            },
-            "required": [
-              "uuid",
-              "thickness",
-              "entries"
-            ],
-            "type": "object"
-          },
-          "InDocument30": {
+          "InDocument31": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "at": {
@@ -32800,7 +32970,7 @@
                 "$ref": "#/$defs/InDocument29",
                 "properties": {
                   "type": {
-                    "const": "free_pad",
+                    "const": "zone_cutout",
                     "type": "string"
                   }
                 },
@@ -32811,6 +32981,19 @@
               },
               {
                 "$ref": "#/$defs/InDocument30",
+                "properties": {
+                  "type": {
+                    "const": "free_pad",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/InDocument31",
                 "properties": {
                   "type": {
                     "const": "output_origin",
@@ -35304,6 +35487,31 @@
               }
             },
             "type": "object"
+          },
+          "ZoneNameScheme": {
+            "description": "How a Zone with no typed name is named: its Net (`NONET` for none), its copper Layer\nas `Lxx` (copper number) or by name, and `Pxxx`, counting the Zones of that Net and\nLayer in priority order.",
+            "oneOf": [
+              {
+                "const": "NET_LXX_PXXX",
+                "description": "Such as `GND_L01_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LXX_NET_PXXX",
+                "description": "Such as `L01_GND_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "NET_LAYERNAME_PXXX",
+                "description": "Such as `GND_Top_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LAYERNAME_NET_PXXX",
+                "description": "Such as `Top_GND_P000`.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -36566,6 +36774,77 @@
     },
     {
       "category": "pcb",
+      "description": "Adds a Board Cutout along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes.",
+      "icon": "board_cutout",
+      "id": "pcb.board_cutout.add_from_graphics",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "LoopMode": {
+            "description": "Which edge of the graphics the contour follows.",
+            "oneOf": [
+              {
+                "const": "centerline",
+                "description": "Along the lines' centres; their ends must meet within 0.001 mm.",
+                "type": "string"
+              },
+              {
+                "const": "outer_edge",
+                "description": "Along the outside of the strokes, their widths included, so ends that overlap\nby their width close the loop too.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The params every `add_from_graphics` Command takes.",
+        "properties": {
+          "graphics": {
+            "description": "Free lines, arcs and outlined rectangles forming one closed loop, such as the\nselection.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the graphics as well; by default they are removed.",
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/$defs/LoopMode",
+            "description": "`centerline` (default): along the lines' centres, ends meeting within 0.001 mm.\n`outer_edge`: along the outside of the strokes."
+          }
+        },
+        "required": [
+          "graphics"
+        ],
+        "title": "FromGraphics",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Board Cutout from Selection"
+    },
+    {
+      "category": "pcb",
       "description": "Deletes one Board Cutout.",
       "icon": "delete",
       "id": "pcb.board_cutout.delete",
@@ -36698,16 +36977,34 @@
     },
     {
       "category": "pcb",
-      "description": "Sets the Board Outline to the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. Their ends must meet exactly. Replaces any Board Outline the board already has.",
+      "description": "Sets the Board Outline to the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes. Replaces any Board Outline the board already has.",
       "icon": "board_outline_from_lines",
       "id": "pcb.board_outline.add_from_graphics",
       "kind": "edit",
       "params": {
+        "$defs": {
+          "LoopMode": {
+            "description": "Which edge of the graphics the contour follows.",
+            "oneOf": [
+              {
+                "const": "centerline",
+                "description": "Along the lines' centres; their ends must meet within 0.001 mm.",
+                "type": "string"
+              },
+              {
+                "const": "outer_edge",
+                "description": "Along the outside of the strokes, their widths included, so ends that overlap\nby their width close the loop too.",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
+        "description": "The params every `add_from_graphics` Command takes.",
         "properties": {
           "graphics": {
-            "description": "Free lines, arcs and outlined rectangles whose ends meet exactly, forming one loop,\nsuch as the selection.",
+            "description": "Free lines, arcs and outlined rectangles forming one closed loop, such as the\nselection.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -36716,14 +37013,18 @@
           },
           "keep": {
             "default": false,
-            "description": "Keep the graphics as well; by default they become the outline and are removed.",
+            "description": "Keep the graphics as well; by default they are removed.",
             "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/$defs/LoopMode",
+            "description": "`centerline` (default): along the lines' centres, ends meeting within 0.001 mm.\n`outer_edge`: along the outside of the strokes."
           }
         },
         "required": [
           "graphics"
         ],
-        "title": "OutlineAddFromGraphicsParams",
+        "title": "FromGraphics",
         "type": "object"
       },
       "presets": [],
@@ -37984,7 +38285,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
                 "properties": {
                   "vertex": {
                     "format": "uint",
@@ -38007,7 +38308,7 @@
                 "$ref": "#/$defs/Hotspot"
               },
               "object": {
-                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
                 "format": "uuid",
                 "type": "string"
               }
@@ -38643,7 +38944,7 @@
               },
               {
                 "additionalProperties": false,
-                "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
                 "properties": {
                   "vertex": {
                     "format": "uint",
@@ -38666,7 +38967,7 @@
                 "$ref": "#/$defs/Hotspot"
               },
               "object": {
-                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
                 "format": "uuid",
                 "type": "string"
               }
@@ -41661,6 +41962,103 @@
         "type": "object"
       },
       "title": "Add Keepout"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Keepout along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes.",
+      "icon": "keepout",
+      "id": "pcb.keepout.add_from_graphics",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "LoopMode": {
+            "description": "Which edge of the graphics the contour follows.",
+            "oneOf": [
+              {
+                "const": "centerline",
+                "description": "Along the lines' centres; their ends must meet within 0.001 mm.",
+                "type": "string"
+              },
+              {
+                "const": "outer_edge",
+                "description": "Along the outside of the strokes, their widths included, so ends that overlap\nby their width close the loop too.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "copper": {
+            "default": null,
+            "description": "Whether copper is forbidden inside. Default: true.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "graphics": {
+            "description": "Free lines, arcs and outlined rectangles forming one closed loop.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the graphics as well; by default they are removed.",
+            "type": "boolean"
+          },
+          "layers": {
+            "description": "The copper Layers it applies to. Default: every copper Layer.",
+            "items": {
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "mode": {
+            "$ref": "#/$defs/LoopMode",
+            "description": "`centerline` (default) or `outer_edge`."
+          },
+          "vias": {
+            "default": null,
+            "description": "Whether Vias are forbidden inside. Default: true.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "graphics"
+        ],
+        "title": "KeepoutFromGraphicsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Keepout from Selection"
     },
     {
       "category": "pcb",
@@ -45782,6 +46180,11 @@
                 "type": "string"
               },
               {
+                "const": "shelved_zone",
+                "description": "A shelved Zone, whose copper outputs leave out.",
+                "type": "string"
+              },
+              {
                 "const": "out_of_sync",
                 "description": "The PCB out of sync with the schematic.",
                 "type": "string"
@@ -49212,6 +49615,14 @@
             "default": null,
             "description": "The narrowest copper the fill may leave. Left out, the Net's `track_width` minimum."
           },
+          "name": {
+            "default": null,
+            "description": "A name, unique on the board; left out, the Zone shows one derived from the\nboard's `zone_name_scheme`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "net": {
             "default": null,
             "description": "The Net's UUID; left out for a fill on no Net.",
@@ -49287,6 +49698,285 @@
     },
     {
       "category": "pcb",
+      "description": "Adds one Zone per copper Layer in `layers` that follows the Board Outline (`follows_outline`): its fill follows later outline edits and keeps the edge clearance, so it needs no inset. It has no vertices of its own until `pcb.zone.detach_outline`. Other values are fixed, as for `pcb.zone.add`.",
+      "icon": "zone",
+      "id": "pcb.zone.add_from_board_outline",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layers": {
+            "description": "The copper Layers: one Zone each.",
+            "items": {
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "net": {
+            "default": null,
+            "description": "The Net's UUID; left out for fills on no Net.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "FromOutlineParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The Zones a Command made, in the order of its `layers`.",
+        "properties": {
+          "zones": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "zones"
+        ],
+        "title": "CreatedZones",
+        "type": "object"
+      },
+      "title": "Add Zones from Board Outline"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Zone on copper `layer` along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes. Other values are fixed, as for `pcb.zone.add`.",
+      "icon": "zone",
+      "id": "pcb.zone.add_from_graphics",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "LoopMode": {
+            "description": "Which edge of the graphics the contour follows.",
+            "oneOf": [
+              {
+                "const": "centerline",
+                "description": "Along the lines' centres; their ends must meet within 0.001 mm.",
+                "type": "string"
+              },
+              {
+                "const": "outer_edge",
+                "description": "Along the outside of the strokes, their widths included, so ends that overlap\nby their width close the loop too.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "graphics": {
+            "description": "Free lines, arcs and outlined rectangles forming one closed loop.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the graphics as well; by default they are removed.",
+            "type": "boolean"
+          },
+          "layer": {
+            "description": "The copper Layer; the GUI passes the active one.",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/$defs/LoopMode",
+            "description": "`centerline` (default) or `outer_edge`."
+          },
+          "name": {
+            "default": null,
+            "description": "A name, unique on the board; left out, the derived name.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "net": {
+            "default": null,
+            "description": "The Net's UUID; left out for a fill on no Net.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "graphics",
+          "layer"
+        ],
+        "title": "ZoneFromGraphicsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Zone from Selection"
+    },
+    {
+      "category": "pcb",
+      "description": "Orders the Zones on each copper Layer (or only `layer`) by outline area, smallest first, so a small Zone inside a large one fills first; equal areas go by UUID.",
+      "icon": "zone",
+      "id": "pcb.zone.auto_order",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "One copper Layer; left out, every copper Layer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "AutoOrderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerOrder": {
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "zones": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "layer",
+              "zones"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The pour order of the Layers a Command changed.",
+        "properties": {
+          "layers": {
+            "description": "Each changed Layer's Zones, first to fill first.",
+            "items": {
+              "$ref": "#/$defs/LayerOrder"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "Ordered",
+        "type": "object"
+      },
+      "title": "Auto Order Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves Zones to the front of their Layers' pour order, so they fill first.",
+      "icon": "zone",
+      "id": "pcb.zone.bring_to_front",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zones": {
+            "description": "The Zones' UUIDs. Each moves within its own Layer; they keep their order among\nthemselves.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "zones"
+        ],
+        "title": "MoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerOrder": {
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "zones": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "layer",
+              "zones"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The pour order of the Layers a Command changed.",
+        "properties": {
+          "layers": {
+            "description": "Each changed Layer's Zones, first to fill first.",
+            "items": {
+              "$ref": "#/$defs/LayerOrder"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "Ordered",
+        "type": "object"
+      },
+      "title": "Bring Zones to Front"
+    },
+    {
+      "category": "pcb",
       "description": "Deletes Zones, outline and fill.",
       "icon": "delete",
       "id": "pcb.zone.delete",
@@ -49334,15 +50024,58 @@
     },
     {
       "category": "pcb",
-      "description": "Fills every Zone of the PCB Document and stores the fills in the Project's `.reda/` cache (never in the Document, so filling is not an edit). Long-running: reports progress per Zone and can be cancelled, which keeps the previous fills.",
+      "description": "Turns a Zone that follows the Board Outline into an ordinary one, with the outline's vertices as its own: it no longer follows outline edits, and its vertices can be edited.",
+      "icon": "zone",
+      "id": "pcb.zone.detach_outline",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zone": {
+            "description": "The Zone's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone"
+        ],
+        "title": "DetachParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Detach Zone from Board Outline"
+    },
+    {
+      "category": "pcb",
+      "description": "Fills the Zones of the PCB Document and stores the fills in the Project's `.reda/` cache (never in the Document, so filling is not an edit): every stale or unfilled Zone, or with `zones` those Zones and the ones depending on them. Shelved Zones are skipped. Long-running: reports progress per Zone and can be cancelled, which keeps the previous fills.",
       "icon": "zone_fill",
       "id": "pcb.zone.fill",
       "kind": "file",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
-        "title": "NoParams",
+        "properties": {
+          "zones": {
+            "default": null,
+            "description": "Refill these Zones and those that depend on them (the lower-priority Zones on the\nsame Layer overlapping them), current or not. Left out, every stale or unfilled\nZone.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "ZoneFillParams",
         "type": "object"
       },
       "presets": [],
@@ -49376,7 +50109,7 @@
             "type": "boolean"
           },
           "zones": {
-            "description": "Every Zone, in fill order (priority, highest first).",
+            "description": "The Zones it filled, in fill order (priority, highest first); the others kept\ntheir fills.",
             "items": {
               "$ref": "#/$defs/FilledZone"
             },
@@ -49423,6 +50156,11 @@
               {
                 "const": "unfilled",
                 "description": "Never filled: only the outline is drawn.",
+                "type": "string"
+              },
+              {
+                "const": "shelved",
+                "description": "Shelved: not filled, and hidden from the canvas, until restored.",
                 "type": "string"
               }
             ]
@@ -49539,6 +50277,11 @@
                 "const": "unfilled",
                 "description": "Never filled: only the outline is drawn.",
                 "type": "string"
+              },
+              {
+                "const": "shelved",
+                "description": "Shelved: not filled, and hidden from the canvas, until restored.",
+                "type": "string"
               }
             ]
           },
@@ -49618,6 +50361,342 @@
         "type": "object"
       },
       "title": "Zone Fills"
+    },
+    {
+      "category": "pcb",
+      "description": "Lists the Zones on each copper Layer in pour order (first to fill first), with the name each shows (typed or derived), Net, priority, shelved and fill state, outline area and filled copper area.",
+      "icon": "zone",
+      "id": "pcb.zone.list",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "Only the Zones on this copper Layer; left out, every copper Layer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ZoneListParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "FillState": {
+            "oneOf": [
+              {
+                "const": "filled",
+                "description": "Filled from the board as it is now.",
+                "type": "string"
+              },
+              {
+                "const": "stale",
+                "description": "Filled, but something its fill depends on has changed since: the fill is drawn\ndimmed until refilled.",
+                "type": "string"
+              },
+              {
+                "const": "unfilled",
+                "description": "Never filled: only the outline is drawn.",
+                "type": "string"
+              },
+              {
+                "const": "shelved",
+                "description": "Shelved: not filled, and hidden from the canvas, until restored.",
+                "type": "string"
+              }
+            ]
+          },
+          "LayerZones": {
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "zones": {
+                "description": "Its Zones in pour order, first to fill first; shelved ones too.",
+                "items": {
+                  "$ref": "#/$defs/ZoneRow"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "layer",
+              "zones"
+            ],
+            "type": "object"
+          },
+          "ZoneRow": {
+            "properties": {
+              "filled_area": {
+                "description": "The area of its stored fill, in square nanometres (0 while unfilled).",
+                "format": "int64",
+                "type": "integer"
+              },
+              "follows_outline": {
+                "type": "boolean"
+              },
+              "name": {
+                "description": "The name it shows: the typed one, or the one derived from the board's\n`zone_name_scheme`.",
+                "type": "string"
+              },
+              "net": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "outline_area": {
+                "description": "The area inside the outline, in square nanometres.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "priority": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shelved": {
+                "type": "boolean"
+              },
+              "state": {
+                "$ref": "#/$defs/FillState",
+                "description": "`filled`, `stale`, `unfilled` or `shelved`."
+              },
+              "typed_name": {
+                "description": "Whether the name is typed rather than derived.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "name",
+              "typed_name",
+              "priority",
+              "shelved",
+              "follows_outline",
+              "state",
+              "outline_area",
+              "filled_area"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "layers": {
+            "description": "The copper Layers top to bottom, each with its Zones.",
+            "items": {
+              "$ref": "#/$defs/LayerZones"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "ZoneListing",
+        "type": "object"
+      },
+      "title": "List Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the pour order of the Zones on one copper Layer: `order` lists every Zone there, first to fill first. Where Zones overlap, the earlier fills first and the others keep clear.",
+      "icon": "zone",
+      "id": "pcb.zone.reorder",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "The copper Layer.",
+            "type": "string"
+          },
+          "order": {
+            "description": "Every Zone on the Layer, shelved ones too, first to fill first.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "order"
+        ],
+        "title": "ReorderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerOrder": {
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "zones": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "layer",
+              "zones"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The pour order of the Layers a Command changed.",
+        "properties": {
+          "layers": {
+            "description": "Each changed Layer's Zones, first to fill first.",
+            "items": {
+              "$ref": "#/$defs/LayerOrder"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "Ordered",
+        "type": "object"
+      },
+      "title": "Reorder Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Restores shelved Zones (every Zone if `zones` is left out): they show on the canvas again and take part in fill, DRC, connectivity and outputs; they refill like any stale Zone.",
+      "icon": "zone",
+      "id": "pcb.zone.restore",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zones": {
+            "default": null,
+            "description": "The Zones' UUIDs; left out, every Zone.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "ShelveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What shelving or restoring returns.",
+        "properties": {
+          "changed": {
+            "description": "The Zones whose state changed, sorted by UUID; those already in it are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed"
+        ],
+        "title": "Shelved",
+        "type": "object"
+      },
+      "title": "Restore Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Moves Zones to the back of their Layers' pour order, so they fill last and keep clear of the Zones they overlap.",
+      "icon": "zone",
+      "id": "pcb.zone.send_to_back",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zones": {
+            "description": "The Zones' UUIDs. Each moves within its own Layer; they keep their order among\nthemselves.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "zones"
+        ],
+        "title": "MoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "LayerOrder": {
+            "properties": {
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "zones": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "layer",
+              "zones"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The pour order of the Layers a Command changed.",
+        "properties": {
+          "layers": {
+            "description": "Each changed Layer's Zones, first to fill first.",
+            "items": {
+              "$ref": "#/$defs/LayerOrder"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers"
+        ],
+        "title": "Ordered",
+        "type": "object"
+      },
+      "title": "Send Zones to Back"
     },
     {
       "category": "pcb",
@@ -49764,6 +50843,14 @@
             "default": null,
             "description": "A new minimum width, or `null` for the Net's `track_width` minimum."
           },
+          "name": {
+            "default": null,
+            "description": "A new name, unique on the board, or `null` to show the derived name again.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "net": {
             "default": null,
             "description": "A new Net's UUID, or `null` for no Net.",
@@ -49801,7 +50888,7 @@
             ]
           },
           "vertices": {
-            "description": "A new outline.",
+            "description": "A new outline; a Zone that followed the Board Outline stops following it.",
             "items": {
               "$ref": "#/$defs/VertexParam"
             },
@@ -49829,6 +50916,339 @@
         "type": "null"
       },
       "title": "Change Zone"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the board's `zone_name_scheme`, which derives the name of every Zone with no typed name from its Net (`NONET` for none), its copper Layer (`LXX`, the copper number, or the Layer name such as `copper_top`) and `PXXX`, counting the Zones of that Net and Layer in pour order from `P000`: `NET_LXX_PXXX` (default), `LXX_NET_PXXX`, `NET_LAYERNAME_PXXX` or `LAYERNAME_NET_PXXX`.",
+      "icon": "zone",
+      "id": "pcb.zone.set_name_scheme",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "ZoneNameScheme": {
+            "description": "How a Zone with no typed name is named: its Net (`NONET` for none), its copper Layer\nas `Lxx` (copper number) or by name, and `Pxxx`, counting the Zones of that Net and\nLayer in priority order.",
+            "oneOf": [
+              {
+                "const": "NET_LXX_PXXX",
+                "description": "Such as `GND_L01_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LXX_NET_PXXX",
+                "description": "Such as `L01_GND_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "NET_LAYERNAME_PXXX",
+                "description": "Such as `GND_Top_P000`.",
+                "type": "string"
+              },
+              {
+                "const": "LAYERNAME_NET_PXXX",
+                "description": "Such as `Top_GND_P000`.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "scheme": {
+            "$ref": "#/$defs/ZoneNameScheme",
+            "description": "`NET_LXX_PXXX` (default), `LXX_NET_PXXX`, `NET_LAYERNAME_PXXX` or\n`LAYERNAME_NET_PXXX`."
+          }
+        },
+        "required": [
+          "scheme"
+        ],
+        "title": "SetNameSchemeParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Zone Naming Scheme"
+    },
+    {
+      "category": "pcb",
+      "description": "Shelves Zones (every Zone if `zones` is left out): each stays in the file but is hidden from the canvas and skipped by fill, DRC, connectivity and outputs, and DRC's `shelved_zone` Warning flags it. `pcb.zone.restore` brings it back.",
+      "icon": "zone",
+      "id": "pcb.zone.shelve",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "zones": {
+            "default": null,
+            "description": "The Zones' UUIDs; left out, every Zone.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "ShelveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What shelving or restoring returns.",
+        "properties": {
+          "changed": {
+            "description": "The Zones whose state changed, sorted by UUID; those already in it are left out.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed"
+        ],
+        "title": "Shelved",
+        "type": "object"
+      },
+      "title": "Shelve Zones"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Zone Cutout on copper `layer`: the fill of every Zone there is removed inside `vertices`, exactly to its edge. It is never plotted.",
+      "icon": "keepout",
+      "id": "pcb.zone_cutout.add",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "VertexParam": {
+            "additionalProperties": false,
+            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "properties": {
+              "sweep": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The edge to the next vertex: left out for a straight edge, otherwise an arc sweeping\nthis angle, counter-clockwise when positive."
+              },
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "The copper Layer whose Zones it cuts.",
+            "type": "string"
+          },
+          "vertices": {
+            "description": "The outline's vertices in order; the last joins the first.",
+            "items": {
+              "$ref": "#/$defs/VertexParam"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "vertices"
+        ],
+        "title": "ZoneCutoutAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Zone Cutout"
+    },
+    {
+      "category": "pcb",
+      "description": "Adds a Zone Cutout on copper `layer` along the closed loop that the free lines, arcs and rectangles `graphics` form, and removes them unless `keep`. `mode` `centerline` (default) needs their ends to meet within 0.001 mm and refuses a gap with its location and size; `outer_edge` follows the outside of the strokes.",
+      "icon": "keepout",
+      "id": "pcb.zone_cutout.add_from_graphics",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "LoopMode": {
+            "description": "Which edge of the graphics the contour follows.",
+            "oneOf": [
+              {
+                "const": "centerline",
+                "description": "Along the lines' centres; their ends must meet within 0.001 mm.",
+                "type": "string"
+              },
+              {
+                "const": "outer_edge",
+                "description": "Along the outside of the strokes, their widths included, so ends that overlap\nby their width close the loop too.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "graphics": {
+            "description": "Free lines, arcs and outlined rectangles forming one closed loop.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the graphics as well; by default they are removed.",
+            "type": "boolean"
+          },
+          "layer": {
+            "description": "The copper Layer whose Zones it cuts; the GUI passes the active one.",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/$defs/LoopMode",
+            "description": "`centerline` (default) or `outer_edge`."
+          }
+        },
+        "required": [
+          "graphics",
+          "layer"
+        ],
+        "title": "ZoneCutoutFromGraphicsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Zone Cutout from Selection"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes Zone Cutouts.",
+      "icon": "delete",
+      "id": "pcb.zone_cutout.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "cutouts": {
+            "description": "The Zone Cutouts' UUIDs.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cutouts"
+        ],
+        "title": "ZoneCutoutDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What deleting Zones or Keepouts returns.",
+        "properties": {
+          "deleted": {
+            "description": "The deleted objects, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "Deleted",
+        "type": "object"
+      },
+      "title": "Delete Zone Cutout"
     },
     {
       "category": "project",
