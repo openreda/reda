@@ -2,8 +2,9 @@
 //! copper files.
 //!
 //! A Layer's artwork is its Footprints' drawing, Designators and value text, then the free
-//! drawing and text on it. Text is plotted from the same geometry the canvas draws
-//! ([`reda_pcb::text_geometry`]): stroke-font strokes as round-pen draws, outline-font
+//! drawing and text on it, then its Dimensions as the lines and text they are laid out as
+//! ([`reda_pcb::dimension::drawing`]). Text is plotted from the same geometry the canvas
+//! draws ([`reda_pcb::text_geometry`]): stroke-font strokes as round-pen draws, outline-font
 //! glyphs and flattened knockout text as whole dark regions whose holes are joined by
 //! cut-ins, so nothing underneath is erased. Text Frames use the same complete-line
 //! omission as the canvas. Filled circles are regions, never flashes: on copper only
@@ -66,6 +67,15 @@ pub(super) fn draw_layer(
     }
     for text in pcb.texts().filter(|t| t.layer == layer) {
         draw_text(g, plot, text, function, a);
+    }
+    for dimension in pcb.dimensions().filter(|d| d.layer == layer) {
+        let drawn = reda_pcb::dimension::drawing(dimension, plot.fonts);
+        for line in &drawn.lines {
+            g.draw(line.width, function, line.from, line.to, Millideg::ZERO, a);
+        }
+        if let Some(text) = &drawn.text {
+            draw_text(g, plot, text, function, a);
+        }
     }
 }
 

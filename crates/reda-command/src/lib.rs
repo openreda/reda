@@ -40,7 +40,7 @@ pub use pad::{
     HoleParam, HoleToleranceParam, MaskParam, PasteParam, RatioParam, ZoneConnectionParam, mask,
     paste, zone_connection,
 };
-pub use registry::{Registry, scope_key};
+pub use registry::{Registry, Settle, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
 pub use units::{Angle, AreaValue, CopperThickness, Length};

@@ -39,6 +39,9 @@
 //!   "graphics": [
 //!     {"uuid":"…","layer":"…","width":150000,"shape":{"kind":"line","from":{…},"to":{…}}}
 //!   ],
+//!   "dimensions": [
+//!     {"uuid":"…","layer":"…","a":{"point":{…},"ref":{"object":"…","hotspot":"center"}},"b":{"point":{…}},"rotation":0,…}
+//!   ],
 //!   "footprint_copies": [
 //!     {"uuid":"…","hash":"…","footprint":{…},"text":{…},"pads":[
 //!       {"uuid":"…","number":"1",…}
@@ -92,16 +95,17 @@
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `tracks`, `vias`, `free_pads`, `zones`, `keepouts`, `zone_cutouts` and `waivers` (of DRC
-//! Violations) are left out while the board has none, `output_origin` while it is not
-//! set. Zone fills are never stored here: they live in the `.reda/` cache.
+//! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
+//! `zone_cutouts` and `waivers` (of DRC Violations) are left out while the board has none,
+//! `output_origin` while it is not set. Zone fills are never stored here: they live in the
+//! `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DesignRule, DrcSeverities, FootprintInstance, FreePad,
-    InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument, PcbGraphic,
-    PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, FootprintInstance,
+    FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument,
+    PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -145,6 +149,9 @@ pub(crate) struct PcbFile {
     /// Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation
     /// Layers.
     graphics: Vec<PcbGraphic>,
+    /// The Dimensions; left out while the board has none. Their values are derived.
+    #[serde(default)]
+    dimensions: Vec<Dimension>,
     /// The part table: a copy of each Footprint in use, sorted by UUID.
     #[serde(default)]
     footprint_copies: Vec<FootprintCopyRow>,
@@ -219,6 +226,9 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.table("nets", pcb.nets(), |n| n.uuid)?;
     w.table("texts", pcb.texts(), |t| t.uuid)?;
     w.table("graphics", pcb.graphics(), |g| g.uuid)?;
+    if pcb.dimensions().next().is_some() {
+        w.table("dimensions", pcb.dimensions(), |d| d.uuid)?;
+    }
     if pcb.footprint_copies().next().is_some() || pcb.footprints().next().is_some() {
         let copies = pcb.footprint_copies().map(FootprintCopyRow::of);
         w.containers_spread(
@@ -323,6 +333,11 @@ pub(crate) fn read_pcb_file(
         file.graphics
             .into_iter()
             .map(|g| Object::PcbGraphic(InDocument::new(doc, g))),
+    );
+    objects.extend(
+        file.dimensions
+            .into_iter()
+            .map(|d| Object::Dimension(InDocument::new(doc, d))),
     );
     for row in file.footprint_copies {
         let copy = row
