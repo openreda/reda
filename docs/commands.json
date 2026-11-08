@@ -771,7 +771,7 @@
     },
     {
       "category": "project",
-      "description": "Deletes a Document and everything in it, as one undoable step on the Project's stack. Its file goes to the OS trash when the Project file is next saved.",
+      "description": "Deletes a Document and everything in it, as one undoable step on the Project's stack. Its file goes to the OS trash when the Project file is next saved. A missing Document (one whose file is gone) is removed from the Project: the Project file stops listing it.",
       "icon": "delete",
       "id": "document.delete",
       "kind": "edit",
@@ -798,6 +798,81 @@
         "type": "null"
       },
       "title": "Delete Document"
+    },
+    {
+      "category": "project",
+      "description": "Gives a missing Document a file again: reads `path` into it and puts it back in its place in the Project, as one undoable step on the Project's stack. A file in the Project folder becomes the Document's file (its stem the Document's name); a file elsewhere is read in and written into the Project folder on save. A file that holds another Document is taken only with `confirm`, keeping this Document's UUID.",
+      "icon": "document_open",
+      "id": "document.relink",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "default": false,
+            "description": "Takes a file that holds another Document. Without it, such a file is a `conflict`\nwhose details say `confirm: true`, so the caller can ask the user first.",
+            "type": "boolean"
+          },
+          "document": {
+            "description": "The missing Document's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "path": {
+            "description": "The Document file (`.redasch` or `.redapcb`, matching the Document's kind) to read\nits contents from.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "path"
+        ],
+        "title": "DocumentRelinkParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "DocumentKind": {
+            "description": "What kind of Document an entry is.",
+            "enum": [
+              "schematic",
+              "pcb"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/DocumentKind"
+          },
+          "name": {
+            "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+            "type": "string"
+          },
+          "title": {
+            "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "kind",
+          "name",
+          "title"
+        ],
+        "title": "DocumentEntry",
+        "type": "object"
+      },
+      "title": "Relink Document"
     },
     {
       "category": "project",
@@ -21931,6 +22006,34 @@
               }
             ]
           },
+          "DocumentEntry": {
+            "additionalProperties": false,
+            "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/DocumentKind"
+              },
+              "name": {
+                "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                "type": "string"
+              },
+              "title": {
+                "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "name",
+              "title"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -24816,7 +24919,7 @@
                 "description": "Project-wide properties, stored in `<name>.reda`.\n\nThe Document order lives here because it is a Project property: it drives sheet\nnumbering and PDF output, and reordering is an edit on the Project's own undo stack.",
                 "properties": {
                   "documents": {
-                    "description": "Every Document's UUID, in Project order.",
+                    "description": "Every Document's UUID, in Project order, [missing](ProjectProps::missing) ones\nincluded.",
                     "items": {
                       "format": "uuid",
                       "type": "string"
@@ -24866,6 +24969,13 @@
                       }
                     ],
                     "description": "The Update from Library settings page 1 saved, if any."
+                  },
+                  "missing": {
+                    "description": "The Documents the Project file lists whose files were missing when it was opened.\nThey keep their place in `documents` but have no body: nothing can open or edit\nthem until they are relinked to a file or removed from the Project.",
+                    "items": {
+                      "$ref": "#/$defs/DocumentEntry"
+                    },
+                    "type": "array"
                   },
                   "name": {
                     "type": "string"
@@ -29309,6 +29419,34 @@
               }
             ]
           },
+          "DocumentEntry": {
+            "additionalProperties": false,
+            "description": "One Document in the Project's Document list, stored in `<name>.reda`.",
+            "properties": {
+              "kind": {
+                "$ref": "#/$defs/DocumentKind"
+              },
+              "name": {
+                "description": "The file stem; the Document's file is `<name>.<extension>` in the Project folder.",
+                "type": "string"
+              },
+              "title": {
+                "description": "What the user typed as the Document's title, such as \"Sheet 1\".",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "name",
+              "title"
+            ],
+            "type": "object"
+          },
           "DocumentKind": {
             "description": "What kind of Document an entry is.",
             "enum": [
@@ -32194,7 +32332,7 @@
                 "description": "Project-wide properties, stored in `<name>.reda`.\n\nThe Document order lives here because it is a Project property: it drives sheet\nnumbering and PDF output, and reordering is an edit on the Project's own undo stack.",
                 "properties": {
                   "documents": {
-                    "description": "Every Document's UUID, in Project order.",
+                    "description": "Every Document's UUID, in Project order, [missing](ProjectProps::missing) ones\nincluded.",
                     "items": {
                       "format": "uuid",
                       "type": "string"
@@ -32244,6 +32382,13 @@
                       }
                     ],
                     "description": "The Update from Library settings page 1 saved, if any."
+                  },
+                  "missing": {
+                    "description": "The Documents the Project file lists whose files were missing when it was opened.\nThey keep their place in `documents` but have no body: nothing can open or edit\nthem until they are relinked to a file or removed from the Project.",
+                    "items": {
+                      "$ref": "#/$defs/DocumentEntry"
+                    },
+                    "type": "array"
                   },
                   "name": {
                     "type": "string"
@@ -51893,7 +52038,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. They are not open, and the Project file keeps listing them until\n`document.relink` gives one a file or `document.delete` removes it. A new PCB\nDocument (`document.add {kind: pcb}`) replaces a missing one.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -51931,7 +52076,7 @@
     },
     {
       "category": "project",
-      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. Missing Document files are reported in `missing`: a PCB Document is left out, which dirties the Project file; a Schematic Sheet is recreated empty and unsaved.",
+      "description": "Opens the Project at `path`: its `.reda` file or its folder. Any Project already open is closed without saving. Documents whose files are missing are reported in `missing` and stay out of the open Project; the Project file keeps listing them until `document.relink` or `document.delete`.",
       "icon": "project_open",
       "id": "project.open",
       "kind": "file",
@@ -52018,7 +52163,7 @@
             "type": "array"
           },
           "missing": {
-            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. A missing PCB Document is left out of the open Project (`document.add {kind:\npcb}` adds a new one); a missing Schematic Sheet is recreated empty and unsaved.",
+            "description": "Documents the Project file lists whose files are missing; left out when there are\nnone. They are not open, and the Project file keeps listing them until\n`document.relink` gives one a file or `document.delete` removes it. A new PCB\nDocument (`document.add {kind: pcb}`) replaces a missing one.",
             "items": {
               "$ref": "#/$defs/DocumentEntry"
             },
@@ -52142,6 +52287,69 @@
         "type": "object"
       },
       "title": "Project Overview"
+    },
+    {
+      "category": "project",
+      "description": "Zips the Project folder as saved on disk into `path`, with paths relative to the folder, leaving out `.reda/` (recovery and view state) and, unless `include_outputs`, the Output Jobs' output folders. Project Libraries inside the folder come along; those outside it are listed in `outside_libraries`. The same files always give the same zip.",
+      "icon": "output_run",
+      "id": "project.package",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "include_outputs": {
+            "default": false,
+            "description": "Also packs the Output Jobs' output folders. Off, they are left out.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "The zip file to write.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "ProjectPackageParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "files": {
+            "description": "Every file packed, by its `/`-separated path in the zip (relative to the Project\nfolder), in zip order.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "outside_libraries": {
+            "description": "Project Library paths outside the Project folder, which the package leaves out;\nleft out when there are none.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "path": {
+            "description": "The zip written.",
+            "type": "string"
+          },
+          "unsaved": {
+            "description": "The Project has unsaved changes, which the package (made from the files on disk)\ndoes not hold.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "files",
+          "unsaved"
+        ],
+        "title": "ProjectPackageResult",
+        "type": "object"
+      },
+      "title": "Package Project"
     },
     {
       "category": "project",

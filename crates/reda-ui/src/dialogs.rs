@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::task::{Context, Poll, Wake, Waker};
 
+use reda_engine::model::{DocumentKind, Uuid};
+
 use crate::layout::SettingsWindow;
 use crate::tr;
 
@@ -29,6 +31,8 @@ pub enum Pick {
     ImportFootprint,
     /// Where to write the schematic PDF.
     ExportPdf,
+    /// The file a missing Document of this kind is relinked to.
+    Relink(Uuid, DocumentKind),
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -80,12 +84,16 @@ impl FileDialogs {
                 .set_title(tr!("export-pdf-title"))
                 .add_filter(tr!("export-pdf-filter"), &["pdf"])
                 .set_file_name(file_name),
+            Pick::Relink(_, kind) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("relink-title", name = file_name.as_str()))
+                .add_filter(tr!("relink-filter"), &[kind.extension()]),
         };
         std::thread::spawn(move || {
             let picked = match pick {
-                Pick::OpenProject | Pick::ImportSymbol | Pick::ImportFootprint => {
-                    block_on(dialog.pick_file())
-                }
+                Pick::OpenProject
+                | Pick::ImportSymbol
+                | Pick::ImportFootprint
+                | Pick::Relink(..) => block_on(dialog.pick_file()),
                 Pick::NewProjectLocation | Pick::LibraryFolder | Pick::SettingsFolder(_) => {
                     block_on(dialog.pick_folder())
                 }

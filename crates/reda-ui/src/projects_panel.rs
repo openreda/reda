@@ -1,5 +1,7 @@
 //! The Projects panel: the open Project as a tree of its sheets, PCB Document, Output
-//! Jobs and Library folders, each item with a dirty marker and a menu of actions.
+//! Jobs and Library folders, each item with a dirty marker and a menu of actions. Each
+//! Document shows its number in Project order and its file's path on hover; a missing
+//! Document shows greyed, with Relink… and Remove from Project.
 //!
 //! The panel only reads the Project. Every change is a Command it pushes for the window
 //! to run after the frame; what needs the window (a folder picker, the file manager, a
@@ -9,7 +11,7 @@
 use std::path::{Path, PathBuf};
 
 use egui::{Button, CollapsingHeader, Id, Role, Sense, TextEdit, Ui, WidgetInfo};
-use reda_engine::model::{DocumentEntry, DocumentKind, Project, Scope, Uuid};
+use reda_engine::model::{DocumentEntry, DocumentKind, ListedDocument, Project, Scope, Uuid};
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
@@ -30,6 +32,10 @@ pub enum ProjectsAction {
     ProjectSettings,
     /// Open the Board Setup dialog.
     BoardSetup,
+    /// Pick a file to relink a missing Document to.
+    Relink(Uuid),
+    /// Open the Package Project dialog.
+    Package,
 }
 
 /// The panel's own UI state.
@@ -130,6 +136,9 @@ impl Tree<'_> {
             if item(ui, tr!("projects-save-all"), None) {
                 self.run("project.save", json!({}));
             }
+            if item(ui, tr!("projects-package"), None) {
+                self.action = Some(ProjectsAction::Package);
+            }
             if item(ui, tr!("projects-show-in-folder"), None)
                 && let Some(folder) = self.folder()
             {
@@ -139,20 +148,21 @@ impl Tree<'_> {
     }
 
     fn sheets(&mut self, ui: &mut Ui) {
-        let sheets: Vec<DocumentEntry> = self
-            .project
-            .documents()
-            .filter(|d| d.kind == DocumentKind::Schematic)
-            .cloned()
+        let sheets: Vec<ListedDocument> = (self.project.document_list().into_iter())
+            .filter(|d| d.entry.kind == DocumentKind::Schematic)
             .collect();
         let header = CollapsingHeader::new(tr!("projects-schematic"))
             .id_salt("projects-schematic")
             .default_open(true)
             .show(ui, |ui| {
                 for (i, sheet) in sheets.iter().enumerate() {
-                    let before = i.checked_sub(1).map(|j| &sheets[j]);
-                    let after = sheets.get(i + 1);
-                    self.sheet(ui, sheet, before, after);
+                    if sheet.missing {
+                        self.missing_row(ui, &sheet.entry);
+                        continue;
+                    }
+                    let before = i.checked_sub(1).map(|j| &sheets[j].entry);
+                    let after = sheets.get(i + 1).map(|d| &d.entry);
+                    self.sheet(ui, &sheet.entry, before, after);
                 }
             });
         header.header_response.context_menu(|ui| {
@@ -162,12 +172,54 @@ impl Tree<'_> {
         });
     }
 
-    /// The position of `document` in the Project's Document list.
+    /// The position of `document` in the Project's Document list, missing Documents
+    /// included: what `document.reorder` takes, and the Document's number less one.
     fn index(&self, document: Uuid) -> usize {
-        self.project
-            .documents()
-            .position(|d| d.uuid == document)
+        (self.project.props().documents.iter())
+            .position(|d| *d == document)
             .unwrap_or_default()
+    }
+
+    /// The full path of `document`'s file, as its row's tooltip shows it.
+    fn file_path(&self, document: &DocumentEntry) -> String {
+        let file = document.file_name();
+        match self.folder() {
+            Some(folder) => reda_engine::fs::display_path(&folder.join(file)),
+            None => file,
+        }
+    }
+
+    /// The Document's number in Project order, before its row.
+    fn number(&self, ui: &mut Ui, document: &DocumentEntry) {
+        let number = (self.index(document.uuid) + 1).to_string();
+        let label = egui::Label::new(egui::RichText::new(number).weak());
+        ui.add_sized([18.0, 18.0], label);
+    }
+
+    /// A missing Document: greyed, with its file's path on hover and a menu to relink it
+    /// or remove it from the Project.
+    fn missing_row(&mut self, ui: &mut Ui, document: &DocumentEntry) {
+        let path = self.file_path(document);
+        let label = tr!("projects-missing", name = document.title.as_str());
+        let row = ui
+            .horizontal(|ui| {
+                self.number(ui, document);
+                let text = egui::RichText::new(&label).color(ui.visuals().weak_text_color());
+                let row = ui.add(Button::selectable(false, text).sense(Sense::click()));
+                let name = label.clone();
+                row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, name.clone()));
+                row
+            })
+            .inner;
+        let row = row.on_hover_text(tr!("projects-missing-hint", path = path.as_str()));
+        row.context_menu(|ui| {
+            if item(ui, tr!("projects-relink"), None) {
+                self.action = Some(ProjectsAction::Relink(document.uuid));
+            }
+            if item(ui, tr!("projects-remove-from-project"), None) {
+                self.run("document.delete", json!({"document": document.uuid}));
+            }
+        });
     }
 
     fn sheet(
@@ -268,7 +320,14 @@ impl Tree<'_> {
         } else {
             Sense::click()
         };
-        let row = tree_item(ui, open, &label, sense);
+        let path = self.file_path(document);
+        let row = ui
+            .horizontal(|ui| {
+                self.number(ui, document);
+                tree_item(ui, open, &label, sense)
+            })
+            .inner
+            .on_hover_text(path);
         if draggable && row.dragged() {
             row.dnd_set_drag_payload(DraggedSheet(document.uuid));
         }
@@ -290,16 +349,15 @@ impl Tree<'_> {
     }
 
     fn pcb(&mut self, ui: &mut Ui) {
-        let pcb = self
-            .project
-            .documents()
-            .find(|d| d.kind == DocumentKind::Pcb)
-            .cloned();
+        let pcb =
+            (self.project.document_list().into_iter()).find(|d| d.entry.kind == DocumentKind::Pcb);
+        let present = pcb.as_ref().filter(|d| !d.missing).map(|d| d.entry.clone());
         let header = CollapsingHeader::new(tr!("projects-pcb"))
             .id_salt("projects-pcb")
             .default_open(true)
             .show(ui, |ui| match &pcb {
-                Some(pcb) => {
+                Some(missing) if missing.missing => self.missing_row(ui, &missing.entry),
+                Some(ListedDocument { entry: pcb, .. }) => {
                     if let Some(row) = self.document_row(ui, pcb, false) {
                         row.context_menu(|ui| {
                             self.document_menu_top(ui, pcb);
@@ -317,7 +375,7 @@ impl Tree<'_> {
                 }
             });
         header.header_response.context_menu(|ui| {
-            let refused = pcb.is_some().then(|| tr!("projects-pcb-exists"));
+            let refused = present.is_some().then(|| tr!("projects-pcb-exists"));
             if item(ui, tr!("projects-add-pcb"), refused) {
                 self.run("document.add", json!({"kind": "pcb"}));
             }
@@ -475,4 +533,30 @@ fn item(ui: &mut Ui, label: String, refused: Option<String>) -> bool {
         ui.close();
     }
     clicked
+}
+
+/// Registers the Package Project dialog: the generated form of `project.package`, with the
+/// zip beside the Project folder filled in and a warning for each Project Library outside
+/// the folder (and for unsaved changes, which the package leaves out).
+pub fn register_package_dialog(dialogs: &mut crate::command_dialog::Dialogs) {
+    dialogs.register("project.package", |shell, mut params| {
+        let engine = shell.engine();
+        if let (Some(project), Some(folder), Some(given)) =
+            (engine.project(), engine.location(), params.as_object_mut())
+            && !given.contains_key("path")
+        {
+            let zip = folder.with_file_name(format!("{}.zip", project.props().name));
+            given.insert("path".into(), json!(reda_engine::fs::display_path(&zip)));
+        }
+        let outside = (engine.project()).map(reda_engine::commands::package::outside_libraries);
+        let mut notes: Vec<String> = (outside.into_iter().flatten())
+            .map(|l| tr!("package-outside-library", path = l.as_str()))
+            .collect();
+        if engine.is_dirty() {
+            notes.push(tr!("package-unsaved"));
+        }
+        let form =
+            crate::command_dialog::ParamForm::new(engine.registry(), "project.package", &params);
+        Box::new(form.with_notes(notes))
+    });
 }

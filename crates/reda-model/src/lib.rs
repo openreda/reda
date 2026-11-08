@@ -34,7 +34,7 @@ pub use check::{
     Limit, MatrixType, Measurement, PinMatrix, Severity, Violation, ViolationArg, Waived, Waiver,
     apply_waivers,
 };
-pub use document::{DocumentEntry, DocumentKind};
+pub use document::{DocumentEntry, DocumentKind, ListedDocument};
 pub use library::{
     ComponentType, DESIGNATOR_FIELD, ElementSource, Field, Fields, Footprint, FootprintGenerator,
     FootprintGraphic, FootprintLayer, FootprintText, InsideEdge, LibraryElement, LibraryInfo,

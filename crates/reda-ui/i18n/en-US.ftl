@@ -148,6 +148,19 @@ projects-libraries = Libraries
 projects-no-libraries = No Library folders.
 projects-add-folder = Add Folder…
 projects-remove = Remove
+projects-package = Package Project…
+projects-missing = { $name } (missing)
+projects-missing-hint = Its file is missing: { $path }
+projects-relink = Relink…
+projects-remove-from-project = Remove from Project
+message-missing-document = The file of { $name } is missing: { $path }. Relink it or remove it from the Project in the Projects panel.
+relink-title = Relink { $name }
+relink-filter = REDA Document
+relink-confirm-title = Relink Document
+relink-confirm = { $file } holds another Document, not { $name }. Relink { $name } to it anyway? It keeps the name and identity of { $name }.
+relink-anyway = Relink Anyway
+package-outside-library = The Library folder { $path } is outside the Project folder, so the package leaves it out.
+package-unsaved = The package holds the files as last saved; unsaved changes are left out.
 
 ## Menus, toolbars and the Active Bar
 
