@@ -29,7 +29,11 @@ pub fn write_through<T>(
     let mut chosen: BTreeSet<&str> = after
         .list
         .changes()
-        .filter(|c| caused_directly(&c.change) && !before.changes().any(|b| b == *c))
+        .filter(|c| {
+            // A status that changed alone does not make a change new.
+            caused_directly(&c.change)
+                && !(before.changes()).any(|b| b.change == c.change && b.requires == c.requires)
+        })
         .map(|c| c.id.as_str())
         .collect();
     // Bring along what the chosen changes require.
@@ -50,6 +54,8 @@ pub fn write_through<T>(
         .filter(|c| !chosen.contains(c.id.as_str()))
         .map(|c| c.id.clone())
         .collect();
+    // Problem rows never apply, nor what requires them.
+    let left_out = after.list.cascade(&left_out);
     apply::carry_out(cx, &after, &left_out)?;
     Ok(out)
 }

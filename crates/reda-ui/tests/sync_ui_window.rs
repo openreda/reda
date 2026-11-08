@@ -92,7 +92,7 @@ fn the_badge_opens_the_change_list_and_apply_applies_the_ticked_changes() {
         .click();
     h.run();
     h.get_by_label("Update PCB from Schematic");
-    h.get_by_label("Nets (1)");
+    h.get_by_label("Add Nets (1)");
     assert!(ticked(&h, "Add R1 (R_0603)"));
     assert!(ticked(&h, "R1.2: (no Net) to SIG"));
 

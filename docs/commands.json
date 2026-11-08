@@ -65321,7 +65321,7 @@
     },
     {
       "category": "sync",
-      "description": "Applies the Change List of `sync.preview` to the PCB Document in one transaction, leaving out the `exclude`d changes and every change that requires one. New Footprints go into a fresh cluster outside the Board Outline (at the origin with no outline), grouped by sheet and sorted by Designator. Fails with `conflict` when the Change List no longer matches `hash`.",
+      "description": "Applies the Change List of `sync.preview` to the PCB Document in one transaction, leaving out the `exclude`d changes and every change that requires one. New Footprints go into a fresh cluster outside the Board Outline (at the origin with no outline), grouped by sheet and sorted by Designator. Problem rows are skipped, with the changes requiring them, and reported in `left_out`. Fails with `conflict` when the Change List no longer matches `hash`, and is rejected while a `duplicate_nets` Violation stands (with the check Off or the Violation waived, Nets with one board name merge into one PCB Net).",
       "icon": "sync",
       "id": "sync.apply",
       "kind": "edit",
@@ -65331,7 +65331,7 @@
         "properties": {
           "exclude": {
             "default": [],
-            "description": "Ids of changes to leave out; the changes that require them are left out too.",
+            "description": "Ids of changes to leave out; the changes that require them are left out too.\nProblem rows are always left out.",
             "items": {
               "type": "string"
             },
@@ -65427,7 +65427,7 @@
             "type": "array"
           },
           "left_out": {
-            "description": "The ids left out (excluded or depending on an excluded one), in list order. They\nshow up again in the next preview.",
+            "description": "The ids left out (excluded, Problem rows, or depending on one of those), in list\norder. They show up again in the next preview.",
             "items": {
               "type": "string"
             },
@@ -65454,7 +65454,7 @@
     },
     {
       "category": "sync",
-      "description": "Compares the Schematic Sheets with the PCB Document and returns the pending Change List, grouped by kind (components, footprints, component data, Nets, Pad Nets). Each change has a stable id and the ids it requires; unticking a change also unticks every change that requires it. `count` is the out-of-sync count, `hash` goes to `sync.apply`. Nothing is stored.",
+      "description": "Compares the Schematic Sheets with the PCB Document and returns the pending Change List, one group per kind of change in a fixed order (add_components, remove_components, change_footprints, designators, fields, component_types, in_bom, in_cpl, not_fitted, add_nets, rename_nets, remove_nets, pad_nets). Each change has a stable id, the ids it requires (unticking a change also unticks every change that requires it) and a status: `ok`, `note` (applies; `message` says what follows) or `problem` (can't apply; `message` says why). `count` is the out-of-sync count and leaves out Problem rows; `hash` goes to `sync.apply`; `duplicate_nets` is set while that ERC Violation stands and blocks the apply. Nothing is stored.",
       "icon": "sync",
       "id": "sync.preview",
       "kind": "query",
@@ -65481,12 +65481,18 @@
                     "type": "string"
                   },
                   "footprint": {
-                    "description": "The Library Footprint chosen for it.",
+                    "description": "The Library Footprint chosen for it; left out on the Problem row of a\nComponent with none.",
                     "format": "uuid",
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "footprint_name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "kind": {
                     "const": "add_component",
@@ -65502,8 +65508,6 @@
                   "kind",
                   "component",
                   "designator",
-                  "footprint",
-                  "footprint_name",
                   "sheet"
                 ],
                 "type": "object"
@@ -65907,6 +65911,45 @@
                   "number"
                 ],
                 "type": "object"
+              },
+              {
+                "description": "A Problem row: a Pin on a Net that has no Pad through the Part's pin-pad map, so\nits connection can't reach the board.",
+                "properties": {
+                  "component": {
+                    "$ref": "#/$defs/ComponentRef"
+                  },
+                  "designator": {
+                    "type": "string"
+                  },
+                  "instance": {
+                    "description": "The Footprint instance; left out while it is still to be added.",
+                    "format": "uuid",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "const": "unmapped_pin",
+                    "type": "string"
+                  },
+                  "net": {
+                    "description": "The Net's board name.",
+                    "type": "string"
+                  },
+                  "pin": {
+                    "description": "The Pin number.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "component",
+                  "designator",
+                  "pin",
+                  "net"
+                ],
+                "type": "object"
               }
             ],
             "properties": {
@@ -65914,16 +65957,27 @@
                 "description": "A stable id: a hash of the change's kind and targets, the same in every preview\nwhile those targets exist.",
                 "type": "string"
               },
+              "message": {
+                "description": "What the status means for this change; left out when it is OK.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "requires": {
                 "description": "The changes this one depends on; leaving one of them out leaves this one out too.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "status": {
+                "$ref": "#/$defs/Status"
               }
             },
             "required": [
-              "id"
+              "id",
+              "status"
             ],
             "type": "object"
           },
@@ -65968,6 +66022,54 @@
                 "type": "string"
               }
             ]
+          },
+          "DuplicateNet": {
+            "description": "One board name that several Nets share.",
+            "properties": {
+              "count": {
+                "description": "How many Nets share it.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "objects": {
+                "description": "The objects naming them, as the Violation lists them.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "count",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "DuplicateNets": {
+            "description": "Why the Change List can't apply: different Nets share a board name.",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "nets": {
+                "description": "One entry per board name, as the standing Violations give them.",
+                "items": {
+                  "$ref": "#/$defs/DuplicateNet"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "message",
+              "nets"
+            ],
+            "type": "object"
           },
           "Field": {
             "additionalProperties": false,
@@ -66059,31 +66161,71 @@
             "type": "object"
           },
           "GroupKind": {
-            "description": "The kinds of change, as the Change List groups them.",
+            "description": "The Change List's groups: one per kind of change, in this order. The ids are stable.",
             "oneOf": [
               {
-                "const": "components",
-                "description": "Adding or removing a Component.",
+                "const": "add_components",
+                "description": "`add_component`.",
                 "type": "string"
               },
               {
-                "const": "footprints",
-                "description": "Changing a Footprint.",
+                "const": "remove_components",
+                "description": "`remove_component`.",
                 "type": "string"
               },
               {
-                "const": "component_data",
-                "description": "Changing a Designator, the fields (value included), the Component Type, In BOM,\nIn CPL or Not Fitted.",
+                "const": "change_footprints",
+                "description": "`change_footprint`.",
                 "type": "string"
               },
               {
-                "const": "nets",
-                "description": "Adding, renaming or removing a Net.",
+                "const": "designators",
+                "description": "`designator`.",
+                "type": "string"
+              },
+              {
+                "const": "fields",
+                "description": "`fields`, value included.",
+                "type": "string"
+              },
+              {
+                "const": "component_types",
+                "description": "`component_type`.",
+                "type": "string"
+              },
+              {
+                "const": "in_bom",
+                "description": "`in_bom`.",
+                "type": "string"
+              },
+              {
+                "const": "in_cpl",
+                "description": "`in_cpl`.",
+                "type": "string"
+              },
+              {
+                "const": "not_fitted",
+                "description": "`not_fitted`.",
+                "type": "string"
+              },
+              {
+                "const": "add_nets",
+                "description": "`add_net`.",
+                "type": "string"
+              },
+              {
+                "const": "rename_nets",
+                "description": "`rename_net`.",
+                "type": "string"
+              },
+              {
+                "const": "remove_nets",
+                "description": "`remove_net`.",
                 "type": "string"
               },
               {
                 "const": "pad_nets",
-                "description": "Changing a Pad's Net.",
+                "description": "`pad_net`, and the Problem rows `unmapped_pin` of Pins with no Pad.",
                 "type": "string"
               }
             ]
@@ -66149,19 +66291,50 @@
               "name"
             ],
             "type": "object"
+          },
+          "Status": {
+            "description": "A row's status in the Change List.",
+            "oneOf": [
+              {
+                "const": "ok",
+                "description": "Applies, with nothing to say.",
+                "type": "string"
+              },
+              {
+                "const": "note",
+                "description": "Applies, with a consequence worth reading in `message`.",
+                "type": "string"
+              },
+              {
+                "const": "problem",
+                "description": "Can't apply: it can't be ticked and `sync.apply` skips it, with every change that\nrequires it. It is not counted as pending.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "The pending changes, grouped by kind.",
         "properties": {
           "count": {
-            "description": "How many changes are pending: the \"out of sync\" count.",
+            "description": "How many changes are pending: the \"out of sync\" count. Problem rows are not\ncounted.",
             "format": "uint",
             "minimum": 0,
             "type": "integer"
           },
+          "duplicate_nets": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DuplicateNets"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set while a `duplicate_nets` Violation stands: `sync.apply` refuses until it is\nfixed, waived or the check is Off. Not a row: a banner over the whole list."
+          },
           "groups": {
-            "description": "The non-empty groups, in a fixed order: components, footprints, component data,\nNets, Pad Nets.",
+            "description": "The non-empty groups, in [`GroupKind::ALL`] order.",
             "items": {
               "$ref": "#/$defs/Group"
             },

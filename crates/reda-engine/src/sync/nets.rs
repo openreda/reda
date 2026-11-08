@@ -8,12 +8,31 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use reda_model::net_name::same_name;
+use reda_model::net_name::{name_key, same_name};
 use reda_model::{ComponentRef, PcbDocument, Project, Uuid};
-use reda_schematic::connectivity::project_nets;
+use reda_schematic::connectivity::{NameSource, project_nets};
+
+/// The board names that several named Nets share, by name key: the duplicates Sync merges
+/// and `duplicate_nets` blocks on.
+pub(crate) fn shared_names(project: &Project) -> BTreeSet<String> {
+    let mut seen = BTreeSet::new();
+    let mut shared = BTreeSet::new();
+    for net in project_nets(project) {
+        if matches!(net.name_source, None | Some(NameSource::AutoName)) {
+            continue;
+        }
+        if let Some(name) = net.board_name {
+            let key = name_key(&name);
+            if !seen.insert(key.clone()) {
+                shared.insert(key);
+            }
+        }
+    }
+    shared
+}
 
 use super::components::{Components, linked_instances};
-use super::{Change, ChangeKind, NetLink, NetRef, change_id, component_key};
+use super::{Change, ChangeKind, NetLink, NetRef, Status, change_id, component_key};
 
 /// A Pad of a Component by number: the key both sides share.
 type PadKey = (ComponentRef, String);
@@ -29,14 +48,25 @@ pub(crate) enum Target {
 
 /// One schematic Net that Sync carries to the PCB.
 struct SchNet {
+    /// Whether a Net Label, Port or Power Port names it (not an auto-name).
+    named: bool,
     name: String,
     pads: BTreeSet<PadKey>,
     /// The PCB Net it matches, if any.
     matched: Option<Uuid>,
     /// The id of its `add_net` change, when it matches none.
     add_id: String,
-    /// Its project-wide Net, by index into `project_nets`.
-    index: usize,
+    /// Its project-wide Nets, by index into `project_nets`: more than one when Nets with
+    /// one board name merged.
+    indices: Vec<usize>,
+}
+
+/// A Pin on a Net that Sync would carry, with no Pad through its Part's pin-pad map.
+struct Unmapped {
+    component: ComponentRef,
+    designator: String,
+    number: String,
+    net: String,
 }
 
 /// The planned Net and Pad Net changes, with what applying them needs.
@@ -48,7 +78,7 @@ pub(crate) struct NetPlan {
 
 impl NetPlan {
     pub(crate) fn new(project: &Project, pcb: &PcbDocument, components: &Components) -> NetPlan {
-        let mut nets = schematic_nets(project, components);
+        let (mut nets, unmapped) = schematic_nets(project, components);
         let pcb_pads = pcb_pad_nets(pcb);
         match_nets(&mut nets, pcb, &pcb_pads);
         let mut by_pad: BTreeMap<&PadKey, usize> = BTreeMap::new();
@@ -63,6 +93,8 @@ impl NetPlan {
             changes.push(Change {
                 id: net.add_id.clone(),
                 requires: vec![],
+                status: Status::Ok,
+                message: None,
                 change: ChangeKind::AddNet {
                     name: net.name.clone(),
                 },
@@ -75,6 +107,8 @@ impl NetPlan {
                 changes.push(Change {
                     id: change_id("rename_net", &[&uuid.to_string()]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::RenameNet {
                         net: uuid,
                         from: current.name.clone(),
@@ -150,6 +184,8 @@ impl NetPlan {
                 pad_changes.push(Change {
                     id: id.clone(),
                     requires,
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::PadNet {
                         component: c.key.clone(),
                         instance: instance.map(|i| i.uuid),
@@ -192,6 +228,8 @@ impl NetPlan {
             changes.push(Change {
                 id: change_id("remove_net", &[&net.uuid.to_string()]),
                 requires: requires.into_iter().collect(),
+                status: Status::Ok,
+                message: None,
                 change: ChangeKind::RemoveNet {
                     net: net.uuid,
                     name: net.name.clone(),
@@ -200,6 +238,30 @@ impl NetPlan {
             });
         }
         changes.extend(pad_changes);
+        for pin in unmapped {
+            let mut change = Change {
+                id: change_id(
+                    "unmapped_pin",
+                    &[&component_key(&pin.component), &pin.number],
+                ),
+                requires: vec![],
+                status: Status::Ok,
+                message: None,
+                change: ChangeKind::UnmappedPin {
+                    instance: linked.get(&pin.component).map(|i| i.uuid),
+                    component: pin.component,
+                    designator: pin.designator.clone(),
+                    pin: pin.number.clone(),
+                    net: pin.net.clone(),
+                },
+            };
+            change.problem(format!(
+                "Pin {} of {} is on Net {} but has no Pad through its Part's pin-pad map; \
+                 map it to a Pad in the Library.",
+                pin.number, pin.designator, pin.net
+            ));
+            changes.push(change);
+        }
         NetPlan {
             changes,
             pad_targets,
@@ -207,42 +269,72 @@ impl NetPlan {
     }
 }
 
-/// The schematic Nets that become PCB Nets, in `schematic.project_nets` order.
-fn schematic_nets(project: &Project, components: &Components) -> Vec<SchNet> {
-    let mut out = Vec::new();
+/// The schematic Nets that become PCB Nets, in `schematic.project_nets` order, and the
+/// Pins of those Nets that have no Pad.
+fn schematic_nets(project: &Project, components: &Components) -> (Vec<SchNet>, Vec<Unmapped>) {
+    let mut out: Vec<SchNet> = Vec::new();
+    let mut unmapped = Vec::new();
     for (index, net) in project_nets(project).into_iter().enumerate() {
         let mut pads = BTreeSet::new();
+        let mut padless = Vec::new();
         for pin in &net.pins {
             let Some(c) = components.get(&pin.pin.component) else {
                 continue;
             };
+            let mut found = false;
             for number in c.pin_map.pads_of(&pin.pin.number) {
                 if c.copy.footprint.pads.iter().any(|p| p.number == number) {
                     pads.insert((c.key.clone(), number.to_owned()));
+                    found = true;
                 }
             }
+            if !found {
+                padless.push(&pin.pin);
+            }
+        }
+        let named = !matches!(net.name_source, None | Some(NameSource::AutoName));
+        let name = net.board_name.unwrap_or_default();
+        // A Net worth carrying, had every Pin a Pad.
+        if !padless.is_empty() && (pads.len() + padless.len() >= 2 || !net.names.is_empty()) {
+            unmapped.extend(padless.into_iter().map(|pin| Unmapped {
+                component: pin.component.clone(),
+                designator: pin.designator.clone(),
+                number: pin.number.clone(),
+                net: name.clone(),
+            }));
         }
         if pads.is_empty() || (pads.len() < 2 && net.names.is_empty()) {
             continue;
         }
-        let name = net.board_name.unwrap_or_default();
-        let (first, number) = pads.first().expect("a Net with Pads");
-        let add_id = change_id("add_net", &[&name, &component_key(first), number]);
+        // Named Nets with one board name are one board Net (`duplicate_nets` blocks the
+        // apply unless it is Off or waived). Auto-names only collide through duplicate
+        // Designators, which don't block Sync: those Nets stay apart.
+        if named && let Some(same) = (out.iter_mut()).find(|n| n.named && same_name(&n.name, &name))
+        {
+            same.pads.extend(pads);
+            same.indices.push(index);
+            continue;
+        }
         out.push(SchNet {
+            named,
             name,
             pads,
             matched: None,
-            add_id,
-            index,
+            add_id: String::new(),
+            indices: vec![index],
         });
     }
-    out
+    for net in &mut out {
+        let (first, number) = net.pads.first().expect("a Net with Pads");
+        net.add_id = change_id("add_net", &[&net.name, &component_key(first), number]);
+    }
+    (out, unmapped)
 }
 
 /// Every schematic Net Sync carries to the board that a PCB Net already matches, with
 /// the objects on it.
 pub(crate) fn links(project: &Project, pcb: &PcbDocument, components: &Components) -> Vec<NetLink> {
-    let mut nets = schematic_nets(project, components);
+    let (mut nets, _) = schematic_nets(project, components);
     match_nets(&mut nets, pcb, &pcb_pad_nets(pcb));
     if nets.iter().all(|n| n.matched.is_none()) {
         return Vec::new();
@@ -250,9 +342,14 @@ pub(crate) fn links(project: &Project, pcb: &PcbDocument, components: &Component
     let mut project_nets = project_nets(project);
     nets.into_iter()
         .filter_map(|net| {
+            let pcb = net.matched?;
+            let mut objects: Vec<Uuid> = (net.indices.iter())
+                .flat_map(|&i| std::mem::take(&mut project_nets[i].objects))
+                .collect();
+            objects.sort();
             Some(NetLink {
-                pcb: net.matched?,
-                objects: std::mem::take(&mut project_nets[net.index].objects),
+                pcb,
+                objects,
                 name: net.name,
             })
         })

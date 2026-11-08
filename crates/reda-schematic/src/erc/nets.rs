@@ -389,7 +389,7 @@ fn net_names(
 }
 
 /// Different Nets with the same board name, ignoring case: one Violation per name.
-fn duplicate_nets(project: &Project, report: &mut Report<'_>) {
+pub(super) fn duplicate_nets(project: &Project, report: &mut Report<'_>) {
     if report.is_off(ErcCheck::DuplicateNets) {
         return;
     }
