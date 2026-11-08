@@ -7,7 +7,12 @@ use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
 use crate::placement::Placing;
-use crate::properties::{ComponentProperties, Edit, MIXED, NetClassProperty, Properties, Shared};
+use reda_engine::model::geom::Nm;
+use reda_engine::preferences::Units;
+
+use crate::properties::{
+    ComponentProperties, Edit, Kind, MIXED, NetClassProperty, Numbers, Properties, Shared,
+};
 use crate::shell::Shell;
 use crate::tr;
 
@@ -33,6 +38,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
         return Vec::new();
     }
     let mut edits = Vec::new();
+    let mut numbers = Vec::new();
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.label(tr!("properties-selected", count = properties.count));
         for uuid in &shell.selection().objects {
@@ -58,6 +64,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
             ui.separator();
             net_class_row(ui, class, &mut edits);
         }
+        if !properties.numbers.rows.is_empty() {
+            ui.separator();
+            numbers_section(ui, &properties.numbers, units(shell), &mut numbers);
+        }
         if properties.component.is_none() && !properties.details.is_empty() {
             ui.separator();
             Grid::new("properties-details")
@@ -74,7 +84,80 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     edits
         .iter()
         .filter_map(|edit| properties.command(edit))
+        .chain(numbers)
         .collect()
+}
+
+/// The units a bare number typed into a length field is read in: the board's units on a
+/// PCB, else those of the sheet's grid.
+fn units(shell: &Shell) -> Units {
+    let Some(tab) = shell.active_document() else {
+        return Units::Mm;
+    };
+    if shell.is_pcb(tab.document) {
+        shell.board_view().units
+    } else if crate::grid::is_imperial(shell.grid(tab.document)) {
+        Units::Mil
+    } else {
+        Units::Mm
+    }
+}
+
+/// A numeric property's label.
+fn number_label(name: &str) -> String {
+    match name {
+        "height" => tr!("properties-height"),
+        "thickness" => tr!("properties-thickness"),
+        "rotation" => tr!("properties-rotation"),
+        "clearance" => tr!("properties-clearance"),
+        "min_width" => tr!("properties-min-width"),
+        other => other.to_owned(),
+    }
+}
+
+/// The selection's numeric properties. Each field takes a numeric expression; it runs per
+/// object and commits as one Command (a `batch` for several objects), or, when it fails
+/// for any object, commits nothing and says why under the field.
+fn numbers_section(
+    ui: &mut Ui,
+    numbers: &Numbers,
+    units: Units,
+    out: &mut Vec<(&'static str, Value)>,
+) {
+    Grid::new("properties-numbers")
+        .num_columns(2)
+        .show(ui, |ui| {
+            for row in &numbers.rows {
+                let error_id = Id::NULL.with(("properties-number-error", row.name));
+                let value = match &row.value {
+                    Shared::Mixed => Shared::Mixed,
+                    Shared::Same(None) => Shared::Same(String::new()),
+                    Shared::Same(Some(v)) => Shared::Same(match row.kind {
+                        Kind::Length => crate::pcb::view::format_length(Nm(*v), units),
+                        Kind::Angle => format!("{} deg", *v as f64 / 1000.0),
+                    }),
+                };
+                let key = format!("number-{}", row.name);
+                let label = number_label(row.name);
+                if let Some(text) = text_field(ui, &key, &label, &value, true) {
+                    match numbers.command(row.name, &text, units) {
+                        Ok(command) => {
+                            out.extend(command);
+                            ui.data_mut(|d| d.remove::<String>(error_id));
+                        }
+                        Err(why) => ui.data_mut(|d| {
+                            d.insert_temp(error_id, why);
+                        }),
+                    }
+                }
+                ui.end_row();
+                if let Some(why) = ui.data(|d| d.get_temp::<String>(error_id)) {
+                    ui.label("");
+                    ui.colored_label(ui.visuals().error_fg_color, why);
+                    ui.end_row();
+                }
+            }
+        });
 }
 
 /// While a Part is being placed (Tab opens the panel then): its Designator, value and
@@ -302,6 +385,10 @@ fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
 struct Draft {
     shown: Option<String>,
     text: String,
+    /// The text last committed, until the user types again: focus can be reported lost
+    /// on two frames running, and the second must not commit the same text again (an
+    /// expression such as `! * 2` would apply twice).
+    committed: Option<String>,
 }
 
 /// A labelled one-line field for a value that may be mixed. It returns the new text when
@@ -321,6 +408,7 @@ fn text_field(
         draft = Draft {
             text: shown.clone().unwrap_or_default(),
             shown: shown.clone(),
+            committed: None,
         };
     }
     let label = ui.label(label);
@@ -331,8 +419,11 @@ fn text_field(
         edit = edit.hint_text(MIXED);
     }
     let response = ui.add_enabled(enabled, edit).labelled_by(label.id);
+    if response.changed() {
+        draft.committed = None;
+    }
     let mut committed = None;
-    if response.lost_focus() {
+    if response.lost_focus() && draft.committed.as_ref() != Some(&draft.text) {
         if ui.input(|i| i.key_pressed(Key::Escape)) {
             draft.text = shown.clone().unwrap_or_default();
         } else {
@@ -341,6 +432,7 @@ fn text_field(
                 None => !draft.text.is_empty(),
             };
             if changed {
+                draft.committed = Some(draft.text.clone());
                 committed = Some(draft.text.clone());
             }
         }

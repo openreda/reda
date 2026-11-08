@@ -268,6 +268,11 @@ properties-default-net-class = Default
 properties-new-field-name = New field
 properties-new-field-value = Value of the new field
 properties-add-field = Add Field
+properties-height = Height
+properties-thickness = Thickness
+properties-rotation = Rotation
+properties-clearance = Clearance
+properties-min-width = Minimum Width
 properties-placing = Placing { $part }: edits apply to this and later placements.
 
 # The Library panel.

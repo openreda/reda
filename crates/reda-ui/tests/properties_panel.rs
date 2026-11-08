@@ -198,3 +198,52 @@ fn properties_reports_lines_omitted_by_a_text_frame() {
     h.run();
     h.get_by_label("Text Frame: 1 line omitted");
 }
+
+#[test]
+fn a_numeric_expression_commits_one_batch_and_the_journal_records_the_results() {
+    let dir = TempDir::new("properties-panel-expression");
+    let mut h = harness(&dir);
+    let text = |h: &mut Harness<'_, App>, height: &str| {
+        run(
+            h,
+            "pcb.text.add",
+            json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0, "height": height}),
+        )["result"]["uuid"]
+            .clone()
+    };
+    let (a, b) = (text(&mut h, "1mm"), text(&mut h, "1.5mm"));
+    run(&mut h, "selection.set", json!({"objects": [a, b]}));
+    h.run();
+
+    let type_into = |h: &mut Harness<'_, App>, label: &str, typed: &str| {
+        h.get_by_role_and_label(Role::TextInput, label).focus();
+        h.run();
+        h.get_by_role_and_label(Role::TextInput, label)
+            .set_text_value_accesskit(typed);
+        h.run();
+        h.key_press(Key::Enter);
+        h.run();
+    };
+    type_into(&mut h, "Height", "(! + 5mil) / 2");
+    // The Journal holds the values each text resolved to, not the expression.
+    assert_eq!(
+        last_entry(&h),
+        (
+            "batch".to_owned(),
+            json!({"commands": [
+                {"id": "pcb.text.set", "params": {"uuid": a, "height": 563_500}},
+                {"id": "pcb.text.set", "params": {"uuid": b, "height": 813_500}},
+            ]})
+        )
+    );
+
+    // A failure flags inline and commits nothing.
+    let entries = h.state().shell().engine().journal().len();
+    type_into(&mut h, "Thickness", "sqrt(!)");
+    assert_eq!(h.state().shell().engine().journal().len(), entries);
+    assert!(
+        h.query_by_label_contains("reserved function name")
+            .is_some(),
+        "the field says why it was refused"
+    );
+}
