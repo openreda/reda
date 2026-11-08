@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "ArrowPosition": {
+      "description": "Where a Dimension's arrows sit.",
+      "oneOf": [
+        {
+          "const": "inside",
+          "description": "Between the extension lines, pointing out at them.",
+          "type": "string"
+        },
+        {
+          "const": "outside",
+          "description": "Outside the extension lines, pointing in at them.",
+          "type": "string"
+        }
+      ]
+    },
     "BoardCutout": {
       "additionalProperties": false,
       "description": "A closed shape inside the Board Outline where board material is removed.",
@@ -240,6 +255,282 @@
         "uuid"
       ],
       "type": "object"
+    },
+    "Dimension": {
+      "additionalProperties": false,
+      "description": "A linear Dimension: the distance from `a` to `b` measured along `rotation`.\n\nThe dimension line runs along `rotation`, `offset` to the left of `a` (seen looking\nalong `rotation`). An extension line runs from `gap` off each end's point to `gap`\nbeyond the dimension line.",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/DimensionEnd",
+          "description": "The first measured end."
+        },
+        "arrow_length": {
+          "description": "With `outside` arrows, how far the dimension line runs past each extension line.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "arrow_position": {
+          "$ref": "#/$defs/ArrowPosition"
+        },
+        "arrow_size": {
+          "description": "The length of each side of an arrowhead.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "b": {
+          "$ref": "#/$defs/DimensionEnd",
+          "description": "The second measured end."
+        },
+        "extension_width": {
+          "description": "The pen width of the extension lines.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "font": {
+          "description": "The named family. A missing family draws as bundled Noto Sans.",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/DimensionFormat"
+        },
+        "gap": {
+          "description": "How far each extension line stops short of its point, and runs past the\ndimension line.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "height": {
+          "description": "Capital height.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "justify": {
+          "$ref": "#/$defs/TextJustify",
+          "default": {
+            "h": "left",
+            "v": "bottom"
+          }
+        },
+        "knockout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextKnockout"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "layer": {
+          "description": "The Layer it is drawn on.",
+          "format": "uuid",
+          "type": "string"
+        },
+        "offset": {
+          "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "precision": {
+          "description": "Digits after the decimal point.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prefix": {
+          "description": "Text before the value; left out when empty.",
+          "type": "string"
+        },
+        "rotation": {
+          "description": "The direction measured along, counter-clockwise from +x.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "suffix": {
+          "description": "Text after the value; left out when empty.",
+          "type": "string"
+        },
+        "text_gap": {
+          "description": "The space between the dimension line and the text.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "text_position": {
+          "$ref": "#/$defs/DimensionTextPosition"
+        },
+        "thickness": {
+          "description": "Stroke-font pen width; outline fonts ignore it.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "units": {
+          "$ref": "#/$defs/DimensionUnits"
+        },
+        "uuid": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "width": {
+          "description": "The pen width of the dimension line and arrows.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uuid",
+        "layer",
+        "a",
+        "b",
+        "rotation",
+        "width",
+        "extension_width",
+        "gap",
+        "offset",
+        "text_gap",
+        "arrow_size",
+        "arrow_length",
+        "arrow_position",
+        "text_position",
+        "font",
+        "height",
+        "thickness",
+        "units",
+        "precision",
+        "format"
+      ],
+      "type": "object"
+    },
+    "DimensionEnd": {
+      "additionalProperties": false,
+      "description": "One measured end of a [`Dimension`].",
+      "properties": {
+        "point": {
+          "$ref": "#/$defs/Point",
+          "description": "Where the end is. While it has a `ref`, this is kept on the Hotspot."
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HotspotRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The Hotspot it follows; left out for an end in free space."
+        }
+      },
+      "required": [
+        "point"
+      ],
+      "type": "object"
+    },
+    "DimensionFormat": {
+      "description": "How a Dimension's value and unit are written.",
+      "oneOf": [
+        {
+          "const": "none",
+          "description": "No value: only the prefix and suffix.",
+          "type": "string"
+        },
+        {
+          "const": "value",
+          "description": "`12.70`",
+          "type": "string"
+        },
+        {
+          "const": "value_unit",
+          "description": "`12.70mm`",
+          "type": "string"
+        },
+        {
+          "const": "value_bracketed_unit",
+          "description": "`12.70 (mm)`",
+          "type": "string"
+        }
+      ]
+    },
+    "DimensionTextPosition": {
+      "description": "Where a Dimension's text sits.",
+      "oneOf": [
+        {
+          "const": "automatic",
+          "description": "`top` when the text fits between the extension lines, else `right`.",
+          "type": "string"
+        },
+        {
+          "const": "center",
+          "description": "Centred on the dimension line.",
+          "type": "string"
+        },
+        {
+          "const": "top",
+          "description": "Centred, above the dimension line as the text reads.",
+          "type": "string"
+        },
+        {
+          "const": "bottom",
+          "description": "Centred, below the dimension line as the text reads.",
+          "type": "string"
+        },
+        {
+          "const": "left",
+          "description": "On the dimension line, outside the left extension line as the text reads.",
+          "type": "string"
+        },
+        {
+          "const": "right",
+          "description": "On the dimension line, outside the right extension line as the text reads.",
+          "type": "string"
+        },
+        {
+          "const": "inside_left",
+          "description": "Above the line, inside against the left extension line.",
+          "type": "string"
+        },
+        {
+          "const": "inside_right",
+          "description": "Above the line, inside against the right extension line.",
+          "type": "string"
+        },
+        {
+          "const": "unidirectional",
+          "description": "Centred above the line and always horizontal, whatever the Dimension's angle.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "At this anchor, along the dimension line, with the style's `justify`.",
+          "properties": {
+            "manual": {
+              "$ref": "#/$defs/Point"
+            }
+          },
+          "required": [
+            "manual"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DimensionUnits": {
+      "description": "The units a Dimension's value is shown in.",
+      "oneOf": [
+        {
+          "enum": [
+            "mm",
+            "mil",
+            "in",
+            "cm"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "automatic",
+          "description": "Millimetres: a board stores no display units in v0.1.",
+          "type": "string"
+        }
+      ]
     },
     "DrcSeverities": {
       "additionalProperties": false,
@@ -1017,6 +1308,84 @@
       "required": [
         "plus",
         "minus"
+      ],
+      "type": "object"
+    },
+    "Hotspot": {
+      "description": "Which point of an object a [`HotspotRef`] names.",
+      "oneOf": [
+        {
+          "const": "origin",
+          "description": "A Footprint's origin.",
+          "type": "string"
+        },
+        {
+          "const": "center",
+          "description": "The centre of a Free Pad or Via, or of an arc Track or arc graphic.",
+          "type": "string"
+        },
+        {
+          "const": "start",
+          "description": "The start of a Track or line or arc graphic.",
+          "type": "string"
+        },
+        {
+          "const": "end",
+          "description": "The end of a Track or line or arc graphic.",
+          "type": "string"
+        },
+        {
+          "const": "anchor",
+          "description": "A free text's anchor.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The centre of the Pad with this UUID in a Footprint's copy.",
+          "properties": {
+            "pad": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "pad"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A vertex, counted from 0, of an outline, cutout, Zone, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+          "properties": {
+            "vertex": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "vertex"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "HotspotRef": {
+      "additionalProperties": false,
+      "description": "A Hotspot of one object on the board.",
+      "properties": {
+        "hotspot": {
+          "$ref": "#/$defs/Hotspot"
+        },
+        "object": {
+          "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone or Keepout.",
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object",
+        "hotspot"
       ],
       "type": "object"
     },
@@ -2837,6 +3206,14 @@
       ],
       "default": null,
       "description": "The board's edge; left out while the board has none."
+    },
+    "dimensions": {
+      "default": [],
+      "description": "The Dimensions; left out while the board has none. Their values are derived.",
+      "items": {
+        "$ref": "#/$defs/Dimension"
+      },
+      "type": "array"
     },
     "footprint_copies": {
       "default": [],
