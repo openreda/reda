@@ -12,7 +12,11 @@
 //! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Classes;
 //!   picking a class adds them all to it with `pcb.net.add_to_class`, or, when they are
 //!   all in it already, takes them out with `pcb.net.remove_from_class`.
+//! - Selected texts and Zones give their numeric properties ([`Numbers`]), which take
+//!   numeric expressions run per object and committed as one batch.
 //! - Any one selected object shows its stored properties, read-only.
+
+mod numbers;
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -23,6 +27,8 @@ use reda_engine::model::{
 use serde_json::{Value, json};
 
 use crate::selection::Selection;
+
+pub use numbers::{Kind, NumberRow, Numbers};
 
 /// A value the selected objects share, or `Mixed` when they differ.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -93,6 +99,8 @@ pub struct Properties {
     pub component: Option<ComponentProperties>,
     /// The Net Class of the selection's Nets, when it touches any PCB Net.
     pub net_class: Option<NetClassProperty>,
+    /// The numeric properties every selected object has.
+    pub numbers: Numbers,
     /// With one object selected, its stored properties as `(name, value)`, read-only.
     pub details: Vec<(String, String)>,
 }
@@ -175,6 +183,7 @@ impl Properties {
             component: component_properties(project, &objects)
                 .or_else(|| footprint_properties(project, &objects)),
             net_class: net_class(project, &objects, selection),
+            numbers: Numbers::of(&objects),
             details,
         }
     }
