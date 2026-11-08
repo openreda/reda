@@ -282,6 +282,19 @@ pub(crate) fn gap(a: &Area, b: &Area) -> Option<(f64, [Point; 2], bool)> {
     None
 }
 
+/// The area inside a closed outline, in square nanometres (0 for none).
+pub(crate) fn outline_area(vertices: &[Vertex]) -> i128 {
+    if vertices.is_empty() {
+        return 0;
+    }
+    area_of(&polygon(contour(vertices))) / 2
+}
+
+/// The area an [`Area`] covers, in square nanometres.
+pub(crate) fn covered(area: &Area) -> i128 {
+    area_of(area) / 2
+}
+
 /// Twice the signed area enclosed, outer contours less holes: 0 for shapes that only
 /// touch along an edge.
 fn area_of(area: &Area) -> i128 {

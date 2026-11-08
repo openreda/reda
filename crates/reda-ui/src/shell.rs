@@ -184,6 +184,12 @@ pub struct Shell {
     pcb_draw: pcb::draw::Draw,
     /// Whether the board's Zone fills are out of date ("Zones need refilling").
     zones_stale: bool,
+    /// The automatic refill in flight (see [`crate::zone_refill`]).
+    pub(crate) zone_refill: Option<crate::zone_refill::ZoneRefill>,
+    /// An edit was committed while a refill ran, or a drag cancelled one: refill again.
+    pub(crate) zone_refill_again: bool,
+    /// Whether a PCB drag is in progress (the button is down and the pointer moved).
+    pub(crate) pcb_dragging: bool,
     /// The pending Sync changes (what `sync.preview` returns), renewed after every edit;
     /// `None` without a PCB Document.
     change_list: Option<ChangeList>,
@@ -300,6 +306,9 @@ impl Shell {
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
             zones_stale: false,
+            zone_refill: None,
+            zone_refill_again: false,
+            pcb_dragging: false,
             change_list: None,
             palette: PaletteHandle::default(),
             closed_views: BTreeMap::new(),
@@ -609,6 +618,7 @@ impl Shell {
 
     /// The pointer moved to `at` with the button down.
     pub fn pcb_drag(&mut self, at: Point) {
+        self.drag_started();
         if self.drawing() {
             let mut draw = std::mem::take(&mut self.pcb_draw);
             draw.drag(self, at);
@@ -622,6 +632,7 @@ impl Shell {
 
     /// The button came up: selects, or runs the move in flight as one Command.
     pub fn pcb_release(&mut self) {
+        self.pcb_dragging = false;
         if self.drawing() {
             self.with_draw(|draw, shell| draw.release(shell));
             return;
@@ -1289,6 +1300,10 @@ impl Shell {
             _ => match self.engine.registry().get(base).map(|meta| meta.kind) {
                 Some(Kind::Query) => {}
                 Some(Kind::View) => self.sync_document_tabs(),
+                Some(Kind::Edit) => {
+                    self.refresh();
+                    self.auto_refill();
+                }
                 _ => self.refresh(),
             },
         }
@@ -2011,7 +2026,7 @@ impl Shell {
 
     /// Rebuilds every tab's Scene and closes tabs whose Document is gone. With no
     /// Project open, the centre shows the Start page again.
-    fn refresh(&mut self) {
+    pub(crate) fn refresh(&mut self) {
         let elements: Vec<(Uuid, String)> = crate::element_editor::open_elements(&self.engine)
             .into_iter()
             .filter_map(|e| Some((e, crate::element_editor::title(&self.engine, e)?)))

@@ -392,6 +392,10 @@ impl App {
         if let Some(wait) = self.shell.tick_recovery(Instant::now()) {
             ctx.request_repaint_after(wait);
         }
+        // The background Zone refill: keep its fills when it ends.
+        if self.shell.poll_zone_refill() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        }
         if let Some(prompt) = self.shell.recovery_prompt() {
             match recovery_dialog::recovery(ctx, prompt) {
                 Some(RecoveryAction::Restore(file)) => {

@@ -720,3 +720,31 @@ fn gerber_text_frames_omit_whole_lines_instead_of_clipping_glyphs() {
             .all(|o| matches!(o,Object::Draw {from,to,..} if from.1>=5_000_000 && to.1>=5_000_000))
     );
 }
+
+#[test]
+fn outputs_leave_shelved_zones_out() {
+    let dir = TempDir::new("gerber-shelved");
+    let mut engine = board(&dir);
+    let gnd = net(&mut engine, "GND");
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_top", "net": gnd, "remove_unconnected": false,
+               "vertices": rect(1.0, 1.0, 29.0, 19.0)}),
+    )["result"]["uuid"]
+        .clone();
+    let regions = |engine: &TestEngine| {
+        let files = plot(engine);
+        read(&file(&files, "Demo.GTL").bytes).regions().count()
+    };
+    assert_eq!(regions(&engine), 1);
+    // Filled, then shelved: even the fill still stored for it is left out.
+    engine.run_ok("pcb.zone.fill", json!({}));
+    engine.run_ok("pcb.zone.shelve", json!({"zones": [zone]}));
+    assert_eq!(regions(&engine), 0);
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let stored = project.zone_fills(pcb.uuid).unwrap();
+    assert!(reda_pcb::zone::layer_fills(pcb, stored).is_empty());
+    engine.run_ok("pcb.zone.restore", json!({}));
+    assert_eq!(regions(&engine), 1);
+}

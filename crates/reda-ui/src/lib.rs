@@ -63,6 +63,7 @@ pub mod tools;
 mod user_preferences;
 pub mod view_state;
 pub mod working_state;
+pub mod zone_refill;
 
 pub use app::{App, install_canvas, run};
 pub use docking::windows;
