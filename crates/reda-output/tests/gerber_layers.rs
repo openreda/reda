@@ -4,7 +4,7 @@
 mod gerber_reader;
 
 use gerber_reader::{Aperture, Layer, Object, read};
-use reda_command::{Fonts, Timestamp};
+use reda_command::Fonts;
 use reda_model::geom::Nm;
 use reda_model::{LayerKind, PadKind, PcbText, Side, Uuid};
 use reda_output::{OutputFile, Plot, gerber_files};
@@ -43,8 +43,11 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
         )],
         gerber: &preset.gerber,
         fonts: &Fonts::default(),
-        created: Timestamp(1_767_225_600_000),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
     })
+    .unwrap()
+    .files
 }
 
 fn layer(files: &[OutputFile], name: &str) -> Layer {
@@ -220,7 +223,7 @@ fn the_paste_opens_over_smd_pads_by_their_margin_only() {
             continue;
         }
         let (aperture, function) = flash_at(layer, at(pad)).unwrap();
-        assert_eq!(function, Some("SMDPad,CuDef"));
+        assert_eq!(function, Some("Material"), "paste is material, not a pad");
         assert_grown(pad, aperture, margin);
     }
 }
@@ -239,7 +242,11 @@ fn draws(layer: &Layer) -> Vec<Draw> {
                 function,
                 ..
             } => {
-                assert_eq!(*function, None, "silkscreen takes no aperture function");
+                assert_eq!(
+                    function.as_deref(),
+                    Some("Material"),
+                    "silkscreen is material"
+                );
                 (*from, *to, *pen as i64)
             }
             other => panic!("not a round-pen draw: {other:?}"),
@@ -344,20 +351,20 @@ fn the_silkscreen_holds_footprint_drawing_designators_and_free_text() {
     assert!((cy - mm(10.0)).abs() < mm(0.05), "y centre {cy}");
 
     // Bottom: the free line and R8 (flipped over with its Footprint) as strokes, the
-    // outline-font text as filled triangles.
+    // outline-font text as one whole region per glyph piece.
     let mut expected = vec![((mm(1.0), mm(1.0)), (mm(5.0), mm(1.0)), mm(0.2))];
     expected.extend(strokes(&r8));
     expected.sort();
     assert_eq!(draws(&bottom), expected);
     let rev = reda_pcb::text_geometry(&free(Side::Bottom)[0], &fonts);
-    assert!(!rev.fill.indices.is_empty());
-    assert_eq!(bottom.regions().count(), rev.fill.indices.len() / 3);
+    assert!(!rev.regions.is_empty());
+    assert_eq!(bottom.regions().count(), rev.regions.len());
     for region in bottom.regions() {
         let Object::Region { dark, points, .. } = region else {
             unreachable!()
         };
         assert!(dark);
-        assert_eq!(points.len(), 4, "a closed triangle");
+        assert!(points.len() > 4, "a glyph outline, not a triangle");
     }
 }
 
@@ -442,8 +449,10 @@ fn copper_text_and_drawing_plot_on_their_copper_layer_as_non_conductor() {
     assert!(top.iter().all(|f| f.as_deref() == Some("NonConductor")));
     let bottom = functions(&layer(&files, "Demo.GBL"));
     assert_eq!(bottom, [Some("NonConductor".to_owned())]);
-    let silk = layer(&files, "Demo.GTO");
-    assert_eq!(silk.draws().count(), 0, "nothing on the silkscreen");
+    assert!(
+        files.iter().all(|f| f.function != "silkscreen_top"),
+        "nothing on the silkscreen, so no file"
+    );
 }
 
 /// DRC's silkscreen check, the canvas and the Gerber silkscreen share one layout of

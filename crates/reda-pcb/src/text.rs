@@ -13,6 +13,7 @@ use reda_model::text::display;
 use reda_model::{
     HERSHEY_FONT, NOTO_SANS_FONT, PcbDocument, PcbText, TextHJustify, TextVJustify, Uuid,
 };
+pub use reda_text::Region;
 use reda_text::{Font, OutlineFont, StrokeFont, layout};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -46,6 +47,13 @@ pub struct PlacedText {
     pub strokes: Vec<Stroke>,
     /// Outline-font glyphs (including characters the stroke font lacks), filled.
     pub fill: Fill,
+    /// The same filled area as whole regions with holes: each outline glyph's simplified
+    /// contours, or for knockout text its box less the glyphs. Writers that need regions
+    /// rather than triangles (Gerber) take these; left out of Command output, which
+    /// carries the triangles.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub regions: Vec<Region>,
 }
 
 /// One pen stroke, drawn as a capsule.
@@ -135,6 +143,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
     let pitch = text.height.0 * LINE_PITCH.0 / LINE_PITCH.1;
     let mut strokes = Vec::new();
     let mut fill = Fill::default();
+    let mut regions: Vec<Region> = Vec::new();
     let displayed = display(&text.text);
     let mut lines: Vec<String> = displayed.split('\n').map(str::to_owned).collect();
     let mut dropped_lines = 0;
@@ -207,13 +216,15 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
             .extend(geometry.fill.points.iter().map(|&p| at(p)));
         fill.indices
             .extend(geometry.fill.indices.iter().map(|i| i + base));
+        regions.extend(geometry.regions.iter().map(|r| r.map(at)));
     }
     if let Some(knockout) = text.knockout {
         let frame = text.frame.map(|frame| Bounds {
             min: Point::new(Nm(left), Nm(bottom)),
             max: Point::new(Nm(left + frame.width.0), Nm(bottom + frame.height.0)),
         });
-        fill = knockout::flatten(&strokes, text.thickness, &fill, frame, knockout.margin);
+        (fill, regions) =
+            knockout::flatten(&strokes, text.thickness, &fill, frame, knockout.margin);
         strokes.clear();
     }
     for stroke in &mut strokes {
@@ -223,6 +234,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
     for point in &mut fill.points {
         *point = place.apply(*point);
     }
+    let regions = regions.iter().map(|r| r.map(|p| place.apply(p))).collect();
     PlacedText {
         uuid: text.uuid,
         layer: text.layer,
@@ -233,6 +245,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
         stroke_width: text.thickness,
         strokes,
         fill,
+        regions,
     }
 }
 

@@ -342,6 +342,7 @@ fn copies_and_jobs_survive_save_and_open() {
 fn with_user_preset(home: &TempDir, dir: &TempDir) -> TestEngine {
     let mut engine = TestEngine(
         Engine::builder()
+            .version(reda_testkit::TEST_VERSION)
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
             .user_dirs(Some(UserDirs::under(home.path())))

@@ -86,6 +86,9 @@ pub struct Env<'a> {
     pub parts: &'a dyn PartSource,
     /// The font bytes the front end handed over, for text in installed fonts.
     pub fonts: &'a Fonts,
+    /// The REDA version output files name as their generator. Tests inject a fixed one,
+    /// so goldens survive releases.
+    pub version: &'a str,
     /// No GUI: view Commands are unavailable.
     pub headless: bool,
 }
@@ -108,6 +111,7 @@ pub struct Context<'a> {
     pub(crate) clock: &'a dyn Clock,
     pub(crate) parts: &'a dyn PartSource,
     pub(crate) fonts: &'a Fonts,
+    pub(crate) version: &'a str,
     pub(crate) signals: &'a Signals,
     /// The per-user folders, for Commands other than file Commands (which read them from
     /// the session).
@@ -264,6 +268,11 @@ impl<'a> Context<'a> {
     /// The font bytes the front end handed over.
     pub fn fonts(&self) -> &Fonts {
         self.fonts
+    }
+
+    /// The REDA version, as injected: what output files name as their generator.
+    pub fn version(&self) -> &str {
+        self.version
     }
 
     /// The run's cancellation token and progress reporter.

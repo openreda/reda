@@ -4,7 +4,6 @@
 mod drill_reader;
 
 use drill_reader::{Hit, read};
-use reda_command::Timestamp;
 use reda_output::{OutputFile, Plot, drill_files};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::{Value, json};
@@ -45,7 +44,8 @@ fn plot_with(engine: &TestEngine, x2_attributes: bool) -> Vec<OutputFile> {
         )],
         gerber: &gerber,
         fonts: &reda_command::Fonts::default(),
-        created: Timestamp(1_767_225_600_000),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
     })
 }
 

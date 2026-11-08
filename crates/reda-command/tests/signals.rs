@@ -78,6 +78,7 @@ fn run(h: &mut Harness, signals: &Signals) -> Result<serde_json::Value, CommandE
         clock: &h.clock,
         parts: &reda_command::NoLibraries,
         fonts: &reda_command::Fonts::default(),
+        version: "0.0.0-test",
         headless: true,
     };
     h.registry.run_with(

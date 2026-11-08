@@ -10,6 +10,8 @@ use std::fmt::Write as _;
 
 use reda_model::geom::{Millideg, Nm, Point, arc_centre};
 
+pub(crate) mod contour;
+
 /// The aperture function of objects that take none, such as silkscreen drawing: their
 /// apertures and regions carry no `.AperFunction`.
 pub(crate) const NO_FUNCTION: &str = "";
@@ -195,6 +197,13 @@ pub(crate) fn escape(text: &str) -> String {
     out
 }
 
+/// The largest coordinate a Gerber file holds: integers must fit 32 bits, so
+/// ±2147.483647 mm at six decimals (Gerber specification §3.4.1).
+pub const MAX_COORDINATE: Nm = Nm(i32::MAX as i64);
+
+/// Arcs shorter than this are written as draws (Gerber specification §4.7.2).
+const MIN_ARC: f64 = 2_000.0;
+
 /// One file being written.
 pub(crate) struct Gerber {
     x2: bool,
@@ -208,6 +217,22 @@ pub(crate) struct Gerber {
     point: Option<Point>,
     mode: u8,
     dark: bool,
+    /// The object attributes in force, as last set.
+    object_attributes: Vec<(String, String)>,
+    /// How many objects (flashes, draws, regions) the file holds.
+    objects: usize,
+    /// The first point written that the format can't hold, in output coordinates.
+    out_of_range: Option<Point>,
+}
+
+/// An attribute command, `%TO.N,GND*%`, or with X2 attributes off the same as a
+/// comment, `G04 #@! TO.N,GND*`, so readers that take them still get the whole set.
+fn attribute(out: &mut String, x2: bool, command: &str) {
+    if x2 {
+        let _ = writeln!(out, "%{command}*%");
+    } else {
+        let _ = writeln!(out, "G04 #@! {command}*");
+    }
 }
 
 impl Gerber {
@@ -222,11 +247,31 @@ impl Gerber {
             point: None,
             mode: 1,
             dark: true,
+            object_attributes: Vec::new(),
+            objects: 0,
+            out_of_range: None,
         }
     }
 
     pub(crate) fn set_transform(&mut self, transform: crate::InstanceTransform) {
         self.transform = transform;
+    }
+
+    /// Whether nothing has been plotted yet.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.objects == 0
+    }
+
+    /// The first point plotted outside ±[`MAX_COORDINATE`], in output coordinates.
+    pub(crate) fn out_of_range(&self) -> Option<Point> {
+        self.out_of_range
+    }
+
+    fn check(&mut self, p: Point) {
+        let outside = |v: Nm| v.0.abs() > MAX_COORDINATE.0;
+        if self.out_of_range.is_none() && (outside(p.x) || outside(p.y)) {
+            self.out_of_range = Some(p);
+        }
     }
 
     /// The D-code of `template` with aperture function `function` (such as `SMDPad,CuDef`),
@@ -246,21 +291,24 @@ impl Gerber {
         }
     }
 
-    /// Sets the object attributes for the next object (`(".N", "GND")`, …); the values
-    /// are already escaped field by field ([`escape`]).
+    /// Sets the object attributes of the next object (`(".N", "GND")`, …; the values
+    /// already escaped field by field, [`escape`]). Attributes stay in force until they
+    /// change, so a run of objects with the same ones sets them once.
     fn attributes(&mut self, attributes: &[(&str, &str)]) {
-        if !self.x2 {
+        let wanted: Vec<(String, String)> = attributes
+            .iter()
+            .map(|(n, v)| ((*n).to_owned(), (*v).to_owned()))
+            .collect();
+        if wanted == self.object_attributes {
             return;
         }
-        for (name, value) in attributes {
-            let _ = writeln!(self.body, "%TO{name},{value}*%");
+        if !self.object_attributes.is_empty() {
+            attribute(&mut self.body, self.x2, "TD");
         }
-    }
-
-    fn clear_attributes(&mut self, attributes: &[(&str, &str)]) {
-        if self.x2 && !attributes.is_empty() {
-            self.body.push_str("%TD*%\n");
+        for (name, value) in &wanted {
+            attribute(&mut self.body, self.x2, &format!("TO{name},{value}"));
         }
+        self.object_attributes = wanted;
     }
 
     fn polarity(&mut self, dark: bool) {
@@ -279,6 +327,7 @@ impl Gerber {
     }
 
     fn at(&mut self, p: Point, op: u8) {
+        self.check(p);
         let _ = writeln!(self.body, "X{}Y{}D0{op}*", p.x.0, p.y.0);
         self.point = Some(p);
     }
@@ -302,14 +351,16 @@ impl Gerber {
         self.select(template.rotated(self.transform.rotation), function);
         self.attributes(attributes);
         self.at(self.transform.point(at), 3);
-        self.clear_attributes(attributes);
+        self.objects += 1;
     }
 
     /// Flashes `template` at `at` in clear polarity, removing what is under it.
     pub(crate) fn flash_clear(&mut self, template: Template, at: Point) {
         self.polarity(false);
         self.select(template.rotated(self.transform.rotation), NO_FUNCTION);
+        self.attributes(&[]);
         self.at(self.transform.point(at), 3);
+        self.objects += 1;
     }
 
     /// Draws a straight line (`sweep` zero) or an arc with a round pen of `width`.
@@ -329,54 +380,81 @@ impl Gerber {
         self.attributes(attributes);
         self.move_to(from);
         self.segment(from, to, sweep);
-        self.clear_attributes(attributes);
+        self.objects += 1;
     }
 
-    /// Draws the arc from `from` to `to` about a known `centre` with a round pen of
-    /// `width`, counter-clockwise when `ccw`.
+    /// Draws the arc between `ends` (from, to) about a known `centre` with a round pen
+    /// of `width`, counter-clockwise when `ccw`.
     pub(crate) fn arc_about(
         &mut self,
         width: Nm,
         function: &'static str,
-        from: Point,
-        to: Point,
+        (from, to): (Point, Point),
         centre: Point,
         ccw: bool,
+        attributes: &[(&str, &str)],
     ) {
         let from = self.transform.point(from);
         let to = self.transform.point(to);
         self.polarity(true);
         self.select(Template::Circle(width), function);
+        self.attributes(attributes);
         self.move_to(from);
         self.arc_to(from, to, self.transform.point(centre), ccw);
+        self.objects += 1;
     }
 
     /// The plot operation from the current point `from` to `to`.
     fn segment(&mut self, from: Point, to: Point, sweep: Millideg) {
         if sweep.0 == 0 {
-            self.mode(1);
-            self.at(to, 1);
+            self.line_to(to);
         } else {
             self.arc_to(from, to, arc_centre(from, to, sweep), sweep.0 > 0);
         }
     }
 
-    /// The arc plot operation from the current point `from` to `to` about `c`.
+    fn line_to(&mut self, to: Point) {
+        self.mode(1);
+        self.at(to, 1);
+    }
+
+    /// The arc plot operation from the current point `from` to `to` about `c`. An arc
+    /// shorter than 2 µm is a straight draw instead, and one whose ends are under 1 µm
+    /// apart (a near-full or full turn) is cut in two at its middle, because readers
+    /// can't tell either from a tiny arc or a full circle (Gerber specification §4.7.2).
     fn arc_to(&mut self, from: Point, to: Point, c: Point, ccw: bool) {
+        let (fx, fy) = ((from.x - c.x).0 as f64, (from.y - c.y).0 as f64);
+        let (tx, ty) = ((to.x - c.x).0 as f64, (to.y - c.y).0 as f64);
+        let mut sweep = (fx * ty - fy * tx).atan2(fx * tx + fy * ty);
+        if !ccw {
+            sweep = -sweep;
+        }
+        if sweep <= 0.0 {
+            sweep += std::f64::consts::TAU;
+        }
+        if fx.hypot(fy) * sweep < MIN_ARC {
+            self.line_to(to);
+            return;
+        }
+        if contour::close_points(from, to) {
+            let half = sweep / 2.0 * if ccw { 1.0 } else { -1.0 };
+            let half = Millideg((half.to_degrees() * 1000.0).round() as i64);
+            let mid = from.rotated_about(c, half);
+            self.arc_to(from, mid, c, ccw);
+            self.arc_to(mid, to, c, ccw);
+            return;
+        }
         self.mode(if ccw { 3 } else { 2 });
-        let _ = writeln!(
-            self.body,
-            "X{}Y{}I{}J{}D01*",
-            to.x.0,
-            to.y.0,
-            c.x.0 - from.x.0,
-            c.y.0 - from.y.0
-        );
+        let (i, j) = (c.x - from.x, c.y - from.y);
+        self.check(to);
+        self.check(Point::new(i, j));
+        let _ = writeln!(self.body, "X{}Y{}I{}J{}D01*", to.x.0, to.y.0, i.0, j.0);
         self.point = Some(to);
     }
 
     /// A filled region bounded by `points` (closed back to the first), dark or clear, with
-    /// the aperture function `function` ([`NO_FUNCTION`] for none).
+    /// the aperture function `function` ([`NO_FUNCTION`] for none). Points under 1 µm
+    /// apart are merged; a region left with no area is not written.
     pub(crate) fn region(
         &mut self,
         points: &[Point],
@@ -385,25 +463,87 @@ impl Gerber {
         attributes: &[(&str, &str)],
     ) {
         let points: Vec<_> = points.iter().map(|p| self.transform.point(*p)).collect();
+        self.contour(&contour::merged(&points), dark, function, attributes);
+    }
+
+    /// A dark region of `outer` less `holes`, written as one contour with the holes
+    /// joined by cut-ins, so it erases nothing underneath.
+    pub(crate) fn region_with_holes(
+        &mut self,
+        outer: &[Point],
+        holes: &[Vec<Point>],
+        function: &'static str,
+        attributes: &[(&str, &str)],
+    ) {
+        let place = |ring: &[Point]| -> Vec<Point> {
+            ring.iter().map(|p| self.transform.point(*p)).collect()
+        };
+        let holes: Vec<Vec<Point>> = holes.iter().map(|h| place(h)).collect();
+        let contour = contour::joined(&place(outer), &holes);
+        self.contour(&contour, true, function, attributes);
+    }
+
+    /// A filled disc of `diameter` about `centre`: a region of two half-turn arcs, so a
+    /// filled circle is never a flash (only Pads are flashed on copper).
+    pub(crate) fn disc(
+        &mut self,
+        centre: Point,
+        diameter: Nm,
+        function: &'static str,
+        attributes: &[(&str, &str)],
+    ) {
+        let c = self.transform.point(centre);
+        let r = Nm(diameter.0 / 2);
+        if r <= Nm::ZERO {
+            return;
+        }
+        let (east, west) = (Point::new(c.x + r, c.y), Point::new(c.x - r, c.y));
+        self.open_region(true, function, attributes);
+        self.at(east, 2);
+        self.arc_to(east, west, c, true);
+        self.arc_to(west, east, c, true);
+        self.close_region(function);
+    }
+
+    fn contour(
+        &mut self,
+        points: &[Point],
+        dark: bool,
+        function: &'static str,
+        attributes: &[(&str, &str)],
+    ) {
         let Some(&first) = points.first() else {
             return;
         };
-        self.polarity(dark);
-        let tagged = self.x2 && function != NO_FUNCTION;
-        if tagged {
-            let _ = writeln!(self.body, "%TA.AperFunction,{function}*%");
-        }
-        self.attributes(attributes);
-        self.body.push_str("G36*\n");
+        self.open_region(dark, function, attributes);
         self.at(first, 2);
         self.mode(1);
         for p in points[1..].iter().chain([&first]) {
             self.at(*p, 1);
         }
-        self.body.push_str("G37*\n");
-        if tagged || (self.x2 && !attributes.is_empty()) {
-            self.body.push_str("%TD*%\n");
+        self.close_region(function);
+    }
+
+    fn open_region(&mut self, dark: bool, function: &'static str, attributes: &[(&str, &str)]) {
+        self.polarity(dark);
+        // Object attributes first: changing them clears every attribute in force.
+        self.attributes(attributes);
+        if function != NO_FUNCTION {
+            attribute(
+                &mut self.body,
+                self.x2,
+                &format!("TA.AperFunction,{function}"),
+            );
         }
+        self.body.push_str("G36*\n");
+    }
+
+    fn close_region(&mut self, function: &'static str) {
+        self.body.push_str("G37*\n");
+        if function != NO_FUNCTION {
+            attribute(&mut self.body, self.x2, "TD.AperFunction");
+        }
+        self.objects += 1;
     }
 
     /// The finished file: `file_attributes` (`(".FileFunction", "Copper,L1,Top")`, …,
@@ -412,10 +552,8 @@ impl Gerber {
     pub(crate) fn finish(mut self, file_attributes: &[(&str, String)]) -> Vec<u8> {
         self.polarity(true);
         let mut out = String::new();
-        if self.x2 {
-            for (name, value) in file_attributes {
-                let _ = writeln!(out, "%TF{name},{value}*%");
-            }
+        for (name, value) in file_attributes {
+            attribute(&mut out, self.x2, &format!("TF{name},{value}"));
         }
         out.push_str("%FSLAX46Y46*%\n%MOMM*%\n%LPD*%\nG75*\nG01*\n");
         for (name, body) in MACROS {
@@ -432,13 +570,13 @@ impl Gerber {
                 shapes += 1;
                 let _ = writeln!(out, "%AM{name}*\n{}*%", shape.body());
             }
-            let tagged = self.x2 && *function != NO_FUNCTION;
+            let tagged = *function != NO_FUNCTION;
             if tagged {
-                let _ = writeln!(out, "%TA.AperFunction,{function}*%");
+                attribute(&mut out, self.x2, &format!("TA.AperFunction,{function}"));
             }
             let _ = writeln!(out, "%ADD{}{}*%", 10 + i, template.definition(&name));
             if tagged {
-                out.push_str("%TD*%\n");
+                attribute(&mut out, self.x2, "TD");
             }
         }
         out.push_str(&self.body);

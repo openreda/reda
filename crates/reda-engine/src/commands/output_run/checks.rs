@@ -21,6 +21,16 @@ pub(crate) fn blockers(pcb: &PcbDocument) -> Vec<Violation> {
     found
 }
 
+/// The `coordinate_out_of_range` blocker: a Gerber file would hold a coordinate beyond
+/// ±2147.483647 mm, which the format can't carry. Args `file`, and `x`, `y` (nm, from the
+/// output origin).
+pub(crate) fn out_of_range(out: &reda_output::CoordinateOutOfRange) -> Violation {
+    Violation::new("coordinate_out_of_range", Severity::Error)
+        .arg("file", out.file.as_str())
+        .arg("x", out.at.x.0)
+        .arg("y", out.at.y.0)
+}
+
 /// One `duplicate_designator` per Designator two Components (or Mechanical Parts) share
 /// on the job's PCB, which is all the BOM and CPL read; objects are the Footprints
 /// carrying it. A sheet that is out of sync with the board only warns (`out_of_sync`).

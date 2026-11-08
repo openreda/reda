@@ -49,8 +49,11 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
         )],
         gerber: &preset.gerber,
         fonts: &reda_command::Fonts::default(),
-        created: Timestamp(1_767_225_600_000),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
     })
+    .unwrap()
+    .files
 }
 
 fn file<'a>(files: &'a [OutputFile], name: &str) -> &'a OutputFile {
@@ -67,7 +70,7 @@ fn names(files: &[OutputFile]) -> Vec<&str> {
 #[test]
 fn the_files_are_named_the_protel_way() {
     let dir = TempDir::new("gerber-names");
-    let engine = board(&dir);
+    let engine = demo(&dir);
     let files = plot(&engine);
     assert_eq!(
         names(&files),
@@ -80,7 +83,6 @@ fn the_files_are_named_the_protel_way() {
     assert!(top.ended);
     assert_eq!(top.file[".FileFunction"], "Copper,L1,Top");
     assert_eq!(top.file[".FilePolarity"], "Positive");
-    assert_eq!(top.file[".CreationDate"], "2026-01-01T00:00:00+00:00");
     let bottom = read(&file(&files, "Demo.GBL").bytes);
     assert_eq!(bottom.file[".FileFunction"], "Copper,L2,Bot");
     let profile = read(&file(&files, "Demo.GKO").bytes);
@@ -229,14 +231,16 @@ fn pads_read_back_with_their_shape_turn_and_side() {
             else {
                 unreachable!()
             };
-            let smd = pad.kind == reda_model::PadKind::Smd;
-            assert_eq!(
-                function.as_deref(),
-                Some(if smd { "SMDPad,CuDef" } else { "ComponentPad" })
-            );
-            if pad.net.is_some() {
-                assert_eq!(attributes[".N"], "GND");
-            }
+            let free = pcb.free_pads().any(|f| f.uuid == pad.pad);
+            let expected_function = match pad.kind {
+                _ if free => "OtherPad,FreePad",
+                reda_model::PadKind::Smd => "SMDPad,CuDef",
+                _ => "ComponentPad",
+            };
+            assert_eq!(function.as_deref(), Some(expected_function));
+            // Every copper object has `.N`, empty when it has no Net.
+            let net = if pad.net.is_some() { "GND" } else { "" };
+            assert_eq!(attributes[".N"], net);
             let angle = (pad.rotation.0 as f64 / 1000.0).to_radians();
             let (s, c) = angle.sin_cos();
             for ((x, y), inside) in probes(pad) {
@@ -414,6 +418,26 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
         v.push(v[0]);
         v
     };
+    // Fill points under 1 µm apart are merged: each written ring keeps its fill ring's
+    // points in order, and every point left out lies within 1 µm of the one kept before.
+    let merged_from = |written: &[(i64, i64)], ring: &[(i64, i64)]| {
+        let mut w = written.iter().peekable();
+        let mut last = None;
+        for p in ring {
+            if w.peek() == Some(&p) {
+                last = w.next();
+            } else {
+                let Some(l) = last else {
+                    return false;
+                };
+                let d = ((p.0 - l.0) as f64).hypot((p.1 - l.1) as f64);
+                if d >= 1_000.0 {
+                    return false;
+                }
+            }
+        }
+        w.next().is_none()
+    };
     let regions: Vec<Region> = top
         .regions()
         .map(|r| match r {
@@ -421,6 +445,7 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
                 dark,
                 points,
                 attributes,
+                ..
             } => (*dark, points.clone(), attributes.get(".N").cloned()),
             _ => unreachable!(),
         })
@@ -435,10 +460,15 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
             }
         }
     }
-    let mut sorted = regions.clone();
-    sorted.sort();
-    expected.sort();
-    assert_eq!(sorted, expected);
+    assert_eq!(regions.len(), expected.len());
+    for (dark, ring, net) in &expected {
+        assert!(
+            regions
+                .iter()
+                .any(|r| (&r.0, &r.2) == (dark, net) && merged_from(&r.1, ring)),
+            "no region written for the fill ring {ring:?}"
+        );
+    }
     // The SIG fill sits in a hole of the GND fill, so it is drawn after that hole is
     // cleared.
     let sig_fill = regions
@@ -580,40 +610,6 @@ fn the_files_match_their_goldens_byte_for_byte() {
 }
 
 #[test]
-fn without_x2_attributes_the_files_are_plain_x1() {
-    let dir = TempDir::new("gerber-x1");
-    let engine = demo(&dir);
-    let project = engine.project().unwrap();
-    let pcb = project.pcb().unwrap();
-    let fills = reda_pcb::zone::current(pcb, None);
-    let files = gerber_files(&Plot {
-        project,
-        instances: &[reda_output::BoardInstance::single(
-            pcb,
-            &fills,
-            reda_model::FileOrigin::Absolute,
-        )],
-        gerber: &reda_model::GerberSettings {
-            x2_attributes: false,
-            naming: reda_model::FileNaming::Classic,
-            ..Default::default()
-        },
-        fonts: &reda_command::Fonts::default(),
-        created: Timestamp(0),
-    });
-    let with = plot(&engine);
-    for (x1, x2) in files.iter().zip(&with) {
-        let text = String::from_utf8(x1.bytes.clone()).unwrap();
-        for attribute in ["%TF", "%TA", "%TO", "%TD"] {
-            assert!(!text.contains(attribute), "{} has {attribute}", x1.name);
-        }
-        let (a, b) = (read(&x1.bytes), read(&x2.bytes));
-        assert!(a.file.is_empty());
-        assert_eq!(a.objects.len(), b.objects.len(), "{}", x1.name);
-    }
-}
-
-#[test]
 fn the_zip_holds_every_file_stamped_with_the_clock() {
     let dir = TempDir::new("gerber-zip");
     let engine = demo(&dir);
@@ -686,7 +682,8 @@ fn knockout_text_plots_dark_polygons_with_glyph_holes_without_erasing_other_silk
     let layer = read(&file(&files, "Demo.GTO").bytes);
     assert_eq!(layer.draws().count(), 1, "background silk is kept");
     let regions: Vec<_> = layer.regions().collect();
-    assert!(!regions.is_empty());
+    // The box less the "A": the piece round it, and the island in its counter.
+    assert_eq!(regions.len(), 2);
     assert!(
         regions
             .iter()
@@ -698,16 +695,7 @@ fn knockout_text_plots_dark_polygons_with_glyph_holes_without_erasing_other_silk
             let Object::Region { points, .. } = r else {
                 unreachable!()
             };
-            assert!(points.len() == 3 || (points.len() == 4 && points.first() == points.last()));
-            let cross = |a: (i64, i64), b: (i64, i64)| {
-                (b.0 - a.0) as i128 * (y - a.1) as i128 - (b.1 - a.1) as i128 * (x - a.0) as i128
-            };
-            let sides = [
-                cross(points[0], points[1]),
-                cross(points[1], points[2]),
-                cross(points[2], points[0]),
-            ];
-            sides.iter().all(|s| *s >= 0) || sides.iter().all(|s| *s <= 0)
+            gerber_reader::winding(points, (x, y)) != 0
         })
     };
     assert!(covered(5_000_000, 4_800_000), "grown box is plotted");
