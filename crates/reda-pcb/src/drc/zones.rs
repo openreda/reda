@@ -1,8 +1,10 @@
 //! What the island settings leave of Zone fills: `dead_copper` for kept pieces of fill
 //! that touch no copper of their Net (directly or through other fills), above the
 //! `dead_copper` rule's `min_area`, and `empty_zone` for a Zone with a Net and nothing
-//! left to fill. Zones with no Net are exempt from both.
+//! left to fill. Zones with no Net are exempt from both. Also `shelved_zone` for each
+//! shelved Zone, so one left on the shelf can't drop copper from outputs silently.
 
+use reda_model::geom::Nm;
 use reda_model::{DrcCheck, FillShape, Limit, RuleField, RuleKind, ZoneFills};
 
 use super::{Board, Report};
@@ -10,11 +12,29 @@ use crate::copper::Item;
 use crate::rules::resolve;
 
 pub(super) fn check(board: &Board<'_>, fills: &ZoneFills, report: &mut Report) {
+    let pcb = board.pcb;
+    if !report.is_off(DrcCheck::ShelvedZone) {
+        let names = crate::zone::names(pcb);
+        for zone in pcb.zones().filter(|z| z.shelved) {
+            let at = pcb
+                .zone_vertices(zone)
+                .first()
+                .map_or_else(|| reda_model::geom::Point::new(Nm(0), Nm(0)), |v| v.point());
+            report.add(DrcCheck::ShelvedZone, |v| {
+                v.object(zone.uuid)
+                    .located(pcb.uuid, at)
+                    .on_layers([zone.layer])
+                    .arg("zone", names[&zone.uuid].as_str())
+            });
+        }
+    }
     if report.is_off(DrcCheck::DeadCopper) && report.is_off(DrcCheck::EmptyZone) {
         return;
     }
-    let pcb = board.pcb;
-    for zone in pcb.zones().filter(|z| z.net.is_some()) {
+    for zone in pcb.active_zones().filter(|z| z.net.is_some()) {
+        let Some(corner) = pcb.zone_vertices(zone).first().map(|v| v.point()) else {
+            continue;
+        };
         let shapes = fills
             .zones
             .get(&zone.uuid)
@@ -22,7 +42,7 @@ pub(super) fn check(board: &Board<'_>, fills: &ZoneFills, report: &mut Report) {
         if shapes.is_empty() {
             report.add(DrcCheck::EmptyZone, |v| {
                 v.object(zone.uuid)
-                    .located(pcb.uuid, zone.vertices[0].point())
+                    .located(pcb.uuid, corner)
                     .on_layers([zone.layer])
                     .arg("net", board.net_name(zone.net).as_str())
             });

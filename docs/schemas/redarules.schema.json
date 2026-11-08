@@ -155,6 +155,11 @@
           "default": "warning",
           "description": "A rule that allows less than a Fab Preset limit."
         },
+        "shelved_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A shelved Zone, whose copper outputs leave out."
+        },
         "short_circuit": {
           "$ref": "#/$defs/Severity",
           "default": "error",

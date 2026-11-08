@@ -97,6 +97,14 @@ fn focus(w: &mut Window) {
 #[test]
 fn z_then_clicks_draw_a_zone_and_the_status_bar_offers_a_refill() {
     let mut w = window();
+    // Automatic refill off, so the manual Refill shows.
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.zone.auto_refill", "value": "off"}),
+        )
+        .unwrap();
     focus(&mut w);
     w.h.key_press(Key::Z);
     w.h.run();

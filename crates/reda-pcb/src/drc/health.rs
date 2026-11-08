@@ -88,13 +88,17 @@ pub fn findings(pcb: &PcbDocument) -> Vec<Finding> {
         }
     }
     out.extend(duplicates(pcb));
-    for zone in pcb.zones() {
-        if poly::polygon(poly::contour(&zone.vertices)).is_empty() {
+    for zone in pcb.active_zones() {
+        let vertices = pcb.zone_vertices(zone);
+        if vertices.is_empty() {
+            continue;
+        }
+        if poly::polygon(poly::contour(vertices)).is_empty() {
             out.push(Finding {
                 check: DrcCheck::ZeroAreaZone,
                 objects: vec![zone.uuid],
                 remove: zone.uuid,
-                at: zone.vertices[0].point(),
+                at: vertices[0].point(),
                 layers: vec![zone.layer],
                 length: None,
             });

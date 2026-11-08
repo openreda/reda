@@ -474,3 +474,80 @@ fn output_origin_phases_the_board_grid_for_hover_drawing_and_electrical_snap() {
         (mm(4.0, 4.0), SnapKind::Grid)
     );
 }
+
+fn add_zone(b: &mut Board, x0: f64) {
+    let p = |x: f64, y: f64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
+    run(
+        &mut b.shell,
+        "pcb.zone.add",
+        json!({"layer": "copper_top", "remove_unconnected": false,
+               "vertices": [p(x0, 0.0), p(x0 + 4.0, 0.0), p(x0 + 4.0, 4.0), p(x0, 4.0)]}),
+    );
+}
+
+#[test]
+fn zones_refill_in_the_background_after_each_committed_edit() {
+    let mut b = board();
+    let start = b.mark();
+    add_zone(&mut b, 0.0);
+    assert!(b.shell.zone_refill_running(), "the edit starts a refill");
+    b.shell.wait_zone_refill();
+    assert!(!b.shell.zone_refill_running());
+    assert!(!b.shell.zones_need_refill());
+    assert_eq!(b.edits_since(start), ["pcb.zone.add", "pcb.zone.fill"]);
+    let pcb = b.pcb().uuid;
+    let fills = b.shell.engine().project().unwrap().zone_fills(pcb).unwrap();
+    assert_eq!(fills.zones.len(), 1);
+
+    // Each Zone has its own hash: a second Zone apart from the first refills alone.
+    add_zone(&mut b, 10.0);
+    b.shell.wait_zone_refill();
+    assert!(!b.shell.zones_need_refill());
+    let fill = b.shell.engine().journal().last().unwrap().clone();
+    assert_eq!(fill.id, "pcb.zone.fill");
+    assert_eq!(fill.outcome.unwrap()["zones"].as_array().unwrap().len(), 1);
+
+    // A query or a view change starts nothing.
+    run(&mut b.shell, "pcb.zone.fill_status", json!({}));
+    assert!(!b.shell.zone_refill_running());
+}
+
+#[test]
+fn with_automatic_refill_off_zones_wait_for_refill() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key": "pcb.zone.auto_refill", "value": "off"}),
+    );
+    add_zone(&mut b, 0.0);
+    assert!(!b.shell.zone_refill_running());
+    b.shell.wait_zone_refill();
+    assert!(b.shell.zones_need_refill());
+}
+
+#[test]
+fn a_refill_never_runs_during_a_drag() {
+    let mut b = board();
+    add_zone(&mut b, 0.0);
+    assert!(b.shell.zone_refill_running());
+    // A rectangle drag on empty board stops the refill in flight...
+    b.shell.pcb_press(mm(30.0, 30.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(35.0, 35.0));
+    while b.shell.poll_zone_refill() {
+        std::thread::yield_now();
+    }
+    assert!(
+        b.shell.zones_need_refill(),
+        "the cancelled fill kept nothing"
+    );
+    // ...and none starts again until it ends.
+    assert!(!b.shell.poll_zone_refill());
+    b.shell.pcb_release();
+    assert!(
+        b.shell.poll_zone_refill(),
+        "the next one starts after the drag"
+    );
+    b.shell.wait_zone_refill();
+    assert!(!b.shell.zones_need_refill());
+}

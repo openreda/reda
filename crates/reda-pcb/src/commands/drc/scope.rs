@@ -108,7 +108,9 @@ fn bounds(pcb: &PcbDocument, uuid: Uuid) -> Option<Bounds> {
         return Some(free_pad_bounds(pad));
     }
     let vertices = if let Some(zone) = pcb.zone(uuid) {
-        &zone.vertices
+        pcb.zone_vertices(zone)
+    } else if let Some(cutout) = pcb.zone_cutout(uuid) {
+        &cutout.vertices
     } else if let Some(keepout) = pcb.keepout(uuid) {
         &keepout.vertices
     } else if let Some(cutout) = pcb.cutout(uuid) {

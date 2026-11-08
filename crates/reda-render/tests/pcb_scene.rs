@@ -79,6 +79,42 @@ fn zone_fills_are_drawn_filled_stale_or_not_at_all() {
 }
 
 #[test]
+fn a_shelved_zone_is_hidden_from_the_canvas_and_a_zone_cutout_is_outlined() {
+    let dir = TempDir::new("pcb-shelved");
+    let mut engine = demo(&dir);
+    let board = sample_board(&mut engine);
+    assert!(
+        engine
+            .document_scene(board.pcb)
+            .unwrap()
+            .items_of(board.zone)
+            .next()
+            .is_some()
+    );
+    engine.run_ok(
+        "pcb.zone.shelve",
+        json!({"zones": [board.zone.to_string()]}),
+    );
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert_eq!(
+        scene.items_of(board.zone).count(),
+        0,
+        "neither fill nor outline"
+    );
+    engine.run_ok("pcb.zone.restore", json!({}));
+    let cutout = engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer": "copper_bottom", "vertices": rect(2.0, 2.0, 6.0, 6.0)}),
+    );
+    let cutout = uuid(&cutout["result"]["uuid"]);
+    let scene = engine.document_scene(board.pcb).unwrap();
+    let bottom = layer(&engine, LayerKind::Copper, Some(Side::Bottom));
+    let edges: Vec<_> = scene.items_of(cutout).collect();
+    assert_eq!(edges.len(), 4);
+    assert!(edges.iter().all(|i| i.layer == SceneLayer::Board(bottom)));
+}
+
+#[test]
 fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked() {
     let dir = TempDir::new("pcb-keepouts");
     let mut engine = demo(&dir);
