@@ -46,6 +46,16 @@ pub struct WrittenFile {
     pub function: &'static str,
 }
 
+/// A file the run left out because it would have held nothing.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SkippedFile {
+    /// The name it would have had, such as `Demo.GBP`.
+    pub name: String,
+    /// What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top` or
+    /// `silkscreen_bottom`. Copper, Solder Mask and the Profile are always written.
+    pub function: &'static str,
+}
+
 /// The run report.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct JobRunResult {
@@ -55,6 +65,9 @@ pub struct JobRunResult {
     pub zip: PathBuf,
     /// Every file written, in zip order.
     pub files: Vec<WrittenFile>,
+    /// The Gerber files left out because they would have been empty: a Silkscreen or Paste
+    /// with nothing on it.
+    pub skipped: Vec<SkippedFile>,
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
     /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
     /// with no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,
@@ -69,7 +82,8 @@ impl Command for JobRun {
         title: "Run Output Job",
         description: "Runs an Output Job: refills stale Zones, plots the Gerber X2 files \
                       (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
-                      Outline as the Profile) and the Excellon drill files (plated and \
+                      Outline as the Profile; an empty Silkscreen or Paste is left out and \
+                      listed in `skipped`) and the Excellon drill files (plated and \
                       non-plated) and writes them with the CSV BOM and CPL (columns from the \
                       job's Fab Preset; Not Fitted and Mechanical Parts left out) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
@@ -78,7 +92,8 @@ impl Command for JobRun {
                       preset, and for a `relative` one the Output Origin, or the lower-left \
                       of the Board Outline while none is placed. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
-                      Board Outline and a Footprint the PCB cannot resolve block the run \
+                      Board Outline, a Footprint the PCB cannot resolve and a coordinate \
+                      beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run \
                       (`rejected`, `details.blockers`). Other problems, such as an \
                       out-of-sync PCB or a Component without a Footprint, are listed as \
                       `warnings`. \
@@ -103,6 +118,7 @@ impl Command for JobRun {
         const STEPS: f64 = 6.0;
         let created = cx.now();
         let fonts = cx.fonts().clone();
+        let version = cx.version().to_owned();
         cx.progress(0.0, Some(STEPS), "Checking the design");
         cx.check_cancelled()?;
 
@@ -170,8 +186,19 @@ impl Command for JobRun {
             instances: &instances,
             gerber: &preset.gerber,
             fonts: &fonts,
-            created,
+            version: &version,
+            part: reda_output::Part::Single,
         };
+        let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
+            let blocker = checks::out_of_range(&out);
+            let mut err = CommandError::rejected(format!(
+                "Output Job \"{}\" cannot run: {} holds a coordinate beyond ±2147.483647 mm, \
+                 which a Gerber file can't hold",
+                job.name, out.file
+            ));
+            err.details = Some(json!({"blockers": [blocker], "warnings": warnings}));
+            err
+        })?;
         let bom =
             reda_output::bom_file(project, &pcb, &preset.bom.columns, &preset.bom.mount_values);
         let cpl = reda_output::cpl_file(
@@ -182,8 +209,21 @@ impl Command for JobRun {
         );
         let mut known: Vec<String> = Vec::new();
         let mut files: Vec<OutputFile> = Vec::new();
+        let skipped = if job.outputs.gerber {
+            gerbers
+                .skipped
+                .iter()
+                .map(|f| SkippedFile {
+                    name: f.name.clone(),
+                    function: f.function,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
         for (on, every) in [
-            (job.outputs.gerber, reda_output::gerber_files(&plot)),
+            (job.outputs.gerber, gerbers.files),
             (job.outputs.drill, reda_output::drill_files(&plot)),
             (job.outputs.bom, vec![bom]),
             (job.outputs.cpl, vec![cpl]),
@@ -216,6 +256,7 @@ impl Command for JobRun {
                     function: f.function,
                 })
                 .collect(),
+            skipped,
             warnings,
         })
     }

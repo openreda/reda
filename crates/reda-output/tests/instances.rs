@@ -3,7 +3,7 @@
 mod drill_reader;
 mod gerber_reader;
 
-use reda_command::{Fonts, Timestamp};
+use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{FileOrigin, Uuid};
 use reda_output::{BoardInstance, InstanceTransform, Plot, cpl_file, drill_files, gerber_files};
@@ -61,9 +61,10 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         instances: &[],
         gerber: &preset.gerber,
         fonts: &fonts,
-        created: Timestamp(0),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
     };
-    assert!(gerber_files(&empty).is_empty());
+    assert!(gerber_files(&empty).unwrap().files.is_empty());
     assert!(drill_files(&empty).is_empty());
     let instances = [
         BoardInstance::single(pcb, &fills, FileOrigin::Absolute),
@@ -81,9 +82,10 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         instances: &instances,
         gerber: &preset.gerber,
         fonts: &fonts,
-        created: Timestamp(0),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
     };
-    let gerbers = gerber_files(&plot);
+    let gerbers = gerber_files(&plot).unwrap().files;
     let read =
         |name: &str| gerber_reader::read(&gerbers.iter().find(|f| f.name == name).unwrap().bytes);
     let copper = read("Demo.GTL");

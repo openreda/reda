@@ -23,10 +23,6 @@
         "name": "Minimal.GTP"
       },
       {
-        "function": "paste_bottom",
-        "name": "Minimal.GBP"
-      },
-      {
         "function": "silkscreen_top",
         "name": "Minimal.GTO"
       },
@@ -53,6 +49,12 @@
       {
         "function": "cpl",
         "name": "Minimal-CPL.csv"
+      }
+    ],
+    "skipped": [
+      {
+        "function": "paste_bottom",
+        "name": "Minimal.GBP"
       }
     ],
     "warnings": [],

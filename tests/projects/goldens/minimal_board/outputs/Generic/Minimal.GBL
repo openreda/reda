@@ -1,7 +1,7 @@
-%TF.GenerationSoftware,openreda,REDA*%
-%TF.CreationDate,2026-01-01T00:00:00+00:00*%
+%TF.GenerationSoftware,openreda,REDA,0.0.0-test*%
 %TF.ProjectId,Minimal,00000000-0000-4000-8000-000000000001,A*%
 %TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2*%
+%TF.Part,Single*%
 %TF.FileFunction,Copper,L2,Bot*%
 %TF.FilePolarity,Positive*%
 %FSLAX46Y46*%
@@ -19,10 +19,9 @@ D10*
 %TO.P,J1,1*%
 %TO.N,VCC*%
 X5000000Y11270000D03*
-%TD*%
 D11*
+%TD*%
 %TO.P,J1,2*%
 %TO.N,GND*%
 X5000000Y8730000D03*
-%TD*%
 M02*

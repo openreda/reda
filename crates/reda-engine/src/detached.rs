@@ -30,6 +30,7 @@ pub struct Detached {
     session: Session,
     clock: FixedClock,
     fonts: Fonts,
+    version: String,
     headless: bool,
     /// The PCB Document's Zone fills when the run was split off.
     fills: Option<(Uuid, Option<ZoneFills>)>,
@@ -61,6 +62,7 @@ impl Detached {
             clock: &self.clock,
             parts: &parts,
             fonts: &self.fonts,
+            version: &self.version,
             headless: self.headless,
         };
         let outcome = self.registry.run_with(
@@ -116,6 +118,7 @@ impl Engine {
             },
             clock: FixedClock(self.now()),
             fonts: self.fonts().clone(),
+            version: self.version().to_owned(),
             headless: self.is_headless(),
             fills,
         })

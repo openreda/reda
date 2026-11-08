@@ -127,7 +127,13 @@ pub enum Object {
     Region {
         /// Dark (adds copper) or clear (removes it).
         dark: bool,
+        /// The contour's points, from the start point round to it again.
         points: Vec<(i64, i64)>,
+        /// The arcs among the contour's segments: `(index of the segment's end point in
+        /// points, arc)`.
+        arcs: Vec<(usize, Arc)>,
+        /// The `.AperFunction` aperture attribute in force when the region closed.
+        function: Option<String>,
         attributes: BTreeMap<String, String>,
     },
 }
@@ -139,6 +145,12 @@ pub struct Layer {
     pub file: BTreeMap<String, String>,
     pub objects: Vec<Object>,
     pub ended: bool,
+    /// The `%FS…%` coordinate format, such as `LAX46Y46`.
+    pub format: String,
+    /// The `%MO…%` unit, `MM` or `IN`.
+    pub unit: String,
+    /// The attributes written as `G04 #@! …` comments rather than commands (X2 off).
+    pub comment_attributes: usize,
 }
 
 impl Layer {
@@ -206,6 +218,9 @@ fn unescape(s: &str) -> String {
     out
 }
 
+/// A region's points and arcs so far.
+type OpenRegion = (Vec<(i64, i64)>, Vec<(usize, Arc)>);
+
 struct Reader {
     decimals: u32,
     inch: bool,
@@ -217,7 +232,8 @@ struct Reader {
     point: (i64, i64),
     mode: u32,
     dark: bool,
-    region: Option<Vec<(i64, i64)>>,
+    /// The open region's points and arcs.
+    region: Option<OpenRegion>,
     layer: Layer,
 }
 
@@ -243,10 +259,12 @@ impl Reader {
 
     fn extended(&mut self, cmd: &str) {
         if let Some(fs) = cmd.strip_prefix("FS") {
+            self.layer.format = fs.to_string();
             let x = fs.find('X').unwrap();
             self.decimals = fs[x + 2..x + 3].parse().unwrap();
         } else if let Some(mo) = cmd.strip_prefix("MO") {
             self.inch = mo == "IN";
+            self.layer.unit = mo.to_string();
         } else if let Some(lp) = cmd.strip_prefix("LP") {
             self.dark = lp == "D";
         } else if let Some(am) = cmd.strip_prefix("AM") {
@@ -356,12 +374,14 @@ impl Reader {
             match letter {
                 'G' => match value.parse::<u32>().unwrap() {
                     n @ 1..=3 => self.mode = n,
-                    36 => self.region = Some(Vec::new()),
+                    36 => self.region = Some((Vec::new(), Vec::new())),
                     37 => {
-                        let points = self.region.take().unwrap();
+                        let (points, arcs) = self.region.take().unwrap();
                         self.layer.objects.push(Object::Region {
                             dark: self.dark,
                             points,
+                            arcs,
+                            function: self.aperture_attributes.get(".AperFunction").cloned(),
                             attributes: self.object_attributes.clone(),
                         });
                     }
@@ -374,21 +394,28 @@ impl Reader {
                 'J' => j = self.coordinate(value),
                 'D' => {
                     let code: u32 = value.parse().unwrap();
+                    if code <= 3 {
+                        // REDA's dialect writes X and Y on every operation.
+                        assert!(x.is_some() && y.is_some(), "X and Y missing in {cmd}");
+                    }
                     let to = (x.unwrap_or(self.point.0), y.unwrap_or(self.point.1));
+                    let arc = (self.mode != 1).then(|| Arc {
+                        centre: (self.point.0 + i, self.point.1 + j),
+                        ccw: self.mode == 3,
+                    });
                     match code {
                         1 => {
-                            if let Some(region) = &mut self.region {
+                            if let Some((region, arcs)) = &mut self.region {
                                 if region.is_empty() {
                                     region.push(self.point);
                                 }
                                 region.push(to);
+                                if let Some(arc) = arc {
+                                    arcs.push((region.len() - 1, arc));
+                                }
                             } else {
                                 let (aperture, function) =
                                     self.apertures[&self.current.unwrap()].clone();
-                                let arc = (self.mode != 1).then(|| Arc {
-                                    centre: (self.point.0 + i, self.point.1 + j),
-                                    ccw: self.mode == 3,
-                                });
                                 self.layer.objects.push(Object::Draw {
                                     from: self.point,
                                     to,
@@ -400,7 +427,7 @@ impl Reader {
                             }
                         }
                         2 => {
-                            if let Some(region) = &mut self.region {
+                            if let Some((region, _)) = &mut self.region {
                                 assert!(region.is_empty(), "one contour per region");
                             }
                         }
@@ -430,6 +457,24 @@ impl Reader {
     }
 }
 
+/// The winding number of `ring` (closed or not) about `q`: non-zero when the region
+/// fills `q`. Cut-in pairs cancel out.
+pub fn winding(ring: &[(i64, i64)], q: (i64, i64)) -> i32 {
+    let mut w = 0;
+    let n = ring.len();
+    for k in 0..n {
+        let (a, b) = (ring[k], ring[(k + 1) % n]);
+        let side =
+            (b.0 - a.0) as i128 * (q.1 - a.1) as i128 - (b.1 - a.1) as i128 * (q.0 - a.0) as i128;
+        if a.1 <= q.1 && b.1 > q.1 && side > 0 {
+            w += 1;
+        } else if a.1 > q.1 && b.1 <= q.1 && side < 0 {
+            w -= 1;
+        }
+    }
+    w
+}
+
 /// Reads a Gerber file.
 pub fn read(bytes: &[u8]) -> Layer {
     let text = std::str::from_utf8(bytes).expect("Gerber is ASCII");
@@ -450,6 +495,10 @@ pub fn read(bytes: &[u8]) -> Layer {
     for (extended, cmd) in commands(text) {
         if extended {
             reader.extended(&cmd);
+        } else if let Some(attribute) = cmd.strip_prefix("G04 #@! ") {
+            // An attribute written as a comment, for readers without X2.
+            reader.layer.comment_attributes += 1;
+            reader.extended(attribute);
         } else if !cmd.starts_with("G04") {
             reader.word(&cmd);
         }

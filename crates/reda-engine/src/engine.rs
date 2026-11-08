@@ -72,6 +72,7 @@ pub struct Engine {
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     fonts: Fonts,
+    version: String,
     headless: bool,
     source: Source,
     journal: Vec<JournalEntry>,
@@ -120,6 +121,7 @@ impl Engine {
             clock: &*self.clock,
             parts: &parts,
             fonts: &self.fonts,
+            version: &self.version,
             headless: self.headless,
         };
         let mark = self.session.history.mark();
@@ -163,6 +165,11 @@ impl Engine {
 
     pub(crate) fn is_headless(&self) -> bool {
         self.headless
+    }
+
+    /// The REDA version output files name as their generator.
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     /// The injected clock's time.
@@ -297,6 +304,7 @@ impl Engine {
             clock: &*self.clock,
             parts,
             fonts: &self.fonts,
+            version: &self.version,
             headless: self.headless,
         };
         self.registry
@@ -347,6 +355,7 @@ pub struct EngineBuilder {
     ids: Box<dyn IdSource>,
     clock: Box<dyn Clock>,
     fonts: Fonts,
+    version: String,
     headless: bool,
     source: Source,
     user_dirs: Option<UserDirs>,
@@ -391,6 +400,7 @@ impl Default for EngineBuilder {
             ids: Box::new(default_ids()),
             clock: default_clock(),
             fonts: Fonts::default(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
             headless: true,
             source: Source::default(),
             user_dirs: crate::user_dirs::discover(),
@@ -414,6 +424,13 @@ impl EngineBuilder {
     /// The font bytes for text in installed fonts; see [`Engine::fonts_mut`].
     pub fn fonts(mut self, fonts: Fonts) -> EngineBuilder {
         self.fonts = fonts;
+        self
+    }
+
+    /// The REDA version output files name as their generator; by default this build's.
+    /// Tests pass a fixed one so goldens survive releases.
+    pub fn version(mut self, version: impl Into<String>) -> EngineBuilder {
+        self.version = version.into();
         self
     }
 
@@ -473,6 +490,7 @@ impl EngineBuilder {
             ids: self.ids,
             clock: self.clock,
             fonts: self.fonts,
+            version: self.version,
             headless: self.headless,
             source: self.source,
             journal: Vec::new(),

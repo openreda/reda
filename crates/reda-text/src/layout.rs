@@ -6,7 +6,7 @@ use i_triangle::i_overlay::i_float::int::point::IntPoint;
 use i_triangle::int::unchecked::IntUncheckedTriangulatable;
 use reda_geom::{Nm, Point};
 
-use crate::geometry::{Mesh, Segment, TextGeometry};
+use crate::geometry::{Mesh, Region, Segment, TextGeometry};
 use crate::outline::OutlineFont;
 use crate::stroke::{StrokeFont, StrokeGlyph};
 
@@ -28,7 +28,7 @@ pub fn layout(text: &str, font: Font<'_>, height: Nm, fallback: &OutlineFont) ->
     match font {
         Font::Stroke(stroke) => layout_stroke(&mut out, text, stroke, height, fallback),
         Font::Outline(outline) => {
-            out.advance = Nm(push_outline_run(&mut out.fill, text, outline, height, 0));
+            out.advance = Nm(push_outline_run(&mut out, text, outline, height, 0));
         }
     }
     out
@@ -54,8 +54,7 @@ fn layout_stroke(
             .map_or(rest.len(), |(i, _)| i);
         if missing > 0 {
             let origin = scale.apply(units) + fallback_nm;
-            fallback_nm +=
-                push_outline_run(&mut out.fill, &rest[..missing], fallback, height, origin);
+            fallback_nm += push_outline_run(out, &rest[..missing], fallback, height, origin);
             rest = &rest[missing..];
             continue;
         }
@@ -90,10 +89,10 @@ fn push_stroke_glyph(
     }
 }
 
-/// Shapes `text` in `font`, fills each glyph into `mesh` starting at `origin_x` nm, and
-/// returns the run's advance in nm.
+/// Shapes `text` in `font`, fills each glyph into `out` (mesh and regions) starting at
+/// `origin_x` nm, and returns the run's advance in nm.
 fn push_outline_run(
-    mesh: &mut Mesh,
+    out: &mut TextGeometry,
     text: &str,
     font: &OutlineFont,
     height: Nm,
@@ -115,14 +114,26 @@ fn push_outline_run(
             .iter()
             .map(|c| c.iter().copied().map(to_nm).collect())
             .collect();
-        mesh.append(triangulate(&shape));
+        let shapes = shape.simplify(FillRule::NonZero, Default::default());
+        let point = |p: &IntPoint<i64>| Point::new(Nm(p.x), Nm(p.y));
+        out.regions.extend(shapes.iter().filter_map(|rings| {
+            let (outer, holes) = rings.split_first()?;
+            Some(Region {
+                outer: outer.iter().map(point).collect(),
+                holes: holes
+                    .iter()
+                    .map(|h| h.iter().map(point).collect())
+                    .collect(),
+            })
+        }));
+        out.fill.append(triangulate(shapes));
     }
     scale.apply(shaped.advance)
 }
 
-/// Resolves overlaps and winding with a non-zero union, then triangulates.
-fn triangulate(contours: &[Vec<IntPoint<i64>>]) -> Mesh {
-    let shapes = contours.simplify(FillRule::NonZero, Default::default());
+/// Triangulates shapes already simplified (overlaps and winding resolved by a non-zero
+/// union).
+fn triangulate(shapes: Vec<Vec<Vec<IntPoint<i64>>>>) -> Mesh {
     let triangulation = shapes.uncheck_triangulate().into_triangulation::<u32>();
     Mesh {
         points: triangulation
