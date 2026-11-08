@@ -825,10 +825,7 @@ fn the_gear_opens_preferences_and_the_command_field_the_palette() {
     h.get_by_label_contains("Search Documents, Components, Nets")
         .click();
     h.run();
-    assert_eq!(
-        journal_ids(&h).last().unwrap(),
-        "app.dialog.open:command_palette"
-    );
+    assert_eq!(journal_ids(&h).last().unwrap(), "app.dialog.open:palette");
 }
 
 #[test]

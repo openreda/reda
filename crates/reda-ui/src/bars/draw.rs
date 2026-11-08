@@ -131,7 +131,7 @@ fn command_field(
     let centre = centre.clamp(left + width / 2.0, right - width / 2.0);
     let action = Action {
         id: "top_row.command_field".to_owned(),
-        binding: super::Binding::Preset("app.dialog.open:command_palette".to_owned()),
+        binding: super::Binding::Preset("app.dialog.open:palette".to_owned()),
         title: None,
         icon: None,
     };
@@ -144,6 +144,7 @@ fn command_field(
         button = button.right_text(egui::RichText::new(shortcut).weak());
     }
     let at = Rect::from_center_size(egui::pos2(centre, y), Vec2::new(width, chrome::QUICK_ICON));
+    crate::palette::remember_command_field(ui.ctx(), at);
     let response = ui.put(at, button).on_hover_text(&item.title);
     response.clicked().then_some(item.run.ok()).flatten()
 }

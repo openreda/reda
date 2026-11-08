@@ -27,7 +27,9 @@ pub enum Request {
     NewProject,
     /// Show the OS dialog to pick a Project to open.
     OpenProject,
-    /// Show the Command Palette.
+    /// Show the Palette, empty.
+    Palette,
+    /// Show the Palette on Commands (`>` typed in).
     CommandPalette,
     /// Close the window.
     Quit,
@@ -115,7 +117,9 @@ pub enum Dialog {
     OpenProject,
     /// The Preferences dialog.
     Preferences,
-    /// The Command Palette.
+    /// The Palette, empty: go to a Document, Component or Net.
+    Palette,
+    /// The Palette on Commands.
     CommandPalette,
     /// The About box, with the third-party licences.
     About,
@@ -165,6 +169,7 @@ impl Command for OpenDialog {
                 "preferences",
                 json!({"dialog": "preferences"}),
             ),
+            Preset::new("palette", "Go to…", "search", json!({"dialog": "palette"})),
             Preset::new(
                 "command_palette",
                 "Command Palette…",
@@ -192,6 +197,7 @@ impl Command for OpenDialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
             Dialog::Preferences => Request::Preferences,
+            Dialog::Palette => Request::Palette,
             Dialog::CommandPalette => Request::CommandPalette,
             Dialog::About => Request::About,
             Dialog::ChangeList => Request::ChangeList,
