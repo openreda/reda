@@ -12,6 +12,10 @@ _Avoid_: Workspace, design, solution
 A single editable part of a Project, opened as a tab in the application, such as a Schematic Sheet or a PCB Document.
 _Avoid_: File, page, view
 
+**Missing Document**:
+A Document the Project file lists whose file is gone. It keeps its place and number but cannot be opened until it is relinked to a file or removed from the Project.
+_Avoid_: Broken Document, orphan
+
 **Schematic Sheet**:
 A Document that expresses a circuit's logical connectivity using Symbols and wires.
 _Avoid_: Schematic page, diagram

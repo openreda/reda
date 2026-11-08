@@ -92,6 +92,19 @@ impl Command for DocumentAdd {
         for object in contents {
             tx.insert(object)?;
         }
+        if p.kind == DocumentKind::Pcb {
+            // The new PCB Document takes the place of a missing one.
+            let mut props = tx.project().props().clone();
+            let gone: Vec<Uuid> = (props.missing.iter())
+                .filter(|m| m.kind == DocumentKind::Pcb)
+                .map(|m| m.uuid)
+                .collect();
+            if !gone.is_empty() {
+                props.missing.retain(|m| !gone.contains(&m.uuid));
+                props.documents.retain(|d| !gone.contains(d));
+                tx.replace(Object::Project(props))?;
+            }
+        }
         Ok(entry)
     }
 }
@@ -102,8 +115,7 @@ impl Command for DocumentAdd {
 fn default_names(project: &Project, kind: DocumentKind) -> (String, String) {
     match kind {
         DocumentKind::Schematic => {
-            let sheets: Vec<&DocumentEntry> =
-                project.documents().filter(|d| d.kind == kind).collect();
+            let sheets: Vec<&DocumentEntry> = listed(project).filter(|d| d.kind == kind).collect();
             let taken = |title: &str, name: &str| {
                 sheets.iter().any(|d| {
                     d.title.to_lowercase() == title.to_lowercase() || d.name.to_lowercase() == name
@@ -140,8 +152,7 @@ fn free_name(project: &Project, kind: DocumentKind, title: &str, except: Option<
         base.push('_');
     }
     let taken = |name: &str| {
-        project
-            .documents()
+        listed(project)
             .filter(|d| Some(d.uuid) != except)
             .any(|d| d.kind == kind && d.name.to_lowercase() == name.to_lowercase())
     };
@@ -152,6 +163,14 @@ fn free_name(project: &Project, kind: DocumentKind, title: &str, except: Option<
         n += 1;
     }
     name
+}
+
+/// Every Document the Project file lists, missing ones too: none of them can give its
+/// file name to another Document. A missing PCB Document is left out, since a new one
+/// takes its place.
+fn listed(project: &Project) -> impl Iterator<Item = &DocumentEntry> {
+    let missing = project.props().missing.iter();
+    (project.documents()).chain(missing.filter(|m| m.kind != DocumentKind::Pcb))
 }
 
 pub struct DocumentDelete;
@@ -168,7 +187,9 @@ impl Command for DocumentDelete {
         id: "document.delete",
         title: "Delete Document",
         description: "Deletes a Document and everything in it, as one undoable step on the \
-                      Project's stack. Its file goes to the OS trash when the Project file is next saved.",
+                      Project's stack. Its file goes to the OS trash when the Project file is next saved. \
+                      A missing Document (one whose file is gone) is removed from the Project: \
+                      the Project file stops listing it.",
         category: "project",
         icon: "delete",
         kind: Kind::Edit,
@@ -177,7 +198,15 @@ impl Command for DocumentDelete {
     type Output = ();
 
     fn run(&self, cx: &mut Context<'_>, p: DocumentDeleteParams) -> Result<(), CommandError> {
-        if cx.project()?.document(p.document).is_none() {
+        let project = cx.project()?;
+        if project.missing_document(p.document).is_some() {
+            let mut props = project.props().clone();
+            props.missing.retain(|m| m.uuid != p.document);
+            props.documents.retain(|d| *d != p.document);
+            cx.tx()?.replace(Object::Project(props))?;
+            return Ok(());
+        }
+        if project.document(p.document).is_none() {
             return Err(CommandError::not_found(format!(
                 "no Document has UUID {}",
                 p.document

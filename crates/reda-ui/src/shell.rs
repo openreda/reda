@@ -1039,7 +1039,7 @@ impl Shell {
             self.message = Some(tr!(
                 "status-last-project-missing",
                 project = last.name.as_str(),
-                path = last.path.display().to_string()
+                path = reda_engine::fs::display_path(&last.path)
             ));
             return;
         }
@@ -2038,6 +2038,7 @@ impl Shell {
             self.change_list = None;
             self.messages.clear_runs();
             self.messages.set_notes(FONTS, Vec::new());
+            self.messages.set_notes(MISSING_DOCUMENTS, Vec::new());
             return;
         }
         let no_project = project.is_none();
@@ -2428,8 +2429,38 @@ impl Shell {
         }
     }
 
+    /// A note in Messages for each Document whose file is missing: an error for the PCB
+    /// Document, a warning for a sheet.
+    fn note_missing_documents(&mut self) {
+        let folder = self.engine.location().map(Path::to_path_buf);
+        let notes = (self.engine.project().into_iter())
+            .flat_map(|p| p.props().missing.iter())
+            .map(|entry| {
+                let path = match &folder {
+                    Some(folder) => reda_engine::fs::display_path(&folder.join(entry.file_name())),
+                    None => entry.file_name(),
+                };
+                Note {
+                    source: MISSING_DOCUMENTS.to_owned(),
+                    document: None,
+                    severity: match entry.kind {
+                        DocumentKind::Pcb => Severity::Error,
+                        DocumentKind::Schematic => Severity::Warning,
+                    },
+                    text: tr!(
+                        "message-missing-document",
+                        name = entry.title.as_str(),
+                        path = path.as_str()
+                    ),
+                }
+            })
+            .collect();
+        self.messages.set_notes(MISSING_DOCUMENTS, notes);
+    }
+
     /// Hands the engine the installed fonts that PCB text names and it does not have yet.
     fn load_fonts(&mut self) {
+        self.note_missing_documents();
         let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) else {
             self.messages.set_notes(FONTS, Vec::new());
             return;
@@ -2472,6 +2503,8 @@ fn document_file(path: &Path) -> Option<(String, DocumentKind)> {
 
 /// The `source` of missing-font warnings.
 const FONTS: &str = "fonts";
+/// The `source` of the notes on Documents whose files are missing.
+const MISSING_DOCUMENTS: &str = "documents";
 /// The `source` of Preference warnings.
 const PREFERENCES: &str = "preferences";
 const KEYMAP: &str = "keymap";

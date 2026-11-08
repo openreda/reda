@@ -53,6 +53,8 @@ pub struct ParamForm {
     rest: Map<String, Value>,
     /// Why the last run failed.
     pub(super) error: Option<String>,
+    /// Warnings the form shows above its buttons, such as what a package leaves out.
+    notes: Vec<String>,
 }
 
 impl ParamForm {
@@ -103,7 +105,19 @@ impl ParamForm {
             fields,
             rest,
             error: None,
+            notes: Vec::new(),
         }
+    }
+
+    /// The form with `notes` shown as warnings above its buttons.
+    pub fn with_notes(mut self, notes: Vec<String>) -> ParamForm {
+        self.notes = notes;
+        self
+    }
+
+    /// The warnings the form shows.
+    pub fn notes(&self) -> &[String] {
+        &self.notes
     }
 
     /// The Command id the form is for.

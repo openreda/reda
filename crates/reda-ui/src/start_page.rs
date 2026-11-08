@@ -56,7 +56,7 @@ fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
     ui.horizontal(|ui| {
         let open = ui
             .add_enabled(!project.missing, Button::new(&project.name).frame(false))
-            .on_hover_text(project.path.display().to_string())
+            .on_hover_text(reda_engine::fs::display_path(&project.path))
             .on_disabled_hover_text(tr!("start-project-missing"));
         if open.clicked() {
             action = Some(StartAction::OpenRecent(project.path.clone()));

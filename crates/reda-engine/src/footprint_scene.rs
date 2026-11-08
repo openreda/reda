@@ -111,6 +111,7 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         schematic: Default::default(),
         reannotate: None,
         library_update: None,
+        missing: vec![],
     });
     let document = new_id();
     let rules = FabRules {

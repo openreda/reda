@@ -49,3 +49,11 @@ impl DocumentEntry {
         format!("{}.{}", self.name, self.kind.extension())
     }
 }
+
+/// One row of the Project's full Document list ([`crate::Project::document_list`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedDocument {
+    pub entry: DocumentEntry,
+    /// Its file is missing: it is listed but not open.
+    pub missing: bool,
+}
