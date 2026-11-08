@@ -38,6 +38,9 @@ use crate::start_page::StartAction;
 use crate::user_preferences::Watcher;
 use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
 
+/// How many targets the Palette remembers as recent.
+const RECENT: usize = 8;
+
 /// Where the window remembers its status bar row's height between frames.
 fn status_bar_id() -> egui::Id {
     egui::Id::NULL.with("status-bar-height")
@@ -70,8 +73,10 @@ pub struct App {
     /// The control port, for agents.
     bridge: Bridge,
     bridge_waker_set: bool,
-    /// The open Command Palette.
+    /// The open Palette.
     palette: Option<Palette>,
+    /// What the Palette chose lately, most recent first, which it shows when empty.
+    palette_recent: Vec<palette::Target>,
     /// The hand-written dialogs that replace generated params forms.
     dialogs: Dialogs,
     /// The dialog asking for a Command's missing params.
@@ -112,6 +117,7 @@ impl App {
             theme_installed: false,
             help: Default::default(),
             palette: None,
+            palette_recent: Vec::new(),
             dialogs: {
                 let mut dialogs = crate::library_dialogs::dialogs();
                 schematic_dialogs::register_dialogs(&mut dialogs);
@@ -564,11 +570,12 @@ impl App {
         self.settings.preferences()
     }
 
-    fn open_palette(&mut self) {
+    /// Opens the Palette with `query` typed in.
+    fn open_palette(&mut self, query: &str) {
         let shell = &self.shell;
         let shortcut = |id: &str| (self.shortcuts)(shell, id);
-        let entries = palette::entries(shell, &shortcut);
-        self.palette = Some(Palette::new(entries));
+        let sources = palette::Sources::of(shell, &shortcut);
+        self.palette = Some(Palette::new(sources, self.palette_recent.clone(), query));
     }
 
     fn show_palette(&mut self, ctx: &egui::Context) {
@@ -578,9 +585,15 @@ impl App {
         match open.show(ctx) {
             PaletteOutcome::Open => {}
             PaletteOutcome::Close => self.palette = None,
-            PaletteOutcome::Run(id) => {
+            PaletteOutcome::Choose(target) => {
                 self.palette = None;
-                self.call(&id, json!({}));
+                self.palette_recent.retain(|t| *t != target);
+                self.palette_recent.insert(0, target.clone());
+                self.palette_recent.truncate(RECENT);
+                match &target {
+                    palette::Target::Run(id) => self.call(id, json!({})),
+                    _ => palette::go_to(&mut self.shell, &target),
+                }
                 self.handle_requests(ctx);
             }
         }
@@ -812,7 +825,8 @@ impl App {
         for request in bars::take_requests(self.shell.engine()) {
             match request {
                 Request::NewProject => self.open_new_project(),
-                Request::CommandPalette => self.open_palette(),
+                Request::Palette => self.open_palette(""),
+                Request::CommandPalette => self.open_palette(">"),
                 Request::OpenProject => self.files.start(ctx, Pick::OpenProject),
                 Request::Quit => self.quit(ctx),
                 Request::ZoomFit(document) => {

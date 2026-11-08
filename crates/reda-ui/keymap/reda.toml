@@ -44,7 +44,11 @@ key = "Mod+Y"
 command = "edit.redo"
 params = { document = "$undo_stack" }
 
-# The Command Palette.
+# The Palette: empty, or on Commands.
+
+[[bind]]
+key = "Mod+P"
+command = "app.dialog.open:palette"
 
 [[bind]]
 key = "Mod+Shift+P"
