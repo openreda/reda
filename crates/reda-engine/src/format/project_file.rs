@@ -147,10 +147,10 @@ pub(crate) fn write_project_file(project: &Project) -> Result<Vec<u8>, Canonical
     )?;
     w.list(
         "documents",
-        project.documents().map(|d| DocumentRow {
-            uuid: d.uuid,
-            path: d.file_name(),
-            title: d.title.clone(),
+        project.document_list().into_iter().map(|d| DocumentRow {
+            uuid: d.entry.uuid,
+            path: d.entry.file_name(),
+            title: d.entry.title,
         }),
     )?;
     let libraries = &project.props().libraries;

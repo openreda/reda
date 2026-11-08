@@ -286,3 +286,197 @@ fn mod_z_undoes_on_the_stack_focus_picks() {
     h.run();
     assert_eq!((titles(&h).len(), texts(&h)), (3, 0));
 }
+
+/// The number shown before the tree item `title`: the Label on its line, left of it.
+fn number_of(h: &Harness<'static, App>, title: &str) -> String {
+    let row = row(h, title).rect();
+    h.query_all_by_role(Role::Label)
+        .filter(|n| {
+            let r = n.rect();
+            r.center().x < row.left() && r.top() < row.bottom() && r.bottom() > row.top()
+        })
+        // A Label's text is its accessible value.
+        .filter_map(|n| n.accesskit_node().value())
+        .find(|l| l.parse::<usize>().is_ok())
+        .unwrap_or_else(|| panic!("no number before {title}"))
+}
+
+#[test]
+fn each_document_shows_its_number_in_project_order_and_its_path_on_hover() {
+    let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
+    let mut h = harness(&home, &work, "Num");
+    shell(&mut h)
+        .run(
+            "document.add",
+            json!({"kind": "schematic", "title": "Power"}),
+        )
+        .unwrap();
+    h.run();
+    // Project order: Sheet 1, the PCB Document, Power.
+    assert_eq!(number_of(&h, "Sheet 1"), "1");
+    assert_eq!(number_of(&h, "Num"), "2");
+    assert_eq!(number_of(&h, "Power *"), "3");
+
+    row(&h, "Power *").hover();
+    h.run_steps(120);
+    let path = work.path().join("Num").join("Power.redasch");
+    h.get_by_label(&reda_ui::engine::fs::display_path(&path));
+}
+
+/// A saved Project `Gone` with sheets "Sheet 1" and "Power", whose Power sheet's and
+/// PCB Document's files are then deleted, opened in a new window.
+fn with_missing(home: &TempDir, work: &TempDir) -> (Harness<'static, App>, std::path::PathBuf) {
+    let mut h = harness(home, work, "Gone");
+    shell(&mut h)
+        .run(
+            "document.add",
+            json!({"kind": "schematic", "title": "Power"}),
+        )
+        .unwrap();
+    shell(&mut h).run("project.save", json!({})).unwrap();
+    drop(h);
+    let folder = work.path().join("Gone");
+    std::fs::rename(folder.join("Power.redasch"), folder.join("moved.redasch")).unwrap();
+    std::fs::remove_file(folder.join("Gone.redapcb")).unwrap();
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&folder).unwrap();
+    let mut h = Harness::builder()
+        .with_size([1100.0, 700.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    (h, folder)
+}
+
+fn missing_uuid(h: &Harness<'static, App>, title: &str) -> Uuid {
+    let project = h.state().shell().engine().project().unwrap();
+    let missing = &project.props().missing;
+    missing.iter().find(|d| d.title == title).unwrap().uuid
+}
+
+#[test]
+fn a_missing_document_is_greyed_with_a_note_in_messages_and_can_be_removed() {
+    let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
+    let (mut h, folder) = with_missing(&home, &work);
+    row(&h, "Power (missing)");
+    row(&h, "Gone (missing)");
+    assert_eq!(number_of(&h, "Power (missing)"), "3");
+
+    let notes: Vec<(String, reda_ui::engine::model::Severity)> = (h.state().shell().messages())
+        .notes()
+        .iter()
+        .map(|n| (n.text.clone(), n.severity))
+        .collect();
+    use reda_ui::engine::model::Severity::{Error, Warning};
+    let path = |file: &str| reda_ui::engine::fs::display_path(&folder.join(file));
+    assert!(
+        notes.contains(&(
+            format!(
+                "The file of Power is missing: {}. Relink it or remove it from the Project in the Projects panel.",
+                path("Power.redasch")
+            ),
+            Warning
+        )),
+        "{notes:?}"
+    );
+    assert!(
+        notes
+            .iter()
+            .any(|(t, s)| t.starts_with("The file of Gone is missing") && *s == Error)
+    );
+
+    // Its path shows on hover; its menu offers Relink… and Remove from Project.
+    row(&h, "Power (missing)").hover();
+    h.run_steps(120);
+    h.get_by_label(&format!("Its file is missing: {}", path("Power.redasch")));
+    row(&h, "Power (missing)").click_secondary();
+    h.run();
+    h.get_by_label("Relink…");
+    h.get_all_by_label("Remove from Project")
+        .last()
+        .unwrap()
+        .click();
+    h.run();
+    assert!(h.query_by_label("Power (missing)").is_none());
+    assert!(
+        h.state()
+            .shell()
+            .messages()
+            .notes()
+            .iter()
+            .all(|n| !n.text.contains("Power"))
+    );
+    // A missing PCB Document leaves Add PCB Document on offer.
+    menu(&mut h, "PCB", "Add PCB Document");
+    assert!(h.query_by_label("Gone (missing)").is_none());
+    assert!(
+        h.state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .is_some()
+    );
+}
+
+#[test]
+fn relinking_a_missing_document_brings_it_back_and_asks_about_another_documents_file() {
+    let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
+    let (mut h, folder) = with_missing(&home, &work);
+    let power = missing_uuid(&h, "Power");
+    h.state_mut().relink(power, &folder.join("moved.redasch"));
+    h.run();
+    row(&h, "Power");
+    assert!(h.query_by_label("Power (missing)").is_none());
+
+    // The PCB Document relinked to a sheet's file would be the wrong kind; relinking it
+    // to another Project's board asks first.
+    let other = TempDir::new("pp-other");
+    let mut engine = reda_testkit::test_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path": other.path(), "name": "Other"}),
+    );
+    let board = other.path().join("Other/Other.redapcb");
+    let pcb = missing_uuid(&h, "Gone");
+    h.state_mut().relink(pcb, &board);
+    h.run();
+    h.get_by_label("Relink Document");
+    h.get_by_label("Relink Anyway").click();
+    h.run();
+    assert!(h.query_by_label("Relink Anyway").is_none());
+    let project = h.state().shell().engine().project().unwrap();
+    assert_eq!(project.pcb().unwrap().uuid, pcb);
+    row(&h, "Gone *");
+}
+
+#[test]
+fn package_project_opens_a_dialog_that_warns_about_outside_libraries_and_writes_the_zip() {
+    let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
+    let mut h = harness(&home, &work, "Pkg");
+    shell(&mut h)
+        .run(
+            "library.create",
+            json!({"path": "../shared", "name": "Shared"}),
+        )
+        .unwrap();
+    shell(&mut h)
+        .run("project.library.add", json!({"path": "../shared"}))
+        .unwrap();
+    h.run();
+    // The Project's own menu (its PCB Document shares the name, unmarked).
+    menu(&mut h, "Pkg *", "Package Project…");
+    h.get_by_label("Package Project");
+    h.get_by_label("The package holds the files as last saved; unsaved changes are left out.");
+    h.get_by_label(
+        "The Library folder ../shared is outside the Project folder, so the package leaves it out.",
+    );
+    h.get_all_by_label("Run").last().unwrap().click();
+    h.run();
+    let zip = work.path().join("Pkg.zip");
+    assert!(
+        zip.is_file(),
+        "the zip goes beside the Project folder by default"
+    );
+    assert!(h.query_by_label("Package Project").is_none());
+}

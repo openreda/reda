@@ -47,6 +47,9 @@ impl ParamsDialog for ParamForm {
                     if let Some(error) = &self.error {
                         ui.colored_label(ui.visuals().error_fg_color, error);
                     }
+                    for note in self.notes() {
+                        ui.colored_label(ui.visuals().warn_fg_color, note);
+                    }
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         let run =
