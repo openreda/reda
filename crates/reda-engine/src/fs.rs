@@ -38,3 +38,45 @@ pub(crate) fn process_id() -> u32 {
         0
     }
 }
+
+/// A path as the user should read it: Windows' verbatim prefix (`\\?\C:\…`, which
+/// `std::fs::canonicalize` returns there and which lets paths past the legacy 260-character
+/// limit through) is dropped, so `\\?\C:\Work\Demo` shows as `C:\Work\Demo` and
+/// `\\?\UNC\server\share\Demo` as `\\server\share\Demo`. Other paths show as they are.
+pub fn display_path(path: &Path) -> String {
+    display_text(&path.display().to_string())
+}
+
+fn display_text(text: &str) -> String {
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    match text.strip_prefix(r"\\?\") {
+        // Only a drive path: other verbatim forms (`\\?\Volume{…}`) have no plain spelling.
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => rest.to_owned(),
+        _ => text.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::display_text;
+
+    #[test]
+    fn the_verbatim_prefix_is_dropped_for_display() {
+        assert_eq!(
+            display_text(r"\\?\C:\Work\Demo\Demo.reda"),
+            r"C:\Work\Demo\Demo.reda"
+        );
+        assert_eq!(
+            display_text(r"\\?\UNC\server\share\Demo"),
+            r"\\server\share\Demo"
+        );
+        assert_eq!(
+            display_text(r"\\?\Volume{1234}\Demo"),
+            r"\\?\Volume{1234}\Demo"
+        );
+        assert_eq!(display_text("/home/me/Demo"), "/home/me/Demo");
+        assert_eq!(display_text(r"C:\Work"), r"C:\Work");
+    }
+}

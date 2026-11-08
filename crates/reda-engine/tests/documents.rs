@@ -301,6 +301,7 @@ fn a_saved_pcb_document_opens_and_saves_to_the_same_bytes() {
 
 #[test]
 fn a_project_opened_without_its_pcb_file_reports_it_and_can_add_one() {
+    // tests/missing_documents.rs covers the missing PCB Document's place in the list.
     let (_dir, folder) = saved_with_pcb("pcb-missing");
     std::fs::remove_file(folder.join("Demo.redapcb")).unwrap();
     // Another seed, so its new UUIDs differ from those the saved Project already uses.
@@ -321,8 +322,8 @@ fn a_project_opened_without_its_pcb_file_reports_it_and_can_add_one() {
         .map(|d| &d["kind"])
         .collect();
     assert_eq!(kinds, [&json!("schematic")]);
-    // The Project file no longer matches what is open.
-    assert_eq!(engine.dirty_scopes(), [Scope::Project]);
+    // The Project file still lists it, as on disk.
+    assert!(!engine.is_dirty());
     add_pcb(&mut engine);
 }
 

@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use egui::{Panel, ThemePreference, Ui, UiBuilder};
 use reda_engine::Engine;
-use reda_engine::model::Scope;
+use reda_engine::model::{Scope, Uuid};
 use reda_engine::preferences;
 use serde_json::json;
 
@@ -85,6 +85,9 @@ pub struct App {
     schematic_dialog: Option<SchematicDialog>,
     /// The closing and quitting prompts.
     closing: Closing,
+    /// A relink waiting for the user to confirm taking a file that holds another
+    /// Document: the missing Document and the file.
+    relink_confirm: Option<(Uuid, PathBuf)>,
 }
 
 impl App {
@@ -112,6 +115,7 @@ impl App {
             dialogs: {
                 let mut dialogs = crate::library_dialogs::dialogs();
                 schematic_dialogs::register_dialogs(&mut dialogs);
+                projects_panel::register_package_dialog(&mut dialogs);
                 dialogs
             },
             schematic_dialog: None,
@@ -121,6 +125,7 @@ impl App {
             bridge_waker_set: false,
             notice: None,
             closing: Closing::default(),
+            relink_confirm: None,
         }
     }
 
@@ -276,6 +281,16 @@ impl App {
             Some(ProjectsAction::BoardSetup) => self.open_board_setup(),
             Some(ProjectsAction::EditJob(job)) => self.open_output_job(job),
             Some(ProjectsAction::RunJob(job)) => self.jobs.start(&ctx, &mut self.shell, job),
+            Some(ProjectsAction::Relink(document)) => {
+                let entry = (self.shell.engine().project())
+                    .and_then(|p| p.missing_document(document))
+                    .cloned();
+                if let Some(entry) = entry {
+                    let pick = Pick::Relink(document, entry.kind);
+                    self.files.start_save(&ctx, pick, entry.title);
+                }
+            }
+            Some(ProjectsAction::Package) => self.call("project.package", json!({})),
             None => {}
         }
         self.settings_requests(&ctx);
@@ -292,6 +307,7 @@ impl App {
         self.crash_recovery(&ctx);
         self.show_palette(&ctx);
         self.show_params_dialog(&ctx);
+        self.show_relink_confirm(&ctx);
         self.show_notice(&ctx);
         if let Some(dialog) = &mut self.schematic_dialog
             && !dialog.show(&ctx, &mut self.shell)
@@ -603,6 +619,59 @@ impl App {
         }
     }
 
+    /// Relinks the missing `document` to the file at `path`, as picked in the file
+    /// dialog. A file that holds another Document asks first.
+    pub fn relink(&mut self, document: Uuid, path: &Path) {
+        let params = json!({ "document": document, "path": path });
+        match self.shell.run("document.relink", params) {
+            Err(e) if e.details.as_ref().is_some_and(|d| d["confirm"] == true) => {
+                self.relink_confirm = Some((document, path.to_path_buf()));
+            }
+            Err(e) => self.shell.report(tr!("error-command", error = e.message)),
+            Ok(_) => self.shell.dismiss_message(),
+        }
+    }
+
+    /// Asks whether to relink to a file that holds another Document.
+    fn show_relink_confirm(&mut self, ctx: &egui::Context) {
+        let Some((document, path)) = self.relink_confirm.clone() else {
+            return;
+        };
+        let name = (self.shell.engine().project())
+            .and_then(|p| p.missing_document(document))
+            .map(|e| e.title.clone());
+        let Some(name) = name else {
+            self.relink_confirm = None;
+            return;
+        };
+        let file = reda_engine::fs::display_path(&path);
+        let (mut relink, mut close) = (false, false);
+        let modal = crate::modal::Dialog::new(
+            egui::Id::NULL.with("relink-confirm"),
+            tr!("relink-confirm-title"),
+        )
+        .width(380.0)
+        .show(ctx, |ui| {
+            ui.label(tr!(
+                "relink-confirm",
+                file = file.as_str(),
+                name = name.as_str()
+            ));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                relink = ui.button(tr!("relink-anyway")).clicked();
+                close = ui.button(tr!("dialog-cancel")).clicked();
+            });
+        });
+        if relink {
+            let params = json!({ "document": document, "path": path, "confirm": true });
+            let _ = self.shell.run_reporting("document.relink", params);
+        }
+        if relink || close || modal.should_close() {
+            self.relink_confirm = None;
+        }
+    }
+
     fn show_params_dialog(&mut self, ctx: &egui::Context) {
         let Some(dialog) = &mut self.params_dialog else {
             return;
@@ -686,6 +755,7 @@ impl App {
             Some((Pick::SettingsFolder(window), path)) => {
                 self.settings.picked_folder(&mut self.shell, window, &path);
             }
+            Some((Pick::Relink(document, _), path)) => self.relink(document, &path),
             // The Import part dialog runs its own pickers.
             Some((Pick::ImportSymbol | Pick::ImportFootprint, _)) | None => {}
         }

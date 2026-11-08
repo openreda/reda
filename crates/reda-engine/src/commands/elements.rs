@@ -65,6 +65,7 @@ pub(crate) fn holder(session: &mut Session) -> &mut Project {
             schematic: Default::default(),
             reannotate: None,
             library_update: None,
+            missing: vec![],
         }));
     }
     session.elements_mut().expect("a Project or the workbench")

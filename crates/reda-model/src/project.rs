@@ -21,7 +21,8 @@ use crate::{ElementSource, ErcSettings, LibraryElement, Scope, TxError, Uuid};
 pub struct ProjectProps {
     pub uuid: Uuid,
     pub name: String,
-    /// Every Document's UUID, in Project order.
+    /// Every Document's UUID, in Project order, [missing](ProjectProps::missing) ones
+    /// included.
     pub documents: Vec<Uuid>,
     /// The Project Libraries: folders relative to the Project folder, `/`-separated.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -41,6 +42,11 @@ pub struct ProjectProps {
     /// The Update from Library settings page 1 saved, if any.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library_update: Option<crate::library_update::LibraryUpdateSettings>,
+    /// The Documents the Project file lists whose files were missing when it was opened.
+    /// They keep their place in `documents` but have no body: nothing can open or edit
+    /// them until they are relinked to a file or removed from the Project.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<DocumentEntry>,
 }
 
 /// The Project's schematic options: how Nets are named and Ports cross-referenced.
@@ -235,13 +241,37 @@ impl Project {
         &self.props
     }
 
-    /// The Documents in Project order.
+    /// The open Documents in Project order; missing ones are left out (see
+    /// [`Project::document_list`]).
     pub fn documents(&self) -> impl Iterator<Item = &DocumentEntry> {
-        self.props.documents.iter().map(|uuid| &self.entries[uuid])
+        (self.props.documents.iter()).filter_map(|uuid| self.entries.get(uuid))
     }
 
     pub fn document(&self, uuid: Uuid) -> Option<&DocumentEntry> {
         self.entries.get(&uuid)
+    }
+
+    /// Every Document the Project file lists, in Project order, the
+    /// [missing](ProjectProps::missing) ones included. Document numbers count this list.
+    pub fn document_list(&self) -> Vec<crate::ListedDocument> {
+        let row = |uuid: &Uuid| match self.entries.get(uuid) {
+            Some(entry) => Some(crate::ListedDocument {
+                entry: entry.clone(),
+                missing: false,
+            }),
+            None => self
+                .missing_document(*uuid)
+                .map(|entry| crate::ListedDocument {
+                    entry: entry.clone(),
+                    missing: true,
+                }),
+        };
+        self.props.documents.iter().filter_map(row).collect()
+    }
+
+    /// The missing Document with this UUID, if any.
+    pub fn missing_document(&self, uuid: Uuid) -> Option<&DocumentEntry> {
+        self.props.missing.iter().find(|e| e.uuid == uuid)
     }
 
     /// The Project's copies of Fab Presets, by UUID.
@@ -644,15 +674,24 @@ impl Project {
     /// Checks the invariants a committed transaction must leave behind.
     pub(crate) fn check(&self) -> Result<(), String> {
         let mut seen = std::collections::BTreeSet::new();
+        for missing in &self.props.missing {
+            if self.entries.contains_key(&missing.uuid) {
+                return Err(format!(
+                    "Document {} is open and missing at once",
+                    missing.uuid
+                ));
+            }
+        }
         for uuid in &self.props.documents {
-            if !self.entries.contains_key(uuid) {
+            if !self.entries.contains_key(uuid) && self.missing_document(*uuid).is_none() {
                 return Err(format!("the Document order names unknown Document {uuid}"));
             }
             if !seen.insert(*uuid) {
                 return Err(format!("Document {uuid} appears twice in the order"));
             }
         }
-        if let Some(orphan) = self.entries.keys().find(|uuid| !seen.contains(uuid)) {
+        let mut listed = (self.entries.keys()).chain(self.props.missing.iter().map(|m| &m.uuid));
+        if let Some(orphan) = listed.find(|uuid| !seen.contains(uuid)) {
             return Err(format!(
                 "Document {orphan} is missing from the Document order"
             ));
@@ -668,7 +707,10 @@ impl Project {
                 ));
             }
         }
-        if self.pcb_documents.len() > 1 {
+        let missing_pcbs = (self.props.missing.iter())
+            .filter(|m| m.kind == DocumentKind::Pcb)
+            .count();
+        if self.pcb_documents.len() + missing_pcbs > 1 {
             return Err("a Project has at most one PCB Document".into());
         }
         self.pcb_documents

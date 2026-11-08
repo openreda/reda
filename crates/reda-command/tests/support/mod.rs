@@ -241,6 +241,7 @@ impl Command for Create {
             schematic: Default::default(),
             reannotate: None,
             library_update: None,
+            missing: vec![],
         }));
         Ok(uuid)
     }

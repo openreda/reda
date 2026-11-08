@@ -95,6 +95,7 @@ fn project_with_sheet() -> Project {
         schematic: Default::default(),
         reannotate: None,
         library_update: None,
+        missing: vec![],
     });
     let mut tx = project.transaction();
     let mut props = tx.project().props().clone();

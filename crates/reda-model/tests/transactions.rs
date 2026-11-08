@@ -17,6 +17,7 @@ fn empty_project() -> Project {
         schematic: Default::default(),
         reannotate: None,
         library_update: None,
+        missing: vec![],
     })
 }
 
