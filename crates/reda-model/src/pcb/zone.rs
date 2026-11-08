@@ -29,13 +29,23 @@ pub enum PourOver {
 #[serde(deny_unknown_fields)]
 pub struct Zone {
     pub uuid: Uuid,
+    /// Its typed name, unique on the board. Left out, it shows a name derived from the
+    /// board's [`ZoneNameScheme`], which is never stored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// The copper Layer it fills.
     pub layer: Uuid,
     /// Its PCB Net; left out for a fill on no Net.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<Uuid>,
-    /// The outline the fill stays inside; the last vertex joins the first.
+    /// The outline the fill stays inside; the last vertex joins the first. Empty while
+    /// the Zone [follows the Board Outline](Self::follows_outline).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub vertices: Vec<Vertex>,
+    /// Whether the outline is the Board Outline, following its later edits; the fill
+    /// keeps the edge clearance from it. Left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub follows_outline: bool,
     /// The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the
     /// larger of it and the rule applies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -55,6 +65,52 @@ pub struct Zone {
     /// Where Zones overlap, the higher priority fills first and the others keep clear
     /// of it.
     pub priority: u32,
+    /// Whether it is shelved: kept in the file but hidden from the canvas and skipped by
+    /// fill, DRC, connectivity and outputs. Left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub shelved: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+/// How a Zone with no typed name is named: its Net (`NONET` for none), its copper Layer
+/// as `Lxx` (copper number) or by name, and `Pxxx`, counting the Zones of that Net and
+/// Layer in priority order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub enum ZoneNameScheme {
+    /// Such as `GND_L01_P000`.
+    #[default]
+    #[serde(rename = "NET_LXX_PXXX")]
+    NetLxxPxxx,
+    /// Such as `L01_GND_P000`.
+    #[serde(rename = "LXX_NET_PXXX")]
+    LxxNetPxxx,
+    /// Such as `GND_Top_P000`.
+    #[serde(rename = "NET_LAYERNAME_PXXX")]
+    NetLayernamePxxx,
+    /// Such as `Top_GND_P000`.
+    #[serde(rename = "LAYERNAME_NET_PXXX")]
+    LayernameNetPxxx,
+}
+
+impl ZoneNameScheme {
+    pub fn is_default(&self) -> bool {
+        *self == ZoneNameScheme::default()
+    }
+}
+
+/// A Zone Cutout: removes the fill of every Zone on its copper Layer inside its outline,
+/// exactly to its edge. It belongs to no one Zone and is never plotted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneCutout {
+    pub uuid: Uuid,
+    /// The copper Layer whose Zones it cuts.
+    pub layer: Uuid,
+    /// The outline; the last vertex joins the first.
+    pub vertices: Vec<Vertex>,
 }
 
 /// An area on some copper Layers where copper or Vias may not go.

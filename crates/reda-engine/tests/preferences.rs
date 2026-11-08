@@ -459,3 +459,26 @@ fn every_preference_is_on_a_page_of_the_tree() {
     assert_eq!(pages::page_of("pcb.electrical_snap"), "editing.snap");
     assert_eq!(pages::page_of("general.default_layout"), "window");
 }
+
+#[test]
+fn zones_refill_after_each_edit_unless_turned_off() {
+    let home = TempDir::new("prefs-auto-refill");
+    let out = get(home.path(), "pcb.zone.auto_refill");
+    assert_eq!(out["value"], "after_edit");
+    assert_eq!(out["default"], "after_edit");
+    assert_eq!(
+        reda_engine::preferences::pages::page_of("pcb.zone.auto_refill"),
+        "pcb.zones"
+    );
+    let mut engine = test_engine_in(home.path());
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "pcb.zone.auto_refill", "value": "off"}),
+    );
+    assert_eq!(get(home.path(), "pcb.zone.auto_refill")["value"], "off");
+    let err = engine.run_err(
+        "app.preferences.set",
+        json!({"key": "pcb.zone.auto_refill", "value": "always"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}

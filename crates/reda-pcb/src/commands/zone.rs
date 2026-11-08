@@ -1,5 +1,14 @@
-//! Zones and Keepouts: adding, changing and deleting them. Filling is in
-//! `reda_engine` (it writes the `.reda/` cache); the fill queries are in `zone_fill`.
+//! Zones and Keepouts: adding, changing and deleting them; Zone names, shelving, pour
+//! order, Zones from the Board Outline or graphics, and Zone Cutouts are in submodules.
+//! Filling is in `reda_engine` (it writes the `.reda/` cache); the fill queries are in
+//! `zone_fill`.
+
+mod cutout;
+mod list;
+mod order;
+mod outline;
+mod scheme;
+mod shelve;
 
 use reda_command::AreaValue;
 use reda_command::{
@@ -9,6 +18,7 @@ use reda_model::{InDocument, Keepout, Object, PcbDocument, PourOver, Uuid, Zone}
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::from_graphics::{FromGraphics, LoopMode};
 use super::layer::LayerRef;
 use super::outline::{VertexParam, contour};
 use super::track::{copper_layer, existing_net};
@@ -21,6 +31,48 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(KeepoutAdd);
     registry.add(KeepoutSet);
     registry.add(KeepoutDelete);
+    registry.add(KeepoutAddFromGraphics);
+    registry.add(shelve::ZoneShelve);
+    registry.add(shelve::ZoneRestore);
+    registry.add(order::ZoneReorder);
+    registry.add(order::ZoneBringToFront);
+    registry.add(order::ZoneSendToBack);
+    registry.add(order::ZoneAutoOrder);
+    registry.add(outline::ZoneAddFromBoardOutline);
+    registry.add(outline::ZoneDetachOutline);
+    registry.add(outline::ZoneAddFromGraphics);
+    registry.add(cutout::ZoneCutoutAdd);
+    registry.add(cutout::ZoneCutoutAddFromGraphics);
+    registry.add(cutout::ZoneCutoutDelete);
+    registry.add(list::ZoneList);
+    registry.add(scheme::ZoneSetNameScheme);
+}
+
+/// A new Zone with the fixed values every Command gives what it is not told: no name
+/// (the derived one shows), the rules alone for clearance and width, pour over Zones
+/// only, unconnected pieces removed, no minimum island area, priority 0, not shelved.
+/// Never a Preference, so a Command gives the same Zone on any machine.
+pub(super) fn fixed_zone(
+    uuid: Uuid,
+    layer: Uuid,
+    net: Option<Uuid>,
+    vertices: Vec<reda_model::geom::Vertex>,
+) -> Zone {
+    Zone {
+        uuid,
+        name: None,
+        layer,
+        net,
+        vertices,
+        follows_outline: false,
+        clearance: None,
+        min_width: None,
+        pour_over: PourOver::ZonesOnly,
+        remove_unconnected: true,
+        min_island_area: 0,
+        priority: 0,
+        shelved: false,
+    }
 }
 
 pub struct ZoneAdd;
@@ -28,6 +80,10 @@ pub struct ZoneAdd;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneAddParams {
+    /// A name, unique on the board; left out, the Zone shows one derived from the
+    /// board's `zone_name_scheme`.
+    #[serde(default)]
+    pub name: Option<String>,
     /// The copper Layer, such as `copper_bottom`.
     pub layer: LayerRef,
     /// The outline's vertices in order; the last joins the first.
@@ -87,19 +143,19 @@ impl Command for ZoneAdd {
             .map(|c| non_negative("/clearance", c))
             .transpose()?;
         let min_width = p.min_width.map(|w| positive("/min_width", w)).transpose()?;
-        let min_island_area = island_area(p.min_island_area)?.unwrap_or(0);
+        let min_island_area = island_area(p.min_island_area)?;
+        let name = p.name.map(|n| unique_name(pcb, &n, None)).transpose()?;
         let uuid = cx.new_id();
+        let fixed = fixed_zone(uuid, layer, net, vertices);
         let zone = Zone {
-            uuid,
-            layer,
-            net,
-            vertices,
+            name,
             clearance,
             min_width,
-            pour_over: p.pour_over.unwrap_or_default(),
-            remove_unconnected: p.remove_unconnected.unwrap_or(true),
-            min_island_area,
-            priority: p.priority.unwrap_or(0),
+            pour_over: p.pour_over.unwrap_or(fixed.pour_over),
+            remove_unconnected: p.remove_unconnected.unwrap_or(fixed.remove_unconnected),
+            min_island_area: min_island_area.unwrap_or(fixed.min_island_area),
+            priority: p.priority.unwrap_or(fixed.priority),
+            ..fixed
         };
         cx.tx()?
             .insert(Object::Zone(InDocument::new(document, zone)))?;
@@ -114,10 +170,14 @@ pub struct ZoneSet;
 pub struct ZoneSetParams {
     /// The Zone's UUID.
     pub zone: Uuid,
+    /// A new name, unique on the board, or `null` to show the derived name again.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<String>")]
+    pub name: Option<Option<String>>,
     /// A new copper Layer.
     #[serde(default)]
     pub layer: Option<LayerRef>,
-    /// A new outline.
+    /// A new outline; a Zone that followed the Board Outline stops following it.
     #[serde(default)]
     pub vertices: Option<Vec<VertexParam>>,
     /// A new Net's UUID, or `null` for no Net.
@@ -163,11 +223,17 @@ impl Command for ZoneSet {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let mut zone = existing_zone(pcb, p.zone)?.clone();
+        if let Some(name) = p.name {
+            zone.name = name
+                .map(|n| unique_name(pcb, &n, Some(zone.uuid)))
+                .transpose()?;
+        }
         if let Some(layer) = p.layer {
             zone.layer = copper_layer(pcb, layer, "/layer")?;
         }
         if let Some(vertices) = &p.vertices {
             zone.vertices = contour(vertices)?;
+            zone.follows_outline = false;
         }
         if let Some(net) = p.net {
             zone.net = existing_net(pcb, net, "/net")?;
@@ -207,7 +273,34 @@ fn island_area(area: Option<AreaValue>) -> Result<Option<i64>, CommandError> {
     }
 }
 
-fn existing_zone(pcb: &PcbDocument, uuid: Uuid) -> Result<&Zone, CommandError> {
+/// `name` trimmed, checked to be non-empty and to match no other Zone's name, typed or
+/// derived (`except` is the Zone being renamed).
+pub(super) fn unique_name(
+    pcb: &PcbDocument,
+    name: &str,
+    except: Option<Uuid>,
+) -> Result<String, CommandError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(CommandError::invalid_params(
+            "/name",
+            "a Zone name cannot be empty; leave it out for the derived name",
+        ));
+    }
+    let names = crate::zone::names(pcb);
+    if let Some((other, _)) = names
+        .iter()
+        .find(|(uuid, shown)| Some(**uuid) != except && shown.as_str() == name)
+    {
+        return Err(CommandError::invalid_params(
+            "/name",
+            format!("Zone {other} is already named {name:?}"),
+        ));
+    }
+    Ok(name.to_owned())
+}
+
+pub(super) fn existing_zone(pcb: &PcbDocument, uuid: Uuid) -> Result<&Zone, CommandError> {
     pcb.zone(uuid)
         .ok_or_else(|| CommandError::invalid_params("/zone", format!("no Zone has UUID {uuid}")))
 }
@@ -249,7 +342,7 @@ impl Command for ZoneDelete {
     }
 }
 
-fn delete(
+pub(super) fn delete(
     cx: &mut Context<'_>,
     uuids: Vec<Uuid>,
     field: &str,
@@ -365,6 +458,81 @@ fn forbids_something(copper: bool, vias: bool) -> Result<(), CommandError> {
         ));
     }
     Ok(())
+}
+
+pub struct KeepoutAddFromGraphics;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KeepoutFromGraphicsParams {
+    /// Free lines, arcs and outlined rectangles forming one closed loop.
+    pub graphics: Vec<Uuid>,
+    /// `centerline` (default) or `outer_edge`.
+    #[serde(default)]
+    pub mode: LoopMode,
+    /// Keep the graphics as well; by default they are removed.
+    #[serde(default)]
+    pub keep: bool,
+    /// The copper Layers it applies to. Default: every copper Layer.
+    #[serde(default)]
+    pub layers: Option<Vec<LayerRef>>,
+    /// Whether copper is forbidden inside. Default: true.
+    #[serde(default)]
+    pub copper: Option<bool>,
+    /// Whether Vias are forbidden inside. Default: true.
+    #[serde(default)]
+    pub vias: Option<bool>,
+}
+
+impl Command for KeepoutAddFromGraphics {
+    const META: Meta = Meta {
+        id: "pcb.keepout.add_from_graphics",
+        title: "Keepout from Selection",
+        description: "Adds a Keepout along the closed loop that the free lines, arcs and \
+                      rectangles `graphics` form, and removes them unless `keep`. `mode` \
+                      `centerline` (default) needs their ends to meet within 0.001 mm and \
+                      refuses a gap with its location and size; `outer_edge` follows the \
+                      outside of the strokes.",
+        category: "pcb",
+        icon: "keepout",
+        kind: reda_command::Kind::Edit,
+    };
+    type Params = KeepoutFromGraphicsParams;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: KeepoutFromGraphicsParams,
+    ) -> Result<Created, CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let layers = keepout_layers(pcb, p.layers)?;
+        let (copper, vias) = (p.copper.unwrap_or(true), p.vias.unwrap_or(true));
+        forbids_something(copper, vias)?;
+        let from = FromGraphics {
+            graphics: p.graphics,
+            mode: p.mode,
+            keep: p.keep,
+        };
+        let vertices = from.contour(pcb)?;
+        from.consume(cx)?;
+        let uuid = cx.new_id();
+        let keepout = Keepout {
+            uuid,
+            layers,
+            vertices,
+            copper,
+            vias,
+        };
+        cx.tx()?
+            .insert(Object::Keepout(InDocument::new(document, keepout)))?;
+        Ok(Created { uuid })
+    }
 }
 
 pub struct KeepoutSet;

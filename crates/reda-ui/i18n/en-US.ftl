@@ -489,6 +489,7 @@ violation-duplicate-copper = Copper repeated exactly
 violation-zero-area-zone = Zone with no area
 violation-dead-copper = Piece of { $net } fill touching no copper of its Net
 violation-empty-zone = { $net } Zone with nothing left to fill
+violation-shelved-zone = Zone { $zone } is shelved: outputs leave its copper out
 violation-out-of-sync = The PCB is out of sync with the schematic
 violation-opening-collapsed =
     The { $side ->
@@ -586,6 +587,7 @@ check-duplicate-copper = Duplicate Copper
 check-zero-area-zone = Zero-Area Zone
 check-dead-copper = Dead Copper
 check-empty-zone = Empty Zone
+check-shelved-zone = Shelved Zone
 check-out-of-sync = Out of Sync
 
 ## Crash recovery and Crash Reports
@@ -792,6 +794,10 @@ pref-pcb-default-units-mil = mil
 pref-pcb-repeat-placement = Repeat placement
 pref-pcb-electrical-snap = Electrical snap
 pref-pcb-auto-pan = Auto-pan at the canvas edge
+pref-pcb-zone = Zones
+pref-pcb-zone-auto-refill = Refill Zones automatically
+pref-pcb-zone-auto-refill-after-edit = After each edit
+pref-pcb-zone-auto-refill-off = Off
 pref-checks-max-markers = Most Violation markers drawn
 pref-display-cursor = Cursor
 pref-display-cursor-small = Small crosshair

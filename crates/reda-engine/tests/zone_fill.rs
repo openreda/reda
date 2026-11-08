@@ -196,3 +196,58 @@ fn filling_reports_progress_and_a_cancelled_fill_changes_nothing() {
     assert!(err.is_cancelled());
     assert_eq!(engine.project().unwrap(), &before);
 }
+
+/// The Zones a `pcb.zone.fill` result lists as filled.
+fn filled(out: &Value) -> Vec<Uuid> {
+    out["zones"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|z| uuid(&z["zone"]))
+        .collect()
+}
+
+#[test]
+fn fill_refills_only_stale_zones_or_the_named_ones_and_their_dependents() {
+    let dir = TempDir::new("zone-fill-some");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let add = |e: &mut TestEngine, layer: &str, area: Value, priority: u32| {
+        uuid(
+            &e.run_ok(
+                "pcb.zone.add",
+                json!({"layer": layer, "vertices": area, "priority": priority,
+                       "remove_unconnected": false}),
+            )["result"]["uuid"],
+        )
+    };
+    let high = add(&mut engine, "copper_top", rect(0, 0, 10, 10), 2);
+    let below = add(&mut engine, "copper_top", rect(5, 0, 15, 10), 1);
+    let apart = add(&mut engine, "copper_top", rect(30, 0, 40, 10), 0);
+    let bottom = add(&mut engine, "copper_bottom", rect(0, 0, 10, 10), 0);
+    let first = engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(filled(&first), vec![high, below, apart, bottom]);
+    // Everything current: nothing to refill.
+    assert_eq!(filled(&engine.run_ok("pcb.zone.fill", json!({}))), vec![]);
+
+    // A Track on the bottom makes only the bottom Zone stale.
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_bottom", "points": [{"x": mm(20), "y": 0}, {"x": mm(25), "y": 0}]}),
+    );
+    // Naming a Zone refills it and the lower Zones overlapping it, current or not, and
+    // leaves the stale bottom Zone alone.
+    let out = engine.run_ok("pcb.zone.fill", json!({"zones": [high.to_string()]}));
+    assert_eq!(filled(&out), vec![high, below]);
+    assert_eq!(status(&mut engine)["needs_refill"], true);
+    // Left out: every stale Zone, and only those.
+    let out = engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(filled(&out), vec![bottom]);
+    assert_eq!(status(&mut engine)["needs_refill"], false);
+
+    let err = engine.run_err(
+        "pcb.zone.fill",
+        json!({"zones": [Uuid::from_u128(9).to_string()]}),
+    );
+    assert_eq!(err.code, reda_command::ErrorCode::InvalidParams);
+}

@@ -99,7 +99,7 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
             candidates.push(middle(from, to));
             layers.push(g.layer);
         } else if let Some(z) = pcb.zone(*uuid) {
-            if let Some(p) = center(z.vertices.iter().map(|v| v.point())) {
+            if let Some(p) = center(pcb.zone_vertices(z).iter().map(|v| v.point())) {
                 candidates.push(p);
             }
             layers.push(z.layer);

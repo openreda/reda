@@ -337,6 +337,7 @@ fn placed(object: &Object) -> Option<Candidate> {
         | Object::Via(_)
         | Object::Zone(_)
         | Object::Keepout(_)
+        | Object::ZoneCutout(_)
         | Object::FreePad(_) => Home::Board,
         _ => return None,
     };

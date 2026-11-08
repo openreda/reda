@@ -5,7 +5,7 @@ use reda_model::{
     BoardSetup, Bounds, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
     DielectricEntry, DrcSeverities, FabRules, InDocument, Layer, LayerKind, LayerSet, Object,
     PcbDocument, PreferredSeeds, RuleField, RuleKind, RuleScope, RuleValues, Side, Stackup,
-    StackupEntry, StackupSeeds, Uuid,
+    StackupEntry, StackupSeeds, Uuid, ZoneNameScheme,
 };
 
 /// The v0.1 Layers, top to bottom.
@@ -250,6 +250,7 @@ pub fn new_board(
     let setup = BoardSetup {
         uuid: new_id(),
         severities: DrcSeverities::DEFAULT,
+        zone_name_scheme: ZoneNameScheme::default(),
     };
     let mut objects = vec![
         Object::LayerSet(InDocument::new(document, layers.clone())),

@@ -230,7 +230,7 @@ impl Copper {
     }
 
     /// Hands the index the Zone fills to treat as copper (`None` drops them). A fill of a
-    /// Zone that no longer exists is skipped; each island takes its Zone's current Net and
+    /// Zone that no longer exists, or is shelved, is skipped; each island takes its Zone's current Net and
     /// Layer. [`Copper::apply`] keeps them in step with later changes to the Zones.
     pub fn set_zone_fills(&mut self, pcb: &PcbDocument, fills: Option<&ZoneFills>) {
         let old: Vec<Uuid> = self
@@ -508,7 +508,7 @@ impl Copper {
 
     fn add_zone(&mut self, pcb: &PcbDocument, uuid: Uuid) {
         let (Some(zone), Some(shapes)) = (
-            pcb.zone(uuid),
+            pcb.zone(uuid).filter(|z| !z.shelved),
             self.fills.as_ref().and_then(|f| f.zones.get(&uuid)),
         ) else {
             return;

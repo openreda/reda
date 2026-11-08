@@ -147,6 +147,8 @@ pub struct Editing {
     /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
     /// not one of the Document type's presets, is the type's own default.
     pub default_grid: Option<Length>,
+    /// Zone settings.
+    pub zone: ZonePreferences,
 }
 
 impl Default for Editing {
@@ -157,8 +159,29 @@ impl Default for Editing {
             electrical_snap: true,
             auto_pan: true,
             default_grid: None,
+            zone: ZonePreferences::default(),
         }
     }
+}
+
+/// Zone settings of the PCB editor.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ZonePreferences {
+    /// When Zones refill on their own: `after_edit` (after each committed edit, in the
+    /// background, the edited Zones and those depending on them) or `off` (only on
+    /// Refill). Outputs and DRC refill stale Zones first either way.
+    pub auto_refill: AutoRefill,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoRefill {
+    /// Refill stale Zones in the background after each committed edit.
+    #[default]
+    AfterEdit,
+    /// Refill only when asked.
+    Off,
 }
 
 /// Editing settings for Schematic Sheets: those of every Document type, and how names
@@ -237,6 +260,7 @@ impl Default for SchematicEditing {
             electrical_snap,
             auto_pan,
             default_grid,
+            zone: _,
         } = Editing::default();
         SchematicEditing {
             default_units,
