@@ -68,6 +68,23 @@ pub fn check(project: &Project, library: crate::PartsOf<'_>) -> Vec<Violation> {
         .collect()
 }
 
+/// The `duplicate_nets` Violations that stand: those no Waiver waives, none while the
+/// check is Off. Sync refuses to apply while there are any.
+pub fn standing_duplicate_nets(project: &Project) -> Vec<Violation> {
+    let mut report = Report {
+        settings: &project.props().erc,
+        found: vec![],
+    };
+    nets::duplicate_nets(project, &mut report);
+    let found = (report.found.into_iter())
+        .map(|(_, mut v)| {
+            details::complete(project, &mut v);
+            v
+        })
+        .collect();
+    apply_waivers(found, waivers(project), false, |_| false).violations
+}
+
 /// The fingerprint of everything ERC reads: the Project properties (with the ERC
 /// severities) and every Schematic Sheet, Waivers included.
 pub fn design_fingerprint(project: &Project) -> String {
