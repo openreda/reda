@@ -173,7 +173,7 @@ pub struct ClearanceResult {
 
 fn check(pcb: &PcbDocument, proposal: Proposal, ignore: &[Uuid]) -> ClearanceResult {
     let hits = Copper::build(pcb).clearance(pcb, &proposal, ignore);
-    let keepouts = crate::zone::keepouts_hit(pcb, &proposal);
+    let keepouts = crate::keepout::keepouts_hit(pcb, &proposal);
     ClearanceResult {
         clear: hits.is_empty() && keepouts.is_empty(),
         hits,

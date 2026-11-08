@@ -282,6 +282,23 @@ pub(crate) fn gap(a: &Area, b: &Area) -> Option<(f64, [Point; 2], bool)> {
     None
 }
 
+/// Whether `p` lies strictly inside the area (even-odd over every contour, so holes are
+/// outside).
+pub(crate) fn inside(area: &Area, p: Point) -> bool {
+    let (x, y) = (p.x.0 as f64, p.y.0 as f64);
+    let mut inside = false;
+    for ring in area.iter().flatten() {
+        for i in 0..ring.len() {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            let (ax, ay, bx, by) = (a.x as f64, a.y as f64, b.x as f64, b.y as f64);
+            if (ay > y) != (by > y) && x < ax + (y - ay) / (by - ay) * (bx - ax) {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
 /// The area inside a closed outline, in square nanometres (0 for none).
 pub(crate) fn outline_area(vertices: &[Vertex]) -> i128 {
     if vertices.is_empty() {

@@ -1,9 +1,10 @@
-//! Zones and Keepouts: adding, changing and deleting them; Zone names, shelving, pour
-//! order, Zones from the Board Outline or graphics, and Zone Cutouts are in submodules.
+//! Zones: adding, changing and deleting them. Zone names, shelving, pour order, Zones
+//! from the Board Outline or graphics, Zone Cutouts and Keepouts are in submodules.
 //! Filling is in `reda_engine` (it writes the `.reda/` cache); the fill queries are in
 //! `zone_fill`.
 
 mod cutout;
+mod keepout;
 mod list;
 mod order;
 mod outline;
@@ -14,11 +15,10 @@ use reda_command::AreaValue;
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Length, Meta, Registry, Unavailable,
 };
-use reda_model::{InDocument, Keepout, Object, PcbDocument, PourOver, Uuid, Zone};
+use reda_model::{InDocument, Object, PcbDocument, PourOver, Uuid, Zone};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::from_graphics::{FromGraphics, LoopMode};
 use super::layer::LayerRef;
 use super::outline::{VertexParam, contour};
 use super::track::{copper_layer, existing_net};
@@ -28,10 +28,10 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ZoneAdd);
     registry.add(ZoneSet);
     registry.add(ZoneDelete);
-    registry.add(KeepoutAdd);
-    registry.add(KeepoutSet);
-    registry.add(KeepoutDelete);
-    registry.add(KeepoutAddFromGraphics);
+    registry.add(keepout::KeepoutAdd);
+    registry.add(keepout::KeepoutSet);
+    registry.add(keepout::KeepoutDelete);
+    registry.add(keepout::KeepoutAddFromGraphics);
     registry.add(shelve::ZoneShelve);
     registry.add(shelve::ZoneRestore);
     registry.add(order::ZoneReorder);
@@ -43,6 +43,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(outline::ZoneAddFromGraphics);
     registry.add(cutout::ZoneCutoutAdd);
     registry.add(cutout::ZoneCutoutAddFromGraphics);
+    registry.add(cutout::ZoneCutoutSet);
     registry.add(cutout::ZoneCutoutDelete);
     registry.add(list::ZoneList);
     registry.add(scheme::ZoneSetNameScheme);
@@ -366,268 +367,4 @@ pub(super) fn delete(
         tx.remove(*uuid)?;
     }
     Ok(Deleted { deleted })
-}
-
-pub struct KeepoutAdd;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct KeepoutAddParams {
-    /// The copper Layers it applies to. Default: every copper Layer.
-    #[serde(default)]
-    pub layers: Option<Vec<LayerRef>>,
-    /// The outline's vertices in order; the last joins the first.
-    pub vertices: Vec<VertexParam>,
-    /// Whether copper (Tracks, Pads, Zone fills) is forbidden inside. Default: true.
-    #[serde(default)]
-    pub copper: Option<bool>,
-    /// Whether Vias are forbidden inside. Default: true.
-    #[serde(default)]
-    pub vias: Option<bool>,
-}
-
-impl Command for KeepoutAdd {
-    const META: Meta = Meta {
-        id: "pcb.keepout.add",
-        title: "Add Keepout",
-        description: "Adds a Keepout: an area inside `vertices` on some copper Layers where \
-                      copper, Vias or both may not go. Zone fills leave it empty.",
-        category: "pcb",
-        icon: "keepout",
-        kind: reda_command::Kind::Edit,
-    };
-    type Params = KeepoutAddParams;
-    type Output = Created;
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: KeepoutAddParams) -> Result<Created, CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        let layers = keepout_layers(pcb, p.layers)?;
-        let vertices = contour(&p.vertices)?;
-        let (copper, vias) = (p.copper.unwrap_or(true), p.vias.unwrap_or(true));
-        forbids_something(copper, vias)?;
-        let uuid = cx.new_id();
-        let keepout = Keepout {
-            uuid,
-            layers,
-            vertices,
-            copper,
-            vias,
-        };
-        cx.tx()?
-            .insert(Object::Keepout(InDocument::new(document, keepout)))?;
-        Ok(Created { uuid })
-    }
-}
-
-/// The copper Layers a Keepout param names, top to bottom; every copper Layer when left
-/// out.
-fn keepout_layers(
-    pcb: &PcbDocument,
-    layers: Option<Vec<LayerRef>>,
-) -> Result<Vec<Uuid>, CommandError> {
-    let Some(layers) = layers else {
-        return Ok(pcb.copper_layers().map(|l| l.uuid).collect());
-    };
-    if layers.is_empty() {
-        return Err(CommandError::invalid_params(
-            "/layers",
-            "a Keepout needs one or more copper Layers",
-        ));
-    }
-    let mut chosen = Vec::new();
-    for (i, layer) in layers.into_iter().enumerate() {
-        chosen.push(copper_layer(pcb, layer, &format!("/layers/{i}"))?);
-    }
-    Ok(pcb
-        .copper_layers()
-        .map(|l| l.uuid)
-        .filter(|l| chosen.contains(l))
-        .collect())
-}
-
-fn forbids_something(copper: bool, vias: bool) -> Result<(), CommandError> {
-    if !copper && !vias {
-        return Err(CommandError::invalid_params(
-            "/vias",
-            "a Keepout must forbid copper, Vias or both",
-        ));
-    }
-    Ok(())
-}
-
-pub struct KeepoutAddFromGraphics;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct KeepoutFromGraphicsParams {
-    /// Free lines, arcs and outlined rectangles forming one closed loop.
-    pub graphics: Vec<Uuid>,
-    /// `centerline` (default) or `outer_edge`.
-    #[serde(default)]
-    pub mode: LoopMode,
-    /// Keep the graphics as well; by default they are removed.
-    #[serde(default)]
-    pub keep: bool,
-    /// The copper Layers it applies to. Default: every copper Layer.
-    #[serde(default)]
-    pub layers: Option<Vec<LayerRef>>,
-    /// Whether copper is forbidden inside. Default: true.
-    #[serde(default)]
-    pub copper: Option<bool>,
-    /// Whether Vias are forbidden inside. Default: true.
-    #[serde(default)]
-    pub vias: Option<bool>,
-}
-
-impl Command for KeepoutAddFromGraphics {
-    const META: Meta = Meta {
-        id: "pcb.keepout.add_from_graphics",
-        title: "Keepout from Selection",
-        description: "Adds a Keepout along the closed loop that the free lines, arcs and \
-                      rectangles `graphics` form, and removes them unless `keep`. `mode` \
-                      `centerline` (default) needs their ends to meet within 0.001 mm and \
-                      refuses a gap with its location and size; `outer_edge` follows the \
-                      outside of the strokes.",
-        category: "pcb",
-        icon: "keepout",
-        kind: reda_command::Kind::Edit,
-    };
-    type Params = KeepoutFromGraphicsParams;
-    type Output = Created;
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: KeepoutFromGraphicsParams,
-    ) -> Result<Created, CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        let layers = keepout_layers(pcb, p.layers)?;
-        let (copper, vias) = (p.copper.unwrap_or(true), p.vias.unwrap_or(true));
-        forbids_something(copper, vias)?;
-        let from = FromGraphics {
-            graphics: p.graphics,
-            mode: p.mode,
-            keep: p.keep,
-        };
-        let vertices = from.contour(pcb)?;
-        from.consume(cx)?;
-        let uuid = cx.new_id();
-        let keepout = Keepout {
-            uuid,
-            layers,
-            vertices,
-            copper,
-            vias,
-        };
-        cx.tx()?
-            .insert(Object::Keepout(InDocument::new(document, keepout)))?;
-        Ok(Created { uuid })
-    }
-}
-
-pub struct KeepoutSet;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct KeepoutSetParams {
-    /// The Keepout's UUID.
-    pub keepout: Uuid,
-    #[serde(default)]
-    pub layers: Option<Vec<LayerRef>>,
-    #[serde(default)]
-    pub vertices: Option<Vec<VertexParam>>,
-    #[serde(default)]
-    pub copper: Option<bool>,
-    #[serde(default)]
-    pub vias: Option<bool>,
-}
-
-impl Command for KeepoutSet {
-    const META: Meta = Meta {
-        id: "pcb.keepout.set",
-        title: "Change Keepout",
-        description: "Changes a Keepout's Layers, outline or what it forbids; what is left \
-                      out stays as it is.",
-        category: "pcb",
-        icon: "keepout",
-        kind: reda_command::Kind::Edit,
-    };
-    type Params = KeepoutSetParams;
-    type Output = ();
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: KeepoutSetParams) -> Result<(), CommandError> {
-        let pcb = pcb(cx)?;
-        let document = pcb.uuid;
-        let mut keepout = pcb
-            .keepout(p.keepout)
-            .ok_or_else(|| {
-                CommandError::invalid_params(
-                    "/keepout",
-                    format!("no Keepout has UUID {}", p.keepout),
-                )
-            })?
-            .clone();
-        if p.layers.is_some() {
-            keepout.layers = keepout_layers(pcb, p.layers)?;
-        }
-        if let Some(vertices) = &p.vertices {
-            keepout.vertices = contour(vertices)?;
-        }
-        keepout.copper = p.copper.unwrap_or(keepout.copper);
-        keepout.vias = p.vias.unwrap_or(keepout.vias);
-        forbids_something(keepout.copper, keepout.vias)?;
-        cx.tx()?
-            .replace(Object::Keepout(InDocument::new(document, keepout)))?;
-        Ok(())
-    }
-}
-
-pub struct KeepoutDelete;
-
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct KeepoutDeleteParams {
-    /// The Keepouts' UUIDs.
-    pub keepouts: Vec<Uuid>,
-}
-
-impl Command for KeepoutDelete {
-    const META: Meta = Meta {
-        id: "pcb.keepout.delete",
-        title: "Delete Keepout",
-        description: "Deletes Keepouts.",
-        category: "pcb",
-        icon: "delete",
-        kind: reda_command::Kind::Edit,
-    };
-    type Params = KeepoutDeleteParams;
-    type Output = Deleted;
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, p: KeepoutDeleteParams) -> Result<Deleted, CommandError> {
-        delete(
-            cx,
-            p.keepouts,
-            "keepouts",
-            |pcb, u| pcb.keepout(u).is_some(),
-            "Keepout",
-        )
-    }
 }

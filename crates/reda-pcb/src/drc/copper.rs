@@ -3,10 +3,9 @@
 use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_copper};
 
 use super::{Board, Report, item_objects};
-use crate::copper::Item;
 use crate::copper::shape::{BoardShape as _, Shape};
+use crate::keepout;
 use crate::rules::{net_rules, resolve, resolve_pair};
-use crate::zone::keepouts_entered;
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);
@@ -181,38 +180,33 @@ pub(super) fn breach(
         .arg("limit", word)
 }
 
-/// Pads, Free Pads, Tracks and Vias inside a Keepout that forbids them on one of their
-/// Layers: copper, or for a Via, Vias. One Violation per object and Keepout. Zone fills
+/// Objects of a kind a Keepout restricts, on one of its Layers, inside it or closer than
+/// the clearance (none under `zero_keepout_clearance`). Tracks, Vias, Pads and Free Pads
+/// are checked by their copper; a Footprint by its Courtyard, or fallback box, on the
+/// Keepout's side, with no clearance. One Violation per object and Keepout. Zone fills
 /// leave Keepouts out when they are made.
 fn keepout(board: &Board<'_>, report: &mut Report) {
     if report.is_off(DrcCheck::Keepout) || board.pcb.keepouts().next().is_none() {
         return;
     }
+    let pcb = board.pcb;
     let copper = board.copper;
     for item in copper.items() {
-        if matches!(item, Item::Zone { .. }) {
-            continue;
-        }
-        let pieces = copper.item_pieces(item);
-        let Some((_, shape)) = pieces.first() else {
+        let Some(kind) = keepout::restriction(pcb, item) else {
             continue;
         };
-        let layers: Vec<_> = pieces.iter().map(|(l, _)| *l).collect();
-        let is_via = matches!(item, Item::Via { .. });
-        for keepout in keepouts_entered(board.pcb, shape, &layers, is_via) {
-            let restricted = &board
-                .pcb
-                .keepout(keepout)
-                .expect("entered Keepout exists")
-                .layers;
+        let pieces = copper.item_pieces(item);
+        for hit in keepout::entered(pcb, &pieces, kind, copper.net(item)) {
             report.add(DrcCheck::Keepout, |v| {
-                v.objects(item_objects(item)).object(keepout).on_layers(
-                    layers
-                        .iter()
-                        .copied()
-                        .filter(|layer| restricted.contains(layer)),
-                )
+                v.length(hit.actual, hit.required, Limit::Min, hit.rule)
+                    .distance_points(hit.points[0], hit.points[1])
+                    .arg("required", hit.required)
+                    .arg("actual", hit.actual)
+                    .objects(item_objects(item))
+                    .object(hit.keepout)
+                    .on_layers(hit.layers.iter().copied())
             });
         }
     }
+    super::placement::footprints_in_keepouts(board, report);
 }

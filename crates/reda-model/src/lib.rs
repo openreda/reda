@@ -58,12 +58,13 @@ pub use pcb::{
     ConnectionValue, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
     DielectricEntry, Dimension, DimensionEnd, DimensionFormat, DimensionTextPosition,
     DimensionUnits, DrcCheck, DrcSeverities, FillShape, FootprintInstance, FootprintTextRef,
-    FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument, Keepout, Layer,
-    LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef,
-    PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver, RuleField, RuleKind,
-    RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry,
-    StackupSeeds, StackupTotals, TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone,
-    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord,
+    KeepoutShape, KeepoutShapeKind, Layer, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net,
+    NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass,
+    PortableRule, PourOver, Restriction, RuleField, RuleKind, RuleScope, RuleSet, RuleValue,
+    RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupSeeds, StackupTotals,
+    TextAutoposition, TextOverride, Track, TrackGeometry, Via, Zone, ZoneCutout, ZoneFill,
+    ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

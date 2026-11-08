@@ -1,7 +1,7 @@
-//! Zones (copper fills on a Net) and Keepouts (areas that forbid copper or Vias), plus the
+//! Zones (copper fills on a Net), Zone Cutouts and Keepouts (areas that keep objects out), plus the
 //! fill data computed for Zones, which is never stored in the Document.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_geom::{Nm, Point, Vertex};
 use schemars::JsonSchema;
@@ -113,19 +113,158 @@ pub struct ZoneCutout {
     pub vertices: Vec<Vertex>,
 }
 
-/// An area on some copper Layers where copper or Vias may not go.
+/// An area on one copper Layer, or on every copper Layer, where the kinds of object it
+/// restricts may not go. Copper keeps the normal clearance from it unless the board-wide
+/// `clearance` rule sets `zero_keepout_clearance`. It has no Net and is never plotted.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "KeepoutRecord", into = "KeepoutRecord")]
 pub struct Keepout {
     pub uuid: Uuid,
-    /// The copper Layers it applies to, top to bottom.
-    pub layers: Vec<Uuid>,
-    /// The outline; the last vertex joins the first.
+    /// The copper Layer it applies to; `None` for every copper Layer, so "all" still means
+    /// all when Layers are added.
+    pub layer: Option<Uuid>,
+    pub shape: KeepoutShape,
+    /// What it keeps out; never empty.
+    pub restrict: BTreeSet<Restriction>,
+}
+
+impl Keepout {
+    /// Its outline or centreline.
+    pub fn vertices(&self) -> &[Vertex] {
+        match &self.shape {
+            KeepoutShape::Polygon { vertices } | KeepoutShape::Line { vertices, .. } => vertices,
+        }
+    }
+
+    /// Whether it keeps out `kind`.
+    pub fn restricts(&self, kind: Restriction) -> bool {
+        self.restrict.contains(&kind)
+    }
+
+    /// Whether it applies on copper Layer `layer`.
+    pub fn on_layer(&self, layer: Uuid) -> bool {
+        self.layer.is_none_or(|l| l == layer)
+    }
+}
+
+/// A Keepout's shape. Rectangle and circle are Tool modes that store polygons.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum KeepoutShape {
+    /// The area inside a closed outline; the last vertex joins the first.
+    Polygon { vertices: Vec<Vertex> },
+    /// The area within `width / 2` of an open line through `vertices` (the last vertex's
+    /// edge is unused).
+    Line { vertices: Vec<Vertex>, width: Nm },
+}
+
+/// A kind of object a Keepout keeps out.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Restriction {
+    Tracks,
+    Vias,
+    /// Zone fills.
+    Zones,
+    SmdPads,
+    /// Through-hole Pads, plated or not.
+    ThtPads,
+    /// Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no
+    /// clearance. REDA's own addition.
+    Footprints,
+}
+
+impl Restriction {
+    /// Every kind, in file order.
+    pub const ALL: [Restriction; 6] = [
+        Restriction::Tracks,
+        Restriction::Vias,
+        Restriction::Zones,
+        Restriction::SmdPads,
+        Restriction::ThtPads,
+        Restriction::Footprints,
+    ];
+
+    /// What a new Keepout restricts: every kind but `footprints`.
+    pub fn defaults() -> BTreeSet<Restriction> {
+        Restriction::ALL
+            .into_iter()
+            .filter(|r| *r != Restriction::Footprints)
+            .collect()
+    }
+}
+
+/// Which [`KeepoutShape`] a Keepout has, as the file spells it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum KeepoutShapeKind {
+    Polygon,
+    Line,
+}
+
+/// A Keepout as the file stores it: the shape flattened into `shape`, `vertices` and (for
+/// a line) `width`, so its vertices spread one per line like a Zone's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KeepoutRecord {
+    pub uuid: Uuid,
+    /// The copper Layer; left out for every copper Layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<Uuid>,
+    /// `polygon` or `line`.
+    pub shape: KeepoutShapeKind,
     pub vertices: Vec<Vertex>,
-    /// Whether copper (Tracks, Pads, Zone fills) is forbidden inside.
-    pub copper: bool,
-    /// Whether Vias are forbidden inside.
-    pub vias: bool,
+    /// A line's width; only for `line`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<Nm>,
+    /// Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.
+    pub restrict: BTreeSet<Restriction>,
+}
+
+impl TryFrom<KeepoutRecord> for Keepout {
+    type Error = String;
+
+    fn try_from(r: KeepoutRecord) -> Result<Keepout, String> {
+        let shape = match (r.shape, r.width) {
+            (KeepoutShapeKind::Polygon, None) => KeepoutShape::Polygon {
+                vertices: r.vertices,
+            },
+            (KeepoutShapeKind::Line, Some(width)) => KeepoutShape::Line {
+                vertices: r.vertices,
+                width,
+            },
+            (KeepoutShapeKind::Polygon, Some(_)) => {
+                return Err("a polygon Keepout has no `width`".into());
+            }
+            (KeepoutShapeKind::Line, None) => return Err("a line Keepout needs a `width`".into()),
+        };
+        Ok(Keepout {
+            uuid: r.uuid,
+            layer: r.layer,
+            shape,
+            restrict: r.restrict,
+        })
+    }
+}
+
+impl From<Keepout> for KeepoutRecord {
+    fn from(k: Keepout) -> KeepoutRecord {
+        let (shape, vertices, width) = match k.shape {
+            KeepoutShape::Polygon { vertices } => (KeepoutShapeKind::Polygon, vertices, None),
+            KeepoutShape::Line { vertices, width } => {
+                (KeepoutShapeKind::Line, vertices, Some(width))
+            }
+        };
+        KeepoutRecord {
+            uuid: k.uuid,
+            layer: k.layer,
+            shape,
+            vertices,
+            width,
+            restrict: k.restrict,
+        }
+    }
 }
 
 /// One connected piece of a Zone's fill: an outer contour (counter-clockwise) and its

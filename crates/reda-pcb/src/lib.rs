@@ -15,6 +15,7 @@ mod commands;
 pub mod copper;
 pub mod dimension;
 pub mod drc;
+pub mod keepout;
 pub mod placed;
 pub mod rules;
 mod text;

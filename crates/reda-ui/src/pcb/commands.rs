@@ -384,8 +384,8 @@ impl Command for FromBottom {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectTypeShowParams {
-    /// The kind of object: footprint_instance, track, via, zone, keepout, free_pad,
-    /// pcb_text or pcb_graphic.
+    /// The kind of object: footprint_instance, track, via, zone, keepout, zone_cutout,
+    /// free_pad, pcb_text or pcb_graphic.
     #[serde(rename = "type")]
     kind: ObjectType,
     /// Show or hide them; left out, it toggles.

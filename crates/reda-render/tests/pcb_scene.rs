@@ -121,9 +121,15 @@ fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked
     let board = sample_board(&mut engine);
     let keepout = engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(2.0, 2.0, 6.0, 6.0), "layers": ["copper_bottom"]}),
+        json!({"vertices": rect(2.0, 2.0, 6.0, 6.0), "layer": "copper_bottom"}),
     );
     let keepout = uuid(&keepout["result"]["uuid"]);
+    let line = engine.run_ok(
+        "pcb.keepout.add",
+        json!({"shape": "line", "width": "1mm",
+               "vertices": [{"x": "10mm", "y": "2mm"}, {"x": "14mm", "y": "2mm"}]}),
+    );
+    let line = uuid(&line["result"]["uuid"]);
     let origin = engine.run_ok(
         "pcb.output_origin.set",
         json!({"at": {"x": "1mm", "y": "1mm"}}),
@@ -135,6 +141,22 @@ fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked
     let items: Vec<_> = scene.items_of(keepout).collect();
     assert_eq!(items.len(), 4, "one stroke per edge");
     assert!(items.iter().all(|i| i.layer == SceneLayer::Board(bottom)));
+
+    // A line Keepout on every copper Layer: outlined by the edges of the area it covers,
+    // 0.5 mm either side of its centreline, on both Layers.
+    let top = layer(&engine, LayerKind::Copper, Some(Side::Top));
+    let items: Vec<_> = scene.items_of(line).collect();
+    for l in [top, bottom] {
+        assert!(items.iter().any(|i| i.layer == SceneLayer::Board(l)));
+    }
+    let (lo, hi) = items
+        .iter()
+        .filter_map(|i| i.primitive.bounds())
+        .fold((i64::MAX, i64::MIN), |(lo, hi), b| {
+            (lo.min(b.0.y.0), hi.max(b.1.y.0))
+        });
+    // The outline stroke is 0.1 mm wide.
+    assert_eq!((lo, hi), (1_450_000, 2_550_000));
 
     let outline = layer(&engine, LayerKind::BoardOutline, None);
     let marks: Vec<_> = scene.items_of(origin).collect();

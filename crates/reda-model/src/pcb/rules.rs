@@ -18,7 +18,8 @@ use crate::pad::{ConnectionStyle, ZoneConnection};
 )]
 #[serde(rename_all = "snake_case")]
 pub enum RuleKind {
-    /// Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.
+    /// Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,
+    /// `zero_keepout_clearance` (board-wide only).
     Clearance,
     /// Track width: `min`, `preferred`, `max?`.
     TrackWidth,
@@ -100,7 +101,7 @@ impl RuleKind {
     pub fn fields(self) -> &'static [RuleField] {
         use RuleField::*;
         match self {
-            RuleKind::Clearance => &[Value, IgnorePadToPad],
+            RuleKind::Clearance => &[Value, IgnorePadToPad, ZeroKeepoutClearance],
             RuleKind::TrackWidth => &[Min, Preferred, Max],
             RuleKind::ViaSize => &[
                 DiameterMin,
@@ -157,6 +158,7 @@ impl RuleKind {
 pub enum RuleField {
     Value,
     IgnorePadToPad,
+    ZeroKeepoutClearance,
     Min,
     Preferred,
     Max,
@@ -236,6 +238,7 @@ impl RuleField {
         match self {
             RuleField::Value => "value",
             RuleField::IgnorePadToPad => "ignore_pad_to_pad",
+            RuleField::ZeroKeepoutClearance => "zero_keepout_clearance",
             RuleField::Min => "min",
             RuleField::Preferred => "preferred",
             RuleField::Max => "max",
@@ -421,6 +424,9 @@ pub struct RuleValues {
     /// Clearance only: Pads within one Footprint need no clearance from each other.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ignore_pad_to_pad: Option<bool>,
+    /// Clearance only, board-wide only: every Keepout edge is exact, with no clearance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zero_keepout_clearance: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min: Option<Nm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -490,6 +496,7 @@ impl RuleValues {
         match field {
             RuleField::Value => length(self.value),
             RuleField::IgnorePadToPad => self.ignore_pad_to_pad.map(RuleValue::Flag),
+            RuleField::ZeroKeepoutClearance => self.zero_keepout_clearance.map(RuleValue::Flag),
             RuleField::Min => length(self.min),
             RuleField::Preferred => length(self.preferred),
             RuleField::Max => length(self.max),
@@ -573,6 +580,7 @@ impl RuleValues {
         if matches!(
             field,
             RuleField::IgnorePadToPad
+                | RuleField::ZeroKeepoutClearance
                 | RuleField::FromHoleEdge
                 | RuleField::TentViasTop
                 | RuleField::TentViasBottom
@@ -584,6 +592,7 @@ impl RuleValues {
             };
             match field {
                 RuleField::IgnorePadToPad => self.ignore_pad_to_pad = flag,
+                RuleField::ZeroKeepoutClearance => self.zero_keepout_clearance = flag,
                 RuleField::FromHoleEdge => self.from_hole_edge = flag,
                 RuleField::TentViasTop => self.tent_vias_top = flag,
                 RuleField::TentViasBottom => self.tent_vias_bottom = flag,
@@ -655,6 +664,7 @@ impl RuleValues {
 fn type_name(field: RuleField) -> &'static str {
     match field {
         RuleField::IgnorePadToPad
+        | RuleField::ZeroKeepoutClearance
         | RuleField::FromHoleEdge
         | RuleField::TentViasTop
         | RuleField::TentViasBottom => "boolean",
@@ -670,9 +680,10 @@ fn type_name(field: RuleField) -> &'static str {
     }
 }
 
-const ALL_FIELDS: [RuleField; 37] = [
+const ALL_FIELDS: [RuleField; 38] = [
     RuleField::Value,
     RuleField::IgnorePadToPad,
+    RuleField::ZeroKeepoutClearance,
     RuleField::Min,
     RuleField::Preferred,
     RuleField::Max,
@@ -807,6 +818,9 @@ impl DesignRule {
             .find(|f| !self.kind.fields().contains(f))
         {
             return Some(format!("a `{kind}` rule has no value `{}`", field.path()));
+        }
+        if !self.scope.is_board_wide() && self.values.zero_keepout_clearance.is_some() {
+            return Some("`zero_keepout_clearance` is set on the board-wide record only".into());
         }
         if !self.scope.is_board_wide() && self.values.is_empty() {
             return Some(format!("a Net Class `{kind}` rule sets no value"));

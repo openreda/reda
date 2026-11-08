@@ -409,9 +409,13 @@ fn zones_of_one_net_may_overlap() {
 }
 
 #[test]
-fn a_fill_leaves_copper_keepouts_empty() {
+fn a_fill_keeps_the_clearance_from_keepouts_restricting_zones() {
     let dir = TempDir::new("fill-keepout");
     let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.5mm"}}),
+    );
     let gnd = add_net(&mut engine, "GND");
     let z = zone(
         &mut engine,
@@ -423,21 +427,65 @@ fn a_fill_leaves_copper_keepouts_empty() {
         "pcb.keepout.add",
         json!({"vertices": rect(2.0, 2.0, 4.0, 4.0)}),
     );
-    // A Via-only Keepout and one on the other Layer leave the fill alone.
+    // A Keepout not restricting Zones, and one on the other Layer, leave the fill alone.
     engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(6.0, 6.0, 8.0, 8.0), "copper": false}),
+        json!({"vertices": rect(6.0, 6.0, 8.0, 8.0), "restrict": ["tracks", "vias"]}),
     );
     engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(6.0, 2.0, 8.0, 4.0), "layers": ["copper_bottom"]}),
+        json!({"vertices": rect(6.0, 2.0, 8.0, 4.0), "layer": "copper_bottom"}),
     );
     let fills = fill(&engine);
     let s = shapes(&fills, z);
     assert!(!filled(s, at(3.0, 3.0)));
+    assert!(!filled(s, at(1.6, 3.0)), "within the clearance");
+    assert!(filled(s, at(1.4, 3.0)));
     assert!(filled(s, at(7.0, 7.0)));
     assert!(filled(s, at(7.0, 3.0)));
+    // The 2 mm square grown by 0.5 mm with round corners: 4 + 4 × 1 + π × 0.25 mm².
+    // Round edges are polygons containing the arcs (within 1 µm), so a little more goes.
+    let cut = 8.0 + std::f64::consts::PI * 0.25;
+    assert!((area(s) - (100.0 - cut)).abs() < 0.03, "{}", area(s));
+
+    // Edge-exact under zero_keepout_clearance.
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(1.9, 3.0)));
     assert!((area(s) - 96.0).abs() < 0.01);
+}
+
+#[test]
+fn a_line_keepout_cuts_the_fill_along_its_width() {
+    let dir = TempDir::new("fill-keepout-line");
+    let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
+    );
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 10.0, 10.0),
+        json!({"remove_unconnected": false}),
+    );
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"shape": "line", "width": "1mm",
+               "vertices": [{"x": "-1mm", "y": "5mm"}, {"x": "11mm", "y": "5mm"}]}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(!filled(s, at(5.0, 5.4)));
+    assert!(filled(s, at(5.0, 5.6)));
+    assert!(filled(s, at(5.0, 4.4)));
+    // The line's sides are within 1 µm of exact.
+    assert!((area(s) - 90.0).abs() < 0.03, "{}", area(s));
 }
 
 #[test]

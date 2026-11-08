@@ -183,20 +183,20 @@ fn a_track_narrower_than_its_net_class_allows_is_reported() {
 }
 
 #[test]
-fn copper_inside_a_keepout_that_forbids_it_is_reported() {
+fn objects_of_a_kind_a_keepout_restricts_inside_it_are_reported() {
     let dir = TempDir::new("drc-keepout");
     let mut engine = engine(&dir);
     let a = net(&mut engine, "A");
     let copper = uuid(
         &engine.run_ok(
             "pcb.keepout.add",
-            json!({"layers": ["copper_top"], "vertices": square("0mm", "0mm", "3mm", "3mm")}),
+            json!({"layer": "copper_top", "vertices": square("0mm", "0mm", "3mm", "3mm")}),
         )["result"]["uuid"],
     );
     let vias_only = uuid(
         &engine.run_ok(
             "pcb.keepout.add",
-            json!({"copper": false, "vertices": square("10mm", "0mm", "13mm", "3mm")}),
+            json!({"restrict": ["vias"], "vertices": square("10mm", "0mm", "13mm", "3mm")}),
         )["result"]["uuid"],
     );
     let inside = track(&mut engine, Some(a), "1mm", "-2mm", "1mm");
@@ -227,6 +227,79 @@ fn copper_inside_a_keepout_that_forbids_it_is_reported() {
         ],
         "{run:#}"
     );
+}
+
+#[test]
+fn smd_and_through_hole_pads_are_restricted_separately() {
+    let dir = TempDir::new("drc-keepout-pads");
+    let mut engine = engine(&dir);
+    let smd_only = uuid(
+        &engine.run_ok(
+            "pcb.keepout.add",
+            json!({"restrict": ["smd_pads"], "vertices": square("0mm", "0mm", "10mm", "10mm")}),
+        )["result"]["uuid"],
+    );
+    let placed = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": "5mm", "y": "5mm"},
+               "pads": [{"at": {"x": 0, "y": 0}, "width": "0.5mm", "height": "0.5mm"},
+                        {"at": {"x": "2mm", "y": 0}, "width": "1.5mm", "height": "1.5mm",
+                         "shape": "circle", "kind": "plated_through_hole",
+                         "hole": {"width": 800000, "height": 800000}}]}),
+    )["result"]
+        .clone();
+    let footprint = uuid(&placed["footprint"]);
+    let [smd, tht] = [uuid(&placed["pads"][0]), uuid(&placed["pads"][1])];
+    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout")
+        .iter()
+        .map(objects)
+        .collect();
+    assert_eq!(found, [vec![footprint, smd, smd_only]]);
+
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": smd_only, "restrict": ["tht_pads"]}),
+    );
+    let found: Vec<Vec<Uuid>> = of(&drc(&mut engine), "keepout")
+        .iter()
+        .map(objects)
+        .collect();
+    assert_eq!(found, [vec![footprint, tht, smd_only]]);
+}
+
+#[test]
+fn copper_keeps_the_clearance_from_a_keepout_unless_zero_keepout_clearance() {
+    let dir = TempDir::new("drc-keepout-clearance");
+    let mut engine = engine(&dir);
+    let keepout = uuid(
+        &engine.run_ok(
+            "pcb.keepout.add",
+            json!({"layer": "copper_top", "vertices": square("0mm", "0mm", "3mm", "3mm")}),
+        )["result"]["uuid"],
+    );
+    // A 0.2 mm Track whose edge is 0.1 mm above the Keepout: inside the 0.16 mm clearance.
+    let near = track(&mut engine, None, "3.2mm", "0mm", "3mm");
+    // One 0.2 mm above: clear.
+    track(&mut engine, None, "-0.3mm", "0mm", "3mm");
+    let run = drc(&mut engine);
+    let found = of(&run, "keepout");
+    assert_eq!(found.len(), 1, "{run:#}");
+    let v = &found[0];
+    assert_eq!(objects(v), [near, keepout]);
+    assert_eq!(v["required"], json!({"length": 160_000}));
+    assert_eq!(v["measured"], json!({"length": 100_000}));
+    assert_eq!(v["args"]["required"], 160_000);
+    assert_eq!(v["args"]["actual"], 100_000);
+    let board =
+        engine.run_ok("pcb.rules.set", json!({"kind": "clearance"}))["result"]["rule"]["uuid"]
+            .clone();
+    assert_eq!(v["rule"], board);
+
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
+    );
+    assert!(of(&drc(&mut engine), "keepout").is_empty());
 }
 
 fn via(engine: &mut TestEngine, x: &str, diameter: &str, hole: &str) -> Uuid {
@@ -702,7 +775,7 @@ fn a_zone_with_empty_fill_keeps_its_layer_and_polygon_location() {
         .clone();
     e.run_ok(
         "pcb.keepout.add",
-        json!({"layers":["copper_bottom"],"vertices":vertices}),
+        json!({"layer":"copper_bottom","vertices":vertices}),
     );
     let run = drc(&mut e);
     let zone = of(&run, "copper_without_net")
@@ -768,12 +841,12 @@ fn clearance_between_through_vias_names_both_violating_layers() {
 fn a_keepout_marker_names_only_the_layer_where_a_via_enters_it() {
     let dir = TempDir::new("drc-keepout-via-layer");
     let mut e = engine(&dir);
-    let keepout = e.run_ok(
+    e.run_ok(
         "pcb.keepout.add",
-        json!({"layers":["copper_top"],"vertices":square("0mm","0mm","3mm","3mm")}),
-    )["result"]["uuid"]
-        .clone();
+        json!({"layer":"copper_top","vertices":square("0mm","0mm","3mm","3mm")}),
+    );
     e.run_ok("pcb.via.add", json!({"at":{"x":"1mm","y":"1mm"}}));
-    let expected = e.run_ok("object.get", json!({"uuid":keepout}))["object"]["layers"].clone();
-    assert_eq!(of(&drc(&mut e), "keepout")[0]["layers"], expected);
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let top = pcb.copper_layers().next().unwrap().uuid;
+    assert_eq!(of(&drc(&mut e), "keepout")[0]["layers"], json!([top]));
 }

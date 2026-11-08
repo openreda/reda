@@ -265,7 +265,7 @@
       "oneOf": [
         {
           "const": "clearance",
-          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
           "type": "string"
         },
         {
@@ -527,6 +527,13 @@
             }
           ],
           "description": "`zone_connection` only: how fills join Vias."
+        },
+        "zero_keepout_clearance": {
+          "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       },
       "type": "object"

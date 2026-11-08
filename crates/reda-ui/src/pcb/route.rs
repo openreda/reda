@@ -21,7 +21,7 @@
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LayerKind, PcbDocument, Project, RuleKind, Side, TrackGeometry, Uuid};
 use reda_engine::pcb::rules::net_rules;
-use reda_engine::pcb::{ClearanceHit, Copper, Proposal, zone};
+use reda_engine::pcb::{ClearanceHit, Copper, Proposal, keepout};
 use serde_json::{Value, json};
 
 use super::snap::{self, SnapKind};
@@ -554,7 +554,7 @@ impl Router {
         let Some(pcb) = board(shell).and_then(|(p, _)| p.pcb()) else {
             return (Vec::new(), Vec::new());
         };
-        let keepouts = zone::keepouts_hit(pcb, proposal);
+        let keepouts = keepout::keepouts_hit(pcb, proposal);
         let hits = self
             .copper(shell)
             .map(|c| c.clearance(pcb, proposal, ignore))
