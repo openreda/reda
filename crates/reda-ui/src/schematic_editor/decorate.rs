@@ -35,12 +35,24 @@ pub fn hover_tip(shell: &Shell, document: Uuid) -> Option<String> {
     })
 }
 
+/// The chip by the cursor during a drag or move on `document`'s canvas (Display When
+/// Dragging): OK, or the Net change.
+pub fn drag_chip(shell: &Shell, document: Uuid) -> Option<String> {
+    match &shell.document_tab(document)?.interaction {
+        Interaction::Flight(f) if !f.committing => f.check.as_ref().map(|c| c.chip()),
+        _ => None,
+    }
+}
+
 /// Draws the overlays of `document`'s canvas in `rect`; returns the Commands an in-place
 /// edit commits.
 pub fn decorate(ui: &Ui, shell: &mut Shell, document: Uuid, rect: Rect) -> Vec<Invocation> {
     let pointer = ui.ctx().pointer_hover_pos().filter(|p| rect.contains(*p));
     if let (Some(at), Some(tip)) = (pointer, hover_tip(shell, document)) {
         chip(ui, Id::NULL.with(("wire-tip", document)), at, &tip);
+    }
+    if let (Some(at), Some(text)) = (pointer, drag_chip(shell, document)) {
+        chip(ui, Id::NULL.with(("drag-chip", document)), at, &text);
     }
     let screen = |shell: &Shell, at: Point| {
         let camera = shell.document_tab(document)?.camera?;

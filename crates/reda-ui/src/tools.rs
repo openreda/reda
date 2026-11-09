@@ -713,7 +713,8 @@ impl Command for ToolCycleCorner {
                       run between horizontal-then-vertical and vertical-then-horizontal, a \
                       45° one between straight-then-45° and 45°-then-straight; a route \
                       between straight-then-45°, 45°-then-straight, horizontal-then-vertical \
-                      and vertical-then-horizontal.",
+                      and vertical-then-horizontal. During a drag (Mod+Space) it turns the \
+                      rubber-banded Wires' corners the other way.",
         category: "tool",
         icon: "line",
         kind: Kind::View,

@@ -1060,3 +1060,29 @@ fn copy_as_text_copies_the_names_and_designators_line_by_line() {
     // Wires carry no text; the order is the selection's.
     assert_eq!(out["text"], "R1\nVCC\nFilter\nstage\nGND");
 }
+
+#[test]
+fn a_drag_with_flip_corners_turns_rubber_banded_corners_the_other_way() {
+    let dir = TempDir::new("drag-flip");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let up = wire(&mut engine, &[(0, 150), (0, 500)]);
+    // The preview shows the corner by the end that stayed: the moved end keeps its
+    // direction.
+    let project = engine.project().unwrap().clone();
+    let preview =
+        reda_schematic::shift_preview_flipped(&project, &[uuid(&r1)], mil(300, 100), true, true)
+            .unwrap();
+    assert_eq!(
+        preview_segments(&preview),
+        [((0, 500), (300, 500)), ((300, 250), (300, 500))]
+    );
+    engine.run_ok(
+        "schematic.drag",
+        json!({"objects": [r1], "by": at(300, 100), "flip_corners": true}),
+    );
+    assert_eq!(
+        object(&mut engine, &up[0])["vertices"],
+        json!([point(300, 250), point(300, 500), point(0, 500)])
+    );
+}

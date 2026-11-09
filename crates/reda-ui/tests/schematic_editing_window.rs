@@ -1,6 +1,7 @@
 //! Schematic editing in the window, driven with `egui_kittest`: F2 opens a text field on
 //! the canvas and Enter commits it; Tab while placing a Net Label shows "Paused" with the
-//! next name; hovering a Wire shows its Net; Copy As Text reaches the system clipboard.
+//! next name; hovering a Wire shows its Net; Copy As Text reaches the system clipboard;
+//! moving a Wire onto another Net shows the chip naming the join.
 
 use std::path::{Path, PathBuf};
 
@@ -168,4 +169,49 @@ fn copy_as_text_reaches_the_system_clipboard() {
         .iter()
         .any(|c| matches!(c, egui::OutputCommand::CopyText(t) if t == "SDA"));
     assert!(copied, "{:?}", h.output().platform_output.commands);
+}
+
+#[test]
+fn moving_a_wire_onto_another_net_shows_the_chip_naming_the_join() {
+    let dir = TempDir::new("drag-chip-window");
+    let mut h = harness(&dir);
+    let mil = |x: i64, y: i64| json!({"x": format!("{x}mil"), "y": format!("{y}mil")});
+    run(
+        &mut h,
+        "schematic.wire.add",
+        json!({"document": SHEET, "points": [mil(0, 0), mil(0, 1000)]}),
+    );
+    run(
+        &mut h,
+        "schematic.net_label.add",
+        json!({"document": SHEET, "name": "SDA", "at": mil(0, 1000)}),
+    );
+    let scl = run(
+        &mut h,
+        "schematic.wire.add",
+        json!({"document": SHEET, "points": [mil(1000, 500), mil(1500, 500)]}),
+    )["result"]["wires"][0]
+        .clone();
+    let label = run(
+        &mut h,
+        "schematic.net_label.add",
+        json!({"document": SHEET, "name": "SCL", "at": mil(1500, 500)}),
+    )["result"]["net_label"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects": [scl, label]}));
+    h.run();
+    h.hover_at(screen(&h, 1200.0, 500.0));
+    h.run();
+    h.key_press(Key::M);
+    h.run();
+    h.hover_at(screen(&h, 1100.0, 600.0));
+    h.run();
+    h.run();
+    h.get_by_label("OK");
+    h.hover_at(screen(&h, 0.0, 500.0));
+    h.run();
+    h.run();
+    h.get_by_label_contains("joins");
+    h.get_by_label_contains("SCL");
+    h.get_by_label_contains("SDA");
 }

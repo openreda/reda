@@ -29,6 +29,7 @@ pub use graphics::{
 pub use move_to_sheet::{MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange};
 pub use moving::{
     Drag, EditResult, FlightStep, Move, ShiftParams, ShiftPreview, flight_preview, shift_preview,
+    shift_preview_flipped,
 };
 pub use selection::selectable;
 pub use transform::Axis;

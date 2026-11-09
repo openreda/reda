@@ -42,7 +42,7 @@ pub use edit::{
     RectAddParams, Rotate, RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid,
     TextAdd, TextAddParams, TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams,
     WireBreakResult, WireSegment, WireSetVertices, WireSetVerticesParams, WireSetVerticesResult,
-    break_gap, flight_preview, selectable, shift_preview,
+    break_gap, flight_preview, selectable, shift_preview, shift_preview_flipped,
 };
 pub use fields::{FieldMove, FieldMoveParams, FieldResetParams, FieldResetPosition, FieldResult};
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};

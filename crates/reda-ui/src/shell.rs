@@ -297,6 +297,9 @@ impl Shell {
         engine.view_mut().set(tools::WireTool::default());
         engine
             .view_mut()
+            .set(crate::schematic_editor::DragKeys::default());
+        engine
+            .view_mut()
             .set(crate::panels::find::FindPanel::default());
         engine.view_mut().set(tools::BreakWireTool::default());
         engine.view_mut().set(tools::ToolStack::default());
@@ -526,6 +529,8 @@ impl Shell {
     pub fn hold_snap_keys(&mut self, document: Uuid, modifiers: egui::Modifiers, pressed: bool) {
         let keys = crate::snap::held(self, document, modifiers, pressed);
         self.engine.view_mut().set(keys);
+        let alt = modifiers.alt;
+        (self.engine.view_mut()).set(crate::schematic_editor::DragKeys { alt });
     }
 
     /// `document`'s Selection Filter; it changes through `selection.filter.set`.
@@ -2204,6 +2209,20 @@ impl Shell {
             "tool.move_board_shape" => self.pcb_move_board_shape(false),
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
+            "tool.cycle_corner" => {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::flip_corners(self, sheet);
+                }
+            }
+            "schematic.nudge" => {
+                let objects: Vec<Uuid> =
+                    serde_json::from_value(out["objects"].clone()).unwrap_or_default();
+                let direction = serde_json::from_value(out["direction"].clone());
+                if let (Some(sheet), Ok(direction)) = (self.active_sheet(), direction) {
+                    let steps = out["steps"].as_i64().unwrap_or(1);
+                    crate::schematic_editor::nudge(self, sheet, objects, direction, steps);
+                }
+            }
             "tool.copy" | "tool.duplicate" => {
                 let objects: Vec<Uuid> =
                     serde_json::from_value(out["objects"].clone()).unwrap_or_default();

@@ -45,6 +45,8 @@ pub struct Overlay {
     pub segments: Arc<[(Point, Point)]>,
     /// The Break Wire Tool's preview of the cut under the pointer.
     pub cutter: Option<Cutter>,
+    /// The Junctions a drag in flight would make (Display When Dragging).
+    pub junctions: Arc<[Point]>,
 }
 
 /// What the Break Wire Tool shows of the cut it would make.
@@ -293,6 +295,10 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
         for (from, to) in cutter.extremities.into_iter().flatten() {
             painter.line_segment([screen(from), screen(to)], Stroke::new(2.0, accent));
         }
+    }
+    let dot = ((WIRE_NM * 3.0 / camera.nm_per_point) as f32).max(3.0);
+    for &at in overlay.junctions.iter() {
+        painter.circle_filled(screen(at), dot, wire);
     }
     for &(at, red) in overlay.handles.iter() {
         let fill = if red { SEGMENT_HANDLE } else { accent };
