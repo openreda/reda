@@ -1,4 +1,4 @@
-//! The schematic's dialogs: Select Similar, Re-annotate, Update from Library,
+//! The schematic's dialogs: Select Similar, Re-annotate, Re-annotate (last settings), Update from Library,
 //! Convert Cross Junctions, the words of new text, and Export PDF's file picker.
 //!
 //! Each dialog is a model that works on a [`Shell`] (tested without a window) plus its
@@ -28,7 +28,7 @@ use crate::tr;
 
 pub use cross::ConvertCrossDialog;
 pub use reannotate::labels as reannotate_labels;
-pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
+pub use reannotate::{ReannotateDialog, ReannotateLast, Rename, RowSort, SheetRow};
 pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;
 pub use update::{UpdateDialog, UpdateRow};
@@ -43,6 +43,8 @@ pub enum DialogKind {
     SelectSimilar,
     /// Renumber Designators, with an old → new preview.
     Reannotate,
+    /// Re-annotate (last settings): a count to confirm, then the saved settings run.
+    ReannotateLast,
     /// Update outdated Components, with a preview.
     UpdateFromLibrary,
     /// Pick where to write the PDF of every sheet.
@@ -83,7 +85,7 @@ impl Command for OpenDialog {
         title: "Open Schematic Dialog",
         description: "Opens one of the schematic's dialogs in the window: Find (the Find \
                       Panel), Select \
-                      Similar, Re-annotate, Update from Library, Convert Cross Junctions, \
+                      Similar, Re-annotate, Re-annotate (last settings), Update from Library, Convert Cross Junctions, \
                       or the file picker of Export PDF.",
         category: "schematic",
         icon: "dialog",
@@ -121,6 +123,12 @@ impl Command for OpenDialog {
                 json!({"dialog": "reannotate"}),
             ),
             Preset::new(
+                "reannotate_last",
+                "Re-annotate (last settings)…",
+                "annotate",
+                json!({"dialog": "reannotate_last"}),
+            ),
+            Preset::new(
                 "update_from_library",
                 "Update from Library…",
                 "library_update",
@@ -151,6 +159,7 @@ impl Command for OpenDialog {
 pub enum SchematicDialog {
     Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
+    ReannotateLast(ReannotateLast),
     Update(UpdateDialog),
     ConvertCross(ConvertCrossDialog),
 }
@@ -172,11 +181,14 @@ impl SchematicDialog {
                     return None;
                 }
             },
-            DialogKind::Reannotate => {
-                let mut dialog = ReannotateDialog::new(shell);
-                dialog.refresh(shell);
-                SchematicDialog::Reannotate(dialog)
-            }
+            DialogKind::Reannotate => SchematicDialog::Reannotate(ReannotateDialog::new(shell)),
+            DialogKind::ReannotateLast => match ReannotateLast::new(shell) {
+                Ok(dialog) => SchematicDialog::ReannotateLast(dialog),
+                Err(reason) => {
+                    shell.report(reason);
+                    return None;
+                }
+            },
             DialogKind::UpdateFromLibrary => SchematicDialog::Update(UpdateDialog::new(shell)),
             DialogKind::ConvertCrossJunctions => {
                 SchematicDialog::ConvertCross(ConvertCrossDialog::new(shell)?)
@@ -190,6 +202,7 @@ impl SchematicDialog {
         match self {
             SchematicDialog::Similar(d) => d.show(ctx, shell),
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
+            SchematicDialog::ReannotateLast(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),
             SchematicDialog::ConvertCross(d) => d.show(ctx, shell),
         }

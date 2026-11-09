@@ -43,7 +43,10 @@ fn every_check_sits_in_one_group_and_the_matrix_checks_are_set_by_it() {
         ErcGroup::of(ErcCheck::UnconnectedPin)
     );
     assert_eq!(ErcGroup::of(ErcCheck::OffGrid).title(), "Drawing");
-    assert_eq!(ErcGroup::of(ErcCheck::DuplicateDesignator).title(), "Components");
+    assert_eq!(
+        ErcGroup::of(ErcCheck::DuplicateDesignator).title(),
+        "Components"
+    );
 }
 
 #[test]
@@ -71,7 +74,10 @@ fn several_checks_picked_take_one_severity_together() {
 
     d.apply(&mut shell).unwrap();
     let erc = &shell.engine().project().unwrap().props().erc;
-    assert_eq!(erc.severities.get(ErcCheck::OffSheet), Some(Severity::Error));
+    assert_eq!(
+        erc.severities.get(ErcCheck::OffSheet),
+        Some(Severity::Error)
+    );
 }
 
 #[test]
@@ -112,7 +118,13 @@ fn a_click_cycles_a_cell_and_the_changes_apply_as_one_pin_matrix_command() {
         ]})
     );
     d.apply(&mut shell).unwrap();
-    let matrix = &shell.engine().project().unwrap().props().erc.pin_matrix_overrides;
+    let matrix = &shell
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .pin_matrix_overrides;
     assert_eq!(matrix.get(outputs), Severity::Off);
 
     // A cell put back to its default is reset with a null severity.
@@ -136,7 +148,10 @@ fn the_matrix_menu_sets_every_cell_and_reset_to_defaults_restores_it() {
     assert!(Cell::all().all(|c| page.cell(c) == Severity::Warning));
     page.set_all(None);
     assert!(Cell::all().all(|c| page.cell(c) == c.default_severity()));
-    assert!(d.steps().is_empty(), "back to the defaults: nothing to apply");
+    assert!(
+        d.steps().is_empty(),
+        "back to the defaults: nothing to apply"
+    );
 
     let page = d.page_mut::<ErcPage>().unwrap();
     page.set_all(Some(Severity::Off));

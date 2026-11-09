@@ -240,11 +240,13 @@ fn the_erc_page_edits_the_pin_matrix_and_sets_picked_checks_together() {
         h.get_by_label(group);
     }
     // A click cycles a cell: Error goes to Off.
-    h.get_by_label("Output Pin connected to Output Pin: Error").click();
+    h.get_by_label("Output Pin connected to Output Pin: Error")
+        .click();
     h.run();
     h.get_by_label("Output Pin connected to Output Pin: Off");
     // The right-click menu sets every cell.
-    h.get_by_label("Input Pin unconnected: Error").click_secondary();
+    h.get_by_label("Input Pin unconnected: Error")
+        .click_secondary();
     h.run();
     h.get_by_label("All Warning").click();
     h.run();
@@ -261,9 +263,23 @@ fn the_erc_page_edits_the_pin_matrix_and_sets_picked_checks_together() {
     h.run();
     h.get_by_label("OK").click();
     h.run();
-    let erc = h.state().shell().engine().project().unwrap().props().erc.clone();
-    assert_eq!(erc.severities.get(ErcCheck::UndrivenPower), Some(Severity::Off));
-    assert_eq!(erc.severities.get(ErcCheck::NoDrivingSource), Some(Severity::Off));
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    assert_eq!(
+        erc.severities.get(ErcCheck::UndrivenPower),
+        Some(Severity::Off)
+    );
+    assert_eq!(
+        erc.severities.get(ErcCheck::NoDrivingSource),
+        Some(Severity::Off)
+    );
     let input = reda_ui::engine::model::Cell::unconnected(reda_ui::engine::model::PinType::Input);
     assert_eq!(erc.pin_matrix_overrides.get(input), Severity::Warning);
 }

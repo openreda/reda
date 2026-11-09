@@ -2199,6 +2199,23 @@ reannotate-scope-project = Project
 reannotate-scope-sheet = This sheet
 reannotate-scope-selection = Selection
 reannotate-scope-sheets = Sheets
+reannotate-no-sheets = Tick the sheets to renumber.
+reannotate-sheet-number = No.
+reannotate-sheet = Sheet
+reannotate-sheet-start = Starts at
+reannotate-only-changed = Only changed
+reannotate-sort = Sort:
+reannotate-sort-order = Order
+reannotate-sort-changed = Changed first
+reannotate-sort-locked = Locked first
+reannotate-lock-row = Lock { $designator }
+reannotate-kept-duplicates = Locked or out-of-scope duplicates stay: { $designators }
+reannotate-last-title = Re-annotate (last settings)
+reannotate-last-none = No Re-annotate settings saved yet: run Re-annotate… once first.
+reannotate-last-confirm = { $count ->
+    [one] The last Re-annotate settings renumber 1 Component.
+   *[other] The last Re-annotate settings renumber { $count } Components.
+}
 reannotate-scope-sheets-list = Sheets { $sheets }
 reannotate-summary-line = { $name }: { $value }
 reannotate-source = Source

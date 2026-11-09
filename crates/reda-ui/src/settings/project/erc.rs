@@ -383,7 +383,10 @@ impl ErcPage {
     /// sets every picked check.
     fn check_grid(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.label(tr!("settings-erc-set-picked", count = self.picked.len() as i64));
+            ui.label(tr!(
+                "settings-erc-set-picked",
+                count = self.picked.len() as i64
+            ));
             for severity in SEVERITIES {
                 let label = severity_name(severity);
                 let name = tr!("settings-erc-set-picked-to", severity = label.as_str());
@@ -428,7 +431,8 @@ impl ErcPage {
                             continue;
                         }
                         let picked = self.picked.contains(check);
-                        let row = ui.add(Button::selectable(picked, &name).frame_when_inactive(false));
+                        let row =
+                            ui.add(Button::selectable(picked, &name).frame_when_inactive(false));
                         let accessible = name.clone();
                         row.widget_info(|| {
                             WidgetInfo::selected(Role::Row, true, picked, &accessible)
@@ -436,8 +440,7 @@ impl ErcPage {
                         if row.clicked() {
                             pick = Some(*check);
                         }
-                        let Some((_, draft)) =
-                            self.severities.iter_mut().find(|(c, _)| c == check)
+                        let Some((_, draft)) = self.severities.iter_mut().find(|(c, _)| c == check)
                         else {
                             ui.end_row();
                             continue;
@@ -511,7 +514,10 @@ impl ErcPage {
                         response.context_menu(|ui| {
                             for (label, severity) in [
                                 (tr!("settings-erc-matrix-all-off"), Some(Severity::Off)),
-                                (tr!("settings-erc-matrix-all-warning"), Some(Severity::Warning)),
+                                (
+                                    tr!("settings-erc-matrix-all-warning"),
+                                    Some(Severity::Warning),
+                                ),
                                 (tr!("settings-erc-matrix-all-error"), Some(Severity::Error)),
                                 (tr!("settings-erc-matrix-default"), None),
                             ] {
