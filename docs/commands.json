@@ -39066,6 +39066,158 @@
     },
     {
       "category": "pcb",
+      "description": "Drags a Via or Free Pad with every Track ending on it attached. With `preserve_angle` the Tracks keep their angles, as a slide's neighbours do; without it their ends follow. With `detach` it moves alone.",
+      "icon": "drag",
+      "id": "pcb.copper.drag",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam",
+            "description": "How far to drag it."
+          },
+          "detach": {
+            "default": false,
+            "description": "Moves it alone, leaving its Tracks where they are (`Mod`+drag).",
+            "type": "boolean"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Drags locked copper too; without it a drag that would change any is refused.",
+            "type": "boolean"
+          },
+          "merge_collinear": {
+            "default": true,
+            "description": "Merge Collinear (on): a segment left in line with its lone neighbour merges into\nit.",
+            "type": "boolean"
+          },
+          "miter": {
+            "default": true,
+            "description": "Include Miters (on), as in `pcb.track.drag`.",
+            "type": "boolean"
+          },
+          "object": {
+            "description": "The Via or Free Pad.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "preserve_angle": {
+            "default": true,
+            "description": "Angle keeping (on): the Tracks ending on it move with it, and their far ends slide\nalong their neighbours as a slide's do. Off, their ends on it follow and they\nturn.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object",
+          "by"
+        ],
+        "title": "CopperDragParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/Point",
+            "description": "How far the grabbed copper really moved: less than `by` where the drag stopped at\na neighbour's end, and only across a slid segment."
+          },
+          "deleted": {
+            "description": "Tracks squeezed to nothing or merged into a neighbour, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moved": {
+            "description": "The Vias and Free Pads moved, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracks": {
+            "description": "The Tracks moved, stretched, merged or added, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks",
+          "deleted",
+          "moved",
+          "by"
+        ],
+        "title": "TrackDragResult",
+        "type": "object"
+      },
+      "title": "Drag Via or Free Pad"
+    },
+    {
+      "category": "pcb",
       "description": "Sets Tracks and Vias to the Net of the Footprint Pads they touch, through the Tracks and Vias joined to them. Copper touching Pads of two Nets stays as it is and is reported; copper touching no Pad keeps its Net. With `nets`, only copper touching Pads of those Nets.",
       "icon": "net",
       "id": "pcb.copper.update_nets",
@@ -54849,6 +55001,117 @@
     },
     {
       "category": "pcb",
+      "description": "Adds a vertex inside a straight Track segment, splitting it in two, and with `by` drags the new vertex at once (one undo step).",
+      "icon": "drag",
+      "id": "pcb.track.break",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/PointParam",
+            "description": "Where to add the vertex: the nearest point on the segment, strictly inside it."
+          },
+          "by": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Drags the new vertex this far at once, as dragging the midpoint handle does."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Breaks a locked Track too; without it a locked one is refused.",
+            "type": "boolean"
+          },
+          "merge_collinear": {
+            "default": true,
+            "description": "Merge Collinear (on): after a drag, a segment left in line with its lone neighbour\nmerges into it.",
+            "type": "boolean"
+          },
+          "track": {
+            "description": "The straight Track segment.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "track",
+          "at"
+        ],
+        "title": "TrackBreakParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "deleted": {
+            "description": "Tracks merged into a neighbour by the drag, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracks": {
+            "description": "The changed and new Tracks, sorted by UUID: the first half keeps the segment's\nUUID and the second is new.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks",
+          "deleted"
+        ],
+        "title": "TrackBreakResult",
+        "type": "object"
+      },
+      "title": "Break Track"
+    },
+    {
+      "category": "pcb",
       "description": "Deletes stacked duplicate Track segments (the same ends on the same Layer and Net, keeping the widest) and merges collinear segments of one width that meet end to end with nothing else at the joint. Locked Tracks stay as they are.",
       "icon": "track",
       "id": "pcb.track.cleanup",
@@ -54970,7 +55233,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves a Track segment. Its neighbours stay attached: Tracks ending at its ends stretch to follow, and an end that leaves a Pad or Via gets a new segment back to it. With `detach` only the segment moves.",
+      "description": "Slides a Track segment across itself. A lone neighbour keeps its angle and shortens or lengthens; one squeezed to nothing goes, a collinear segment beyond it merges, and the drag stops there. Where a neighbour can't follow (a Pad, Via, branch or parallel neighbour) a connector is added, 45° with `miter`, else square. With `detach` only the segment moves; without `preserve_angle` it moves freely and its neighbours' ends follow.",
       "icon": "drag",
       "id": "pcb.track.drag",
       "kind": "edit",
@@ -55013,16 +55276,31 @@
         "properties": {
           "by": {
             "$ref": "#/$defs/PointParam",
-            "description": "How far to move it."
+            "description": "How far to drag it. With `preserve_angle` a straight segment moves only across\nitself: the part of `by` along it is dropped."
           },
           "detach": {
             "default": false,
-            "description": "Moves the segment alone, leaving its neighbours where they are.",
+            "description": "Moves the segment alone, leaving its neighbours where they are (`Mod`+drag).",
             "type": "boolean"
           },
           "include_locked": {
             "default": false,
             "description": "Drags a locked Track too; without it a locked one is refused.",
+            "type": "boolean"
+          },
+          "merge_collinear": {
+            "default": true,
+            "description": "Merge Collinear (on): a segment left in line with its lone neighbour merges into\nit.",
+            "type": "boolean"
+          },
+          "miter": {
+            "default": true,
+            "description": "Include Miters (on): a connector from an end that can't follow runs at 45°; off,\nsquare.",
+            "type": "boolean"
+          },
+          "preserve_angle": {
+            "default": true,
+            "description": "Angle keeping (on; the Tool passes `pcb.drag.preserve_angle`): a lone neighbour\nkeeps its line and shortens or lengthens, and the drag stops where one runs out.\nOff, the segment moves by the whole of `by` and its neighbours' ends follow.",
             "type": "boolean"
           },
           "track": {
@@ -55040,10 +55318,45 @@
       },
       "presets": [],
       "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
+          "by": {
+            "$ref": "#/$defs/Point",
+            "description": "How far the grabbed copper really moved: less than `by` where the drag stopped at\na neighbour's end, and only across a slid segment."
+          },
           "deleted": {
-            "description": "Neighbours squeezed to nothing, sorted by UUID.",
+            "description": "Tracks squeezed to nothing or merged into a neighbour, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moved": {
+            "description": "The Vias and Free Pads moved, sorted by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -55051,7 +55364,7 @@
             "type": "array"
           },
           "tracks": {
-            "description": "The Tracks moved, stretched or added, sorted by UUID.",
+            "description": "The Tracks moved, stretched, merged or added, sorted by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -55061,12 +55374,199 @@
         },
         "required": [
           "tracks",
-          "deleted"
+          "deleted",
+          "moved",
+          "by"
         ],
         "title": "TrackDragResult",
         "type": "object"
       },
       "title": "Drag Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Drags one end of a Track segment. A free end, or one on a Footprint Pad, moves alone (the Ratsnest shows the gap). A vertex shared by two segments moves both: `deform` turns them to meet it, `scale` keeps the corner's shape. An end on a Free Pad or Via drags that object with all its Tracks, as `pcb.copper.drag` does. T-junctions are refused.",
+      "icon": "drag",
+      "id": "pcb.track.drag_end",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Corner": {
+            "description": "How dragging a vertex shared by two segments reshapes them (`Space`).",
+            "oneOf": [
+              {
+                "const": "deform",
+                "description": "The vertex follows the cursor and both segments turn to meet it.",
+                "type": "string"
+              },
+              {
+                "const": "scale",
+                "description": "The corner keeps its shape: both segments move with the vertex, and their far\nends slide along their neighbours as a slide's do.",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "TrackEnd": {
+            "description": "One end of a Track segment.",
+            "enum": [
+              "from",
+              "to"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/PointParam",
+            "description": "How far to drag it."
+          },
+          "corner": {
+            "$ref": "#/$defs/Corner",
+            "default": "deform",
+            "description": "At a vertex shared by two segments: `deform` (the vertex follows and both\nsegments turn) or `scale` (the corner keeps its shape)."
+          },
+          "detach": {
+            "default": false,
+            "description": "Moves the end alone, leaving whatever it is on (`Mod`+drag).",
+            "type": "boolean"
+          },
+          "end": {
+            "$ref": "#/$defs/TrackEnd",
+            "description": "Which end."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Drags locked copper too; without it a drag that would change any is refused.",
+            "type": "boolean"
+          },
+          "merge_collinear": {
+            "default": true,
+            "description": "Merge Collinear (on): a segment left in line with its lone neighbour merges into\nit.",
+            "type": "boolean"
+          },
+          "miter": {
+            "default": true,
+            "description": "Include Miters (on), as in `pcb.track.drag`.",
+            "type": "boolean"
+          },
+          "preserve_angle": {
+            "default": true,
+            "description": "Angle keeping for `scale` corners and Via or Free Pad ends, as in\n`pcb.track.drag` (on).",
+            "type": "boolean"
+          },
+          "track": {
+            "description": "The Track segment.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "track",
+          "end",
+          "by"
+        ],
+        "title": "TrackDragEndParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "by": {
+            "$ref": "#/$defs/Point",
+            "description": "How far the grabbed copper really moved: less than `by` where the drag stopped at\na neighbour's end, and only across a slid segment."
+          },
+          "deleted": {
+            "description": "Tracks squeezed to nothing or merged into a neighbour, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moved": {
+            "description": "The Vias and Free Pads moved, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tracks": {
+            "description": "The Tracks moved, stretched, merged or added, sorted by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks",
+          "deleted",
+          "moved",
+          "by"
+        ],
+        "title": "TrackDragResult",
+        "type": "object"
+      },
+      "title": "Drag Track End"
     },
     {
       "category": "pcb",
