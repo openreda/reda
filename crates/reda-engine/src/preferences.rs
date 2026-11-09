@@ -14,6 +14,7 @@
 mod file;
 pub mod pages;
 
+use std::collections::BTreeSet;
 use std::num::NonZeroU32;
 
 use reda_command::{Length, UserDirs};
@@ -158,6 +159,43 @@ impl Default for General {
     }
 }
 
+/// A kind of point the cursor snaps to. Boards and Footprints offer the first eight,
+/// sheets and Symbols the rest.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Hotspot {
+    /// A Pad's centre (its anchor).
+    PadCenter,
+    /// A Via's centre.
+    ViaCenter,
+    /// Either end of a straight Track.
+    TrackEnd,
+    /// Either end of an arc, Track or graphic.
+    ArcEnd,
+    /// The centre of an arc, Track or graphic.
+    ArcCenter,
+    /// A vertex of the Board Outline, a Board Cutout or a drawn line or rectangle.
+    OutlineVertex,
+    /// A Footprint's origin.
+    FootprintOrigin,
+    /// A text's anchor.
+    TextAnchor,
+    /// A Pin's connecting end.
+    PinEnd,
+    /// Either end of a Wire.
+    WireEnd,
+    /// A corner inside a Wire.
+    WireVertex,
+    /// Anywhere along a Wire, on the grid where the Wire runs straight across it.
+    Wire,
+    /// A Port's or Power Port's anchor.
+    PortAnchor,
+    /// A Net Label's anchor.
+    LabelAnchor,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Theme {
@@ -174,8 +212,17 @@ pub struct Editing {
     pub default_units: Units,
     /// Keep placing copies of an object until the placement is cancelled.
     pub repeat_placement: bool,
-    /// Snap the cursor to nearby electrical points, such as pins and wire ends.
+    /// The default object snap mode: on, new views snap to Hotspots on the active Layer
+    /// (through-hole Pads and Vias count on every copper Layer); off, they start with
+    /// object snap Off.
     pub electrical_snap: bool,
+    /// Snap Distance: how close the cursor must come to a Hotspot, on both axes, before
+    /// it snaps there. Also used in the Footprint editor.
+    pub snap_distance: Length,
+    /// The Hotspot kinds new views leave out of the checklist, such as `text_anchor`:
+    /// `pad_center`, `via_center`, `track_end`, `arc_end`, `arc_center`,
+    /// `outline_vertex`, `footprint_origin` and `text_anchor`.
+    pub hotspots_off: BTreeSet<Hotspot>,
     /// Pan the view when the cursor reaches the canvas edge during an operation.
     pub auto_pan: bool,
     /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
@@ -283,6 +330,8 @@ impl Default for Editing {
             default_units: Units::Mm,
             repeat_placement: true,
             electrical_snap: true,
+            snap_distance: Length(reda_model::geom::Nm(8 * 25_400)),
+            hotspots_off: BTreeSet::new(),
             auto_pan: true,
             default_grid: None,
             zone: ZonePreferences::default(),
@@ -437,8 +486,13 @@ pub struct SchematicEditing {
     pub default_units: Units,
     /// Keep placing copies of an object until the placement is cancelled.
     pub repeat_placement: bool,
-    /// Snap the cursor to nearby electrical points, such as pins and wire ends.
+    /// The default object snap mode: on, new views snap to Hotspots (Pin ends, Wire
+    /// ends and the like) within the grid preset's Electrical Range; off, they start
+    /// with object snap Off.
     pub electrical_snap: bool,
+    /// The Hotspot kinds new views leave out of the checklist: `pin_end`, `wire_end`,
+    /// `wire_vertex`, `wire` (anywhere along a Wire), `port_anchor` and `label_anchor`.
+    pub hotspots_off: BTreeSet<Hotspot>,
     /// Pan the view when the cursor reaches the canvas edge during an operation.
     pub auto_pan: bool,
     /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
@@ -505,6 +559,8 @@ impl Default for SchematicEditing {
             default_units,
             repeat_placement,
             electrical_snap,
+            snap_distance: _,
+            hotspots_off: _,
             auto_pan,
             default_grid,
             zone: _,
@@ -519,6 +575,7 @@ impl Default for SchematicEditing {
             default_units,
             repeat_placement,
             electrical_snap,
+            hotspots_off: BTreeSet::new(),
             auto_pan,
             default_grid,
             single_negation: false,

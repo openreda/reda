@@ -406,3 +406,37 @@ fn the_pad_tool_steps_letter_numbers_and_skips_taken_ones() {
     numbers.sort();
     assert_eq!(numbers, ["2", "3", "4"], "1 → 2 is taken, so 3, then 4");
 }
+
+#[test]
+fn the_footprint_editor_snaps_onto_its_hotspots_within_the_snap_distance() {
+    let home = TempDir::new("fpe-snap");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    // Gridless: clicks stay where they are unless a Hotspot is within 8 mil on both axes.
+    shell
+        .run("view.snap.set", json!({"document": fp, "gridless": true}))
+        .unwrap();
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    // Near the origin: onto it. Elsewhere: free.
+    feed(
+        &mut shell,
+        fp,
+        &[click(mm(0.1, 0.1)), click(mm(2.63, -0.17))],
+    );
+    let mut pads: Vec<(i64, i64)> = footprint(&shell, fp)
+        .pads
+        .iter()
+        .map(|p| (p.at.x.0, p.at.y.0))
+        .collect();
+    pads.sort();
+    assert_eq!(pads, [(0, 0), (2_630_000, -170_000)]);
+    // A line drawn from beside the second Pad starts on its centre.
+    shell.run("tool.activate:line", json!({})).unwrap();
+    drag(&mut shell, fp, mm(2.73, -0.07), mm(4.0, 1.0));
+    let f = footprint(&shell, fp);
+    let Shape::Line { start, end } = f.graphics[0].shape else {
+        panic!("a line");
+    };
+    assert_eq!((start.x.0, start.y.0), (2_630_000, -170_000));
+    assert_eq!((end.x.0, end.y.0), (4_000_000, 1_000_000));
+}

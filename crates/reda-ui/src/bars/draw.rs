@@ -453,7 +453,8 @@ pub fn active_bar(
                         }
                         if let Some(document) = cx.document {
                             clicked = clicked
-                                .or(crate::selection::filter_ui::button(ui, cx.shell, document));
+                                .or(crate::selection::filter_ui::button(ui, cx.shell, document))
+                                .or(crate::snap::palette_button(ui, cx.shell, document));
                         }
                         clicked
                     })

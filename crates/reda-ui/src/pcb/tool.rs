@@ -18,8 +18,9 @@
 //!   Rectangle is off.
 //! - Space turns by 90° and L flips to the other side: in flight they join the move,
 //!   otherwise they run `pcb.rotate` / `pcb.flip` on the selection.
-//! - Moves snap the grabbed point (a Pad centre near the grab, else the object's
-//!   position) to Pads, Track ends and Via centres nearby, else to the snap grid.
+//! - Moves snap the grabbed point (a Hotspot of the moved objects near the grab, else
+//!   the object's position) by the shared [`crate::snap`] model: to the other objects'
+//!   Hotspots, else to the snap grid.
 //!
 //! Points are board nm. The Tool talks to the Shell only through its public API, so the
 //! canvas and the tests drive it the same way.
@@ -29,21 +30,15 @@ use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry,
 use reda_engine::pcb::{Copper, PlacementOp, drag, placement_anchor, placement_preview};
 use serde_json::{Value, json};
 
-use super::snap::{self, SnapKind, Target};
 use crate::shell::{Shell, ToolPreview};
-
-/// How far from the cursor electrical points still catch it when the canvas gives no
-/// zoom: 0.5 mm.
-pub const DEFAULT_SNAP_RADIUS: Nm = Nm::from_um(500);
+use crate::snap::{self, Snapped, Target};
 
 /// The Tool's state between events.
 #[derive(Debug, Default)]
 pub struct SelectTool {
     state: State,
     /// Where the cursor last snapped, for the snap marker.
-    snap: Option<(Point, SnapKind)>,
-    /// How far electrical points catch the cursor, from the canvas zoom.
-    radius: Option<Nm>,
+    snap: Option<Snapped>,
     modifiers: egui::Modifiers,
     tolerance: Nm,
     dragged: bool,
@@ -159,17 +154,8 @@ fn board(shell: &Shell) -> Option<(&Project, Uuid)> {
 }
 
 impl SelectTool {
-    /// Sets how far electrical points catch the cursor (a few pixels at the zoom).
-    pub fn set_snap_radius(&mut self, radius: Nm) {
-        self.radius = Some(radius);
-    }
-
-    fn radius(&self) -> Nm {
-        self.radius.unwrap_or(DEFAULT_SNAP_RADIUS)
-    }
-
     /// Where the cursor last snapped to, while a move is in flight or after a hover.
-    pub fn snap(&self) -> Option<(Point, SnapKind)> {
+    pub fn snap(&self) -> Option<Snapped> {
         self.snap
     }
 
@@ -212,11 +198,7 @@ impl SelectTool {
             return;
         };
         let at = middle;
-        let targets = if electrical_snap(shell) {
-            snap::targets(pcb)
-        } else {
-            Vec::new()
-        };
+        let targets = snap::hotspots::without(snap::hotspots::board(pcb), &objects);
         self.state = State::Moving(Move {
             document,
             objects,
@@ -236,7 +218,7 @@ impl SelectTool {
 
     /// The cursor is at `at` with no button down: snaps it for the marker, and moves what
     /// it carries.
-    pub fn hover_mut(&mut self, shell: &mut Shell, at: Point) -> (Point, SnapKind) {
+    pub fn hover_mut(&mut self, shell: &mut Shell, at: Point) -> Snapped {
         if let State::Moving(mut m) = std::mem::take(&mut self.state) {
             self.track(shell, &mut m, at);
             self.state = State::Moving(m);
@@ -246,14 +228,9 @@ impl SelectTool {
     }
 
     /// The cursor is at `at` with no button down: snaps it for the marker.
-    pub fn hover(&mut self, shell: &Shell, at: Point) -> (Point, SnapKind) {
-        let grid = board_grid(shell);
-        let targets = board(shell)
-            .and_then(|(p, _)| p.pcb())
-            .filter(|_| electrical_snap(shell))
-            .map(snap::targets)
-            .unwrap_or_default();
-        let snapped = snap::snap(at, grid, shell.board_grid_origin(), &targets, self.radius());
+    pub fn hover(&mut self, shell: &Shell, at: Point) -> Snapped {
+        let targets = board_hotspots(shell);
+        let snapped = snap_board(shell, at, &targets);
         self.snap = Some(snapped);
         snapped
     }
@@ -463,7 +440,7 @@ impl SelectTool {
             };
             return;
         }
-        let all = snap::targets(pcb);
+        let all = snap::hotspots::board(pcb);
         let own: Vec<Target> = all
             .iter()
             .filter(|t| objects.contains(&t.object))
@@ -473,8 +450,9 @@ impl SelectTool {
             .into_iter()
             .filter(|t| !objects.contains(&t.object))
             .collect();
-        let reference = snap::nearest(&own, at, self.radius())
-            .map(|t| t.at)
+        let capture = shell.preferences().pcb.snap_distance.nm();
+        let reference = snap::nearest(&own, at, capture)
+            .map(|t| t.at())
             .or_else(|| match project.object(object) {
                 Some(Object::FootprintInstance(f)) => Some(f.object.at),
                 Some(Object::FreePad(p)) => Some(p.object.at),
@@ -498,11 +476,7 @@ impl SelectTool {
             base: reference,
             current: reference,
             ops: Vec::new(),
-            targets: if electrical_snap(shell) {
-                others
-            } else {
-                Vec::new()
-            },
+            targets: others,
             carried: false,
         };
         self.track(shell, &mut m, to);
@@ -511,15 +485,9 @@ impl SelectTool {
 
     /// Follows the cursor at `to` with the move `m`, redrawing the preview when it changed.
     fn track(&mut self, shell: &mut Shell, m: &mut Move, to: Point) {
-        let grid = board_grid(shell);
-        let (current, kind) = snap::snap(
-            to - m.offset,
-            grid,
-            shell.board_grid_origin(),
-            &m.targets,
-            self.radius(),
-        );
-        self.snap = Some((current, kind));
+        let snapped = snap_board(shell, to - m.offset, &m.targets);
+        let current = snapped.at;
+        self.snap = Some(snapped);
         if current != m.current {
             m.current = current;
             let ops = m.all_ops();
@@ -565,7 +533,7 @@ impl SelectTool {
         let mut d = TrackDrag {
             document,
             track,
-            grab: snap::to_grid(at, board_grid(shell), shell.board_grid_origin()),
+            grab: board_to_grid(shell, at),
             detach,
             preserve_angle: shell.preferences().pcb.drag.preserve_angle,
             normal,
@@ -587,7 +555,7 @@ fn is_track(shell: &Shell, object: Uuid) -> bool {
 /// Follows the cursor at `to` with the segment drag `d`, redrawing the preview when the
 /// drag changed. A plain drag of a straight segment moves it across itself only.
 fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
-    let raw = snap::to_grid(to, board_grid(shell), shell.board_grid_origin()) - d.grab;
+    let raw = board_to_grid(shell, to) - d.grab;
     let by = match (d.detach || !d.preserve_angle, d.normal) {
         (false, Some((nx, ny))) => {
             let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
@@ -659,17 +627,38 @@ fn xy(p: Point) -> (f64, f64) {
     (p.x.0 as f64, p.y.0 as f64)
 }
 
-/// The board's snap grid.
-fn board_grid(shell: &Shell) -> Nm {
+/// Every Hotspot of the open board.
+pub(crate) fn board_hotspots(shell: &Shell) -> Vec<Target> {
+    board(shell)
+        .and_then(|(p, _)| p.pcb())
+        .map(snap::hotspots::board)
+        .unwrap_or_default()
+}
+
+/// `at` snapped on the board by its Rules onto `targets`.
+pub(crate) fn snap_board(shell: &Shell, at: Point, targets: &[Target]) -> Snapped {
+    let xy = (at.x.0 as f64, at.y.0 as f64);
     match board(shell) {
-        Some((_, pcb)) => shell.grid(pcb),
-        None => crate::grid::pcb_default(shell.board_view().units),
+        Some((_, document)) => snap::snap_at(shell, document, xy, targets),
+        None => snap::snap(
+            xy,
+            &[],
+            &[],
+            &snap::Rules::grid_only(Some(snap::Grid {
+                pitch: crate::grid::pcb_default(shell.board_view().units),
+                origin: Point::default(),
+            })),
+        ),
     }
 }
 
-/// Whether the Preference asks for electrical snap on the board.
-fn electrical_snap(shell: &Shell) -> bool {
-    shell.preferences().pcb.electrical_snap
+/// `at` on the board's grid level alone.
+fn board_to_grid(shell: &Shell, at: Point) -> Point {
+    let xy = (at.x.0 as f64, at.y.0 as f64);
+    match board(shell) {
+        Some((_, document)) => snap::to_grid(shell, document, xy),
+        None => snap_board(shell, at, &[]).at,
+    }
 }
 
 /// The selected objects that can be placed.

@@ -35,7 +35,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -273,10 +273,11 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
         }
         _ => BoxMode::Enclose,
     };
+    let rules = crate::snap::rules_on(shell, symbol, grid);
     let Some(tab) = shell.document_tab_mut(symbol) else {
         return;
     };
-    let snapped = tab.cursor.map(|c| snap_to_grid(c, grid));
+    let snapped = tab.cursor.map(|c| rules.to_grid(c));
     let drawing = tool != Tool::Select;
     let (moving, offset, overlay) = match &state.interaction {
         Interaction::Idle => (
@@ -344,9 +345,19 @@ impl Cx<'_> {
         self.symbol.uuid
     }
 
+    /// `at` snapped onto the Symbol's Pin ends, else its grid (the Pin Tool's own).
     fn snap(&self, at: P) -> Point {
+        self.snap_moving(at, &[])
+    }
+
+    /// `at` snapped as a move of `objects` lands: onto the other Pins' ends.
+    fn snap_moving(&self, at: P, objects: &[Uuid]) -> Point {
         let tool = self.shell.tool();
-        snap_to_grid(at, snap_grid(self.shell, self.element(), tool))
+        let pitch = snap_grid(self.shell, self.element(), tool);
+        let rules = crate::snap::rules_on(self.shell, self.element(), pitch);
+        let targets =
+            crate::snap::hotspots::without(crate::snap::hotspots::symbol(self.symbol), objects);
+        crate::snap::snap(at, &targets, &[], &rules).at
     }
 
     fn run(&mut self, id: &str, params: Value) {
@@ -462,7 +473,7 @@ impl Cx<'_> {
                 },
                 Pointer::Drag(at),
             ) => Interaction::Moving {
-                offset: self.snap(at) - anchor,
+                offset: self.snap_moving(at, &objects) - anchor,
                 objects,
                 anchor,
             },
@@ -472,7 +483,7 @@ impl Cx<'_> {
                 },
                 Pointer::DragEnd(at),
             ) => {
-                let offset = self.snap(at) - anchor;
+                let offset = self.snap_moving(at, &objects) - anchor;
                 if offset != Point::default() && !self.read_only {
                     self.run(
                         "library.symbol.move",
@@ -554,7 +565,7 @@ impl Cx<'_> {
                 }
                 let anchor = self.snap(from);
                 Interaction::Moving {
-                    offset: self.snap(at) - anchor,
+                    offset: self.snap_moving(at, &objects) - anchor,
                     objects,
                     anchor,
                 }

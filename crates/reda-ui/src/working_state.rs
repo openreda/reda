@@ -1,8 +1,8 @@
 //! Working state: per Document, the Selection Filter and the object snap options
-//! (mode and Gridless), changed by `selection.filter.set` and `view.snap.set`. With the
+//! (mode, Gridless and the Hotspot checklist), changed by `selection.filter.set` and `view.snap.set`. With the
 //! grid ([`crate::grid`]) and the board's units ([`crate::pcb::BoardView`]) it is kept in
 //! `.reda/view.json`, never in the Document, so changing it never dirties one. The
-//! Preferences hold only the defaults.
+//! Preferences hold only the defaults ([`WorkingState::follow`]).
 //!
 //! The Filter has one toggle per kind of object, with the kind list set per Document type.
 //! The kinds are named as `objects.find_similar` names them (`type`). The Part editor has
@@ -12,15 +12,17 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::{LibraryElement, ObjectType, Uuid};
+use reda_engine::preferences::{Hotspot, Preferences};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::bars::DocumentType;
 
-/// Adds `selection.filter.set` and `view.snap.set` to `registry`. The Shell does this.
+/// Adds `selection.filter.set`, `view.snap.set` and `view.snap.palette` to `registry`. The Shell does this.
 pub fn register_all(registry: &mut Registry) {
     registry.add(FilterSet);
     registry.add(SnapSet);
+    crate::snap::register_palette(registry);
 }
 
 /// One kind of object a Selection Filter toggles, named as `objects.find_similar` names
@@ -222,42 +224,110 @@ impl SnapMode {
 }
 
 /// One Document's snap options.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct SnapOptions {
     pub mode: SnapMode,
     /// The grid level is off; Hotspots still snap.
     pub gridless: bool,
+    /// The Hotspot kinds turned off in the checklist.
+    pub hotspots_off: BTreeSet<Hotspot>,
 }
 
 impl SnapOptions {
-    /// What a Document of type `ty` starts with.
+    /// What a Document of type `ty` starts with when the Preferences are the defaults.
     pub fn default_for(ty: DocumentType) -> SnapOptions {
         SnapOptions {
             mode: SnapMode::offered(ty)[0],
             gridless: false,
+            hotspots_off: BTreeSet::new(),
+        }
+    }
+
+    /// What a Document of type `ty` starts with under `preferences`: object snap on or
+    /// Off (`electrical_snap`) and their Hotspot checklist.
+    pub fn preferred(ty: DocumentType, preferences: &Preferences) -> SnapOptions {
+        let (on, off) = match ty {
+            DocumentType::Pcb | DocumentType::Footprint => (
+                preferences.pcb.electrical_snap,
+                &preferences.pcb.hotspots_off,
+            ),
+            DocumentType::Schematic | DocumentType::Symbol => (
+                preferences.schematic.electrical_snap,
+                &preferences.schematic.hotspots_off,
+            ),
+        };
+        let offered = crate::snap::offered(ty);
+        SnapOptions {
+            mode: if on {
+                SnapMode::offered(ty)[0]
+            } else {
+                SnapMode::Off
+            },
+            gridless: false,
+            hotspots_off: off
+                .iter()
+                .filter(|k| offered.contains(k))
+                .copied()
+                .collect(),
         }
     }
 }
 
 /// Every Document's working state beside the grid and units, in the engine's view state.
-/// Documents left out have the defaults.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Documents left out have the defaults, which follow the Preferences.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkingState {
     pub filters: BTreeMap<Uuid, SelectionFilter>,
     pub snap: BTreeMap<Uuid, SnapOptions>,
+    /// The snap options of a Document left out, per Document type, from the Preferences.
+    pub defaults: BTreeMap<DocumentType, SnapOptions>,
+}
+
+impl Default for WorkingState {
+    fn default() -> WorkingState {
+        WorkingState::following(&Preferences::default())
+    }
 }
 
 impl WorkingState {
+    /// An empty working state whose defaults come from `preferences`.
+    pub fn following(preferences: &Preferences) -> WorkingState {
+        let mut state = WorkingState {
+            filters: BTreeMap::new(),
+            snap: BTreeMap::new(),
+            defaults: BTreeMap::new(),
+        };
+        state.follow(preferences);
+        state
+    }
+
+    /// Takes the snap defaults from `preferences`.
+    pub fn follow(&mut self, preferences: &Preferences) {
+        use DocumentType::*;
+        self.defaults = [Schematic, Pcb, Symbol, Footprint]
+            .into_iter()
+            .map(|ty| (ty, SnapOptions::preferred(ty, preferences)))
+            .collect();
+    }
+
     pub fn filter(&self, document: Uuid) -> SelectionFilter {
         self.filters.get(&document).cloned().unwrap_or_default()
+    }
+
+    /// What a Document of type `ty` has until its options change.
+    pub fn default_snap(&self, ty: DocumentType) -> SnapOptions {
+        self.defaults
+            .get(&ty)
+            .cloned()
+            .unwrap_or_else(|| SnapOptions::default_for(ty))
     }
 
     /// `document`'s snap options; `ty` gives the defaults.
     pub fn snap(&self, document: Uuid, ty: DocumentType) -> SnapOptions {
         self.snap
             .get(&document)
-            .copied()
-            .unwrap_or_else(|| SnapOptions::default_for(ty))
+            .cloned()
+            .unwrap_or_else(|| self.default_snap(ty))
     }
 }
 
@@ -382,6 +452,13 @@ pub struct SnapSetParams {
     /// Turn the grid level off; Hotspots keep snapping.
     #[serde(default)]
     gridless: Option<bool>,
+    /// Hotspot kinds to turn on (`true`) or off (`false`) in the checklist, such as
+    /// `{"text_anchor": false}`. A board or Footprint offers `pad_center`, `via_center`,
+    /// `track_end`, `arc_end`, `arc_center`, `outline_vertex`, `footprint_origin` and
+    /// `text_anchor`; a sheet or Symbol `pin_end`, `wire_end`, `wire_vertex`, `wire`,
+    /// `port_anchor` and `label_anchor`.
+    #[serde(default)]
+    hotspots: BTreeMap<Hotspot, bool>,
 }
 
 struct SnapSet;
@@ -391,8 +468,8 @@ impl Command for SnapSet {
         id: "view.snap.set",
         title: "Set Snap Options",
         description: "Sets a Document's object snap mode (Active Layer, All Layers or Off on \
-                      a board or Footprint; On or Off on a sheet or Symbol) and Gridless. \
-                      With no changes it returns them as they are.",
+                      a board or Footprint; On or Off on a sheet or Symbol), Gridless and \
+                      its Hotspot checklist. With no changes it returns them as they are.",
         category: "view",
         icon: "grid",
         kind: Kind::View,
@@ -406,18 +483,21 @@ impl Command for SnapSet {
         if let Some(mode) = p.mode
             && !offered.contains(&mode)
         {
-            let names: Vec<String> = offered
-                .iter()
-                .map(|m| {
-                    serde_json::to_value(m)
-                        .ok()
-                        .and_then(|v| v.as_str().map(str::to_owned))
-                        .unwrap_or_default()
-                })
-                .collect();
+            let names: Vec<String> = offered.iter().map(wire_name).collect();
             return Err(CommandError::invalid_params(
                 "/mode",
                 format!("this Document type offers {}", names.join(", ")),
+            ));
+        }
+        let checklist = crate::snap::offered(ty);
+        if let Some(kind) = p.hotspots.keys().find(|k| !checklist.contains(k)) {
+            let names: Vec<&str> = checklist
+                .iter()
+                .map(|k| crate::snap::hotspot_name(*k))
+                .collect();
+            return Err(CommandError::invalid_params(
+                &format!("/hotspots/{}", crate::snap::hotspot_name(*kind)),
+                format!("this Document type's Hotspots are {}", names.join(", ")),
             ));
         }
         let state = cx.view::<WorkingState>()?;
@@ -428,10 +508,23 @@ impl Command for SnapSet {
         if let Some(gridless) = p.gridless {
             options.gridless = gridless;
         }
-        match options == SnapOptions::default_for(ty) {
+        for (kind, on) in p.hotspots {
+            match on {
+                true => options.hotspots_off.remove(&kind),
+                false => options.hotspots_off.insert(kind),
+            };
+        }
+        match options == state.default_snap(ty) {
             true => state.snap.remove(&p.document),
-            false => state.snap.insert(p.document, options),
+            false => state.snap.insert(p.document, options.clone()),
         };
         Ok(options)
     }
+}
+
+fn wire_name<T: Serialize>(value: &T) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_default()
 }

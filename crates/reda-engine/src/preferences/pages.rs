@@ -65,7 +65,9 @@ pub fn page_of(key: &str) -> &'static str {
         ("editing", _) => "editing",
         ("general", "default_layout") => "window",
         ("schematic" | "pcb", "default_units" | "repeat_placement") => "editing",
-        ("schematic" | "pcb", "electrical_snap") => "editing.snap",
+        ("schematic" | "pcb", "electrical_snap" | "hotspots_off" | "snap_distance") => {
+            "editing.snap"
+        }
         ("schematic" | "pcb", "default_grid") => "editing.grid",
         ("schematic" | "pcb", "auto_pan") => "editing.auto_pan",
         (

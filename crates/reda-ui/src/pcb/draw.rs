@@ -27,9 +27,8 @@ use reda_engine::model::{LayerKind, Project, Uuid};
 use reda_engine::pcb::Copper;
 use serde_json::{Value, json};
 
-use super::snap::{self, SnapKind};
-use super::tool::DEFAULT_SNAP_RADIUS;
 use crate::shell::Shell;
+use crate::snap::{self, Snapped};
 use crate::tools::Tool;
 use crate::tr;
 
@@ -98,7 +97,7 @@ pub struct Draw {
     /// The points put down so far.
     points: Vec<Point>,
     /// Where the cursor snapped last.
-    cursor: Option<(Point, SnapKind)>,
+    cursor: Option<Snapped>,
     /// Where the button went down, snapped, and whether it has moved since.
     pressed: Option<Point>,
     dragged: bool,
@@ -107,7 +106,6 @@ pub struct Draw {
     measure: Option<Measurement>,
     /// Whether the measurement is held (a second click), not following the cursor.
     held: bool,
-    radius: Option<Nm>,
 }
 
 impl Default for Draw {
@@ -121,7 +119,6 @@ impl Default for Draw {
             text_at: None,
             measure: None,
             held: false,
-            radius: None,
         }
     }
 }
@@ -131,18 +128,8 @@ impl Draw {
     pub fn start(&mut self, tool: Tool) {
         *self = Draw {
             tool,
-            radius: self.radius,
             ..Draw::default()
         };
-    }
-
-    /// Sets how far electrical points catch the cursor.
-    pub fn set_snap_radius(&mut self, radius: Nm) {
-        self.radius = Some(radius);
-    }
-
-    fn radius(&self) -> Nm {
-        self.radius.unwrap_or(DEFAULT_SNAP_RADIUS)
     }
 
     /// The Tool being drawn with.
@@ -151,13 +138,13 @@ impl Draw {
     }
 
     /// Where the cursor last snapped, for the snap marker.
-    pub fn snap(&self) -> Option<(Point, SnapKind)> {
+    pub fn snap(&self) -> Option<Snapped> {
         self.cursor
     }
 
     /// What to draw over the canvas while a shape is in progress.
     pub fn preview(&self) -> Option<Preview> {
-        let cursor = self.cursor.map(|(p, _)| p);
+        let cursor = self.cursor.map(|s| s.at);
         match shape(self.tool) {
             Shape::Polygon => {
                 if self.points.is_empty() {
@@ -210,20 +197,20 @@ impl Draw {
     }
 
     /// The cursor is at `at` with no button down.
-    pub fn hover(&mut self, shell: &Shell, at: Point) -> (Point, SnapKind) {
+    pub fn hover(&mut self, shell: &Shell, at: Point) -> Snapped {
         let snapped = self.snapped(shell, at);
         self.cursor = Some(snapped);
         if let Some(m) = &mut self.measure
             && !self.held
         {
-            m.to = snapped.0;
+            m.to = snapped.at;
         }
         snapped
     }
 
     /// A button went down at `at`.
     pub fn press(&mut self, shell: &Shell, at: Point) {
-        let (p, _) = self.hover(shell, at);
+        let p = self.hover(shell, at).at;
         self.pressed = Some(p);
         self.dragged = false;
     }
@@ -240,7 +227,7 @@ impl Draw {
         let Some(pressed) = self.pressed.take() else {
             return;
         };
-        let end = self.cursor.map_or(pressed, |(p, _)| p);
+        let end = self.cursor.map_or(pressed, |s| s.at);
         if self.dragged && end != pressed {
             if shape(self.tool) == Shape::TwoPoints && self.points.is_empty() {
                 self.put(shell, pressed);
@@ -295,29 +282,25 @@ impl Draw {
         self.text_at = None;
     }
 
-    fn snapped(&self, shell: &Shell, at: Point) -> (Point, SnapKind) {
-        let project = shell.engine().project();
-        let pcb = project.and_then(|p| p.pcb());
-        let grid = match pcb {
-            Some(pcb) => shell.grid(pcb.uuid),
-            None => crate::grid::pcb_default(shell.board_view().units),
-        };
-        let mut targets = match pcb {
-            Some(pcb) if shell.preferences().pcb.electrical_snap => snap::targets(pcb),
-            _ => Vec::new(),
-        };
+    fn snapped(&self, shell: &Shell, at: Point) -> Snapped {
+        let mut targets = super::tool::board_hotspots(shell);
         // A polygon's own first corner catches the cursor, to close it.
         if shape(self.tool) == Shape::Polygon
             && self.points.len() > 2
             && let Some(&first) = self.points.first()
         {
-            targets.push(snap::Target {
-                at: first,
-                kind: SnapKind::Grid,
-                object: Uuid::NIL,
-            });
+            targets.push(snap::Target::point(
+                first,
+                snap::Hotspot::OutlineVertex,
+                Uuid::NIL,
+                snap::OnLayers::Every,
+            ));
         }
-        snap::snap(at, grid, shell.board_grid_origin(), &targets, self.radius())
+        super::tool::snap_board(shell, at, &targets)
+    }
+
+    fn radius(&self, shell: &Shell) -> Nm {
+        shell.preferences().pcb.snap_distance.nm()
     }
 
     /// Puts down point `p`.
@@ -326,7 +309,8 @@ impl Draw {
         match shape(self.tool) {
             Shape::Polygon => {
                 let closes = self.points.len() > 2
-                    && (self.points.last() == Some(&p) || near(self.points[0], p, self.radius()));
+                    && (self.points.last() == Some(&p)
+                        || near(self.points[0], p, self.radius(shell)));
                 if closes {
                     let points = std::mem::take(&mut self.points);
                     self.commit(shell, &points);

@@ -28,7 +28,7 @@ use reda_engine::model::{
 };
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Pointer, snap_to_grid};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -382,7 +382,7 @@ fn show(
     hovered: Option<Uuid>,
     cursor: Option<P>,
 ) {
-    let grid = shell.grid(element);
+    let rules = crate::snap::rules(shell, element);
     let mode = match &state {
         Interaction::Boxing { from, to, .. } => {
             crate::selection::rules::box_mode(shell, element, *from, *to)
@@ -392,7 +392,7 @@ fn show(
     let Some(tab) = shell.document_tab_mut(element) else {
         return;
     };
-    let snapped = cursor.map(|c| snap_to_grid(c, grid));
+    let snapped = cursor.map(|c| rules.to_grid(c));
     let (moving, offset, overlay) = match &state {
         Interaction::Idle => (
             Vec::new(),
@@ -455,12 +455,18 @@ struct Cx<'a> {
 }
 
 impl Cx<'_> {
-    fn grid(&self) -> Nm {
-        self.shell.grid(self.element)
+    /// `at` snapped onto the Footprint's Hotspots, else its grid.
+    fn snap(&self, at: P) -> Point {
+        self.snap_moving(at, &[])
     }
 
-    fn snap(&self, at: P) -> Point {
-        snap_to_grid(at, self.grid())
+    /// `at` snapped as a move of `objects` lands: onto the other objects' Hotspots.
+    fn snap_moving(&self, at: P, objects: &[Uuid]) -> Point {
+        let targets = crate::snap::hotspots::without(
+            crate::snap::hotspots::footprint(self.footprint),
+            objects,
+        );
+        crate::snap::snap_at(self.shell, self.element, at, &targets).at
     }
 
     fn run(&mut self, id: &str, params: Value) {
@@ -587,7 +593,7 @@ impl Cx<'_> {
                 },
                 Pointer::Drag(at),
             ) => Interaction::Moving {
-                offset: self.snap(at) - anchor,
+                offset: self.snap_moving(at, &objects) - anchor,
                 objects,
                 anchor,
             },
@@ -597,7 +603,7 @@ impl Cx<'_> {
                 },
                 Pointer::DragEnd(at),
             ) => {
-                let offset = self.snap(at) - anchor;
+                let offset = self.snap_moving(at, &objects) - anchor;
                 if offset != Point::default() && !self.read_only {
                     self.run(
                         "library.footprint.move",
@@ -676,7 +682,7 @@ impl Cx<'_> {
                 let objects = drag.objects;
                 let anchor = self.snap(from);
                 Interaction::Moving {
-                    offset: self.snap(at) - anchor,
+                    offset: self.snap_moving(at, &objects) - anchor,
                     objects,
                     anchor,
                 }

@@ -7,17 +7,15 @@
 //!   [`box_select_on`] (topmost Layer first, item by item).
 //! - [`Combine`] turns the pointer's modifiers into how a pick changes the selection
 //!   (Shift toggles), and [`combine`] applies it.
-//! - [`SnapTargets`] snaps a cursor to the grid, or onto a nearby electrical target.
 //! - [`pointer`] turns one frame of egui input on a canvas into [`Pointer`] events in
 //!   Document coordinates, which an editor's Tools consume.
 
 mod hit;
 mod pointer;
-mod snap;
 
+pub(crate) use hit::closest_on_segment;
 pub use hit::{BoxMode, box_select, box_select_on, hit_stack_on, hit_test, hit_test_on};
 pub use pointer::{Pointer, pointer};
-pub use snap::{SnapTargets, Snapped, snap_to_grid, snap_to_grid_from};
 
 use reda_engine::model::Uuid;
 
