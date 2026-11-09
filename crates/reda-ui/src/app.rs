@@ -122,6 +122,7 @@ impl App {
                 let mut dialogs = crate::library_dialogs::dialogs();
                 schematic_dialogs::register_dialogs(&mut dialogs);
                 projects_panel::register_package_dialog(&mut dialogs);
+                crate::pcb::silkscreen::register_dialogs(&mut dialogs);
                 dialogs
             },
             schematic_dialog: None,

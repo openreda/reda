@@ -60,6 +60,10 @@ fn case() -> impl Strategy<Value = Case> {
             // The normal component, scaled: zero means a drag along the segment.
             (c.by.1 * dx - c.by.0 * dy).abs() > 1_000
         })
+        .prop_filter("the Track must not come back to its own points", |c| {
+            let pts = points(c);
+            (0..pts.len()).all(|i| !pts[i + 1..].contains(&pts[i]))
+        })
 }
 
 fn points(c: &Case) -> Vec<Point> {

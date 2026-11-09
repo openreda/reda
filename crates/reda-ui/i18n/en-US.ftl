@@ -1391,6 +1391,7 @@ output-job-show-zip = Show Zip
 output-job-close = Close
 output-job-busy = Another Output Job is running.
 message-output-job = { $job }: { $text }
+message-silkscreen-unplaced = Silkscreen Preparation: no clear place within Max Distance for “{ $text }”; it stays where it is
 violation-board-outline-open = The Board Outline is missing or not closed
 violation-missing-footprint = { $designator }'s Footprint is missing from the PCB
 violation-unassigned-footprint = { $designator } has no Footprint, so it is not on the PCB: assign one and Sync
