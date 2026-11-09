@@ -54,6 +54,8 @@ fn frame(generation: u64, scene: &Arc<Scene>) -> CanvasFrame {
         grid: Some(GridSpec {
             origin: (0.0, 0.0),
             pitch: 1_270_000.0,
+            coarse: 1,
+            lines: false,
             radius_px: 1.0,
             color: Rgba([255, 255, 255, 128]),
             paper: None,

@@ -138,7 +138,7 @@ fn overlay(shell: &Shell) -> Vec<(Point, Point)> {
 
 /// The Wire Tool's mode as the status bar reads it out.
 fn mode(shell: &Shell) -> Option<String> {
-    reda_ui::status_bar::readout(shell).tool
+    reda_ui::status_bar::readout(shell).prompt
 }
 
 fn dotted(shell: &Shell) -> Vec<(Point, Point)> {

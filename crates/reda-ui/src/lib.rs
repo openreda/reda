@@ -26,6 +26,7 @@ pub mod footprint_editor;
 pub mod grid;
 pub mod help;
 pub mod highlight;
+pub mod hud;
 pub mod i18n;
 pub mod icons;
 pub mod job_run;
