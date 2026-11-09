@@ -6,7 +6,7 @@ mod gerber_reader;
 use gerber_reader::{Aperture, Layer, Object, read};
 use reda_command::Fonts;
 use reda_model::geom::Nm;
-use reda_model::{LayerKind, PadKind, PcbText, Side, Uuid};
+use reda_model::{LayerKind, NotFittedPaste, PadKind, PcbText, Side, Uuid};
 use reda_output::{OutputFile, Plot, gerber_files};
 use reda_pcb::placed::{PlacedPad, placed_free_pad, placed_pads};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
@@ -30,6 +30,10 @@ fn board(dir: &TempDir) -> TestEngine {
 }
 
 fn plot(engine: &TestEngine) -> Vec<OutputFile> {
+    plot_with(engine, NotFittedPaste::Keep)
+}
+
+fn plot_with(engine: &TestEngine, not_fitted_paste: NotFittedPaste) -> Vec<OutputFile> {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
@@ -45,6 +49,7 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
         fonts: &Fonts::default(),
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste,
     })
     .unwrap()
     .files
@@ -142,8 +147,8 @@ fn the_solder_mask_opens_over_every_pad_by_its_margin_and_tents_vias() {
     );
     engine.run_ok("pcb.via.add", json!({"at": pt(12.0, 12.0)}));
     let files = plot(&engine);
-    let top = layer(&files, "Demo.GTS");
-    let bottom = layer(&files, "Demo.GBS");
+    let top = layer(&files, "Demo.gts");
+    let bottom = layer(&files, "Demo.gbs");
     assert_eq!(top.file[".FileFunction"], "Soldermask,Top");
     assert_eq!(bottom.file[".FileFunction"], "Soldermask,Bot");
     // The image is the openings.
@@ -182,6 +187,48 @@ fn the_solder_mask_opens_over_every_pad_by_its_margin_and_tents_vias() {
 }
 
 #[test]
+fn the_jobs_not_fitted_paste_keeps_or_removes_not_fitted_pads_paste_openings() {
+    let dir = TempDir::new("gerber-not-fitted-paste");
+    let mut engine = board(&dir);
+    let pad = json!([{"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm"}]);
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(5.0, 5.0), "designator": "R1", "pads": pad}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(10.0, 5.0), "designator": "R2", "not_fitted": true, "pads": pad}),
+    );
+    let paste_flashes = |paste| {
+        let files = plot_with(&engine, paste);
+        let paste = layer(&files, "Demo.gtp");
+        let mut at: Vec<_> = paste
+            .flashes()
+            .map(|f| match f {
+                Object::Flash { at, .. } => *at,
+                _ => unreachable!(),
+            })
+            .collect();
+        at.sort();
+        at
+    };
+    assert_eq!(
+        paste_flashes(NotFittedPaste::Keep),
+        [(mm(5.0), mm(5.0)), (mm(10.0), mm(5.0))],
+        "one stencil serves every build"
+    );
+    assert_eq!(paste_flashes(NotFittedPaste::Remove), [(mm(5.0), mm(5.0))]);
+    // Mask and copper never change.
+    for name in ["Demo.gts", "Demo.gtl"] {
+        let keep = plot_with(&engine, NotFittedPaste::Keep);
+        let remove = plot_with(&engine, NotFittedPaste::Remove);
+        let bytes =
+            |files: &[OutputFile]| files.iter().find(|f| f.name == name).unwrap().bytes.clone();
+        assert_eq!(bytes(&keep), bytes(&remove), "{name}");
+    }
+}
+
+#[test]
 fn the_paste_opens_over_smd_pads_by_their_margin_only() {
     let dir = TempDir::new("gerber-paste");
     let mut engine = board(&dir);
@@ -201,8 +248,8 @@ fn the_paste_opens_over_smd_pads_by_their_margin_only() {
             {"at": pt(0.0, 0.0), "width": "1.5mm", "height": "0.8mm", "shape": "oval"}]}),
     );
     let files = plot(&engine);
-    let top = layer(&files, "Demo.GTP");
-    let bottom = layer(&files, "Demo.GBP");
+    let top = layer(&files, "Demo.gtp");
+    let bottom = layer(&files, "Demo.gbp");
     assert_eq!(top.file[".FileFunction"], "Paste,Top");
     assert_eq!(bottom.file[".FileFunction"], "Paste,Bot");
     assert_eq!(top.file[".FilePolarity"], "Positive");
@@ -308,8 +355,8 @@ fn the_silkscreen_holds_footprint_drawing_designators_and_free_text() {
                "width": "0.2mm"}),
     );
     let files = plot(&engine);
-    let top = layer(&files, "Demo.GTO");
-    let bottom = layer(&files, "Demo.GBO");
+    let top = layer(&files, "Demo.gto");
+    let bottom = layer(&files, "Demo.gbo");
     assert_eq!(top.file[".FileFunction"], "Legend,Top");
     assert_eq!(bottom.file[".FileFunction"], "Legend,Bot");
     assert_eq!(top.file[".FilePolarity"], "Positive");
@@ -386,7 +433,7 @@ fn the_silkscreen_is_cleared_over_the_solder_mask_openings_on_its_side() {
             {"at": pt(0.0, 0.0), "width": "1mm", "height": "1mm"}]}),
     );
     let files = plot(&engine);
-    let top = layer(&files, "Demo.GTO");
+    let top = layer(&files, "Demo.gto");
     let pads = pads(&engine);
     let clears: Vec<_> = top
         .objects
@@ -444,10 +491,10 @@ fn copper_text_and_drawing_plot_on_their_copper_layer_as_non_conductor() {
     };
     let pcb = engine.project().unwrap().pcb().unwrap();
     let text = pcb.texts().next().unwrap();
-    let top = functions(&layer(&files, "Demo.GTL"));
+    let top = functions(&layer(&files, "Demo.gtl"));
     assert_eq!(top.len(), strokes(std::slice::from_ref(text)).len());
     assert!(top.iter().all(|f| f.as_deref() == Some("NonConductor")));
-    let bottom = functions(&layer(&files, "Demo.GBL"));
+    let bottom = functions(&layer(&files, "Demo.gbl"));
     assert_eq!(bottom, [Some("NonConductor".to_owned())]);
     assert!(
         files.iter().all(|f| f.function != "silkscreen_top"),
@@ -476,7 +523,7 @@ fn drc_and_the_gerber_silkscreen_agree_on_a_rotated_flipped_footprint() {
         .clone();
     let uuid: Uuid = footprint.as_str().unwrap().parse().unwrap();
     let files = plot(&engine);
-    let bottom = draws(&layer(&files, "Demo.GBO"));
+    let bottom = draws(&layer(&files, "Demo.gbo"));
 
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
@@ -607,17 +654,17 @@ fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
     assert_eq!(
         copper,
         [
-            ("Demo.GTL", "copper_top"),
-            ("Demo.G1", "copper_inner"),
-            ("Demo.G2", "copper_inner"),
-            ("Demo.GBL", "copper_bottom"),
+            ("Demo.gtl", "copper_top"),
+            ("Demo.g1", "copper_inner"),
+            ("Demo.g2", "copper_inner"),
+            ("Demo.gbl", "copper_bottom"),
         ]
     );
     for (name, function) in [
-        ("Demo.GTL", "Copper,L1,Top"),
-        ("Demo.G1", "Copper,L2,Inr"),
-        ("Demo.G2", "Copper,L3,Inr"),
-        ("Demo.GBL", "Copper,L4,Bot"),
+        ("Demo.gtl", "Copper,L1,Top"),
+        ("Demo.g1", "Copper,L2,Inr"),
+        ("Demo.g2", "Copper,L3,Inr"),
+        ("Demo.gbl", "Copper,L4,Bot"),
     ] {
         let file = files.iter().find(|f| f.name == name).unwrap();
         let text = String::from_utf8_lossy(&file.bytes);
@@ -653,8 +700,8 @@ fn openings_resolve_board_values_tenting_area_percent_and_windows() {
         json!({"at": pt(20.0,5.0), "mask": {"top":{"expansion":"0.1mm"}, "from_hole_edge": true}}),
     );
     let files = plot(&engine);
-    let mask = layer(&files, "Demo.GTS");
-    let paste = layer(&files, "Demo.GTP");
+    let mask = layer(&files, "Demo.gts");
+    let paste = layer(&files, "Demo.gtp");
     let (opening, _) = flash_at(&mask, (mm(5.0), mm(5.0))).unwrap();
     assert!(opening.contains(mm(1.04) as f64, 0.0));
     assert!(!opening.contains(mm(1.06) as f64, 0.0));
@@ -668,7 +715,7 @@ fn openings_resolve_board_values_tenting_area_percent_and_windows() {
     let (opening, _) = flash_at(&mask, (mm(20.0), mm(5.0))).unwrap();
     assert!(opening.contains(mm(0.24) as f64, 0.0));
     assert!(!opening.contains(mm(0.26) as f64, 0.0));
-    assert!(flash_at(&layer(&files, "Demo.GBS"), (mm(20.0), mm(5.0))).is_none());
+    assert!(flash_at(&layer(&files, "Demo.gbs"), (mm(20.0), mm(5.0))).is_none());
 }
 
 #[test]
@@ -682,14 +729,14 @@ fn flipped_rotated_footprints_keep_asymmetric_openings_in_their_pad_frame() {
          "hole":{"width":1000000,"height":400000,"rotation":90000},"mask":{"top":{"expansion":"0.1mm"},"bottom":"tent","from_hole_edge":true}}
     ]}));
     let files = plot(&engine);
-    let mask = layer(&files, "Demo.GBS");
+    let mask = layer(&files, "Demo.gbs");
     assert!(flash_at(&mask, (mm(9.5), mm(10.0))).is_some());
-    assert!(flash_at(&layer(&files, "Demo.GBP"), (mm(9.25), mm(10.0))).is_some());
+    assert!(flash_at(&layer(&files, "Demo.gbp"), (mm(9.25), mm(10.0))).is_some());
     let (hole, _) = flash_at(&mask, (mm(10.0), mm(7.0))).unwrap();
     assert!(hole.contains(mm(0.59) as f64, 0.0));
     assert!(!hole.contains(0.0, mm(0.31) as f64));
     assert!(flash_at(&mask, (mm(10.0), mm(6.0))).is_none());
-    assert!(flash_at(&layer(&files, "Demo.GTS"), (mm(10.0), mm(7.0))).is_none());
+    assert!(flash_at(&layer(&files, "Demo.gts"), (mm(10.0), mm(7.0))).is_none());
 }
 
 #[test]
@@ -722,7 +769,7 @@ fn scoped_opening_rules_and_disabled_board_fallback_change_the_plotted_geometry(
     );
     engine.run_ok("pcb.via.add", json!({"at":pt(15.0,5.0)}));
     let files = plot(&engine);
-    let mask = layer(&files, "Demo.GTS");
+    let mask = layer(&files, "Demo.gts");
     let (scoped, _) = flash_at(&mask, (mm(5.0), mm(5.0))).unwrap();
     assert!(scoped.contains(mm(1.19) as f64, 0.0));
     assert!(!scoped.contains(mm(1.21) as f64, 0.0));
@@ -732,7 +779,7 @@ fn scoped_opening_rules_and_disabled_board_fallback_change_the_plotted_geometry(
         flash_at(&mask, (mm(15.0), mm(5.0))).is_some(),
         "a disabled board mask rule leaves Vias untented"
     );
-    let paste = layer(&files, "Demo.GTP");
+    let paste = layer(&files, "Demo.gtp");
     let (scoped, _) = flash_at(&paste, (mm(5.0), mm(5.0))).unwrap();
     assert!(scoped.contains(mm(0.49) as f64, 0.0));
     assert!(!scoped.contains(mm(0.51) as f64, 0.0));
@@ -776,13 +823,13 @@ fn dimensions_plot_as_their_lines_and_text_on_their_layer() {
         .find(LayerKind::Silkscreen, Some(Side::Top))
         .unwrap()
         .uuid;
-    let top = draws(&layer(&files, "Demo.GTO"));
+    let top = draws(&layer(&files, "Demo.gto"));
     assert!(top.len() > 7, "lines and text strokes: {top:?}");
     assert_eq!(top, expected(silk));
     assert!(top.contains(&((mm(2.0), mm(4.0)), (mm(22.0), mm(4.0)), mm(0.2))));
     assert!(top.contains(&((mm(2.0), mm(2.5)), (mm(2.0), mm(4.5)), mm(0.1))));
-    let bottom = layer(&files, "Demo.GBL");
+    let bottom = layer(&files, "Demo.gbl");
     let copper_bottom = pcb.copper_layers().last().unwrap().uuid;
     assert_eq!(bottom.draws().count(), expected(copper_bottom).len());
-    assert!(layer(&files, "Demo.GTL").draws().next().is_none());
+    assert!(layer(&files, "Demo.gtl").draws().next().is_none());
 }

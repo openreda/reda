@@ -9,7 +9,8 @@ mod openings;
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    GerberSettings, LayerKind, PadKind, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
+    FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument, Project, Side,
+    TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
@@ -30,6 +31,9 @@ pub struct Plot<'a> {
     pub version: &'a str,
     /// What the files are a part of (`.Part`).
     pub part: Part,
+    /// Whether Not Fitted Footprints keep their paste openings (the job's
+    /// `not_fitted_paste`). Mask and copper never change.
+    pub not_fitted_paste: NotFittedPaste,
 }
 
 /// The Gerber `.Part` file attribute: what the files describe. v0.1 writes single boards.
@@ -53,12 +57,13 @@ pub(crate) struct BoardPlot<'a> {
     pub pcb: &'a PcbDocument,
     pub fills: &'a ZoneFills,
     pub fonts: &'a Fonts,
+    pub not_fitted_paste: NotFittedPaste,
 }
 
 /// One written file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OutputFile {
-    /// The file name, such as `Demo.GTL`.
+    /// The file name, such as `Demo.gtl`.
     pub name: String,
     /// What it holds, such as `copper_top` or `profile`.
     pub function: &'static str,
@@ -81,7 +86,7 @@ pub struct FileAttributes {
 /// a drill file with no holes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SkippedFile {
-    /// The name it would have had, such as `Demo.GBP`.
+    /// The name it would have had, such as `Demo.gbp`.
     pub name: String,
     /// What it would have held, such as `paste_bottom`.
     pub function: &'static str,
@@ -98,7 +103,7 @@ pub struct Gerbers {
 /// specification §3.4.1), which blocks the run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoordinateOutOfRange {
-    /// The file it was found in, such as `Demo.GTL`.
+    /// The file it was found in, such as `Demo.gtl`.
     pub file: String,
     /// The point, in output coordinates (after the origin).
     pub at: Point,
@@ -116,9 +121,9 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     let Some(first) = plot.instances.first() else {
         return Ok(out);
     };
-    let name = &plot.project.props().name;
-    let mut add = |extension: &str, function, rendered: Rendered, optional: bool| {
-        let name = format!("{name}.{extension}");
+    let project = &plot.project.props().name;
+    let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
+        let name = file.name(project, plot.gerber);
         if let Some(at) = rendered.out_of_range {
             return Err(CoordinateOutOfRange { file: name, at });
         }
@@ -137,10 +142,21 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     let copper = first.pcb.copper_layers().count();
     for i in 0..copper {
         let number = i + 1;
-        let (extension, function, attribute) = match i {
-            0 => ("GTL".to_owned(), "copper_top", "Top"),
-            i if i + 1 == copper => ("GBL".to_owned(), "copper_bottom", "Bot"),
-            i => (format!("G{i}"), "copper_inner", "Inr"),
+        let (file, function, attribute) = match i {
+            0 => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
+            i if i + 1 == copper => (
+                FileName::new("gbl", "Bottom Copper"),
+                "copper_bottom",
+                "Bot",
+            ),
+            i => (
+                FileName {
+                    extension: format!("g{i}"),
+                    layer: format!("Inner Copper L{number}"),
+                },
+                "copper_inner",
+                "Inr",
+            ),
         };
         let rendered = render(
             plot,
@@ -152,11 +168,11 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
                 }
             },
         );
-        add(&extension, function, rendered, false)?;
+        add(file, function, rendered, false)?;
     }
     for (extension, function, side) in [
-        ("GTS", "solder_mask_top", Side::Top),
-        ("GBS", "solder_mask_bottom", Side::Bottom),
+        ("gts", "solder_mask_top", Side::Top),
+        ("gbs", "solder_mask_bottom", Side::Bottom),
     ] {
         let rendered = render(
             plot,
@@ -164,11 +180,16 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
             "Negative",
             |board, g| openings::mask(board, side, g),
         );
-        add(extension, function, rendered, false)?;
+        add(
+            FileName::sided(extension, side, "Solder Mask"),
+            function,
+            rendered,
+            false,
+        )?;
     }
     for (extension, function, side) in [
-        ("GTP", "paste_top", Side::Top),
-        ("GBP", "paste_bottom", Side::Bottom),
+        ("gtp", "paste_top", Side::Top),
+        ("gbp", "paste_bottom", Side::Bottom),
     ] {
         let rendered = render(
             plot,
@@ -176,11 +197,16 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
             "Positive",
             |board, g| openings::paste(board, side, g),
         );
-        add(extension, function, rendered, true)?;
+        add(
+            FileName::sided(extension, side, "Paste"),
+            function,
+            rendered,
+            true,
+        )?;
     }
     for (extension, function, side) in [
-        ("GTO", "silkscreen_top", Side::Top),
-        ("GBO", "silkscreen_bottom", Side::Bottom),
+        ("gto", "silkscreen_top", Side::Top),
+        ("gbo", "silkscreen_bottom", Side::Bottom),
     ] {
         let rendered = render(
             plot,
@@ -192,11 +218,62 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
                 }
             },
         );
-        add(extension, function, rendered, true)?;
+        add(
+            FileName::sided(extension, side, "Silkscreen"),
+            function,
+            rendered,
+            true,
+        )?;
     }
     let rendered = render(plot, "Profile,NP".into(), "Positive", profile);
-    add("GKO", "profile", rendered, false)?;
+    add(
+        FileName::new("gm1", "Board Outline"),
+        "profile",
+        rendered,
+        false,
+    )?;
     Ok(out)
+}
+
+/// What a Gerber file's name is made from: its classic extension and its Layer's name.
+struct FileName {
+    /// Lowercase, such as `gtl`.
+    extension: String,
+    /// Such as "Top Copper"; what `file_names` and `descriptive` names go by.
+    layer: String,
+}
+
+impl FileName {
+    fn new(extension: &str, layer: &str) -> FileName {
+        FileName {
+            extension: extension.into(),
+            layer: layer.into(),
+        }
+    }
+
+    fn sided(extension: &str, side: Side, kind: &str) -> FileName {
+        let side = match side {
+            Side::Top => "Top",
+            Side::Bottom => "Bottom",
+        };
+        FileName {
+            extension: extension.into(),
+            layer: format!("{side} {kind}"),
+        }
+    }
+
+    /// The file's name under `settings`: a `file_names` entry for its Layer, else
+    /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
+    /// underscores (`descriptive`).
+    fn name(&self, project: &str, settings: &GerberSettings) -> String {
+        if let Some(own) = settings.file_names.iter().find(|f| f.layer == self.layer) {
+            return own.name.clone();
+        }
+        match settings.naming {
+            FileNaming::Classic => format!("{project}.{}", self.extension),
+            FileNaming::Descriptive => format!("{project}-{}.gbr", self.layer.replace(' ', "_")),
+        }
+    }
 }
 
 /// One plotted file: its bytes, whether it plots nothing of its own (the Board Outline
@@ -224,6 +301,7 @@ fn render(
                     pcb: instance.pcb,
                     fills: instance.fills,
                     fonts: plot.fonts,
+                    not_fitted_paste: plot.not_fitted_paste,
                 },
             )
         })

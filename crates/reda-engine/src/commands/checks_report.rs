@@ -106,47 +106,114 @@ impl Command for ChecksReport {
             }
             _ => p.path.clone(),
         };
-        let project = cx.project()?;
-        let header = Header {
-            project: project.props().name.clone(),
-            generated: generated.0,
-            utc: generated.utc(),
-        };
-        let (report, count) = match p.of {
-            ReportOf::Erc(mut params) => {
-                params.include_waived = true;
-                let library = |uuids: &[Uuid]| cx.library_parts(uuids);
-                let run = reda_schematic::erc::run(project, &library, &params)?;
-                let count = unwaived(&run.violations);
-                (Report::checks("erc", project, to_value(&run)?), count)
-            }
-            ReportOf::Drc(mut params) => {
-                params.include_waived = true;
-                let run = reda_pcb::drc_run(project, cx.fonts(), sync::drc_state, &params)?;
-                let count = unwaived(&run.violations);
-                (Report::checks("drc", project, to_value(&run)?), count)
-            }
-            ReportOf::Sync(SyncReportParams {}) => {
-                let list = sync::plan(project).ok_or_else(|| CommandError::unavailable(NO_PCB))?;
-                let count = list.count;
-                (Report::Sync(to_value(&list)?), count)
-            }
-        };
-        let bytes = match p.format {
-            ReportFormat::Json => {
-                let mut text = serde_json::to_string_pretty(&report.json(&header))
-                    .map_err(|e| CommandError::internal(e.to_string()))?;
-                text.push('\n');
-                text.into_bytes()
-            }
-            ReportFormat::Html => html::page(&report, &header).into_bytes(),
-        };
+        let (bytes, count) = build(cx, p.of, p.format, generated)?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| write_error(&path, &e))?;
         }
         write_atomic(&path, &bytes).map_err(|e| write_error(&path, &e))?;
         Ok(ChecksReportResult { path, count })
     }
+}
+
+/// The report of `of` in `format`, stamped `generated`, and its count.
+fn build(
+    cx: &mut Context<'_>,
+    of: ReportOf,
+    format: ReportFormat,
+    generated: reda_command::Timestamp,
+) -> Result<(Vec<u8>, usize), CommandError> {
+    let project = cx.project()?;
+    let header = Header {
+        project: project.props().name.clone(),
+        generated: generated.0,
+        utc: generated.utc(),
+    };
+    let (report, count) = match of {
+        ReportOf::Erc(mut params) => {
+            params.include_waived = true;
+            let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+            let run = reda_schematic::erc::run(project, &library, &params)?;
+            let count = unwaived(&run.violations);
+            (Report::checks("erc", project, to_value(&run)?), count)
+        }
+        ReportOf::Drc(mut params) => {
+            params.include_waived = true;
+            let run = reda_pcb::drc_run(project, cx.fonts(), sync::drc_state, &params)?;
+            let count = unwaived(&run.violations);
+            (Report::checks("drc", project, to_value(&run)?), count)
+        }
+        ReportOf::Sync(SyncReportParams {}) => {
+            let list = sync::plan(project).ok_or_else(|| CommandError::unavailable(NO_PCB))?;
+            let count = list.count;
+            (Report::Sync(to_value(&list)?), count)
+        }
+    };
+    let bytes = match format {
+        ReportFormat::Json => {
+            let mut text = serde_json::to_string_pretty(&report.json(&header))
+                .map_err(|e| CommandError::internal(e.to_string()))?;
+            text.push('\n');
+            text.into_bytes()
+        }
+        ReportFormat::Html => html::page(&report, &header).into_bytes(),
+    };
+    Ok((bytes, count))
+}
+
+/// The reports an Output Job run writes to `reports/`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum JobReport {
+    Erc,
+    Drc,
+    ChangeList,
+}
+
+impl JobReport {
+    pub(crate) const ALL: [JobReport; 3] = [JobReport::Erc, JobReport::Drc, JobReport::ChangeList];
+
+    /// The file name, such as `Demo-drc.json`.
+    pub(crate) fn file_name(self, project: &str) -> String {
+        let kind = match self {
+            JobReport::Erc => "erc",
+            JobReport::Drc => "drc",
+            JobReport::ChangeList => "change-list",
+        };
+        format!("{project}-{kind}.json")
+    }
+
+    /// The run report's function for it.
+    pub(crate) fn function(self) -> &'static str {
+        match self {
+            JobReport::Erc => "erc_report",
+            JobReport::Drc => "drc_report",
+            JobReport::ChangeList => "change_list_report",
+        }
+    }
+}
+
+/// The JSON report a job run writes, as `checks.report` writes it, stamped `generated`.
+/// The run's `design` fingerprint is left out: it only means something inside one session,
+/// and it would change the report with every build of REDA.
+pub(crate) fn job_report(
+    cx: &mut Context<'_>,
+    which: JobReport,
+    generated: reda_command::Timestamp,
+) -> Result<Vec<u8>, CommandError> {
+    let of = match which {
+        JobReport::Erc => ReportOf::Erc(ErcRunParams::default()),
+        JobReport::Drc => ReportOf::Drc(DrcRunParams::default()),
+        JobReport::ChangeList => ReportOf::Sync(SyncReportParams {}),
+    };
+    let (bytes, _) = build(cx, of, ReportFormat::Json, generated)?;
+    let mut value: Value =
+        serde_json::from_slice(&bytes).map_err(|e| CommandError::internal(e.to_string()))?;
+    if let Some(map) = value.as_object_mut() {
+        map.remove("design");
+    }
+    let mut text =
+        serde_json::to_string_pretty(&value).map_err(|e| CommandError::internal(e.to_string()))?;
+    text.push('\n');
+    Ok(text.into_bytes())
 }
 
 fn write_error(path: &std::path::Path, e: &std::io::Error) -> CommandError {
