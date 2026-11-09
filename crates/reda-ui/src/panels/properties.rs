@@ -110,10 +110,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                         if let Some(class) = &properties.net_class {
                             net_class_row(ui, class, &mut edits);
                         }
-                        if let Some(local) = &properties.local_edits {
-                            if let Some(revert) = rules::local_edits(ui, local) {
-                                out.push(Out::Run(revert.0, revert.1));
-                            }
+                        if let Some(local) = &properties.local_edits
+                            && let Some(revert) = rules::local_edits(ui, local)
+                        {
+                            out.push(Out::Run(revert.0, revert.1));
                         }
                     },
                 );
