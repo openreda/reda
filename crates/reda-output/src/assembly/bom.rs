@@ -11,13 +11,16 @@ use reda_model::{
 };
 use reda_pcb::natural_cmp;
 
-use super::{Fitted, csv, field};
+use super::{Fitted, Table, field};
 use crate::plot::OutputFile;
 
 /// The BOM file and the rows that miss a field the preset requires.
 #[derive(Clone, Debug)]
 pub struct Bom {
     pub file: OutputFile,
+    /// The rows the file is written from, header first: what the Output Job window
+    /// previews.
+    pub table: Table,
     /// One entry per row and missing field, in row order, then `required_fields` order.
     pub missing: Vec<MissingField>,
 }
@@ -78,13 +81,15 @@ pub fn bom_file(project: &Project, pcb: &PcbDocument, settings: &BomSettings) ->
         .iter()
         .flat_map(|row| missing_fields(row, &settings.required_fields))
         .collect();
+    let table = Table::new(&settings.columns, cells);
     Bom {
         file: OutputFile {
             name: format!("{}-BOM.csv", project.props().name),
             function: "bom",
-            bytes: csv(&settings.columns, cells),
+            bytes: table.csv(),
             attributes: None,
         },
+        table,
         missing,
     }
 }

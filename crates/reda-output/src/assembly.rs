@@ -36,6 +36,22 @@ pub fn cpl_file(
     cpl: &CplSettings,
     mount: &MountValues,
 ) -> OutputFile {
+    OutputFile {
+        name: format!("{}-CPL.csv", project.props().name),
+        function: "cpl",
+        bytes: cpl_table(project, instances, cpl, mount).csv(),
+        attributes: None,
+    }
+}
+
+/// The rows [`cpl_file`] writes, header first, before they become CSV: what the Output
+/// Job window previews.
+pub fn cpl_table(
+    _project: &Project,
+    instances: &[BoardInstance<'_>],
+    cpl: &CplSettings,
+    mount: &MountValues,
+) -> Table {
     let rows = instances
         .iter()
         .flat_map(|board| {
@@ -85,11 +101,33 @@ pub fn cpl_file(
                 })
                 .collect()
         });
-    OutputFile {
-        name: format!("{}-CPL.csv", project.props().name),
-        function: "cpl",
-        bytes: csv(&cpl.columns, rows),
-        attributes: None,
+    Table::new(&cpl.columns, rows)
+}
+
+/// An assembly file's cells: the header row and the rows under it, unquoted.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Table {
+    pub header: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+impl Table {
+    fn new(columns: &[Column], rows: impl Iterator<Item = Vec<String>>) -> Table {
+        Table {
+            header: columns.iter().map(|c| c.header.clone()).collect(),
+            rows: rows.collect(),
+        }
+    }
+
+    /// The CSV file: the header row, then the rows, each line ending in `\n`.
+    pub fn csv(&self) -> Vec<u8> {
+        let mut out = String::new();
+        for cells in std::iter::once(&self.header).chain(&self.rows) {
+            let cells: Vec<String> = cells.iter().map(|c| quote(c)).collect();
+            out.push_str(&cells.join(","));
+            out.push('\n');
+        }
+        out.into_bytes()
     }
 }
 
@@ -252,21 +290,6 @@ fn cpl_parts(
         natural_cmp(&a.0.designator, &b.0.designator).then(a.0.uuid.cmp(&b.0.uuid))
     });
     parts
-}
-
-/// A CSV file: the header row, then `rows`, each line ending in `\n`.
-fn csv(columns: &[Column], rows: impl Iterator<Item = Vec<String>>) -> Vec<u8> {
-    let mut out = String::new();
-    let mut line = |cells: &mut dyn Iterator<Item = &str>| {
-        let cells: Vec<String> = cells.map(quote).collect();
-        out.push_str(&cells.join(","));
-        out.push('\n');
-    };
-    line(&mut columns.iter().map(|c| c.header.as_str()));
-    for row in rows {
-        line(&mut row.iter().map(String::as_str));
-    }
-    out.into_bytes()
 }
 
 /// A CSV cell, quoted (with inner quotes doubled) when it holds a comma, a quote or a line

@@ -16,6 +16,7 @@ pub mod format;
 pub mod fs;
 pub mod journal;
 pub mod library;
+pub mod output_preview;
 pub mod preferences;
 pub mod recovery;
 pub mod schematic_pdf;
