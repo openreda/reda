@@ -570,6 +570,13 @@ impl Cx<'_, '_> {
             return Vec::new();
         }
         match kind {
+            // A right-click in the Wire Tool is Esc: it ends the run, or leaves the Tool.
+            Some(DocumentKind::Schematic)
+                if self.shell.tool() == crate::tools::Tool::Wire
+                    && input.response.secondary_clicked() =>
+            {
+                vec![("tool.activate:select".to_owned(), json!({}))]
+            }
             Some(DocumentKind::Schematic) => {
                 let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
                 schematic_editor::pointer(self.shell, document, &input.events, scale)
@@ -965,10 +972,13 @@ impl Cx<'_, '_> {
                 for (id, params) in edits {
                     self.push_call(id, params);
                 }
-                // While routing, a right-click ends the route instead (pcb::canvas).
+                // In the Wire Tool a right-click is Esc (see `edit`), and while routing it
+                // ends the route (pcb::canvas), instead of the menu.
+                let wiring = kind == bars::DocumentType::Schematic
+                    && self.shell.tool() == crate::tools::Tool::Wire;
                 let routing = kind == bars::DocumentType::Pcb
                     && crate::pcb::route::takes_right_click(self.shell);
-                if !view_only && !routing {
+                if !view_only && !wiring && !routing {
                     crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
@@ -1003,6 +1013,8 @@ impl Cx<'_, '_> {
                     }
                 }
                 crate::selection::picking::show(ui, self.shell, *uuid);
+                let options = schematic_editor::auto_wire_options(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(options);
                 if self.shell.active_document().map(|d| d.document) == Some(*uuid) {
                     crate::keys_card::show(ui, self.shell, rect);
                 }

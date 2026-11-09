@@ -305,7 +305,7 @@ fn x_and_y_are_refused_on_a_selected_or_moving_footprint() {
     for axis in ["x", "y"] {
         let err = b
             .shell
-            .run(&format!("tool.mirror:{axis}"), json!({}))
+            .run(&format!("tool.mirror_{axis}"), json!({}))
             .unwrap_err();
         assert_eq!(err.code, ErrorCode::Rejected);
         assert_eq!(err.message, MIRROR_NOTE);
@@ -313,7 +313,7 @@ fn x_and_y_are_refused_on_a_selected_or_moving_footprint() {
     // In flight too.
     b.shell.pcb_press(mm(0.0, 0.0), false, TOLERANCE);
     b.shell.pcb_drag(mm(2.0, 0.0));
-    let err = b.shell.run("tool.mirror:x", json!({})).unwrap_err();
+    let err = b.shell.run("tool.mirror_x", json!({})).unwrap_err();
     assert_eq!(err.message, MIRROR_NOTE);
     b.shell.pcb_release();
     let f = b.pcb().footprint(a).unwrap();
@@ -330,7 +330,7 @@ fn x_and_y_are_refused_on_a_mechanical_part_being_placed() {
         "tool.place",
         json!({"document": board, "part": MOUNTING_HOLE_M3}),
     );
-    let err = b.shell.run("tool.mirror:y", json!({})).unwrap_err();
+    let err = b.shell.run("tool.mirror_y", json!({})).unwrap_err();
     assert_eq!(err.code, ErrorCode::Rejected);
     assert_eq!(err.message, MIRROR_NOTE);
 }

@@ -20,6 +20,8 @@ pub struct Readout {
     pub cursor: Option<String>,
     /// "Grid: 50 mil".
     pub grid: Option<String>,
+    /// The Wire Tool's mode while it is active on a sheet: "Wire: 45°".
+    pub tool: Option<String>,
 }
 
 /// The readout of the active Document. A board reads where the cursor last snapped,
@@ -64,8 +66,23 @@ pub fn readout(shell: &Shell) -> Readout {
             y = coordinate(y, units)
         )
     });
+    let wiring = shell.tool() == Tool::Wire
+        && shell
+            .engine()
+            .project()
+            .is_some_and(|p| p.schematic_sheet(document).is_some());
+    let tool = wiring.then(|| {
+        let mode = shell
+            .engine()
+            .view()
+            .get::<crate::tools::WireTool>()
+            .map(|t| t.mode)
+            .unwrap_or_default();
+        tr!("status-wire-mode", mode = mode.label())
+    });
     Readout {
         kind: Some(tr!("status-active", kind = kind)),
+        tool,
         cursor: cursor.filter(|_| canvas),
         grid: canvas.then(|| tr!("status-grid", grid = grid::label(pitch))),
     }
