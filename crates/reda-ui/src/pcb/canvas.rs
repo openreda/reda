@@ -129,8 +129,18 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     }
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
-    out.extend(super::layer_control::show(ui, shell, input.response.id, input.rect));
-    out.extend(super::routing_bar::show(ui, shell, input.response.id, input.rect));
+    out.extend(super::layer_control::show(
+        ui,
+        shell,
+        input.response.id,
+        input.rect,
+    ));
+    out.extend(super::routing_bar::show(
+        ui,
+        shell,
+        input.response.id,
+        input.rect,
+    ));
     out
 }
 

@@ -168,7 +168,11 @@ fn the_via_chooser_lists_the_nets_size_then_the_sizes_on_the_board() {
             hole: rules.via_hole.default_size(),
         }
     };
-    for (x, d, h) in [(0, "1mm", "0.5mm"), (5, "0.8mm", "0.4mm"), (9, "1mm", "0.5mm")] {
+    for (x, d, h) in [
+        (0, "1mm", "0.5mm"),
+        (5, "0.8mm", "0.4mm"),
+        (9, "1mm", "0.5mm"),
+    ] {
         engine.run_ok(
             "pcb.via.add",
             json!({"at": {"x": format!("{x}mm"), "y": 0}, "diameter": d, "hole": h}),

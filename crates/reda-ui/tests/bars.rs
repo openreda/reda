@@ -898,7 +898,8 @@ fn the_routing_bar_is_data_bound_to_the_track_tools_commands() {
             .tool_bars
             .is_empty()
     );
-    let err = bars::parse(r#"{"tool_bars": {"route": [{"id": "x", "command": "a", "on_click": 1}]}}"#)
-        .unwrap_err();
+    let err =
+        bars::parse(r#"{"tool_bars": {"route": [{"id": "x", "command": "a", "on_click": 1}]}}"#)
+            .unwrap_err();
     assert!(err.contains("on_click"), "{err}");
 }

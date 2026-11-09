@@ -323,8 +323,10 @@ impl Router {
 
     /// The Via the route places next: the size chosen with Shift+V, else the Net's.
     fn via_diameter(&self, pcb: &PcbDocument, net: Option<Uuid>) -> Nm {
-        self.via_size
-            .map_or_else(|| net_rules(pcb, net).via_diameter.default_size(), |s| s.diameter)
+        self.via_size.map_or_else(
+            || net_rules(pcb, net).via_diameter.default_size(),
+            |s| s.diameter,
+        )
     }
 
     /// Places the path to the cursor and a Via there; `false` when nothing is in flight or
@@ -737,12 +739,9 @@ impl Router {
         let proposed = route::propose(&copper, pcb, &request);
         self.halos = match prefs.clearance_display {
             ClearanceDisplay::Off => Vec::new(),
-            ClearanceDisplay::Near => copper.halos(
-                pcb,
-                route.leg.layer,
-                route.net,
-                Some((at, CLEARANCE_NEAR)),
-            ),
+            ClearanceDisplay::Near => {
+                copper.halos(pcb, route.leg.layer, route.net, Some((at, CLEARANCE_NEAR)))
+            }
             ClearanceDisplay::All => copper.halos(pcb, route.leg.layer, route.net, None),
         };
         self.note = proposed.note.map(note_text);

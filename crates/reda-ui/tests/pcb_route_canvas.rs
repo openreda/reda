@@ -236,17 +236,22 @@ fn the_routing_bar_floats_over_the_bottom_while_routing_and_its_buttons_run_the_
     use reda_ui::bars::draw::tool_bar_anchor;
     let mut w = window();
     w.h.run();
-    assert!(w.h.query_by_label("Toggle Look-Ahead").is_none(), "only in the Tool");
+    assert!(
+        w.h.query_by_label("Toggle Look-Ahead").is_none(),
+        "only in the Tool"
+    );
     route_with_keys(&mut w);
     let canvas = w.h.get_by_role(Role::Canvas).rect();
     let anchor = tool_bar_anchor(canvas, false);
     let look = w.h.get_by_label("Toggle Look-Ahead");
     let bar = look.rect();
-    assert!((bar.bottom() - anchor.y).abs() < 8.0, "{bar:?} at {anchor:?}");
+    assert!(
+        (bar.bottom() - anchor.y).abs() < 8.0,
+        "{bar:?} at {anchor:?}"
+    );
     assert!(bar.center().y > canvas.center().y, "at the bottom");
     let toggled = |w: &Window, label: &str| {
-        w.h.get_by_label(label).accesskit_node().toggled()
-            == Some(egui::accesskit::Toggled::True)
+        w.h.get_by_label(label).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True)
     };
     assert!(toggled(&w, "Toggle Look-Ahead"), "on by default");
     assert!(toggled(&w, "Next Obstacle Mode"), "toggled in `stop`");
@@ -305,7 +310,10 @@ fn the_routing_bar_moves_up_with_the_layer_strip() {
     let canvas = w.h.get_by_role(Role::Canvas).rect();
     let anchor = tool_bar_anchor(canvas, true);
     let bar = w.h.get_by_label("Toggle Look-Ahead").rect();
-    assert!((bar.bottom() - anchor.y).abs() < 8.0, "{bar:?} at {anchor:?}");
+    assert!(
+        (bar.bottom() - anchor.y).abs() < 8.0,
+        "{bar:?} at {anchor:?}"
+    );
 }
 
 #[test]
@@ -343,9 +351,8 @@ fn the_tools_note_shows_just_above_the_bar() {
     w.h.hover_at(on_screen(&w, mm(10.0, 0.0)));
     w.h.run();
     w.h.run();
-    let note = w
-        .h
-        .get_by_label("Loop kept: the new route is narrower than the old path");
+    let note =
+        w.h.get_by_label("Loop kept: the new route is narrower than the old path");
     let bar = w.h.get_by_label("Toggle Look-Ahead").rect();
     assert!(note.rect().bottom() <= bar.top() + 1.0, "above the bar");
     assert!(note.rect().bottom() > bar.top() - 20.0, "just above");

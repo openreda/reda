@@ -33,7 +33,10 @@ pub fn item_state(shell: &Shell, action: &Action) -> ToolBarItem {
     match id {
         "pcb.route.chooser:width" => match shell.route_preview() {
             Some(p) => ToolBarItem {
-                text: Some(super::view::format_length(p.width, shell.board_view().units)),
+                text: Some(super::view::format_length(
+                    p.width,
+                    shell.board_view().units,
+                )),
                 ..ToolBarItem::default()
             },
             None => ToolBarItem {
@@ -98,7 +101,11 @@ pub fn show(ui: &Ui, shell: &Shell, id: Id, canvas: Rect) -> Vec<Invocation> {
         return out;
     };
     let checked = BTreeMap::new();
-    let document = shell.engine().project().and_then(|p| p.pcb()).map(|p| p.uuid);
+    let document = shell
+        .engine()
+        .project()
+        .and_then(|p| p.pcb())
+        .map(|p| p.uuid);
     let cx = Cx {
         shell,
         checked: &checked,
@@ -107,11 +114,25 @@ pub fn show(ui: &Ui, shell: &Shell, id: Id, canvas: Rect) -> Vec<Invocation> {
     let anchor = tool_bar_anchor(canvas, super::layer_control::strip_shown(shell));
     let state = |action: &Action| item_state(shell, action);
     let note = shell.router().note();
-    out.extend(tool_bar(ui, &cx, items, id.with("routing-bar"), anchor, note, &state));
+    out.extend(tool_bar(
+        ui,
+        &cx,
+        items,
+        id.with("routing-bar"),
+        anchor,
+        note,
+        &state,
+    ));
     if let Some(chooser) = shell.router().chooser() {
         // Above the bar and its note.
         let above = anchor - Vec2::new(0.0, 2.0 * crate::chrome::BAR_BUTTON + 24.0);
-        out.extend(chooser_ui(ui, shell, chooser, id.with("route-chooser"), above));
+        out.extend(chooser_ui(
+            ui,
+            shell,
+            chooser,
+            id.with("route-chooser"),
+            above,
+        ));
     }
     out
 }
@@ -152,7 +173,8 @@ fn chooser_ui(
                     match chooser {
                         Chooser::Width(rows) => {
                             for row in rows {
-                                let label = format!("{}  {}", length(row.width), source(row.source));
+                                let label =
+                                    format!("{}  {}", length(row.width), source(row.source));
                                 let response = ui.selectable_label(false, &label);
                                 a11y::name(&response, Role::ListItem, true, &label, None, None);
                                 if response.clicked() {

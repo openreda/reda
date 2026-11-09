@@ -296,7 +296,11 @@ fn clearance_halos_grow_other_net_copper_near_the_cursor() {
     let far = track(&mut engine, gnd, "20mm");
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
-    let top = pcb.layers().find(LayerKind::Copper, Some(Side::Top)).unwrap().uuid;
+    let top = pcb
+        .layers()
+        .find(LayerKind::Copper, Some(Side::Top))
+        .unwrap()
+        .uuid;
     let copper = Copper::of(project).unwrap();
     let origin = Point::new(Nm::ZERO, Nm::ZERO);
 

@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, UserDirs};
-use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::engine::model::Uuid;
+use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::engine::pcb::route::{CornerMode, Posture};
 use reda_ui::pcb::route::{Chooser, Look};
 use reda_ui::shell::Shell;
@@ -184,7 +184,11 @@ fn escape_ends_and_keeps_the_route_then_returns_to_select() {
     assert_eq!(b.shell.tool(), Tool::Route, "the Tool stays");
 
     run(&mut b.shell, "pcb.route.end", json!({}));
-    assert_eq!(b.shell.tool(), Tool::Select, "a second Esc returns to Select");
+    assert_eq!(
+        b.shell.tool(),
+        Tool::Select,
+        "a second Esc returns to Select"
+    );
 }
 
 #[test]
@@ -198,7 +202,11 @@ fn escape_with_only_the_start_point_drops_the_route_and_stays_in_the_tool() {
     assert!(b.shell.route_preview().is_none(), "dropped");
     assert!(b.shell.tool_preview().is_none());
     assert_eq!(b.shell.tool(), Tool::Route, "stays in the Tool");
-    assert_eq!(journal_ids(&b)[before..], ["pcb.route.end"], "nothing commits");
+    assert_eq!(
+        journal_ids(&b)[before..],
+        ["pcb.route.end"],
+        "nothing commits"
+    );
 }
 
 #[test]
@@ -303,7 +311,10 @@ fn shift_w_opens_the_width_chooser_and_a_choice_applies_from_the_last_vertex() {
     run(&mut b.shell, "pcb.route.width", json!({"width": "0.4mm"}));
     assert!(b.shell.router().chooser().is_none());
     assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_um(400));
-    assert_eq!(b.shell.route_preview().unwrap().legs[0].width, Nm::from_um(300));
+    assert_eq!(
+        b.shell.route_preview().unwrap().legs[0].width,
+        Nm::from_um(300)
+    );
     // A typed width outside the Net's range is clipped, with a note.
     run(&mut b.shell, "pcb.route.width", json!({"width": "2mm"}));
     assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_um(500));
@@ -355,7 +366,11 @@ fn c_cycles_the_clearance_display_near_all_and_off() {
     route_to(&mut b, mm(0.0, 0.0));
     b.shell.route_hover(mm(1.0, 1.0));
     assert_eq!(pref(&b, "pcb.route.clearance_display"), "near");
-    assert_eq!(b.shell.router().halos().len(), 1, "within 5 mm of the cursor");
+    assert_eq!(
+        b.shell.router().halos().len(),
+        1,
+        "within 5 mm of the cursor"
+    );
     run(&mut b.shell, "pcb.route.mode:clearance_display", json!({}));
     assert_eq!(pref(&b, "pcb.route.clearance_display"), "all");
     assert_eq!(b.shell.router().halos().len(), 2);
@@ -369,9 +384,21 @@ fn shift_l_shift_a_and_shift_r_toggle_their_preferences() {
     let mut b = board();
     run(&mut b.shell, "tool.activate:route", json!({}));
     for (mode, key, values) in [
-        ("loop_removal", "pcb.route.loop_removal", [json!(false), json!(true)]),
-        ("auto_terminate", "pcb.route.auto_terminate", [json!(false), json!(true)]),
-        ("obstacle_mode", "pcb.route.obstacle_mode", [json!("ignore"), json!("highlight")]),
+        (
+            "loop_removal",
+            "pcb.route.loop_removal",
+            [json!(false), json!(true)],
+        ),
+        (
+            "auto_terminate",
+            "pcb.route.auto_terminate",
+            [json!(false), json!(true)],
+        ),
+        (
+            "obstacle_mode",
+            "pcb.route.obstacle_mode",
+            [json!("ignore"), json!("highlight")],
+        ),
     ] {
         for value in values {
             run(&mut b.shell, &format!("pcb.route.mode:{mode}"), json!({}));
@@ -385,7 +412,14 @@ fn shift_l_shift_a_and_shift_r_toggle_their_preferences() {
     run(&mut b.shell, "pcb.route.mode:auto_terminate", json!({}));
     route_to(&mut b, mm(0.0, 0.0));
     b.shell.route_hover(mm(10.0, 0.0));
-    assert!(!b.shell.route_preview().unwrap().proposed.unwrap().ends_route);
+    assert!(
+        !b.shell
+            .route_preview()
+            .unwrap()
+            .proposed
+            .unwrap()
+            .ends_route
+    );
 }
 
 #[test]
@@ -489,5 +523,8 @@ fn the_preview_draws_proposed_segments_translucent_look_ahead_hollow_and_removal
     let removed: Vec<_> = drawn.iter().filter(|s| s.look == Look::Removed).collect();
     assert_eq!(removed.len(), 3, "the old path, in red");
     let color = Look::Removed.color(accent, red);
-    assert_eq!((color.r(), color.g(), color.b()), (red.r(), red.g(), red.b()));
+    assert_eq!(
+        (color.r(), color.g(), color.b()),
+        (red.r(), red.g(), red.b())
+    );
 }
