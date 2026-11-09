@@ -4841,6 +4841,82 @@
     },
     {
       "category": "output",
+      "description": "Changes keys of one of the Project's Fab Preset copies, as its pages in Project Settings do. Sections change only the keys they name. The source preset is not touched.",
+      "icon": "fab_preset",
+      "id": "fab_preset.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "preset": {
+            "description": "The Project copy's UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "values": {
+            "description": "Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,\n`gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each\nwhole, such as `{\"gerber\": {\"slot_command\": \"g85\"}}`; `zip_assembly` is set as it\nis. The name cannot be set."
+          }
+        },
+        "required": [
+          "preset",
+          "values"
+        ],
+        "title": "PresetSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Fab Preset Copy"
+    },
+    {
+      "category": "output",
+      "description": "Changes keys of one of the user's Fab Presets and writes its `.redafab` file, as its pages in Preferences do. Project copies of it change only with Update from Source.",
+      "icon": "fab_preset",
+      "id": "fab_preset.set_user",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The user preset's name (case does not matter).",
+            "type": "string"
+          },
+          "values": {
+            "description": "Preset keys to change, as `fab_preset.set` takes them."
+          }
+        },
+        "required": [
+          "name",
+          "values"
+        ],
+        "title": "PresetSetUserParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "path": {
+            "description": "The `.redafab` file written.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "PresetSaveUserResult",
+        "type": "object"
+      },
+      "title": "Edit User Fab Preset"
+    },
+    {
+      "category": "output",
       "description": "Compares one of the Project's Fab Preset copies with the shipped or user preset of the same name it came from, field by field. `fab_preset.update_from_source` applies the result.",
       "icon": "fab_preset",
       "id": "fab_preset.source_diff",

@@ -22,11 +22,13 @@ use crate::tr;
 
 mod check_grid;
 mod draw;
+mod fab_preset_pages;
 mod schema;
 pub mod shortcuts;
 mod user_keymap;
 
 pub use draw::Outcome;
+pub use fab_preset_pages::{UserPresetPages, user_source};
 pub use schema::{Choice, Kind, Setting, preference_keys, search, setting};
 pub use shortcuts::Shortcuts;
 
@@ -160,6 +162,8 @@ pub struct PreferencesDialog {
     pub new_library_path: String,
     /// The Keyboard Shortcuts page.
     pub shortcuts: Shortcuts,
+    /// The user Fab Preset whose pages are open on the Fab Presets page.
+    preset_pages: Option<UserPresetPages>,
 }
 
 impl Default for PreferencesDialog {
@@ -179,6 +183,7 @@ impl PreferencesDialog {
             problems: BTreeMap::new(),
             new_library_path: String::new(),
             shortcuts: Shortcuts::default(),
+            preset_pages: None,
         }
     }
 
