@@ -322,7 +322,7 @@ command = "project.save"
 
 [[bind]]
 context = "kitchen"
-key = "F3"
+key = "F9"
 command = "project.save"
 
 [[bind]]
@@ -335,7 +335,7 @@ key = "F5"
 "#;
     let (keymap, problems) = Keymap::load(KeymapBase::Reda, Some(user));
     assert_eq!(problems.len(), 4, "{problems:?}");
-    for key in ["F3", "F7", "F5"] {
+    for key in ["F9", "F7", "F5"] {
         assert_eq!(bound(&keymap, key, &active(None, None)), None);
     }
     let (_, problems) = Keymap::load(KeymapBase::Reda, Some("[[bind]\nkey = "));
