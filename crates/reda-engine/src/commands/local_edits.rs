@@ -1,7 +1,8 @@
 //! Locally Edited Footprints (ADR-0013): `pcb.pad.edit` changes one Pad of one placed
-//! Footprint by giving the instance its own part-table entry, keyed by the new content
-//! hash and recording `edited_from`; `pcb.footprint.revert_local_edits` puts instances
-//! back on that copy. The PCB's table keeps a copy while an entry's `edited_from` names
+//! Footprint, and `pcb.footprint.graphic.edit` and `.delete` its graphics once
+//! `pcb.footprint.unlock_graphics` has unlocked them, by giving the instance its own
+//! part-table entry, keyed by the new content hash and recording `edited_from`;
+//! `pcb.footprint.revert_local_edits` puts instances back on that copy. The PCB's table keeps a copy while an entry's `edited_from` names
 //! it ([`prune_copies`]).
 
 use std::collections::BTreeSet;
@@ -10,10 +11,10 @@ use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, HoleParam, Kind, Length, Meta,
     NO_PROJECT, RatioParam, Registry, Unavailable, ZoneConnectionParam,
 };
-use reda_library::edit::{PadPatch, PointParam, present};
+use reda_library::edit::{GraphicPatch, PadPatch, PointParam, ShapeParam, present};
 use reda_model::{
-    Corners, EditedFrom, Footprint, FootprintCopy, FootprintInstance, InDocument, Object, PadKind,
-    PadShape, PcbDocument, Side, Uuid,
+    Corners, EditedFrom, Footprint, FootprintCopy, FootprintInstance, FootprintLayer, InDocument,
+    Object, PadKind, PadShape, PcbDocument, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,9 @@ use crate::sync::NO_PCB;
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(PcbPadEdit);
     registry.add(RevertLocalEdits);
+    registry.add(UnlockGraphics);
+    registry.add(GraphicEdit);
+    registry.add(GraphicDelete);
 }
 
 pub(crate) fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -328,5 +332,212 @@ impl Command for RevertLocalEdits {
         }
         prune_copies(cx)?;
         Ok(RevertLocalEditsResult { reverted: uuids })
+    }
+}
+
+pub struct UnlockGraphics;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UnlockGraphicsParams {
+    /// The placed Footprint instances.
+    pub instances: Vec<Uuid>,
+    /// True lets their graphics be edited on the board; false locks them again.
+    pub unlocked: bool,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct UnlockGraphicsResult {
+    /// The instances whose setting changed, in the order given.
+    pub instances: Vec<Uuid>,
+}
+
+impl Command for UnlockGraphics {
+    const META: Meta = Meta {
+        id: "pcb.footprint.unlock_graphics",
+        title: "Unlock Footprint Graphics",
+        description: "Unlocks the graphics of placed Footprints, so `pcb.footprint.graphic.edit` \
+                      and `pcb.footprint.graphic.delete` can change them, or locks them again. \
+                      Unlocking changes nothing else: locking again keeps the edits made, \
+                      which `pcb.footprint.revert_local_edits` removes.",
+        category: "pcb",
+        icon: "lock",
+        kind: Kind::Edit,
+    };
+    type Params = UnlockGraphicsParams;
+    type Output = UnlockGraphicsResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: UnlockGraphicsParams,
+    ) -> Result<UnlockGraphicsResult, CommandError> {
+        let pcb = pcb(cx)?;
+        let doc = pcb.uuid;
+        let mut changed: Vec<FootprintInstance> = Vec::new();
+        for (i, uuid) in p.instances.iter().enumerate() {
+            let instance = pcb.footprint(*uuid).ok_or_else(|| {
+                CommandError::invalid_params(
+                    &format!("/instances/{i}"),
+                    format!("the PCB has no Footprint instance {uuid}"),
+                )
+            })?;
+            if instance.graphics_unlocked != p.unlocked && !changed.iter().any(|c| c.uuid == *uuid)
+            {
+                let mut instance = instance.clone();
+                instance.graphics_unlocked = p.unlocked;
+                changed.push(instance);
+            }
+        }
+        let instances = changed.iter().map(|c| c.uuid).collect();
+        for instance in changed {
+            cx.tx()?
+                .replace(Object::FootprintInstance(InDocument::new(doc, instance)))?;
+        }
+        Ok(UnlockGraphicsResult { instances })
+    }
+}
+
+/// The Footprint instance `uuid` holds, cloned for a local edit of its graphics: refused
+/// unless its graphics are unlocked or the caller passes `include_locked`.
+fn unlocked_footprint(
+    cx: &Context<'_>,
+    uuid: Uuid,
+    include_locked: bool,
+) -> Result<Footprint, CommandError> {
+    let pcb = pcb(cx)?;
+    let instance = pcb.footprint(uuid).ok_or_else(|| {
+        CommandError::not_found(format!("the PCB has no Footprint instance {uuid}"))
+    })?;
+    if !instance.graphics_unlocked && !include_locked {
+        let mut err = CommandError::rejected(format!(
+            "{}'s graphics are locked; unlock them with pcb.footprint.unlock_graphics, or \
+             pass include_locked",
+            instance.designator
+        ));
+        err.details = Some(serde_json::json!({ "locked": [uuid] }));
+        return Err(err);
+    }
+    Ok(pcb
+        .footprint_copy(instance.footprint)
+        .ok_or_else(|| CommandError::internal("a Footprint instance's copy is gone"))?
+        .footprint
+        .clone())
+}
+
+fn no_graphic(footprint: &Footprint, graphic: Uuid) -> CommandError {
+    CommandError::not_found(format!(
+        "Footprint {} has no graphic {graphic}",
+        footprint.name
+    ))
+}
+
+pub struct GraphicEdit;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GraphicEditParams {
+    /// The placed Footprint instance.
+    pub instance: Uuid,
+    /// The graphic, by its UUID in the Footprint.
+    pub graphic: Uuid,
+    pub layer: Option<FootprintLayer>,
+    /// Replaces the whole shape, in the Footprint's own frame: moving a graphic is a new
+    /// shape.
+    pub shape: Option<ShapeParam>,
+    pub width: Option<Length>,
+    pub fill: Option<bool>,
+    /// Edits a Footprint whose graphics aren't unlocked too, as the GUI does with Protect
+    /// Locked Primitives In Component off.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
+impl Command for GraphicEdit {
+    const META: Meta = Meta {
+        id: "pcb.footprint.graphic.edit",
+        title: "Edit Placed Footprint Graphic",
+        description: "Changes one graphic of one placed Footprint whose graphics are \
+                      unlocked: its Layer, shape (which also moves it), stroke width or fill, \
+                      as `library.footprint.graphic.edit` does. The instance gets a Locally \
+                      Edited Footprint, as `pcb.pad.edit` makes, with the same compare, revert \
+                      and Sync rules.",
+        category: "pcb",
+        icon: "footprint_edit",
+        kind: Kind::Edit,
+    };
+    type Params = GraphicEditParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: GraphicEditParams) -> Result<(), CommandError> {
+        let mut footprint = unlocked_footprint(cx, p.instance, p.include_locked)?;
+        let index = footprint
+            .graphics
+            .iter()
+            .position(|g| g.uuid == p.graphic)
+            .ok_or_else(|| no_graphic(&footprint, p.graphic))?;
+        let patch = GraphicPatch {
+            layer: p.layer,
+            shape: p.shape,
+            width: p.width,
+            fill: p.fill,
+        };
+        footprint.graphics[index] = patch.apply(footprint.graphics[index].clone())?;
+        place_edited(cx, p.instance, footprint)
+    }
+}
+
+pub struct GraphicDelete;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GraphicDeleteParams {
+    /// The placed Footprint instance.
+    pub instance: Uuid,
+    /// The graphics, by their UUIDs in the Footprint.
+    pub graphics: Vec<Uuid>,
+    /// Deletes from a Footprint whose graphics aren't unlocked too, as the GUI does with
+    /// Protect Locked Primitives In Component off.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
+impl Command for GraphicDelete {
+    const META: Meta = Meta {
+        id: "pcb.footprint.graphic.delete",
+        title: "Delete Placed Footprint Graphics",
+        description: "Deletes graphics of one placed Footprint whose graphics are unlocked, \
+                      in one step. The instance gets a Locally Edited Footprint, as \
+                      `pcb.pad.edit` makes, with the same compare, revert and Sync rules.",
+        category: "pcb",
+        icon: "delete",
+        kind: Kind::Edit,
+    };
+    type Params = GraphicDeleteParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: GraphicDeleteParams) -> Result<(), CommandError> {
+        let mut footprint = unlocked_footprint(cx, p.instance, p.include_locked)?;
+        for graphic in &p.graphics {
+            let index = footprint
+                .graphics
+                .iter()
+                .position(|g| g.uuid == *graphic)
+                .ok_or_else(|| no_graphic(&footprint, *graphic))?;
+            footprint.graphics.remove(index);
+        }
+        place_edited(cx, p.instance, footprint)
     }
 }

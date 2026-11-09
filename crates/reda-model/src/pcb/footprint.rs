@@ -33,6 +33,10 @@ pub struct FootprintInstance {
     /// Locked against moving.
     #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
+    /// Its Footprint's graphics can be edited on the board, each edit making a Locally
+    /// Edited Footprint (ADR-0013).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub graphics_unlocked: bool,
     pub designator: String,
     /// The value is `fields.value`.
     pub fields: Fields,

@@ -452,3 +452,282 @@ fn the_replace_preview_lists_the_local_pad_edits_it_removes() {
     );
     assert!(same["components"][0].get("lost_local_edits").is_none());
 }
+
+/// The UUID of the instance and its copy's top Assembly graphic.
+fn first_graphic(engine: &mut TestEngine, designator: &str) -> (Value, Value) {
+    let i = instance(engine, designator);
+    let c = copy(engine, &i["footprint"]);
+    let graphic = c["footprint"]["graphics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["layer"] == "assembly_top")
+        .unwrap()
+        .clone();
+    (i["uuid"].clone(), graphic)
+}
+
+fn unlock(engine: &mut TestEngine, designator: &str) {
+    let uuid = instance(engine, designator)["uuid"].clone();
+    engine.run_ok(
+        "pcb.footprint.unlock_graphics",
+        json!({"instances": [uuid], "unlocked": true}),
+    );
+}
+
+fn thicken(engine: &mut TestEngine, designator: &str) -> Value {
+    let (instance, graphic) = first_graphic(engine, designator);
+    engine.run_ok(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": instance, "graphic": graphic["uuid"], "width": "0.5mm"}),
+    )
+}
+
+#[test]
+fn unlocking_a_footprints_graphics_is_stored_and_reversible() {
+    let dir = TempDir::new("local-graphic-unlock");
+    let mut engine = board(&dir, 2);
+    assert!(
+        instance(&mut engine, "R1")
+            .get("graphics_unlocked")
+            .is_none()
+    );
+    unlock(&mut engine, "R1");
+    assert_eq!(instance(&mut engine, "R1")["graphics_unlocked"], true);
+    assert!(
+        instance(&mut engine, "R2")
+            .get("graphics_unlocked")
+            .is_none()
+    );
+    // Unlocking is not a local edit.
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 1);
+
+    let r1 = instance(&mut engine, "R1")["uuid"].clone();
+    engine.run_ok(
+        "pcb.footprint.unlock_graphics",
+        json!({"instances": [r1], "unlocked": false}),
+    );
+    // Left out when false.
+    assert!(
+        instance(&mut engine, "R1")
+            .get("graphics_unlocked")
+            .is_none()
+    );
+    let err = engine.run_err(
+        "pcb.footprint.unlock_graphics",
+        json!({"instances": ["00000000-0000-4000-8000-0000000000ff"], "unlocked": true}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn editing_a_graphic_of_an_unlocked_footprint_makes_a_local_edit() {
+    let dir = TempDir::new("local-graphic-edit");
+    let mut engine = board(&dir, 1);
+    let before = instance(&mut engine, "R1");
+    let original = copy(&mut engine, &before["footprint"]);
+    let (uuid, graphic) = first_graphic(&mut engine, "R1");
+
+    // Locked graphics are refused, unless the caller asks past the lock (the GUI, with
+    // Protect Locked Primitives In Component off).
+    let err = engine.run_err(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": uuid, "graphic": graphic["uuid"], "width": "0.5mm"}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert_eq!(
+        instance(&mut engine, "R1")["footprint"],
+        before["footprint"]
+    );
+
+    unlock(&mut engine, "R1");
+    thicken(&mut engine, "R1");
+    let after = instance(&mut engine, "R1");
+    assert_ne!(after["footprint"], before["footprint"]);
+    let edited = copy(&mut engine, &after["footprint"]);
+    assert_eq!(
+        edited["edited_from"],
+        json!({"uuid": original["uuid"], "hash": original["hash"]})
+    );
+    let thick = edited["footprint"]["graphics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["uuid"] == graphic["uuid"])
+        .unwrap();
+    assert_eq!(thick["width"], 500_000);
+    assert_eq!(thick["shape"], graphic["shape"]);
+    // A local edit is not out of sync.
+    assert_eq!(preview(&mut engine)["count"], 0);
+
+    // Moving it is a shape edit in the Footprint's own frame; a Courtyard still takes only
+    // closed shapes.
+    engine.run_ok(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": uuid, "graphic": graphic["uuid"],
+               "shape": {"kind": "line", "start": {"x": "-1mm", "y": "1mm"},
+                         "end": {"x": "1mm", "y": "1mm"}}}),
+    );
+    let fp = instance(&mut engine, "R1")["footprint"].clone();
+    let edited = copy(&mut engine, &fp);
+    let moved = edited["footprint"]["graphics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["uuid"] == graphic["uuid"])
+        .unwrap();
+    assert_eq!(
+        moved["shape"],
+        json!({"kind": "line", "start": {"x": -1_000_000, "y": 1_000_000},
+               "end": {"x": 1_000_000, "y": 1_000_000}})
+    );
+    let err = engine.run_err(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": uuid, "graphic": graphic["uuid"], "layer": "courtyard_top"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    let err = engine.run_err(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": uuid, "graphic": "00000000-0000-4000-8000-0000000000ff",
+               "width": "1mm"}),
+    );
+    assert_eq!(err.code, ErrorCode::NotFound);
+
+    // One undo step per edit.
+    engine.run_ok("edit.undo", json!({"document": PCB}));
+    engine.run_ok("edit.undo", json!({"document": PCB}));
+    assert_eq!(
+        instance(&mut engine, "R1")["footprint"],
+        before["footprint"]
+    );
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 1);
+}
+
+#[test]
+fn locked_graphics_can_be_edited_past_the_lock() {
+    let dir = TempDir::new("local-graphic-past-lock");
+    let mut engine = board(&dir, 1);
+    let (uuid, graphic) = first_graphic(&mut engine, "R1");
+    engine.run_ok(
+        "pcb.footprint.graphic.edit",
+        json!({"instance": uuid, "graphic": graphic["uuid"], "width": "0.5mm",
+               "include_locked": true}),
+    );
+    engine.run_ok(
+        "pcb.footprint.graphic.delete",
+        json!({"instance": uuid, "graphics": [graphic["uuid"]], "include_locked": true}),
+    );
+    let fp = instance(&mut engine, "R1")["footprint"].clone();
+    let edited = copy(&mut engine, &fp);
+    assert!(edited.get("edited_from").is_some());
+}
+
+#[test]
+fn deleting_graphics_makes_a_local_edit_that_revert_undoes() {
+    let dir = TempDir::new("local-graphic-delete");
+    let mut engine = board(&dir, 2);
+    let original = instance(&mut engine, "R1")["footprint"].clone();
+    let count = copy(&mut engine, &original)["footprint"]["graphics"]
+        .as_array()
+        .unwrap()
+        .len();
+    let (r1, graphic) = first_graphic(&mut engine, "R1");
+    let err = engine.run_err(
+        "pcb.footprint.graphic.delete",
+        json!({"instance": r1, "graphics": [graphic["uuid"]]}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected);
+
+    unlock(&mut engine, "R1");
+    unlock(&mut engine, "R2");
+    for d in ["R1", "R2"] {
+        let (i, g) = first_graphic(&mut engine, d);
+        engine.run_ok(
+            "pcb.footprint.graphic.delete",
+            json!({"instance": i, "graphics": [g["uuid"]]}),
+        );
+    }
+    let edited = instance(&mut engine, "R1")["footprint"].clone();
+    assert_ne!(edited, original);
+    // Identical edits share one entry.
+    assert_eq!(instance(&mut engine, "R2")["footprint"], edited);
+    let now = copy(&mut engine, &edited);
+    let graphics = now["footprint"]["graphics"].as_array().unwrap();
+    assert_eq!(graphics.len(), count - 1);
+    assert!(graphics.iter().all(|g| g["uuid"] != graphic["uuid"]));
+    assert_eq!(preview(&mut engine)["count"], 0);
+
+    let err = engine.run_err(
+        "pcb.footprint.graphic.delete",
+        json!({"instance": r1, "graphics": [graphic["uuid"]]}),
+    );
+    assert_eq!(err.code, ErrorCode::NotFound);
+
+    let done = engine.run_ok(
+        "pcb.footprint.revert_local_edits",
+        json!({"instances": [r1]}),
+    );
+    assert_eq!(done["result"]["reverted"], json!([r1]));
+    assert_eq!(instance(&mut engine, "R1")["footprint"], original);
+    // R2 still uses the edited entry.
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 2);
+    // Reverting keeps the graphics unlocked.
+    assert_eq!(instance(&mut engine, "R1")["graphics_unlocked"], true);
+}
+
+#[test]
+fn sync_treats_graphic_edits_like_pad_edits() {
+    let dir = TempDir::new("local-graphic-sync");
+    let mut engine = board(&dir, 1);
+    unlock(&mut engine, "R1");
+    let (_, graphic) = first_graphic(&mut engine, "R1");
+    thicken(&mut engine, "R1");
+    let edited = instance(&mut engine, "R1")["footprint"].clone();
+    let component = instance(&mut engine, "R1")["component"]["uuid"].clone();
+
+    // A data change keeps the local edit and the unlock.
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "value": "4k7"}),
+    );
+    sync(&mut engine);
+    assert_eq!(instance(&mut engine, "R1")["footprint"], edited);
+    assert_eq!(instance(&mut engine, "R1")["graphics_unlocked"], true);
+    assert_eq!(
+        engine.run_ok("drc.run", json!({}))["locally_edited"][0]["designator"],
+        "R1"
+    );
+
+    // A Footprint change removes it, and its row lists what is lost.
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [component], "footprint": SECOND_FOOTPRINT}),
+    );
+    let swap = changes(&preview(&mut engine))
+        .into_iter()
+        .find(|c| c["kind"] == "change_footprint")
+        .unwrap();
+    assert_eq!(
+        swap["lost_local_edits"],
+        json!([{"graphic": graphic["uuid"], "property": "width",
+                "original": graphic["width"], "edited": 500_000}])
+    );
+    sync(&mut engine);
+    let fp = instance(&mut engine, "R1")["footprint"].clone();
+    let now = copy(&mut engine, &fp);
+    assert_eq!(now["footprint"]["uuid"], SECOND_FOOTPRINT);
+    assert!(now.get("edited_from").is_none());
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 1);
+}
+
+#[test]
+fn unlocked_graphics_survive_save_and_open() {
+    let dir = TempDir::new("local-graphic-save");
+    let mut engine = board(&dir, 1);
+    unlock(&mut engine, "R1");
+    thicken(&mut engine, "R1");
+    let copies = query(&mut engine, "footprint_copy");
+    let mut other = reopen(&mut engine, &dir, |_| {}).unwrap();
+    assert_eq!(query(&mut other, "footprint_copy"), copies);
+    assert_eq!(instance(&mut other, "R1")["graphics_unlocked"], true);
+}
