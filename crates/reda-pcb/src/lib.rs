@@ -14,6 +14,7 @@ pub mod cluster;
 mod commands;
 pub mod copper;
 pub mod dimension;
+pub mod drag;
 pub mod drc;
 pub mod keepout;
 pub mod lock;
@@ -34,9 +35,8 @@ pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     AreaParam, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
-    PlacementOp, SyncCheck, SyncState, TrackDragPlan, ZoneListing, ZoneRow, drc_run, glob_match,
-    placement_anchor, placement_preview, rect_outline, register_all, register_all_with_user,
-    track_drag_plan, zone_listing,
+    PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, drc_run, glob_match, placement_anchor,
+    placement_preview, rect_outline, register_all, register_all_with_user, zone_listing,
 };
 pub use copper::{
     ClearanceHit, Connections, Copper, Item, Proposal, RatsnestEnds, RatsnestLine,
