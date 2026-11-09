@@ -186,3 +186,28 @@ pub(crate) fn warnings(
     }
     found
 }
+
+/// One `bom_missing_field` per BOM row and `required_fields` entry the row has no value
+/// for, in row order (outputs.md, BOM): args `field` (as the preset names it) and
+/// `designators` (the row's, joined by the preset's separator); objects are their
+/// Footprints. The row stays in the BOM. Mechanical Components and Not Fitted rows never
+/// warn.
+pub(crate) fn bom_missing_fields(
+    project: &Project,
+    pcb: &PcbDocument,
+    preset: &FabPreset,
+) -> Vec<Violation> {
+    reda_output::bom_file(project, pcb, &preset.bom)
+        .missing
+        .into_iter()
+        .map(|m| {
+            Violation::new("bom_missing_field", Severity::Warning)
+                .arg("field", m.field)
+                .arg(
+                    "designators",
+                    m.designators.join(&preset.bom.designator_separator),
+                )
+                .objects(m.footprints)
+        })
+        .collect()
+}

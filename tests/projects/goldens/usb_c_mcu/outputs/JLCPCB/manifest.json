@@ -23,7 +23,7 @@
     {"path":"fab/UsbMcu-drill-report.txt","size":601,"sha256":"24ff0041c30aa47540bc89cd63fe5051eeafb8f698bb9d4054f2ae5195278543","kind":"drill_report"},
     {"path":"fab/UsbMcu-job.gbrjob","size":1678,"sha256":"5761b671a30e9f2ff2372b151d34fbc35505da22f2d8c07ad4d38633aec5eb1d","kind":"gerber_job"},
     {"path":"UsbMcu-JLCPCB.zip","size":73858,"sha256":"86a7cbfcff61c706fcbfdb405a3a24f43034c15ea04fa7b4152b6f3cc9612067","kind":"zip"},
-    {"path":"UsbMcu-JLCPCB-BOM.csv","size":296,"sha256":"f4dba8121841dacab80cb2c20e57c10ab037ba80831e9f4673af582453832304","kind":"bom"},
+    {"path":"UsbMcu-JLCPCB-BOM.csv","size":293,"sha256":"33cca24ade260342fd35a08ccb5eb9f2f460b5aedd5bd6295bfc819a58fc979f","kind":"bom"},
     {"path":"UsbMcu-JLCPCB-CPL.csv","size":449,"sha256":"d3cbb46a6c32453ea9a72c69f78a71275ee4f6e4c0fad878760e8a3ae3bf8561","kind":"cpl"},
     {"path":"UsbMcu-JLCPCB-schematic.pdf","size":882123,"sha256":"a689889eb85b433edf6fb986d6f5bae06622b7b1d6dc9f0df7a84eaca51943df","kind":"schematic_pdf"},
     {"path":"reports/UsbMcu-erc.json","size":195,"sha256":"080f7911291cffc5d4666ebfb358a87a764066049d44b74a525e03f3cadb9906","kind":"erc_report"},
@@ -31,6 +31,15 @@
     {"path":"reports/UsbMcu-change-list.json","size":179,"sha256":"1e3e25eef6c7780727f8660d90863669d1022d89770730bd2023eb90b74165bb","kind":"change_list_report"}
   ],
   "warnings": [
-    {"check":"drc_errors","message":"DRC reports 2 error(s)"}
+    {"check":"drc_errors","message":"DRC reports 2 error(s)"},
+    {"check":"bom_missing_field","message":"BOM row C1,C2 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row C3,C4 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row D1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row J1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row J2 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row R1,R2 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row R3 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row U1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row U2 has no LCSC"}
   ]
 }
