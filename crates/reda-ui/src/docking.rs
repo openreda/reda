@@ -967,6 +967,7 @@ impl Cx<'_, '_> {
                 }
                 if !view_only {
                     crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
+                    crate::canvas::markers::click(self.shell, *uuid, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;

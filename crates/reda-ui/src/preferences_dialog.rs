@@ -20,6 +20,7 @@ use serde_json::{Value, json};
 use crate::shell::Shell;
 use crate::tr;
 
+mod check_grid;
 mod draw;
 mod schema;
 pub mod shortcuts;
@@ -40,6 +41,8 @@ impl PageId {
     pub const FAB_PRESETS: PageId = PageId("fab_presets");
     pub const AGENTS: PageId = PageId("agents");
     pub const KEYBOARD_SHORTCUTS: PageId = PageId("keyboard_shortcuts");
+    /// How check results show on the canvas, with the per-check display grid.
+    pub const CHECKS: PageId = PageId("checks");
     /// The last page, generated from the schema: every key with its value, default and
     /// description.
     pub const ALL_SETTINGS: PageId = PageId("all");

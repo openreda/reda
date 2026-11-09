@@ -44,6 +44,16 @@ command = "view.ui_scale.set:100"
 key = "Shift+F1"
 command = "view.keys_card.toggle"
 
+# Checks: F4 / Shift+F4 go to the next and previous Violation in Messages.
+
+[[bind]]
+key = "F4"
+command = "view.messages.step:next"
+
+[[bind]]
+key = "Shift+F4"
+command = "view.messages.step:previous"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]

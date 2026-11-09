@@ -689,6 +689,57 @@
       "title": "Write Check Report"
     },
     {
+      "category": "checks",
+      "description": "Sets the reason of ERC or DRC Waivers, keeping their author and creation time, as one undo step per Document.",
+      "icon": "waive",
+      "id": "checks.waiver.set_reason",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "",
+            "description": "The new reason; empty clears it.",
+            "type": "string"
+          },
+          "waivers": {
+            "description": "The Waivers to give the reason, ERC or DRC ones.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "SetWaiverReasonParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "waivers": {
+            "description": "The Waivers changed.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "waivers"
+        ],
+        "title": "SetWaiverReasonResult",
+        "type": "object"
+      },
+      "title": "Set Waiver Reason"
+    },
+    {
       "category": "project",
       "description": "Adds a Document of `kind` at the end of the Project. A Schematic Sheet is empty; the PCB Document starts with its Layers, the Generic design rule records and DRC severities, and is available only while the Project has none. Its file is written on save.",
       "icon": "document_add",

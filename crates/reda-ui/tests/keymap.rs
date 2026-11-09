@@ -326,7 +326,7 @@ key = "F3"
 command = "project.save"
 
 [[bind]]
-key = "F4"
+key = "F7"
 command = "panel.show:layers"
 params = { panel = "layers" }
 
@@ -335,7 +335,7 @@ key = "F5"
 "#;
     let (keymap, problems) = Keymap::load(KeymapBase::Reda, Some(user));
     assert_eq!(problems.len(), 4, "{problems:?}");
-    for key in ["F3", "F4", "F5"] {
+    for key in ["F3", "F7", "F5"] {
         assert_eq!(bound(&keymap, key, &active(None, None)), None);
     }
     let (_, problems) = Keymap::load(KeymapBase::Reda, Some("[[bind]\nkey = "));

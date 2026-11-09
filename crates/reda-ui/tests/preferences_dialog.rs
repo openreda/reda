@@ -517,3 +517,48 @@ fn the_libraries_page_has_an_active_checkbox_for_each_user_library_and_the_start
     assert_eq!(libraries(&h).paths, ["/libs/b"]);
     assert!(libraries(&h).inactive.is_empty());
 }
+
+#[test]
+fn the_checks_page_sets_the_overlay_style_when_zoomed_out_and_a_per_check_grid() {
+    use reda_ui::engine::preferences::{OverlayStyle, OverlayZoomedOut};
+    let home = TempDir::new("pref-dialog-checks");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Checks");
+    h.get_by_role_and_label(Role::ComboBox, "Overlay style")
+        .click();
+    h.run();
+    h.get_by_label("Warning pattern").click();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Overlay when zoomed out")
+        .click();
+    h.run();
+    h.get_by_label("Layer colour dominates").click();
+    h.run();
+    let checks = |h: &Harness<'static, App>| h.state().shell().preferences().checks.clone();
+    assert_eq!(checks(&h).overlay_style, OverlayStyle::WarningPattern);
+    assert_eq!(
+        checks(&h).overlay_zoomed_out,
+        OverlayZoomedOut::LayerColorDominates
+    );
+
+    // The grid: Details on for every check, Overlay on for clearance, Track width and
+    // courtyard overlap.
+    let ticked = |h: &Harness<'static, App>, label: &str| {
+        use egui_kittest::kittest::NodeT as _;
+        h.get_by_role_and_label(Role::CheckBox, label)
+            .accesskit_node()
+            .toggled()
+            == Some(egui::accesskit::Toggled::True)
+    };
+    assert!(ticked(&h, "Clearance: Details"));
+    assert!(ticked(&h, "Clearance: Overlay"));
+    assert!(ticked(&h, "Dangling Wire: Details"));
+    assert!(!ticked(&h, "Dangling Wire: Overlay"));
+    h.get_by_role_and_label(Role::CheckBox, "Dangling Wire: Overlay")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    assert!(checks(&h).display.get("dangling_wire").overlay);
+    assert!(ticked(&h, "Dangling Wire: Overlay"));
+}
