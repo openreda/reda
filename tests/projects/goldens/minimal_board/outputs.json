@@ -63,6 +63,10 @@
         "path": "Minimal-Generic-CPL.csv"
       },
       {
+        "function": "schematic_pdf",
+        "path": "Minimal-Generic-schematic.pdf"
+      },
+      {
         "function": "erc_report",
         "path": "reports/Minimal-erc.json"
       },
@@ -88,9 +92,5 @@
     ],
     "warnings": [],
     "zip": "outputs/Generic/Minimal-Generic.zip"
-  },
-  {
-    "pages": 1,
-    "path": "outputs/schematic.pdf"
   }
 ]

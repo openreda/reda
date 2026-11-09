@@ -72,3 +72,65 @@ fn a_ports_cross_reference_is_drawn_past_its_flag() {
     assert_eq!(texts(bare), 1, "a Port with no note draws only its name");
     assert_golden(golden("cross_references.scene"), scene.to_text().as_bytes());
 }
+
+#[test]
+fn each_cross_reference_entry_is_a_link_to_its_sheet() {
+    let dir = TempDir::new("render-cross-ref-links");
+    let mut engine = demo(&dir);
+    let right = port(&mut engine, 1000, "0deg");
+    let left = port(&mut engine, 5000, "180deg");
+    let (two, three) = (Uuid::v4_from_bits(0x2), Uuid::v4_from_bits(0x3));
+    let target = |entry: &str, sheet: Uuid, x: i64| NoteLink {
+        entry: entry.into(),
+        sheet,
+        at: Point::new(Nm::from_mm(x), Nm::from_mm(10)),
+    };
+    let style = SchematicStyle {
+        cross_references: [
+            (right, "[2:B3]".to_owned()),
+            (left, "[2:A1, 3:C4]".to_owned()),
+        ]
+        .into_iter()
+        .collect(),
+        cross_reference_links: [
+            (right, vec![target("2:B3", two, 1)]),
+            (left, vec![target("2:A1", two, 2), target("3:C4", three, 3)]),
+        ]
+        .into_iter()
+        .collect(),
+        ..SchematicStyle::default()
+    };
+    let scene = schematic_scene_styled(engine.project().unwrap(), sheet(), &[], &style).unwrap();
+    let links: Vec<_> = scene
+        .links
+        .iter()
+        .map(|l| (l.object, l.sheet, l.at))
+        .collect();
+    assert_eq!(
+        links,
+        [
+            (right, two, Point::new(Nm::from_mm(1), Nm::from_mm(10))),
+            (left, two, Point::new(Nm::from_mm(2), Nm::from_mm(10))),
+            (left, three, Point::new(Nm::from_mm(3), Nm::from_mm(10))),
+        ]
+    );
+    let inside = |(lo, hi): (Point, Point), (blo, bhi): (Point, Point)| {
+        lo.x >= blo.x - Nm(1) && hi.x <= bhi.x + Nm(1) && lo.y <= blo.y && hi.y >= bhi.y
+    };
+    let (_, note) = reach(&scene, right, "[2:B3]");
+    let one = scene.links[0].area;
+    assert!(inside(one, note), "{one:?} spans the note {note:?} tall");
+    assert!(
+        one.0.x > note.0.x && one.1.x < note.1.x,
+        "the brackets are left out"
+    );
+    // The flag reaches left, and the note still reads left to right: the first entry is
+    // left of the second, both inside the note.
+    let (_, note) = reach(&scene, left, "[2:A1, 3:C4]");
+    let (a, b) = (scene.links[1].area, scene.links[2].area);
+    assert!(
+        inside(a, note) && inside(b, note),
+        "{a:?} {b:?} in {note:?}"
+    );
+    assert!(a.1.x < b.0.x, "reading order: {a:?} then {b:?}");
+}

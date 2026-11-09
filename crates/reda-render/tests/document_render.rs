@@ -238,10 +238,7 @@ fn the_schematic_pdf_has_every_sheet_in_document_order() {
         boxes[1].starts_with("/MediaBox [0 0 841.89 595.276]"),
         "then A4: {boxes:?}"
     );
-    assert!(
-        text.contains("/CreationDate (D:20260101000000Z)"),
-        "from the test Clock"
-    );
+    assert!(!text.contains("/CreationDate"), "a PDF writes no date");
     assert_golden(golden("two_sheets.pdf"), &pdf);
 
     // The same Project and Clock give the same bytes.
