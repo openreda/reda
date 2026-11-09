@@ -27,6 +27,9 @@ use super::{Cx, Interaction, P};
 pub use crate::tools::WireMode;
 use crate::tools::{PowerPortName, Tool};
 
+/// A run's segments, as (from, to).
+pub type Segments = Vec<(Point, Point)>;
+
 /// Which way a Wire run turns its corner on the way to the pointer: the start and end
 /// corner modes Space toggles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -71,7 +74,7 @@ impl Wiring {
 
     /// The run as the canvas draws it: (solid, dotted) segments. Auto Wire's routes, and
     /// in Auto Wire the line on to the pointer, are dotted.
-    pub fn drawn(&self) -> (Vec<(Point, Point)>, Vec<(Point, Point)>) {
+    pub fn drawn(&self) -> (Segments, Segments) {
         let (mut solid, mut dotted): (Vec<_>, Vec<_>) = self
             .segments()
             .into_iter()
