@@ -10,7 +10,7 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use reda_testkit::TempDir;
 use reda_ui::App;
-use reda_ui::command_dialog::{Call, ParamsDialog as _};
+use reda_ui::command_dialog::Call;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::model::{Footprint, LibraryElement, Uuid};
@@ -169,7 +169,7 @@ fn the_form_has_the_density_and_each_familys_own_fields_in_sections() {
     dialog.set_family(&shell, "library.footprint.generate.header");
     assert_eq!(dialog.form().command(), "library.footprint.generate.header");
     for pointer in ["/rows", "/pins_per_row", "/pitch", "/socket", "/pads/hole"] {
-        assert_eq!(section(&dialog, pointer).is_some(), true, "{pointer}");
+        assert!(section(&dialog, pointer).is_some(), "{pointer}");
     }
     assert!(dialog.form().row("/goals/density").is_none());
     assert_eq!(dialog.form().given("/library"), Some(json!(MINE)));
