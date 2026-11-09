@@ -131,6 +131,7 @@ impl Command for TrackAdd {
         for pair in points.windows(2) {
             let uuid = cx.new_id();
             let track = Track {
+                locked: false,
                 uuid,
                 layer,
                 net,
@@ -159,6 +160,9 @@ pub struct TrackDeleteParams {
     /// same Layer, up to a Pad, a Via or a branch.
     #[serde(default)]
     pub whole: bool,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -209,6 +213,7 @@ impl Command for TrackDelete {
         };
         deleted.sort();
         deleted.dedup();
+        crate::lock::refuse(pcb, deleted.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in &deleted {
             tx.remove(*uuid)?;
@@ -242,6 +247,9 @@ pub struct TrackSetParams {
     #[serde(default, deserialize_with = "super::nullable")]
     #[schemars(with = "Option<Uuid>")]
     pub net: Option<Option<Uuid>>,
+    /// Moves the ends of locked Tracks too; without it Start, End or Length on a locked Track is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -256,7 +264,8 @@ impl Command for TrackSet {
         title: "Set Track",
         description: "Sets values of Track segments: Start and End, Length (Start stays and \
                       End moves along the line), width, copper Layer and Net (`null` for \
-                      none). Values left out stay. Returns the Tracks that changed.",
+                      none). Values left out stay. Returns the Tracks that changed. Start, End and \
+                      Length are refused on a locked Track unless `include_locked`.",
         category: "pcb",
         icon: "track",
         kind: Kind::Edit,
@@ -287,6 +296,9 @@ impl Command for TrackSet {
             Some(net) => Some(existing_net(pcb, net, "/net")?),
             None => None,
         };
+        if p.start.is_some() || p.end.is_some() || length.is_some() {
+            crate::lock::refuse(pcb, p.tracks.iter().copied(), p.include_locked, "move")?;
+        }
         let mut changed = Vec::new();
         for (i, uuid) in p.tracks.iter().enumerate() {
             let before = pcb.track(*uuid).ok_or_else(|| {

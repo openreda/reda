@@ -13,6 +13,9 @@ use crate::{Corners, Hole, PadForm, PadKind, PadShape, Ratio, Uuid, ZoneConnecti
 #[serde(deny_unknown_fields)]
 pub struct FreePad {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// SMD (plated, no hole), plated through-hole, or non-plated (a bare hole).
     pub kind: PadKind,
     pub shape: PadShape,
@@ -107,4 +110,8 @@ impl FreePad {
 pub struct OutputOrigin {
     pub uuid: Uuid,
     pub at: Point,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

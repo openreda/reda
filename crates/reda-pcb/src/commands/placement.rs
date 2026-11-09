@@ -2,11 +2,13 @@
 //! Origin, and the Board Outline and Board Cutouts (Move Board Shape).
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
-//! and writes the results back in one transaction. Locked Footprints refuse every Op.
+//! and writes the results back in one transaction. Locked objects refuse every Op unless
+//! the Command is given `include_locked`.
 
 pub(crate) mod arrange;
 mod board;
 mod designator;
+mod outside;
 mod turn;
 
 use reda_command::{CommandError, Context, Registry};
@@ -27,6 +29,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     arrange::register_all(registry);
     designator::register_all(registry);
     board::register_all(registry);
+    outside::register_all(registry);
 }
 
 /// What a placement Command returns.
@@ -280,26 +283,13 @@ fn refuse_lone_dimensions(items: &[Item]) -> Result<(), CommandError> {
     Ok(())
 }
 
-/// `rejected` when any of `items` is a locked Footprint.
-fn refuse_locked(items: &[Item]) -> Result<(), CommandError> {
-    let locked: Vec<&FootprintInstance> = items
-        .iter()
-        .filter_map(|i| match i {
-            Item::Footprint(f) if f.locked => Some(&**f),
-            _ => None,
-        })
-        .collect();
-    if locked.is_empty() {
-        return Ok(());
-    }
-    let names: Vec<&str> = locked.iter().map(|f| f.designator.as_str()).collect();
-    let mut err = CommandError::rejected(format!(
-        "{} {} locked; unlock to move",
-        names.join(", "),
-        if locked.len() == 1 { "is" } else { "are" }
-    ));
-    err.details = Some(json!({ "locked": locked.iter().map(|f| f.uuid).collect::<Vec<_>>() }));
-    Err(err)
+/// `rejected` when any of `items` is locked, unless `include_locked`.
+fn refuse_locked(
+    pcb: &PcbDocument,
+    items: &[Item],
+    include_locked: bool,
+) -> Result<(), CommandError> {
+    crate::lock::refuse(pcb, items.iter().map(Item::uuid), include_locked, "move")
 }
 
 /// The union of every item's box.
@@ -335,7 +325,7 @@ pub fn preview(
     ops: &[Op],
 ) -> Result<Vec<Object>, CommandError> {
     let mut items = resolve(pcb, objects)?;
-    refuse_locked(&items)?;
+    refuse_locked(pcb, &items, false)?;
     for item in &mut items {
         for op in ops {
             item.apply(*op);
@@ -344,15 +334,17 @@ pub fn preview(
     Ok(items.into_iter().map(|i| i.into_object(pcb.uuid)).collect())
 }
 
-/// Applies one Op per item (`ops` in the same order), refusing locked Footprints first,
-/// and writes the items back.
+/// Applies one Op per item (`ops` in the same order), refusing locked objects first unless
+/// `include_locked`, and writes the items back.
 fn place(
     cx: &mut Context<'_>,
     mut items: Vec<Item>,
     ops: impl IntoIterator<Item = Op>,
+    include_locked: bool,
 ) -> Result<Placed, CommandError> {
-    refuse_locked(&items)?;
-    let document = super::pcb(cx)?.uuid;
+    let pcb = super::pcb(cx)?;
+    refuse_locked(pcb, &items, include_locked)?;
+    let document = pcb.uuid;
     for (item, op) in items.iter_mut().zip(ops) {
         item.apply(op);
     }

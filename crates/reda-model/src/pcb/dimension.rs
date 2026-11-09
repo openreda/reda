@@ -20,6 +20,9 @@ use crate::{TextStyle, Uuid};
 #[serde(deny_unknown_fields)]
 pub struct Dimension {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The Layer it is drawn on.
     pub layer: Uuid,
     /// The first measured end.
@@ -208,4 +211,8 @@ pub enum DimensionFormat {
     ValueUnit,
     /// `12.70 (mm)`
     ValueBracketedUnit,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

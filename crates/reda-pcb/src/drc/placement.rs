@@ -155,7 +155,10 @@ pub(super) fn footprints_in_keepouts(board: &Board<'_>, report: &mut Report) {
 
 /// A placed Footprint's courtyards, or with none, the fallback box: a box around its
 /// copper, silkscreen and assembly drawing (text left out) on its side.
-fn courtyards_or_box(pcb: &PcbDocument, instance: &FootprintInstance) -> BTreeMap<Side, Area> {
+pub(crate) fn courtyards_or_box(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+) -> BTreeMap<Side, Area> {
     let courtyards = courtyards(pcb, instance);
     if !courtyards.is_empty() {
         return courtyards;
@@ -311,4 +314,28 @@ fn loops(mut pieces: Vec<Vec<Point>>) -> Vec<Contour> {
         }
     }
     out
+}
+
+/// The board-wide `courtyard_clearance`: 0 when no rule sets it.
+pub(crate) fn courtyard_clearance(pcb: &PcbDocument) -> Nm {
+    resolve(pcb, None, RuleKind::CourtyardClearance, RuleField::Value)
+        .and_then(|s| s.value.length())
+        .unwrap_or(Nm::ZERO)
+}
+
+/// Whether two Footprints' courtyards (or fallback boxes) on one side come closer than
+/// `required`, as the courtyard check finds them. Touching passes at 0.
+pub(crate) fn too_close(a: &BTreeMap<Side, Area>, b: &BTreeMap<Side, Area>, required: Nm) -> bool {
+    a.iter().any(|(side, area)| {
+        let Some(other) = b.get(side) else {
+            return false;
+        };
+        let (Some(ba), Some(bb)) = (poly::bounds(area), poly::bounds(other)) else {
+            return false;
+        };
+        if !poly::boxes_within(ba, bb, required.0) {
+            return false;
+        }
+        poly::gap(area, other).is_some_and(|(gap, _, overlaps)| overlaps || gap < required.0 as f64)
+    })
 }

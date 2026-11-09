@@ -16,7 +16,7 @@ mod details;
 pub(crate) mod edge;
 pub mod health;
 mod holes;
-mod placement;
+pub(crate) mod placement;
 mod silkscreen;
 mod zones;
 

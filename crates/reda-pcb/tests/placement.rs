@@ -36,7 +36,7 @@ fn a_locked_footprint_refuses_to_move() {
     let [r1, r2] = synced_resistors(&mut engine);
     let (a, b) = (at(&engine, r1), at(&engine, r2));
 
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     assert!(footprint(&engine, r1).locked);
 
     for (id, params) in [
@@ -54,7 +54,7 @@ fn a_locked_footprint_refuses_to_move() {
     assert_eq!(at(&engine, r1), a);
     assert_eq!(at(&engine, r2), b, "nothing moves when one is locked");
 
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": false}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": false}));
     engine.run_ok(
         "pcb.move",
         json!({"objects": [r1], "by": {"x": "1mm", "y": 0}}),
@@ -264,7 +264,7 @@ fn a_placement_preview_refuses_locked_footprints() {
     let dir = TempDir::new("placement-preview-locked");
     let mut engine = engine(&dir);
     let [r1, _] = synced_resistors(&mut engine);
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     let err = reda_pcb::placement_preview(
         pcb(&engine),
         &[r1],

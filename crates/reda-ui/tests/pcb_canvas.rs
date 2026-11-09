@@ -349,7 +349,7 @@ fn protected_objects_are_skipped_by_click_but_pick_list_shows_locks_and_selects_
     let footprint = w.footprint;
     w.h.state_mut()
         .shell_mut()
-        .run("pcb.lock", json!({"footprints":[footprint],"locked":true}))
+        .run("pcb.lock", json!({"objects":[footprint],"locked":true}))
         .unwrap();
     w.h.state_mut()
         .shell_mut()

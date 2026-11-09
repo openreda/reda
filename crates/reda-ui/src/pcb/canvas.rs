@@ -342,19 +342,18 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
             }
         }
         MenuAction::Lock | MenuAction::Unlock => {
-            let footprints = selected_footprints(shell);
-            if !footprints.is_empty() {
+            let objects = selected_lockable(shell);
+            if !objects.is_empty() {
                 let locked = action == MenuAction::Lock;
-                let _ = shell.run_reporting(
-                    "pcb.lock",
-                    json!({"footprints": footprints, "locked": locked}),
-                );
+                let _ =
+                    shell.run_reporting("pcb.lock", json!({"objects": objects, "locked": locked}));
             }
         }
     }
 }
 
-fn selected_footprints(shell: &Shell) -> Vec<Uuid> {
+/// The selected objects that can be locked: every placed kind.
+fn selected_lockable(shell: &Shell) -> Vec<Uuid> {
     let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
         return Vec::new();
     };
@@ -363,7 +362,7 @@ fn selected_footprints(shell: &Shell) -> Vec<Uuid> {
         .objects
         .iter()
         .copied()
-        .filter(|o| pcb.footprint(*o).is_some())
+        .filter(|o| reda_engine::pcb::lock::lock_of(pcb, *o).is_some())
         .collect()
 }
 

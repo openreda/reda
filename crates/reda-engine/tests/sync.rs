@@ -1013,7 +1013,7 @@ fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
         "pcb.designator_text.set",
         json!({"footprint": r1, "at": {"x": "20mm", "y": "-3mm"}, "size": "1.5mm"}),
     );
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     let before = instances(&mut engine)[0].clone();
     assert_eq!(before["side"], "bottom");
     assert_eq!(before["locked"], true);
