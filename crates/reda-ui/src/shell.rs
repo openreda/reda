@@ -9,7 +9,7 @@
 //! Each Project's view (the layout and each Document's camera and Layers) is kept in its
 //! `.reda/view.json`: see [`view_state`](crate::view_state).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -46,6 +46,7 @@ use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
+
 use crate::working_state::{self, SelectionFilter, SnapOptions, WorkingState};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
@@ -66,6 +67,10 @@ impl InstalledFonts for NoFonts {
         None
     }
 }
+
+/// What a canvas's masking was worked out for (Scene and marks generations), and the
+/// answer.
+type MaskingKey = ((u64, u64), bool);
 
 /// A Document open in a tab.
 #[derive(Clone, Debug, PartialEq)]
@@ -166,6 +171,9 @@ pub struct Shell {
     messages: Messages,
     /// The [`Selection`]'s objects as the canvases mark them, renewed when it changes.
     marked: SelectionHandle,
+    /// Per Document: whether its canvas masks what is not highlighted, keyed by the Scene
+    /// and marks generations it was worked out for.
+    masking: std::cell::RefCell<HashMap<Uuid, MaskingKey>>,
     /// What the highlight marks were last worked out from: the selection, the
     /// [`Highlight`], the edit count and the switches.
     probed: Option<(Selection, Highlight, u64, CrossProbe)>,
@@ -298,6 +306,7 @@ impl Shell {
             tool: None,
             messages: Messages::default(),
             marked: SelectionHandle::default(),
+            masking: Default::default(),
             probed: None,
             edits: 0,
             keymap: Keymap::default(),
@@ -756,6 +765,39 @@ impl Shell {
     /// the status bar. Zero without a PCB Document.
     pub fn out_of_sync(&self) -> usize {
         self.change_list.as_ref().map_or(0, |l| l.count)
+    }
+
+    /// Whether `object` (or the child `child` of its owner) is masked on `document`'s
+    /// canvas: a masking highlight is on there and leaves it out. Masked objects can't be
+    /// hit.
+    pub fn is_masked(&self, document: Uuid, object: Uuid, owner: Option<Uuid>) -> bool {
+        let marked = &self.marked;
+        if !marked.mask || marked.highlighted.is_empty() {
+            return false;
+        }
+        let lit = |o: Uuid| marked.highlighted.binary_search(&o).is_ok();
+        if lit(object) || owner.is_some_and(lit) {
+            return false;
+        }
+        let Some(tab) = self.document_tab(document) else {
+            return false;
+        };
+        let key = (tab.scene.generation, marked.generation);
+        let mut cache = self.masking.borrow_mut();
+        match cache.get(&document) {
+            Some((k, masking)) if *k == key => *masking,
+            _ => {
+                // As on the GPU, only a highlighted object this canvas draws masks the rest.
+                let masking = tab
+                    .scene
+                    .scene
+                    .items
+                    .iter()
+                    .any(|i| lit(i.object) || i.child.as_ref().is_some_and(|c| lit(c.owner())));
+                cache.insert(document, (key, masking));
+                masking
+            }
+        }
     }
 
     /// What the canvases mark highlighted: the [`Highlight`]'s objects and what
@@ -2374,12 +2416,14 @@ impl Shell {
             };
             if self.marked.objects[..] != key.0.canvas_ids()[..]
                 || self.marked.highlighted[..] != highlighted[..]
+                || self.marked.mask != key.1.mask
             {
                 self.generation += 1;
                 self.marked = SelectionHandle {
                     generation: self.generation,
                     objects: Arc::from(key.0.canvas_ids()),
                     highlighted: Arc::from(highlighted),
+                    mask: key.1.mask,
                 };
             }
             self.probed = Some(key);
@@ -2476,9 +2520,14 @@ impl Shell {
             self.preferences.values(),
             reda_engine::schematic_style::Drawn::Canvas,
         );
-        let mut scene = reda_engine::document_scene(project, document, self.engine.fonts(), &style)
-            .unwrap_or_default();
         let board = self.board_view();
+        let mut scene = if project.pcb_document(document).is_some() {
+            let style = board.style(self.preferences.values());
+            reda_engine::board_scene(project, document, self.engine.fonts(), &style)
+        } else {
+            reda_engine::document_scene(project, document, self.engine.fonts(), &style)
+        }
+        .unwrap_or_default();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
             board

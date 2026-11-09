@@ -155,6 +155,67 @@ pub struct Editing {
     pub route: RoutePreferences,
     /// Placement: how Footprint moves behave.
     pub place: PlacePreferences,
+    /// The Ratsnest.
+    pub ratsnest: RatsnestPreferences,
+    /// The board view: Net colours on copper and saved Layer sets.
+    pub view: BoardViewPreferences,
+}
+
+/// The Ratsnest.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct RatsnestPreferences {
+    /// Smart Track Ends: a partly routed connection's line starts at the Track end, not
+    /// at the nearest Pad. On by default; it can slow high-density boards.
+    pub smart_track_ends: bool,
+}
+
+impl Default for RatsnestPreferences {
+    fn default() -> RatsnestPreferences {
+        RatsnestPreferences {
+            smart_track_ends: true,
+        }
+    }
+}
+
+/// The board view's Preferences.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct BoardViewPreferences {
+    /// How Net colours lie over copper under `F5`: `solid`, or `checker` (alternate
+    /// cells, the Layer colour between).
+    pub net_color_pattern: NetColorPattern,
+    /// What copper shows when zoomed out under `F5`: the `net_color` stays, or the
+    /// `layer_color` comes back.
+    pub net_color_zoom_out: NetColorZoomOut,
+    /// Layer sets the user saved, each a name and its Layers by kind and side (such as
+    /// `copper_top`), so a set applies to any board.
+    pub layer_sets: Vec<SavedLayerSet>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NetColorPattern {
+    #[default]
+    Solid,
+    Checker,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NetColorZoomOut {
+    #[default]
+    NetColor,
+    LayerColor,
+}
+
+/// A user-saved Layer set.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SavedLayerSet {
+    pub name: String,
+    /// The Layers shown, by kind and side, such as `copper_top` or `board_outline`.
+    pub layers: Vec<String>,
 }
 
 impl Default for Editing {
@@ -168,6 +229,8 @@ impl Default for Editing {
             zone: ZonePreferences::default(),
             net_info: NetInfoPreferences::default(),
             route: RoutePreferences::default(),
+            ratsnest: RatsnestPreferences::default(),
+            view: BoardViewPreferences::default(),
             place: PlacePreferences::default(),
         }
     }
@@ -369,6 +432,8 @@ impl Default for SchematicEditing {
             zone: _,
             net_info: _,
             route: _,
+            ratsnest: _,
+            view: _,
             place: _,
         } = Editing::default();
         SchematicEditing {

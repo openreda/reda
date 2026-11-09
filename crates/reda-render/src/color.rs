@@ -28,6 +28,8 @@ pub enum ColorKey {
     /// PCB ink: keyed by Layer kind and side (see [`BoardColor::layer`]), never by Layer
     /// UUID.
     Board(BoardColor),
+    /// A Net's own colour (`color` on the Net): not in the palette, never themed.
+    Net(Rgba),
 }
 
 impl ColorKey {
@@ -39,6 +41,20 @@ impl ColorKey {
         match self {
             ColorKey::Schematic(kind) => kind as usize,
             ColorKey::Board(kind) => BOARD_SLOTS + kind as usize,
+            // Not in the palette: it has the Ratsnest's slot, and the GPU word carries
+            // the colour itself (see `gpu_word`).
+            ColorKey::Net(_) => BOARD_SLOTS + BoardColor::Ratsnest as usize,
+        }
+    }
+
+    /// The colour word an instance carries: the palette slot, or, with the top bit set,
+    /// a Net colour's own `0xRRGGBB`.
+    pub fn gpu_word(self) -> u32 {
+        match self {
+            ColorKey::Net(Rgba([r, g, b, _])) => {
+                0x8000_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)
+            }
+            key => key.slot() as u32,
         }
     }
 
@@ -53,6 +69,15 @@ impl ColorKey {
         match self {
             ColorKey::Schematic(kind) => kind.name(),
             ColorKey::Board(kind) => kind.name(),
+            ColorKey::Net(_) => "Net",
+        }
+    }
+
+    /// The snapshot label: the name, with a Net colour's `#rrggbb`.
+    pub fn label(self) -> String {
+        match self {
+            ColorKey::Net(Rgba([r, g, b, _])) => format!("Net#{r:02x}{g:02x}{b:02x}"),
+            key => key.name().to_owned(),
         }
     }
 }
@@ -175,6 +200,8 @@ colors! {
     PadNumber: Rgba::rgb(0xff, 0xff, 0xff), Rgba::rgb(0xff, 0xff, 0xff);
     /// Net names on Pads and Tracks.
     NetName: Rgba::rgb(0xf0, 0xf0, 0xd8), Rgba::rgb(0xff, 0xff, 0xf0);
+    /// The derived sheet-name label over a cluster of Footprints off the board.
+    SheetLabel: Rgba::rgb(0x9c, 0xa8, 0xb8), Rgba::rgb(0x4a, 0x55, 0x66);
 }}
 
 impl BoardColor {
@@ -267,6 +294,7 @@ impl Palette {
         match key {
             ColorKey::Schematic(kind) => kind.shipped(self.theme),
             ColorKey::Board(kind) => kind.shipped(self.theme),
+            ColorKey::Net(color) => color,
         }
     }
 }

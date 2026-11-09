@@ -11,6 +11,12 @@
 #
 # The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
 
+# Highlighting: Shift+C clears highlight, dim, mask and measurements, never the selection.
+
+[[bind]]
+key = "Shift+C"
+command = "view.highlight.clear"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]
@@ -328,6 +334,11 @@ command = "pcb.layer.swap_side"
 context = "pcb"
 key = "Shift+S"
 command = "pcb.view.inactive_layers"
+
+[[bind]]
+context = "pcb"
+key = "F5"
+command = "pcb.view.net_colors"
 
 [[bind]]
 context = "pcb"

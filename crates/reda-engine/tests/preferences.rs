@@ -517,3 +517,21 @@ fn placement_preferences_keep_the_footprint_move_modes() {
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn the_board_view_preferences_default_to_smart_track_ends_and_solid_net_colours() {
+    use reda_engine::preferences::{NetColorPattern, NetColorZoomOut, Preferences, pages};
+    let prefs = Preferences::default();
+    assert!(prefs.pcb.ratsnest.smart_track_ends);
+    assert_eq!(prefs.pcb.view.net_color_pattern, NetColorPattern::Solid);
+    assert_eq!(prefs.pcb.view.net_color_zoom_out, NetColorZoomOut::NetColor);
+    assert!(prefs.pcb.view.layer_sets.is_empty());
+    for key in [
+        "pcb.ratsnest.smart_track_ends",
+        "pcb.view.net_color_pattern",
+        "pcb.view.net_color_zoom_out",
+        "pcb.view.layer_sets",
+    ] {
+        assert_eq!(pages::page_of(key), "pcb.view", "{key}");
+    }
+}

@@ -87,6 +87,7 @@ pub fn page_of(key: &str) -> &'static str {
         ("pcb", name) if name.starts_with("zone.") => "pcb.zones",
         ("pcb", name) if name.starts_with("route.") => "pcb.routing",
         ("pcb", name) if name.starts_with("place.") => "pcb.placement",
+        ("pcb", name) if name.starts_with("view.") || name.starts_with("ratsnest.") => "pcb.view",
         ("pcb", _) => "pcb",
         ("checks", _) => "checks",
         ("display", _) => "display",

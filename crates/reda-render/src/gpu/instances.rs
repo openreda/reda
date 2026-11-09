@@ -8,16 +8,18 @@ use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 
 use crate::color::{ColorKey, SchematicColor};
-use crate::scene::{Primitive, Scene, SceneLayer};
+use crate::scene::{Look, Primitive, Scene, SceneLayer};
 
-/// Bytes per instance: four `vec2<f32>`, a `vec2<u32>` (kind, colour slot) and a
-/// `vec2<f32>` (view-label height, unused).
+/// Bytes per instance: four `vec2<f32>`, a `vec2<u32>` (kind and look bits, colour word)
+/// and a `vec2<f32>` (the length hidden below the minimum label size, opacity).
 pub(crate) const INSTANCE_SIZE: u64 = 48;
 
 const CAPSULE: u32 = 0;
 const RECT: u32 = 1;
 const RING: u32 = 2;
 const TRIANGLE: u32 = 3;
+/// The look bit of a checkered instance, above the kind.
+const CHECKER: u32 = 1 << 8;
 
 /// What an object is marked as. Combine with `|`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -41,6 +43,9 @@ impl Flags {
     pub const MOVING: Flags = Flags(16);
     /// Not drawn: a Wire a drag in flight redraws elsewhere.
     pub const HIDDEN: Flags = Flags(32);
+    /// Greyed, and skipped by hit-testing: what a masking highlight leaves out. Separate
+    /// from [`DIMMED`](Self::DIMMED), which shades but stays pickable.
+    pub const MASKED: Flags = Flags(64);
 
     pub const fn contains(self, other: Flags) -> bool {
         self.0 & other.0 == other.0
@@ -64,6 +69,8 @@ impl std::ops::BitOrAssign for Flags {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Highlight {
     marks: BTreeMap<Uuid, Flags>,
+    /// What the rest gets while something is highlighted: masked instead of dimmed.
+    mask_rest: bool,
 }
 
 impl Highlight {
@@ -87,6 +94,21 @@ impl Highlight {
             self.mark(o, flags);
         }
         self
+    }
+
+    /// While anything is highlighted, masks everything else instead of dimming it.
+    pub fn mask_rest(&mut self) -> &mut Highlight {
+        self.mask_rest = true;
+        self
+    }
+
+    /// What objects not highlighted get while something is.
+    pub fn rest(&self) -> Flags {
+        if self.mask_rest {
+            Flags::MASKED
+        } else {
+            Flags::DIMMED
+        }
     }
 
     pub fn get(&self, object: Uuid) -> Flags {
@@ -128,6 +150,8 @@ pub(crate) fn encode(scene: &Scene) -> Encoded {
         bytes: Vec::new(),
         count: 0,
         origin,
+        look_bits: 0,
+        opacity: 1.0,
     };
     let mut layers = Vec::new();
     let mut objects: BTreeMap<Uuid, Vec<Range<u32>>> = BTreeMap::new();
@@ -137,7 +161,7 @@ pub(crate) fn encode(scene: &Scene) -> Encoded {
         let start = out.count;
         for item in scene.items.iter().filter(|i| i.layer == layer) {
             let first = out.count;
-            out.primitive(&item.primitive, item.color.slot() as u32);
+            out.primitive(&item.primitive, item.color.gpu_word(), &item.look);
             if out.count > first {
                 objects
                     .entry(item.object)
@@ -174,7 +198,12 @@ pub(crate) fn flag_words(encoded: &Encoded, highlight: &Highlight) -> Vec<u8> {
     let dim_rest = objects
         .keys()
         .any(|o| highlight.get(*o).contains(Flags::HIGHLIGHTED));
-    let base = if dim_rest { Flags::DIMMED } else { Flags::NONE };
+    let base = if dim_rest {
+        highlight.rest()
+    } else {
+        Flags::NONE
+    };
+    let undim = !(Flags::DIMMED.0 | Flags::MASKED.0);
     let mut words = vec![base.0; count as usize];
     for (object, ranges) in objects {
         let mut flags = highlight.get(*object);
@@ -185,7 +214,7 @@ pub(crate) fn flag_words(encoded: &Encoded, highlight: &Highlight) -> Vec<u8> {
             for w in &mut words[r.start as usize..r.end as usize] {
                 *w |= flags.0;
                 if *w & Flags::HIGHLIGHTED.0 != 0 {
-                    *w &= !Flags::DIMMED.0;
+                    *w &= undim;
                 }
             }
         }
@@ -193,7 +222,7 @@ pub(crate) fn flag_words(encoded: &Encoded, highlight: &Highlight) -> Vec<u8> {
     if dim_rest {
         for r in &encoded.undimmed {
             for w in &mut words[r.start as usize..r.end as usize] {
-                *w &= !Flags::DIMMED.0;
+                *w &= undim;
             }
         }
     }
@@ -204,6 +233,9 @@ struct Writer {
     bytes: Vec<u8>,
     count: u32,
     origin: Point,
+    /// The look bits and opacity of the item being written.
+    look_bits: u32,
+    opacity: f32,
 }
 
 impl Writer {
@@ -220,10 +252,11 @@ impl Writer {
                 self.bytes.extend_from_slice(&f.to_le_bytes());
             }
         }
-        self.bytes.extend_from_slice(&kind.to_le_bytes());
+        self.bytes
+            .extend_from_slice(&(kind | self.look_bits).to_le_bytes());
         self.bytes.extend_from_slice(&color.to_le_bytes());
         self.bytes.extend_from_slice(&label.to_le_bytes());
-        self.bytes.extend_from_slice(&0f32.to_le_bytes());
+        self.bytes.extend_from_slice(&self.opacity.to_le_bytes());
         self.count += 1;
     }
 
@@ -239,10 +272,20 @@ impl Writer {
         }
     }
 
-    fn primitive(&mut self, primitive: &Primitive, color: u32) {
+    fn primitive(&mut self, primitive: &Primitive, color: u32, look: &Look) {
+        self.look_bits = if look.checker { CHECKER } else { 0 };
+        self.opacity = f32::from(100 - look.transparency.min(100)) / 100.0;
+        // Ink that gives way when zoomed out hides below the minimum label size, as a
+        // view-only label does.
+        let zoom_out = look.zoom_out.map_or(0.0, |l| l.0 as f32);
         match primitive {
             Primitive::Capsule { a, b, width } => {
-                self.capsule(*a, *b, width.0 as f32 / 2.0, color, 0.0);
+                self.capsule(*a, *b, width.0 as f32 / 2.0, color, zoom_out);
+            }
+            Primitive::Hairline { a, b } => {
+                // A capsule whose half width is given in pixels (p2.y) instead of nm.
+                let (a, b) = (self.rel(*a), self.rel(*b));
+                self.push(CAPSULE, color, [a, b, [0.0, 0.5], [0.0; 2]], zoom_out);
             }
             Primitive::Rect {
                 center,
@@ -264,7 +307,7 @@ impl Writer {
                         [angle.cos() as f32, angle.sin() as f32],
                         [corner_radius.0 as f32, stroke],
                     ],
-                    0.0,
+                    zoom_out,
                 );
             }
             Primitive::Ring {
@@ -277,10 +320,10 @@ impl Writer {
                     RING,
                     color,
                     [c, [outer.0 as f32, inner.0 as f32], [0.0; 2], [0.0; 2]],
-                    0.0,
+                    zoom_out,
                 );
             }
-            Primitive::Triangles(mesh) => self.mesh(mesh, color, 0.0),
+            Primitive::Triangles(mesh) => self.mesh(mesh, color, zoom_out),
             Primitive::Glyphs(run) => {
                 let label = if run.view_label {
                     run.height.0 as f32

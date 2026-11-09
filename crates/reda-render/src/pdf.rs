@@ -119,6 +119,10 @@ fn page_content(scene: &Scene, palette: &Palette, origin: Point) -> String {
                     p(*b)
                 );
             }
+            Primitive::Hairline { a, b } => {
+                // Width 0 is the thinnest line the device can draw.
+                let _ = write!(c, "{color} RG\n0 w\n1 j\n{} m\n{} l\nS\n", p(*a), p(*b));
+            }
             Primitive::Rect {
                 center,
                 size,

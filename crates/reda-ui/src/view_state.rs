@@ -47,6 +47,49 @@ pub struct LayerView {
     /// Which Ratsnest lines show.
     #[serde(skip_serializing_if = "is_default")]
     pub ratsnest: RatsnestVisibility,
+    /// Pinned Layers: still shown in single-Layer mode.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub pinned: BTreeSet<Uuid>,
+    /// Per-kind display: transparency and Draft.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub kinds: BTreeMap<ObjectType, KindDisplay>,
+    /// `F5`: Net colours on copper too.
+    #[serde(skip_serializing_if = "is_default")]
+    pub net_colors: bool,
+    /// The Net label toggles.
+    #[serde(skip_serializing_if = "is_default")]
+    pub labels: LabelView,
+}
+
+/// How one kind of board object is drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct KindDisplay {
+    /// 0 (opaque) to 100 percent.
+    #[serde(skip_serializing_if = "is_default")]
+    pub transparency: u8,
+    /// Outline only.
+    #[serde(skip_serializing_if = "is_default")]
+    pub draft: bool,
+}
+
+/// The view-only Net label toggles, each hidden below the usual minimum on-screen size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LabelView {
+    pub pad_nets: bool,
+    pub via_nets: bool,
+    pub repeated_net_names: bool,
+}
+
+impl Default for LabelView {
+    fn default() -> LabelView {
+        LabelView {
+            pad_nets: true,
+            via_nets: true,
+            repeated_net_names: false,
+        }
+    }
 }
 
 fn is_default<T: Default + PartialEq>(value: &T) -> bool {

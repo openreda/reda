@@ -12,6 +12,7 @@ use crate::scene::{Primitive, SceneLayer};
 pub(super) fn tracks(b: &mut Builder) {
     let pcb = b.pcb;
     for track in pcb.tracks() {
+        let first = b.scene.items.len();
         match track.geometry {
             TrackGeometry::Line { from, to } => {
                 b.on_layer(track.uuid, track.layer, capsule(from, to, track.width));
@@ -21,6 +22,7 @@ pub(super) fn tracks(b: &mut Builder) {
                 b.polyline(track.uuid, track.layer, &points, track.width, false);
             }
         }
+        b.net_overlay(track.net, first);
     }
 }
 
@@ -45,7 +47,15 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
                 Vec::new(),
             ),
         };
-        for layer in copper.into_iter().chain(mask).chain(paste).flatten() {
+        let first = b.scene.items.len();
+        for layer in copper.iter().copied().flatten() {
+            b.on_layer(pad.object, layer, shape.clone());
+            if let Some(item) = b.scene.items.last_mut() {
+                item.child = pad.child.clone();
+            }
+        }
+        b.net_overlay(pad.net, first);
+        for layer in mask.into_iter().chain(paste).flatten() {
             b.on_layer(pad.object, layer, shape.clone());
             if let Some(item) = b.scene.items.last_mut() {
                 item.child = pad.child.clone();
@@ -91,6 +101,7 @@ const PAD_ARC_TOLERANCE: Nm = Nm(1_000);
 pub(super) fn vias(b: &mut Builder) {
     let pcb = b.pcb;
     for via in pcb.vias() {
+        let first = b.scene.items.len();
         for layer in pcb.span_layers(via.span) {
             let disc = Primitive::Ring {
                 center: via.at,
@@ -99,6 +110,7 @@ pub(super) fn vias(b: &mut Builder) {
             };
             b.on_layer(via.uuid, layer, disc);
         }
+        b.net_overlay(via.net, first);
     }
 }
 

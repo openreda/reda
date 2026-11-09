@@ -65,6 +65,17 @@ pub fn document_scene(
     reda_render::document_scene(project, document, &DERIVE, fonts, style)
 }
 
+/// The Scene the canvas draws for PCB Document `document`, in the view's `style` (Net
+/// colours, labels, Ratsnest ends and hiding), with text in `fonts`.
+pub fn board_scene(
+    project: &Project,
+    document: reda_model::Uuid,
+    fonts: &Fonts,
+    style: &reda_render::BoardStyle,
+) -> Result<reda_render::Scene, CommandError> {
+    reda_render::board_scene(project, document, &DERIVE, fonts, style)
+}
+
 /// One session: at most one open Project, changed only by running Commands.
 pub struct Engine {
     registry: Registry,
@@ -270,6 +281,20 @@ impl Engine {
             .as_ref()
             .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
         document_scene(project, document, &self.fonts, &Default::default())
+    }
+
+    /// The open Project's PCB Document `document` drawn in `style`.
+    pub fn board_scene(
+        &self,
+        document: reda_model::Uuid,
+        style: &reda_render::BoardStyle,
+    ) -> Result<reda_render::Scene, CommandError> {
+        let project = self
+            .session
+            .project
+            .as_ref()
+            .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
+        board_scene(project, document, &self.fonts, style)
     }
 
     /// Scans the registered Libraries (the starter Library, the user's and the open
