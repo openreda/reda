@@ -4,8 +4,9 @@
 //! - `tool.place` (the Library panel's click or drag) picks the Part up and makes
 //!   [`Tool::Place`](crate::tools::Tool::Place) active. What is in flight is view state
 //!   ([`Placement`]), so the in-flight Commands change it the way keys and menus do:
-//!   `tool.rotate` (Space), `tool.mirror` (X, Y), `tool.flip` (L, the board side) and
-//!   `tool.place.set` (the Properties panel, which Tab opens).
+//!   `tool.rotate` (Space), `tool.mirror_x`/`tool.mirror_y` (X, Y), `tool.flip_side` (L,
+//!   the board side) and `tool.place.set` (the Properties panel, which Tab opens with
+//!   `tool.edit_properties`).
 //! - The pointer draws a preview: the Project as the place Command would leave it
 //!   ([`Engine::preview`](reda_engine::Engine::preview)), drawn in place of the real one.
 //!   Neither the Project nor the Journal changes until a click, which runs exactly one

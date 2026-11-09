@@ -1,7 +1,9 @@
 //! Editing on a schematic canvas: the Select, Move and Drag Tools, and the wiring Tools
 //! ([`wiring`]: Wire, Net Label, Port, Power Port, No-Connect). Its keys are Keymap
 //! bindings in the `schematic` and `tool:<id>` contexts (`keymap/reda.toml`); the in-flight
-//! keys arrive as view Commands the Shell hands on ([`turn`], [`corner`], [`remove_last`]).
+//! keys arrive as view Commands the Shell hands on ([`turn`], [`corner`], [`remove_last`],
+//! [`fix_corner`], [`insert_vertex`], [`end_run`]). A Wire run another Tool interrupts
+//! waits on the tab ([`suspend`], [`resume`]).
 //!
 //! The editor turns a frame's [`Pointer`] events into Commands the window runs after the
 //! frame (`selection.set`, `schematic.drag`, `schematic.move`, `tool.activate`), and keeps
@@ -12,6 +14,7 @@
 //! Picking, box selection and snapping are the shared [`interact`](crate::canvas::interact)
 //! functions; this module only says what on a sheet can be picked and snapped to.
 
+mod auto_wire;
 mod graphics;
 mod wiring;
 
@@ -30,6 +33,7 @@ use crate::snap::{self, Target};
 use crate::tools::Tool;
 use crate::tr;
 
+pub use auto_wire::options as auto_wire_options;
 pub use graphics::Drawing;
 pub use wiring::{Corner, Placing, Wiring};
 
@@ -259,9 +263,98 @@ pub fn remove_last(shell: &mut Shell, document: Uuid) {
     if let Some(tab) = shell.document_tab_mut(document)
         && let Interaction::Wiring(w) = &mut tab.interaction
     {
-        w.points.pop();
+        w.remove_last();
         restate(shell, document);
     }
+}
+
+/// Whether a Wire run is in flight on `document`'s canvas.
+pub fn run_in_flight(shell: &Shell, document: Uuid) -> bool {
+    shell.document_tab(document).is_some_and(
+        |tab| matches!(&tab.interaction, Interaction::Wiring(w) if !w.points.is_empty()),
+    )
+}
+
+/// Runs `step` on the Wire Tool of `document`'s canvas, shows the result and returns the
+/// Commands it queued.
+fn wire_key(
+    shell: &mut Shell,
+    document: Uuid,
+    step: impl FnOnce(&mut Cx<'_>, Wiring) -> Wiring,
+) -> Vec<Invocation> {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return Vec::new();
+    };
+    let Interaction::Wiring(w) = std::mem::take(&mut tab.interaction) else {
+        return Vec::new();
+    };
+    let (hovered, cursor) = (tab.live.hovered, tab.cursor);
+    let mut cx = Cx {
+        shell,
+        document,
+        scale: Scale::at(1.0),
+        commands: Vec::new(),
+    };
+    let w = step(&mut cx, w);
+    let commands = cx.commands;
+    show(
+        shell,
+        document,
+        Interaction::Wiring(w),
+        hovered,
+        cursor,
+        false,
+    );
+    commands
+}
+
+/// Enter: fixes a corner of the Wire run on `document`'s canvas where the pointer is, as
+/// a click does. Returns the run's Command if that ends it.
+pub fn fix_corner(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.fix(w))
+}
+
+/// Insert: adds a vertex to the Wire run on `document`'s canvas where the pointer is.
+pub fn insert_vertex(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.insert_vertex(w))
+}
+
+/// Esc (or a right-click) during a Wire run on `document`'s canvas: the run commits its
+/// fixed corners and the Tool stays. Returns the run's Command, if it has a segment.
+pub fn end_run(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.end_run(w))
+}
+
+/// Shows the Wire run on `document`'s canvas again after its mode changed.
+pub fn restate_wiring(shell: &mut Shell, document: Uuid) {
+    restate(shell, document);
+}
+
+/// Another Tool starts during the Wire run on `document`'s canvas: the run waits on the
+/// tab, out of the canvas, until [`resume`].
+pub fn suspend(shell: &mut Shell, document: Uuid) {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return;
+    };
+    let Interaction::Wiring(mut w) = std::mem::take(&mut tab.interaction) else {
+        return;
+    };
+    w.previewing = false;
+    tab.suspended = Some(Interaction::Wiring(w));
+    shell.end_tool();
+    restate(shell, document);
+}
+
+/// The Tool on top finished: the suspended Wire run on `document`'s canvas is back.
+pub fn resume(shell: &mut Shell, document: Uuid) {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return;
+    };
+    let Some(state) = tab.suspended.take() else {
+        return;
+    };
+    tab.interaction = state;
+    restate(shell, document);
 }
 
 /// Backspace: takes the last point back from the line or rectangle being drawn on
@@ -331,7 +424,9 @@ pub(crate) fn end_commit(tab: &mut crate::shell::DocumentTab) -> bool {
         }
         Interaction::Wiring(w) if !w.committed.is_empty() => {
             w.committed.clear();
-            tab.overlay.wires = w.segments().into();
+            let (solid, dotted) = w.drawn();
+            tab.overlay.wires = solid.into();
+            tab.overlay.dotted = dotted.into();
             true
         }
         Interaction::Drawing(d) if !d.committed.is_empty() => {
@@ -359,6 +454,14 @@ fn show(
     cursor: Option<P>,
     previewed: bool,
 ) {
+    if let Interaction::Wiring(w) = &mut state {
+        w.mode = shell
+            .engine()
+            .view()
+            .get::<crate::tools::WireTool>()
+            .map(|t| t.mode)
+            .unwrap_or_default();
+    }
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
     let mode = match &state {
@@ -411,13 +514,15 @@ fn show(
         ),
         Interaction::Wiring(w) => {
             let mut wires = w.committed.clone();
-            wires.extend(w.segments());
+            let (solid, dotted) = w.drawn();
+            wires.extend(solid);
             (
                 Vec::new(),
                 Vec::new(),
                 (0.0, 0.0),
                 Overlay {
                     wires: wires.into(),
+                    dotted: dotted.into(),
                     cursor: Some(w.at),
                     ..Overlay::default()
                 },

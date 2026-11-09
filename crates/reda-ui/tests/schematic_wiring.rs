@@ -263,7 +263,7 @@ fn backspace_takes_the_last_segment_off_and_a_run_ends_on_a_pin() {
 }
 
 #[test]
-fn backspace_down_to_nothing_and_escape_end_a_run_without_drawing() {
+fn backspace_down_to_nothing_ends_a_run_and_escape_commits_the_fixed_corners() {
     let dir = TempDir::new("wiring-escape");
     let mut shell = shell(&dir);
     let project = shell.engine().project().unwrap().clone();
@@ -276,15 +276,27 @@ fn backspace_down_to_nothing_and_escape_end_a_run_without_drawing() {
     assert!(overlay(&shell).is_empty());
     assert_eq!(shell.tool(), Tool::Wire);
 
+    assert!(shell.engine().project().unwrap() == &project);
+
+    // Esc during a run commits its fixed corners, drops the look-ahead and stays in the
+    // Tool; Esc with no run leaves it.
     click(&mut shell, at(0.0, 0.0));
     click(&mut shell, at(500.0, 0.0));
     hover(&mut shell, at(500.0, 500.0));
+    let before = shell.engine().journal().len();
+    assert_eq!(press(&mut shell, "Esc"), ["tool.activate:select"]);
+    assert_eq!(
+        journal_since(&shell, before),
+        ["tool.activate:select", "schematic.wire.add"]
+    );
+    assert_eq!(wires(&shell), [((0, 0), (500, 0))]);
+    assert_eq!(shell.tool(), Tool::Wire);
+    assert!(run_points(&shell).is_empty());
     assert_eq!(press(&mut shell, "Esc"), ["tool.activate:select"]);
     assert_eq!(shell.tool(), Tool::Select);
     let tab = shell.document_tab(sheet()).unwrap();
     assert_eq!(tab.interaction, Interaction::Idle);
     assert!(tab.overlay.wires.is_empty());
-    assert!(shell.engine().project().unwrap() == &project);
 }
 
 #[test]
@@ -384,7 +396,7 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
     // Space turns the next one; the names count up.
     assert_eq!(press(&mut shell, "Space"), ["tool.rotate"]);
     click(&mut shell, at(1000.0, 0.0));
-    assert_eq!(press(&mut shell, "X"), ["tool.mirror:x"]);
+    assert_eq!(press(&mut shell, "X"), ["tool.mirror_x"]);
     click(&mut shell, at(1500.0, 0.0));
     assert_eq!(
         labels(&shell),
@@ -401,7 +413,7 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
             "schematic.net_label.add",
             "tool.rotate",
             "schematic.net_label.add",
-            "tool.mirror:x",
+            "tool.mirror_x",
             "schematic.net_label.add",
         ]
     );
@@ -457,7 +469,7 @@ fn the_port_power_port_and_no_connect_tools_place_on_click() {
     assert_eq!(click(&mut shell, at(500.0, 0.0)), ["schematic.port.add"]);
     assert_eq!(press(&mut shell, "B"), ["tool.activate:power_port"]);
     hover(&mut shell, at(1000.0, 0.0));
-    assert_eq!(press(&mut shell, "Y"), ["tool.mirror:y"]);
+    assert_eq!(press(&mut shell, "Y"), ["tool.mirror_y"]);
     assert_eq!(press(&mut shell, "Space"), ["tool.rotate"]);
     click(&mut shell, at(1000.0, 0.0));
     click(&mut shell, at(1500.0, 0.0));
@@ -519,7 +531,7 @@ fn space_x_and_y_turn_a_move_in_flight_and_it_commits_as_one_batch() {
     assert_ne!(tab.scene.generation, generation);
     assert!(tab.live.moving.is_empty());
     assert!(shell.engine().project().unwrap() == &project);
-    assert_eq!(press(&mut shell, "Y"), ["tool.mirror:y"]);
+    assert_eq!(press(&mut shell, "Y"), ["tool.mirror_y"]);
 
     let ran = click(&mut shell, at(1000.0, 0.0));
     assert_eq!(ran, ["tool.activate:select", "batch"]);
@@ -542,7 +554,7 @@ fn space_x_and_y_turn_a_move_in_flight_and_it_commits_as_one_batch() {
         [
             "tool.activate:move",
             "tool.rotate",
-            "tool.mirror:y",
+            "tool.mirror_y",
             "tool.activate:select",
             "batch"
         ]
@@ -572,7 +584,7 @@ fn space_with_nothing_in_flight_turns_the_selection() {
         [
             "tool.rotate",
             "schematic.rotate",
-            "tool.mirror:x",
+            "tool.mirror_x",
             "schematic.mirror"
         ]
     );

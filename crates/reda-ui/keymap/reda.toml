@@ -251,9 +251,12 @@ context = "schematic"
 key = "Esc"
 command = "tool.activate:select"
 
-# The wiring Tools. A Wire run fixes a corner per click and ends on a Pin or Wire; `/`
-# turns its corner the other way and Backspace takes its last segment off. The other Tools
-# place one object per click until Esc.
+# The wiring Tools. A Wire run fixes a corner per click (or Enter) and ends on a Pin or
+# Wire; Space or `/` turns its corner the other way, Shift+Space cycles the Wire mode
+# (90°, 45°, Any Angle, Auto Wire), Insert adds a vertex, Backspace or Del takes its last
+# segment off and Tab opens the Auto Wire options. Esc ends a run and stays in the Tool;
+# another Tool started during a run returns to it on Esc. The other Tools place one object
+# per click until Esc.
 
 [[bind]]
 context = "schematic"
@@ -289,6 +292,36 @@ command = "tool.cycle_corner"
 context = "tool:wire"
 key = "Backspace"
 command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:wire"
+key = "Space"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "tool:wire"
+key = "Shift+Space"
+command = "tool.cycle_wire_mode"
+
+[[bind]]
+context = "tool:wire"
+key = "Del"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:wire"
+key = "Insert"
+command = "tool.insert_vertex"
+
+[[bind]]
+context = "tool:wire"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:wire"
+key = "Tab"
+command = "tool.edit_properties"
 
 # Find (Mod+F) searches every sheet by Designator, value or Net name.
 
@@ -342,12 +375,12 @@ command = "tool.rotate"
 [[bind]]
 context = "schematic"
 key = "X"
-command = "tool.mirror:x"
+command = "tool.mirror_x"
 
 [[bind]]
 context = "schematic"
 key = "Y"
-command = "tool.mirror:y"
+command = "tool.mirror_y"
 
 # The board canvas: Layers, the view, and the select-and-place Tool. Space and L turn or
 # flip what is being moved (else the selection); Esc drops it and returns to Select.
@@ -396,7 +429,7 @@ command = "tool.rotate"
 [[bind]]
 context = "pcb"
 key = "L"
-command = "tool.flip"
+command = "tool.flip_side"
 
 [[bind]]
 context = "pcb"
@@ -404,8 +437,12 @@ key = "Esc"
 command = "tool.activate:select"
 
 # Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
-# corner mode, Backspace takes back the last corner, V drops a Via and switches Layer,
-# W / Shift+W step the width and Enter finishes. Del deletes the selected Tracks and Vias
+# corner mode and Space flips the posture, Backspace takes back the last corner, V drops a
+# Via and switches Layer, E drops a Via and ends the route, Enter finishes and Esc (or a
+# right-click) ends the route keeping what is placed (a second Esc returns to Select).
+# 1 toggles look-ahead, 3 steps the width mode, Shift+W and Shift+V open the width and
+# Via size choosers, Shift+R the obstacle mode, Shift+A auto-terminate, Shift+L loop
+# removal and C the clearance display. Del deletes the selected Tracks and Vias
 # (Shift+Del whole Tracks) and U selects the copper connected to the selection.
 
 [[bind]]
@@ -440,13 +477,58 @@ command = "pcb.route.finish"
 
 [[bind]]
 context = "tool:route"
-key = "W"
-command = "pcb.route.width:next"
+key = "Shift+W"
+command = "pcb.route.chooser:width"
 
 [[bind]]
 context = "tool:route"
-key = "Shift+W"
-command = "pcb.route.width:previous"
+key = "Shift+V"
+command = "pcb.route.chooser:via"
+
+[[bind]]
+context = "tool:route"
+key = "E"
+command = "pcb.route.via_end"
+
+[[bind]]
+context = "tool:route"
+key = "Esc"
+command = "pcb.route.end"
+
+[[bind]]
+context = "tool:route"
+key = "Space"
+command = "pcb.route.mode:posture"
+
+[[bind]]
+context = "tool:route"
+key = "1"
+command = "pcb.route.mode:lookahead"
+
+[[bind]]
+context = "tool:route"
+key = "3"
+command = "pcb.route.mode:width_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+R"
+command = "pcb.route.mode:obstacle_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+A"
+command = "pcb.route.mode:auto_terminate"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+L"
+command = "pcb.route.mode:loop_removal"
+
+[[bind]]
+context = "tool:route"
+key = "C"
+command = "pcb.route.mode:clearance_display"
 
 [[bind]]
 context = "pcb"
@@ -484,7 +566,7 @@ params = { clipboard = "$clipboard" }
 [[bind]]
 context = "tool:place"
 key = "Tab"
-command = "panel.show:properties"
+command = "tool.edit_properties"
 
 # The Footprint editor. "$selection" is what is selected on the Footprint: Pads, graphics
 # and the Designator and value text (Del hides a text rather than removing it). Tools: P

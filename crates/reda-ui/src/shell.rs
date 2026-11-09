@@ -99,6 +99,8 @@ pub struct DocumentTab {
     pub grid_origin: Point,
     /// What the editor has in flight on this canvas.
     pub interaction: Interaction,
+    /// A Wire run another Tool suspended, until that Tool finishes.
+    pub suspended: Option<Interaction>,
     /// The hovered object and the objects in flight, as the canvas marks them.
     pub live: LiveHandle,
     /// How far (nm) the objects in flight are drawn from where they are.
@@ -132,6 +134,7 @@ impl DocumentTab {
             grid: grid::SCHEMATIC_DEFAULT,
             grid_origin: Point::default(),
             interaction: Interaction::Idle,
+            suspended: None,
             live: LiveHandle::default(),
             moving_offset: (0.0, 0.0),
             overlay: Overlay::default(),
@@ -282,6 +285,8 @@ impl Shell {
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
+        engine.view_mut().set(tools::WireTool::default());
+        engine.view_mut().set(tools::ToolStack::default());
         engine
             .view_mut()
             .set(crate::placement::Placement::default());
@@ -898,7 +903,7 @@ impl Shell {
     }
 
     /// Whether the active Document is the board, whose Tool `tool.rotate` and
-    /// `tool.flip` turn.
+    /// `tool.flip_side` turn.
     /// Swap with a pair of Footprints already selected: swaps them at once and goes back
     /// to Select. With no pair the Tool asks for two picks.
     fn swap_selected_pair(&mut self) {
@@ -1322,7 +1327,16 @@ impl Shell {
         {
             selection::picking::prepare_cycle(self, document);
         }
-        if base == "tool.mirror" && self.board_mirror_refused() {
+        if base == "tool.activate" {
+            // The Tool stack needs to know whether a run is in flight.
+            let run = self
+                .active_sheet()
+                .is_some_and(|sheet| crate::schematic_editor::run_in_flight(self, sheet));
+            if let Some(stack) = self.engine.view_mut().get_mut::<tools::ToolStack>() {
+                stack.run = run;
+            }
+        }
+        if matches!(base, "tool.mirror_x" | "tool.mirror_y") && self.board_mirror_refused() {
             return Err(CommandError::rejected(
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
@@ -1964,7 +1978,19 @@ impl Shell {
             "schematic.copy" | "pcb.copy" => self.clipboard = Some(out.clone()),
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
             // Escape (and any Tool change) puts back what the canvases have in flight.
+            "tool.activate" if out["run"] == "ended" => {
+                if let Some(sheet) = self.active_sheet() {
+                    for (id, params) in crate::schematic_editor::end_run(self, sheet) {
+                        let _ = self.run_reporting(&id, params);
+                    }
+                }
+            }
             "tool.activate" | "tool.rotate_about" => {
+                if out["run"] == "suspended"
+                    && let Some(sheet) = self.active_sheet()
+                {
+                    crate::schematic_editor::suspend(self, sheet);
+                }
                 selection::picking::cancel(self);
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
@@ -1978,6 +2004,11 @@ impl Shell {
                 self.pcb_draw.start(tool);
                 if tool == Tool::Swap {
                     self.swap_selected_pair();
+                }
+                if out["run"] == "resumed"
+                    && let Some(sheet) = self.active_sheet()
+                {
+                    crate::schematic_editor::resume(self, sheet);
                 }
             }
             // The Symbol editor's Pin Tool turns the next Pin, and its polygon takes back
@@ -1999,15 +2030,36 @@ impl Shell {
             "tool.cycle_corner" if self.tool() == Tool::Route => {
                 self.with_router(|r, shell| r.cycle_corner(shell))
             }
-            "tool.cycle_corner" | "tool.undo_segment"
+            "tool.cycle_corner"
+            | "tool.undo_segment"
+            | "tool.cycle_wire_mode"
+            | "tool.insert_vertex"
+            | "tool.finish"
                 if self.tool() == Tool::Wire && self.active_sheet().is_some() =>
             {
                 let sheet = self.active_sheet().expect("checked above");
-                if id == "tool.cycle_corner" {
-                    crate::schematic_editor::corner(self, sheet);
-                } else {
-                    crate::schematic_editor::remove_last(self, sheet);
+                let commands = match id {
+                    "tool.cycle_corner" => {
+                        crate::schematic_editor::corner(self, sheet);
+                        Vec::new()
+                    }
+                    "tool.undo_segment" => {
+                        crate::schematic_editor::remove_last(self, sheet);
+                        Vec::new()
+                    }
+                    "tool.cycle_wire_mode" => {
+                        crate::schematic_editor::restate_wiring(self, sheet);
+                        Vec::new()
+                    }
+                    "tool.insert_vertex" => crate::schematic_editor::insert_vertex(self, sheet),
+                    _ => crate::schematic_editor::fix_corner(self, sheet),
+                };
+                for (id, params) in commands {
+                    let _ = self.run_reporting(&id, params);
                 }
+            }
+            "tool.edit_properties" if self.tool() == Tool::Place => {
+                let _ = self.run_reporting("panel.show:properties", json!({}));
             }
             "tool.undo_segment" | "tool.finish" if self.sheet_drawing().is_some() => {
                 let sheet = self.sheet_drawing().expect("checked above");
@@ -2023,6 +2075,23 @@ impl Shell {
                 self.with_router(|r, shell| r.undo_segment(shell))
             }
             "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
+            "pcb.route.via_end" => self.with_router(|r, shell| r.via_end(shell)),
+            "pcb.route.end" => self.with_router(|r, shell| r.end(shell)),
+            "pcb.route.mode" => {
+                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
+                    self.with_router(|r, shell| r.change_mode(shell, mode));
+                }
+            }
+            "pcb.route.chooser" => {
+                if let Ok(kind) = serde_json::from_value(out["kind"].clone()) {
+                    self.with_router(|r, shell| r.open_chooser(shell, kind));
+                }
+            }
+            "pcb.route.via_size" => {
+                if let (Some(d), Some(h)) = (out["diameter"].as_i64(), out["hole"].as_i64()) {
+                    self.with_router(|r, shell| r.set_via_size(shell, Nm(d), Nm(h)));
+                }
+            }
             "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
             "pcb.route.width" => {
                 let width = out["width"].as_i64().map(Nm);
@@ -2038,22 +2107,22 @@ impl Shell {
             // What the placement Tool carries turned in the Command; draw it anew.
             "tool.place" | "tool.place.set" => crate::placement::refresh(self),
             // A Part being placed takes Space, X, Y and L; the selection stays as it is.
-            "tool.rotate" | "tool.mirror" | "tool.flip"
+            "tool.rotate" | "tool.mirror_x" | "tool.mirror_y" | "tool.flip_side"
                 if crate::placement::placing(self).is_some() =>
             {
                 crate::placement::refresh(self);
             }
             "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
-            "tool.rotate" | "tool.mirror" => {
+            "tool.rotate" | "tool.mirror_x" | "tool.mirror_y" => {
                 if let Some(sheet) = self.active_sheet() {
-                    match (id, out["axis"].as_str()) {
-                        ("tool.mirror", Some("x")) => self.sheet_turn(sheet, Turn::MirrorX),
-                        ("tool.mirror", _) => self.sheet_turn(sheet, Turn::MirrorY),
+                    match id {
+                        "tool.mirror_x" => self.sheet_turn(sheet, Turn::MirrorX),
+                        "tool.mirror_y" => self.sheet_turn(sheet, Turn::MirrorY),
                         _ => self.sheet_turn(sheet, Turn::Rotate),
                     }
                 }
             }
-            "tool.flip" if self.board_is_active() => self.pcb_flip(),
+            "tool.flip_side" if self.board_is_active() => self.pcb_flip(),
             "tool.move_board_shape" => self.pcb_move_board_shape(),
             "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();

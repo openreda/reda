@@ -118,9 +118,27 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     super::live_hover::draw(ui, shell, input);
     drawing(ui, shell, input);
     overlay(ui, shell, input);
+    let mut out = Vec::new();
+    // A right-click ends the route instead of opening the menu (the window leaves the
+    // canvas menu out while routing, see `context_menu::canvas`).
+    if super::route::takes_right_click(shell) && input.response.secondary_clicked() {
+        out.push(("pcb.route.end".to_owned(), json!({})));
+    }
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
-    super::layer_control::show(ui, shell, input.response.id, input.rect)
+    out.extend(super::layer_control::show(
+        ui,
+        shell,
+        input.response.id,
+        input.rect,
+    ));
+    out.extend(super::routing_bar::show(
+        ui,
+        shell,
+        input.response.id,
+        input.rect,
+    ));
+    out
 }
 
 /// What the drawing Tools show over the canvas: the shape in progress, a measurement,

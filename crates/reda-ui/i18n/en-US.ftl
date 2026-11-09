@@ -35,6 +35,18 @@ floating-window-title = REDA
 floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
 tool-wire = Wire
+status-wire-mode = Wire: { $mode }
+wire-mode-ortho = 90°
+wire-mode-diagonal = 45°
+wire-mode-any-angle = Any Angle
+wire-mode-auto = Auto Wire
+auto-wire-title = Auto Wire
+auto-wire-timeout = Time Out After
+auto-wire-avoid = Avoid cutting wires
+auto-wire-avoid-low = Low
+auto-wire-avoid-medium = Medium
+auto-wire-avoid-high = High
+auto-wire-close = Close
 
 ## The bridge: agents connecting through the control port
 
@@ -1046,6 +1058,16 @@ route-blocked = Too close to other copper: { $actual } where { $required } is ne
 route-keepout = That would put copper in a Keepout
 route-edge = Too close to the board edge
 route-width-clipped = Width clipped to the Net's { $limit }: { $width }
+route-via-clipped = Via size clipped to the Net's range: { $diameter } with a { $hole } hole
+route-chooser-width = Track width
+route-chooser-via = Via size
+route-chooser-min = min
+route-chooser-preferred = preferred
+route-chooser-max = max
+route-chooser-favourite = favourite
+route-chooser-board = on the board
+route-chooser-type-width = Type a width, such as 0.3mm
+route-chooser-type-via = Type diameter and hole, such as 0.6mm 0.3mm
 route-loop-narrower = Loop kept: the new route is narrower than the old path
 route-loop-branch = Loop kept: a branch joins the old path; delete it by hand
 route-loop-through-vias = Loop kept: the old path goes through Vias
