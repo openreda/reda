@@ -191,6 +191,29 @@ pub struct BoardViewPreferences {
     /// Layer sets the user saved, each a name and its Layers by kind and side (such as
     /// `copper_top`), so a set applies to any board.
     pub layer_sets: Vec<SavedLayerSet>,
+    /// How the Layer control shows on the canvas: a `swatch` at the top right (a chip
+    /// of the active Layer, opening a list), or a `strip` of chips along the bottom.
+    pub layer_control: LayerControl,
+    /// Live hover: an outline around the Net under the cursor, `off`, `on`, or only
+    /// while Shift is held (`shift_only`).
+    pub live_hover: LiveHover,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerControl {
+    #[default]
+    Swatch,
+    Strip,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveHover {
+    Off,
+    On,
+    #[default]
+    ShiftOnly,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
