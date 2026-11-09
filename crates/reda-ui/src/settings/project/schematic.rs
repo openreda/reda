@@ -1,7 +1,8 @@
 //! The Schematic page: the Project's schematic options grouped as Nets, Cross-references
 //! and Assembly (applied with `schematic.options.set`), then read-only summaries of the
 //! saved Re-annotate and Update from Library settings, each with a Reset that clears them
-//! on Apply (`schematic.saved_settings.reset`).
+//! on Apply (`schematic.reannotate.reset`,
+//! `schematic.component.update_settings.reset`).
 
 use egui::Ui;
 use reda_engine::model::library_update::{
@@ -22,11 +23,13 @@ pub struct SchematicPage {
     pub options: Draft<SchematicOptions>,
     /// Whether Apply clears the saved Re-annotate settings.
     reset_reannotate: Draft<bool>,
-    /// Whether Apply clears the saved Update from Library settings.
-    reset_library_update: Draft<bool>,
-    /// The summaries of the saved settings, as loaded.
+    /// The summary of the saved Re-annotate settings, as loaded.
     reannotate: Option<Vec<String>>,
-    library_update: Option<Vec<String>>,
+    /// The Update from Library settings saved with the Project; `None` when none are (the
+    /// defaults apply).
+    pub saved: Option<LibraryUpdateSettings>,
+    /// Reset was clicked: Apply forgets the saved Update from Library settings.
+    pub reset: bool,
 }
 
 impl Default for SchematicPage {
@@ -34,9 +37,9 @@ impl Default for SchematicPage {
         SchematicPage {
             options: Draft::new(SchematicOptions::DEFAULT),
             reset_reannotate: Draft::new(false),
-            reset_library_update: Draft::new(false),
             reannotate: None,
-            library_update: None,
+            saved: None,
+            reset: false,
         }
     }
 }
@@ -48,9 +51,26 @@ impl SchematicPage {
         self.reannotate.as_deref()
     }
 
-    /// The saved Update from Library settings as lines; `None` when none are saved.
-    pub fn library_update_summary(&self) -> Option<&[String]> {
-        self.library_update.as_deref()
+    /// The saved Update from Library settings as lines, such as "Locally edited values:
+    /// Keep"; `None` when none are saved.
+    pub fn library_update_summary(&self) -> Option<Vec<String>> {
+        self.saved.as_ref()?;
+        let lines = self.summary().into_iter();
+        Some(
+            lines
+                .map(|(k, v)| tr!("reannotate-summary-line", name = k, value = v))
+                .collect(),
+        )
+    }
+
+    /// The Update from Library summary's rows, `(setting, value)`, of the settings in force
+    /// after Apply.
+    pub fn summary(&self) -> Vec<(String, String)> {
+        let s = match (&self.saved, self.reset) {
+            (Some(saved), false) => saved.clone(),
+            _ => LibraryUpdateSettings::default(),
+        };
+        library_update_rows(&s)
     }
 
     /// Clears the saved Re-annotate settings on Apply.
@@ -62,8 +82,8 @@ impl SchematicPage {
 
     /// Clears the saved Update from Library settings on Apply.
     pub fn reset_library_update(&mut self) {
-        if self.library_update.is_some() {
-            self.reset_library_update.set(true);
+        if self.saved.is_some() {
+            self.reset = true;
         }
     }
 
@@ -72,7 +92,7 @@ impl SchematicPage {
     }
 
     pub fn library_update_reset_pending(&self) -> bool {
-        *self.reset_library_update.value()
+        self.reset
     }
 }
 
@@ -127,72 +147,64 @@ fn option_params(base: &SchematicOptions, value: &SchematicOptions) -> Map<Strin
     params
 }
 
-/// The saved Update from Library settings as summary lines.
-pub fn library_update_summary(s: &LibraryUpdateSettings) -> Vec<String> {
-    let line =
-        |name: String, value: String| tr!("reannotate-summary-line", name = name, value = value);
-    let fields = match &s.fields_to_update {
-        None => tr!("settings-schematic-lu-fields-all"),
-        Some(fields) => fields.join(", "),
+/// Update from Library settings as `(setting, value)` rows.
+pub fn library_update_rows(s: &LibraryUpdateSettings) -> Vec<(String, String)> {
+    let on_off = |on: bool| match on {
+        true => tr!("settings-on"),
+        false => tr!("settings-off"),
     };
     vec![
-        line(
-            tr!("settings-schematic-lu-library-field-missing"),
+        (
+            tr!("library-update-setting-library-field-missing"),
             match s.library_field_missing {
-                LibraryFieldMissing::Add => tr!("settings-schematic-lu-add"),
-                LibraryFieldMissing::AddIfNotBlank => tr!("settings-schematic-lu-add-if-not-blank"),
-                LibraryFieldMissing::Skip => tr!("settings-schematic-lu-skip"),
+                LibraryFieldMissing::Add => tr!("library-update-add"),
+                LibraryFieldMissing::AddIfNotBlank => tr!("library-update-add-if-not-blank"),
+                LibraryFieldMissing::Skip => tr!("library-update-skip"),
             },
         ),
-        line(
-            tr!("settings-schematic-lu-component-field-missing"),
+        (
+            tr!("library-update-setting-component-field-missing"),
             match s.component_field_missing {
-                ComponentFieldMissing::Keep => tr!("settings-schematic-lu-keep"),
-                ComponentFieldMissing::Remove => tr!("settings-schematic-lu-remove"),
+                ComponentFieldMissing::Keep => tr!("library-update-keep"),
+                ComponentFieldMissing::Remove => tr!("library-update-remove"),
             },
         ),
-        line(
-            tr!("settings-schematic-lu-locally-edited"),
+        (
+            tr!("library-update-setting-locally-edited"),
             match s.locally_edited {
-                LocallyEdited::Keep => tr!("settings-schematic-lu-keep"),
-                LocallyEdited::TakeNew => tr!("settings-schematic-lu-take-new"),
+                LocallyEdited::Keep => tr!("library-update-keep"),
+                LocallyEdited::TakeNew => tr!("library-update-take-new"),
             },
         ),
-        line(tr!("settings-schematic-lu-fields"), fields),
-        line(
-            tr!("settings-schematic-lu-new-footprints"),
-            match s.add_new_footprints {
-                true => tr!("settings-schematic-lu-added"),
-                false => tr!("settings-schematic-lu-left-out"),
+        (
+            tr!("library-update-setting-fields-to-update"),
+            match &s.fields_to_update {
+                None => tr!("settings-every-field"),
+                Some(names) => names.join(", "),
             },
         ),
-        line(
-            tr!("settings-schematic-lu-missing-footprints"),
-            match s.remove_missing_footprints {
-                true => tr!("settings-schematic-lu-removed"),
-                false => tr!("settings-schematic-lu-kept"),
-            },
+        (
+            tr!("library-update-setting-add-new-footprints"),
+            on_off(s.add_new_footprints),
         ),
-        line(
-            tr!("settings-schematic-lu-footprint-choice"),
+        (
+            tr!("library-update-setting-remove-missing-footprints"),
+            on_off(s.remove_missing_footprints),
+        ),
+        (
+            tr!("library-update-setting-footprint-choice"),
             match s.footprint_choice {
-                FootprintChoice::KeepIfPresent => tr!("settings-schematic-lu-keep-if-present"),
-                FootprintChoice::Default => tr!("settings-schematic-lu-new-default"),
+                FootprintChoice::KeepIfPresent => tr!("library-update-keep-if-present"),
+                FootprintChoice::Default => tr!("library-update-default"),
             },
         ),
-        line(
-            tr!("settings-schematic-lu-field-locations"),
-            match s.preserve_field_locations {
-                true => tr!("settings-schematic-lu-preserved"),
-                false => tr!("settings-schematic-lu-autoposition"),
-            },
+        (
+            tr!("library-update-setting-preserve-field-locations"),
+            on_off(s.preserve_field_locations),
         ),
-        line(
-            tr!("settings-schematic-lu-field-visibility"),
-            match s.preserve_field_visibility {
-                true => tr!("settings-schematic-lu-preserved"),
-                false => tr!("settings-schematic-lu-designator-value"),
-            },
+        (
+            tr!("library-update-setting-preserve-field-visibility"),
+            on_off(s.preserve_field_visibility),
         ),
     ]
 }
@@ -207,12 +219,13 @@ impl Page for SchematicPage {
         self.options.load(props.schematic, reset);
         self.reannotate =
             (props.reannotate.as_ref()).map(|s| reannotate_labels::summary(project, s));
-        self.library_update = props.library_update.as_ref().map(library_update_summary);
+        self.saved = props.library_update.clone();
         // A Reset only stands while there is something saved to clear.
         self.reset_reannotate
             .load(false, reset || self.reannotate.is_none());
-        self.reset_library_update
-            .load(false, reset || self.library_update.is_none());
+        if reset || self.saved.is_none() {
+            self.reset = false;
+        }
     }
 
     fn steps(&self) -> Vec<Step> {
@@ -221,17 +234,13 @@ impl Page for SchematicPage {
         if !params.is_empty() {
             steps.push(Step::new("schematic.options.set", Value::Object(params)));
         }
-        let mut cleared = Vec::new();
         if *self.reset_reannotate.value() {
-            cleared.push("reannotate");
+            steps.push(Step::new("schematic.reannotate.reset", json!({})));
         }
-        if *self.reset_library_update.value() {
-            cleared.push("library_update");
-        }
-        if !cleared.is_empty() {
+        if self.reset && self.saved.is_some() {
             steps.push(Step::new(
-                "schematic.saved_settings.reset",
-                json!({ "settings": cleared }),
+                "schematic.component.update_settings.reset",
+                json!({}),
             ));
         }
         steps
@@ -349,10 +358,11 @@ impl Page for SchematicPage {
             self.reset_reannotate();
         }
         heading(ui, tr!("settings-schematic-library-update"));
+        let lines = self.library_update_summary();
         if summary(
             ui,
-            self.library_update.as_deref(),
-            *self.reset_library_update.value(),
+            lines.as_deref(),
+            self.reset,
             tr!("settings-schematic-reset-library-update"),
         ) {
             self.reset_library_update();

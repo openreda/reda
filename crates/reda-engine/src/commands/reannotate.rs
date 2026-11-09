@@ -7,7 +7,7 @@ use reda_model::annotate::{
 };
 use reda_model::{Object, Uuid};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::annotate::{self, Plan, Selection};
 use crate::sync::{self, NO_PCB};
@@ -15,6 +15,7 @@ use crate::sync::{self, NO_PCB};
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(Reannotate);
     registry.add(ReannotatePreview);
+    registry.add(ResetReannotate);
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -218,5 +219,39 @@ impl Command for Reannotate {
             true => sync::write_through(cx, run),
             false => run(cx),
         }
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResetParams {}
+
+/// Whether there were saved settings to forget.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ReannotateReset {
+    pub cleared: bool,
+}
+
+pub struct ResetReannotate;
+
+impl Command for ResetReannotate {
+    const META: Meta = Meta {
+        id: "schematic.reannotate.reset",
+        title: "Reset Re-annotate Settings",
+        description: "Forgets the last Re-annotate settings saved with the Project, so                       `schematic.reannotate {saved: true}` has none to run and the dialog                       starts from the defaults (Project Settings ▸ Schematic ▸ Re-annotate,                       Reset). One undoable Project edit.",
+        category: "schematic",
+        icon: "annotate",
+        kind: Kind::Edit,
+    };
+    type Params = ResetParams;
+    type Output = ReannotateReset;
+
+    fn run(&self, cx: &mut Context<'_>, _: ResetParams) -> Result<ReannotateReset, CommandError> {
+        let mut props = cx.project()?.props().clone();
+        let cleared = props.reannotate.take().is_some();
+        if cleared {
+            cx.tx()?.replace(Object::Project(props))?;
+        }
+        Ok(ReannotateReset { cleared })
     }
 }

@@ -51,10 +51,7 @@ pub use library_element::{
 };
 pub use natural::natural_cmp;
 pub use normalise::{DEFAULT_SNAP_GRID, WIRING_COMMANDS, Wiring};
-pub use options::{
-    OptionsSet, OptionsSetParams, SavedSettings, SavedSettingsResetCommand,
-    SavedSettingsResetParams,
-};
+pub use options::{OptionsSet, OptionsSetParams};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
     POWER_PORT_PRESETS, PortAdd, PortAddParams, PortAddResult, PortSet, PortSetParams,
@@ -80,8 +77,9 @@ pub use update::{
     Aspect, Cell, CellAction, CellCase, CellRef, ComponentAspects, ComponentStatus,
     ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
     LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
-    SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
-    UpdatePreview, UpdateResult, footprint_change, library_statuses,
+    ResetSettingsParams, ResetUpdateSettings, SettingsParams, SettingsReset, UpdateApplied,
+    UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview, UpdateResult,
+    footprint_change, library_statuses,
 };
 pub use update::{
     KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,
@@ -117,6 +115,7 @@ pub fn register_all_with_user(
     registry.add(LibraryStatusQuery);
     registry.add(UpdatePreview { lost_local_edits });
     registry.add(UpdateFromLibrary { lost_local_edits });
+    registry.add(ResetUpdateSettings);
     registry.add(ReplacePreview { lost_local_edits });
     registry.add(ReplacePart { lost_local_edits });
     registry.add(LibraryElement);
@@ -141,7 +140,6 @@ pub fn register_all_with_user(
     registry.add(PowerPortSet);
     registry.add(ProjectNets);
     registry.add(OptionsSet);
-    registry.add(SavedSettingsResetCommand);
     registry.add(Delete);
     registry.add(Copy);
     registry.add(Cut);

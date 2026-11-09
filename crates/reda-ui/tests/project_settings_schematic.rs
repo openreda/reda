@@ -111,8 +111,8 @@ fn the_saved_reannotate_and_library_settings_show_as_summaries_with_reset() {
     assert!(page.reannotate_reset_pending());
     let steps = d.steps();
     assert_eq!(steps.len(), 1);
-    assert_eq!(steps[0].id, "schematic.saved_settings.reset");
-    assert_eq!(steps[0].params, json!({"settings": ["reannotate"]}));
+    assert_eq!(steps[0].id, "schematic.reannotate.reset");
+    assert_eq!(steps[0].params, json!({}));
     d.apply(&mut shell).unwrap();
     assert!(
         shell
@@ -163,14 +163,14 @@ fn the_library_update_summary_lists_the_saved_choices_and_resets_them() {
     let summary = page.library_update_summary().unwrap();
     for line in [
         "Locally edited values: Take the new default",
-        "New Library Footprints: Left out",
-        "Library field missing: Add",
+        "Add new Footprints: Off",
+        "In the Library, not on the Component: Add",
     ] {
         assert!(summary.iter().any(|l| l == line), "{line:?} in {summary:?}");
     }
     page.reset_library_update();
     let steps = d.steps();
-    assert_eq!(steps[0].params, json!({"settings": ["library_update"]}));
+    assert_eq!(steps[0].id, "schematic.component.update_settings.reset");
     d.apply(&mut shell).unwrap();
     assert!(
         shell

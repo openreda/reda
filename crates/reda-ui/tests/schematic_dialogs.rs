@@ -1,5 +1,6 @@
-//! The schematic's dialogs as models on a Shell, without a window: Select Similar, Re-annotate with its old → new
-//! preview, Update from Library with its preview, and Export PDF.
+//! The schematic's dialogs as models on a Shell, without a window: Select Similar,
+//! Re-annotate with its old → new preview, and Export PDF. Update from Library has its own
+//! tests (`library_update.rs`).
 
 use std::path::{Path, PathBuf};
 
@@ -8,7 +9,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::annotate::ScopeKind;
-use reda_ui::schematic_dialogs::{ReannotateDialog, SimilarDialog, UpdateDialog, export_pdf};
+use reda_ui::schematic_dialogs::{ReannotateDialog, SimilarDialog, export_pdf};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -179,61 +180,6 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
     dialog.settings.scope = ScopeKind::Selection;
     dialog.refresh(&mut shell);
     assert!(!dialog.can_apply());
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let target = to.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy_dir(&entry.path(), &target);
-        } else {
-            std::fs::copy(entry.path(), target).unwrap();
-        }
-    }
-}
-
-#[test]
-fn update_from_library_previews_the_changes_and_updates_the_checked_components() {
-    let dir = TempDir::new("update");
-    let library = dir.path().join("Test");
-    copy_dir(&fixture_library(), &library);
-    let mut shell = shell_with(&dir, library.clone());
-    let (r1, _) = place(&mut shell, sheet(), R_10K, 0, 0);
-
-    assert!(UpdateDialog::new(&mut shell).rows().is_empty());
-    let part = library.join("parts/R_10k.redapart");
-    let text = std::fs::read_to_string(&part).unwrap();
-    std::fs::write(
-        &part,
-        text.replace("\"value\":\"10k\"", "\"value\":\"22k\""),
-    )
-    .unwrap();
-
-    let mut dialog = UpdateDialog::new(&mut shell);
-    let rows = dialog.rows();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].designator, "R1");
-    assert!(rows[0].checked);
-    assert!(
-        rows[0]
-            .changes
-            .iter()
-            .any(|c| c.contains("10k") && c.contains("22k")),
-        "{:?}",
-        rows[0].changes
-    );
-    // Nothing changes before Apply.
-    let value = |shell: &Shell| {
-        let project = shell.engine().project().unwrap();
-        let sheet = project.schematic_sheet(sheet()).unwrap();
-        sheet.unit(r1).unwrap().fields.value.clone()
-    };
-    assert_eq!(value(&shell), "10k");
-    dialog.apply(&mut shell).unwrap();
-    assert_eq!(value(&shell), "22k");
-    assert!(UpdateDialog::new(&mut shell).rows().is_empty());
 }
 
 #[test]

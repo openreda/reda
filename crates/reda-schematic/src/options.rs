@@ -4,7 +4,7 @@
 use reda_command::{Command, CommandError, Context, Kind, Meta};
 use reda_model::{LocationStyle, NotFittedDisplay, Object, SchematicOptions, SheetStyle};
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 /// The options to change; those left out keep their value.
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -117,68 +117,5 @@ impl Command for OptionsSet {
         let out = *options;
         tx.replace(Object::Project(props))?;
         Ok(out)
-    }
-}
-
-/// Settings a dialog saves in the Project for its next run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SavedSettings {
-    /// The last Re-annotate settings applied.
-    Reannotate,
-    /// The Update from Library settings page 1 saved.
-    LibraryUpdate,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SavedSettingsResetParams {
-    /// Which saved settings to clear: `reannotate` and/or `library_update`.
-    pub settings: Vec<SavedSettings>,
-}
-
-/// What `schematic.saved_settings.reset` cleared.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct SavedSettingsReset {
-    /// How many of the given settings were saved before.
-    pub cleared: usize,
-}
-
-pub struct SavedSettingsResetCommand;
-
-impl Command for SavedSettingsResetCommand {
-    const META: Meta = Meta {
-        id: "schematic.saved_settings.reset",
-        title: "Reset Saved Dialog Settings",
-        description: "Clears settings a dialog saved in the Project: the last Re-annotate \
-                      settings (`reannotate`, so `schematic.reannotate {saved: true}` has \
-                      none to run) and the Update from Library settings (`library_update`, \
-                      so the dialog starts from the defaults). One undoable Project edit.",
-        category: "schematic",
-        icon: "undo",
-        kind: Kind::Edit,
-    };
-    type Params = SavedSettingsResetParams;
-    type Output = SavedSettingsReset;
-
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: SavedSettingsResetParams,
-    ) -> Result<SavedSettingsReset, CommandError> {
-        let tx = cx.tx()?;
-        let mut props = tx.project().props().clone();
-        let mut cleared = 0;
-        for settings in p.settings {
-            let was = match settings {
-                SavedSettings::Reannotate => props.reannotate.take().is_some(),
-                SavedSettings::LibraryUpdate => props.library_update.take().is_some(),
-            };
-            cleared += usize::from(was);
-        }
-        if cleared > 0 {
-            tx.replace(Object::Project(props))?;
-        }
-        Ok(SavedSettingsReset { cleared })
     }
 }

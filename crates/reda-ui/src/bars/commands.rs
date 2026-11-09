@@ -49,6 +49,8 @@ pub enum Request {
     Preferences,
     /// Show a schematic dialog (Find, Re-annotate…).
     Schematic(crate::schematic_dialogs::DialogKind),
+    /// Show a Library dialog: Update from Library, Replace Part, or the PCB's update.
+    Library(crate::schematic_dialogs::LibraryDialog),
     /// Show the Change List dialog (Update PCB from Schematic).
     ChangeList,
     /// Show the Project Settings dialog.

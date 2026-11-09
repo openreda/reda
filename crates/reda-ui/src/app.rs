@@ -944,6 +944,9 @@ impl App {
                 Request::Schematic(kind) => {
                     self.schematic_dialog = SchematicDialog::open(kind, &mut self.shell);
                 }
+                Request::Library(dialog) => {
+                    self.schematic_dialog = dialog.open(&mut self.shell);
+                }
                 Request::ChangeList => self.open_change_list(),
                 Request::ProjectSettings => self.open_project_settings(),
                 Request::BoardSetup => self.open_board_setup(),

@@ -38,6 +38,7 @@ pub mod routing_bar;
 mod select_commands;
 pub mod silkscreen;
 pub mod tool;
+pub mod update_dialog;
 pub mod view;
 pub mod view_commands;
 
