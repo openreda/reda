@@ -300,6 +300,11 @@ impl Shell {
     /// Opens Violation Details on a line's Violation; it follows the Violation through
     /// later runs.
     pub fn open_details(&mut self, key: LineKey) {
+        if let LineKey::Note(i) = key
+            && crate::pcb::measure::show_again(self, i)
+        {
+            return;
+        }
         if let LineKey::Violation(kind, _) = key
             && let Some(e) = self.messages.entry(key)
         {

@@ -636,6 +636,13 @@ context = "pcb"
 key = "T"
 command = "tool.activate:route"
 
+# Measuring: Mod+M measures distances, two clicks each, until Esc or a right-click.
+
+[[bind]]
+context = "pcb"
+key = "Mod+M"
+command = "tool.activate:measure"
+
 [[bind]]
 context = "pcb"
 key = "V"
