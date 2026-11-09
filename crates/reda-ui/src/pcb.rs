@@ -9,17 +9,20 @@
 //! - [`canvas`]: the board canvas in the window: pointer and keys, overlays, the
 //!   "No Board Outline" hint.
 //! - [`tool`]: the select-and-place [`Tool`]: click, rubber band, drag to move, Space and
-//!   L, with the move drawn from a preview until release, and Track segment drags.
+//!   L, with the move drawn from a preview until release; [`copper_drag`] holds its
+//!   copper drag gestures (slide, Track end and corner, break, Via and Free Pad).
 //! - [`placing`]: Footprint moves' modes, the Reposition Selected queue, Choose
 //!   Component and the locked-move question; [`placement_bar`] shows and switches them.
-//! - [`route`]: the routing and Via Tools ([`Router`]); `route_commands` holds their keys
-//!   and select connected.
+//! - [`route`]: the routing and Via Tools ([`Router`]); `route_commands` holds their keys.
+//! - `select_commands`: the PCB selection Commands, select connected (`U`) and the copper
+//!   selection cycle (`Tab`).
 //! - [`draw`]: the drawing Tools (outline, cutouts, Zones, Keepouts, text and graphics,
 //!   Free Pads, origins, Mechanical Parts, measure), previewed until one Command commits.
 
 pub mod board_shapes;
 pub mod canvas;
 mod commands;
+pub mod copper_drag;
 pub mod draw;
 pub mod layer_control;
 pub mod live_hover;
@@ -36,6 +39,7 @@ pub mod view;
 pub mod view_commands;
 
 pub use route::Router;
+pub use select_commands::CopperCycle;
 pub use tool::SelectTool;
 
 /// Adds the PCB view Commands, the routing Tool's and the drawing Tools' Commands to
@@ -46,5 +50,6 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
     route_commands::register_all(registry);
     placing::register_all(registry);
     select_commands::register_all(registry);
+    copper_drag::register_all(registry);
 }
 pub use view::BoardView;

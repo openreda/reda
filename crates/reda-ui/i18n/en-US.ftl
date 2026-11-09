@@ -217,6 +217,9 @@ context-properties = Properties
 menu-project = Project
 menu-design = Design
 menu-route = Route
+menu-route-unroute-all = Unroute All
+menu-route-unroute-footprints = Unroute Selected Footprints
+menu-route-cleanup = Clean Up Tracks
 menu-tools = Tools
 menu-window = Window
 toolbar-save = Save
@@ -388,6 +391,26 @@ properties-region-rules = Rules
 properties-region-checks = Checks
 properties-region-stored = Stored values
 properties-region-vertices = Wire
+properties-region-track = Track
+properties-region-net = Net
+properties-track-start = Start
+properties-track-end = End
+properties-track-layer = Layer
+properties-track-net = Net
+properties-track-no-net = No Net
+properties-track-pick-net = Pick
+properties-track-pick-net-hint = Click copper on the board to give these Tracks its Net (Esc cancels)
+properties-pick-net-none = No copper with a Net there: the Tracks keep their Net.
+properties-net-name = Net
+properties-net-color = Net colour
+properties-net-loop-removal = Loop removal
+properties-net-routed-length = Routed length
+properties-net-width = Width
+properties-net-resistance = Track resistance
+properties-net-current = Max current
+properties-net-current-value = ≈ { $amps } A (estimate)
+properties-net-current-hint = IPC-2221 estimate for this width and copper thickness: I = k · ΔT^0.44 · A^0.725. Always an estimate.
+properties-net-delta-t = Temperature rise ΔT
 properties-chips-clear = Clear
 properties-rules-none = No rule applies.
 properties-rules-board = Board
@@ -1437,6 +1460,13 @@ place-locked-body = { $count ->
 } Protect Locked Objects is off, so they can move once you say so; they stay locked.
 place-locked-proceed = Move them
 place-locked-cancel = Leave them
+unroute-locked-title = Unroute locked copper too?
+unroute-locked-body = { $count ->
+    [one] 1 locked Track or Via was left in place.
+   *[other] { $count } locked Tracks and Vias were left in place.
+} Unroute them too?
+unroute-locked-proceed = Unroute them
+unroute-locked-cancel = Keep them
 route-chooser-width = Track width
 route-chooser-via = Via size
 route-chooser-min = min

@@ -282,6 +282,9 @@ impl Shell {
         if engine.registry().get("view.properties.rules").is_none() {
             engine.register(crate::properties::commands::register_all);
         }
+        if engine.registry().get("view.properties.pick_net").is_none() {
+            engine.register(crate::properties::track::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -295,6 +298,13 @@ impl Shell {
             .set(crate::properties::commands::RevealRules::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(pcb::placing::PlaceFlight::default());
+        engine.view_mut().set(pcb::CopperCycle::default());
+        engine
+            .view_mut()
+            .set(crate::properties::track::NetPick::default());
+        engine
+            .view_mut()
+            .set(pcb::copper_drag::DragFlight::default());
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
@@ -467,6 +477,14 @@ impl Shell {
     }
 
     /// What is selected; it changes through `selection.set`.
+    /// The Tracks waiting for a canvas click to pick their Net (Track Properties).
+    pub fn net_pick(&self) -> &[Uuid] {
+        self.engine
+            .view()
+            .get::<crate::properties::track::NetPick>()
+            .map_or(&[], |p| p.0.as_slice())
+    }
+
     pub fn selection(&self) -> &Selection {
         self.engine
             .view()
@@ -776,6 +794,14 @@ impl Shell {
             self.pcb_tool.carries_footprints(self),
             self.pcb_tool.queue(),
         );
+        let dragging = self.pcb_tool.copper_drag().is_some();
+        if let Some(flight) = self
+            .engine
+            .view_mut()
+            .get_mut::<pcb::copper_drag::DragFlight>()
+        {
+            flight.0 = dragging;
+        }
         if let Some(flight) = pcb::placing::flight_mut(self) {
             flight.moving = moving;
             flight.queue = queue;
@@ -1394,6 +1420,10 @@ impl Shell {
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
         }
+        // Tab skips a Footprint while Reposition Selected runs, and widens otherwise.
+        if base == "pcb.selection.widen" && self.pcb_tool.queue().is_some() {
+            return self.run("pcb.place.skip", json!({}));
+        }
         if base == "pcb.copper.delete" && self.pcb_tool.polygon_edit().is_some() {
             // Del while holding a polygon's vertex removes the vertex, not the selection.
             let held = self.with_pcb_tool(|tool, shell| tool.delete_held_vertex(shell));
@@ -1413,6 +1443,9 @@ impl Shell {
             self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
         let out = out?;
+        if base == "pcb.route.unroute" {
+            pcb::placing::ask_about_locked_unroute(self, &params, &out);
+        }
         self.after_edit(base, &out);
         self.after_run(id);
         if matches!(base, "library.element.open" | "library.element.new") {
@@ -2177,6 +2210,21 @@ impl Shell {
                 }
             }
             "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
+            "pcb.drag.mode" => {
+                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
+                    self.with_pcb_tool(|t, shell| t.drag_mode(shell, mode));
+                }
+            }
+            // Unwinding hands the selection on to the neighbour, if there is one.
+            "pcb.copper.unwind" => {
+                let objects: Vec<Value> = out["result"]["next"]
+                    .as_str()
+                    .map(|n| vec![json!(n)])
+                    .unwrap_or_default();
+                let _ = self
+                    .engine
+                    .run("selection.set", json!({ "objects": objects }));
+            }
             "pcb.route.width" => {
                 let width = out["width"].as_i64().map(Nm);
                 let step = match out["step"].as_str() {

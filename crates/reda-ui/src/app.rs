@@ -496,7 +496,8 @@ impl App {
             if self.undo_in_settings(&id) {
                 continue;
             }
-            if id == "selection.cycle" {
+            // Tab and Shift+Tab on the board cycle the selection, not the keyboard focus.
+            if id == "selection.cycle" || id == "pcb.selection.widen" {
                 ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
             }
             self.run_held(&id, params);

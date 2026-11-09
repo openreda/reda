@@ -39509,6 +39509,72 @@
     },
     {
       "category": "pcb",
+      "description": "Deletes the one selected Track segment or Via and returns its neighbour to select next, passing through Vias and stopping at a Pad; one that touches several objects returns nothing. With `both` it deletes along the chain both ways, up to Pads and branches.",
+      "icon": "delete",
+      "id": "pcb.copper.unwind",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "both": {
+            "default": false,
+            "description": "Unwinds both ways along the chain, up to Pads and branches (`Mod`+Del); without\nit one step (Backspace).",
+            "type": "boolean"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked copper too; without it locked copper refuses the Command.",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The one Track segment or Via to unwind from (the selection, as a list).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "CopperUnwindParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What an unwind deletes and what it selects next.",
+        "properties": {
+          "deleted": {
+            "description": "The Tracks and Vias deleted, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "The Track or Via to select next; left out where the unwind reached a Pad, a\nbranch or the end of the copper.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "deleted",
+          "next"
+        ],
+        "title": "Unwound",
+        "type": "object"
+      },
+      "title": "Unwind Copper"
+    },
+    {
+      "category": "pcb",
       "description": "Sets Tracks and Vias to the Net of the Footprint Pads they touch, through the Tracks and Vias joined to them. Copper touching Pads of two Nets stays as it is and is reported; copper touching no Pad keeps its Net. With `nets`, only copper touching Pads of those Nets.",
       "icon": "net",
       "id": "pcb.copper.update_nets",
@@ -56051,7 +56117,7 @@
     },
     {
       "category": "pcb",
-      "description": "Slides a Track segment across itself. A lone neighbour keeps its angle and shortens or lengthens; one squeezed to nothing goes, a collinear segment beyond it merges, and the drag stops there. Where a neighbour can't follow (a Pad, Via, branch or parallel neighbour) a connector is added, 45° with `miter`, else square. With `detach` only the segment moves; without `preserve_angle` it moves freely and its neighbours' ends follow.",
+      "description": "Slides a Track segment across itself. A lone neighbour keeps its angle and shortens or lengthens; one squeezed to nothing goes, a collinear segment beyond it merges, and the drag stops there. Where a neighbour can't follow (a Pad, Via, branch or parallel neighbour) a connector is added, 45° with `miter`, else square. With `detach` only the segment moves; without `preserve_angle` it moves freely and its neighbours' ends follow. In the `stop` obstacle mode it ends at the last clear position.",
       "icon": "drag",
       "id": "pcb.track.drag",
       "kind": "edit",
@@ -56067,6 +56133,26 @@
               {
                 "description": "A number and a unit: nm, um, mm, mil or in.",
                 "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "ObstacleMode": {
+            "description": "How the Tool treats copper in the way. Remembered in `pcb.route.obstacle_mode`.",
+            "oneOf": [
+              {
+                "const": "ignore",
+                "description": "The route goes anywhere, drawn in the violation colour; DRC reports it.",
+                "type": "string"
+              },
+              {
+                "const": "stop",
+                "description": "The proposed path is clipped at its last clear point, which may be off grid.",
+                "type": "string"
+              },
+              {
+                "const": "highlight",
+                "description": "The route goes anywhere, and the copper, Keepouts and edges it breaks the rules\nwith are named so the canvas can highlight them.",
                 "type": "string"
               }
             ]
@@ -56115,6 +56201,11 @@
             "default": true,
             "description": "Include Miters (on): a connector from an end that can't follow runs at 45°; off,\nsquare.",
             "type": "boolean"
+          },
+          "obstacle_mode": {
+            "$ref": "#/$defs/ObstacleMode",
+            "default": "ignore",
+            "description": "What copper of other Nets in the way does: `stop` ends the slide at the last\nclear position (where it breaks no clearance rule it did not already break);\n`ignore` and `highlight` let it through for DRC to report. The Tool passes\n`pcb.route.obstacle_mode`."
           },
           "preserve_angle": {
             "default": true,
