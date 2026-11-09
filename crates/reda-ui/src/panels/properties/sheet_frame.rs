@@ -170,7 +170,7 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
         if let Some(text) = text_field(
             ui,
             "sheet-revision",
-            &tr!("properties-sheet-revision"),
+            &tr!("properties-sheet-own-revision"),
             &Shared::Same(frame.revision.clone()),
             true,
         ) {

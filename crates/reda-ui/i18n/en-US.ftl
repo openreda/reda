@@ -575,6 +575,7 @@ properties-sheet-author = Author
 properties-sheet-company = Company
 properties-sheet-number = Sheet
 properties-sheet-custom = Custom
+properties-sheet-own-revision = Sheet revision
 properties-sheet-width = Width
 properties-sheet-height = Height
 properties-sheet-orientation = Orientation

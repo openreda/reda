@@ -129,6 +129,6 @@ fn a_custom_size_takes_a_width_and_height_and_the_sheet_its_own_numbers() {
 
     type_into(&mut h, "Drawing number", "D-17");
     assert_eq!(frame(&h).drawing_number, "D-17");
-    type_into(&mut h, "Revision", "B");
+    type_into(&mut h, "Sheet revision", "B");
     assert_eq!(frame(&h).revision, "B");
 }
