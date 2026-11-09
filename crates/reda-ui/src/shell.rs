@@ -10,6 +10,7 @@
 //! `.reda/view.json`: see [`view_state`](crate::view_state).
 
 mod checks;
+mod cross_select;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -182,7 +183,7 @@ pub struct Shell {
     masking: std::cell::RefCell<HashMap<Uuid, MaskingKey>>,
     /// What the highlight marks were last worked out from: the selection, the
     /// [`Highlight`], the edit count and the switches.
-    probed: Option<(Selection, Highlight, u64, CrossProbe)>,
+    probed: Option<(Selection, Highlight, u64, CrossProbe, bool)>,
     /// Live hover: the Net under the cursor on the board, and the Net whose outline the
     /// canvas drew last frame (see [`crate::pcb::live_hover`]).
     live_hover: (Option<Uuid>, Option<Uuid>),
@@ -1509,6 +1510,7 @@ impl Shell {
             crate::pcb::silkscreen::after_run(self, base, &params, &out);
         }
         crate::pcb::measure::after_run(self, base, &out);
+        self.after_cross_select_run(base);
         Ok(out)
     }
 
@@ -2482,26 +2484,32 @@ impl Shell {
     /// Hands every canvas the [`Selection`]'s objects and the highlighted ones (see
     /// [`cross_probe::marks`]) to mark, with a new generation when they changed.
     fn sync_selection(&mut self) {
+        self.mirror_selection();
         let switches = self.cross_probe_switches();
+        let dim = self.preferences().cross_select.dim;
         let key = (
             self.selection().clone(),
             self.highlight().clone(),
             self.edits,
             switches,
+            dim,
         );
         if self.probed.as_ref() != Some(&key) {
             let highlighted = match self.engine.project() {
-                Some(project) => cross_probe::marks(project, &key.0, &key.1, switches),
+                Some(project) => cross_probe::marks(project, &key.0, &key.1, switches, dim),
                 None => key.1.objects.clone(),
             };
-            if self.marked.objects[..] != key.0.canvas_ids()[..]
+            // Cross-selected objects draw selected too.
+            let mut objects = key.0.canvas_ids();
+            objects.extend(key.0.mirrored.iter().copied());
+            if self.marked.objects[..] != objects[..]
                 || self.marked.highlighted[..] != highlighted[..]
                 || self.marked.mask != key.1.mask
             {
                 self.generation += 1;
                 self.marked = SelectionHandle {
                     generation: self.generation,
-                    objects: Arc::from(key.0.canvas_ids()),
+                    objects: Arc::from(objects),
                     highlighted: Arc::from(highlighted),
                     mask: key.1.mask,
                 };

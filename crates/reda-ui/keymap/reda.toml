@@ -1060,6 +1060,16 @@ key = "Mod+A"
 command = "selection.set"
 params = { objects = "$selectable" }
 
+# Cross-select: Mod+Shift+X switches it, Mod+Shift+R its Reposition Preference.
+
+[[bind]]
+key = "Mod+Shift+X"
+command = "view.cross_select.toggle"
+
+[[bind]]
+key = "Mod+Shift+R"
+command = "view.cross_select.reposition.toggle"
+
 # Cross-probe: Mod+Shift+C finds the selection on the other side.
 
 [[bind]]

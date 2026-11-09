@@ -75,7 +75,8 @@
       "items": [
         { "id": "context.highlight_net", "command": "view.highlight.net_of", "params": { "objects": "$selection", "at": "$cursor" }, "title": "context-highlight-net" },
         { "id": "context.clear_highlight", "command": "view.highlight.clear" },
-        { "id": "context.cross_probe", "command": "view.cross_probe", "params": { "objects": "$selection" }, "title": "context-cross-probe" }
+        { "id": "context.cross_probe", "command": "view.cross_probe", "params": { "objects": "$selection" }, "title": "context-cross-probe" },
+        { "id": "context.cross_probe_jump", "command": "view.cross_probe", "params": { "objects": "$selection", "jump": true }, "title": "context-cross-probe-jump" }
       ]
     },
     {

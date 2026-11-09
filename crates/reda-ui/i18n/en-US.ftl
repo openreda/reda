@@ -115,6 +115,7 @@ tab-menu-new-window = New Window
 tab-menu-split-right = Split Right
 tab-menu-split-down = Split Down
 tab-menu-close = Close
+tab-menu-select-footprints = Select Footprints of This Sheet
 tab-menu-collapse-dock = Collapse Dock
 tab-menu-not-in-dock = This tab is not in a Dock.
 
@@ -226,6 +227,7 @@ context-select-all-on-layer = All on Layer
 context-align = Align
 context-highlight-net = Highlight Net
 context-cross-probe = Cross-probe
+context-cross-probe-jump = Cross-probe and Jump
 context-applicable-rules = Applicable rules
 context-place = Place
 context-properties = Properties

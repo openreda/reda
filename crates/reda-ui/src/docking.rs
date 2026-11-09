@@ -895,6 +895,13 @@ impl Cx<'_, '_> {
                 }
             }
         });
+        // A sheet's tab selects its Components' Footprints on the board.
+        if let TabKey::Document(sheet) = tab
+            && (self.shell.engine().project()).is_some_and(|p| p.schematic_sheet(*sheet).is_some())
+            && self.item(ui, tr!("tab-menu-select-footprints"), None)
+        {
+            self.run("selection.footprints_of_sheet", json!({"document": sheet}));
+        }
         if self.item(ui, tr!("tab-menu-close"), None) {
             self.run("layout.tab.close", json!({"tab": param}));
         }
