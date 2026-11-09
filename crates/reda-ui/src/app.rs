@@ -32,6 +32,7 @@ use crate::preferences_dialog::{PageId, PreferencesDialog};
 use crate::projects_panel::{self, ProjectsAction};
 use crate::recovery_dialog::{self, CrashAction, RecoveryAction};
 use crate::schematic_dialogs::{self, DialogKind, SchematicDialog};
+use crate::settings::FileRequest;
 use crate::settings::windows::{Request as SettingsRequest, SettingsWindows};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
@@ -316,8 +317,8 @@ impl App {
             ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Minimized(false));
             ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Focus);
         }
-        if self.shell.take_back_to_board_setup() {
-            self.raise = Some(SettingsWindow::BoardSetup);
+        if let Some(window) = self.shell.take_back() {
+            self.raise = Some(window);
         }
         self.settings_requests(&ctx);
         if let Some(dialog) = self.settings.dialog_mut(SettingsWindow::OutputJob) {
@@ -530,7 +531,7 @@ impl App {
             && self.settings.step_back(window)
     }
 
-    /// While the board is shown for Board Setup the canvas is view-only: keys that edit
+    /// While the board or a sheet is shown for a settings window the canvas is view-only: keys that edit
     /// or pick a Tool do nothing.
     fn blocked_while_shown(&self, id: &str) -> bool {
         if self.shell.shown_on_board().is_none() {
@@ -618,8 +619,12 @@ impl App {
                     self.files.start(ctx, Pick::SettingsFolder(window));
                 }
                 SettingsRequest::PickFile(window, request) => {
+                    let extension = match request {
+                        FileRequest::ExportChangeList => "changes.html",
+                        _ => "redarules",
+                    };
                     let name = (self.shell.engine().project())
-                        .map(|p| format!("{}.redarules", p.props().name))
+                        .map(|p| format!("{}.{extension}", p.props().name))
                         .unwrap_or_default();
                     self.files
                         .start_save(ctx, Pick::SettingsFile(window, request), name);
