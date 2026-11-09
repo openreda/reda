@@ -36,6 +36,8 @@ pub struct SelectionHandle {
     /// Cross-probed or Net-highlighted objects: marked highlighted, and everything else
     /// on a canvas that shows any of them dims.
     pub highlighted: Arc<[Uuid]>,
+    /// Everything not highlighted is masked (greyed, not pickable) rather than dimmed.
+    pub mask: bool,
 }
 
 impl Default for SelectionHandle {
@@ -44,6 +46,7 @@ impl Default for SelectionHandle {
             generation: 0,
             objects: Arc::from([]),
             highlighted: Arc::from([]),
+            mask: false,
         }
     }
 }
@@ -267,6 +270,9 @@ impl CanvasResources {
             // A Scene with no marks needs no write for no marks.
             if gpu.selection.is_some() || !unmarked {
                 let mut highlight = Highlight::new();
+                if frame.selection.mask {
+                    highlight.mask_rest();
+                }
                 highlight.mark_all(
                     frame.selection.highlighted.iter().copied(),
                     Flags::HIGHLIGHTED,

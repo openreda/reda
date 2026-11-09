@@ -36,6 +36,7 @@ fn item(object: u128, color: SchematicColor, primitive: Primitive) -> Item {
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(color),
         primitive,
+        look: Default::default(),
     }
 }
 

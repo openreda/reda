@@ -125,7 +125,9 @@ pub fn pickable(shell: &Shell, document: Uuid, object: Uuid) -> bool {
 /// [`pickable`] for a Scene Item. With `protect` false, locked objects count too, as an
 /// explicit pick list or `Mod`+A offers them.
 pub fn item_pickable(shell: &Shell, document: Uuid, item: &Item, protect: bool) -> bool {
+    let owner = item.child.as_ref().map(|c| c.owner());
     item_allowed(shell, document, item)
+        && !shell.is_masked(document, item.object, owner)
         && !(protect
             && protects_locks(shell)
             && child_locked(shell, document, item.object, item.child.as_ref()))

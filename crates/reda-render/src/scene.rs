@@ -47,6 +47,28 @@ pub struct Item {
     pub layer: SceneLayer,
     pub color: ColorKey,
     pub primitive: Primitive,
+    /// How the item is drawn beyond its colour: plain by default.
+    pub look: Look,
+}
+
+/// How an item is drawn beyond its shape and colour, for view modes such as per-kind
+/// transparency and the Net colour pattern. The default is plain, opaque ink.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Look {
+    /// 0 (opaque) to 100 (invisible) percent.
+    pub transparency: u8,
+    /// Drawn only in alternate screen cells, so the ink under it shows through: the
+    /// checkered Net colour pattern.
+    pub checker: bool,
+    /// Hidden while this length is under the canvas's minimum label size on screen: Net
+    /// colour that gives way to the Layer colour when zoomed out.
+    pub zoom_out: Option<Nm>,
+}
+
+impl Look {
+    pub fn is_plain(&self) -> bool {
+        *self == Look::default()
+    }
 }
 
 /// A canvas target inside a placed Component or Footprint. The owner remains the
@@ -89,6 +111,9 @@ pub enum SceneLayer {
     Board(Uuid),
     /// Drilled holes (and the numbers of Pads with a hole), drawn over every PCB Layer.
     Drill,
+    /// View-only notes derived from the Project (the sheet-name labels over Footprint
+    /// clusters), drawn over every Layer and the holes.
+    Annotation,
     /// The Ratsnest's lines, drawn over everything while the Ratsnest is visible.
     Ratsnest,
 }
@@ -113,6 +138,9 @@ pub enum Primitive {
     /// The annulus between `inner` and `outer` radius about `center`. `inner == 0` is a
     /// filled disc (Junctions); a circle outline `w` wide is `r ± w/2` (Vias, Pads).
     Ring { center: Point, outer: Nm, inner: Nm },
+    /// A line one pixel wide at every zoom, so it can't be mistaken for copper (the
+    /// Ratsnest). Writers without a screen draw their thinnest line.
+    Hairline { a: Point, b: Point },
     /// Filled triangles (polygons, Zone fills).
     Triangles(Mesh),
     /// A run of text, already laid out in Document coordinates.
@@ -214,6 +242,10 @@ impl Primitive {
                 }
             }
             Primitive::Ring { center, outer, .. } => b.add_padded(*center, *outer),
+            Primitive::Hairline { a, b: end } => {
+                b.add(*a);
+                b.add(*end);
+            }
             Primitive::Triangles(mesh) => mesh.points.iter().for_each(|p| b.add(*p)),
             Primitive::Glyphs(run) => {
                 let r = Nm(run.stroke_width.0 / 2);
@@ -275,6 +307,7 @@ impl Scene {
             layer,
             color,
             primitive,
+            look: Look::default(),
         });
     }
 }

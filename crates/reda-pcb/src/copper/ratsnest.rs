@@ -25,26 +25,52 @@ pub struct RatsnestLine {
     pub to_item: Item,
 }
 
+/// Where a Ratsnest line may start on a partly routed island.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RatsnestEnds {
+    /// Smart Track Ends (the default): at any copper, Track ends included, so a partly
+    /// routed connection's line starts where its Track stops.
+    #[default]
+    SmartTrackEnds,
+    /// At the island's Pads and Vias; an island of bare Tracks still uses their ends.
+    Pads,
+}
+
 impl Copper {
-    /// The Ratsnest of every Net, Nets in UUID order, each Net's lines in the order the
-    /// spanning tree takes them.
+    /// The Ratsnest of every Net under Smart Track Ends, Nets in UUID order, each Net's
+    /// lines in the order the spanning tree takes them.
     pub fn ratsnest(&self) -> Vec<RatsnestLine> {
+        self.ratsnest_with(RatsnestEnds::SmartTrackEnds)
+    }
+
+    /// The Ratsnest of every Net, starting lines as `ends` says.
+    pub fn ratsnest_with(&self, ends: RatsnestEnds) -> Vec<RatsnestLine> {
         self.nets()
             .into_iter()
-            .flat_map(|net| self.net_ratsnest(net))
+            .flat_map(|net| self.net_ratsnest_with(net, ends))
             .collect()
     }
 
-    /// The Ratsnest of one Net: one line fewer than it has islands.
+    /// The Ratsnest of one Net under Smart Track Ends: one line fewer than it has islands.
     pub fn net_ratsnest(&self, net: Uuid) -> Vec<RatsnestLine> {
+        self.net_ratsnest_with(net, RatsnestEnds::SmartTrackEnds)
+    }
+
+    /// The Ratsnest of one Net, starting lines as `ends` says.
+    pub fn net_ratsnest_with(&self, net: Uuid, ends: RatsnestEnds) -> Vec<RatsnestLine> {
         let islands: Vec<Vec<(Point, Item)>> = self
             .islands(net)
             .into_iter()
             .map(|island| {
-                island
+                let mut anchors: Vec<(Point, Item)> = island
                     .into_iter()
                     .flat_map(|item| self.info[&item].anchors.iter().map(move |p| (*p, item)))
-                    .collect()
+                    .collect();
+                let bare = |(_, item): &(Point, Item)| matches!(item, Item::Track { .. });
+                if ends == RatsnestEnds::Pads && anchors.iter().any(|a| !bare(a)) {
+                    anchors.retain(|a| !bare(a));
+                }
+                anchors
             })
             .collect();
         let n = islands.len();
@@ -179,6 +205,9 @@ pub struct RatsnestVisibility {
     pub hidden: bool,
     /// Nets whose lines are hidden.
     pub hidden_nets: BTreeSet<Uuid>,
+    /// Footprints whose lines are hidden: every line ending on one of their Pads.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub hidden_footprints: BTreeSet<Uuid>,
 }
 
 impl RatsnestVisibility {

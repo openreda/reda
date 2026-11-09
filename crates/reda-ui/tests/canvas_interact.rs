@@ -32,6 +32,7 @@ fn push(scene: &mut Scene, object: Uuid, primitive: Primitive) {
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(SchematicColor::Wire),
         primitive,
+        look: Default::default(),
     });
 }
 

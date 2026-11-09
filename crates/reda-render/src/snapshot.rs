@@ -31,11 +31,13 @@ impl Scene {
                 SceneLayer::Schematic => "sch".to_owned(),
                 SceneLayer::Board(uuid) => format!("layer:{uuid}"),
                 SceneLayer::Drill => "drill".to_owned(),
+                SceneLayer::Annotation => "annotation".to_owned(),
                 SceneLayer::Ratsnest => "ratsnest".to_owned(),
             };
-            let color = item.color.name();
+            let color = item.color.label();
             let _ = write!(out, "{} {layer} {color} ", item.object);
             primitive(&mut out, &item.primitive);
+            look(&mut out, &item.look);
             out.push('\n');
         }
         out
@@ -83,6 +85,7 @@ fn primitive(out: &mut String, p: &Primitive) {
             mm(*outer),
             mm(*inner)
         ),
+        Primitive::Hairline { a, b } => write!(out, "hairline {} {} px=1", pt(*a), pt(*b)),
         Primitive::Triangles(mesh) => {
             let _ = write!(out, "triangles n={}", mesh.triangle_count());
             bounds(out, p);
@@ -125,6 +128,18 @@ fn primitive(out: &mut String, p: &Primitive) {
             Ok(())
         }
     };
+}
+
+fn look(out: &mut String, look: &crate::scene::Look) {
+    if look.transparency != 0 {
+        let _ = write!(out, " transparency={}%", look.transparency);
+    }
+    if look.checker {
+        out.push_str(" checker");
+    }
+    if let Some(len) = look.zoom_out {
+        let _ = write!(out, " zoom_out={}", mm(len));
+    }
 }
 
 fn bounds(out: &mut String, p: &Primitive) {

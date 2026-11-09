@@ -21,11 +21,14 @@ pub struct Highlight {
     pub objects: Vec<Uuid>,
     /// The name of the highlighted Net, if a Net is what is highlighted.
     pub net: Option<String>,
+    /// Everything else is masked (greyed, and can't be hit) rather than dimmed.
+    pub mask: bool,
 }
 
 /// Adds `view.highlight` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(SetHighlight);
+    registry.add(ClearHighlight);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -38,6 +41,9 @@ pub struct HighlightParams {
     /// name it then only labels).
     #[serde(default)]
     objects: Vec<Uuid>,
+    /// Mask everything else (greyed, and skipped by hit-testing) instead of dimming it.
+    #[serde(default)]
+    mask: bool,
 }
 
 /// How many objects are now highlighted.
@@ -53,8 +59,9 @@ impl Command for SetHighlight {
         id: "view.highlight",
         title: "Highlight Net",
         description: "Highlights a schematic Net by name on every sheet, or the given \
-                      objects, dimming everything else on every canvas. With no params it \
-                      clears the highlight. It is view state: not undoable, never saved.",
+                      objects, dimming everything else on every canvas (or, with `mask`, \
+                      masking it: greyed and not pickable). With no params it clears the \
+                      highlight. It is view state: not undoable, never saved.",
         category: "view",
         icon: "net",
         kind: Kind::View,
@@ -92,9 +99,35 @@ impl Command for SetHighlight {
         objects.dedup();
         let count = objects.len();
         *cx.view::<Highlight>()? = Highlight {
+            mask: p.mask && !objects.is_empty(),
             objects,
             net: p.net,
         };
         Ok(HighlightResult { count })
+    }
+}
+
+struct ClearHighlight;
+
+impl Command for ClearHighlight {
+    const META: Meta = Meta {
+        id: "view.highlight.clear",
+        title: "Clear Highlight",
+        description: "Clears the highlight, dimming and masking on every canvas, and any \
+                      measurements shown. It never clears the selection.",
+        category: "view",
+        icon: "close",
+        kind: Kind::View,
+    };
+    type Params = reda_engine::command::NoParams;
+    type Output = HighlightResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        _: reda_engine::command::NoParams,
+    ) -> Result<HighlightResult, CommandError> {
+        *cx.view::<Highlight>()? = Highlight::default();
+        Ok(HighlightResult { count: 0 })
     }
 }

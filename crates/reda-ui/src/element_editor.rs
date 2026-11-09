@@ -123,6 +123,7 @@ pub fn scene(
                 inactive: InactiveLayers::Normal,
                 from_bottom: false,
                 ratsnest: false,
+                pinned: Vec::new(),
             };
             let layers = board_composites(&drawn.layers, &view).into();
             Some((drawn.scene, Some(layers)))

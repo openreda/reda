@@ -13,11 +13,25 @@ use serde_json::{Value, json};
 
 use crate::grid::pcb_presets;
 use crate::pcb::view::{VIEW_TYPES, color_key, format_length, to_hex};
+use crate::pcb::view_commands::LAYER_SETS;
 use crate::shell::Shell;
 use crate::{theme, tr};
 
 /// A Command for the window to run.
 pub type Invocation = (String, Value);
+
+/// A built-in Layer set's name.
+fn set_title(set: &str) -> String {
+    match set {
+        "all" => tr!("layers-set-all"),
+        "signal" => tr!("layers-set-signal"),
+        "non_signal" => tr!("layers-set-non-signal"),
+        "mechanical" => tr!("layers-set-mechanical"),
+        "top" => tr!("layers-set-top"),
+        "bottom" => tr!("layers-set-bottom"),
+        _ => tr!("layers-set-fab"),
+    }
+}
 
 /// Draws the panel into `ui`.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
@@ -60,6 +74,24 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         {
             run("pcb.view.from_bottom", json!({ "from_bottom": bottom }));
         }
+        let mut set = None;
+        ComboBox::from_label(tr!("layers-set"))
+            .selected_text("")
+            .show_ui(ui, |ui| {
+                for name in LAYER_SETS {
+                    if ui.selectable_label(false, set_title(name)).clicked() {
+                        set = Some(name.to_owned());
+                    }
+                }
+                for saved in &shell.preferences().pcb.view.layer_sets {
+                    if ui.selectable_label(false, saved.name.as_str()).clicked() {
+                        set = Some(saved.name.clone());
+                    }
+                }
+            });
+        if let Some(set) = set {
+            run("pcb.view.layer_set.apply", json!({ "set": set }));
+        }
         ui.separator();
 
         let canvas_theme = theme::canvas_theme(ui.ctx().theme());
@@ -67,15 +99,35 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         for layer in &pcb.layers().layers {
             ui.horizontal(|ui| {
                 let mut visible = !layers.hidden.contains(&layer.uuid);
+                let pinned = layers.pinned.contains(&layer.uuid);
                 let name = layer_name(pcb, layer);
-                let check = ui.checkbox(&mut visible, "");
-                let label = tr!("layers-show", layer = name.as_str());
+                let check = ui
+                    .checkbox(&mut visible, "")
+                    .on_hover_text(tr!("layers-pin-hint"));
+                let label = if pinned {
+                    tr!("layers-show-pinned", layer = name.as_str())
+                } else {
+                    tr!("layers-show", layer = name.as_str())
+                };
                 check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
+                if pinned {
+                    // A pin mark beside the eye: a small filled square.
+                    let r = check.rect;
+                    let at = egui::pos2(r.right() - 2.0, r.top() + 2.0);
+                    let mark = egui::Rect::from_center_size(at, egui::vec2(4.0, 4.0));
+                    ui.painter()
+                        .rect_filled(mark, 1.0, ui.visuals().selection.bg_fill);
+                }
                 if check.changed() {
-                    run(
-                        "pcb.layer.show",
-                        json!({"layer": layer.uuid, "visible": visible}),
-                    );
+                    // Mod+click on the eye pins the Layer instead.
+                    if ui.input(|i| i.modifiers.command) {
+                        run("pcb.layer.pin", json!({ "layer": layer.uuid }));
+                    } else {
+                        run(
+                            "pcb.layer.show",
+                            json!({"layer": layer.uuid, "visible": visible}),
+                        );
+                    }
                 }
                 let key = ColorKey::Board(BoardColor::layer(layer.kind, layer.side));
                 if let Some(color) =
@@ -99,6 +151,30 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     "pcb.view.object_type.show",
                     json!({"type": kind, "visible": visible}),
                 );
+            }
+        }
+        ui.separator();
+
+        let mut net_colors = layers.net_colors;
+        if ui
+            .checkbox(&mut net_colors, tr!("layers-net-colors"))
+            .changed()
+        {
+            run("pcb.view.net_colors", json!({ "on": net_colors }));
+        }
+        let labels = layers.labels;
+        for (key, value, param) in [
+            (tr!("layers-pad-nets"), labels.pad_nets, "pad_nets"),
+            (tr!("layers-via-nets"), labels.via_nets, "via_nets"),
+            (
+                tr!("layers-repeated-net-names"),
+                labels.repeated_net_names,
+                "repeated_net_names",
+            ),
+        ] {
+            let mut on = value;
+            if ui.checkbox(&mut on, key).changed() {
+                run("pcb.view.labels", json!({ param: on }));
             }
         }
         ui.separator();
