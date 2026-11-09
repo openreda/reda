@@ -177,6 +177,7 @@ pub(crate) fn pcb_objects_of(pcb: &PcbDocument, net: Uuid) -> Vec<Uuid> {
 
 /// Adds the view Commands that switch the cross-probes. The Shell does this.
 pub fn register_all(registry: &mut Registry) {
+    registry.add(CrossProbeObjects);
     registry.add(SelectionToggle);
     registry.add(NetsToggle);
 }
@@ -247,5 +248,99 @@ impl Command for NetsToggle {
 
     fn run(&self, cx: &mut Context<'_>, p: ToggleParams) -> Result<ToggleResult, CommandError> {
         toggle(cx, p, true)
+    }
+}
+
+/// What stands for `objects` on the other side: a Unit's Footprint, a Footprint's Units,
+/// a schematic Net object's PCB Net copper and a PCB Net's schematic objects; sorted.
+pub fn counterparts(project: &Project, objects: &[Uuid]) -> Vec<Uuid> {
+    let selection = Selection {
+        objects: objects.to_vec(),
+        ..Selection::default()
+    };
+    let mut nets: Vec<Uuid> = Vec::new();
+    if let Some(pcb) = project.pcb() {
+        for o in objects {
+            let net = pcb
+                .track(*o)
+                .and_then(|t| t.net)
+                .or_else(|| pcb.via(*o).and_then(|v| v.net))
+                .or_else(|| pcb.zone(*o).and_then(|z| z.net))
+                .or_else(|| pcb.free_pad(*o).and_then(|f| f.net));
+            nets.extend(net);
+        }
+    }
+    let highlight = Highlight {
+        objects: nets,
+        ..Highlight::default()
+    };
+    let mut out = marks(project, &selection, &highlight, CrossProbe::default());
+    out.retain(|o| !highlight.objects.contains(o) && !objects.contains(o));
+    out
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CrossProbeParams {
+    /// The objects to find on the other side.
+    objects: Vec<Uuid>,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct CrossProbeResult {
+    /// The objects found on the other side, now highlighted.
+    pub objects: Vec<Uuid>,
+}
+
+/// `view.cross_probe`: highlights what stands for the objects on the other side
+/// (schematic or board) and zooms that side's canvas to it.
+struct CrossProbeObjects;
+
+impl Command for CrossProbeObjects {
+    const META: Meta = Meta {
+        id: "view.cross_probe",
+        title: "Cross-Probe",
+        description: "Finds the given objects on the other side: a Unit's Footprint, a \
+                      Footprint's Units, a Net's copper or schematic objects. Highlights them \
+                      and zooms the canvas showing them. View state only.",
+        category: "view",
+        icon: "net",
+        kind: Kind::View,
+    };
+    type Params = CrossProbeParams;
+    type Output = CrossProbeResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: CrossProbeParams,
+    ) -> Result<CrossProbeResult, CommandError> {
+        let project = cx.project()?;
+        let found = counterparts(project, &p.objects);
+        let Some(first) = found.first() else {
+            return Err(CommandError::rejected(
+                "nothing stands for these objects on the other side",
+            ));
+        };
+        let scope = |o: &Uuid| project.object(*o).map(|o| o.scope());
+        let zoom = match scope(first) {
+            Some(reda_engine::model::Scope::Document(document)) => {
+                let shown: Vec<Uuid> = found
+                    .iter()
+                    .copied()
+                    .filter(|o| scope(o) == Some(reda_engine::model::Scope::Document(document)))
+                    .collect();
+                Some((document, shown))
+            }
+            _ => None,
+        };
+        *cx.view::<Highlight>()? = Highlight {
+            objects: found.clone(),
+            ..Highlight::default()
+        };
+        if let Some((document, shown)) = zoom {
+            crate::bars::request(cx, crate::bars::Request::ZoomTo(document, shown))?;
+        }
+        Ok(CrossProbeResult { objects: found })
     }
 }

@@ -18,6 +18,7 @@ pub use gpu::{
     CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, PaletteHandle, SceneHandle,
     SelectionHandle, paint,
 };
+pub(crate) use widget::MARKER_RADIUS;
 pub use widget::{
     CanvasInputs, Overlay, RubberBand, canvas, canvas_id, canvas_input, canvas_paint,
 };

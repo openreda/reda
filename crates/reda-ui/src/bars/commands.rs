@@ -57,6 +57,19 @@ pub enum Request {
     BoardSetup,
     /// Show Preferences on the Keyboard Shortcuts page.
     KeyboardShortcuts,
+    /// Scale the user interface by this factor, one of the UI scale steps.
+    UiScale(f64),
+}
+
+/// The UI scale in force, in the engine's view state: the step `view.ui_scale.step`
+/// moves from. The Shell keeps it equal to the `general.ui_scale` Preference.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiScale(pub f64);
+
+impl Default for UiScale {
+    fn default() -> UiScale {
+        UiScale(1.0)
+    }
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -82,6 +95,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(crate::navigation::JumpTo);
     registry.add(SetTheme);
     registry.add(OpenSettings);
+    registry.add(SetUiScale);
+    registry.add(StepUiScale);
 }
 
 /// Adds the Commands to `engine` and gives it a request queue. The Shell does this.
@@ -90,6 +105,7 @@ pub fn install(engine: &mut Engine) {
         engine.register(register_all);
     }
     engine.view_mut().set(Requests::default());
+    engine.view_mut().set(UiScale::default());
 }
 
 /// Takes the requests queued since the last call, oldest first.
@@ -451,5 +467,131 @@ impl Command for SetTheme {
         }
         request(cx, Request::Theme(p.theme))?;
         Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SetUiScaleParams {
+    /// The factor: 0.75, 0.85, 1, 1.15, 1.25, 1.5 or 2.
+    scale: f64,
+}
+
+/// The result of a UI scale Command: the scale now in force.
+#[derive(Serialize, JsonSchema)]
+pub struct UiScaleResult {
+    pub scale: f64,
+}
+
+/// Puts `scale` in force: the Preference (when there is a per-user folder), the view
+/// state and the window.
+fn apply_ui_scale(cx: &mut Context<'_>, scale: f64) -> Result<UiScaleResult, CommandError> {
+    if let Some(dirs) = cx.user_dirs() {
+        preferences::set(dirs, "general.ui_scale", json!(scale))?;
+    }
+    cx.view::<UiScale>()?.0 = scale;
+    request(cx, Request::UiScale(scale))?;
+    Ok(UiScaleResult { scale })
+}
+
+struct SetUiScale;
+
+impl Command for SetUiScale {
+    const META: Meta = Meta {
+        id: "view.ui_scale.set",
+        title: "UI Scale",
+        description: "Scales the whole user interface to one of its steps, 75 to 200 %, and \
+                      keeps it as the general.ui_scale Preference.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = SetUiScaleParams;
+    type Output = UiScaleResult;
+
+    fn presets(&self) -> Vec<Preset> {
+        preferences::UI_SCALES
+            .into_iter()
+            .map(|scale| {
+                let percent = (scale * 100.0).round();
+                Preset::new(
+                    format!("{percent}"),
+                    format!("UI Scale: {percent} %"),
+                    "zoom_fit",
+                    json!({ "scale": scale }),
+                )
+            })
+            .collect()
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: SetUiScaleParams,
+    ) -> Result<UiScaleResult, CommandError> {
+        if !preferences::UI_SCALES
+            .iter()
+            .any(|s| (s - p.scale).abs() < 1e-9)
+        {
+            return Err(CommandError::invalid_params(
+                "/scale",
+                "the UI scale is one of 0.75, 0.85, 1, 1.15, 1.25, 1.5 and 2",
+            ));
+        }
+        apply_ui_scale(cx, p.scale)
+    }
+}
+
+/// Which way `view.ui_scale.step` goes.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum StepDirection {
+    /// The next step up.
+    Up,
+    /// The next step down.
+    Down,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StepUiScaleParams {
+    direction: StepDirection,
+}
+
+struct StepUiScale;
+
+impl Command for StepUiScale {
+    const META: Meta = Meta {
+        id: "view.ui_scale.step",
+        title: "Step UI Scale",
+        description: "Scales the user interface one step up or down (75 to 200 %), staying at \
+                      the ends, and keeps it as the general.ui_scale Preference.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = StepUiScaleParams;
+    type Output = UiScaleResult;
+
+    fn presets(&self) -> Vec<Preset> {
+        vec![
+            Preset::new("up", "Larger UI", "zoom_fit", json!({"direction": "up"})),
+            Preset::new(
+                "down",
+                "Smaller UI",
+                "zoom_fit",
+                json!({"direction": "down"}),
+            ),
+        ]
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: StepUiScaleParams,
+    ) -> Result<UiScaleResult, CommandError> {
+        let now = cx.view::<UiScale>()?.0;
+        let next = preferences::step_ui_scale(now, matches!(p.direction, StepDirection::Up));
+        apply_ui_scale(cx, next)
     }
 }

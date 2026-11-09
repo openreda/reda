@@ -1,0 +1,99 @@
+{
+  "sections": [
+    {
+      "id": "violation",
+      "items": [
+        { "id": "context.waive", "command": "drc.waive", "params": { "violations": ["$violation"] }, "title": "context-waive" },
+        {
+          "id": "context.set_severity",
+          "title": "context-set-severity",
+          "items": [
+            { "id": "context.severity.error", "command": "drc.set_severity", "params": { "check": "$check", "severity": "error" }, "title": "severity-error" },
+            { "id": "context.severity.warning", "command": "drc.set_severity", "params": { "check": "$check", "severity": "warning" }, "title": "severity-warning" },
+            { "id": "context.severity.off", "command": "drc.set_severity", "params": { "check": "$check", "severity": "off" }, "title": "severity-off" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "object",
+      "items": [
+        { "id": "context.object.rotate", "command": "tool.rotate", "title": "pcb-rotate" },
+        { "id": "context.object.flip", "command": "tool.flip", "title": "pcb-flip" },
+        { "id": "context.object.lock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": true }, "title": "pcb-lock" },
+        { "id": "context.object.unlock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": false }, "title": "pcb-unlock" }
+      ],
+      "kinds": {
+        "pcb_graphic": [
+          { "id": "context.object.outline_from_selection", "command": "pcb.board_outline.add_from_graphics", "params": { "graphics": "$selection" }, "title": "pcb-outline-from-selection" }
+        ]
+      }
+    },
+    {
+      "id": "document",
+      "items": [
+        { "id": "context.document_properties", "command": "panel.show:properties", "title": "context-document-properties" }
+      ]
+    },
+    {
+      "id": "edit",
+      "items": [
+        { "id": "context.copy", "command": "pcb.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "context.paste", "command": "pcb.paste", "params": { "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
+        { "id": "context.delete", "command": "pcb.copper.delete", "params": { "objects": "$selection" }, "title": "menu-edit-delete" }
+      ]
+    },
+    {
+      "id": "select",
+      "title": "context-select",
+      "items": [
+        { "id": "context.select.similar", "command": "selection.similar", "params": { "objects": "$selection" }, "title": "context-select-similar" },
+        { "id": "context.select.connected", "command": "pcb.selection.connected", "title": "context-select-connected" },
+        { "id": "context.select.all_on_layer", "command": "pcb.selection.on_layer", "params": { "layer": "$active_layer" }, "title": "context-select-all-on-layer" }
+      ]
+    },
+    {
+      "id": "align",
+      "title": "context-align",
+      "items": [
+        { "id": "context.align.left", "command": "pcb.align", "params": { "objects": "$selection", "to": "left" } },
+        { "id": "context.align.right", "command": "pcb.align", "params": { "objects": "$selection", "to": "right" } },
+        { "id": "context.align.top", "command": "pcb.align", "params": { "objects": "$selection", "to": "top" } },
+        { "id": "context.align.bottom", "command": "pcb.align", "params": { "objects": "$selection", "to": "bottom" } },
+        { "id": "context.align.center_x", "command": "pcb.align", "params": { "objects": "$selection", "to": "center_x" } },
+        { "id": "context.align.center_y", "command": "pcb.align", "params": { "objects": "$selection", "to": "center_y" } }
+      ]
+    },
+    {
+      "id": "net",
+      "items": [
+        { "id": "context.highlight_net", "command": "view.highlight.net_of", "params": { "objects": "$selection" }, "title": "context-highlight-net" },
+        { "id": "context.clear_highlight", "command": "view.highlight.clear" },
+        { "id": "context.cross_probe", "command": "view.cross_probe", "params": { "objects": "$selection" }, "title": "context-cross-probe" },
+        { "id": "context.applicable_rules", "command": "pcb.rules.applicable", "params": { "objects": "$selection" }, "title": "context-applicable-rules" }
+      ]
+    },
+    {
+      "id": "place",
+      "title": "context-place",
+      "items": [
+        { "id": "context.place.route", "command": "tool.activate:route" },
+        { "id": "context.place.via", "command": "tool.activate:via" },
+        { "id": "context.place.zone", "command": "tool.activate:zone" },
+        { "id": "context.place.keepout", "command": "tool.activate:keepout" },
+        "separator",
+        { "id": "context.place.text", "command": "tool.activate:text" },
+        { "id": "context.place.line", "command": "tool.activate:line" },
+        { "id": "context.place.arc", "command": "tool.activate:arc" },
+        { "id": "context.place.rect", "command": "tool.activate:rect" },
+        { "id": "context.place.free_pad", "command": "tool.activate:free_pad" }
+      ]
+    },
+    {
+      "id": "properties",
+      "items": [
+        { "id": "context.properties", "command": "panel.show:properties", "title": "context-properties" }
+      ]
+    }
+  ]
+}

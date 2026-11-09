@@ -43,8 +43,8 @@ pub enum Kind {
 /// One value of a [`Kind::Choice`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Choice {
-    /// The value as the file writes it, such as `follow_os`.
-    pub value: String,
+    /// The value as the file writes it, such as `"follow_os"` or `1.25`.
+    pub value: Value,
     pub label: String,
 }
 
@@ -197,6 +197,17 @@ fn resolve(schema: &Value, node: &Value) -> Value {
 fn kind(schema: &Value, node: &Value, key: &str) -> Kind {
     let node = resolve(schema, node);
     if let Some(values) = node["enum"].as_array() {
+        // A number from a list of steps, such as the UI scale: shown as a percentage.
+        if values.iter().all(Value::is_number) {
+            let steps = values.iter().filter_map(|v| {
+                let percent = (v.as_f64()? * 100.0).round();
+                Some(Choice {
+                    value: v.clone(),
+                    label: format!("{percent} %"),
+                })
+            });
+            return Kind::Choice(steps.collect());
+        }
         let values = values.iter().filter_map(Value::as_str);
         return Kind::Choice(values.map(|v| choice(key, v, None)).collect());
     }
@@ -234,7 +245,7 @@ fn choice(key: &str, value: &str, description: Option<&str>) -> Choice {
         .or_else(|| description.map(|d| sentence(d, value)))
         .unwrap_or_else(|| humanise(value));
     Choice {
-        value: value.to_owned(),
+        value: Value::from(value),
         label,
     }
 }
