@@ -989,11 +989,15 @@ fn snapshot_of_the_board_shown_for_board_setup_with_its_banner() {
         return;
     };
     h.run();
-    h.state_mut().shell_mut().open_project(&file).unwrap();
-    h.state_mut().open_board_setup();
-    h.run();
-    h.get_by_role_and_label(Role::Button, "Show board-wide Clearance on board")
-        .click();
+    // The board as Show on board leaves it, with the settings window (its own OS
+    // window in the app) out of the way.
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let rule = pcb
+        .board_rule(reda_ui::engine::model::RuleKind::Clearance)
+        .uuid;
+    shell.show_on_board(&[reda_ui::show_on_board::Shown::Rule(rule)]);
     h.run();
     h.get_by_label("Back to Board Setup");
     h.snapshot(name);

@@ -11,6 +11,8 @@ use crate::tr;
 
 const THICKNESS_WIDTH: f32 = 90.0;
 const SECTION_WIDTH: f32 = 160.0;
+/// The table's column, which the totals and notes under it wrap to.
+const TABLE_WIDTH: f32 = 340.0;
 
 /// The Stackup page.
 pub fn stackup_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
@@ -18,7 +20,10 @@ pub fn stackup_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraf
         return;
     }
     ui.horizontal_top(|ui| {
-        ui.vertical(|ui| table(ui, cx, board));
+        ui.vertical(|ui| {
+            ui.set_max_width(TABLE_WIDTH);
+            table(ui, cx, board);
+        });
         ui.add_space(24.0);
         ui.vertical(|ui| cross_section(ui, board));
     });
