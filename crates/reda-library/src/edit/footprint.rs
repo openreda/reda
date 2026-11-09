@@ -560,30 +560,50 @@ impl Command for FootprintGraphicEdit {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: FootprintGraphicEditParams) -> Result<(), CommandError> {
-        let shape = p
-            .shape
-            .map(ShapeParam::shape)
-            .transpose()
-            .map_err(invalid("/shape"))?;
-        if let Some(width) = p.width {
-            check_width(width.nm())?;
-        }
+        let patch = GraphicPatch {
+            layer: p.layer,
+            shape: p.shape,
+            width: p.width,
+            fill: p.fill,
+        };
         edit_footprint(cx, p.footprint, |f| {
             let graphic = find_mut(&mut f.graphics, p.graphic, |g| g.uuid, "graphic")?;
-            if let Some(layer) = p.layer {
-                graphic.layer = layer;
-            }
-            if let Some(shape) = shape {
-                graphic.shape = shape;
-            }
-            if let Some(width) = p.width {
-                graphic.width = width.nm();
-            }
-            if let Some(fill) = p.fill {
-                graphic.fill = fill;
-            }
-            check_closed(graphic.layer, &graphic.shape)
+            *graphic = patch.apply(graphic.clone())?;
+            Ok(())
         })
+    }
+}
+
+/// Changes to a Footprint graphic, as `library.footprint.graphic.edit` and
+/// `pcb.footprint.graphic.edit` take them: `None` keeps a value.
+#[derive(Default)]
+pub struct GraphicPatch {
+    pub layer: Option<FootprintLayer>,
+    /// Replaces the whole shape.
+    pub shape: Option<ShapeParam>,
+    pub width: Option<Length>,
+    pub fill: Option<bool>,
+}
+
+impl GraphicPatch {
+    /// `graphic` with these changes, checked: a stroke width can't be negative, and a
+    /// Courtyard Layer takes only closed shapes.
+    pub fn apply(self, mut graphic: FootprintGraphic) -> Result<FootprintGraphic, CommandError> {
+        if let Some(shape) = self.shape {
+            graphic.shape = shape.shape().map_err(invalid("/shape"))?;
+        }
+        if let Some(width) = self.width {
+            check_width(width.nm())?;
+            graphic.width = width.nm();
+        }
+        if let Some(layer) = self.layer {
+            graphic.layer = layer;
+        }
+        if let Some(fill) = self.fill {
+            graphic.fill = fill;
+        }
+        check_closed(graphic.layer, &graphic.shape)?;
+        Ok(graphic)
     }
 }
 

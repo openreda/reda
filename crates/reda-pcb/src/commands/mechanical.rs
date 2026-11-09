@@ -187,6 +187,7 @@ impl Command for MechanicalPlace {
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
             side: p.side.unwrap_or(Side::Top),
             locked: false,
+            graphics_unlocked: false,
             designator: designator.clone(),
             fields,
             component_type: copy.part.component_type,
