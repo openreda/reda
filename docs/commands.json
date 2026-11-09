@@ -73249,6 +73249,67 @@
     },
     {
       "category": "schematic",
+      "description": "Clears settings a dialog saved in the Project: the last Re-annotate settings (`reannotate`, so `schematic.reannotate {saved: true}` has none to run) and the Update from Library settings (`library_update`, so the dialog starts from the defaults). One undoable Project edit.",
+      "icon": "undo",
+      "id": "schematic.saved_settings.reset",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "SavedSettings": {
+            "description": "Settings a dialog saves in the Project for its next run.",
+            "oneOf": [
+              {
+                "const": "reannotate",
+                "description": "The last Re-annotate settings applied.",
+                "type": "string"
+              },
+              {
+                "const": "library_update",
+                "description": "The Update from Library settings page 1 saved.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "settings": {
+            "description": "Which saved settings to clear: `reannotate` and/or `library_update`.",
+            "items": {
+              "$ref": "#/$defs/SavedSettings"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "title": "SavedSettingsResetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.saved_settings.reset` cleared.",
+        "properties": {
+          "cleared": {
+            "description": "How many of the given settings were saved before.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cleared"
+        ],
+        "title": "SavedSettingsReset",
+        "type": "object"
+      },
+      "title": "Reset Saved Dialog Settings"
+    },
+    {
+      "category": "schematic",
       "description": "Lists the Units that match a reference Unit on every chosen field (Part, value, Footprint, Designator prefix, Symbol Unit, Component type, Not Fitted or any field by name), on its sheet or across the Project.",
       "icon": "select_similar",
       "id": "schematic.select_similar",
