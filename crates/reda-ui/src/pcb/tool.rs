@@ -22,16 +22,29 @@
 //!   the object's position) by the shared [`crate::snap`] model: to the other objects'
 //!   Hotspots, else to the snap grid.
 //!
+//! - A Footprint move (docs/spec/v0.1/pcb.md#moving-footprints) also snaps across the
+//!   alignment guides to its neighbours' Pad centres and Courtyard edges, stops short of
+//!   `courtyard_clearance` in `avoid`, shows the Courtyards it comes too close to, and
+//!   draws the Ratsnest by `pcb.place.ratsnest_mode` (see [`super::placing`]).
+//! - Reposition Selected brings queued Footprints to the cursor one at a time; with Move
+//!   active a click picks a Footprint up, or on empty space opens Choose Component.
+//!
 //! Points are board nm. The Tool talks to the Shell only through its public API, so the
 //! canvas and the tests drive it the same way.
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
-use reda_engine::pcb::{Copper, PlacementOp, drag, placement_anchor, placement_preview};
+use reda_engine::pcb::place::{self, ObstacleMode, Overlap, RatsnestMode};
+use reda_engine::pcb::{
+    Copper, Item, PlacementOp, drag, placement_anchor, placement_preview,
+    placement_preview_including_locked,
+};
+use reda_engine::render::{BoardColor, ColorKey, Primitive, SceneLayer};
 use serde_json::{Value, json};
 
 use crate::shell::{Shell, ToolPreview};
-use crate::snap::{self, Snapped, Target};
+use crate::snap::{self, Guide, Hit, Snapped, Target};
+use crate::tools::Tool;
 
 /// The Tool's state between events.
 #[derive(Debug, Default)]
@@ -42,6 +55,18 @@ pub struct SelectTool {
     modifiers: egui::Modifiers,
     tolerance: Nm,
     dragged: bool,
+    /// Where the pointer last was on the board.
+    cursor: Option<Point>,
+    /// Reposition Selected: the Footprints queued and the one on the cursor.
+    queue: Option<Queue>,
+    /// The alignment guides the move in flight snapped across.
+    guide_lines: Vec<Guide>,
+}
+
+#[derive(Debug)]
+struct Queue {
+    footprints: Vec<Uuid>,
+    index: usize,
 }
 
 #[derive(Debug, Default)]
@@ -78,9 +103,20 @@ struct Move {
     ops: Vec<PlacementOp>,
     /// What the reference point can snap to: everything but the moved objects.
     targets: Vec<Target>,
-    /// Picked up without a button held (Move Board Shape): the pointer carries it until a
-    /// click puts it down.
+    /// Picked up without a button held (Move Board Shape, Move, the queue): the pointer
+    /// carries it until a click puts it down.
     carried: bool,
+    /// The press that picked a carried move up is still down: its release keeps it.
+    fresh: bool,
+    /// The Footprints among `objects`, which guides, `avoid`, the live overlap and the
+    /// Ratsnest mode work on.
+    footprints: Vec<Uuid>,
+    /// Alignment guides for the reference point.
+    guides: Vec<Guide>,
+    /// Pairs closer than `courtyard_clearance` where the move now stands.
+    overlaps: Vec<Overlap>,
+    /// The outlines of the Footprints in `overlaps`, where they now stand.
+    overlap_outlines: Vec<Vec<Point>>,
 }
 
 impl Move {
@@ -180,6 +216,139 @@ impl SelectTool {
         }
     }
 
+    /// Whether the move in flight carries Footprints.
+    pub fn carries_footprints(&self, _shell: &Shell) -> bool {
+        matches!(&self.state, State::Moving(m) if !m.footprints.is_empty())
+    }
+
+    /// Reposition Selected: the Footprint on the cursor (1-based) and how many are queued.
+    pub fn queue(&self) -> Option<(usize, usize)> {
+        self.queue
+            .as_ref()
+            .map(|q| (q.index + 1, q.footprints.len()))
+    }
+
+    /// The pairs of Footprints closer than `courtyard_clearance` where the move now stands
+    /// (the live overlap), with the outlines to draw in the violation colour.
+    pub fn overlaps(&self) -> (&[Overlap], &[Vec<Point>]) {
+        match &self.state {
+            State::Moving(m) => (&m.overlaps, &m.overlap_outlines),
+            _ => (&[], &[]),
+        }
+    }
+
+    /// The alignment guides the move in flight is snapped across.
+    pub fn guide_lines(&self) -> &[Guide] {
+        &self.guide_lines
+    }
+
+    /// Draws the move in flight anew, after a placement mode changed.
+    pub fn refresh(&mut self, shell: &mut Shell) {
+        if let State::Moving(mut m) = std::mem::take(&mut self.state) {
+            m.guides = guides(shell, &m, None);
+            let to = self.cursor.unwrap_or(m.current + m.offset);
+            self.track(shell, &mut m, to, true);
+            self.state = State::Moving(m);
+        }
+    }
+
+    /// Reposition Selected: queues `footprints` and brings the first to the cursor.
+    pub fn start_queue(&mut self, shell: &mut Shell, footprints: Vec<Uuid>) {
+        self.cancel(shell);
+        self.state = State::Idle;
+        self.queue = Some(Queue {
+            footprints,
+            index: 0,
+        });
+        self.bring(shell);
+    }
+
+    /// Tab during Reposition Selected: leaves the Footprint on the cursor where it was and
+    /// brings the next.
+    pub fn skip(&mut self, shell: &mut Shell) {
+        if self.queue.is_none() {
+            return;
+        }
+        if let State::Moving(m) = std::mem::take(&mut self.state) {
+            shell.redraw(m.document);
+        }
+        self.next_in_queue(shell);
+    }
+
+    fn next_in_queue(&mut self, shell: &mut Shell) {
+        if let Some(q) = &mut self.queue {
+            q.index += 1;
+        }
+        self.bring(shell);
+    }
+
+    /// Carries the queue's current Footprint at the cursor; ends the queue past its last.
+    fn bring(&mut self, shell: &mut Shell) {
+        loop {
+            let Some(q) = &self.queue else {
+                return;
+            };
+            let Some(&footprint) = q.footprints.get(q.index) else {
+                self.queue = None;
+                return;
+            };
+            if self.carry(shell, footprint, false) {
+                return;
+            }
+            if let Some(q) = &mut self.queue {
+                q.index += 1;
+            }
+        }
+    }
+
+    /// Choose Component's buttons: floats `footprint` on the cursor, from where it stands
+    /// (`jump`) or moved to the cursor.
+    pub fn pick_up(&mut self, shell: &mut Shell, footprint: Uuid, jump: bool) {
+        self.cancel(shell);
+        self.state = State::Idle;
+        self.queue = None;
+        if jump {
+            self.cursor = board(shell)
+                .and_then(|(p, _)| p.pcb())
+                .and_then(|pcb| pcb.footprint(footprint))
+                .map(|f| f.at);
+        }
+        self.carry(shell, footprint, false);
+    }
+
+    /// Picks up `footprint` by its origin, carried until a click puts it down, at the
+    /// cursor. Returns whether it is in flight.
+    fn carry(&mut self, shell: &mut Shell, footprint: Uuid, fresh: bool) -> bool {
+        let Some((project, document)) = board(shell) else {
+            return false;
+        };
+        let pcb = project.pcb().expect("a board");
+        let Some(at) = pcb.footprint(footprint).map(|f| f.at) else {
+            return false;
+        };
+        let targets = snap::hotspots::without(snap::hotspots::board(pcb), &[footprint]);
+        let mut m = Move {
+            document,
+            objects: vec![footprint],
+            offset: Point::default(),
+            base: at,
+            current: at,
+            ops: Vec::new(),
+            targets,
+            carried: true,
+            fresh,
+            footprints: vec![footprint],
+            guides: Vec::new(),
+            overlaps: Vec::new(),
+            overlap_outlines: Vec::new(),
+        };
+        m.guides = guides(shell, &m, None);
+        let to = self.cursor.unwrap_or(at);
+        self.track(shell, &mut m, to, true);
+        self.state = State::Moving(m);
+        true
+    }
+
     /// Move Board Shape: picks up the Board Outline (with the selected Board Cutouts) by
     /// the middle of the outline's box, which then follows the pointer until a click puts
     /// it down.
@@ -208,19 +377,24 @@ impl SelectTool {
             ops: Vec::new(),
             targets,
             carried: true,
+            fresh: false,
+            footprints: Vec::new(),
+            guides: Vec::new(),
+            overlaps: Vec::new(),
+            overlap_outlines: Vec::new(),
         });
-        let State::Moving(m) = &self.state else {
+        let State::Moving(m) = &mut self.state else {
             unreachable!("just set");
         };
-        let (document, objects) = (m.document, m.objects.clone());
-        preview(shell, document, &objects, &[]);
+        show(shell, m);
     }
 
     /// The cursor is at `at` with no button down: snaps it for the marker, and moves what
     /// it carries.
     pub fn hover_mut(&mut self, shell: &mut Shell, at: Point) -> Snapped {
+        self.cursor = Some(at);
         if let State::Moving(mut m) = std::mem::take(&mut self.state) {
-            self.track(shell, &mut m, at);
+            self.track(shell, &mut m, at, false);
             self.state = State::Moving(m);
             return self.snap.expect("tracking snaps");
         }
@@ -244,9 +418,18 @@ impl SelectTool {
         self.modifiers = modifiers;
         self.tolerance = tolerance;
         self.dragged = false;
+        self.cursor = Some(at);
         let hit = board(shell).and_then(|(_, pcb)| {
             crate::selection::picking::hit(shell, pcb, xy(at), tolerance.0 as f64)
         });
+        if shell.tool() == Tool::Move {
+            self.state = State::Pressed {
+                at,
+                hit,
+                toggle: modifiers.command,
+            };
+            return;
+        }
         self.state = State::Pressed {
             at,
             hit,
@@ -257,6 +440,18 @@ impl SelectTool {
     /// The pointer moved to `to` with the button down.
     pub fn drag(&mut self, shell: &mut Shell, to: Point) {
         self.dragged = true;
+        self.cursor = Some(to);
+        if shell.tool() == Tool::Move
+            && let State::Pressed { at, hit, .. } = self.state
+        {
+            self.state = State::Spent;
+            self.move_tool_pick(shell, at, hit);
+            if let State::Moving(mut m) = std::mem::take(&mut self.state) {
+                self.track(shell, &mut m, to, false);
+                self.state = State::Moving(m);
+            }
+            return;
+        }
         match std::mem::take(&mut self.state) {
             State::Pressed { at, hit, toggle } => match hit.map(|id| {
                 board(shell)
@@ -275,7 +470,7 @@ impl SelectTool {
             }
             State::Band { from, .. } => self.state = State::Band { from, to },
             State::Moving(mut m) => {
-                self.track(shell, &mut m, to);
+                self.track(shell, &mut m, to, false);
                 self.state = State::Moving(m);
             }
             other => self.state = other,
@@ -285,6 +480,12 @@ impl SelectTool {
     /// The button came up.
     pub fn release(&mut self, shell: &mut Shell) {
         match std::mem::take(&mut self.state) {
+            State::Pressed { at, hit, .. } if shell.tool() == Tool::Move => {
+                self.move_tool_pick(shell, at, hit);
+                if let State::Moving(m) = &mut self.state {
+                    m.fresh = false;
+                }
+            }
             State::Pressed { at, hit, .. } => {
                 let Some((_, document)) = board(shell) else {
                     return;
@@ -328,25 +529,31 @@ impl SelectTool {
                     let _ = shell.run_reporting(&id, params);
                 }
             }
+            State::Moving(mut m) if m.fresh => {
+                m.fresh = false;
+                self.state = State::Moving(m);
+            }
             State::Moving(m) => {
                 self.snap = None;
+                self.guide_lines.clear();
                 let ops = m.all_ops();
-                let steps: Vec<Value> = ops.iter().map(|op| step(&m.objects, *op)).collect();
-                match steps.len() {
-                    0 => shell.redraw(m.document),
-                    1 => {
-                        let one = &steps[0];
-                        let id = one["id"].as_str().expect("a step id").to_owned();
-                        if shell.run_reporting(&id, one["params"].clone()).is_err() {
-                            shell.redraw(m.document);
-                        }
-                    }
-                    _ => {
-                        let batch = json!({ "commands": steps });
-                        if shell.run_reporting("batch", batch).is_err() {
-                            shell.redraw(m.document);
-                        }
-                    }
+                let steps: Vec<(String, Value)> = ops
+                    .iter()
+                    .map(|op| {
+                        let s = step(&m.objects, *op);
+                        (
+                            s["id"].as_str().expect("a step id").to_owned(),
+                            s["params"].clone(),
+                        )
+                    })
+                    .collect();
+                if !super::placing::commit(shell, steps) {
+                    shell.redraw(m.document);
+                }
+                if self.queue.is_some() {
+                    self.next_in_queue(shell);
+                } else if shell.tool() == Tool::Move {
+                    let _ = shell.run_reporting("tool.activate", json!({"tool": "select"}));
                 }
             }
             State::TrackDrag(d) => {
@@ -379,6 +586,8 @@ impl SelectTool {
             self.state = State::Spent;
         }
         self.snap = None;
+        self.queue = None;
+        self.guide_lines.clear();
     }
 
     /// Space: turns the move in flight by 90°, or else the selection (`pcb.rotate`).
@@ -399,8 +608,9 @@ impl SelectTool {
                 m.settle();
                 m.ops.push(op(m.current));
                 let ops = m.all_ops();
-                let (document, objects) = (m.document, m.objects.clone());
-                preview(shell, document, &objects, &ops);
+                let turned = applied(shell, &m.objects, &ops);
+                m.guides = guides(shell, m, turned.as_ref());
+                show(shell, m);
             }
             _ => {
                 let objects = placeable_selection(shell);
@@ -415,7 +625,7 @@ impl SelectTool {
                 };
                 let s = step(&objects, op(anchor));
                 let id = s["id"].as_str().expect("a step id").to_owned();
-                let _ = shell.run_reporting(&id, s["params"].clone());
+                super::placing::commit(shell, vec![(id, s["params"].clone())]);
             }
         }
     }
@@ -460,7 +670,17 @@ impl SelectTool {
                 _ => None,
             })
             .unwrap_or(at);
-        let failed = placement_preview(pcb, &objects, &[]).err();
+        let protect = shell.preferences().editing.protect_locked_objects;
+        let failed = if protect {
+            placement_preview(pcb, &objects, &[]).err()
+        } else {
+            placement_preview_including_locked(pcb, &objects, &[]).err()
+        };
+        let footprints: Vec<Uuid> = objects
+            .iter()
+            .copied()
+            .filter(|o| pcb.footprint(*o).is_some())
+            .collect();
         if let Some((id, params)) = drag.select {
             let _ = shell.run_reporting(&id, params);
         }
@@ -478,20 +698,85 @@ impl SelectTool {
             ops: Vec::new(),
             targets: others,
             carried: false,
+            fresh: false,
+            footprints,
+            guides: Vec::new(),
+            overlaps: Vec::new(),
+            overlap_outlines: Vec::new(),
         };
-        self.track(shell, &mut m, to);
+        m.guides = guides(shell, &m, None);
+        self.track(shell, &mut m, to, true);
         self.state = State::Moving(m);
     }
 
-    /// Follows the cursor at `to` with the move `m`, redrawing the preview when it changed.
-    fn track(&mut self, shell: &mut Shell, m: &mut Move, to: Point) {
-        let snapped = snap_board(shell, to - m.offset, &m.targets);
-        let current = snapped.at;
+    /// The Move Tool's press at `at` on `hit`: picks up what it hits (with the selection
+    /// when it is selected), carried until the next click; on empty space it opens Choose
+    /// Component.
+    fn move_tool_pick(&mut self, shell: &mut Shell, at: Point, hit: Option<Uuid>) {
+        let owner = hit.map(|id| {
+            board(shell)
+                .and_then(|(_, doc)| crate::selection::rules::child(shell, doc, id))
+                .map_or(id, |c| c.owner())
+        });
+        let movable_hit = owner.filter(|o| {
+            board(shell)
+                .and_then(|(p, _)| p.object(*o))
+                .is_some_and(|x| movable(x.object_type()))
+                && board(shell)
+                    .is_some_and(|(_, doc)| crate::selection::rules::pickable(shell, doc, *o))
+        });
+        let Some(object) = movable_hit else {
+            self.state = State::Spent;
+            let _ = shell.run_reporting("pcb.place.choose", json!({}));
+            return;
+        };
+        self.start_move(shell, at, object, false, at);
+        if let State::Moving(m) = &mut self.state {
+            m.carried = true;
+            m.fresh = true;
+        }
+    }
+
+    /// Follows the cursor at `to` with the move `m`, redrawing the preview when it changed
+    /// (or when `force`d). The reference point snaps to Hotspots, the alignment guides and
+    /// the grid; in `avoid` a Footprint-only move stops at the last clear point.
+    fn track(&mut self, shell: &mut Shell, m: &mut Move, to: Point, force: bool) {
+        let Some((project, _)) = board(shell) else {
+            return;
+        };
+        let mut rules = snap::rules(shell, m.document);
+        rules.guides &= shell.preferences().pcb.place.alignment_guides;
+        let snapped = snap::snap(xy(to - m.offset), &m.targets, &m.guides, &rules);
+        let mut current = snapped.at;
+        let avoid = shell.preferences().pcb.place.obstacle_mode == ObstacleMode::Avoid;
+        if avoid && !m.footprints.is_empty() && m.footprints.len() == m.objects.len() {
+            let settled = (!m.ops.is_empty())
+                .then(|| applied(shell, &m.objects, &m.ops))
+                .flatten();
+            let pcb = settled
+                .as_ref()
+                .and_then(|p| p.pcb())
+                .or_else(|| project.pcb());
+            if let Some(pcb) = pcb {
+                current = m.base + place::avoid(pcb, &m.footprints, current - m.base);
+            }
+        }
+        self.guide_lines = if snapped.hit == Hit::Guide {
+            m.guides
+                .iter()
+                .copied()
+                .filter(|g| match g {
+                    Guide::X(x) => *x == snapped.at.x,
+                    Guide::Y(y) => *y == snapped.at.y,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         self.snap = Some(snapped);
-        if current != m.current {
+        if force || current != m.current {
             m.current = current;
-            let ops = m.all_ops();
-            preview(shell, m.document, &m.objects, &ops);
+            show(shell, m);
         }
     }
 }
@@ -675,28 +960,113 @@ fn placeable_selection(shell: &Shell) -> Vec<Uuid> {
         .collect()
 }
 
-/// Draws the board with `objects` after `ops`.
-fn preview(shell: &mut Shell, document: Uuid, objects: &[Uuid], ops: &[PlacementOp]) {
-    let Some(project) = shell.engine().project() else {
-        return;
-    };
-    let Some(placed) = project
-        .pcb()
-        .and_then(|pcb| placement_preview(pcb, objects, ops).ok())
-    else {
-        return;
-    };
+/// The open Project with `objects` after `ops`.
+fn applied(shell: &Shell, objects: &[Uuid], ops: &[PlacementOp]) -> Option<Project> {
+    let project = shell.engine().project()?;
+    // A locked object moves in the preview only when the move will ask first.
+    let placed = placement_preview_including_locked(project.pcb()?, objects, ops).ok()?;
     let mut project = project.clone();
     let mut tx = project.transaction();
     for object in placed {
-        if tx.replace(object).is_err() {
-            return;
-        }
+        tx.replace(object).ok()?;
     }
-    if tx.commit().is_err() {
+    tx.commit().ok()?;
+    Some(project)
+}
+
+/// Draws the board with the move `m` where it now stands, with the live overlap and the
+/// Ratsnest of a Footprint move.
+fn show(shell: &mut Shell, m: &mut Move) {
+    let Some(project) = applied(shell, &m.objects, &m.all_ops()) else {
+        return;
+    };
+    shell.show_preview(m.document, &project);
+    if m.footprints.is_empty() {
         return;
     }
-    shell.show_preview(document, &project);
+    let Some(pcb) = project.pcb() else {
+        return;
+    };
+    m.overlaps = place::overlaps(pcb, &m.footprints, Point::default());
+    let mut shown: Vec<Uuid> = m.overlaps.iter().flat_map(|o| [o.moved, o.other]).collect();
+    shown.sort();
+    shown.dedup();
+    m.overlap_outlines = shown
+        .iter()
+        .flat_map(|f| place::selection_outlines(pcb, *f))
+        .collect();
+    ratsnest_in_move(shell, m.document, &project, &m.footprints);
+}
+
+/// The alignment guides of the move `m` held at its current point, from `turned` (the
+/// board after its turns) or else the open board. None unless it carries Footprints.
+fn guides(shell: &Shell, m: &Move, turned: Option<&Project>) -> Vec<Guide> {
+    if m.footprints.is_empty() {
+        return Vec::new();
+    }
+    let Some(pcb) = turned
+        .and_then(|p| p.pcb())
+        .or_else(|| shell.engine().project().and_then(|p| p.pcb()))
+    else {
+        return Vec::new();
+    };
+    let g = place::alignment_guides(pcb, &m.footprints, m.current);
+    g.x.into_iter()
+        .map(Guide::X)
+        .chain(g.y.into_iter().map(Guide::Y))
+        .collect()
+}
+
+/// During a Footprint move the Ratsnest shows by `pcb.place.ratsnest_mode`: Breaks keeps
+/// only the lines with an end on a moved Footprint, Hidden none, and Pad To Pad draws a
+/// line from each moved Pad to the nearest Pad on its Net (see [`place::pad_to_pad`]).
+fn ratsnest_in_move(shell: &mut Shell, document: Uuid, project: &Project, footprints: &[Uuid]) {
+    let mode = shell.preferences().pcb.place.ratsnest_mode;
+    let smart = shell.preferences().pcb.ratsnest.smart_track_ends;
+    let keep: Vec<(Point, Point)> = match mode {
+        RatsnestMode::Breaks => {
+            let ends = if smart {
+                reda_engine::pcb::RatsnestEnds::SmartTrackEnds
+            } else {
+                reda_engine::pcb::RatsnestEnds::Pads
+            };
+            let moved = |item: Item| matches!(item, Item::Pad { footprint, .. } if footprints.contains(&footprint));
+            Copper::of(project)
+                .map(|c| c.ratsnest_with(ends))
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|l| moved(l.from_item) || moved(l.to_item))
+                .map(|l| (l.from, l.to))
+                .collect()
+        }
+        RatsnestMode::Hidden | RatsnestMode::PadToPad => Vec::new(),
+    };
+    let added: Vec<place::PadLine> = match (mode, project.pcb()) {
+        (RatsnestMode::PadToPad, Some(pcb)) => place::pad_to_pad(pcb, footprints),
+        _ => Vec::new(),
+    };
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return;
+    };
+    let scene = std::sync::Arc::make_mut(&mut tab.scene.scene);
+    scene.items.retain(|item| {
+        item.layer != SceneLayer::Ratsnest
+            || matches!(item.primitive, Primitive::Hairline { a, b }
+                if keep.contains(&(a, b)) || keep.contains(&(b, a)))
+    });
+    for line in added {
+        scene.items.push(reda_engine::render::Item {
+            object: line.net,
+            child: None,
+            layer: SceneLayer::Ratsnest,
+            color: ColorKey::Board(BoardColor::Ratsnest),
+            primitive: Primitive::Hairline {
+                a: line.from,
+                b: line.to,
+            },
+            look: Default::default(),
+        });
+    }
 }
 
 /// The Command (as a `batch` step) that does `op` to `objects`.

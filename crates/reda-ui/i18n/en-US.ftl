@@ -1183,6 +1183,19 @@ route-keepout = That would put copper in a Keepout
 route-edge = Too close to the board edge
 route-width-clipped = Width clipped to the Net's { $limit }: { $width }
 route-via-clipped = Via size clipped to the Net's range: { $diameter } with a { $hole } hole
+place-queue-count = { $at } of { $of }
+place-choose-title = Choose Component
+place-choose-filter = Designator, such as R1* or C?
+place-choose-jump = Jump to component
+place-choose-to-cursor = Move component to cursor
+place-choose-cancel = Cancel
+place-locked-title = Move locked objects?
+place-locked-body = { $count ->
+    [one] One locked object would move.
+   *[other] { $count } locked objects would move.
+} Protect Locked Objects is off, so they can move once you say so; they stay locked.
+place-locked-proceed = Move them
+place-locked-cancel = Leave them
 route-chooser-width = Track width
 route-chooser-via = Via size
 route-chooser-min = min

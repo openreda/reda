@@ -242,6 +242,34 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ),
     ("paste", egui::include_image!("../../icons/paste.svg")),
     ("pin", egui::include_image!("../../icons/pin.svg")),
+    (
+        "place_guides",
+        egui::include_image!("../../icons/place_guides.svg"),
+    ),
+    (
+        "place_obstacle_avoid",
+        egui::include_image!("../../icons/place_obstacle_avoid.svg"),
+    ),
+    (
+        "place_obstacle_ignore",
+        egui::include_image!("../../icons/place_obstacle_ignore.svg"),
+    ),
+    (
+        "place_queue",
+        egui::include_image!("../../icons/place_queue.svg"),
+    ),
+    (
+        "place_ratsnest_breaks",
+        egui::include_image!("../../icons/place_ratsnest_breaks.svg"),
+    ),
+    (
+        "place_ratsnest_hidden",
+        egui::include_image!("../../icons/place_ratsnest_hidden.svg"),
+    ),
+    (
+        "place_ratsnest_pad_to_pad",
+        egui::include_image!("../../icons/place_ratsnest_pad_to_pad.svg"),
+    ),
     ("polygon", egui::include_image!("../../icons/polygon.svg")),
     ("port", egui::include_image!("../../icons/port.svg")),
     (

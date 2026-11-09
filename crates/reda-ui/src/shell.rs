@@ -285,6 +285,7 @@ impl Shell {
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(crate::keys_card::KeysCard::default());
         engine.view_mut().set(ActiveTool::default());
+        engine.view_mut().set(pcb::placing::PlaceFlight::default());
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
@@ -369,6 +370,10 @@ impl Shell {
         self.fonts = fonts;
         self.load_fonts();
         self
+    }
+
+    pub(crate) fn engine_mut(&mut self) -> &mut Engine {
+        &mut self.engine
     }
 
     pub fn engine(&self) -> &Engine {
@@ -640,17 +645,11 @@ impl Shell {
             self.pcb_draw = draw;
             return;
         }
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.press(
-            self,
-            at,
-            egui::Modifiers {
-                command: toggle,
-                ..egui::Modifiers::NONE
-            },
-            tolerance,
-        );
-        self.pcb_tool = tool;
+        let modifiers = egui::Modifiers {
+            command: toggle,
+            ..egui::Modifiers::NONE
+        };
+        self.with_pcb_tool(|tool, shell| tool.press(shell, at, modifiers, tolerance));
     }
 
     /// The canvas passes actual modifiers: Shift toggles picks, while Mod detaches drags.
@@ -664,9 +663,7 @@ impl Shell {
             self.pcb_press(at, modifiers.command, tolerance);
             return;
         }
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.press(self, at, modifiers, tolerance);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.press(shell, at, modifiers, tolerance));
     }
 
     /// The pointer moved to `at` with the button down.
@@ -678,9 +675,7 @@ impl Shell {
             self.pcb_draw = draw;
             return;
         }
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.drag(self, at);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.drag(shell, at));
     }
 
     /// The button came up: selects, or runs the move in flight as one Command.
@@ -690,23 +685,17 @@ impl Shell {
             self.with_draw(|draw, shell| draw.release(shell));
             return;
         }
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.release(self);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.release(shell));
     }
 
     /// Esc: drops the move or rubber band in flight.
     pub fn pcb_cancel(&mut self) {
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.cancel(self);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.cancel(shell));
     }
 
     /// Space: turns the move in flight, or the selection, by 90°.
     pub(crate) fn pcb_rotate(&mut self) {
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.rotate(self);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.rotate(shell));
     }
 
     /// Move Board Shape: the Board Outline, with any selected Board Cutouts, follows the
@@ -717,16 +706,12 @@ impl Shell {
         self.with_router(|r, shell| r.cancel(shell));
         let tool = self.tool();
         self.pcb_draw.start(tool);
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.carry_board_shape(self);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.carry_board_shape(shell));
     }
 
     /// L: flips the move in flight, or the selection, to the other side.
     pub(crate) fn pcb_flip(&mut self) {
-        let mut tool = std::mem::take(&mut self.pcb_tool);
-        tool.flip(self);
-        self.pcb_tool = tool;
+        self.with_pcb_tool(|tool, shell| tool.flip(shell));
     }
 
     /// The cursor is at `at` with no button down: where it snaps.
@@ -737,10 +722,27 @@ impl Shell {
             self.pcb_draw = draw;
             return snapped;
         }
+        self.with_pcb_tool(|tool, shell| tool.hover_mut(shell, at))
+    }
+
+    /// Runs `f` on the PCB Tool, then shares what it has in flight with the placement
+    /// Commands ([`pcb::placing::PlaceFlight`]).
+    pub(crate) fn with_pcb_tool<T>(
+        &mut self,
+        f: impl FnOnce(&mut pcb::SelectTool, &mut Shell) -> T,
+    ) -> T {
         let mut tool = std::mem::take(&mut self.pcb_tool);
-        let snapped = tool.hover_mut(self, at);
+        let out = f(&mut tool, self);
         self.pcb_tool = tool;
-        snapped
+        let (moving, queue) = (
+            self.pcb_tool.carries_footprints(self),
+            self.pcb_tool.queue(),
+        );
+        if let Some(flight) = pcb::placing::flight_mut(self) {
+            flight.moving = moving;
+            flight.queue = queue;
+        }
+        out
     }
 
     /// The PCB Tool, to read what it draws (snap marker, rubber band) and set its snap
@@ -2470,6 +2472,7 @@ impl Shell {
             }
             "tool.flip_side" if self.board_is_active() => self.pcb_flip(),
             "tool.move_board_shape" => self.pcb_move_board_shape(),
+            id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self

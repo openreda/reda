@@ -6,7 +6,7 @@
 
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
-use reda_pcb::place::{Overlap, avoid, overlaps};
+use reda_pcb::place::{Overlap, alignment_guides, avoid, overlaps, pad_to_pad, selection_outlines};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::{Value, json};
 
@@ -97,4 +97,76 @@ fn avoid_lets_a_part_out_of_an_overlap_it_starts_in() {
     let a = footprint(&mut engine, "0mm");
     let _b = footprint(&mut engine, "0.5mm");
     assert_eq!(avoid(pcb(&engine), &[a], um(-4000, 0)), um(-4000, 0));
+}
+
+#[test]
+fn alignment_guides_line_up_pad_centres_and_courtyard_edges_with_the_neighbours() {
+    let dir = TempDir::new("place-guides");
+    let mut engine = engine(&dir);
+    // a's box spans -0.5..0.5 about its origin; b stands at (3, 7) mm.
+    let a = footprint(&mut engine, "0mm");
+    let b = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": "3mm", "y": "7mm"}, "pads": [
+            {"at": {"x": 0, "y": 0}, "width": "1mm", "height": "1mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse::<Uuid>()
+        .unwrap();
+    let _ = b;
+    // Held by a point 0.2 mm right of its origin.
+    let guides = alignment_guides(pcb(&engine), &[a], um(200, 0));
+    // Pad centre on pad centre: reference at 3.2 / 7; box edges on box edges: the left
+    // edge (-0.5 → 2.5) and right edge (0.5 → 3.5) put it at 3.2 too, and abutting edges
+    // (left on right: 3.5 + 0.5 + 0.2 = 4.2; right on left: 2.5 - 0.5 + 0.2 = 2.2).
+    assert_eq!(
+        guides.x,
+        [um(2200, 0).x, um(3200, 0).x, um(4200, 0).x]
+            .into_iter()
+            .collect()
+    );
+    assert_eq!(
+        guides.y,
+        [Nm::from_um(6000), Nm::from_um(7000), Nm::from_um(8000)]
+            .into_iter()
+            .collect()
+    );
+    // Moving everything leaves no neighbours.
+    assert!(
+        alignment_guides(pcb(&engine), &[a, b], um(0, 0))
+            .x
+            .is_empty()
+    );
+    // The outline checked is the fallback box.
+    let outline = &selection_outlines(pcb(&engine), a)[0];
+    assert!(
+        outline.contains(&um(-500, -500)) && outline.contains(&um(500, 500)),
+        "{outline:?}"
+    );
+}
+
+#[test]
+fn pad_to_pad_draws_a_line_from_each_moved_pad_to_the_nearest_pad_on_its_net() {
+    let dir = TempDir::new("place-pad-to-pad");
+    let mut engine = engine(&dir);
+    let net = engine.run_ok("test.net.add", json!({"name": "SIG"}))["result"]["uuid"].clone();
+    let add = |engine: &mut TestEngine, x: &str| -> Uuid {
+        engine.run_ok(
+            "test.footprint.add",
+            json!({"at": {"x": x, "y": 0}, "pads": [
+                {"at": {"x": 0, "y": 0}, "width": "1mm", "height": "1mm", "net": net}]}),
+        )["result"]["footprint"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    let a = add(&mut engine, "0mm");
+    let _near = add(&mut engine, "4mm");
+    let _far = add(&mut engine, "9mm");
+    let _other = footprint(&mut engine, "1mm");
+    let lines = pad_to_pad(pcb(&engine), &[a]);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert_eq!((lines[0].from, lines[0].to), (um(0, 0), um(4000, 0)));
 }
