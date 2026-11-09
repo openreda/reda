@@ -18,6 +18,7 @@ pub mod drc;
 pub mod keepout;
 pub mod net_info;
 pub mod placed;
+pub mod route;
 pub mod rules;
 pub mod select;
 mod text;

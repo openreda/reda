@@ -285,9 +285,20 @@ fn a_clearance_violation_flags_the_route_and_stops_it() {
     let preview = b.shell.route_preview().unwrap();
     assert!(preview.blocked, "through OTHER's Pad");
 
+    // `stop`: the click places up to the last clear point, off the 0.5 mm grid.
     b.shell.route_click(mm(8.0, 0.0));
     let preview = b.shell.route_preview().expect("still routing");
-    assert_eq!(preview.placed, [mm(0.0, 0.0)], "the corner is not placed");
+    assert_eq!(preview.placed.len(), 2);
+    let clip = preview.placed[1];
+    assert_eq!(clip.y, Nm::ZERO);
+    assert!(
+        clip.x > mm(4.0, 0.0).x && clip.x < mm(4.5, 0.0).x,
+        "{clip:?}"
+    );
+    assert_ne!(clip.x.0 % 500_000, 0, "kept off grid");
+    // From there nothing more can be placed: the click says why.
+    b.shell.route_click(mm(8.0, 0.0));
+    assert_eq!(b.shell.route_preview().unwrap().placed.len(), 2);
     assert!(b.shell.message().is_some(), "says why");
     assert!(tracks(&b).is_empty(), "nothing shoves, nothing commits");
 }
@@ -529,4 +540,90 @@ fn via_placement_uses_the_output_origins_grid_phase() {
             .at,
         mm(5.2, 5.3)
     );
+}
+
+#[test]
+fn a_reroute_deletes_the_old_path_in_the_routes_one_batch() {
+    let mut b = board();
+    let net = b.net;
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": net,
+               "points": [{"x": 0, "y": 0}, {"x": 0, "y": "5mm"},
+                          {"x": "10mm", "y": "5mm"}, {"x": "10mm", "y": 0}]}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0.0, 0.0));
+    b.shell.route_hover(mm(10.0, 0.0));
+    let proposed = b.shell.route_preview().unwrap().proposed.unwrap();
+    assert!(proposed.ends_route);
+    assert_eq!(proposed.removes.removed.len(), 3, "the red preview");
+
+    let before = journal_ids(&b).len();
+    b.shell.route_click(mm(10.0, 0.0));
+    assert_eq!(journal_ids(&b).len(), before + 1, "one Journal entry");
+    let (id, params) = last_entry(&b);
+    assert_eq!(id, "batch");
+    assert_eq!(params["commands"][0]["id"], "pcb.copper.delete");
+    let top = copper(&b, Side::Top);
+    let rule = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
+    assert_eq!(
+        tracks(&b),
+        [(top, Some(net), rule, mm(0.0, 0.0), mm(10.0, 0.0))]
+    );
+}
+
+#[test]
+fn the_route_preferences_drive_the_tool() {
+    let mut b = board();
+    let other =
+        run(&mut b.shell, "test.net.add", json!({"name": "OTHER"}))["result"]["uuid"].clone();
+    add_pad(&mut b.shell, "5mm", "3mm", &other);
+    let net = b.net;
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": net, "width": "1mm",
+               "points": [{"x": 0, "y": "10mm"}, {"x": "10mm", "y": "10mm"}]}),
+    );
+    let set = |b: &mut Board, key: &str, value: Value| {
+        b.shell
+            .run("app.preferences.set", json!({"key": key, "value": value}))
+            .unwrap();
+    };
+    run(&mut b.shell, "tool.activate:route", json!({}));
+
+    // `pickup_width`: a route started on a Track takes its width, unless turned off.
+    route_to(&mut b, mm(5.0, 10.0));
+    assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    set(&mut b, "pcb.route.pickup_width", json!(false));
+    route_to(&mut b, mm(5.0, 10.0));
+    assert_ne!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+
+    // `obstacle_mode`: `ignore` places the whole path through OTHER's Pad.
+    set(&mut b, "pcb.route.obstacle_mode", json!("ignore"));
+    route_to(&mut b, mm(0.0, 3.0));
+    b.shell.route_hover(mm(8.0, 3.0));
+    assert!(
+        b.shell.route_preview().unwrap().blocked,
+        "drawn in the violation colour"
+    );
+    b.shell.route_click(mm(8.0, 3.0));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.placed, [mm(0.0, 3.0), mm(8.0, 3.0)]);
 }

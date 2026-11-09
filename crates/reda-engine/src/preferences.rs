@@ -151,6 +151,8 @@ pub struct Editing {
     pub zone: ZonePreferences,
     /// The Net block of Track Properties.
     pub net_info: NetInfoPreferences,
+    /// Interactive Routing: the Track Tool's values.
+    pub route: RoutePreferences,
     /// The Ratsnest.
     pub ratsnest: RatsnestPreferences,
     /// The board view: Net colours on copper and saved Layer sets.
@@ -224,9 +226,63 @@ impl Default for Editing {
             default_grid: None,
             zone: ZonePreferences::default(),
             net_info: NetInfoPreferences::default(),
+            route: RoutePreferences::default(),
             ratsnest: RatsnestPreferences::default(),
             view: BoardViewPreferences::default(),
         }
+    }
+}
+
+/// Interactive Routing: the Track Tool's values.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct RoutePreferences {
+    /// What a route does at copper in its way (`Shift+R`): `stop` (clipped at the last
+    /// clear point), `ignore` (goes anywhere, drawn in the violation colour) or
+    /// `highlight` (goes anywhere and highlights what it breaks the rules with).
+    pub obstacle_mode: reda_pcb::route::ObstacleMode,
+    /// A route started on a Track takes that Track's width.
+    pub pickup_width: bool,
+    /// Which of the Net's widths a route takes (`3`): `min`, `preferred`, `max` or
+    /// `user`, the last chosen value.
+    pub width_mode: reda_pcb::route::WidthMode,
+    /// Widths the width chooser (`Shift+W`) lists after the Net's own.
+    pub favourite_widths: Vec<Length>,
+    /// A route that joins two points already joined deletes the old path (`Shift+L`).
+    pub loop_removal: bool,
+    /// Loop removal takes dangling stubs on the old path too, unless they end in a Via.
+    pub remove_antennas: bool,
+    /// Loop removal takes an old path through Vias, with its Vias.
+    pub remove_loops_through_vias: bool,
+}
+
+impl Default for RoutePreferences {
+    fn default() -> RoutePreferences {
+        RoutePreferences {
+            obstacle_mode: reda_pcb::route::ObstacleMode::Stop,
+            pickup_width: true,
+            width_mode: reda_pcb::route::WidthMode::Preferred,
+            favourite_widths: Vec::new(),
+            loop_removal: true,
+            remove_antennas: true,
+            remove_loops_through_vias: true,
+        }
+    }
+}
+
+impl RoutePreferences {
+    /// The loop-removal switches as `propose` and `commit` take them.
+    pub fn loops(&self) -> reda_pcb::route::LoopOptions {
+        reda_pcb::route::LoopOptions {
+            enabled: self.loop_removal,
+            antennas: self.remove_antennas,
+            through_vias: self.remove_loops_through_vias,
+        }
+    }
+
+    /// The favourite widths in nm.
+    pub fn favourites(&self) -> Vec<reda_model::geom::Nm> {
+        self.favourite_widths.iter().map(|l| l.0).collect()
     }
 }
 
@@ -348,6 +404,7 @@ impl Default for SchematicEditing {
             default_grid,
             zone: _,
             net_info: _,
+            route: _,
             ratsnest: _,
             view: _,
         } = Editing::default();
