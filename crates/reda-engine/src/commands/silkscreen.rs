@@ -22,6 +22,9 @@ use super::local_edits::{needs_pcb, pcb, place_edited};
 use crate::builders::add_document;
 use crate::footprint_scene::DESIGNATOR_PLACEHOLDER;
 
+/// Each Footprint graphic's new shapes, in the Footprint's own frame.
+type GraphicPieces = Vec<(Uuid, Vec<reda_model::Shape>)>;
+
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(PrepareBoard);
     registry.add(PrepareFootprint);
@@ -177,7 +180,7 @@ fn apply_board(cx: &mut Context<'_>, plan: Plan) -> Result<PrepareResult, Comman
         .into_iter()
         .filter_map(|m| Some((pcb.text(m.text)?.clone(), m.position)))
         .collect();
-    let footprints: Vec<(Uuid, Footprint, Vec<(Uuid, Vec<reda_model::Shape>)>)> = plan
+    let footprints: Vec<(Uuid, Footprint, GraphicPieces)> = plan
         .footprints
         .into_iter()
         .filter_map(|e| {
