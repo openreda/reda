@@ -105,6 +105,9 @@ impl SettingsDialog {
         let (mut apply, mut ok, mut reset) = (false, false, false);
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
             ui.horizontal(|ui| {
+                if let Some(request) = self.pages[self.selected].footer(ui) {
+                    outcome = Outcome::PickFile(request);
+                }
                 if !self.can_ok() {
                     ui.colored_label(ui.visuals().error_fg_color, tr!("settings-invalid"));
                 }
