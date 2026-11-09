@@ -503,6 +503,43 @@ new-library-description = Description
 new-library-create = Create
 library-generate = Generate Footprint
 library-refresh = Refresh
+library-edit-element = Edit Element
+library-make-project-library = Make Project Library…
+library-library-mode = The Symbols, Footprints and Parts of this element's Library
+library-kind-symbol = Symbol
+library-kind-footprint = Footprint
+library-kind-part = Part
+library-status-placed = { $count } placed
+library-status-differs = , { $count } { $count ->
+    [one] differs
+   *[other] differ
+}
+library-status-missing = , { $count } missing
+library-status-of = Library Status of { $name }: { $status }
+library-menu-place = Place
+library-menu-edit = Edit
+library-menu-duplicate = Duplicate
+library-menu-where-used = Where Used
+library-menu-update = Update in Project…
+library-menu-check = Check
+library-menu-copy = Copy to Library…
+library-menu-datasheet = Open Datasheet
+library-used-in-project = Used in Project: { $count }
+library-where-used = Where Used
+library-where-used-title = Where Used
+library-where-used-nothing = No Part or placed Component uses it.
+library-where-used-part = Part { $name } in { $library }
+library-where-used-components = Placed as { $designators }
+to-library-copy-title = Copy to Library
+to-library-copy-intro = Copies { $name } into the chosen Library with a new UUID, adding _1, _2… to a name already taken there.
+to-library-copy-run = Copy
+to-library-make-title = Make Project Library
+to-library-make-intro = Writes the Parts, Symbols and Footprints of every placed Component from the part tables into the chosen Library, keeping their UUIDs. Elements it already holds are skipped.
+to-library-extract-title = Extract to Library
+to-library-extract-intro = Source Missing: no registered Library holds { $designator }'s Part or an element it uses. Extract them from the part table into the chosen Library, keeping their UUIDs, so it reads Up to Date again.
+to-library-extract-run = Extract
+to-library-copied = Copied into the Library as { $copy }.
+to-library-extracted = Wrote { $written } elements to the Library; { $skipped } it already held were skipped.
 
 ## Canvas
 
