@@ -211,7 +211,7 @@ fn fab_notes_list_the_minimum_features_of_the_board_wide_rules() {
     let notes = fab_notes(&engine);
     let pcb = engine.project().unwrap().pcb().unwrap();
     use reda_model::RuleKind::*;
-    let v = |k| pcb.board_rule(k).values.clone();
+    let v = |k| pcb.board_rule(k).values;
     let expected = [
         format!(
             "Clearance: {} mm",
