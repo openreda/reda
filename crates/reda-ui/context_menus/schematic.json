@@ -25,6 +25,9 @@
       "kinds": {
         "unit": [
           { "id": "context.object.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } }
+        ],
+        "port": [
+          { "id": "context.object.go_to_partner", "command": "schematic.port.go_to_partner", "params": { "objects": "$selection" }, "title": "context-go-to-partner" }
         ]
       }
     },

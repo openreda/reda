@@ -9,6 +9,7 @@ mod annotation;
 mod arc_tool;
 mod overview;
 mod rules;
+mod sheet_frame;
 mod track;
 mod unit;
 mod zone;

@@ -196,6 +196,25 @@ impl Tree<'_> {
         ui.add_sized([18.0, 18.0], label);
     }
 
+    /// A sheet's number among the sheets, "n/m" after its name: what its title block and
+    /// Port cross-references call it.
+    fn sheet_number(&self, ui: &mut Ui, document: Uuid) {
+        let sheets: Vec<Uuid> = (self.project.documents())
+            .filter(|d| self.project.schematic_sheet(d.uuid).is_some())
+            .map(|d| d.uuid)
+            .collect();
+        let Some(index) = sheets.iter().position(|s| *s == document) else {
+            return;
+        };
+        let (number, count) = (index as i64 + 1, sheets.len() as i64);
+        let text = egui::RichText::new(format!("{number}/{count}"))
+            .weak()
+            .small();
+        let label = ui.add(egui::Label::new(text).selectable(false));
+        let name = tr!("projects-sheet-number", number = number, count = count);
+        label.widget_info(|| WidgetInfo::labeled(Role::Label, true, name.clone()));
+    }
+
     /// A missing Document: greyed, with its file's path on hover and a menu to relink it
     /// or remove it from the Project.
     fn missing_row(&mut self, ui: &mut Ui, document: &DocumentEntry) {
@@ -324,7 +343,9 @@ impl Tree<'_> {
         let row = ui
             .horizontal(|ui| {
                 self.number(ui, document);
-                tree_item(ui, open, &label, sense)
+                let row = tree_item(ui, open, &label, sense);
+                self.sheet_number(ui, document.uuid);
+                row
             })
             .inner
             .on_hover_text(path);
