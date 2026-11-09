@@ -163,6 +163,10 @@ impl SettingsDialog {
         if reset {
             self.reset_page(shell);
         }
+        // Typing into one field is one step back, once the field lets go of the keyboard.
+        if !ui.ctx().text_edit_focused() {
+            self.checkpoint();
+        }
         if apply || ok {
             let applied = self.apply(shell).is_ok();
             if ok && applied {

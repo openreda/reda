@@ -341,3 +341,54 @@ fn a_stackup_that_leaves_nothing_for_the_blank_dielectric_is_flagged() {
         ]
     );
 }
+
+#[test]
+fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let mut d = dialog(&shell);
+    assert!(!d.step_back(), "nothing pending");
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.set_rule(RuleField::Clearance, "0.2");
+    }
+    d.checkpoint();
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.set_rule(RuleField::TrackWidth, "0.3");
+        board.stackup_mut().set_finish("ENIG");
+    }
+    d.checkpoint();
+    // A check with no change in between adds no step.
+    d.checkpoint();
+    assert!(d.step_back());
+    assert_eq!(
+        d.steps(),
+        [Step::new(
+            "pcb.rules.set",
+            json!({"kind": "clearance", "values": {"value": 200_000}})
+        )]
+    );
+    assert_eq!(d.page::<DrcPage>().unwrap().board().stackup().finish(), "");
+    assert!(d.step_back());
+    assert!(!d.has_changes());
+    assert!(!d.step_back());
+
+    // Edits not yet checked are stepped back too.
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .set_rule(RuleField::Clearance, "0.25");
+    d.checkpoint();
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .set_rule(RuleField::Clearance, "0.3");
+    assert!(d.step_back());
+    assert_eq!(
+        d.page::<DrcPage>().unwrap().board().rule(RuleField::Clearance),
+        "0.25"
+    );
+    d.apply(&mut shell).unwrap();
+    assert!(!d.step_back(), "after Apply the edits are one undo entry");
+}

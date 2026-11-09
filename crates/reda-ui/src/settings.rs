@@ -101,6 +101,15 @@ pub trait Page: Any {
 
     /// Puts the defaults in the drafts, as pending edits until Apply.
     fn reset_to_defaults(&mut self, _shell: &mut Shell) {}
+
+    /// Notes the drafts as they are now, for [`Page::step_back`] (Board Setup's pages).
+    fn checkpoint(&mut self) {}
+
+    /// Steps back over the last pending edit (`Mod+Z` inside Board Setup); false when the
+    /// page keeps no such steps or has none left.
+    fn step_back(&mut self) -> bool {
+        false
+    }
 }
 
 /// The buttons along a settings window's bottom.
@@ -260,6 +269,20 @@ impl SettingsDialog {
         self.pages
             .iter_mut()
             .find_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
+    }
+
+    /// Notes the drafts as they are now: a change since the last check becomes one step
+    /// back.
+    pub fn checkpoint(&mut self) {
+        for page in &mut self.pages {
+            page.checkpoint();
+        }
+    }
+
+    /// Steps back over the last pending edit; false when there is none, so `Mod+Z` falls
+    /// through to the undo stack.
+    pub fn step_back(&mut self) -> bool {
+        self.pages.iter_mut().any(|p| p.step_back())
     }
 
     /// Every page's Commands, in page order.

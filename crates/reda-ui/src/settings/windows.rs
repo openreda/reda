@@ -92,6 +92,12 @@ impl SettingsWindows {
             .collect()
     }
 
+    /// Steps `window` back over its last pending edit (`Mod+Z` inside Board Setup); false
+    /// when it has none, so the key falls through to the undo stack.
+    pub fn step_back(&mut self, window: SettingsWindow) -> bool {
+        self.dialogs.get_mut(&window).is_some_and(SettingsDialog::step_back)
+    }
+
     /// Applies `window`'s changes as one `batch`; the error says why it could not.
     pub fn apply(&mut self, shell: &mut Shell, window: SettingsWindow) -> Result<(), String> {
         match self.dialogs.get_mut(&window) {

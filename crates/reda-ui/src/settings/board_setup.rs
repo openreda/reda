@@ -219,6 +219,16 @@ impl View {
             Vec::new()
         }
     }
+
+    fn checkpoint(&self) {
+        if self.owner {
+            self.board.borrow_mut().checkpoint();
+        }
+    }
+
+    fn step_back(&self) -> bool {
+        self.owner && self.board.borrow_mut().step_back()
+    }
 }
 
 /// One rule's page.
@@ -255,6 +265,14 @@ impl Page for RulePage {
         self.view.steps()
     }
 
+    fn checkpoint(&mut self) {
+        self.view.checkpoint();
+    }
+
+    fn step_back(&mut self) -> bool {
+        self.view.step_back()
+    }
+
     fn problems(&self) -> Vec<Problem> {
         let problems = self.view.board.borrow().problems();
         problems.into_iter().filter(|p| self.rule.owns(p)).collect()
@@ -287,6 +305,14 @@ impl Page for NetClassesPage {
 
     fn steps(&self) -> Vec<Step> {
         self.view.steps()
+    }
+
+    fn checkpoint(&mut self) {
+        self.view.checkpoint();
+    }
+
+    fn step_back(&mut self) -> bool {
+        self.view.step_back()
     }
 
     fn problems(&self) -> Vec<Problem> {
@@ -330,6 +356,14 @@ impl Page for StackupPage {
         self.view.steps()
     }
 
+    fn checkpoint(&mut self) {
+        self.view.checkpoint();
+    }
+
+    fn step_back(&mut self) -> bool {
+        self.view.step_back()
+    }
+
     fn problems(&self) -> Vec<Problem> {
         let problems = self.view.board.borrow().problems();
         let ours = |p: &Problem| p.field.starts_with("stackup/");
@@ -370,6 +404,14 @@ impl Page for DrcPage {
 
     fn steps(&self) -> Vec<Step> {
         self.view.steps()
+    }
+
+    fn checkpoint(&mut self) {
+        self.view.checkpoint();
+    }
+
+    fn step_back(&mut self) -> bool {
+        self.view.step_back()
     }
 
     fn problems(&self) -> Vec<Problem> {

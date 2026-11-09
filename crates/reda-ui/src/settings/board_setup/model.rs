@@ -55,7 +55,7 @@ pub fn class_field(key: ClassKey, what: &str) -> String {
 }
 
 /// A Net Class as drafted.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClassRow {
     key: ClassKey,
     name: Draft<String>,
@@ -123,7 +123,7 @@ impl ClassRow {
 }
 
 /// A Net and the classes it is drafted into besides the Default Net Class.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NetRow {
     pub uuid: Uuid,
     pub name: String,
@@ -204,6 +204,27 @@ pub struct BoardSetupDraft {
     /// How Zones with no typed name are named.
     zone_scheme: Draft<ZoneNameScheme>,
     stackup: StackupDraft,
+    /// The edits `Mod+Z` steps back to, oldest first.
+    history: Vec<Edits>,
+    /// The edits as last checked, the next step back's target once they change.
+    settled: Option<Edits>,
+}
+
+/// What `Mod+Z` inside Board Setup steps back through: every drafted value, but not the
+/// pages' view state (filters, selections, an open preview).
+#[derive(Clone, Debug, PartialEq)]
+struct Edits {
+    rules: BTreeMap<RuleField, Draft<String>>,
+    severities: Vec<(DrcCheck, Draft<Severity>)>,
+    board_meta: BTreeMap<RuleKind, Meta>,
+    silk_mode: Draft<SilkMaskMode>,
+    classes: Vec<ClassRow>,
+    nets: Vec<NetRow>,
+    next_new: u32,
+    follow: BTreeSet<(ClassKey, RuleField)>,
+    mask_linked: bool,
+    zone_scheme: Draft<ZoneNameScheme>,
+    stackup: StackupDraft,
 }
 
 /// Loads a value's draft from `fresh` text; a typed value that means the same (`0.20`
@@ -230,6 +251,18 @@ pub enum PasteMode {
 impl BoardSetupDraft {
     /// Takes in the Project as it is now (see [`crate::settings::Page::load`]).
     pub fn load(&mut self, project: &Project, reset: bool) {
+        // Values that follow the design are not an edit to step back through.
+        let was_settled = self.settled.as_ref() == Some(&self.edits());
+        self.load_drafts(project, reset);
+        if reset {
+            self.history.clear();
+        }
+        if reset || was_settled {
+            self.settled = Some(self.edits());
+        }
+    }
+
+    fn load_drafts(&mut self, project: &Project, reset: bool) {
         self.presets = project
             .fab_presets()
             .map(|p| (p.uuid, p.name.clone(), p.rules))
@@ -285,6 +318,59 @@ impl BoardSetupDraft {
         self.stackup.load(project, pcb, reset);
         self.load_classes(pcb, reset);
         self.load_nets(pcb, reset);
+    }
+
+    fn edits(&self) -> Edits {
+        Edits {
+            rules: self.rules.clone(),
+            severities: self.severities.clone(),
+            board_meta: self.board_meta.clone(),
+            silk_mode: self.silk_mode.clone(),
+            classes: self.classes.clone(),
+            nets: self.nets.clone(),
+            next_new: self.next_new,
+            follow: self.follow.clone(),
+            mask_linked: self.mask_linked,
+            zone_scheme: self.zone_scheme.clone(),
+            stackup: self.stackup.clone(),
+        }
+    }
+
+    fn restore(&mut self, edits: Edits) {
+        self.rules = edits.rules;
+        self.severities = edits.severities;
+        self.board_meta = edits.board_meta;
+        self.silk_mode = edits.silk_mode;
+        self.classes = edits.classes;
+        self.nets = edits.nets;
+        self.next_new = edits.next_new;
+        self.follow = edits.follow;
+        self.mask_linked = edits.mask_linked;
+        self.zone_scheme = edits.zone_scheme;
+        self.stackup = edits.stackup;
+    }
+
+    /// Notes the edits as they are now: a change since the last check becomes one step
+    /// `Mod+Z` steps back over. The window checks after each frame in which no text
+    /// field has the keyboard, so typing into one field is one step.
+    pub fn checkpoint(&mut self) {
+        let now = self.edits();
+        match self.settled.take() {
+            Some(before) if before != now => self.history.push(before),
+            _ => {}
+        }
+        self.settled = Some(now);
+    }
+
+    /// Steps back over the last pending edit; false when there is none.
+    pub fn step_back(&mut self) -> bool {
+        self.checkpoint();
+        let Some(before) = self.history.pop() else {
+            return false;
+        };
+        self.restore(before.clone());
+        self.settled = Some(before);
+        true
     }
 
     /// The Stackup page's drafts.

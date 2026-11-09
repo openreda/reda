@@ -259,7 +259,9 @@ impl App {
         // Keys pressed in a window of its own, unless a dialog here has the keys.
         if !self.dialog_has_keys() {
             for (id, params) in frame.keys {
-                self.run_held(&id, params);
+                if !self.undo_in_settings(&id) {
+                    self.run_held(&id, params);
+                }
             }
         }
         for (id, params) in frame.calls {
@@ -466,11 +468,23 @@ impl App {
         // Escape and Enter go to the tab switcher while it is open.
         tab_switcher::keys(ctx, &mut self.shell);
         for (id, params) in keymap::resolve_keys(ctx, &self.shell, dialog) {
+            if self.undo_in_settings(&id) {
+                continue;
+            }
             if id == "selection.cycle" {
                 ctx.memory_mut(|m| m.move_focus(egui::FocusDirection::None));
             }
             self.run_held(&id, params);
         }
+    }
+
+    /// `Mod+Z` inside Board Setup steps back through its pending edits first; true when
+    /// it did, so the undo stack is left alone.
+    fn undo_in_settings(&mut self, id: &str) -> bool {
+        let window = SettingsWindow::BoardSetup;
+        id == "edit.undo"
+            && self.shell.layout().focus == Some(TabKey::Settings(window))
+            && self.settings.step_back(window)
     }
 
     /// The open settings windows.
