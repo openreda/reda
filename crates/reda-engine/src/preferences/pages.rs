@@ -73,7 +73,8 @@ pub fn page_of(key: &str) -> &'static str {
             "optimize_wires"
             | "components_cut_wires"
             | "break_wires_at_autojunctions"
-            | "convert_cross_junctions",
+            | "convert_cross_junctions"
+            | "display_cross_overs",
         ) => "schematic.wires",
         (
             "schematic",

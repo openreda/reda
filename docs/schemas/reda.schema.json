@@ -936,6 +936,26 @@
         }
       ]
     },
+    "NotFittedDisplay": {
+      "description": "How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later\ntext overlay.",
+      "oneOf": [
+        {
+          "const": "cross",
+          "description": "A red cross over its masked body.",
+          "type": "string"
+        },
+        {
+          "const": "mesh",
+          "description": "A grey box with a mesh over its masked body.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "Nothing extra: drawn like any other Component.",
+          "type": "string"
+        }
+      ]
+    },
     "NotFittedPaste": {
       "description": "Whether this build retains Not Fitted Components' paste openings.",
       "oneOf": [
@@ -1644,7 +1664,7 @@
     },
     "SchematicOptions": {
       "additionalProperties": false,
-      "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
+      "description": "The Project's schematic options: how Nets are named, Ports cross-referenced and Not\nFitted Components drawn.",
       "properties": {
         "allow_ports_to_name_nets": {
           "default": true,
@@ -1673,6 +1693,11 @@
           "default": false,
           "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
           "type": "boolean"
+        },
+        "not_fitted_display": {
+          "$ref": "#/$defs/NotFittedDisplay",
+          "default": "cross",
+          "description": "How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the\ndefault), `mesh` or `none`."
         },
         "power_port_names_priority": {
           "default": false,
@@ -2013,6 +2038,7 @@
         },
         "cross_references": false,
         "cross_references_follow_preferences": false,
+        "not_fitted_display": "cross",
         "power_port_names_priority": false
       },
       "description": "The schematic options: how Nets are named. Written only when any differs from its\ndefault; an option left out has its default."

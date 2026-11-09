@@ -182,7 +182,7 @@ fn the_project_options_reorder_the_priority_and_are_saved_in_the_project_file() 
         json!({"power_port_names_priority": true, "allow_ports_to_name_nets": false,
                "append_sheet_numbers": false, "cross_references": false,
                "cross_reference_styles": {"sheet": "number", "location": "zone"},
-               "cross_references_follow_preferences": false})
+               "cross_references_follow_preferences": false, "not_fitted_display": "cross"})
     );
     assert_eq!(project_net(&mut engine, "R2-1")["name"], "Net-(R2-1)");
     assert_eq!(project_net(&mut engine, "R2-1")["names"], json!([]));
@@ -191,7 +191,7 @@ fn the_project_options_reorder_the_priority_and_are_saved_in_the_project_file() 
     let text = std::fs::read_to_string(dir.path().join("Demo/Demo.reda")).unwrap();
     assert!(
         text.contains(
-            r#""schematic": {"power_port_names_priority":true,"allow_ports_to_name_nets":false,"append_sheet_numbers":false,"cross_references":false,"cross_reference_styles":{"sheet":"number","location":"zone"},"cross_references_follow_preferences":false}"#
+            r#""schematic": {"power_port_names_priority":true,"allow_ports_to_name_nets":false,"append_sheet_numbers":false,"cross_references":false,"cross_reference_styles":{"sheet":"number","location":"zone"},"cross_references_follow_preferences":false,"not_fitted_display":"cross"}"#
         ),
         "{text}"
     );

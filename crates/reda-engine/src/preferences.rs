@@ -204,6 +204,9 @@ pub struct SchematicEditing {
     /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
     /// isn't drawn. Only how names are drawn changes, never the names.
     pub single_negation: bool,
+    /// Display Cross-Overs: a Wire hops over each Wire it crosses without connecting, in
+    /// a small bridge. Canvas only: it never reaches the PDF.
+    pub display_cross_overs: bool,
     /// Port Cross References Sheet Style (`none`, `name` or `number`), used by Projects
     /// that follow the Preferences for cross-references.
     pub cross_reference_sheet_style: SheetStyle,
@@ -269,6 +272,7 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             single_negation: false,
+            display_cross_overs: false,
             cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
             cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
             optimize_wires: true,

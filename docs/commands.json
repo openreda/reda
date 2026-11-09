@@ -24896,6 +24896,26 @@
               }
             ]
           },
+          "NotFittedDisplay": {
+            "description": "How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later\ntext overlay.",
+            "oneOf": [
+              {
+                "const": "cross",
+                "description": "A red cross over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "mesh",
+                "description": "A grey box with a mesh over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Nothing extra: drawn like any other Component.",
+                "type": "string"
+              }
+            ]
+          },
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
             "oneOf": [
@@ -25013,6 +25033,7 @@
                       },
                       "cross_references": false,
                       "cross_references_follow_preferences": false,
+                      "not_fitted_display": "cross",
                       "power_port_names_priority": false
                     },
                     "description": "The schematic options."
@@ -27352,7 +27373,7 @@
           },
           "SchematicOptions": {
             "additionalProperties": false,
-            "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
+            "description": "The Project's schematic options: how Nets are named, Ports cross-referenced and Not\nFitted Components drawn.",
             "properties": {
               "allow_ports_to_name_nets": {
                 "default": true,
@@ -27382,6 +27403,11 @@
                 "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
                 "type": "boolean"
               },
+              "not_fitted_display": {
+                "$ref": "#/$defs/NotFittedDisplay",
+                "default": "cross",
+                "description": "How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the\ndefault), `mesh` or `none`."
+              },
               "power_port_names_priority": {
                 "default": false,
                 "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -27394,7 +27420,8 @@
               "append_sheet_numbers",
               "cross_references",
               "cross_reference_styles",
-              "cross_references_follow_preferences"
+              "cross_references_follow_preferences",
+              "not_fitted_display"
             ],
             "type": "object"
           },
@@ -32309,6 +32336,26 @@
               }
             ]
           },
+          "NotFittedDisplay": {
+            "description": "How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later\ntext overlay.",
+            "oneOf": [
+              {
+                "const": "cross",
+                "description": "A red cross over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "mesh",
+                "description": "A grey box with a mesh over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Nothing extra: drawn like any other Component.",
+                "type": "string"
+              }
+            ]
+          },
           "NotFittedPaste": {
             "description": "Whether this build retains Not Fitted Components' paste openings.",
             "oneOf": [
@@ -32426,6 +32473,7 @@
                       },
                       "cross_references": false,
                       "cross_references_follow_preferences": false,
+                      "not_fitted_display": "cross",
                       "power_port_names_priority": false
                     },
                     "description": "The schematic options."
@@ -34786,7 +34834,7 @@
           },
           "SchematicOptions": {
             "additionalProperties": false,
-            "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
+            "description": "The Project's schematic options: how Nets are named, Ports cross-referenced and Not\nFitted Components drawn.",
             "properties": {
               "allow_ports_to_name_nets": {
                 "default": true,
@@ -34816,6 +34864,11 @@
                 "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
                 "type": "boolean"
               },
+              "not_fitted_display": {
+                "$ref": "#/$defs/NotFittedDisplay",
+                "default": "cross",
+                "description": "How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the\ndefault), `mesh` or `none`."
+              },
               "power_port_names_priority": {
                 "default": false,
                 "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -34828,7 +34881,8 @@
               "append_sheet_numbers",
               "cross_references",
               "cross_reference_styles",
-              "cross_references_follow_preferences"
+              "cross_references_follow_preferences",
+              "not_fitted_display"
             ],
             "type": "object"
           },
@@ -62131,7 +62185,7 @@
     },
     {
       "category": "schematic",
-      "description": "Sets the Project's schematic options: the Net naming ones (Power Port Names Take Priority, Allow Ports to Name Nets, Append Sheet Numbers to Local Nets) and the Port Cross-References ones (Automatic Cross References, Sheet Style, Location Style, Follow Preferences). Options left out keep their value. Stored in the Project; returns all of them.",
+      "description": "Sets the Project's schematic options: the Net naming ones (Power Port Names Take Priority, Allow Ports to Name Nets, Append Sheet Numbers to Local Nets), the Port Cross-References ones (Automatic Cross References, Sheet Style, Location Style, Follow Preferences) and Not Fitted display (cross, mesh or none). Options left out keep their value. Stored in the Project; returns all of them.",
       "icon": "properties",
       "id": "schematic.options.set",
       "kind": "edit",
@@ -62153,6 +62207,24 @@
               {
                 "const": "xy",
                 "description": "By its X,Y position on the sheet, in millimetres.",
+                "type": "string"
+              }
+            ]
+          },
+          "NotFittedDisplayParam": {
+            "description": "[`NotFittedDisplay`], plus the reserved name `text`.",
+            "oneOf": [
+              {
+                "enum": [
+                  "cross",
+                  "mesh",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "text",
+                "description": "Reserved for a later text overlay: refused.",
                 "type": "string"
               }
             ]
@@ -62232,6 +62304,17 @@
               "null"
             ]
           },
+          "not_fitted_display": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NotFittedDisplayParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the\ndefault, a red cross), `mesh` (a grey meshed box) or `none`. `text` is reserved for\na later text overlay and refused."
+          },
           "power_port_names_priority": {
             "description": "Power Port Names Take Priority: Power Port > Net Label > Port > auto-name instead\nof Net Label > Power Port > Port > auto-name. Off by default.",
             "type": [
@@ -62287,6 +62370,26 @@
               }
             ]
           },
+          "NotFittedDisplay": {
+            "description": "How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later\ntext overlay.",
+            "oneOf": [
+              {
+                "const": "cross",
+                "description": "A red cross over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "mesh",
+                "description": "A grey box with a mesh over its masked body.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Nothing extra: drawn like any other Component.",
+                "type": "string"
+              }
+            ]
+          },
           "SheetStyle": {
             "description": "How a cross-reference names a partner's sheet.",
             "oneOf": [
@@ -62310,7 +62413,7 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "The Project's schematic options: how Nets are named and Ports cross-referenced.",
+        "description": "The Project's schematic options: how Nets are named, Ports cross-referenced and Not\nFitted Components drawn.",
         "properties": {
           "allow_ports_to_name_nets": {
             "default": true,
@@ -62340,6 +62443,11 @@
             "description": "Follow Cross References settings in Preferences: the styles come from the\nPreferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.",
             "type": "boolean"
           },
+          "not_fitted_display": {
+            "$ref": "#/$defs/NotFittedDisplay",
+            "default": "cross",
+            "description": "How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the\ndefault), `mesh` or `none`."
+          },
           "power_port_names_priority": {
             "default": false,
             "description": "Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving\nPower Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >\nPort > auto-name).",
@@ -62352,7 +62460,8 @@
           "append_sheet_numbers",
           "cross_references",
           "cross_reference_styles",
-          "cross_references_follow_preferences"
+          "cross_references_follow_preferences",
+          "not_fitted_display"
         ],
         "title": "SchematicOptions",
         "type": "object"

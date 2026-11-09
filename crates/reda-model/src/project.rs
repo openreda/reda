@@ -49,7 +49,8 @@ pub struct ProjectProps {
     pub missing: Vec<DocumentEntry>,
 }
 
-/// The Project's schematic options: how Nets are named and Ports cross-referenced.
+/// The Project's schematic options: how Nets are named, Ports cross-referenced and Not
+/// Fitted Components drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SchematicOptions {
@@ -72,6 +73,23 @@ pub struct SchematicOptions {
     /// Follow Cross References settings in Preferences: the styles come from the
     /// Preferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.
     pub cross_references_follow_preferences: bool,
+    /// How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the
+    /// default), `mesh` or `none`.
+    pub not_fitted_display: NotFittedDisplay,
+}
+
+/// How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later
+/// text overlay.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NotFittedDisplay {
+    /// A red cross over its masked body.
+    #[default]
+    Cross,
+    /// A grey box with a mesh over its masked body.
+    Mesh,
+    /// Nothing extra: drawn like any other Component.
+    None,
 }
 
 impl SchematicOptions {
@@ -82,6 +100,7 @@ impl SchematicOptions {
         cross_references: false,
         cross_reference_styles: CrossReferenceStyles::DEFAULT,
         cross_references_follow_preferences: false,
+        not_fitted_display: NotFittedDisplay::Cross,
     };
 
     pub fn is_default(&self) -> bool {
