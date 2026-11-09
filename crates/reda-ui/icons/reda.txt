@@ -151,3 +151,10 @@ wire | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets
 zone | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
 zone_fill | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 zoom_fit | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none
+place_guides | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_obstacle_avoid | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_obstacle_ignore | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_queue | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_ratsnest_breaks | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_ratsnest_hidden | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+place_ratsnest_pad_to_pad | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)

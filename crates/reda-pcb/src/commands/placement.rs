@@ -324,8 +324,18 @@ pub fn preview(
     objects: &[Uuid],
     ops: &[Op],
 ) -> Result<Vec<Object>, CommandError> {
+    refuse_locked(pcb, &resolve(pcb, objects)?, false)?;
+    preview_including_locked(pcb, objects, ops)
+}
+
+/// [`preview`] with locked objects moved too, as the Commands move them given
+/// `include_locked`: a move that will ask before it runs (Protect Locked Objects off).
+pub fn preview_including_locked(
+    pcb: &PcbDocument,
+    objects: &[Uuid],
+    ops: &[Op],
+) -> Result<Vec<Object>, CommandError> {
     let mut items = resolve(pcb, objects)?;
-    refuse_locked(pcb, &items, false)?;
     for item in &mut items {
         for op in ops {
             item.apply(*op);
