@@ -39,10 +39,11 @@ pub(super) fn show(
     if ui.button(tr!("library-menu-where-used")).clicked() {
         picked = Some(Do::WhereUsed(entry.uuid));
     }
-    if entry.part.is_some() && status.is_some_and(|s| s.placed > 0) {
-        if ui.button(tr!("library-menu-update")).clicked() {
-            picked = Some(Do::update());
-        }
+    if entry.part.is_some()
+        && status.is_some_and(|s| s.placed > 0)
+        && ui.button(tr!("library-menu-update")).clicked()
+    {
+        picked = Some(Do::update());
     }
     if ui.button(tr!("library-menu-check")).clicked() {
         picked = Some(Do::Check(entry.uuid));
