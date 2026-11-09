@@ -17,7 +17,7 @@ pub(crate) mod edge;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
-mod silkscreen;
+pub(crate) mod silkscreen;
 mod zones;
 
 use reda_command::Fonts;

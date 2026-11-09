@@ -26,6 +26,7 @@ pub mod reannotate;
 pub mod recovery;
 pub mod relink;
 pub mod rules_file;
+pub mod silkscreen;
 pub mod similar;
 pub mod symbol_wizard;
 pub mod sync;
@@ -53,6 +54,7 @@ pub fn register_all(registry: &mut Registry) {
     extract::register_all(registry);
     library_check::register_all(registry);
     local_edits::register_all(registry);
+    silkscreen::register_all(registry);
     net_info::register_all(registry);
     output_run::register_all(registry);
     pcb_update::register_all(registry);

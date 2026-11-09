@@ -13,7 +13,8 @@
       "id": "tools",
       "title": "menu-tools",
       "items": [
-        { "id": "tools.library_check", "command": "library.check", "params": { "element": "$active_document" } }
+        { "id": "tools.library_check", "command": "library.check", "params": { "element": "$active_document" } },
+        { "id": "tools.silkscreen_prepare", "command": "library.footprint.silkscreen.prepare", "params": { "footprint": "$active_document" } }
       ]
     },
     {

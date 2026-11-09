@@ -82,7 +82,9 @@
       "id": "tools",
       "title": "menu-tools",
       "items": [
-        { "id": "tools.measure", "command": "tool.activate:measure" }
+        { "id": "tools.measure", "command": "tool.activate:measure" },
+        "separator",
+        { "id": "tools.silkscreen_prepare", "command": "pcb.silkscreen.prepare" }
       ]
     }
   ],

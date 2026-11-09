@@ -23,6 +23,7 @@ pub mod live_hover;
 pub mod route;
 mod route_commands;
 mod select_commands;
+pub mod silkscreen;
 pub mod snap;
 pub mod tool;
 pub mod view;
