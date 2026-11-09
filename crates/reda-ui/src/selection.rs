@@ -27,20 +27,28 @@ pub struct Selection {
     pub texts: Vec<TextRef>,
     /// Highlighted PCB Nets.
     pub nets: Vec<Uuid>,
+    /// Single segments of schematic Wires, selected by a click on a segment of the
+    /// selected Wire; their Wires are not in `objects`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub segments: Vec<WireSegment>,
 }
+
+pub use reda_engine::schematic::WireSegment;
 
 impl Selection {
     pub fn is_empty(&self) -> bool {
-        self.objects.is_empty()
+        self.segments.is_empty()
+            && self.objects.is_empty()
             && self.pads.is_empty()
             && self.fields.is_empty()
             && self.texts.is_empty()
             && self.nets.is_empty()
     }
 
-    /// How many things are selected: objects, Pads and Nets.
+    /// How many things are selected: objects, Wire segments, Pads and Nets.
     pub fn len(&self) -> usize {
         self.objects.len()
+            + self.segments.len()
             + self.pads.len()
             + self.fields.len()
             + self.texts.len()
@@ -201,6 +209,10 @@ pub struct SelectionSetParams {
     /// PCB Nets to highlight, by UUID.
     #[serde(default)]
     nets: Vec<Uuid>,
+    /// Single segments of schematic Wires (from vertex `index` to the next), whose Wires
+    /// are then not selected whole.
+    #[serde(default)]
+    segments: Vec<WireSegment>,
 }
 
 /// How many things are now selected: what `selection.set` and the Commands that add to
@@ -236,6 +248,7 @@ impl Command for SelectionSet {
             fields: dedup(p.fields),
             texts: dedup(p.texts),
             nets: dedup(p.nets),
+            segments: dedup(p.segments),
         };
         if !selection.is_empty() {
             let project = cx.project()?;
@@ -259,6 +272,18 @@ fn dedup<T: PartialEq>(items: Vec<T>) -> Vec<T> {
 
 /// Refuses anything that is not in the Project or a part of an open Library element.
 fn check(project: &Project, selection: &Selection) -> Result<(), CommandError> {
+    for segment in &selection.segments {
+        let found = project.object(segment.wire).is_some_and(|o| match o {
+            reda_engine::model::Object::Wire(w) => segment.index + 1 < w.object.vertices.len(),
+            _ => false,
+        });
+        if !found {
+            return Err(CommandError::not_found(format!(
+                "no segment {} on Wire {}",
+                segment.index, segment.wire
+            )));
+        }
+    }
     for uuid in &selection.objects {
         if project.object(*uuid).is_none() && !crate::element_editor::part_of(project, *uuid) {
             return Err(CommandError::not_found(format!("no object {uuid}")));

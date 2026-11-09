@@ -1,11 +1,12 @@
-//! The schematic's dialogs: Find, Select Similar, Re-annotate, Update from Library, the
-//! words of new text, and Export PDF's file picker.
+//! The schematic's dialogs: Find, Select Similar, Re-annotate, Update from Library,
+//! Convert Cross Junctions, the words of new text, and Export PDF's file picker.
 //!
 //! Each dialog is a model that works on a [`Shell`] (tested without a window) plus its
 //! drawing. The menus open them through the view Command `schematic.dialog.open`, which
 //! queues a [`Request`] the window carries out; every change they make goes through
 //! Commands (`schematic.find`, `selection.set`, `schematic.reannotate`, …).
 
+mod cross;
 mod find;
 mod reannotate;
 mod similar;
@@ -26,6 +27,7 @@ use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 use crate::tr;
 
+pub use cross::ConvertCrossDialog;
 pub use find::{FindDialog, FindRow};
 pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
 pub use similar::{Criterion, SimilarDialog};
@@ -46,6 +48,8 @@ pub enum DialogKind {
     UpdateFromLibrary,
     /// Pick where to write the PDF of every sheet.
     ExportPdf,
+    /// Convert Cross Junctions, on this sheet or the Project, with a Miter Size.
+    ConvertCrossJunctions,
 }
 
 /// Adds `schematic.dialog.open` to `registry`. The Shell does this for its engine.
@@ -78,8 +82,8 @@ impl Command for OpenDialog {
         id: "schematic.dialog.open",
         title: "Open Schematic Dialog",
         description: "Opens one of the schematic's dialogs in the window: Find, Select \
-                      Similar, Re-annotate, Update from Library, or the file picker of \
-                      Export PDF.",
+                      Similar, Re-annotate, Update from Library, Convert Cross Junctions, \
+                      or the file picker of Export PDF.",
         category: "schematic",
         icon: "dialog",
         kind: Kind::View,
@@ -122,6 +126,12 @@ impl Command for OpenDialog {
                 json!({"dialog": "update_from_library"}),
             ),
             Preset::new(
+                "convert_cross_junctions",
+                "Convert Cross Junctions…",
+                "wire",
+                json!({"dialog": "convert_cross_junctions"}),
+            ),
+            Preset::new(
                 "export_pdf",
                 "Export PDF…",
                 "export_pdf",
@@ -142,6 +152,7 @@ pub enum SchematicDialog {
     Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
     Update(UpdateDialog),
+    ConvertCross(ConvertCrossDialog),
 }
 
 impl SchematicDialog {
@@ -164,6 +175,9 @@ impl SchematicDialog {
                 SchematicDialog::Reannotate(dialog)
             }
             DialogKind::UpdateFromLibrary => SchematicDialog::Update(UpdateDialog::new(shell)),
+            DialogKind::ConvertCrossJunctions => {
+                SchematicDialog::ConvertCross(ConvertCrossDialog::new(shell)?)
+            }
             DialogKind::ExportPdf => return None,
         })
     }
@@ -175,6 +189,7 @@ impl SchematicDialog {
             SchematicDialog::Similar(d) => d.show(ctx, shell),
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),
+            SchematicDialog::ConvertCross(d) => d.show(ctx, shell),
         }
     }
 }
