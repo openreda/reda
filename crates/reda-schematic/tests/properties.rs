@@ -207,6 +207,36 @@ fn not_fitted_marks_every_unit() {
 }
 
 #[test]
+fn not_fitted_display_is_a_project_option_that_starts_as_cross() {
+    let dir = TempDir::new("not-fitted-display");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok("schematic.options.set", json!({}));
+    assert_eq!(out["result"]["not_fitted_display"], "cross");
+    for display in ["mesh", "none", "cross", "mesh"] {
+        let out = engine.run_ok(
+            "schematic.options.set",
+            json!({"not_fitted_display": display}),
+        );
+        assert_eq!(out["result"]["not_fitted_display"], display);
+    }
+    // `text` is reserved for a later text overlay.
+    let err = engine.run_err(
+        "schematic.options.set",
+        json!({"not_fitted_display": "text"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "{err:?}");
+    assert!(err.message.contains("reserved"), "{}", err.message);
+
+    engine.run_ok("project.save", json!({}));
+    let text = std::fs::read_to_string(dir.path().join("Demo/Demo.reda")).unwrap();
+    assert!(text.contains(r#""not_fitted_display":"mesh""#), "{text}");
+    let mut other = test_engine_with_library(&library());
+    other.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    let out = other.run_ok("schematic.options.set", json!({}));
+    assert_eq!(out["result"]["not_fitted_display"], "mesh");
+}
+
+#[test]
 fn field_visibility_is_shared_by_every_unit_and_survives_save_and_open() {
     let dir = TempDir::new("set-visible");
     let mut engine = demo(&dir);

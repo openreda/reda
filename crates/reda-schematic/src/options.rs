@@ -1,8 +1,8 @@
-//! `schematic.options.set`: the Project's schematic options, which say how Nets are named
-//! and Ports cross-referenced.
+//! `schematic.options.set`: the Project's schematic options, which say how Nets are named,
+//! Ports cross-referenced and Not Fitted Components drawn.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta};
-use reda_model::{LocationStyle, Object, SchematicOptions, SheetStyle};
+use reda_model::{LocationStyle, NotFittedDisplay, Object, SchematicOptions, SheetStyle};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -29,6 +29,21 @@ pub struct OptionsSetParams {
     /// Follow Cross References settings in Preferences: take both styles from the
     /// Preferences instead. Off by default.
     pub cross_references_follow_preferences: Option<bool>,
+    /// How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the
+    /// default, a red cross), `mesh` (a grey meshed box) or `none`. `text` is reserved for
+    /// a later text overlay and refused.
+    pub not_fitted_display: Option<NotFittedDisplayParam>,
+}
+
+/// [`NotFittedDisplay`], plus the reserved name `text`.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NotFittedDisplayParam {
+    Cross,
+    Mesh,
+    None,
+    /// Reserved for a later text overlay: refused.
+    Text,
 }
 
 pub struct OptionsSet;
@@ -39,10 +54,10 @@ impl Command for OptionsSet {
         title: "Set Schematic Options",
         description: "Sets the Project's schematic options: the Net naming ones (Power \
                       Port Names Take Priority, Allow Ports to Name Nets, Append Sheet \
-                      Numbers to Local Nets) and the Port Cross-References ones (Automatic \
-                      Cross References, Sheet Style, Location Style, Follow Preferences). \
-                      Options left out keep their value. Stored in the Project; returns all \
-                      of them.",
+                      Numbers to Local Nets), the Port Cross-References ones (Automatic \
+                      Cross References, Sheet Style, Location Style, Follow Preferences) and \
+                      Not Fitted display (cross, mesh or none). Options left out keep \
+                      their value. Stored in the Project; returns all of them.",
         category: "schematic",
         icon: "properties",
         kind: Kind::Edit,
@@ -55,6 +70,18 @@ impl Command for OptionsSet {
         cx: &mut Context<'_>,
         p: OptionsSetParams,
     ) -> Result<SchematicOptions, CommandError> {
+        let not_fitted_display = match p.not_fitted_display {
+            Some(NotFittedDisplayParam::Text) => {
+                return Err(CommandError::invalid_params(
+                    "/not_fitted_display",
+                    "`text` is reserved for a later text overlay: use `cross`, `mesh` or `none`",
+                ));
+            }
+            Some(NotFittedDisplayParam::Cross) => Some(NotFittedDisplay::Cross),
+            Some(NotFittedDisplayParam::Mesh) => Some(NotFittedDisplay::Mesh),
+            Some(NotFittedDisplayParam::None) => Some(NotFittedDisplay::None),
+            None => None,
+        };
         let tx = cx.tx()?;
         let mut props = tx.project().props().clone();
         let options = &mut props.schematic;
@@ -83,6 +110,9 @@ impl Command for OptionsSet {
         }
         if let Some(style) = p.cross_reference_location_style {
             options.cross_reference_styles.location = style;
+        }
+        if let Some(display) = not_fitted_display {
+            options.not_fitted_display = display;
         }
         let out = *options;
         tx.replace(Object::Project(props))?;

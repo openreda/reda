@@ -101,6 +101,13 @@ colors! {
     Frame: Rgba::rgb(0x6e, 0x72, 0x7a), Rgba::rgb(0x8a, 0x5a, 0x44);
     /// Title block text.
     FrameText: Rgba::rgb(0xb4, 0xb8, 0xc0), Rgba::rgb(0x5a, 0x3a, 0x2c);
+    /// Title block text the sheet takes from the Project (its revision), greyed on the
+    /// canvas.
+    FrameTextInherited: Rgba::rgb(0x80, 0x84, 0x8c), Rgba::rgb(0x8c, 0x84, 0x7c);
+    /// The tint behind an empty title field, on the canvas only.
+    EmptyField: Rgba::rgb(0x33, 0x2c, 0x1c), Rgba::rgb(0xfb, 0xee, 0xc8);
+    /// The Border Zones' band, dividers and labels.
+    Zone: Rgba::rgb(0x6e, 0x72, 0x7a), Rgba::rgb(0x8a, 0x5a, 0x44);
     Wire: Rgba::rgb(0x4c, 0xc2, 0x6a), Rgba::rgb(0x0f, 0x7a, 0x2e);
     Junction: Rgba::rgb(0x4c, 0xc2, 0x6a), Rgba::rgb(0x0f, 0x7a, 0x2e);
     NetLabel: Rgba::rgb(0x6c, 0xb6, 0xff), Rgba::rgb(0x1f, 0x5f, 0xbf);
@@ -114,6 +121,16 @@ colors! {
     /// Filled Symbol body shapes.
     BodyFill: Rgba::rgb(0x4a, 0x2e, 0x2a), Rgba::rgb(0xff, 0xf3, 0xc4);
     Pin: Rgba::rgb(0xe0, 0x6c, 0x5c), Rgba::rgb(0x9e, 0x22, 0x1a);
+    /// A Not Fitted Component's body outlines, masked under its overlay.
+    MaskedBody: Rgba::rgb(0x4a, 0x40, 0x3e), Rgba::rgb(0xd8, 0xc4, 0xc0);
+    /// A Not Fitted Component's filled body shapes.
+    MaskedFill: Rgba::rgb(0x26, 0x22, 0x22), Rgba::rgb(0xf4, 0xf0, 0xe6);
+    /// A Not Fitted Component's Pins with their names and numbers.
+    MaskedPin: Rgba::rgb(0x4a, 0x40, 0x3e), Rgba::rgb(0xd8, 0xc4, 0xc0);
+    /// The `cross` Not Fitted overlay.
+    NotFittedCross: Rgba::rgb(0xff, 0x40, 0x40), Rgba::rgb(0xd0, 0x10, 0x10);
+    /// The `mesh` Not Fitted overlay.
+    NotFittedMesh: Rgba::rgb(0x8c, 0x90, 0x96), Rgba::rgb(0x7c, 0x80, 0x86);
     PinName: Rgba::rgb(0xc8, 0xc8, 0xc8), Rgba::rgb(0x30, 0x30, 0x30);
     PinNumber: Rgba::rgb(0x96, 0x96, 0x96), Rgba::rgb(0x60, 0x60, 0x60);
     Designator: Rgba::rgb(0xe8, 0xc4, 0x5a), Rgba::rgb(0x00, 0x6a, 0x8a);
@@ -255,4 +272,18 @@ impl Palette {
 }
 
 const _: () = assert!(SchematicColor::ALL.len() <= BOARD_SLOTS);
+
+impl SchematicColor {
+    /// Whether this is the ink of a Unit's Symbol body (outlines or fills), masked or not:
+    /// what picks and boxes a Unit, as opposed to its Pins and fields.
+    pub const fn is_unit_body(self) -> bool {
+        matches!(
+            self,
+            SchematicColor::Body
+                | SchematicColor::BodyFill
+                | SchematicColor::MaskedBody
+                | SchematicColor::MaskedFill
+        )
+    }
+}
 const _: () = assert!(BOARD_SLOTS + BoardColor::ALL.len() <= ColorKey::SLOTS);

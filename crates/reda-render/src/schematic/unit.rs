@@ -1,18 +1,19 @@
-//! Placed Units: the Symbol body, the Pins with their names and Pad numbers, and the
-//! visible Component fields.
+//! Placed Units: the Symbol body, the Pins with their names and Pad numbers, the visible
+//! Component fields, and a Not Fitted Component's masked body and overlay.
 
 use reda_model::geom::{Millideg, Nm, Point};
 use std::borrow::Cow;
 
 use reda_model::text::display;
 use reda_model::{
-    PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance, Uuid,
+    NotFittedDisplay, PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance,
+    Uuid,
 };
 
 use super::{Builder, SchematicStyle};
-use crate::color::SchematicColor as C;
+use crate::color::{ColorKey, SchematicColor as C};
 use crate::polygon::triangulate;
-use crate::scene::{Align, HAlign, Primitive, Scene, SceneSource, VAlign};
+use crate::scene::{Align, HAlign, Item, Primitive, Scene, SceneSource, VAlign};
 use crate::text::{TextStyle, reading_direction};
 use crate::transform::{Placement, rotate};
 
@@ -27,19 +28,39 @@ const FIELD_TEXT: Nm = Nm::from_um(1_270);
 /// apart.
 const FIELD_GAP: i64 = 1_270_000;
 const FIELD_PITCH: i64 = 2_032_000;
+/// The Not Fitted cross and the mesh's box.
+const OVERLAY_WIDTH: Nm = Nm(254_000);
+/// The Not Fitted mesh's lines, and how far apart they are along an axis.
+const MESH_WIDTH: Nm = Nm(127_000);
+const MESH_PITCH: i64 = 1_270_000;
 /// Arcs are drawn as capsules at most this many millidegrees long.
 const ARC_STEP: i64 = 5_000;
 
-pub(super) fn build(b: &mut Builder, sheet: &SchematicSheet, style: &SchematicStyle) {
+pub(super) fn build(
+    b: &mut Builder,
+    sheet: &SchematicSheet,
+    style: &SchematicStyle,
+    not_fitted: NotFittedDisplay,
+) {
     for unit in sheet.units() {
         let Some(entry) = sheet.part(unit.part) else {
             continue;
         };
-        draw_unit(b, unit, entry, style);
+        let overlay = match unit.not_fitted {
+            true => not_fitted,
+            false => NotFittedDisplay::None,
+        };
+        draw_unit(b, unit, entry, style, overlay);
     }
 }
 
-fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry, style: &SchematicStyle) {
+fn draw_unit(
+    b: &mut Builder,
+    unit: &UnitInstance,
+    entry: &PartEntry,
+    style: &SchematicStyle,
+    not_fitted: NotFittedDisplay,
+) {
     let place = Placement {
         at: unit.at,
         rotation: unit.rotation,
@@ -64,8 +85,91 @@ fn draw_unit(b: &mut Builder, unit: &UnitInstance, entry: &PartEntry, style: &Sc
             )
         })
         .unwrap_or((unit.at, unit.at));
+    if not_fitted != NotFittedDisplay::None {
+        mask(&mut b.scene.items[first..]);
+    }
     let suffix = style.unit_suffix.of(&entry.symbol, unit.unit);
     draw_fields(b, unit, &place, &suffix, body);
+    match not_fitted {
+        NotFittedDisplay::Cross => cross(b, unit.uuid, body),
+        NotFittedDisplay::Mesh => mesh(b, unit.uuid, body),
+        NotFittedDisplay::None => {}
+    }
+}
+
+/// Redraws a Not Fitted Unit's body and Pins in the masked colours, under its overlay.
+fn mask(items: &mut [Item]) {
+    for item in items {
+        let ColorKey::Schematic(color) = item.color else {
+            continue;
+        };
+        let masked = match color {
+            C::Body => C::MaskedBody,
+            C::BodyFill => C::MaskedFill,
+            C::Pin | C::PinName | C::PinNumber => C::MaskedPin,
+            other => other,
+        };
+        item.color = ColorKey::Schematic(masked);
+    }
+}
+
+/// The `cross` Not Fitted overlay: a red cross from corner to corner of the body.
+fn cross(b: &mut Builder, object: Uuid, (lo, hi): (Point, Point)) {
+    for (a, z) in [(lo, hi), (Point::new(lo.x, hi.y), Point::new(hi.x, lo.y))] {
+        b.push(
+            object,
+            C::NotFittedCross,
+            Primitive::Capsule {
+                a,
+                b: z,
+                width: OVERLAY_WIDTH,
+            },
+        );
+    }
+}
+
+/// The `mesh` Not Fitted overlay: a grey box round the body, meshed with diagonals.
+fn mesh(b: &mut Builder, object: Uuid, (lo, hi): (Point, Point)) {
+    b.push(
+        object,
+        C::NotFittedMesh,
+        Primitive::Rect {
+            center: Point::new(Nm((lo.x.0 + hi.x.0) / 2), Nm((lo.y.0 + hi.y.0) / 2)),
+            size: (hi.x - lo.x, hi.y - lo.y),
+            rotation: Millideg(0),
+            corner_radius: Nm(0),
+            stroke: Some(OVERLAY_WIDTH),
+        },
+    );
+    let (x0, y0, x1, y1) = (lo.x.0, lo.y.0, hi.x.0, hi.y.0);
+    let line = |b: &mut Builder, a: (i64, i64), z: (i64, i64)| {
+        b.push(
+            object,
+            C::NotFittedMesh,
+            Primitive::Capsule {
+                a: Point::new(Nm(a.0), Nm(a.1)),
+                b: Point::new(Nm(z.0), Nm(z.1)),
+                width: MESH_WIDTH,
+            },
+        );
+    };
+    // Lines y = x - c and y = c - x, every pitch, each cut to the box.
+    let mut c = (x0 - y1).div_euclid(MESH_PITCH) * MESH_PITCH + MESH_PITCH;
+    while c < x1 - y0 {
+        let (from, to) = ((x0).max(y0 + c), (x1).min(y1 + c));
+        if from < to {
+            line(b, (from, from - c), (to, to - c));
+        }
+        c += MESH_PITCH;
+    }
+    let mut c = (x0 + y0).div_euclid(MESH_PITCH) * MESH_PITCH + MESH_PITCH;
+    while c < x1 + y1 {
+        let (from, to) = ((x0).max(c - y1), (x1).min(c - y0));
+        if from < to {
+            line(b, (from, c - from), (to, c - to));
+        }
+        c += MESH_PITCH;
+    }
 }
 
 fn draw_graphic(b: &mut Builder, object: Uuid, place: &Placement, g: &SymbolGraphic) {
@@ -221,10 +325,11 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
         },
     );
     if pin.name_visible {
-        b.text(
+        b.name(
             object,
             C::PinName,
             &pin.name,
+            false,
             body_end + along(NAME_GAP),
             TextStyle {
                 height: PIN_TEXT,
