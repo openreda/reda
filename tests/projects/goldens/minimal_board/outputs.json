@@ -39,6 +39,18 @@
         "name": "Minimal-PTH.drl"
       },
       {
+        "function": "fab_notes",
+        "name": "Minimal-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "name": "Minimal-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "name": "Minimal-job.gbrjob"
+      },
+      {
         "function": "bom",
         "name": "Minimal-BOM.csv"
       },

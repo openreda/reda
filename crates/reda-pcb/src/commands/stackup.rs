@@ -1,12 +1,13 @@
 //! `pcb.stackup.set`: the board's thickness, copper and dielectric entries, finish and
-//! colours.
+//! colours; and `pcb.fab_notes.set`, the free text for the Fab Notes, which sits beside
+//! them on the Stackup page of Board Setup.
 
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, CopperThickness, Kind, Length, Meta,
     Registry, Unavailable,
 };
 use reda_model::geom::Nm;
-use reda_model::{InDocument, Object, Stackup, StackupEntry, StackupTotals, Uuid};
+use reda_model::{BoardSetup, InDocument, Object, Stackup, StackupEntry, StackupTotals, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -14,6 +15,7 @@ use super::{needs_pcb, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
+    registry.add(FabNotesSet);
 }
 
 /// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
@@ -207,5 +209,49 @@ impl Command for StackupSet {
             totals,
             warnings,
         })
+    }
+}
+
+pub struct FabNotesSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FabNotesSetParams {
+    /// The free text, kept as typed; `null` or blank clears it.
+    pub text: Option<String>,
+}
+
+impl Command for FabNotesSet {
+    const META: Meta = Meta {
+        id: "pcb.fab_notes.set",
+        title: "Set Fab Notes Text",
+        description: "Sets the board's `fab_notes`: free text for a person at the fab, \
+                      copied as typed to the end of the Fab Notes that `output.job.run` \
+                      writes. `null` or blank text clears it.",
+        category: "pcb",
+        icon: "layers",
+        kind: Kind::Edit,
+    };
+    type Params = FabNotesSetParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FabNotesSetParams) -> Result<(), CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let fab_notes = text(p.text);
+        if pcb.setup().fab_notes == fab_notes {
+            return Ok(());
+        }
+        let setup = BoardSetup {
+            fab_notes,
+            ..pcb.setup().clone()
+        };
+        cx.tx()?
+            .replace(Object::BoardSetup(InDocument::new(document, setup)))?;
+        Ok(())
     }
 }

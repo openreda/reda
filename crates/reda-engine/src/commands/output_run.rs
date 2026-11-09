@@ -42,7 +42,8 @@ pub struct WrittenFile {
     pub name: String,
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
-    /// `drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `bom` or `cpl`.
+    /// `drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `fab_notes`,
+    /// `drill_report`, `gerber_job`, `bom` or `cpl`.
     pub function: &'static str,
 }
 
@@ -86,8 +87,15 @@ impl Command for JobRun {
                       Outline as the Profile; an empty Silkscreen or Paste is left out and \
                       listed in `skipped`) and the Excellon drill files (plated and \
                       non-plated, or one file with the preset's `merge_drill`; a drill file \
-                      with no holes is left out and listed in `skipped`) and writes them with the CSV BOM and CPL (columns from the \
-                      job's Fab Preset; Not Fitted and Mechanical Parts left out) and their \
+                      with no holes is left out and listed in `skipped`), then the files \
+                      for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum \
+                      features, hole tolerances, Net Ties as deliberate shorts, the files \
+                      in the zip and the board's `fab_notes` text), \
+                      `<project>-drill-report.txt` (each drill file's tools and counts) \
+                      and `<project>-job.gbrjob` (a minimal Gerber job file), each with its \
+                      `outputs` toggle, and writes them with the CSV BOM and CPL (columns \
+                      from the job's Fab Preset; Not Fitted and Mechanical Parts left out) \
+                      and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Gerber, \
                       drill and CPL share one origin: the board's own zero for an `absolute` \
@@ -210,7 +218,6 @@ impl Command for JobRun {
             &preset.bom.mount_values,
         );
         let mut known: Vec<String> = Vec::new();
-        let mut files: Vec<OutputFile> = Vec::new();
         let drills = reda_output::drill_files(&plot);
         let mut skipped = Vec::new();
         for (on, left_out) in [
@@ -227,17 +234,49 @@ impl Command for JobRun {
         known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
         // Every drill name, so switching `merge_drill` drops the other form's old files.
         known.extend(reda_output::drill_file_names(&name));
+        let fab_notes_name = reda_output::fab_notes_name(&name);
+        known.extend([
+            fab_notes_name.clone(),
+            reda_output::drill_report_name(&name),
+            reda_output::gerber_job_name(&name),
+        ]);
+        // In zip order: Gerber, drill, the files written for the fab, BOM and CPL.
+        let mut files: Vec<OutputFile> = Vec::new();
         for (on, every) in [
             (job.outputs.gerber, gerbers.files),
             (job.outputs.drill, drills.files),
-            (job.outputs.bom, vec![bom]),
-            (job.outputs.cpl, vec![cpl]),
         ] {
             known.extend(every.iter().map(|f| f.name.clone()));
             if on {
                 files.extend(every);
             }
         }
+        let job_file = job
+            .outputs
+            .gerber_job
+            .then(|| reda_output::gerber_job_file(&plot, &files));
+        let report = job
+            .outputs
+            .drill_report
+            .then(|| reda_output::drill_report_file(&plot));
+        let mut after: Vec<OutputFile> = report.into_iter().chain(job_file).collect();
+        for (on, file) in [(job.outputs.bom, bom), (job.outputs.cpl, cpl)] {
+            known.push(file.name.clone());
+            if on {
+                after.push(file);
+            }
+        }
+        if job.outputs.fab_notes {
+            // The Fab Notes list every file in the zip, themselves included.
+            let zip_names: Vec<String> = files
+                .iter()
+                .map(|f| f.name.clone())
+                .chain([fab_notes_name])
+                .chain(after.iter().map(|f| f.name.clone()))
+                .collect();
+            files.push(reda_output::fab_notes_file(&plot, &zip_names));
+        }
+        files.extend(after);
 
         cx.progress(3.0, Some(STEPS), "Zipping");
         cx.check_cancelled()?;

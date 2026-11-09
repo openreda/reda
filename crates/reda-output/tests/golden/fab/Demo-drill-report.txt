@@ -1,0 +1,18 @@
+Drill report for Demo
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+Demo-PTH.drl
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.300  plated     via            1     0  -
+  T2      0.800  plated     component      0     1  +0.050/-0.050
+  T3      1.000  plated     component      1     0  -
+  T4      1.000  plated     component      1     0  +0.100/-0.050
+  Total                                    3     1
+
+Demo-NPTH.drl
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      1.000  non-plated mechanical     0     1  -
+  T2      3.200  non-plated mechanical     1     0  +0.050/-0.000
+  Total                                    1     1
+
+All files: 4 holes, 2 slots

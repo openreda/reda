@@ -212,3 +212,30 @@ fn copper_layers_can_be_named_by_their_copper_number() {
     assert_eq!(pcb.copper_number(top), Some(1));
     assert_eq!(pcb.copper_number(bottom), Some(2));
 }
+
+#[test]
+fn fab_notes_are_free_text_on_the_board_that_saves_clears_and_undoes() {
+    let dir = TempDir::new("stackup-fab-notes");
+    let mut engine = engine(&dir);
+    assert_eq!(pcb(&engine).setup().fab_notes, None);
+    let text = "Please route the slot with a 0.8 mm cutter.\nNo X-outs.";
+    engine.run_ok("pcb.fab_notes.set", json!({"text": text}));
+    assert_eq!(pcb(&engine).setup().fab_notes.as_deref(), Some(text));
+
+    engine.run_ok("project.save", json!({}));
+    let file = std::fs::read_to_string(dir.path().join("Demo/Demo.redapcb")).unwrap();
+    assert!(file.contains(r#""fab_notes":"Please route"#), "{file}");
+    engine.run_ok(
+        "project.open",
+        json!({"path": dir.path().join("Demo/Demo.reda")}),
+    );
+    assert_eq!(pcb(&engine).setup().fab_notes.as_deref(), Some(text));
+
+    let document = pcb(&engine).uuid;
+    engine.run_ok("pcb.fab_notes.set", json!({"text": "  "}));
+    assert_eq!(pcb(&engine).setup().fab_notes, None);
+    engine.run_ok("edit.undo", json!({"document": document}));
+    assert_eq!(pcb(&engine).setup().fab_notes.as_deref(), Some(text));
+    engine.run_ok("pcb.fab_notes.set", json!({"text": null}));
+    assert_eq!(pcb(&engine).setup().fab_notes, None);
+}

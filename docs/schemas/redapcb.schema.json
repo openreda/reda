@@ -62,6 +62,13 @@
     "BoardRow": {
       "additionalProperties": false,
       "properties": {
+        "fab_notes": {
+          "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "uuid": {
           "format": "uuid",
           "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
