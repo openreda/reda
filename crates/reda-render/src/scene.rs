@@ -20,6 +20,22 @@ pub struct Scene {
     /// Every primitive, in draw order: later items draw over earlier ones on the same
     /// Layer.
     pub items: Vec<Item>,
+    /// Areas that lead to another sheet, such as a Port Cross-Reference's entries: links
+    /// in a PDF.
+    pub links: Vec<Link>,
+}
+
+/// An area of a Scene that leads to a place on another sheet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Link {
+    /// The object whose drawing holds the area.
+    pub object: Uuid,
+    /// The area, as (min, max) in the Scene's coordinates.
+    pub area: (Point, Point),
+    /// The Schematic Sheet it leads to, by Document UUID.
+    pub sheet: Uuid,
+    /// Where on that sheet.
+    pub at: Point,
 }
 
 /// The Document a Scene was built from.
@@ -265,6 +281,7 @@ impl Scene {
         Scene {
             source,
             items: Vec::new(),
+            links: Vec::new(),
         }
     }
 

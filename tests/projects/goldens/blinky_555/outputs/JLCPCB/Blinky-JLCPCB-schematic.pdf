@@ -1,12 +1,12 @@
 %PDF-1.4
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R /PageMode /UseOutlines >>
 endobj
 2 0 obj
 << /Type /Pages /Kids [4 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Title (555 blinky) /Producer (REDA) /CreationDate (D:20260101000000Z) >>
+<< /Title (555 blinky) /Producer (REDA) >>
 endobj
 4 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.276] /Contents 5 0 R >>
@@ -18118,16 +18118,64 @@ f
 
 endstream
 endobj
+6 0 obj
+<< /Type /Outlines /First 7 0 R /Last 7 0 R /Count 11 >>
+endobj
+7 0 obj
+<< /Title (555 blinky) /Parent 6 0 R /Dest [4 0 R /Fit] /First 8 0 R /Last 8 0 R /Count 10 >>
+endobj
+8 0 obj
+<< /Title (1 Sheet 1) /Parent 7 0 R /Dest [4 0 R /Fit] /First 9 0 R /Last 17 0 R /Count 9 >>
+endobj
+9 0 obj
+<< /Title (C1 10u) /Parent 8 0 R /Dest [4 0 R /XYZ 432 360 null] /Next 10 0 R >>
+endobj
+10 0 obj
+<< /Title (C2 10n) /Parent 8 0 R /Dest [4 0 R /XYZ 432 216 null] /Prev 9 0 R /Next 11 0 R >>
+endobj
+11 0 obj
+<< /Title (C3 100n) /Parent 8 0 R /Dest [4 0 R /XYZ 216 360 null] /Prev 10 0 R /Next 12 0 R >>
+endobj
+12 0 obj
+<< /Title (D1 LED) /Parent 8 0 R /Dest [4 0 R /XYZ 396 216 null] /Prev 11 0 R /Next 13 0 R >>
+endobj
+13 0 obj
+<< /Title (J1 Header 1x2) /Parent 8 0 R /Dest [4 0 R /XYZ 180 288 null] /Prev 12 0 R /Next 14 0 R >>
+endobj
+14 0 obj
+<< /Title (R1 1k) /Parent 8 0 R /Dest [4 0 R /XYZ 360 360 null] /Prev 13 0 R /Next 15 0 R >>
+endobj
+15 0 obj
+<< /Title (R2 10k) /Parent 8 0 R /Dest [4 0 R /XYZ 396 360 null] /Prev 14 0 R /Next 16 0 R >>
+endobj
+16 0 obj
+<< /Title (R3 330) /Parent 8 0 R /Dest [4 0 R /XYZ 360 216 null] /Prev 15 0 R /Next 17 0 R >>
+endobj
+17 0 obj
+<< /Title (U1 NE555) /Parent 8 0 R /Dest [4 0 R /XYZ 288 288 null] /Prev 16 0 R >>
+endobj
 xref
-0 6
+0 18
 0000000000 65535 f 
 0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000207 00000 n 
-0000000301 00000 n 
+0000000097 00000 n 
+0000000154 00000 n 
+0000000212 00000 n 
+0000000306 00000 n 
+0000393826 00000 n 
+0000393898 00000 n 
+0000394007 00000 n 
+0000394115 00000 n 
+0000394211 00000 n 
+0000394320 00000 n 
+0000394431 00000 n 
+0000394541 00000 n 
+0000394658 00000 n 
+0000394767 00000 n 
+0000394877 00000 n 
+0000394987 00000 n 
 trailer
-<< /Size 6 /Root 1 0 R /Info 3 0 R >>
+<< /Size 18 /Root 1 0 R /Info 3 0 R >>
 startxref
-393821
+395086
 %%EOF

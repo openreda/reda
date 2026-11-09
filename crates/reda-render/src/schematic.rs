@@ -46,9 +46,23 @@ pub struct SchematicStyle {
     /// Each Port's cross-reference note, such as `[2:B3]`, keyed by Port UUID: derived
     /// from the Project and the styles it uses (see `reda_schematic::cross_ref::notes`).
     pub cross_references: BTreeMap<Uuid, String>,
+    /// Where each entry of a Port's note leads, keyed by Port UUID: each entry becomes a
+    /// [`Link`](crate::Link) over its text, in a PDF a link to that sheet's page.
+    pub cross_reference_links: BTreeMap<Uuid, Vec<NoteLink>>,
     /// Display Cross-Overs: a Wire hops over each Wire it crosses without connecting.
     /// Canvas only: outputs never set it.
     pub cross_overs: bool,
+}
+
+/// Where one entry of a Port's cross-reference note leads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NoteLink {
+    /// The entry as the note writes it, such as `2:B3`.
+    pub entry: String,
+    /// The partner's Schematic Sheet, by Document UUID.
+    pub sheet: Uuid,
+    /// The partner's connection point there.
+    pub at: Point,
 }
 
 /// [`schematic_scene`] drawn in `style`.

@@ -259,6 +259,25 @@ impl Palette {
         }
     }
 
+    /// The mono scheme of a schematic PDF: black ink on white paper, every fill white.
+    /// Masked colours are plain ink too, so a Not Fitted body is drawn unmasked, under its
+    /// cross or mesh in black.
+    pub fn mono() -> Palette {
+        use SchematicColor as C;
+        let (white, black) = (Rgba::rgb(0xff, 0xff, 0xff), Rgba::rgb(0, 0, 0));
+        let overrides = SchematicColor::ALL
+            .iter()
+            .map(|&kind| {
+                let paper = matches!(kind, C::Paper | C::BodyFill | C::MaskedFill | C::EmptyField);
+                (ColorKey::Schematic(kind), if paper { white } else { black })
+            })
+            .collect();
+        Palette {
+            theme: Theme::Light,
+            overrides,
+        }
+    }
+
     pub fn theme(&self) -> Theme {
         self.theme
     }

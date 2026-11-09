@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_render::{
-    Align, ColorKey, GlyphRun, Item, Palette, PdfInfo, Primitive, Scene, SceneLayer, SceneSource,
-    SchematicColor, Theme, Viewport, to_pdf, to_svg,
+    Align, Bookmark, ColorKey, GlyphRun, Item, Link, Palette, PdfInfo, Primitive, Scene,
+    SceneLayer, SceneSource, SchematicColor, Theme, Viewport, to_pdf, to_svg,
 };
 use reda_testkit::assert_golden;
 use reda_text::{Mesh, Segment};
@@ -127,6 +127,7 @@ fn every_primitive() -> Scene {
             ),
             item(7, C::Text, Primitive::Glyphs(run)),
         ],
+        links: Vec::new(),
     }
 }
 
@@ -171,13 +172,10 @@ fn highlighting_dims_everything_else_but_the_paper() {
     assert_ne!(line(&plain, 4), line(&lit, 4), "the Junction is dimmed");
 }
 
-/// 2026-01-01T00:00:00Z, the test Clock's time, in ms.
-const EPOCH_MS: i64 = 1_767_225_600_000;
-
 fn info() -> PdfInfo {
     PdfInfo {
         title: "Demo (rev B)".into(),
-        created: EPOCH_MS,
+        ..PdfInfo::default()
     }
 }
 
@@ -191,7 +189,7 @@ fn pdf_writes_one_vector_page_per_scene() {
 }
 
 #[test]
-fn pdf_embeds_no_font_and_dates_itself_from_the_clock() {
+fn pdf_embeds_no_font_and_writes_no_date() {
     let pdf = to_pdf(
         &[every_primitive()],
         &Palette::shipped(Theme::Light),
@@ -200,7 +198,10 @@ fn pdf_embeds_no_font_and_dates_itself_from_the_clock() {
     let text = String::from_utf8_lossy(&pdf);
     assert!(text.starts_with("%PDF-1.4\n"));
     assert!(!text.contains("/Font"), "glyphs are paths, not text");
-    assert!(text.contains("/CreationDate (D:20260101000000Z)"));
+    assert!(
+        !text.contains("Date"),
+        "no date, so the bytes follow the design alone"
+    );
     assert!(text.contains("/Title (Demo \\(rev B\\))"));
     assert!(
         text.contains("/MediaBox [0 0 113.386 85.039]"),
@@ -242,4 +243,125 @@ fn pdf_cross_reference_offsets_point_at_their_objects() {
             i + 1
         );
     }
+}
+
+/// Two sheets, `A` and `B`, each one of [`every_primitive`].
+fn two_sheets() -> [Scene; 2] {
+    let mut first = every_primitive();
+    first.source = SceneSource::Schematic(uuid(0xa));
+    let mut second = every_primitive();
+    second.source = SceneSource::Schematic(uuid(0xb));
+    [first, second]
+}
+
+fn bookmark(title: &str, page: usize, at: Option<Point>, children: Vec<Bookmark>) -> Bookmark {
+    Bookmark {
+        title: title.into(),
+        page,
+        at,
+        children,
+    }
+}
+
+#[test]
+fn pdf_outline_nests_bookmarks_that_open_their_page() {
+    let info = PdfInfo {
+        title: "Demo".into(),
+        outline: vec![bookmark(
+            "Demo",
+            0,
+            None,
+            vec![
+                bookmark(
+                    "1 Main",
+                    0,
+                    None,
+                    vec![bookmark("R1 10k", 0, Some(pt(10, 20)), vec![])],
+                ),
+                bookmark("2 Power", 1, None, vec![]),
+            ],
+        )],
+    };
+    let pdf = to_pdf(&two_sheets(), &Palette::shipped(Theme::Light), &info);
+    let text = String::from_utf8_lossy(&pdf);
+    assert!(
+        text.contains("/Outlines 8 0 R /PageMode /UseOutlines"),
+        "{text}"
+    );
+    assert!(text.contains("<< /Type /Outlines /First 9 0 R /Last 9 0 R /Count 4 >>"));
+    assert!(text.contains(
+        "<< /Title (Demo) /Parent 8 0 R /Dest [4 0 R /Fit] /First 10 0 R /Last 12 0 R /Count 3 >>"
+    ));
+    assert!(text.contains("<< /Title (1 Main) /Parent 9 0 R /Dest [4 0 R /Fit] /Next 12 0 R"));
+    assert!(
+        text.contains("<< /Title (R1 10k) /Parent 10 0 R /Dest [4 0 R /XYZ 28.346 56.693 null] >>"),
+        "a Component opens at its place on the page"
+    );
+    assert!(text.contains("<< /Title (2 Power) /Parent 9 0 R /Dest [6 0 R /Fit] /Prev 10 0 R >>"));
+    assert_golden(golden("outline.pdf"), &pdf);
+}
+
+#[test]
+fn pdf_links_lead_to_their_sheets_page() {
+    let [mut first, second] = two_sheets();
+    let link = |sheet: u128| Link {
+        object: uuid(2),
+        area: (pt(2, 2), pt(12, 4)),
+        sheet: uuid(sheet),
+        at: pt(10, 20),
+    };
+    // The second leads to a sheet that is not in the PDF, so it is left out.
+    first.links = vec![link(0xb), link(0xc)];
+    let pdf = to_pdf(&[first, second], &Palette::shipped(Theme::Light), &info());
+    let text = String::from_utf8_lossy(&pdf);
+    assert!(
+        text.contains("/Contents 5 0 R /Annots [8 0 R] >>"),
+        "{text}"
+    );
+    assert!(text.contains(
+        "<< /Type /Annot /Subtype /Link /Rect [5.669 5.669 34.016 11.339] /Border [0 0 0] \
+         /Dest [6 0 R /XYZ 28.346 56.693 null] >>"
+    ));
+    assert_eq!(text.matches("/Subtype /Link").count(), 1);
+    assert!(
+        !text.contains("/Contents 7 0 R /Annots"),
+        "the second page links nowhere"
+    );
+}
+
+#[test]
+fn a_mono_pdf_draws_in_black_on_white_paper() {
+    use SchematicColor as C;
+    let mut scene = every_primitive();
+    for (n, color) in [
+        (10, C::MaskedBody),
+        (11, C::MaskedFill),
+        (12, C::NotFittedCross),
+        (13, C::NotFittedMesh),
+        (14, C::Designator),
+    ] {
+        scene.items.push(item(
+            n,
+            color,
+            Primitive::Ring {
+                center: pt(5, 5),
+                outer: mm(1),
+                inner: Nm(0),
+            },
+        ));
+    }
+    let pdf = to_pdf(&[scene], &Palette::mono(), &info());
+    let text = String::from_utf8_lossy(&pdf);
+    let mut colours: Vec<&str> = text
+        .lines()
+        .filter(|l| l.ends_with(" rg") || l.ends_with(" RG"))
+        .map(|l| &l[..l.len() - 3])
+        .collect();
+    colours.sort();
+    colours.dedup();
+    assert_eq!(
+        colours,
+        ["0 0 0", "1 1 1"],
+        "black ink, white paper and fills"
+    );
 }

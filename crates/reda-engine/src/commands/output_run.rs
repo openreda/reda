@@ -5,9 +5,9 @@
 //! A run checks what blocks it (and refuses), refills stale Zones, plots the files, zips
 //! them, and writes the layout of outputs.md, "Output layout", to the job's destination:
 //! the zip, its loose copies in `fab/`, the BOM and CPL beside it (or in it, with the
-//! preset's `zip_assembly`), `reports/` and the Output Manifest. It first removes what the
-//! last run wrote there. It is long-running: it reports progress per step and can be
-//! cancelled up to the moment it starts writing.
+//! preset's `zip_assembly`), the schematic PDF, `reports/` and the Output Manifest. It
+//! first removes what the last run wrote there. It is long-running: it reports progress
+//! per step and can be cancelled up to the moment it starts writing.
 
 mod checks;
 mod manifest;
@@ -53,7 +53,7 @@ pub struct WrittenFile {
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,
     /// `silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`
     /// (with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
-    /// `erc_report`, `drc_report` or `change_list_report`.
+    /// `schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.
     pub function: &'static str,
 }
 
@@ -79,8 +79,8 @@ pub struct JobRunResult {
     /// The Output Manifest, `manifest.json` in the destination.
     pub manifest: PathBuf,
     /// Every file written but the manifest, in a fixed order by kind: the zip's files
-    /// (as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, then the
-    /// reports.
+    /// (as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, the
+    /// schematic PDF, then the reports.
     pub files: Vec<WrittenFile>,
     /// The files left out because they would have been empty: a Silkscreen or Paste with
     /// nothing on it, or a drill file with no holes.
@@ -117,7 +117,10 @@ impl Command for JobRun {
                       Fab Preset; Not Fitted and Mechanical Parts left out) sit beside the \
                       zip as `<name>-BOM.csv` and `<name>-CPL.csv`, or go into it as \
                       `<project>-BOM.csv` and `<project>-CPL.csv` with the preset's \
-                      `zip_assembly`. `reports/` gets the ERC, DRC and Change List reports \
+                      `zip_assembly`. `<name>-schematic.pdf`, beside the zip and never in \
+                      it, holds every Schematic Sheet as `schematic.export_pdf` writes \
+                      them, in the job's `schematic_pdf_colour` (`outputs.schematic_pdf` \
+                      toggle). `reports/` gets the ERC, DRC and Change List reports \
                       as `checks.report` writes them (JSON; `outputs.reports` toggle), and \
                       `manifest.json` lists every file with its size, SHA-256 and kind, the \
                       zip's SHA-256, the REDA version, job, Fab Preset and its hash, PCB \
@@ -297,6 +300,8 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         bom.name.clone(),
         cpl.name.clone(),
     ]);
+    let pdf_name = format!("{stem}-schematic.pdf");
+    known.push(pdf_name.clone());
     // In zip order: Gerber, drill, the files written for the fab, then the BOM and CPL
     // with `zip_assembly`.
     let mut zipped: Vec<OutputFile> = Vec::new();
@@ -356,6 +361,24 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     );
     written.push((zip_name.clone(), "zip", zip.clone()));
     written.extend(beside.into_iter().map(|f| (f.name, f.function, f.bytes)));
+    if job.outputs.schematic_pdf {
+        // Every sheet, drawn as this user draws an output; headless, with the defaults.
+        cx.progress(3.5, Some(STEPS), "Writing the schematic PDF");
+        let session = cx.session()?;
+        let preferences = crate::preferences::current(session.user_dirs.as_ref());
+        let project = session
+            .project
+            .as_ref()
+            .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+        let sheets = crate::schematic_pdf::sheets(project);
+        let (pdf, _) = crate::schematic_pdf::schematic_pdf(
+            project,
+            &preferences,
+            &sheets,
+            job.schematic_pdf_colour,
+        );
+        written.push((pdf_name, "schematic_pdf", pdf));
+    }
     if job.outputs.reports {
         cx.progress(4.0, Some(STEPS), "Writing the check reports");
         for which in JobReport::ALL {

@@ -11,10 +11,10 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{Port, PortDirection, PowerPortStyle, SchematicSheet, Uuid};
 
-use super::{Builder, SchematicStyle, plain_name};
+use super::{Builder, NoteLink, SchematicStyle, plain_name};
 use crate::color::SchematicColor as C;
-use crate::scene::{Align, HAlign, Primitive, VAlign};
-use crate::text::{TextStyle, advance};
+use crate::scene::{Align, HAlign, Link, Primitive, VAlign};
+use crate::text::{TextStyle, advance, span};
 use crate::transform::rotate;
 
 const OUTLINE: i64 = 152_400;
@@ -106,20 +106,29 @@ impl Local<'_> {
 impl Local<'_> {
     /// A Port's cross-reference note, starting at `start` and reading away from the
     /// flag.
-    fn note(&mut self, note: &str, start: (i64, i64)) {
+    /// Each of `links` becomes a link over its entry's text.
+    fn note(&mut self, note: &str, links: &[NoteLink], start: (i64, i64)) {
         let at = self.place(start);
-        self.b.text(
-            self.object,
-            self.color,
-            note,
-            at,
-            TextStyle {
-                height: NAME_TEXT,
-                rotation: self.rotation,
-                align: Align::new(HAlign::Left, VAlign::Middle),
-                view_label: false,
-            },
-        );
+        let style = TextStyle {
+            height: NAME_TEXT,
+            rotation: self.rotation,
+            align: Align::new(HAlign::Left, VAlign::Middle),
+            view_label: false,
+        };
+        self.b.text(self.object, self.color, note, at, style);
+        let mut from = 0;
+        for link in links {
+            let Some(i) = note[from..].find(&link.entry).map(|i| i + from) else {
+                continue;
+            };
+            from = i + link.entry.len();
+            self.b.scene.links.push(Link {
+                object: self.object,
+                area: span(note, i..from, at, style),
+                sheet: link.sheet,
+                at: link.at,
+            });
+        }
     }
 }
 
@@ -158,7 +167,8 @@ pub(super) fn ports(b: &mut Builder, sheet: &SchematicSheet, style: &SchematicSt
         l.closed(outline);
         l.name(&port.name, single_negation, (len / 2, 0));
         if let Some(note) = style.cross_references.get(&port.uuid) {
-            l.note(note, (len + NOTE_GAP, 0));
+            let links = style.cross_reference_links.get(&port.uuid);
+            l.note(note, links.map_or(&[], Vec::as_slice), (len + NOTE_GAP, 0));
         }
     }
 }

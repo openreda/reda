@@ -18,6 +18,7 @@ pub mod journal;
 pub mod library;
 pub mod preferences;
 pub mod recovery;
+pub mod schematic_pdf;
 pub mod schematic_style;
 pub mod starter;
 pub mod state;

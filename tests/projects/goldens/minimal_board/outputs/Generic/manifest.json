@@ -23,6 +23,7 @@
     {"path":"Minimal-Generic.zip","size":5876,"sha256":"3c8557bd29c09553e0ad6700e7f1184578fd700b051d6b067ec497a640a920e2","kind":"zip"},
     {"path":"Minimal-Generic-BOM.csv","size":129,"sha256":"dd9f8b681690e5eb559cadde9717f4197771d81a5f2497c7f7caef1022d036f8","kind":"bom"},
     {"path":"Minimal-Generic-CPL.csv","size":135,"sha256":"550b541a61b5d1b57f63b70d4f30ac586fc2a02d1b614f9f24e555e0d0d1ee7e","kind":"cpl"},
+    {"path":"Minimal-Generic-schematic.pdf","size":225552,"sha256":"2b08981dc0e0e1912f3a74a7b573720b3aedec147d6495364729311a50b5bc8b","kind":"schematic_pdf"},
     {"path":"reports/Minimal-erc.json","size":196,"sha256":"31da4d98793d2709345bae853428e256fa350954dfaa8ae0aa9279bffedbef4d","kind":"erc_report"},
     {"path":"reports/Minimal-drc.json","size":241,"sha256":"b6602f99179fc9b7ab6f2cd4608534e863447abd9669c865df0f1ac2736e3d7e","kind":"drc_report"},
     {"path":"reports/Minimal-change-list.json","size":180,"sha256":"4fda508af5a26d8e6b609777fe51a2d36ca32de72df55a21ec9f4f3880ec3a04","kind":"change_list_report"}

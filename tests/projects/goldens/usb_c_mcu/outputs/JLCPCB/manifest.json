@@ -25,6 +25,7 @@
     {"path":"UsbMcu-JLCPCB.zip","size":73858,"sha256":"86a7cbfcff61c706fcbfdb405a3a24f43034c15ea04fa7b4152b6f3cc9612067","kind":"zip"},
     {"path":"UsbMcu-JLCPCB-BOM.csv","size":296,"sha256":"f4dba8121841dacab80cb2c20e57c10ab037ba80831e9f4673af582453832304","kind":"bom"},
     {"path":"UsbMcu-JLCPCB-CPL.csv","size":449,"sha256":"f56617b0372c2061ca416d80fe6deae12d029e21e0614f826733c7a510aafbe2","kind":"cpl"},
+    {"path":"UsbMcu-JLCPCB-schematic.pdf","size":882123,"sha256":"a689889eb85b433edf6fb986d6f5bae06622b7b1d6dc9f0df7a84eaca51943df","kind":"schematic_pdf"},
     {"path":"reports/UsbMcu-erc.json","size":195,"sha256":"080f7911291cffc5d4666ebfb358a87a764066049d44b74a525e03f3cadb9906","kind":"erc_report"},
     {"path":"reports/UsbMcu-drc.json","size":3177,"sha256":"236483279cfa461ae1879415636233ed088579aebb8e3c35a69190046e7b370b","kind":"drc_report"},
     {"path":"reports/UsbMcu-change-list.json","size":179,"sha256":"1e3e25eef6c7780727f8660d90863669d1022d89770730bd2023eb90b74165bb","kind":"change_list_report"}
