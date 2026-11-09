@@ -163,7 +163,11 @@ fn page_one_lists_sheets_and_parts_and_page_two_previews_before_anything_changes
 
     dialog.next(&mut f.shell);
     assert_eq!(dialog.page(), Page::Preview);
-    let rows: Vec<&str> = dialog.rows().iter().map(|r| r.designator.as_str()).collect();
+    let rows: Vec<&str> = dialog
+        .rows()
+        .iter()
+        .map(|r| r.designator.as_str())
+        .collect();
     assert_eq!(rows, ["R1", "R2"]);
     let r = &dialog.rows()[0];
     assert_eq!(r.status, LibraryStatus::LibraryDiffers);
@@ -216,7 +220,11 @@ fn selected_parts_only_follows_the_selection_it_opened_on() {
     let mut dialog = f.dialog(scope);
     assert!(dialog.has_selection() && dialog.selected_only);
     dialog.next(&mut f.shell);
-    let rows: Vec<&str> = dialog.rows().iter().map(|r| r.designator.as_str()).collect();
+    let rows: Vec<&str> = dialog
+        .rows()
+        .iter()
+        .map(|r| r.designator.as_str())
+        .collect();
     assert_eq!(rows, ["R1"]);
     dialog.apply(&mut f.shell).unwrap();
     assert_eq!((f.value(r1), f.value(r2)), ("22k".into(), "10k".into()));
@@ -311,8 +319,7 @@ fn page_one_settings_shape_the_preview_and_are_saved_on_apply() {
     f.change_value();
     let mut dialog = f.dialog(UpdateScope::default());
     assert!(dialog.field_names.contains(&"value".to_owned()));
-    dialog.settings.locally_edited =
-        reda_ui::engine::model::library_update::LocallyEdited::TakeNew;
+    dialog.settings.locally_edited = reda_ui::engine::model::library_update::LocallyEdited::TakeNew;
     dialog.next(&mut f.shell);
     let row = dialog.row(c1).unwrap();
     let value = row.cells.iter().find(|c| c.cell == "value").unwrap();
@@ -335,7 +342,14 @@ fn page_one_settings_shape_the_preview_and_are_saved_on_apply() {
 
     // Saved with the Project: the next dialog starts from them, and the Project Settings
     // summary shows them until Reset.
-    let saved = f.shell.engine().project().unwrap().props().library_update.clone();
+    let saved = f
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .library_update
+        .clone();
     assert_eq!(
         saved.as_ref().map(|s| s.locally_edited),
         Some(reda_ui::engine::model::library_update::LocallyEdited::TakeNew)
@@ -423,10 +437,7 @@ fn replace_part_lists_the_current_part_first_and_the_pin_differences() {
     let unit = f.unit(r1);
     let project = f.shell.engine().project().unwrap();
     let sheet = project.schematic_sheet(u(SHEET)).unwrap();
-    assert_eq!(
-        sheet.part(uuid(&unit["part"])).unwrap().part.name,
-        "LM358"
-    );
+    assert_eq!(sheet.part(uuid(&unit["part"])).unwrap().part.name, "LM358");
 }
 
 #[test]
@@ -585,7 +596,9 @@ fn the_board_update_previews_mechanical_parts_and_updates_the_ticked_ones() {
     assert!(BoardUpdateDialog::new(&mut f.shell).rows().is_empty());
     let pad = {
         let pcb = f.shell.engine().project().unwrap().pcb().unwrap();
-        let copy = pcb.footprint_copy(pcb.footprint(h1).unwrap().footprint).unwrap();
+        let copy = pcb
+            .footprint_copy(pcb.footprint(h1).unwrap().footprint)
+            .unwrap();
         copy.footprint.pads[0].uuid
     };
     f.shell

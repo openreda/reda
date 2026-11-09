@@ -80,7 +80,7 @@ fn header(ui: &mut Ui, shell: &mut Shell, part: &Part, locked: bool, out: &mut V
         // Saves the Part first, then previews the update of its Components.
         let in_project = shell.engine().project().is_some();
         if ui
-            .add_enabled(in_project, egui::Button::new(tr!("menu-tools-update-in-project")))
+            .add_enabled(in_project, egui::Button::new(tr!("part-update-in-project")))
             .clicked()
         {
             out.push((

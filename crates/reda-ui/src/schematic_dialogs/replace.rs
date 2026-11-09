@@ -161,8 +161,8 @@ impl ReplaceDialog {
             text: self.search.clone(),
             ..SearchQuery::default()
         };
-        let row = |library: &reda_engine::library::Library, part: &reda_engine::model::Part| {
-            PickRow {
+        let row =
+            |library: &reda_engine::library::Library, part: &reda_engine::model::Part| PickRow {
                 part: part.uuid,
                 name: part.name.clone(),
                 value: if part.fields.value != part.name {
@@ -172,8 +172,7 @@ impl ReplaceDialog {
                 },
                 library: library.info.name.clone(),
                 current: Some(part.uuid) == self.current,
-            }
-        };
+            };
         let mut rows: Vec<PickRow> = Vec::new();
         if let Some(current) = self.current
             && let Some((library, part)) = self.index.parts().find(|(_, p)| p.uuid == current)
@@ -321,12 +320,7 @@ impl ReplaceDialog {
                 } else {
                     tr!("replace-apply")
                 };
-                done = super::buttons(
-                    ui,
-                    &action,
-                    self.can_apply(),
-                    &tr!("replace-pick-a-part"),
-                );
+                done = super::buttons(ui, &action, self.can_apply(), &tr!("replace-pick-a-part"));
             });
         if searched {
             self.refresh();

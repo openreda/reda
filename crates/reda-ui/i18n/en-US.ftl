@@ -232,6 +232,7 @@ menu-design = Design
 menu-route = Route
 menu-tools = Tools
 menu-tools-update-in-project = Update in Project…
+part-update-in-project = Update in Project…
 menu-window = Window
 toolbar-save = Save
 command-field-placeholder = Search Documents, Components, Nets

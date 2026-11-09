@@ -18,11 +18,13 @@ use crate::tr;
 /// Every placed Component's Library Status, and the library generation and Journal length
 /// it was worked out at, kept between frames.
 #[derive(Clone, Default)]
-struct Cached(Option<((u64, usize), Arc<BTreeMap<Uuid, ComponentStatus>>)>);
+struct Cached(Option<((u64, usize), Statuses)>);
+
+type Statuses = Arc<BTreeMap<Uuid, ComponentStatus>>;
 
 /// The Library Statuses of the Shell's Project, worked out again only after a Command ran
 /// or the Libraries changed.
-fn statuses(ui: &Ui, shell: &Shell) -> Arc<BTreeMap<Uuid, ComponentStatus>> {
+fn statuses(ui: &Ui, shell: &Shell) -> Statuses {
     let key = (shell.library_generation(), shell.engine().journal().len());
     let id = egui::Id::NULL.with("properties-library-statuses");
     let cached: Cached = ui.ctx().data(|d| d.get_temp(id)).unwrap_or_default();

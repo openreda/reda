@@ -77,9 +77,9 @@ pub use update::{
     Aspect, Cell, CellAction, CellCase, CellRef, ComponentAspects, ComponentStatus,
     ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
     LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
-    ResetSettingsParams, ResetUpdateSettings, SettingsReset,
-    SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
-    UpdatePreview, UpdateResult, footprint_change, library_statuses,
+    ResetSettingsParams, ResetUpdateSettings, SettingsParams, SettingsReset, UpdateApplied,
+    UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview, UpdateResult,
+    footprint_change, library_statuses,
 };
 pub use update::{
     KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,

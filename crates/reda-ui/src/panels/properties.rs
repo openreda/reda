@@ -5,8 +5,8 @@
 //! one Command that applies to everything selected; nothing here changes the Project
 //! directly.
 
-mod overview;
 mod library;
+mod overview;
 pub(crate) mod rules;
 mod zone;
 

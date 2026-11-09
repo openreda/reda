@@ -49,8 +49,7 @@ impl BoardUpdateDialog {
             Ok(out) => {
                 dialog.preview_hash = out["preview_hash"].as_str().unwrap_or_default().to_owned();
                 for f in out["footprints"].as_array().into_iter().flatten() {
-                    let Some(instance) = f["instance"].as_str().and_then(|u| u.parse().ok())
-                    else {
+                    let Some(instance) = f["instance"].as_str().and_then(|u| u.parse().ok()) else {
                         continue;
                     };
                     let status = if f["status"] == "source_missing" {
@@ -167,9 +166,10 @@ impl BoardUpdateDialog {
                                 ui.end_row();
                             }
                         });
-                    if let Some(row) = self.shown.and_then(|s| {
-                        self.rows.iter().find(|r| r.instance == s)
-                    }) {
+                    if let Some(row) = self
+                        .shown
+                        .and_then(|s| self.rows.iter().find(|r| r.instance == s))
+                    {
                         ui.add_space(6.0);
                         ui.heading(tr!(
                             "library-update-preview-of",

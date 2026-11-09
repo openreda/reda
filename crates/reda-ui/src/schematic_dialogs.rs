@@ -8,10 +8,10 @@
 
 mod cross;
 mod find;
-mod reannotate;
-mod similar;
 mod library;
+mod reannotate;
 mod replace;
+mod similar;
 mod text;
 pub mod update;
 
@@ -31,11 +31,11 @@ use crate::tr;
 
 pub use cross::ConvertCrossDialog;
 pub use find::{FindDialog, FindRow};
+pub use library::LibraryDialog;
 pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
+pub use replace::{KeepFields, Outcome, PickRow, ReplaceDialog};
 pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;
-pub use library::LibraryDialog;
-pub use replace::{KeepFields, Outcome, PickRow, ReplaceDialog};
 pub use update::{
     ComponentRow, GridCell, Page, PartRow, Replacement, Section, SheetRow, UpdateDialog,
     UpdateScope,
@@ -184,10 +184,9 @@ impl SchematicDialog {
                 dialog.refresh(shell);
                 SchematicDialog::Reannotate(dialog)
             }
-            DialogKind::UpdateFromLibrary => SchematicDialog::Update(Box::new(UpdateDialog::new(
-                shell,
-                UpdateScope::default(),
-            ))),
+            DialogKind::UpdateFromLibrary => {
+                SchematicDialog::Update(Box::new(UpdateDialog::new(shell, UpdateScope::default())))
+            }
             DialogKind::ConvertCrossJunctions => {
                 SchematicDialog::ConvertCross(ConvertCrossDialog::new(shell)?)
             }

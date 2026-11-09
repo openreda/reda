@@ -321,7 +321,10 @@ impl UpdateDialog {
                 ui.end_row();
                 for row in &self.rows {
                     let mut on = row.included;
-                    let name = tr!("library-update-include", designator = row.designator.clone());
+                    let name = tr!(
+                        "library-update-include",
+                        designator = row.designator.clone()
+                    );
                     if tick(ui, &mut on, "", &name, !row.blocked) {
                         clicks.push(Click::Include(row.component, on));
                     }

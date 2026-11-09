@@ -443,7 +443,10 @@ fn settings_change_how_cells_start_and_the_ones_used_are_saved_in_the_project() 
     assert_eq!(reset["locally_edited"], "keep");
     assert!(reset["fields_to_update"].is_null(), "{reset}");
     f.engine.run_ok("edit.undo", json!({"document": "project"}));
-    assert_eq!(f.preview(json!({}))["settings"]["locally_edited"], "take_new");
+    assert_eq!(
+        f.preview(json!({}))["settings"]["locally_edited"],
+        "take_new"
+    );
 }
 
 /// The text of the `.reda` file under `dir`.

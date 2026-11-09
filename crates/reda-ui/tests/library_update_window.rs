@@ -139,10 +139,12 @@ fn the_properties_panel_shows_the_library_status_with_update_and_the_part_row() 
     // Update… opens the dialog on the selection.
     f.click("Update…");
     f.h.get_by_label("Update from Library");
-    let selected_only = f
-        .h
-        .get_by_role_and_label(Role::CheckBox, "Selected Parts Only");
-    assert_eq!(selected_only.accesskit_node().toggled(), Some(Toggled::True));
+    let selected_only =
+        f.h.get_by_role_and_label(Role::CheckBox, "Selected Parts Only");
+    assert_eq!(
+        selected_only.accesskit_node().toggled(),
+        Some(Toggled::True)
+    );
     f.click("Next");
     f.h.get_by_role_and_label(Role::ListItem, "R1");
     f.click("Cancel");
@@ -157,15 +159,14 @@ fn the_properties_panel_shows_the_library_status_with_update_and_the_part_row() 
 
     // Edit in Library opens the Part in its editor.
     f.click("Edit in Library");
-    let entry = f
-        .h
-        .state()
-        .shell()
-        .engine()
-        .journal()
-        .iter()
-        .rfind(|e| e.outcome.is_ok() && e.id == "library.element.edit_in_library")
-        .map(|e| e.params.clone());
+    let entry =
+        f.h.state()
+            .shell()
+            .engine()
+            .journal()
+            .iter()
+            .rfind(|e| e.outcome.is_ok() && e.id == "library.element.edit_in_library")
+            .map(|e| e.params.clone());
     assert!(entry.is_some());
 }
 
@@ -210,7 +211,14 @@ fn page_two_compares_the_local_edits_it_removes_over_the_original() {
     let list = f.run("sync.preview", json!({}));
     f.run("sync.apply", json!({"hash": list["hash"]}));
     let (instance, pad) = {
-        let pcb = f.h.state().shell().engine().project().unwrap().pcb().unwrap();
+        let pcb =
+            f.h.state()
+                .shell()
+                .engine()
+                .project()
+                .unwrap()
+                .pcb()
+                .unwrap();
         let i = pcb.footprints().next().unwrap();
         let copy = pcb.footprint_copy(i.footprint).unwrap();
         (i.uuid, copy.footprint.pads[0].uuid)
@@ -279,7 +287,8 @@ fn project_settings_summarise_the_saved_settings_and_reset_them() {
     );
     f.h.state_mut().open_project_settings();
     f.h.run();
-    f.h.get_by_role_and_label(Role::TreeItem, "Schematic").click();
+    f.h.get_by_role_and_label(Role::TreeItem, "Schematic")
+        .click();
     f.h.run();
     f.h.get_by_label("Update from Library");
     f.h.get_by_label("Take the new default");

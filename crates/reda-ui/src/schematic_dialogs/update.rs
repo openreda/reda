@@ -595,8 +595,8 @@ impl UpdateDialog {
                 }
             }
         }
-        let updating = (self.rows.iter())
-            .any(|r| r.included && !replaced(r) && !r.aspects.is_empty());
+        let updating =
+            (self.rows.iter()).any(|r| r.included && !replaced(r) && !r.aspects.is_empty());
         if updating {
             let mut params = self.params();
             params["preview_hash"] = json!(self.preview_hash);
