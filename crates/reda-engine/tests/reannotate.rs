@@ -634,3 +634,26 @@ fn the_last_settings_are_saved_in_the_project_file_and_run_again() {
     );
     assert_eq!(mixed.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn reset_clears_the_saved_settings_as_one_undoable_project_edit() {
+    let dir = TempDir::new("reannotate-reset");
+    let mut engine = demo(&dir);
+    grid(&mut engine);
+    engine.run_ok("schematic.reannotate", json!({"order": "down_then_across"}));
+    engine.run_ok("schematic.reannotate.preview", json!({"saved": true}));
+
+    let out = engine.run_ok("schematic.reannotate.reset", json!({}));
+    assert_eq!(out["result"]["cleared"], true);
+    let err = engine.run_err("schematic.reannotate.preview", json!({"saved": true}));
+    assert_eq!(err.code, ErrorCode::Unavailable);
+
+    // One undo brings the settings back.
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    engine.run_ok("schematic.reannotate.preview", json!({"saved": true}));
+
+    // Nothing left to forget after a second reset.
+    engine.run_ok("schematic.reannotate.reset", json!({}));
+    let out = engine.run_ok("schematic.reannotate.reset", json!({}));
+    assert_eq!(out["result"]["cleared"], false);
+}

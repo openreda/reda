@@ -14,12 +14,12 @@ mod preset_pages;
 mod properties;
 mod schematic;
 
-pub use erc::ErcPage;
+pub use erc::{ErcGroup, ErcPage};
 pub use fab_presets::{FabPresetsPage, FieldChange, PresetCopy, Preview, Status};
 pub use libraries::LibrariesPage;
 pub use preset_pages::CopyPage;
 pub use properties::PropertiesPage;
-pub use schematic::SchematicPage;
+pub use schematic::{SchematicPage, library_update_rows};
 
 /// The Project Settings dialog on `project`, with the pages of the copies it has now.
 pub fn dialog(project: &Project) -> SettingsDialog {
