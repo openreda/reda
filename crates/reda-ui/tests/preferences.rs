@@ -336,7 +336,11 @@ fn search_finds_settings_on_every_page_by_name_and_description() {
     };
     assert_eq!(
         found("electrical"),
-        ["schematic.electrical_snap", "pcb.electrical_snap"]
+        [
+            "editing.grab_hot_spot",
+            "schematic.electrical_snap",
+            "pcb.electrical_snap"
+        ]
     );
     assert_eq!(found("COLOUR theme"), ["general.theme"]);
     // By description: "Pan the view when the cursor reaches the canvas edge…".
