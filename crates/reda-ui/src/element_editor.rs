@@ -22,14 +22,12 @@ use std::sync::Arc;
 
 use reda_engine::Engine;
 use reda_engine::command::CommandError;
-use reda_engine::model::geom::Nm;
 use reda_engine::model::{LibraryElement, Project, Uuid, Violation};
 use reda_engine::render::{InactiveLayers, LayerView, Scene, board_composites};
 use serde_json::{Value, json};
 
 use crate::bars::DocumentType;
 use crate::canvas::CanvasInputs;
-use crate::grid;
 use crate::messages::{self, Note};
 use crate::shell::Shell;
 use crate::tr;
@@ -85,19 +83,6 @@ pub fn open_elements(engine: &Engine) -> Vec<Uuid> {
         .elements()
         .map(|p| p.elements().map(|(_, e)| e.uuid()).collect())
         .unwrap_or_default()
-}
-
-/// The grid presets of an element's editor, and the one it starts with: board grids for a
-/// Footprint, sheet grids for a Symbol.
-pub fn grid_presets(element: &LibraryElement) -> Option<(&'static [Nm], Nm)> {
-    match element {
-        LibraryElement::Footprint(_) => Some((
-            &grid::PCB_PRESETS,
-            grid::pcb_default(reda_engine::preferences::Units::Mm),
-        )),
-        LibraryElement::Symbol(_) => Some((&grid::SCHEMATIC_PRESETS, grid::SCHEMATIC_DEFAULT)),
-        LibraryElement::Part(_) => None,
-    }
 }
 
 /// What the element's canvas draws: its Scene and, for a Footprint, the Layers to

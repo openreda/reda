@@ -371,8 +371,12 @@ impl App {
     /// replace a Project with unsaved changes: then the closing prompt asks first.
     fn run_held(&mut self, id: &str, params: serde_json::Value) {
         // A panel's button for a Command that always asks first, such as Regenerate…,
-        // opens its dialog.
-        if self.dialogs.asks_always(id) {
+        // opens its dialog, as does a key whose Command still lacks params (`Mod`+Shift+G
+        // asks for a custom grid).
+        let registry = self.shell.engine().registry();
+        if self.dialogs.asks_always(id)
+            || crate::command_dialog::lacks_required(registry, id, &params)
+        {
             self.call(id, params);
             return;
         }
@@ -943,53 +947,60 @@ impl App {
         }
     }
 
-    /// Draws the status bar; returns the rect its row took.
+    /// Draws the status bar; returns the rect its row took. From the left: the active
+    /// Document's segments ([`crate::status_bar`]), the notes, then at the right the
+    /// out-of-sync badge, the bridge indicator and the Panels button.
     fn status_bar(&mut self, ui: &mut Ui) -> egui::Rect {
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                self.panels_button(ui);
-                if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
-                    self.open_preferences(Some(PageId::AGENTS));
-                }
-                let pending = self.shell.out_of_sync();
-                if pending > 0 {
-                    let badge = egui::RichText::new(tr!("status-out-of-sync", count = pending))
-                        .color(ui.visuals().warn_fg_color);
-                    if ui
-                        .small_button(badge)
-                        .on_hover_text(tr!("status-out-of-sync-hint"))
-                        .clicked()
-                    {
-                        self.open_change_list();
+        let mut clicked = Vec::new();
+        let rect = ui
+            .horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    self.panels_button(ui);
+                    if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
+                        self.open_preferences(Some(PageId::AGENTS));
                     }
-                }
-                if self.shell.zones_need_refill() {
-                    if ui.small_button(tr!("status-zones-refill")).clicked() {
-                        let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
+                    let pending = self.shell.out_of_sync();
+                    if pending > 0 {
+                        let badge = egui::RichText::new(tr!("status-out-of-sync", count = pending))
+                            .color(ui.visuals().warn_fg_color);
+                        if ui
+                            .add(egui::Button::new(badge).frame(false))
+                            .on_hover_text(tr!("status-out-of-sync-hint"))
+                            .clicked()
+                        {
+                            self.open_change_list();
+                        }
                     }
-                    ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
-                }
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    // Active: <kind> | X … Y … | Grid: … | Wire: <mode>, then any message or note.
-                    let readout = crate::status_bar::readout(&self.shell);
-                    let parts = [readout.kind, readout.cursor, readout.grid, readout.tool];
-                    let mut first = true;
-                    for part in parts.into_iter().flatten() {
-                        if !first {
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        clicked = crate::status_bar::show(ui, &self.shell);
+                        let first = self.shell.active_document().is_none();
+                        let notes = self.shell.zones_need_refill()
+                            || self.shell.message().is_some()
+                            || self.shell.note().is_some();
+                        if !first && notes {
                             ui.separator();
                         }
-                        ui.label(part);
-                        first = false;
-                    }
-                    if !first && (self.shell.message().is_some() || self.shell.note().is_some()) {
-                        ui.separator();
-                    }
-                    self.status_message(ui, first);
+                        if self.shell.zones_need_refill() {
+                            ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
+                            if ui.small_button(tr!("status-zones-refill")).clicked() {
+                                let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
+                            }
+                        }
+                        self.status_message(ui, first);
+                    });
                 });
-            });
-        })
-        .response
-        .rect
+            })
+            .response
+            .rect;
+        for out in clicked {
+            match out {
+                crate::status_bar::Out::Run(id, params) => {
+                    let _ = self.shell.run_reporting(&id, params);
+                }
+                crate::status_bar::Out::Call(id, params) => self.call(&id, params),
+            }
+        }
+        rect
     }
 
     /// The status bar's error or note with its Dismiss button, or "Ready" when the bar

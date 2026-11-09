@@ -1,19 +1,25 @@
-//! The canvas grid, drawn by a shader: dots computed per pixel, no geometry.
+//! The canvas grid, drawn by a shader: dots or lines computed per pixel, no geometry, with
+//! every `coarse`-th one drawn stronger.
 
 use crate::color::Rgba;
 use crate::view::View;
 
 use super::{Renderer, SAMPLE_COUNT};
 
-const UNIFORM_SIZE: u64 = 64;
+const UNIFORM_SIZE: u64 = 80;
 
 /// What grid to draw.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GridSpec {
     /// A Document point (nm) that lies on the grid.
     pub origin: (f64, f64),
-    /// The dot spacing in nm.
+    /// The fine dot or line spacing in nm.
     pub pitch: f64,
+    /// Every how many fine dots or lines a coarse one is drawn (bigger dots, stronger
+    /// lines); 0 or 1 draws none.
+    pub coarse: u32,
+    /// Lines instead of dots: fine lines faint, coarse lines at full colour.
+    pub lines: bool,
     /// The dot radius in pixels.
     pub radius_px: f32,
     pub color: Rgba,
@@ -147,6 +153,23 @@ impl Grid {
         for v in clip {
             bytes.extend_from_slice(&v.to_le_bytes());
         }
+        // The coarse grid: its phase and pitch, or a zero pitch for none.
+        let coarse_px = if spec.coarse > 1 {
+            pitch_px * f64::from(spec.coarse)
+        } else {
+            0.0
+        };
+        let coarse_phase = |d: f64| {
+            if coarse_px > 0.0 {
+                d.rem_euclid(coarse_px) as f32
+            } else {
+                0.0
+            }
+        };
+        for v in [coarse_phase(dx), coarse_phase(dy), coarse_px as f32] {
+            bytes.extend_from_slice(&v.to_le_bytes());
+        }
+        bytes.extend_from_slice(&u32::from(spec.lines).to_le_bytes());
         queue.write_buffer(&self.uniforms, 0, &bytes);
     }
 

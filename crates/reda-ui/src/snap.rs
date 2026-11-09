@@ -5,7 +5,7 @@
 //! levels rank **Hotspot, then alignment guide, then grid**. Capture is a length checked
 //! on both axes: the cursor must be within it in X and in Y. Boards and Footprints use one
 //! Snap Distance (a Preference); sheets and Symbols use the grid preset's Electrical
-//! Range ([`crate::grid::electrical_range`]).
+//! Range ([`crate::shell::Shell::electrical_range`]).
 //!
 //! [`Rules`] come from the Document's working state (object snap mode, Gridless, the
 //! Hotspot checklist), the Preferences and the keys held in flight ([`Suspend`]):

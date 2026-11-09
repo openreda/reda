@@ -218,22 +218,27 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     let mut view = camera.view(rect, ppp);
     view.mirrored = input.mirrored;
     let palette = tab.palette.palette(theme);
-    let grid = grid_pitch(tab.grid.0 as f64, view.nm_per_px).map(|pitch| GridSpec {
-        origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
-        pitch,
-        radius_px: GRID_DOT_RADIUS * ppp,
-        color: palette.grid(),
-        // Only a sheet has paper; a board's Scene is not searched for one every frame.
-        paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
-            .then(|| tab.scene.scene.paper())
-            .flatten()
-            .map(|(lo, hi)| {
-                (
-                    (lo.x.0 as f64, lo.y.0 as f64),
-                    (hi.x.0 as f64, hi.y.0 as f64),
-                )
-            }),
-    });
+    let visible = tab.grid_visible;
+    let grid = grid_pitch(visible.pitch.0 as f64, view.nm_per_px)
+        .filter(|_| visible.shown)
+        .map(|pitch| GridSpec {
+            origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
+            pitch,
+            coarse: visible.coarse,
+            lines: visible.style == reda_engine::preferences::GridStyle::Lines,
+            radius_px: GRID_DOT_RADIUS * ppp,
+            color: palette.grid(),
+            // Only a sheet has paper; a board's Scene is not searched for one every frame.
+            paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
+                .then(|| tab.scene.scene.paper())
+                .flatten()
+                .map(|(lo, hi)| {
+                    (
+                        (lo.x.0 as f64, lo.y.0 as f64),
+                        (hi.x.0 as f64, hi.y.0 as f64),
+                    )
+                }),
+        });
     let frame = CanvasFrame {
         canvas: canvas_id(tab),
         scene: tab.scene.clone(),
