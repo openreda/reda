@@ -1,0 +1,69 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "openreda",
+      "Application": "REDA",
+      "Version": "0.0.0-test"
+    }
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "Minimal",
+      "GUID": "00000000-0000-4000-8000-000000000001",
+      "Revision": "A"
+    },
+    "Size": {
+      "X": 30.0,
+      "Y": 20.0
+    },
+    "LayerNumber": 2,
+    "BoardThickness": 1.6
+  },
+  "FilesAttributes": [
+    {
+      "Path": "Minimal.GTL",
+      "FileFunction": "Copper,L1,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal.GBL",
+      "FileFunction": "Copper,L2,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal.GTS",
+      "FileFunction": "Soldermask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "Minimal.GBS",
+      "FileFunction": "Soldermask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "Minimal.GTP",
+      "FileFunction": "Paste,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal.GTO",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal.GBO",
+      "FileFunction": "Legend,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal.GKO",
+      "FileFunction": "Profile,NP",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "Minimal-PTH.drl",
+      "FileFunction": "Plated,1,2,PTH,Drill",
+      "FilePolarity": "Positive"
+    }
+  ]
+}

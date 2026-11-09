@@ -202,6 +202,9 @@ struct BoardRow {
     /// How Zones with no typed name are named; left out for `NET_LXX_PXXX`.
     #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
     zone_name_scheme: ZoneNameScheme,
+    /// Free text for the fab, copied into the Fab Notes; left out when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fab_notes: Option<String>,
 }
 
 pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalError> {
@@ -215,6 +218,7 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
         &BoardRow {
             uuid: setup.uuid,
             zone_name_scheme: setup.zone_name_scheme,
+            fab_notes: setup.fab_notes.clone(),
         },
     )?;
     w.table("rules", pcb.rules(), |r| r.uuid)?;
@@ -293,6 +297,7 @@ pub(crate) fn read_pcb_file(
                 uuid: file.board.uuid,
                 severities: file.severities,
                 zone_name_scheme: file.board.zone_name_scheme,
+                fab_notes: file.board.fab_notes,
             },
         )),
     ];

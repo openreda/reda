@@ -8,12 +8,15 @@ use std::fmt;
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{
-    self as m, DrcCheck, FabRules, PcbDocument, Project, RuleKind, Severity, Uuid,
+    self as m, DrcCheck, FabRules, PcbDocument, Project, RuleKind, Severity, SilkMaskMode, Uuid,
 };
+use reda_engine::pcb::rules::presets::{PresetRules, job_presets, strictest_limit};
 use reda_engine::schematic::natural_cmp;
 use serde_json::{Map, Value, json};
 
 use super::length::{mm, optional, required};
+
+mod grid;
 use crate::settings::{Draft, Problem, Step};
 use crate::tr;
 
@@ -23,32 +26,102 @@ pub enum RuleField {
     Clearance,
     TrackWidth,
     TrackPreferred,
+    TrackMax,
     ViaDiameter,
     ViaDiameterPreferred,
+    ViaDiameterMax,
     ViaHole,
     ViaHolePreferred,
+    ViaHoleMax,
     HoleMin,
     HoleMax,
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    SilkToEdge,
+    SilkToMask,
+    CourtyardClearance,
+    DanglingTolerance,
+    MicroSegmentLength,
+}
+
+/// The values the Net Classes grid has a column for: clearance, Track width and Via size.
+pub const GRID_FIELDS: [RuleField; 10] = [
+    RuleField::Clearance,
+    RuleField::TrackWidth,
+    RuleField::TrackPreferred,
+    RuleField::TrackMax,
+    RuleField::ViaDiameter,
+    RuleField::ViaDiameterPreferred,
+    RuleField::ViaDiameterMax,
+    RuleField::ViaHole,
+    RuleField::ViaHolePreferred,
+    RuleField::ViaHoleMax,
+];
+
+/// The rule kinds of the grid's columns, each with its own `enabled` and comment.
+pub const GRID_KINDS: [RuleKind; 3] =
+    [RuleKind::Clearance, RuleKind::TrackWidth, RuleKind::ViaSize];
+
+/// A rule kind's name for the user, such as "Via size".
+pub fn kind_name(kind: RuleKind) -> String {
+    match kind {
+        RuleKind::Clearance => tr!("board-setup-clearance"),
+        RuleKind::TrackWidth => tr!("board-setup-track-width"),
+        RuleKind::ViaSize => tr!("board-setup-via-size"),
+        other => other.id().to_owned(),
+    }
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 12] = [
+    pub const ALL: [RuleField; 20] = [
         RuleField::Clearance,
         RuleField::TrackWidth,
         RuleField::TrackPreferred,
+        RuleField::TrackMax,
         RuleField::ViaDiameter,
         RuleField::ViaDiameterPreferred,
+        RuleField::ViaDiameterMax,
         RuleField::ViaHole,
         RuleField::ViaHolePreferred,
+        RuleField::ViaHoleMax,
         RuleField::HoleMin,
         RuleField::HoleMax,
         RuleField::AnnularRing,
         RuleField::HoleToHole,
         RuleField::EdgeClearance,
+        RuleField::SilkToEdge,
+        RuleField::SilkToMask,
+        RuleField::CourtyardClearance,
+        RuleField::DanglingTolerance,
+        RuleField::MicroSegmentLength,
     ];
+
+    /// The min, preferred and max values typed together (one range of a grid kind), or
+    /// nothing.
+    pub fn range(self) -> &'static [RuleField] {
+        use RuleField as R;
+        match self {
+            R::TrackWidth | R::TrackPreferred | R::TrackMax => {
+                &[R::TrackWidth, R::TrackPreferred, R::TrackMax]
+            }
+            R::ViaDiameter | R::ViaDiameterPreferred | R::ViaDiameterMax => {
+                &[R::ViaDiameter, R::ViaDiameterPreferred, R::ViaDiameterMax]
+            }
+            R::ViaHole | R::ViaHolePreferred | R::ViaHoleMax => {
+                &[R::ViaHole, R::ViaHolePreferred, R::ViaHoleMax]
+            }
+            _ => &[],
+        }
+    }
+
+    /// Whether it is a maximum.
+    pub fn is_max(self) -> bool {
+        matches!(
+            self.rule().1,
+            m::RuleField::Max | m::RuleField::DiameterMax | m::RuleField::HoleMax
+        )
+    }
 
     /// The rule kind and the value of its records.
     pub fn rule(self) -> (RuleKind, m::RuleField) {
@@ -57,15 +130,23 @@ impl RuleField {
             RuleField::Clearance => (RuleKind::Clearance, F::Value),
             RuleField::TrackWidth => (RuleKind::TrackWidth, F::Min),
             RuleField::TrackPreferred => (RuleKind::TrackWidth, F::Preferred),
+            RuleField::TrackMax => (RuleKind::TrackWidth, F::Max),
             RuleField::ViaDiameter => (RuleKind::ViaSize, F::DiameterMin),
             RuleField::ViaDiameterPreferred => (RuleKind::ViaSize, F::DiameterPreferred),
+            RuleField::ViaDiameterMax => (RuleKind::ViaSize, F::DiameterMax),
             RuleField::ViaHole => (RuleKind::ViaSize, F::HoleMin),
             RuleField::ViaHolePreferred => (RuleKind::ViaSize, F::HolePreferred),
+            RuleField::ViaHoleMax => (RuleKind::ViaSize, F::HoleMax),
             RuleField::HoleMin => (RuleKind::HoleSize, F::Min),
             RuleField::HoleMax => (RuleKind::HoleSize, F::Max),
             RuleField::AnnularRing => (RuleKind::AnnularRing, F::Min),
             RuleField::HoleToHole => (RuleKind::HoleToHole, F::Min),
             RuleField::EdgeClearance => (RuleKind::EdgeClearance, F::Value),
+            RuleField::SilkToEdge => (RuleKind::SilkToEdge, F::Value),
+            RuleField::SilkToMask => (RuleKind::SilkToMask, F::Value),
+            RuleField::CourtyardClearance => (RuleKind::CourtyardClearance, F::Value),
+            RuleField::DanglingTolerance => (RuleKind::Dangling, F::Tolerance),
+            RuleField::MicroSegmentLength => (RuleKind::MicroSegment, F::MaxLength),
         }
     }
 
@@ -101,15 +182,26 @@ impl RuleField {
     fn base_name(self) -> String {
         match self {
             RuleField::Clearance => tr!("board-setup-clearance"),
-            RuleField::TrackWidth | RuleField::TrackPreferred => tr!("board-setup-track-width"),
-            RuleField::ViaDiameter | RuleField::ViaDiameterPreferred => {
+            RuleField::TrackWidth | RuleField::TrackPreferred | RuleField::TrackMax => {
+                tr!("board-setup-track-width")
+            }
+            RuleField::ViaDiameter
+            | RuleField::ViaDiameterPreferred
+            | RuleField::ViaDiameterMax => {
                 tr!("board-setup-via-diameter")
             }
-            RuleField::ViaHole | RuleField::ViaHolePreferred => tr!("board-setup-via-hole"),
+            RuleField::ViaHole | RuleField::ViaHolePreferred | RuleField::ViaHoleMax => {
+                tr!("board-setup-via-hole")
+            }
             RuleField::HoleMin | RuleField::HoleMax => tr!("board-setup-pad-hole"),
             RuleField::AnnularRing => tr!("board-setup-annular-ring"),
             RuleField::HoleToHole => tr!("board-setup-hole-to-hole"),
             RuleField::EdgeClearance => tr!("board-setup-edge-clearance"),
+            RuleField::SilkToEdge => tr!("board-setup-silk-to-edge"),
+            RuleField::SilkToMask => tr!("board-setup-silk-to-mask"),
+            RuleField::CourtyardClearance => tr!("board-setup-courtyard-clearance"),
+            RuleField::DanglingTolerance => tr!("board-setup-dangling-tolerance"),
+            RuleField::MicroSegmentLength => tr!("board-setup-micro-segment-length"),
         }
     }
 
@@ -128,6 +220,14 @@ impl RuleField {
     /// The label of its board-wide field, such as "Board-wide minimum Clearance (mm)".
     pub fn board_wide_label(self) -> String {
         let rule = self.base_name();
+        if matches!(
+            self,
+            RuleField::CourtyardClearance
+                | RuleField::DanglingTolerance
+                | RuleField::MicroSegmentLength
+        ) {
+            return tr!("board-setup-value", rule = rule);
+        }
         match self.rule().1 {
             f if f.is_preferred() => tr!("board-setup-board-wide-preferred", rule = rule),
             m::RuleField::Max | m::RuleField::DiameterMax | m::RuleField::HoleMax => {
@@ -209,8 +309,56 @@ pub struct ClassRow {
     key: ClassKey,
     name: Draft<String>,
     overrides: BTreeMap<RuleField, Draft<String>>,
+    /// Each record's `enabled` and comment, by kind.
+    meta: BTreeMap<RuleKind, Meta>,
+    /// Its rank on the board; `None` for a class added in the dialog.
+    rank: Option<u32>,
     /// Deleted in the dialog; it goes on Apply.
     deleted: bool,
+}
+
+/// A rule record's `enabled` and comment, as drafted.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Meta {
+    enabled: Draft<bool>,
+    comment: Draft<String>,
+}
+
+impl Default for Meta {
+    fn default() -> Self {
+        Meta {
+            enabled: Draft::new(true),
+            comment: Draft::default(),
+        }
+    }
+}
+
+impl Meta {
+    fn load(&mut self, record: Option<&m::DesignRule>, reset: bool) {
+        self.enabled.load(record.is_none_or(|r| r.enabled), reset);
+        let comment = record.and_then(|r| r.comment.clone()).unwrap_or_default();
+        self.comment.load(comment, reset);
+    }
+
+    fn changed(&self) -> bool {
+        self.enabled.changed() || self.comment.value().trim() != self.comment.base().trim()
+    }
+
+    /// `enabled` and `comment` params for what changed.
+    fn params(&self, out: &mut Map<String, Value>) {
+        if self.enabled.changed() {
+            out.insert("enabled".into(), json!(self.enabled.value()));
+        }
+        if self.comment.value().trim() != self.comment.base().trim() {
+            let comment = self.comment.value().trim();
+            let value = if comment.is_empty() {
+                Value::Null
+            } else {
+                json!(comment)
+            };
+            out.insert("comment".into(), value);
+        }
+    }
 }
 
 impl ClassRow {
@@ -273,12 +421,31 @@ pub struct BoardSetupDraft {
     pcb: Option<Uuid>,
     rules: BTreeMap<RuleField, Draft<String>>,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
+    /// The board-wide records' `enabled` and comment, by kind.
+    board_meta: BTreeMap<RuleKind, Meta>,
+    /// What `silk_to_mask` measures against, board-wide.
+    silk_mode: Draft<SilkMaskMode>,
     classes: Vec<ClassRow>,
     nets: Vec<NetRow>,
     next_new: u32,
     /// The Net table's filter, as typed.
     pub net_filter: String,
+    /// The Nets selected in the Net table.
+    pub selected_nets: BTreeSet<Uuid>,
+    /// The Net Classes grid's search, as typed.
+    pub grid_search: String,
+    /// Whether the grid shows only classes with an override.
+    pub only_overrides: bool,
+    /// The grid rows selected, for copy, paste and Delete.
+    pub selected_rows: BTreeSet<ClassKey>,
+    /// "Assign by pattern…" while open: the pattern as typed and the class chosen.
+    pub pattern_form: Option<(String, Option<ClassKey>)>,
+    /// Grid cells that follow a value typed into their range (see
+    /// [`BoardSetupDraft::type_cell`]).
+    follow: BTreeSet<(ClassKey, RuleField)>,
     presets: Vec<(Uuid, String, FabRules)>,
+    /// The Fab Presets of the Output Jobs for this board.
+    job_presets: Vec<PresetRules>,
     preview: Option<FabPreview>,
 }
 
@@ -302,6 +469,10 @@ impl BoardSetupDraft {
             .fab_presets()
             .map(|p| (p.uuid, p.name.clone(), p.rules))
             .collect();
+        self.job_presets = match project.pcb() {
+            Some(pcb) => job_presets(project, pcb),
+            None => Vec::new(),
+        };
         let Some(pcb) = project.pcb() else {
             *self = BoardSetupDraft {
                 presets: std::mem::take(&mut self.presets),
@@ -313,17 +484,26 @@ impl BoardSetupDraft {
             *self = BoardSetupDraft {
                 pcb: Some(pcb.uuid),
                 presets: std::mem::take(&mut self.presets),
+                job_presets: std::mem::take(&mut self.job_presets),
                 ..BoardSetupDraft::default()
             };
         }
         if reset {
             self.preview = None;
+            self.follow.clear();
         }
         let setup = pcb.setup();
         for field in RuleField::ALL {
             let draft = self.rules.entry(field).or_default();
             load_length(draft, field.get(pcb), reset);
+            let kind = field.rule().0;
+            self.board_meta
+                .entry(kind)
+                .or_default()
+                .load(Some(pcb.board_rule(kind)), reset);
         }
+        let mode = pcb.board_rule(RuleKind::SilkToMask).values.mode;
+        self.silk_mode.load(mode.unwrap_or_default(), reset);
         if self.severities.is_empty() {
             self.severities = DrcCheck::ALL
                 .iter()
@@ -355,21 +535,29 @@ impl BoardSetupDraft {
                         key,
                         name: Draft::new(class.name.clone()),
                         overrides: BTreeMap::new(),
+                        meta: BTreeMap::new(),
+                        rank: Some(class.rank),
                         deleted: false,
                     });
                     self.classes.last_mut().expect("just pushed")
                 }
             };
             row.name.load(class.name.clone(), reset);
+            row.rank = Some(class.rank);
             if reset {
                 row.deleted = false;
             }
             for field in RuleField::ALL {
                 let draft = row.overrides.entry(field).or_default();
                 load_length(draft, field.of_class(pcb, class.uuid), reset);
+                let kind = field.rule().0;
+                row.meta
+                    .entry(kind)
+                    .or_default()
+                    .load(pcb.class_rule(kind, class.uuid), reset);
             }
         }
-        if added {
+        if added || reset {
             // The board's classes in rank order, then new ones.
             let rank = |key: ClassKey| match key {
                 ClassKey::Existing(uuid) => (0, pcb.net_class(uuid).map_or(0, |c| c.rank)),
@@ -482,11 +670,18 @@ impl BoardSetupDraft {
                 .iter()
                 .map(|&f| (f, Draft::default()))
                 .collect(),
+            meta: BTreeMap::new(),
+            rank: None,
             deleted: false,
         };
         row.name.set(name);
         self.classes.push(row);
         key
+    }
+
+    /// The class's name as typed; empty for an unknown one.
+    pub fn class_name(&self, key: ClassKey) -> &str {
+        self.class_row(key).map_or("", |r| r.name.value())
     }
 
     /// The class's name as typed.
@@ -657,25 +852,77 @@ impl BoardSetupDraft {
         problems
     }
 
+    /// The values of `kind` drafted for a record (the board-wide one with `None`, else
+    /// the class's) that differ from the board, as `pcb.rules.set` takes them.
+    fn changed_values(&self, class: Option<&ClassRow>) -> BTreeMap<RuleKind, Map<String, Value>> {
+        let drafts = match class {
+            None => &self.rules,
+            Some(row) => &row.overrides,
+        };
+        let mut out: BTreeMap<RuleKind, Map<String, Value>> = by_kind(
+            drafts
+                .iter()
+                .filter_map(|(rule, d)| Some((*rule, length_changed(d)?))),
+        )
+        .into_iter()
+        .map(|(kind, values)| match values_param(&values) {
+            Value::Object(map) => (kind, map),
+            _ => unreachable!("values_param builds an object"),
+        })
+        .collect();
+        if class.is_none() && self.silk_mode.changed() {
+            out.entry(RuleKind::SilkToMask)
+                .or_default()
+                .insert("mode".into(), json!(self.silk_mode.value()));
+        }
+        out
+    }
+
+    /// The `pcb.rules.set` steps for the board-wide records (`class` `None`) or a class's:
+    /// one per kind whose values, `enabled` or comment changed. A class's `enabled` and
+    /// comment count only while it keeps a record of that kind.
+    fn record_steps(&self, class: Option<(&ClassRow, Uuid)>) -> Vec<Step> {
+        let mut values = self.changed_values(class.map(|(row, _)| row));
+        let meta = match class {
+            None => &self.board_meta,
+            Some((row, _)) => &row.meta,
+        };
+        for (kind, m) in meta {
+            let keeps = match class {
+                None => true,
+                Some((row, _)) => self.has_record(row.key, *kind),
+            };
+            if m.changed() && keeps {
+                values.entry(*kind).or_default();
+            }
+        }
+        values
+            .into_iter()
+            .map(|(kind, values)| {
+                let mut params = Map::new();
+                params.insert("kind".into(), json!(kind));
+                if let Some((_, uuid)) = class {
+                    params.insert("scope".into(), json!({"net_class": uuid}));
+                }
+                params.insert("values".into(), Value::Object(values));
+                if let Some(m) = meta.get(&kind)
+                    && class.is_none_or(|(row, _)| self.has_record(row.key, kind))
+                {
+                    m.params(&mut params);
+                }
+                Step::new("pcb.rules.set", Value::Object(params))
+            })
+            .collect()
+    }
+
     /// The Commands that make the PCB Document match the drafts, in order: board-wide
-    /// rules, severities, deleted classes, renames, class rules, added classes, then Nets
-    /// leaving and joining classes.
+    /// rules, severities, deleted classes, renames, class rules, added classes, the rank
+    /// order, then Nets leaving and joining classes.
     pub fn steps(&self) -> Vec<Step> {
         if self.pcb.is_none() {
             return Vec::new();
         }
-        let mut steps = Vec::new();
-        let board = by_kind(
-            self.rules
-                .iter()
-                .filter_map(|(rule, draft)| Some((*rule, length_changed(draft)?))),
-        );
-        for (kind, values) in board {
-            steps.push(Step::new(
-                "pcb.rules.set",
-                json!({"kind": kind, "values": values_param(&values)}),
-            ));
-        }
+        let mut steps = self.record_steps(None);
         for (check, draft) in &self.severities {
             if draft.changed() {
                 steps.push(Step::new(
@@ -727,18 +974,7 @@ impl BoardSetupDraft {
             let ClassKey::Existing(uuid) = row.key else {
                 continue;
             };
-            let changed = by_kind(
-                row.overrides
-                    .iter()
-                    .filter_map(|(rule, d)| Some((*rule, length_changed(d)?))),
-            );
-            for (kind, values) in changed {
-                steps.push(Step::new(
-                    "pcb.rules.set",
-                    json!({"kind": kind, "scope": {"net_class": uuid},
-                           "values": values_param(&values)}),
-                ));
-            }
+            steps.extend(self.record_steps(Some((row, uuid))));
         }
         for row in self.live_classes().filter(|r| !existing(r)) {
             let rules: Vec<Value> =
@@ -746,7 +982,21 @@ impl BoardSetupDraft {
                     Some((*rule, Some(optional(d.value()).ok().flatten()?)))
                 }))
                 .into_iter()
-                .map(|(kind, values)| json!({"kind": kind, "values": values_param(&values)}))
+                .map(|(kind, values)| {
+                    let mut rule = Map::new();
+                    rule.insert("kind".into(), json!(kind));
+                    rule.insert("values".into(), values_param(&values));
+                    if let Some(m) = row.meta.get(&kind) {
+                        if !*m.enabled.value() {
+                            rule.insert("enabled".into(), json!(false));
+                        }
+                        let comment = m.comment.value().trim();
+                        if !comment.is_empty() {
+                            rule.insert("comment".into(), json!(comment));
+                        }
+                    }
+                    Value::Object(rule)
+                })
                 .collect();
             let mut params = Map::new();
             params.insert("name".to_owned(), json!(row.name.value().trim()));
@@ -763,6 +1013,12 @@ impl BoardSetupDraft {
                 params.insert("rules".to_owned(), json!(rules));
             }
             steps.push(Step::new("pcb.net_class.add", Value::Object(params)));
+        }
+        if let Some(order) = self.reorder() {
+            steps.push(Step::new(
+                "pcb.net_class.reorder",
+                json!({ "classes": order }),
+            ));
         }
         let deleted: BTreeSet<ClassKey> = self
             .classes
@@ -801,5 +1057,27 @@ impl BoardSetupDraft {
             ));
         }
         steps
+    }
+
+    /// The classes in the drafted rank order, by UUID (or name, for a class added in the
+    /// dialog), when that differs from the order the other steps leave: the board's
+    /// classes by rank, then the added ones.
+    fn reorder(&self) -> Option<Vec<String>> {
+        let drafted: Vec<&ClassRow> = self.live_classes().collect();
+        let mut natural = drafted.clone();
+        natural.sort_by_key(|r| (r.rank.is_none(), r.rank));
+        let same = drafted.iter().zip(&natural).all(|(a, b)| a.key == b.key);
+        if same {
+            return None;
+        }
+        Some(
+            drafted
+                .iter()
+                .map(|r| match r.key {
+                    ClassKey::Existing(uuid) => uuid.to_string(),
+                    _ => r.name.value().trim().to_owned(),
+                })
+                .collect(),
+        )
     }
 }

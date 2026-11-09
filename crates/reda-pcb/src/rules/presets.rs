@@ -60,6 +60,35 @@ pub fn job_presets(project: &Project, pcb: &PcbDocument) -> Vec<PresetRules> {
     out
 }
 
+/// The strictest limit `presets` set on one rule value: the largest minimum or the smallest
+/// maximum, with the preset that sets it (the first, on a tie). `None` when no preset limits
+/// that value.
+pub fn strictest_limit(
+    presets: &[PresetRules],
+    kind: RuleKind,
+    field: RuleField,
+) -> Option<(Limit, Nm, &str)> {
+    let mut best: Option<(Limit, Nm, &str)> = None;
+    for preset in presets {
+        for (k, f, limit, bound) in preset_limits(&preset.rules) {
+            if k != kind || f != field {
+                continue;
+            }
+            let stricter = match best {
+                None => true,
+                Some((_, b, _)) => match limit {
+                    Limit::Min => bound > b,
+                    Limit::Max => bound < b,
+                },
+            };
+            if stricter {
+                best = Some((limit, bound, preset.name.as_str()));
+            }
+        }
+    }
+    best
+}
+
 /// A rule record value that allows less than a preset's limit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OutsidePreset<'a> {

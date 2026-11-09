@@ -23444,6 +23444,13 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "fab_notes": {
+                "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "severities": {
                 "$ref": "#/$defs/DrcSeverities"
               },
@@ -30895,6 +30902,13 @@
           "InDocument2": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "fab_notes": {
+                "description": "Free text for the fab, copied into the Fab Notes; left out when unset.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "severities": {
                 "$ref": "#/$defs/DrcSeverities"
               },
@@ -36154,7 +36168,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`) and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`) and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`) and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`), then the files for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum features, hole tolerances, Net Ties as deliberate shorts, the files in the zip and the board's `fab_notes` text), `<project>-drill-report.txt` (each drill file's tools and counts) and `<project>-job.gbrjob` (a minimal Gerber job file), each with its `outputs` toggle, and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -36400,7 +36414,7 @@
             "description": "One file the run wrote, also in the zip.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `bom` or `cpl`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `fab_notes`,\n`drill_report`, `gerber_job`, `bom` or `cpl`.",
                 "type": "string"
               },
               "name": {
@@ -40004,6 +40018,35 @@
         "type": "object"
       },
       "title": "Distribute"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the board's `fab_notes`: free text for a person at the fab, copied as typed to the end of the Fab Notes that `output.job.run` writes. `null` or blank text clears it.",
+      "icon": "layers",
+      "id": "pcb.fab_notes.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "The free text, kept as typed; `null` or blank clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "FabNotesSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Fab Notes Text"
     },
     {
       "category": "pcb",
@@ -44653,6 +44696,38 @@
         "type": "null"
       },
       "title": "Rename Net Class"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the Net Classes' ranks: `classes` lists every Net Class once, by UUID or name, highest rank first (rank 1). The Default Net Class always ranks lowest and is not listed.",
+      "icon": "reorder",
+      "id": "pcb.net_class.reorder",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "classes": {
+            "description": "Every Net Class exactly once, highest rank first: each by UUID or by name (ignoring\ncase).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "classes"
+        ],
+        "title": "NetClassReorderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Reorder Net Classes"
     },
     {
       "category": "pcb",

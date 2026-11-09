@@ -1,0 +1,79 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "openreda",
+      "Application": "REDA",
+      "Version": "0.0.0-test"
+    }
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "UsbMcu",
+      "GUID": "00000000-0000-4000-8000-000000000001",
+      "Revision": "A"
+    },
+    "Size": {
+      "X": 30.0,
+      "Y": 27.0
+    },
+    "LayerNumber": 2,
+    "BoardThickness": 1.6
+  },
+  "FilesAttributes": [
+    {
+      "Path": "UsbMcu.GTL",
+      "FileFunction": "Copper,L1,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GBL",
+      "FileFunction": "Copper,L2,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GTS",
+      "FileFunction": "Soldermask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "UsbMcu.GBS",
+      "FileFunction": "Soldermask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "UsbMcu.GTP",
+      "FileFunction": "Paste,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GBP",
+      "FileFunction": "Paste,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GTO",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GBO",
+      "FileFunction": "Legend,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu.GKO",
+      "FileFunction": "Profile,NP",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu-PTH.drl",
+      "FileFunction": "Plated,1,2,PTH,Mixed",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "UsbMcu-NPTH.drl",
+      "FileFunction": "NonPlated,1,2,NPTH,Drill",
+      "FilePolarity": "Positive"
+    }
+  ]
+}

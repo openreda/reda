@@ -116,12 +116,138 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
             "{name}: no date in the files"
         );
         assert!(
-            name.ends_with(".csv")
+            [".csv", ".txt", ".gbrjob"]
+                .iter()
+                .any(|e| name.ends_with(e))
                 || text.contains("TF.GenerationSoftware,openreda,REDA,0.0.0-test"),
             "{name}: the version comes from the engine"
         );
     }
     assert!(!engine.is_dirty(), "running a job is not an edit");
+}
+
+fn names(out: &Value, key: &str) -> Vec<String> {
+    out[key]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn a_run_writes_the_fab_notes_drill_report_and_job_file_into_the_zip_after_the_drill_files() {
+    let dir = TempDir::new("output-fab-files");
+    let mut engine = board(&dir);
+    via(&mut engine);
+    engine.run_ok("pcb.fab_notes.set", json!({"text": "Hello fab."}));
+    let out = run(&mut engine);
+    let names = names(&out, "files");
+    let at = names.iter().position(|n| n == "Demo-PTH.drl").unwrap();
+    assert_eq!(
+        names[at + 1..at + 4],
+        [
+            "Demo-fab-notes.txt",
+            "Demo-drill-report.txt",
+            "Demo-job.gbrjob"
+        ]
+    );
+    let functions: Vec<&str> = out["files"].as_array().unwrap()[at + 1..at + 4]
+        .iter()
+        .map(|f| f["function"].as_str().unwrap())
+        .collect();
+    assert_eq!(functions, ["fab_notes", "drill_report", "gerber_job"]);
+
+    let folder = dir.path().join("Demo/outputs/Generic");
+    let notes = std::fs::read_to_string(folder.join("Demo-fab-notes.txt")).unwrap();
+    // The Fab Notes list exactly the files in the zip, themselves included.
+    let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
+    let zipped: Vec<String> = (0..archive.len())
+        .map(|i| archive.by_index(i).unwrap().name().unwrap().to_string())
+        .collect();
+    let listed: Vec<String> = notes
+        .lines()
+        .skip_while(|l| *l != "Files in the zip")
+        .skip(1)
+        .take_while(|l| !l.is_empty())
+        .map(|l| l.trim().to_owned())
+        .collect();
+    assert_eq!(listed, names);
+    assert_eq!(zipped, names, "the zip holds the files in run report order");
+    assert!(
+        notes.ends_with(
+            "
+Notes
+Hello fab.
+"
+        ),
+        "{notes}"
+    );
+
+    let job: Value =
+        serde_json::from_slice(&std::fs::read(folder.join("Demo-job.gbrjob")).unwrap()).unwrap();
+    let paths: Vec<&str> = job["FilesAttributes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["Path"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        paths,
+        names[..at + 1],
+        "the job file lists the Gerber and drill files"
+    );
+}
+
+#[test]
+fn the_fab_notes_drill_report_and_job_file_each_have_an_outputs_toggle() {
+    let dir = TempDir::new("output-fab-toggles");
+    let mut engine = board(&dir);
+    via(&mut engine);
+    run(&mut engine);
+    let folder = dir.path().join("Demo/outputs/Generic");
+    let toggles = [
+        ("fab_notes", "Demo-fab-notes.txt"),
+        ("drill_report", "Demo-drill-report.txt"),
+        ("gerber_job", "Demo-job.gbrjob"),
+    ];
+    for (key, name) in toggles {
+        assert!(folder.join(name).exists(), "{name} is on by default");
+        engine.run_ok(
+            "output.job.set",
+            json!({"job": JOB, "outputs": {key: false}}),
+        );
+        let out = run(&mut engine);
+        let written = names(&out, "files");
+        assert!(!written.contains(&name.to_owned()), "{key} off");
+        assert!(
+            !folder.join(name).exists(),
+            "{key} off drops the last run's {name}"
+        );
+        for (other, other_name) in toggles {
+            if other != key {
+                assert!(
+                    written.contains(&other_name.to_owned()),
+                    "{key} off keeps {other}"
+                );
+            }
+        }
+        engine.run_ok(
+            "output.job.set",
+            json!({"job": JOB, "outputs": {key: true}}),
+        );
+    }
+    // With the Gerber files off, the job file lists only the drill file.
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"gerber": false}}),
+    );
+    run(&mut engine);
+    let job: Value =
+        serde_json::from_slice(&std::fs::read(folder.join("Demo-job.gbrjob")).unwrap()).unwrap();
+    assert_eq!(job["FilesAttributes"].as_array().unwrap().len(), 1);
+    assert_eq!(job["FilesAttributes"][0]["Path"], "Demo-PTH.drl");
 }
 
 #[test]

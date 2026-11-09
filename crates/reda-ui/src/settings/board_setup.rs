@@ -1,8 +1,11 @@
-//! Board Setup: the settings stored in the PCB Document. One page per rule (the
-//! board-wide value, a Net Class override table and that check's DRC severity, plus
-//! "Apply Fab Preset Rules…"), Net Classes (add, rename, delete, and the Net → Net Class
-//! table) and DRC (every check's severity). Everything it changes is on the PCB
-//! Document's undo stack.
+//! Board Setup: the settings stored in the PCB Document. The Rules pages (Clearance,
+//! Track Width, Vias, Holes, Board Edge, Silkscreen) each hold one or more checks with
+//! their board-wide values, the strictest Fab Preset limit beside each, a Net Class
+//! override table and the check's DRC severity, plus "Apply Fab Preset Rules…". Net
+//! Classes holds the grid (a Default row for the board-wide records, then one row per
+//! class in rank order) and the Net table. DRC holds every check's severity, with the
+//! values that have no rule page. Everything it changes is on the PCB Document's undo
+//! stack.
 //!
 //! The pages are views of one shared [`BoardSetupDraft`], so a severity shown on a rule's
 //! page and on the DRC page is one draft. The first page loads it and hands its steps to
@@ -21,7 +24,8 @@ mod length;
 mod model;
 
 pub use model::{
-    BoardSetupDraft, ClassKey, ClassRow, FabPreview, NetRow, RuleChange, RuleField, class_field,
+    BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS, NetRow, RuleChange,
+    RuleField, class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -32,79 +36,117 @@ type Shared = Rc<RefCell<BoardSetupDraft>>;
 pub enum Rule {
     Clearance,
     TrackWidth,
-    Via,
-    HoleSize,
-    AnnularRing,
-    HoleSpacing,
-    EdgeClearance,
+    Vias,
+    /// Hole size, annular ring and hole-to-hole spacing.
+    Holes,
+    /// Edge clearance and silkscreen to edge.
+    BoardEdge,
+    /// Silkscreen to mask.
+    Silkscreen,
+}
+
+/// One check on a rule page: its board-wide values, a Net Class override table and its
+/// DRC severity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Section {
+    pub check: DrcCheck,
+    pub fields: &'static [RuleField],
 }
 
 impl Rule {
-    pub const ALL: [Rule; 7] = [
+    pub const ALL: [Rule; 6] = [
         Rule::Clearance,
         Rule::TrackWidth,
-        Rule::Via,
-        Rule::HoleSize,
-        Rule::AnnularRing,
-        Rule::HoleSpacing,
-        Rule::EdgeClearance,
+        Rule::Vias,
+        Rule::Holes,
+        Rule::BoardEdge,
+        Rule::Silkscreen,
     ];
 
-    /// The board-wide values on the page.
-    pub fn fields(self) -> &'static [RuleField] {
+    /// The checks on the page, each with its values.
+    pub fn sections(self) -> &'static [Section] {
+        use RuleField as F;
         match self {
-            Rule::Clearance => &[RuleField::Clearance],
-            Rule::TrackWidth => &[RuleField::TrackWidth, RuleField::TrackPreferred],
-            Rule::Via => &[
-                RuleField::ViaDiameter,
-                RuleField::ViaDiameterPreferred,
-                RuleField::ViaHole,
-                RuleField::ViaHolePreferred,
+            Rule::Clearance => &[Section {
+                check: DrcCheck::Clearance,
+                fields: &[F::Clearance],
+            }],
+            Rule::TrackWidth => &[Section {
+                check: DrcCheck::TrackWidth,
+                fields: &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
+            }],
+            Rule::Vias => &[Section {
+                check: DrcCheck::ViaSize,
+                fields: &[
+                    F::ViaDiameter,
+                    F::ViaDiameterPreferred,
+                    F::ViaDiameterMax,
+                    F::ViaHole,
+                    F::ViaHolePreferred,
+                    F::ViaHoleMax,
+                ],
+            }],
+            Rule::Holes => &[
+                Section {
+                    check: DrcCheck::HoleSize,
+                    fields: &[F::HoleMin, F::HoleMax],
+                },
+                Section {
+                    check: DrcCheck::AnnularRing,
+                    fields: &[F::AnnularRing],
+                },
+                Section {
+                    check: DrcCheck::HoleToHole,
+                    fields: &[F::HoleToHole],
+                },
             ],
-            Rule::HoleSize => &[RuleField::HoleMin, RuleField::HoleMax],
-            Rule::AnnularRing => &[RuleField::AnnularRing],
-            Rule::HoleSpacing => &[RuleField::HoleToHole],
-            Rule::EdgeClearance => &[RuleField::EdgeClearance],
+            Rule::BoardEdge => &[
+                Section {
+                    check: DrcCheck::EdgeClearance,
+                    fields: &[F::EdgeClearance],
+                },
+                Section {
+                    check: DrcCheck::SilkToEdge,
+                    fields: &[F::SilkToEdge],
+                },
+            ],
+            Rule::Silkscreen => &[Section {
+                check: DrcCheck::SilkToMask,
+                fields: &[F::SilkToMask],
+            }],
         }
     }
 
-    /// The DRC check that enforces it.
-    pub fn check(self) -> DrcCheck {
-        match self {
-            Rule::Clearance => DrcCheck::Clearance,
-            Rule::TrackWidth => DrcCheck::TrackWidth,
-            Rule::Via => DrcCheck::ViaSize,
-            Rule::HoleSize => DrcCheck::HoleSize,
-            Rule::AnnularRing => DrcCheck::AnnularRing,
-            Rule::HoleSpacing => DrcCheck::HoleToHole,
-            Rule::EdgeClearance => DrcCheck::EdgeClearance,
-        }
+    /// Every value on the page.
+    pub fn fields(self) -> impl Iterator<Item = RuleField> {
+        self.sections()
+            .iter()
+            .flat_map(|s| s.fields.iter().copied())
     }
 
     pub fn title(self) -> String {
         match self {
             Rule::Clearance => tr!("board-setup-page-clearance"),
             Rule::TrackWidth => tr!("board-setup-page-track-width"),
-            Rule::Via => tr!("board-setup-page-via"),
-            Rule::HoleSize => tr!("board-setup-page-hole-size"),
-            Rule::AnnularRing => tr!("board-setup-page-annular-ring"),
-            Rule::HoleSpacing => tr!("board-setup-page-hole-spacing"),
-            Rule::EdgeClearance => tr!("board-setup-page-edge-clearance"),
+            Rule::Vias => tr!("board-setup-page-vias"),
+            Rule::Holes => tr!("board-setup-page-holes"),
+            Rule::BoardEdge => tr!("board-setup-page-board-edge"),
+            Rule::Silkscreen => tr!("board-setup-page-silkscreen"),
         }
     }
 
-    /// The rules on the page a Net Class can override: all of them.
-    pub fn overrides(self) -> Vec<RuleField> {
-        self.fields().to_vec()
-    }
-
     fn owns(self, problem: &Problem) -> bool {
-        self.fields().iter().any(|f| {
-            problem.field == f.problem_field()
-                || (problem.field.starts_with("class/")
-                    && problem.field.ends_with(&format!("/{}", f.id())))
-        })
+        owns(self.fields(), problem)
     }
+}
+
+/// Whether `problem` is on one of `fields`, board-wide or a class's.
+fn owns(mut fields: impl Iterator<Item = RuleField>, problem: &Problem) -> bool {
+    fields.any(|f| {
+        problem.field == f.problem_field()
+            || (problem.field.starts_with("class/")
+                && problem.field.ends_with(&format!("/{}", f.id())))
+    })
 }
 
 /// What every Board Setup page holds: the shared draft, and whether this page is the one
@@ -202,7 +244,10 @@ impl Page for NetClassesPage {
         let problems = self.view.board.borrow().problems();
         problems
             .into_iter()
-            .filter(|p| p.field.starts_with("class/") && p.field.ends_with("/name"))
+            .filter(|p| {
+                (p.field.starts_with("class/") && p.field.ends_with("/name"))
+                    || owns(GRID_FIELDS.into_iter(), p)
+            })
             .collect()
     }
 
@@ -217,6 +262,13 @@ pub struct DrcPage {
 }
 
 impl DrcPage {
+    /// The values that sit beside their checks on the DRC page.
+    pub const VALUES: [(DrcCheck, RuleField); 3] = [
+        (DrcCheck::CourtyardOverlap, RuleField::CourtyardClearance),
+        (DrcCheck::Dangling, RuleField::DanglingTolerance),
+        (DrcCheck::MicroSegment, RuleField::MicroSegmentLength),
+    ];
+
     pub fn board(&self) -> RefMut<'_, BoardSetupDraft> {
         self.view.board.borrow_mut()
     }
@@ -236,11 +288,13 @@ impl Page for DrcPage {
     }
 
     fn problems(&self) -> Vec<Problem> {
-        Vec::new()
+        let problems = self.view.board.borrow().problems();
+        let fields = || DrcPage::VALUES.iter().map(|(_, f)| *f);
+        problems.into_iter().filter(|p| owns(fields(), p)).collect()
     }
 
-    fn show(&mut self, ui: &mut egui::Ui, _cx: &mut PageCx<'_>) {
-        draw::drc_page(ui, &mut self.view.board.borrow_mut());
+    fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {
+        draw::drc_page(ui, cx, &mut self.view.board.borrow_mut());
     }
 }
 

@@ -198,7 +198,7 @@ impl DrcCheck {
     }
 }
 
-/// The board's own settings: its DRC severities. The design rules are records of their
+/// The board's own settings: its DRC severities, Zone naming and Fab Notes text. The design rules are records of their
 /// own ([`DesignRule`]).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -208,6 +208,9 @@ pub struct BoardSetup {
     /// How Zones with no typed name are named.
     #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
     pub zone_name_scheme: ZoneNameScheme,
+    /// Free text for the fab, copied into the Fab Notes; left out when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fab_notes: Option<String>,
 }
 
 /// The closed shape of the board's physical edge.

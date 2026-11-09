@@ -116,6 +116,24 @@ fn ok_applies_the_dialog_as_one_batch() {
 }
 
 #[test]
+fn the_fab_notes_drill_report_and_job_file_each_have_a_toggle() {
+    let (home, work) = (TempDir::new("jd-home"), TempDir::new("jd-work"));
+    let mut h = harness(home.path(), work.path(), true);
+    job_menu(&mut h, "Edit…");
+    h.run();
+    for label in ["Fab Notes", "Drill report", "Gerber job file"] {
+        h.get_by_label(label).click();
+        h.run();
+    }
+    h.get_by_label("OK").click();
+    h.run();
+    let project = h.state().shell().engine().project().unwrap();
+    let outputs = project.output_jobs().next().unwrap().outputs;
+    assert!(!outputs.fab_notes && !outputs.drill_report && !outputs.gerber_job);
+    assert!(outputs.gerber && outputs.drill && outputs.bom && outputs.cpl);
+}
+
+#[test]
 fn run_from_the_projects_panel_shows_the_report_and_offers_the_zip() {
     let (home, work) = (TempDir::new("jd-home"), TempDir::new("jd-work"));
     let mut h = harness(home.path(), work.path(), true);

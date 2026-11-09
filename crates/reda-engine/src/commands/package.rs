@@ -103,6 +103,7 @@ impl Command for ProjectPackage {
                 name,
                 function: "project",
                 bytes,
+                attributes: None,
             })
             .collect();
         // Zip time stamps start in 1980: every entry gets 1980-01-01, whenever it is made.
