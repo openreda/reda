@@ -117,6 +117,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     super::route::draw(ui, shell, input);
     super::live_hover::draw(ui, shell, input);
     drawing(ui, shell, input);
+    super::polygon_edit::draw(ui, shell, input);
     overlay(ui, shell, input);
     let mut out = Vec::new();
     // A right-click ends the route instead of opening the menu (the window leaves the
@@ -245,6 +246,7 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
     let screen = |p: Point| shown.screen_point((p.x.0 as f64, p.y.0 as f64));
     let hovered = shown.response.hovered()
         || shell.pcb_tool().moving()
+        || shell.pcb_tool().polygon_edit().is_some()
         || shell.pcb_draw().preview().is_some();
     let snapped = match shell.tool() {
         Tool::Route | Tool::Via => shell.router().snap(),

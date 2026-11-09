@@ -25,6 +25,7 @@ mod geometry;
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LayerKind, Project, Uuid};
 use reda_engine::pcb::Copper;
+use reda_engine::preferences::KeepoutToolShape;
 use serde_json::{Value, json};
 
 use crate::shell::Shell;
@@ -76,9 +77,12 @@ enum Shape {
     None,
 }
 
-fn shape(tool: Tool) -> Shape {
+fn shape(tool: Tool, keepout: KeepoutToolShape) -> Shape {
     match tool {
-        Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::Keepout => Shape::Polygon,
+        Tool::Keepout if keepout != KeepoutToolShape::Polygon => Shape::TwoPoints,
+        Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::ZoneCutout | Tool::Keepout => {
+            Shape::Polygon
+        }
         Tool::BoardOutlineRect | Tool::Line | Tool::Rect | Tool::MoveBy | Tool::Swap => {
             Shape::TwoPoints
         }
@@ -106,6 +110,8 @@ pub struct Draw {
     measure: Option<Measurement>,
     /// Whether the measurement is held (a second click), not following the cursor.
     held: bool,
+    /// The Keepout Tool's shape, from its Preference when the cursor last moved.
+    keepout: KeepoutToolShape,
 }
 
 impl Default for Draw {
@@ -119,6 +125,7 @@ impl Default for Draw {
             text_at: None,
             measure: None,
             held: false,
+            keepout: KeepoutToolShape::Polygon,
         }
     }
 }
@@ -130,6 +137,10 @@ impl Draw {
             tool,
             ..Draw::default()
         };
+    }
+
+    fn shape(&self) -> Shape {
+        shape(self.tool, self.keepout)
     }
 
     /// The Tool being drawn with.
@@ -145,7 +156,7 @@ impl Draw {
     /// What to draw over the canvas while a shape is in progress.
     pub fn preview(&self) -> Option<Preview> {
         let cursor = self.cursor.map(|s| s.at);
-        match shape(self.tool) {
+        match self.shape() {
             Shape::Polygon => {
                 if self.points.is_empty() {
                     return None;
@@ -158,6 +169,10 @@ impl Draw {
             Shape::TwoPoints => {
                 let (&a, b) = (self.points.first()?, cursor?);
                 Some(match self.tool {
+                    Tool::Keepout if self.keepout == KeepoutToolShape::Circle => Preview {
+                        points: geometry::circle_points(a, b),
+                        closed: true,
+                    },
                     Tool::Line | Tool::MoveBy | Tool::Swap => Preview {
                         points: vec![a, b],
                         closed: false,
@@ -198,6 +213,10 @@ impl Draw {
 
     /// The cursor is at `at` with no button down.
     pub fn hover(&mut self, shell: &Shell, at: Point) -> Snapped {
+        let keepout = shell.preferences().pcb.keepout.shape;
+        if keepout != self.keepout && self.points.is_empty() {
+            self.keepout = keepout;
+        }
         let snapped = self.snapped(shell, at);
         self.cursor = Some(snapped);
         if let Some(m) = &mut self.measure
@@ -229,7 +248,7 @@ impl Draw {
         };
         let end = self.cursor.map_or(pressed, |s| s.at);
         if self.dragged && end != pressed {
-            if shape(self.tool) == Shape::TwoPoints && self.points.is_empty() {
+            if self.shape() == Shape::TwoPoints && self.points.is_empty() {
                 self.put(shell, pressed);
             }
             self.put(shell, end);
@@ -241,7 +260,7 @@ impl Draw {
 
     /// `tool.finish` (Enter): closes a polygon with three corners or more.
     pub fn finish(&mut self, shell: &mut Shell) {
-        if shape(self.tool) == Shape::Polygon && self.points.len() > 2 {
+        if self.shape() == Shape::Polygon && self.points.len() > 2 {
             let points = std::mem::take(&mut self.points);
             self.commit(shell, &points);
         }
@@ -285,7 +304,7 @@ impl Draw {
     fn snapped(&self, shell: &Shell, at: Point) -> Snapped {
         let mut targets = super::tool::board_hotspots(shell);
         // A polygon's own first corner catches the cursor, to close it.
-        if shape(self.tool) == Shape::Polygon
+        if self.shape() == Shape::Polygon
             && self.points.len() > 2
             && let Some(&first) = self.points.first()
         {
@@ -306,7 +325,7 @@ impl Draw {
     /// Puts down point `p`.
     fn put(&mut self, shell: &mut Shell, p: Point) {
         let first = self.points.is_empty();
-        match shape(self.tool) {
+        match self.shape() {
             Shape::Polygon => {
                 let closes = self.points.len() > 2
                     && (self.points.last() == Some(&p)
@@ -364,7 +383,11 @@ impl Draw {
     /// Whether the active Layer suits the Tool; reports why not.
     fn can_start(&self, shell: &mut Shell, p: Point) -> bool {
         let problem = match self.tool {
-            Tool::Zone => {
+            Tool::Zone | Tool::ZoneCutout => {
+                let copper = active_layer(shell).is_some_and(|(kind, _)| kind == LayerKind::Copper);
+                (!copper).then(|| tr!("pcb-draw-needs-copper"))
+            }
+            Tool::Keepout if !shell.preferences().pcb.keepout.all_layers => {
                 let copper = active_layer(shell).is_some_and(|(kind, _)| kind == LayerKind::Copper);
                 (!copper).then(|| tr!("pcb-draw-needs-copper"))
             }
@@ -416,9 +439,33 @@ impl Draw {
                 if let Some(net) = net {
                     params["net"] = json!(net);
                 }
+                zone_tool_values(shell, &mut params);
                 ("pcb.zone.add", params)
             }
-            Tool::Keepout => ("pcb.keepout.add", json!({"vertices": vertices()})),
+            Tool::ZoneCutout => {
+                let (_, layer) = active_layer(shell)?;
+                (
+                    "pcb.zone_cutout.add",
+                    json!({"layer": layer, "vertices": vertices()}),
+                )
+            }
+            Tool::Keepout => {
+                let options = shell.preferences().pcb.keepout.clone();
+                let vertices: Value = match (options.shape, points) {
+                    (KeepoutToolShape::Rectangle, [a, b]) => geometry::rect_corners(*a, *b)
+                        .iter()
+                        .map(|p| xy(*p))
+                        .collect(),
+                    (KeepoutToolShape::Circle, [c, edge]) => circle(*c, *edge)?,
+                    _ => vertices(),
+                };
+                let mut params = json!({"vertices": vertices, "restrict": options.restrict});
+                if !options.all_layers {
+                    let (_, layer) = active_layer(shell)?;
+                    params["layer"] = json!(layer);
+                }
+                ("pcb.keepout.add", params)
+            }
             Tool::Line => (
                 "pcb.graphic.add_line",
                 json!({"layer": layer()?, "from": xy(points[0]), "to": xy(points[1])}),
@@ -476,6 +523,32 @@ impl Draw {
             _ => return None,
         })
     }
+}
+
+/// The Zone Tool's values for a new Zone, from its Preference, into `params`.
+fn zone_tool_values(shell: &Shell, params: &mut Value) {
+    let values = &shell.preferences().pcb.zone.tool;
+    if let Some(c) = values.clearance {
+        params["clearance"] = json!(c.nm().0);
+    }
+    if let Some(w) = values.min_width {
+        params["min_width"] = json!(w.nm().0);
+    }
+    params["pour_over"] = json!(values.pour_over);
+    params["remove_unconnected"] = json!(values.remove_unconnected);
+    params["min_island_area"] = json!(values.min_island_area.0);
+}
+
+/// A circle about `centre` through `edge`, as two half-circle arcs.
+fn circle(centre: Point, edge: Point) -> Option<Value> {
+    if centre == edge {
+        return None;
+    }
+    let opposite = centre + (centre - edge);
+    Some(json!([
+        {"x": edge.x.0, "y": edge.y.0, "sweep": 180_000},
+        {"x": opposite.x.0, "y": opposite.y.0, "sweep": 180_000},
+    ]))
 }
 
 /// `p` as a point param, in nm.

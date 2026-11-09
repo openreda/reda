@@ -40,7 +40,10 @@ pub enum Tool {
     BoardCutout,
     /// Draws a Zone on the active copper Layer as a polygon (Z).
     Zone,
-    /// Draws a Keepout on every copper Layer as a polygon (K).
+    /// Draws a Zone Cutout on the active copper Layer as a polygon.
+    ZoneCutout,
+    /// Draws a Keepout as a polygon, rectangle or circle, on every copper Layer or the
+    /// active one, by its options (K).
     Keepout,
     /// Places text on the active Layer.
     Text,
@@ -106,6 +109,7 @@ impl Tool {
             Tool::BoardOutlineRect => "board_outline_rect",
             Tool::BoardCutout => "board_cutout",
             Tool::Zone => "zone",
+            Tool::ZoneCutout => "zone_cutout",
             Tool::Keepout => "keepout",
             Tool::Text => "text",
             Tool::Line => "line",
@@ -148,7 +152,7 @@ impl Tool {
 }
 
 /// The PCB drawing Tools with a Preset each: (Tool, title, icon).
-const BOARD_TOOLS: [(Tool, &str, &str); 14] = [
+const BOARD_TOOLS: [(Tool, &str, &str); 15] = [
     (Tool::BoardOutline, "Board Outline", "board_outline"),
     (
         Tool::BoardOutlineRect,
@@ -157,6 +161,7 @@ const BOARD_TOOLS: [(Tool, &str, &str); 14] = [
     ),
     (Tool::BoardCutout, "Board Cutout", "board_cutout"),
     (Tool::Zone, "Zone", "zone"),
+    (Tool::ZoneCutout, "Zone Cutout", "zone"),
     (Tool::Keepout, "Keepout", "keepout"),
     (Tool::Text, "Text", "text"),
     (Tool::Line, "Line", "line"),
@@ -283,6 +288,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ToolUndoSegment);
     registry.add(ToolFinish);
     registry.add(ToolMoveBoardShape);
+    registry.add(ToolMoveBoard);
     registry.add(ToolRotateAbout);
 }
 
@@ -666,6 +672,32 @@ impl Command for ToolMoveBoardShape {
         cx.view::<ActiveTool>()?.0 = Tool::Select;
         cx.view::<Placement>()?.placing = None;
         Ok(Turned {})
+    }
+}
+
+/// `tool.move_board`: Move Board. The Board Outline and its Board Cutouts follow the
+/// pointer until a click puts the whole board down, as one `pcb.board.move` (which also
+/// takes the Output Origin and everything with a part inside the outline). The Command
+/// makes Select active; the window's Shell picks the board up (`Shell::pcb_move_board`).
+struct ToolMoveBoard;
+
+impl Command for ToolMoveBoard {
+    const META: Meta = Meta {
+        id: "tool.move_board",
+        title: "Move Board",
+        description: "Picks up the whole board: its outline follows the pointer until a \
+                      click puts it down, and then `pcb.board.move` moves the Board \
+                      Outline, its Board Cutouts, the Output Origin and every object with \
+                      any part inside the outline by that much.",
+        category: "tool",
+        icon: "move",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, cx: &mut Context<'_>, p: NoParams) -> Result<Turned, CommandError> {
+        ToolMoveBoardShape.run(cx, p)
     }
 }
 

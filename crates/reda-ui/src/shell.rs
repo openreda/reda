@@ -165,6 +165,8 @@ pub struct Shell {
     asked_fonts: BTreeSet<String>,
     generation: u64,
     message: Option<String>,
+    /// A loop from graphics refused for a gap, waiting for the outer-edge retry.
+    loop_retry: Option<crate::pcb::board_shapes::LoopRetry>,
     /// A status-bar note that is not an error, such as a Tool a bridged edit cancelled.
     note: Option<String>,
     /// The preview of the Tool in use.
@@ -319,6 +321,7 @@ impl Shell {
             asked_fonts: BTreeSet::new(),
             generation: 0,
             message: None,
+            loop_retry: None,
             note: None,
             tool: None,
             messages: Messages::default(),
@@ -602,6 +605,18 @@ impl Shell {
         }
     }
 
+    /// The loop from graphics refused for a gap, waiting for the outer-edge retry.
+    pub fn loop_retry(&self) -> Option<&crate::pcb::board_shapes::LoopRetry> {
+        self.loop_retry.as_ref()
+    }
+
+    /// Answers the outer-edge retry: `retry` runs the Command again along the outer edge
+    /// of the strokes; either way the question goes.
+    pub fn answer_loop_retry(&mut self, retry: bool) -> Option<Result<Value, CommandError>> {
+        let pending = self.loop_retry.take()?;
+        retry.then(|| self.run_reporting(&pending.id, pending.params))
+    }
+
     /// Takes the notice waiting to be shown, such as the vendor-terms notice of the first
     /// Import part.
     pub fn take_notice(&mut self) -> Option<String> {
@@ -699,13 +714,15 @@ impl Shell {
 
     /// Move Board Shape: the Board Outline, with any selected Board Cutouts, follows the
     /// pointer until a click puts it down. Anything in flight is dropped first.
-    pub(crate) fn pcb_move_board_shape(&mut self) {
+    /// With `whole`, Move Board: the outline and Cutouts show the move, and the click
+    /// runs `pcb.board.move`.
+    pub(crate) fn pcb_move_board_shape(&mut self, whole: bool) {
         selection::picking::cancel(self);
         self.pcb_cancel();
         self.with_router(|r, shell| r.cancel(shell));
         let tool = self.tool();
         self.pcb_draw.start(tool);
-        self.with_pcb_tool(|tool, shell| tool.carry_board_shape(shell));
+        self.with_pcb_tool(|tool, shell| tool.carry_board_shape(shell, whole));
     }
 
     /// L: flips the move in flight, or the selection, to the other side.
@@ -944,7 +961,7 @@ impl Shell {
         objects.iter().any(|o| pcb.footprint(*o).is_some())
     }
 
-    fn board_is_active(&self) -> bool {
+    pub(crate) fn board_is_active(&self) -> bool {
         let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
         pcb.is_some() && self.active_document().map(|d| d.document) == pcb
     }
@@ -1355,13 +1372,23 @@ impl Shell {
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
         }
+        if base == "pcb.copper.delete" && self.pcb_tool.polygon_edit().is_some() {
+            // Del while holding a polygon's vertex removes the vertex, not the selection.
+            let held = self.with_pcb_tool(|tool, shell| tool.delete_held_vertex(shell));
+            if held {
+                return Ok(json!({}));
+            }
+        }
         let silkscreen = crate::pcb::silkscreen::COMMANDS
             .contains(&base)
             .then(|| params.clone());
-        let out = self.engine.run(id, params);
+        let out = self.engine.run(id, params.clone());
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
             self.end_committed_moves();
+        }
+        if let Err(e) = &out {
+            self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
         let out = out?;
         self.after_edit(base, &out);
@@ -2146,7 +2173,8 @@ impl Shell {
                 }
             }
             "tool.flip_side" if self.board_is_active() => self.pcb_flip(),
-            "tool.move_board_shape" => self.pcb_move_board_shape(),
+            "tool.move_board_shape" => self.pcb_move_board_shape(false),
+            "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();

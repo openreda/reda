@@ -47,6 +47,12 @@
         "separator",
         { "id": "place.zone", "command": "tool.activate:zone" },
         { "id": "place.keepout", "command": "tool.activate:keepout" },
+        { "id": "place.zone_cutout", "command": "tool.activate:zone_cutout" },
+        { "id": "place.zone_from_board_outline", "command": "pcb.zone.add_from_board_outline", "params": { "layers": ["$active_layer"], "net": "$highlighted_net" }, "title": "pcb-zone-from-board-outline" },
+        { "id": "place.zone_from_selection", "command": "pcb.zone.add_from_graphics", "params": { "graphics": "$selection", "layer": "$active_layer", "net": "$highlighted_net" } },
+        { "id": "place.zone_cutout_from_selection", "command": "pcb.zone_cutout.add_from_graphics", "params": { "graphics": "$selection", "layer": "$active_layer" } },
+        { "id": "place.keepout_from_selection", "command": "pcb.keepout.add_from_graphics", "params": { "graphics": "$selection" } },
+        { "id": "place.board_cutout_from_selection", "command": "pcb.board_cutout.add_from_graphics", "params": { "graphics": "$selection" } },
         "separator",
         { "id": "place.text", "command": "tool.activate:text" },
         { "id": "place.line", "command": "tool.activate:line" },
@@ -64,7 +70,8 @@
       "items": [
         { "id": "design.drc", "command": "drc.run" },
         "separator",
-        { "id": "design.move_board_shape", "command": "tool.move_board_shape" }
+        { "id": "design.move_board_shape", "command": "tool.move_board_shape" },
+        { "id": "design.move_board", "command": "tool.move_board" }
       ]
     },
     {

@@ -17,10 +17,15 @@ use crate::properties::{
 use crate::shell::Shell;
 use crate::tr;
 
+mod zone;
+
 /// Draws the panel for the Shell's selection; returns the Commands its edits ask for.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
     if let Some(placing) = crate::placement::placing(shell) {
         return placing_section(ui, placing);
+    }
+    if let Some(out) = zone::tool_options(ui, shell) {
+        return out;
     }
     if shell.selection().is_empty()
         && shell
@@ -76,6 +81,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
                 .map_or(crate::grid::SCHEMATIC_DEFAULT, |t| shell.grid(t.document));
             vertex_section(ui, list, units(shell), grid, &mut edits);
         }
+        zone::zones_section(ui, shell, &mut numbers);
         if properties.component.is_none()
             && properties.vertices.is_none()
             && !properties.details.is_empty()

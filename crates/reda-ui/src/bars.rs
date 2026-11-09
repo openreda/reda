@@ -77,6 +77,11 @@ pub const CURSOR: &str = "$cursor";
 /// item using it is greyed while no board is open.
 pub const ACTIVE_LAYER: &str = "$active_layer";
 
+/// The raw-params placeholder for the highlighted Net's board Net, by UUID (a new Zone's
+/// Net). A
+/// field holding it is left out while no Net is highlighted.
+pub const HIGHLIGHTED_NET: &str = "$highlighted_net";
+
 /// One clickable item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Action {
@@ -308,6 +313,16 @@ pub fn resolve_in(
     if cursor.is_none() {
         drop_placeholder(&mut params, CURSOR);
     }
+    let highlighted = shell.highlight().net.as_deref().and_then(|name| {
+        let pcb = shell.engine().project()?.pcb()?;
+        pcb.nets().find(|n| n.name == name).map(|n| json!(n.uuid))
+    });
+    match highlighted {
+        Some(net) => {
+            let _ = fill(&mut params, HIGHLIGHTED_NET, Some(&net));
+        }
+        None => drop_placeholder(&mut params, HIGHLIGHTED_NET),
+    }
     let active_layer = shell
         .engine()
         .project()
@@ -514,6 +529,7 @@ fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String 
                         | SELECTABLE
                         | CURSOR
                         | ACTIVE_LAYER
+                        | HIGHLIGHTED_NET
                 )
             )
         })
