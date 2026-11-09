@@ -542,6 +542,25 @@ impl Cx<'_, '_> {
         self.shell
             .selection_picking_mut()
             .set_time(input.response.ctx.input(|i| i.time));
+        // Mod+double-click on a Port goes to its partner on another sheet.
+        if self.shell.tool() == crate::tools::Tool::Select
+            && kind == Some(DocumentKind::Schematic)
+            && input.response.double_clicked()
+            && input.response.ctx.input(|i| i.modifiers.command)
+            && let Some(screen) = input.response.interact_pointer_pos()
+            && let Some(port) = crate::port_partner::port_at(
+                self.shell,
+                document,
+                input.document_point(screen),
+                5.0 * input.camera.nm_per_point,
+            )
+        {
+            let _ = self.shell.run_reporting(
+                "schematic.port.go_to_partner",
+                serde_json::json!({ "objects": [port] }),
+            );
+            return Vec::new();
+        }
         if self.shell.tool() == crate::tools::Tool::Select
             && input.response.double_clicked()
             && let Some(screen) = input.response.interact_pointer_pos()

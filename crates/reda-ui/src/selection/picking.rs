@@ -467,6 +467,22 @@ pub fn hover(shell: &mut Shell, document: Uuid, at: (f64, f64), tolerance: f64) 
 }
 
 /// A Footprint can be picked by its body even when its only ink consists of Pads.
+/// Every object drawn under `at` on `document`, smallest first, whatever the filter.
+pub(crate) fn objects_at(
+    shell: &Shell,
+    document: Uuid,
+    at: (f64, f64),
+    tolerance: f64,
+) -> Vec<Uuid> {
+    let Some(tab) = shell.document_tab(document) else {
+        return Vec::new();
+    };
+    let scene = document_scene(shell, document);
+    hit_stack_on(&scene, tab.scene.layers.as_deref(), at, tolerance, |_| {
+        Some(0)
+    })
+}
+
 fn document_scene(shell: &Shell, document: Uuid) -> Scene {
     let Some(tab) = shell.document_tab(document) else {
         return Scene::default();

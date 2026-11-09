@@ -291,10 +291,11 @@ fn project_settings_summarise_the_saved_settings_and_reset_them() {
         .click();
     f.h.run();
     f.h.get_by_label("Update from Library");
-    f.h.get_by_label("Take the new default");
-    f.h.get_by_role_and_label(Role::Button, "Reset").click();
+    f.h.get_by_label("Locally edited values: Take the new default");
+    f.h.get_by_role_and_label(Role::Button, "Reset Update from Library Settings")
+        .click();
     f.h.run();
-    assert!(!f.has("Take the new default"));
+    f.h.get_by_label("Cleared on Apply.");
     f.h.get_by_role_and_label(Role::Button, "Apply").click();
     f.h.run();
     let saved = (f.h.state().shell().engine().project())

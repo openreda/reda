@@ -106,6 +106,7 @@
         { "id": "design.erc", "command": "erc.run" },
         "separator",
         { "id": "design.reannotate", "command": "schematic.dialog.open:reannotate" },
+        { "id": "design.reannotate_last", "command": "schematic.dialog.open:reannotate_last" },
         { "id": "design.convert_cross_junctions", "command": "schematic.dialog.open:convert_cross_junctions" },
         { "id": "design.update_from_library", "command": "schematic.dialog.open:update_from_library" }
       ]

@@ -481,3 +481,29 @@ fn package_project_opens_a_dialog_that_warns_about_outside_libraries_and_writes_
     );
     assert!(h.query_by_label("Package Project").is_none());
 }
+
+#[test]
+fn each_sheet_shows_its_sheet_number_beside_its_name() {
+    let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
+    let mut h = harness(&home, &work, "Num");
+    shell(&mut h)
+        .run(
+            "document.add",
+            json!({"kind": "schematic", "title": "Power"}),
+        )
+        .unwrap();
+    h.run();
+    // Power is Document 3 (after the PCB Document) but sheet 2 of 2, as its title block
+    // and Port cross-references call it.
+    assert_eq!(number_of(&h, "Power *"), "3");
+    for (title, number) in [("Sheet 1", "Sheet 1 of 2"), ("Power *", "Sheet 2 of 2")] {
+        let row = row(&h, title).rect();
+        let label = h.get_by_label(number).rect();
+        assert!(label.left() >= row.right() - 1.0, "{number} after {title}");
+        assert!(
+            (label.center().y - row.center().y).abs() < 6.0,
+            "{number} on {title}'s line"
+        );
+    }
+    assert!(h.query_by_label("Sheet 3 of 2").is_none());
+}

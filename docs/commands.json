@@ -73870,6 +73870,35 @@
     },
     {
       "category": "schematic",
+      "description": "Forgets the last Re-annotate settings saved with the Project, so                       `schematic.reannotate {saved: true}` has none to run and the dialog                       starts from the defaults (Project Settings ▸ Schematic ▸ Re-annotate,                       Reset). One undoable Project edit.",
+      "icon": "annotate",
+      "id": "schematic.reannotate.reset",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "title": "ResetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Whether there were saved settings to forget.",
+        "properties": {
+          "cleared": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cleared"
+        ],
+        "title": "ReannotateReset",
+        "type": "object"
+      },
+      "title": "Reset Re-annotate Settings"
+    },
+    {
+      "category": "schematic",
       "description": "Turns the selected objects counter-clockwise about a centre, a quarter turn by default. Units, Wires, labels and text turn by any angle; rectangles only by quarter turns.",
       "icon": "rotate",
       "id": "schematic.rotate",

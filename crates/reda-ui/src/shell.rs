@@ -258,6 +258,13 @@ impl Shell {
         if engine.registry().get("schematic.dialog.open").is_none() {
             engine.register(crate::schematic_dialogs::register_all);
         }
+        if engine
+            .registry()
+            .get("schematic.port.go_to_partner")
+            .is_none()
+        {
+            engine.register(crate::port_partner::register_all);
+        }
         if engine.registry().get("tool.place").is_none() {
             engine.register(crate::placement::register_all);
         }
@@ -309,6 +316,9 @@ impl Shell {
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(pcb::measure::Measurements::default());
         engine.view_mut().set(pcb::delete::DeletePrompt::default());
+        engine
+            .view_mut()
+            .set(crate::port_partner::PartnerMenu::default());
         engine.view_mut().set(crate::keys_card::KeysCard::default());
         engine
             .view_mut()
@@ -2350,6 +2360,7 @@ impl Shell {
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "pcb.delete.confirm" => pcb::delete::after_confirm(self, out),
+            "schematic.port.go_to_partner" => crate::port_partner::after_go(self, out),
             "tool.cycle_corner" => {
                 if let Some(sheet) = self.active_sheet() {
                     crate::schematic_editor::flip_corners(self, sheet);

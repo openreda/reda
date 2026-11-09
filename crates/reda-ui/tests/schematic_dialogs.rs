@@ -8,7 +8,8 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
-use reda_ui::schematic_dialogs::{ReannotateDialog, ReannotateScope, SimilarDialog, export_pdf};
+use reda_ui::engine::model::annotate::ScopeKind;
+use reda_ui::schematic_dialogs::{ReannotateDialog, SimilarDialog, export_pdf};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -127,9 +128,8 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
     let (b, b_component) = place(&mut shell, sheet(), R_10K, 1000, 0);
     let (c, _) = place(&mut shell, sheet(), R_10K, -1000, 0);
 
-    let mut dialog = ReannotateDialog::new(&shell);
-    assert_eq!(dialog.scope, ReannotateScope::Project);
-    dialog.refresh(&mut shell);
+    let mut dialog = ReannotateDialog::new(&mut shell);
+    assert_eq!(dialog.settings.scope, ScopeKind::Project);
     let renames: Vec<(String, String)> = dialog
         .changes()
         .map(|r| (r.old.clone(), r.new.clone()))
@@ -147,7 +147,7 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
 
     // Locking R2 keeps it; the preview follows.
     dialog.set_locked(&mut shell, b_component, true);
-    assert_eq!(dialog.locked().len(), 1);
+    assert_eq!(dialog.rows().iter().filter(|r| r.locked).count(), 1);
     let renames: Vec<(String, String)> = dialog
         .changes()
         .map(|r| (r.old.clone(), r.new.clone()))
@@ -177,7 +177,7 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
     assert_eq!(ran, ["schematic.reannotate"]);
 
     // Scope selection with nothing selected cannot run.
-    dialog.scope = ReannotateScope::Selection;
+    dialog.settings.scope = ScopeKind::Selection;
     dialog.refresh(&mut shell);
     assert!(!dialog.can_apply());
 }

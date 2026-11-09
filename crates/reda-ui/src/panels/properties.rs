@@ -10,6 +10,7 @@ mod arc_tool;
 mod library;
 mod overview;
 pub(crate) mod rules;
+mod sheet_frame;
 mod track;
 mod unit;
 mod zone;
