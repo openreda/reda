@@ -247,6 +247,16 @@ pub(crate) fn active_symbol(shell: &Shell) -> Option<Uuid> {
     .then_some(active)
 }
 
+/// The active Document, when it is an open Footprint.
+pub(crate) fn active_footprint(shell: &Shell) -> Option<Uuid> {
+    let active = shell.layout().active_document()?;
+    matches!(
+        shell.engine().element(active),
+        Some(LibraryElement::Footprint(_))
+    )
+    .then_some(active)
+}
+
 /// Runs the Library check on the active element, if the active Document is one, after a
 /// save: Save writes the file and the check's findings show in Messages.
 pub(crate) fn check_after_save(shell: &mut Shell) {

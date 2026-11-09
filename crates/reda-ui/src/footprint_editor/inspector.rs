@@ -83,7 +83,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         let before = tool_settings(shell);
         let mut settings = before.clone();
         tool_settings_ui(ui, id, &mut settings);
-        if settings != before {
+        if (&settings.pad, settings.layer) != (&before.pad, before.layer) {
             out.push(cmd(
                 "view.footprint_tool.set",
                 json!({ "pad": settings.pad, "layer": settings.layer }),
@@ -151,18 +151,21 @@ fn footprint_section(
         });
     }
     ui.horizontal(|ui| {
-        let field_id = id.with("new-text-field");
-        let mut field: String = ui
-            .data(|d| d.get_temp(field_id))
-            .unwrap_or_else(|| reda_engine::model::DESIGNATOR_FIELD.to_owned());
+        // The field Add Text and the Text Tool place.
         let hint = tr!("footprint-text-new-field");
-        ui.add(egui::TextEdit::singleline(&mut field).desired_width(110.0))
-            .widget_info(|| WidgetInfo::labeled(Role::TextInput, true, hint.clone()));
-        ui.data_mut(|d| d.insert_temp(field_id, field.clone()));
-        if ui.button(tr!("footprint-text-add")).clicked() && !field.trim().is_empty() {
+        let field = settings.text_field.clone();
+        if let Some(typed) = text_field(ui, id.with("new-text-field"), &hint, &field)
+            && !typed.is_empty()
+        {
+            out.push(cmd(
+                "view.footprint_tool.set",
+                json!({ "text_field": typed }),
+            ));
+        }
+        if ui.button(tr!("footprint-text-add")).clicked() {
             out.push(cmd(
                 "library.footprint.text.add",
-                json!({"footprint": fp, "field": field.trim(), "at": {"x": 0, "y": 0},
+                json!({"footprint": fp, "field": field, "at": {"x": 0, "y": 0},
                        "layer": text_layer(settings.layer)}),
             ));
         }

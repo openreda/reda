@@ -34,6 +34,10 @@
         { "id": "place.line", "command": "tool.activate:line" },
         { "id": "place.rect", "command": "tool.activate:rect" },
         { "id": "place.circle", "command": "tool.activate:circle" },
+        { "id": "place.arc", "command": "tool.activate:arc" },
+        { "id": "place.polygon", "command": "tool.activate:polygon" },
+        { "id": "place.courtyard", "command": "tool.activate:courtyard" },
+        { "id": "place.text", "command": "tool.activate:text" },
         "separator",
         { "id": "place.origin", "command": "tool.activate:origin" }
       ]
@@ -52,9 +56,16 @@
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },
     "separator",
-    { "id": "active_bar.pad", "command": "tool.activate:pad" },
+    { "id": "active_bar.smd_pad", "command": "tool.activate:smd_pad" },
+    { "id": "active_bar.th_pad", "command": "tool.activate:th_pad" },
+    "separator",
     { "id": "active_bar.line", "command": "tool.activate:line" },
-    { "id": "active_bar.rect", "command": "tool.activate:rect" },
-    { "id": "active_bar.circle", "command": "tool.activate:circle" }
+    { "id": "active_bar.arc", "command": "tool.activate:arc" },
+    { "id": "active_bar.polygon", "command": "tool.activate:polygon" },
+    { "id": "active_bar.courtyard", "command": "tool.activate:courtyard" },
+    { "id": "active_bar.text", "command": "tool.activate:text" },
+    "separator",
+    { "id": "active_bar.origin", "command": "tool.activate:origin" },
+    { "id": "active_bar.measure", "command": "tool.activate:measure" }
   ]
 }

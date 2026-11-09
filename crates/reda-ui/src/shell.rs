@@ -2196,6 +2196,13 @@ impl Shell {
                     }
                 }
             }
+            // The Footprint editor's polygon closes on Enter.
+            "tool.finish" if crate::element_editor::active_footprint(self).is_some() => {
+                let footprint = crate::element_editor::active_footprint(self).expect("checked");
+                if let Some((id, params)) = crate::footprint_editor::finish(self, footprint) {
+                    let _ = self.run_reporting(&id, params);
+                }
+            }
             "tool.cycle_corner" if self.tool() == Tool::Route => {
                 self.with_router(|r, shell| r.cycle_corner(shell))
             }

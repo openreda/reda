@@ -270,6 +270,8 @@ fn height_and_texts_are_edited_in_the_inspector() {
     click(&mut h, "Assembly top");
     type_into(&mut h, "New text field", "Designator");
     click(&mut h, "Add Text");
+    let (id, _) = last_entry(&h);
+    assert_eq!(id, "library.footprint.text.add");
     let texts = footprint(&h, fp).texts;
     assert_eq!(texts.len(), before + 1);
     let added = texts.last().unwrap().clone();
@@ -355,4 +357,195 @@ fn paste_array_repeats_the_selected_pads_as_one_undo_step() {
     );
     run(&mut h, "edit.undo", json!({"document": fp}));
     assert_eq!(footprint(&h, fp).pads.len(), 1, "one undo step");
+}
+
+#[test]
+fn silkscreen_preparation_runs_from_the_footprint_editors_tools_menu() {
+    let home = TempDir::new("fp-window-silk");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Chip");
+    let mut h = harness(shell);
+    add_pad(&mut h, fp, "1", 0);
+    // A silkscreen line straight across the Pad.
+    run(
+        &mut h,
+        "library.footprint.graphic.add",
+        json!({"footprint": fp, "layer": "silkscreen_top",
+               "shape": {"kind": "line", "start": {"x": "-3mm", "y": 0}, "end": {"x": "3mm", "y": 0}}}),
+    );
+    click(&mut h, "Tools");
+    click(&mut h, "Silkscreen Preparation");
+    click(&mut h, "Run");
+    let (id, params) = last_entry(&h);
+    assert_eq!(id, "library.footprint.silkscreen.prepare");
+    assert_eq!(params["footprint"], json!(fp));
+    // The line is clipped clear of the Pad's opening: two pieces now.
+    let lines = footprint(&h, fp)
+        .graphics
+        .iter()
+        .filter(|g| g.layer == reda_ui::engine::model::FootprintLayer::SilkscreenTop)
+        .count();
+    assert_eq!(lines, 2);
+}
+
+/// The Active Bar's buttons, by their accessible names, in order.
+fn active_bar(kind: reda_ui::bars::DocumentType) -> Vec<String> {
+    reda_ui::bars::for_document(Some(kind))
+        .active_bar
+        .iter()
+        .filter_map(|i| match i {
+            reda_ui::bars::Item::Action(a) => Some(a.id.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_library_editors_active_bars_hold_the_tools_library_md_lists() {
+    use reda_ui::bars::DocumentType;
+    assert_eq!(
+        active_bar(DocumentType::Footprint),
+        [
+            "active_bar.select",
+            "active_bar.smd_pad",
+            "active_bar.th_pad",
+            "active_bar.line",
+            "active_bar.arc",
+            "active_bar.polygon",
+            "active_bar.courtyard",
+            "active_bar.text",
+            "active_bar.origin",
+            "active_bar.measure"
+        ]
+    );
+    assert_eq!(
+        active_bar(DocumentType::Symbol),
+        [
+            "active_bar.select",
+            "active_bar.pin",
+            "active_bar.line",
+            "active_bar.rect",
+            "active_bar.arc",
+            "active_bar.polygon",
+            "active_bar.text",
+            "active_bar.unit_previous",
+            "active_bar.unit_next"
+        ]
+    );
+}
+
+/// Feeds pointer `events` to the Footprint canvas and runs what they ask for.
+fn feed(h: &mut Harness<'_, App>, fp: Uuid, events: &[reda_ui::canvas::interact::Pointer]) {
+    let shell = h.state_mut().shell_mut();
+    for (id, params) in reda_ui::footprint_editor::pointer(shell, fp, events, 10_000.0) {
+        shell.run(&id, params).unwrap();
+    }
+    h.run();
+}
+
+fn at(x: f64, y: f64) -> reda_ui::canvas::interact::Pointer {
+    reda_ui::canvas::interact::Pointer::Click {
+        at: (x * 1e6, y * 1e6),
+        modifiers: egui::Modifiers::NONE,
+    }
+}
+
+#[test]
+fn the_footprint_active_bar_tools_place_pads_draw_and_measure() {
+    use reda_ui::engine::model::{FootprintLayer, PadKind, Shape};
+    let home = TempDir::new("fp-window-bar");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Chip");
+    let mut h = harness(shell);
+
+    // Through-hole Pad sets the Pad Tool's kind; SMD Pad sets it back.
+    h.get_by_label("Through-Hole Pad").click();
+    h.run();
+    feed(&mut h, fp, &[at(0.0, 0.0)]);
+    h.get_by_label("SMD Pad").click();
+    h.run();
+    feed(&mut h, fp, &[at(5.0, 0.0)]);
+    let kinds: Vec<PadKind> = footprint(&h, fp).pads.iter().map(|p| p.kind).collect();
+    assert_eq!(kinds, [PadKind::PlatedThroughHole, PadKind::Smd]);
+
+    // Courtyard draws a closed polygon on the courtyard: Enter closes it.
+    h.get_by_label("Courtyard").click();
+    h.run();
+    feed(
+        &mut h,
+        fp,
+        &[at(-3.0, -2.0), at(8.0, -2.0), at(8.0, 2.0), at(-3.0, 2.0)],
+    );
+    run(&mut h, "tool.finish", json!({}));
+    let court = footprint(&h, fp)
+        .graphics
+        .into_iter()
+        .find(|g| g.layer == FootprintLayer::CourtyardTop)
+        .expect("a courtyard polygon");
+    assert!(matches!(&court.shape, Shape::Polygon { points } if points.len() == 4));
+
+    // Arc: centre, start, end, on the Silkscreen (a courtyard takes only closed shapes).
+    pick(&mut h, "Layer", "Silkscreen top");
+    h.get_by_label("Arc").click();
+    h.run();
+    feed(&mut h, fp, &[at(0.0, 5.0), at(1.0, 5.0), at(0.0, 6.0)]);
+    assert!(
+        footprint(&h, fp)
+            .graphics
+            .iter()
+            .any(|g| matches!(g.shape, Shape::Arc { .. }))
+    );
+
+    // Text places the field the inspector names on the Silkscreen.
+    type_into(&mut h, "New text field", "Value");
+    h.get_by_label("Text").click();
+    h.run();
+    let before = footprint(&h, fp).texts.len();
+    feed(&mut h, fp, &[at(0.0, -4.0)]);
+    let texts = footprint(&h, fp).texts;
+    assert_eq!(texts.len(), before + 1);
+    assert_eq!(texts.last().unwrap().field, "Value");
+    assert_eq!(texts.last().unwrap().layer, FootprintLayer::SilkscreenTop);
+
+    // Measure: two clicks give the distance in the status bar.
+    h.get_by_label("Measure").click();
+    h.run();
+    feed(&mut h, fp, &[at(0.0, 0.0), at(3.0, 4.0)]);
+    assert_eq!(
+        h.state().shell().note(),
+        Some("Distance 5 mm (dx 3 mm, dy 4 mm)")
+    );
+}
+
+#[test]
+fn the_symbol_active_bar_switches_units() {
+    let home = TempDir::new("sym-window-units");
+    let mut shell = shell(home.path());
+    let out = shell
+        .run(
+            "library.element.new",
+            json!({"library": MINE, "kind": "symbol", "name": "Quad"}),
+        )
+        .unwrap();
+    let symbol: Uuid = out["element"].as_str().unwrap().parse().unwrap();
+    shell
+        .run("library.symbol.unit.add", json!({"symbol": symbol}))
+        .unwrap();
+    let mut h = harness(shell);
+    let units = match h.state().shell().engine().element(symbol) {
+        Some(LibraryElement::Symbol(s)) => s.units.iter().map(|u| u.uuid).collect::<Vec<_>>(),
+        _ => unreachable!(),
+    };
+    let shown =
+        |h: &Harness<'_, App>| reda_ui::symbol_editor::shown_unit(h.state().shell(), symbol);
+    assert_eq!(shown(&h), Some(units[0]));
+    h.get_by_label("Next Unit").click();
+    h.run();
+    assert_eq!(shown(&h), Some(units[1]));
+    h.get_by_label("Next Unit").click();
+    h.run();
+    assert_eq!(shown(&h), Some(units[0]), "it wraps round");
+    h.get_by_label("Previous Unit").click();
+    h.run();
+    assert_eq!(shown(&h), Some(units[1]));
 }

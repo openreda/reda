@@ -2653,3 +2653,6 @@ paste-array-nothing = Select the Pins or Pads to repeat first.
 paste-array-bad-number = The steps are whole numbers.
 paste-array-bad-length = Type a length, such as 1.27mm.
 paste-array-bad-count = The count is between 1 and 1000.
+footprint-measure-note = Distance { $distance } (dx { $dx }, dy { $dy })
+active-bar-unit-previous = Previous Unit
+active-bar-unit-next = Next Unit
