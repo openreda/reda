@@ -251,6 +251,7 @@ pub fn new_board(
         uuid: new_id(),
         severities: DrcSeverities::DEFAULT,
         zone_name_scheme: ZoneNameScheme::default(),
+        fab_notes: None,
     };
     let mut objects = vec![
         Object::LayerSet(InDocument::new(document, layers.clone())),

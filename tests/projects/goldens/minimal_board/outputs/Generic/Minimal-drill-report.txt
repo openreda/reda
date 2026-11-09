@@ -1,0 +1,12 @@
+Drill report for Minimal
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+Minimal-PTH.drl
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      1.150  plated     component      2     0  -
+  Total                                    2     0
+
+Minimal-NPTH.drl
+  No holes: the file is not written.
+
+All files: 2 holes, 0 slots

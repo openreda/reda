@@ -43,6 +43,18 @@
         "name": "Blinky-NPTH.drl"
       },
       {
+        "function": "fab_notes",
+        "name": "Blinky-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "name": "Blinky-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "name": "Blinky-job.gbrjob"
+      },
+      {
         "function": "bom",
         "name": "Blinky-BOM.csv"
       },

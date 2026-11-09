@@ -47,6 +47,18 @@
         "name": "UsbMcu-NPTH.drl"
       },
       {
+        "function": "fab_notes",
+        "name": "UsbMcu-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "name": "UsbMcu-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "name": "UsbMcu-job.gbrjob"
+      },
+      {
         "function": "bom",
         "name": "UsbMcu-BOM.csv"
       },

@@ -60,6 +60,7 @@ pub fn bom_file(
         name: format!("{}-BOM.csv", project.props().name),
         function: "bom",
         bytes: csv(columns, rows),
+        attributes: None,
     }
 }
 
@@ -104,6 +105,7 @@ pub fn cpl_file(
         name: format!("{}-CPL.csv", project.props().name),
         function: "cpl",
         bytes: csv(columns, rows),
+        attributes: None,
     }
 }
 

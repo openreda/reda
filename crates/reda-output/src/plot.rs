@@ -63,6 +63,18 @@ pub struct OutputFile {
     /// What it holds, such as `copper_top` or `profile`.
     pub function: &'static str,
     pub bytes: Vec<u8>,
+    /// The `.FileFunction` and `.FilePolarity` of a Gerber or drill file, which the Gerber
+    /// job file lists; `None` for other files.
+    pub attributes: Option<FileAttributes>,
+}
+
+/// A fabrication file's `.FileFunction` and `.FilePolarity`, as its attributes state them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileAttributes {
+    /// Such as `Copper,L1,Top` or `Plated,1,2,PTH,Drill`.
+    pub function: String,
+    /// `Positive` or `Negative`.
+    pub polarity: &'static str,
 }
 
 /// A file a run leaves out because it would hold nothing: an empty Silkscreen or Paste, or
@@ -117,6 +129,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
                 name,
                 function,
                 bytes: rendered.bytes,
+                attributes: Some(rendered.attributes),
             });
         }
         Ok(())
@@ -190,6 +203,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
 /// that `outline_on_every_plot` adds aside), and any coordinate out of range.
 struct Rendered {
     bytes: Vec<u8>,
+    attributes: FileAttributes,
     empty: bool,
     out_of_range: Option<Point>,
 }
@@ -197,7 +211,7 @@ struct Rendered {
 fn render(
     plot: &Plot<'_>,
     function: String,
-    polarity: &str,
+    polarity: &'static str,
     draw: impl Fn(&BoardPlot<'_>, &mut Gerber),
 ) -> Rendered {
     let is_profile = function.starts_with("Profile");
@@ -227,7 +241,8 @@ fn render(
     }
     let out_of_range = g.out_of_range();
     Rendered {
-        bytes: g.finish(&gerber_attributes(plot, function, polarity)),
+        bytes: g.finish(&gerber_attributes(plot, function.clone(), polarity)),
+        attributes: FileAttributes { function, polarity },
         empty,
         out_of_range,
     }

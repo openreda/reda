@@ -1,0 +1,40 @@
+Fab Notes for Demo
+Revision: B
+Written by REDA 0.0.0-test
+
+Board
+  Size: 30 x 20 mm
+  Copper layers: 2
+  Thickness: 1.2 mm
+  Copper L1 (top): 1 oz (35 µm)
+  Copper L2 (bottom): 1 oz (35 µm)
+  Finish: ENIG
+  Solder mask colour: Matte black
+  Silkscreen colour: White
+
+Minimum features
+  Clearance: 0.16 mm
+  Track width: 0.2 mm
+  Via diameter: 0.7 mm
+  Via hole: 0.3 mm
+  Hole size: 0.5 mm
+  Annular ring: 0.2 mm
+  Hole to hole: 0.5 mm
+  Copper to board edge: 0.4 mm
+
+Hole tolerances
+  J1 pad 2: 1 mm hole, plated, +0.1/-0.05 mm
+  J2 pad 1: 2.2 x 0.8 mm slot, plated, +0.05/-0.05 mm
+  Free Pad at (4, 16) mm: 3.2 mm hole, non-plated, +0.05/-0 mm
+
+Deliberate shorts (Net Ties)
+  NT1: joins AGND and GND on purpose; this short is deliberate
+
+Files in the zip
+  Demo.GTL
+  Demo-PTH.drl
+  Demo-fab-notes.txt
+
+Notes
+Please keep the slot ends square.
+No X-outs.

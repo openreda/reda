@@ -72,11 +72,13 @@ mod tests {
                 name: "Demo.GTL".into(),
                 function: "copper_top",
                 bytes: b"G04 top*\nM02*\n".to_vec(),
+                attributes: None,
             },
             OutputFile {
                 name: "Demo-BOM.csv".into(),
                 function: "bom",
                 bytes: b"Designator\n".to_vec(),
+                attributes: None,
             },
         ];
         let entries = central_entries(&zip(&files, Timestamp(0)));

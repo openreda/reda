@@ -15,7 +15,7 @@ use reda_model::geom::{Nm, Point};
 use reda_model::{HoleTolerance, PadKind, SlotCommand};
 use reda_pcb::placed::{self, PlacedPad};
 
-use crate::plot::{OutputFile, Plot, SkippedFile, file_attributes};
+use crate::plot::{FileAttributes, OutputFile, Plot, SkippedFile, file_attributes};
 
 /// The drill files of a plot, and the ones left out because they would hold no holes.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,8 +42,50 @@ pub fn drill_files(plot: &Plot<'_>) -> Drills {
         files: Vec::new(),
         skipped: Vec::new(),
     };
+    for set in drill_sets(plot) {
+        if set.holes.is_empty() {
+            drills.skipped.push(SkippedFile {
+                name: set.name,
+                function: set.function,
+            });
+        } else {
+            let file_function = set.file_function();
+            drills.files.push(OutputFile {
+                bytes: write(plot, &file_function, &set.holes),
+                name: set.name,
+                function: set.function,
+                attributes: Some(FileAttributes {
+                    function: file_function,
+                    polarity: "Positive",
+                }),
+            });
+        }
+    }
+    drills
+}
+
+/// The holes of one drill file, written or (with no holes) skipped.
+pub(crate) struct DrillSet {
+    pub name: String,
+    /// What it holds: `drill_plated`, `drill_non_plated` or `drill_mixed`.
+    pub function: &'static str,
+    /// The `.FileFunction` without its `<label>`, such as `Plated,1,2,PTH`.
+    file_function: String,
+    pub holes: Vec<DrillHole>,
+}
+
+impl DrillSet {
+    /// The full `.FileFunction`, with its `Drill`, `Rout` or `Mixed` label.
+    fn file_function(&self) -> String {
+        format!("{},{}", self.file_function, label(&self.holes))
+    }
+}
+
+/// The drill files `plot` makes, holes and all, in file order: plated then non-plated,
+/// or one merged file with the Fab Preset's `merge_drill`.
+pub(crate) fn drill_sets(plot: &Plot<'_>) -> Vec<DrillSet> {
     if plot.instances.is_empty() {
-        return drills;
+        return Vec::new();
     }
     let name = &plot.project.props().name;
     let layers = plot
@@ -63,48 +105,35 @@ pub fn drill_files(plot: &Plot<'_>) -> Drills {
         })
         .collect();
     let [pth, npth, merged] = drill_file_names(name);
-    let files = if plot.gerber.merge_drill {
-        vec![(
-            merged,
-            "drill_mixed",
-            format!("MixedPlating,1,{layers}"),
+    if plot.gerber.merge_drill {
+        return vec![DrillSet {
+            name: merged,
+            function: "drill_mixed",
+            file_function: format!("MixedPlating,1,{layers}"),
             holes,
-        )]
-    } else {
-        let (plated, non_plated): (Vec<DrillHole>, Vec<DrillHole>) =
-            holes.into_iter().partition(|h| h.plated);
-        vec![
-            (
-                pth,
-                "drill_plated",
-                format!("Plated,1,{layers},PTH"),
-                plated,
-            ),
-            (
-                npth,
-                "drill_non_plated",
-                format!("NonPlated,1,{layers},NPTH"),
-                non_plated,
-            ),
-        ]
-    };
-    for (name, function, file_function, holes) in files {
-        if holes.is_empty() {
-            drills.skipped.push(SkippedFile { name, function });
-        } else {
-            drills.files.push(OutputFile {
-                name,
-                function,
-                bytes: write(plot, file_function, &holes),
-            });
-        }
+        }];
     }
-    drills
+    let (plated, non_plated): (Vec<DrillHole>, Vec<DrillHole>) =
+        holes.into_iter().partition(|h| h.plated);
+    vec![
+        DrillSet {
+            name: pth,
+            function: "drill_plated",
+            file_function: format!("Plated,1,{layers},PTH"),
+            holes: plated,
+        },
+        DrillSet {
+            name: npth,
+            function: "drill_non_plated",
+            file_function: format!("NonPlated,1,{layers},NPTH"),
+            holes: non_plated,
+        },
+    ]
 }
 
 /// One hole on the board.
-struct DrillHole {
-    plated: bool,
+pub(crate) struct DrillHole {
+    pub plated: bool,
     /// The drill or routing tool diameter, rounded to 1 µm.
     diameter: Nm,
     /// The tool's `.AperFunction`: `ViaDrill`, `ComponentDrill` or `MechanicalDrill`.
@@ -113,7 +142,7 @@ struct DrillHole {
     tolerance: Option<HoleTolerance>,
     at: Point,
     /// The other end of a slot's centre line; `None` for a round hole.
-    to: Option<Point>,
+    pub to: Option<Point>,
 }
 
 /// Every hole: Vias, then Footprint Pads, then Free Pads, each in UUID order.
@@ -181,7 +210,7 @@ fn micron(nm: Nm) -> Nm {
 }
 
 /// A length as millimetres with three decimals, rounded to 1 µm: `5.000`, `-0.001`.
-fn mm(nm: Nm) -> String {
+pub(crate) fn mm(nm: Nm) -> String {
     let um = micron(nm).0 / 1000;
     let sign = if um < 0 { "-" } else { "" };
     let a = um.unsigned_abs();
@@ -224,38 +253,61 @@ fn label(holes: &[DrillHole]) -> &'static str {
 
 /// A tool: its size, then plating (so a plated and a non-plated hole never share one),
 /// function and tolerance. T1 is the smallest.
-type Tool = (Nm, bool, &'static str, Option<(Nm, Nm)>);
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct Tool {
+    /// The diameter, rounded to 1 µm.
+    pub diameter: Nm,
+    /// `false` for plated, so plated tools come first.
+    non_plated: bool,
+    /// The `.AperFunction`: `ViaDrill`, `ComponentDrill` or `MechanicalDrill`.
+    pub function: &'static str,
+    /// `plus` and `minus`, rounded to 1 µm.
+    pub tolerance: Option<(Nm, Nm)>,
+}
 
-/// One drill file holding `holes`, which is not empty.
-fn write(plot: &Plot<'_>, function: String, holes: &[DrillHole]) -> Vec<u8> {
-    let x2 = plot.gerber.x2_attributes;
+impl Tool {
+    pub fn plated(&self) -> bool {
+        !self.non_plated
+    }
+}
+
+/// The tools of a drill file and their holes, T1 first.
+pub(crate) fn tools(holes: &[DrillHole]) -> BTreeMap<Tool, Vec<&DrillHole>> {
     let mut tools: BTreeMap<Tool, Vec<&DrillHole>> = BTreeMap::new();
     for hole in holes {
-        let tolerance = hole.tolerance.map(|t| (micron(t.plus), micron(t.minus)));
-        tools
-            .entry((hole.diameter, !hole.plated, hole.function, tolerance))
-            .or_default()
-            .push(hole);
+        let tool = Tool {
+            diameter: hole.diameter,
+            non_plated: !hole.plated,
+            function: hole.function,
+            tolerance: hole.tolerance.map(|t| (micron(t.plus), micron(t.minus))),
+        };
+        tools.entry(tool).or_default().push(hole);
     }
+    tools
+}
+
+/// One drill file holding `holes`, which is not empty.
+fn write(plot: &Plot<'_>, function: &str, holes: &[DrillHole]) -> Vec<u8> {
+    let x2 = plot.gerber.x2_attributes;
+    let tools = tools(holes);
 
     let mut out = String::from("M48\n");
     if x2 {
-        let function = format!("{function},{}", label(holes));
-        let mut attributes = file_attributes(plot, function);
+        let mut attributes = file_attributes(plot, function.to_owned());
         attributes.push((".FilePolarity", "Positive".into()));
         for (name, value) in attributes {
             let _ = writeln!(out, "; #@! TF{name},{}", ascii(&value));
         }
     }
     out.push_str("FMAT,2\nMETRIC\n");
-    for (n, (diameter, _, function, tolerance)) in tools.keys().enumerate() {
+    for (n, tool) in tools.keys().enumerate() {
         if x2 {
-            let _ = writeln!(out, "; #@! TA.AperFunction,{function}");
-            if let Some((plus, minus)) = tolerance {
-                let _ = writeln!(out, "; #@! TA.DrillTolerance,{},{}", mm(*plus), mm(*minus));
+            let _ = writeln!(out, "; #@! TA.AperFunction,{}", tool.function);
+            if let Some((plus, minus)) = tool.tolerance {
+                let _ = writeln!(out, "; #@! TA.DrillTolerance,{},{}", mm(plus), mm(minus));
             }
         }
-        let _ = writeln!(out, "T{}C{}", n + 1, mm(*diameter));
+        let _ = writeln!(out, "T{}C{}", n + 1, mm(tool.diameter));
     }
     out.push_str("%\nG90\nG05\n");
     for (n, holes) in tools.values().enumerate() {

@@ -44,6 +44,9 @@ pub struct JobPage {
     pub drill: Draft<bool>,
     pub bom: Draft<bool>,
     pub cpl: Draft<bool>,
+    pub fab_notes: Draft<bool>,
+    pub drill_report: Draft<bool>,
+    pub gerber_job: Draft<bool>,
     /// The destination folder as typed; empty for the default.
     pub destination: Draft<String>,
     /// The job is no longer in the Project.
@@ -68,6 +71,9 @@ impl JobPage {
             drill: Draft::default(),
             bom: Draft::default(),
             cpl: Draft::default(),
+            fab_notes: Draft::default(),
+            drill_report: Draft::default(),
+            gerber_job: Draft::default(),
             destination: Draft::default(),
             gone: false,
             others: Vec::new(),
@@ -152,6 +158,9 @@ impl Page for JobPage {
         self.drill.load(job.outputs.drill, reset);
         self.bom.load(job.outputs.bom, reset);
         self.cpl.load(job.outputs.cpl, reset);
+        self.fab_notes.load(job.outputs.fab_notes, reset);
+        self.drill_report.load(job.outputs.drill_report, reset);
+        self.gerber_job.load(job.outputs.gerber_job, reset);
         self.destination
             .load(job.destination.clone().unwrap_or_default(), reset);
     }
@@ -176,6 +185,9 @@ impl Page for JobPage {
             ("drill", &self.drill),
             ("bom", &self.bom),
             ("cpl", &self.cpl),
+            ("fab_notes", &self.fab_notes),
+            ("drill_report", &self.drill_report),
+            ("gerber_job", &self.gerber_job),
         ] {
             if draft.changed() {
                 outputs.insert(key.into(), json!(draft.value()));
@@ -276,6 +288,9 @@ impl Page for JobPage {
                         (tr!("output-job-drill"), &mut self.drill),
                         (tr!("output-job-bom"), &mut self.bom),
                         (tr!("output-job-cpl"), &mut self.cpl),
+                        (tr!("output-job-fab-notes"), &mut self.fab_notes),
+                        (tr!("output-job-drill-report"), &mut self.drill_report),
+                        (tr!("output-job-gerber-job"), &mut self.gerber_job),
                     ] {
                         ui.checkbox(draft.value_mut(), label);
                     }
