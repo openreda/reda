@@ -89,7 +89,9 @@ pub struct JobRunResult {
     /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
     /// with no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,
     /// `rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`
-    /// (as DRC reports it), `missing_font {font}`. The manifest lists them too.
+    /// (as DRC reports it), `missing_font {font}`, and when the job writes a BOM
+    /// `bom_missing_field {field, designators}` (a row with no value for one of the
+    /// preset's `required_fields`; the row stays). The manifest lists them too.
     pub warnings: Vec<Violation>,
 }
 
@@ -194,7 +196,10 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         .ok_or_else(|| CommandError::internal("the job's Fab Preset copy is missing"))?;
 
     let blockers = checks::blockers(&pcb);
-    let warnings = checks::warnings(project, &pcb, &preset, &fonts);
+    let mut warnings = checks::warnings(project, &pcb, &preset, &fonts);
+    if job.outputs.bom {
+        warnings.extend(checks::bom_missing_fields(project, &pcb, &preset));
+    }
     if !blockers.is_empty() {
         let mut err = CommandError::rejected(format!(
             "Output Job \"{}\" cannot run: {} blocking problem(s)",
@@ -247,7 +252,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         err.details = Some(json!({"blockers": [blocker], "warnings": warnings}));
         err
     })?;
-    let bom = reda_output::bom_file(project, &pcb, &preset.bom.columns, &preset.bom.mount_values);
+    let bom = reda_output::bom_file(project, &pcb, &preset.bom).file;
     let cpl = reda_output::cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
     let drills = reda_output::drill_files(&plot);
     let values = |token: &str| {

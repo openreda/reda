@@ -29,5 +29,15 @@
     {"path":"reports/Blinky-drc.json","size":2175,"sha256":"0599e3b23a9e9d87a94e87d7b187dad5873ff98ab8c5df5328fb4a4001950340","kind":"drc_report"},
     {"path":"reports/Blinky-change-list.json","size":179,"sha256":"e632e6a0f1364ff21c790ce8c599e4dcc77f2de4f62616ce0603eede8b28491f","kind":"change_list_report"}
   ],
-  "warnings": []
+  "warnings": [
+    {"check":"bom_missing_field","message":"BOM row C1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row C2 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row C3 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row D1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row J1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row R1 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row R2 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row R3 has no LCSC"},
+    {"check":"bom_missing_field","message":"BOM row U1 has no LCSC"}
+  ]
 }
