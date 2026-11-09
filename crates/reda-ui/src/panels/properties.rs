@@ -17,6 +17,7 @@ use crate::properties::{
 use crate::shell::Shell;
 use crate::tr;
 
+mod unit;
 mod zone;
 
 /// Draws the panel for the Shell's selection; returns the Commands its edits ask for.
@@ -65,6 +66,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
         if let Some(component) = &properties.component {
             ui.separator();
             component_section(ui, component, &mut edits);
+        }
+        if let Some(rows) = unit::rows(project, &shell.selection().objects) {
+            ui.separator();
+            numbers.extend(unit::section(ui, &rows, field_label));
         }
         if let Some(class) = &properties.net_class {
             ui.separator();

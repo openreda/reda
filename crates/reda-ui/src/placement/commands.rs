@@ -5,7 +5,8 @@
 use std::collections::BTreeMap;
 
 use reda_engine::command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, FootprintCopyData, Kind, Meta,
+    PartCopy, Registry, Unavailable,
 };
 use reda_engine::model::geom::Millideg;
 use reda_engine::model::{ComponentType, Side, Uuid};
@@ -20,6 +21,7 @@ use crate::tools::{ActiveTool, Tool};
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolPlace);
     registry.add(ToolPlaceSet);
+    registry.add(ToolPlaceUnit);
 }
 
 /// Changes the Part in flight with `edit`; nothing when none is.
@@ -136,6 +138,7 @@ impl Command for ToolPlace {
             side: Side::Top,
             designator: None,
             fields: BTreeMap::new(),
+            component: None,
         };
         cx.view::<Placement>()?.placing = Some(placing);
         cx.view::<ActiveTool>()?.0 = Tool::Place;
@@ -227,6 +230,113 @@ impl Command for ToolPlaceSet {
             designator: placing.designator.clone(),
             fields: placing.fields.clone(),
             footprint: placing.footprint,
+        })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ToolPlaceUnitParams {
+    /// The placed Component, by UUID.
+    component: Uuid,
+    /// The unplaced Unit to place, by name.
+    unit: String,
+    /// The sheet to place it on.
+    document: Uuid,
+}
+
+struct ToolPlaceUnit;
+
+impl Command for ToolPlaceUnit {
+    const META: Meta = Meta {
+        id: "tool.place_unit",
+        title: "Place Unit",
+        description: "Picks up an unplaced Unit of a placed Component (Properties' Place \
+                      button): it follows the pointer over the sheet, turned with Space, X \
+                      and Y, until a click places it with schematic.unit.place.",
+        category: "tool",
+        icon: "component_place",
+        kind: Kind::View,
+    };
+    type Params = ToolPlaceUnitParams;
+    type Output = ToolPlaceResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: ToolPlaceUnitParams,
+    ) -> Result<ToolPlaceResult, CommandError> {
+        let project = cx.project()?;
+        if project.schematic_sheet(p.document).is_none() {
+            return Err(CommandError::invalid_params(
+                "/document",
+                format!("{} is not a Schematic Sheet", p.document),
+            ));
+        }
+        let sheets = || {
+            project
+                .documents()
+                .filter_map(|d| project.schematic_sheet(d.uuid))
+        };
+        let Some((sheet, unit)) = sheets().find_map(|s| {
+            s.units()
+                .find(|u| u.component.uuid == p.component)
+                .map(|u| (s, u))
+        }) else {
+            return Err(CommandError::invalid_params(
+                "/component",
+                format!("no placed Component {}", p.component),
+            ));
+        };
+        let entry = sheet.part(unit.part).expect("a Unit's part entry exists");
+        let Some(wanted) = entry.symbol.units.iter().find(|u| u.name == p.unit) else {
+            return Err(CommandError::invalid_params(
+                "/unit",
+                format!("{} has no Unit {:?}", entry.symbol.name, p.unit),
+            ));
+        };
+        let placed = sheets()
+            .flat_map(|s| s.units())
+            .any(|u| u.component.uuid == p.component && u.unit == wanted.uuid);
+        if placed {
+            return Err(CommandError::rejected(format!(
+                "Unit {} of {} is placed already",
+                p.unit, unit.designator
+            )));
+        }
+        let copy = PartCopy {
+            hash: entry.hash.clone(),
+            part: entry.part.clone(),
+            symbol: Some(entry.symbol.clone()),
+            footprints: entry
+                .footprints
+                .iter()
+                .filter_map(|f| sheet.footprint(*f))
+                .map(|f| FootprintCopyData {
+                    hash: f.hash.clone(),
+                    footprint: f.footprint.clone(),
+                })
+                .collect(),
+        };
+        let part = copy.part.uuid;
+        let placing = Placing {
+            document: p.document,
+            target: Target::Sheet,
+            copy,
+            unit: Some(p.unit),
+            footprint: unit.footprint,
+            rotation: Millideg::ZERO,
+            mirror: false,
+            side: Side::Top,
+            designator: None,
+            fields: BTreeMap::new(),
+            component: Some(p.component),
+        };
+        cx.view::<Placement>()?.placing = Some(placing);
+        cx.view::<ActiveTool>()?.0 = Tool::Place;
+        Ok(ToolPlaceResult {
+            tool: Tool::Place,
+            part,
         })
     }
 }

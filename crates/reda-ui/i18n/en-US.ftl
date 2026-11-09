@@ -309,6 +309,13 @@ update-failed = REDA could not check for updates: { $why }
 
 ## Properties panel
 
+properties-unit-of = Unit { $unit } of { $count }
+properties-unit-unplaced = Unit { $unit } is not placed
+properties-unit-place = Place
+properties-unit-place-named = Place Unit { $unit }
+properties-field-moved = { $field } moved by hand
+properties-field-reset = Reset position
+properties-field-reset-named = Reset position of { $field }
 properties-nothing-selected = Nothing selected
 properties-selected = { $count } selected
 properties-designator = Designator
