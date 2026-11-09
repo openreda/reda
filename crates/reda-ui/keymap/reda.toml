@@ -11,6 +11,13 @@
 #
 # The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
 
+# Snapping: Mod+E opens the active Document's snap palette, also in flight.
+
+[[bind]]
+key = "Mod+E"
+command = "view.snap.palette"
+params = { document = "$active_document" }
+
 # Highlighting: Shift+C clears highlight, dim, mask and measurements, never the selection.
 
 [[bind]]

@@ -10,8 +10,8 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, UserDirs};
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::model::{FootprintInstance, Side, Uuid};
-use reda_ui::pcb::snap::SnapKind;
 use reda_ui::shell::Shell;
+use reda_ui::snap::{Hit, Hotspot, Snapped};
 use serde_json::{Value, json};
 
 fn library() -> PathBuf {
@@ -261,10 +261,14 @@ fn escape_cancels_a_move_in_flight() {
 fn a_moved_pad_snaps_onto_another_pad() {
     let mut b = board();
     let [f1, _] = b.footprints;
-    // Grabbed by its Pad, dropped 0.3 mm off the other Footprint's Pad.
+    // Grabbed by its Pad, dropped 0.15 mm off the other Footprint's Pad: inside the
+    // 8 mil Snap Distance on both axes.
     b.shell.pcb_press(mm(0.1, 0.1), false, TOLERANCE);
-    b.shell.pcb_drag(mm(10.4, 0.2));
-    assert_eq!(b.shell.pcb_snap(), Some((mm(10.0, 0.0), SnapKind::Pad)));
+    b.shell.pcb_drag(mm(10.25, 0.2));
+    assert_eq!(
+        b.shell.pcb_snap().map(kind),
+        Some((mm(10.0, 0.0), Some(Hotspot::PadCenter)))
+    );
     b.shell.pcb_release();
     assert_eq!(footprint(&b, f1).at, mm(10.0, 0.0));
 }
@@ -288,17 +292,15 @@ fn the_cursor_snaps_to_track_ends_and_via_centres() {
     );
 
     assert_eq!(
-        b.shell.pcb_hover(mm(20.0, 5.0)),
-        (mm(20.13, 5.07), SnapKind::TrackEnd)
+        kind(b.shell.pcb_hover(mm(20.0, 5.0))),
+        (mm(20.13, 5.07), Some(Hotspot::TrackEnd))
     );
     assert_eq!(
-        b.shell.pcb_hover(mm(30.0, 1.0)),
-        (mm(30.07, 1.11), SnapKind::Via)
+        kind(b.shell.pcb_hover(mm(30.0, 1.0))),
+        (mm(30.07, 1.11), Some(Hotspot::ViaCenter))
     );
-    assert_eq!(
-        b.shell.pcb_hover(mm(40.3, 1.1)),
-        (mm(40.5, 1.0), SnapKind::Grid)
-    );
+    let grid = b.shell.pcb_hover(mm(40.3, 1.1));
+    assert_eq!((grid.at, grid.hit), (mm(40.5, 1.0), Hit::Grid));
 }
 
 #[test]
@@ -347,4 +349,9 @@ fn a_protected_locked_footprint_is_skipped_by_the_canvas() {
     assert!(b.shell.message().is_none());
     assert!(b.shell.selection().objects.is_empty());
     assert_eq!(journal_ids(&b)[entries..], ["selection.set"]);
+}
+
+/// Where a snap landed and the Hotspot kind it hit, if any.
+fn kind(s: Snapped) -> (Point, Option<Hotspot>) {
+    (s.at, s.hit.hotspot())
 }

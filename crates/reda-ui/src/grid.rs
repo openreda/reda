@@ -44,6 +44,29 @@ pub const SCHEMATIC_PRESETS: [Nm; 8] = [
     Nm(5 * MM / 2),
 ];
 
+/// Each shipped sheet preset's Electrical Range: how near, on both axes, a Hotspot
+/// catches the cursor. 10, 25, 50 and 100 mil have 8, 20, 40 and 80 mil, and the metric
+/// presets their equivalents.
+pub const SCHEMATIC_RANGES: [(Nm, Nm); 8] = [
+    (Nm(10 * MIL), Nm(8 * MIL)),
+    (Nm(25 * MIL), Nm(20 * MIL)),
+    (Nm(50 * MIL), Nm(40 * MIL)),
+    (Nm(100 * MIL), Nm(80 * MIL)),
+    (Nm(MM / 4), Nm(MM / 5)),
+    (Nm(MM / 2), Nm(2 * MM / 5)),
+    (Nm(MM), Nm(4 * MM / 5)),
+    (Nm(5 * MM / 2), Nm(2 * MM)),
+];
+
+/// The Electrical Range of a sheet or Symbol on the grid `pitch`: its preset's, or 0.8 of
+/// the step for a grid no preset has.
+pub fn electrical_range(pitch: Nm) -> Nm {
+    SCHEMATIC_RANGES
+        .iter()
+        .find(|(snap, _)| *snap == pitch)
+        .map_or(Nm(pitch.0 * 4 / 5), |(_, range)| *range)
+}
+
 /// A sheet's grid until one is picked: 50 mil.
 pub const SCHEMATIC_DEFAULT: Nm = Nm(50 * MIL);
 

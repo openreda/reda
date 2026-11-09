@@ -1,12 +1,13 @@
 //! Canvas interaction every editor shares: hit-testing a Scene, box selection, combining
 //! picks with the selection, and snapping to the grid and to electrical targets.
 
-use reda_ui::canvas::interact::{BoxMode, Combine, SnapTargets, box_select, combine, hit_test};
+use reda_ui::canvas::interact::{BoxMode, Combine, box_select, combine, hit_test};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::render::{
     ColorKey, Item, Primitive, Scene, SceneLayer, SceneSource, SchematicColor,
 };
+use reda_ui::snap::{Grid, Hit, Hotspot, Objects, OnLayers, Rules, Shape, Target, snap};
 
 fn mm(v: f64) -> Nm {
     Nm((v * 1e6) as i64)
@@ -202,21 +203,35 @@ fn shift_toggles_the_selection_and_mod_replaces() {
 #[test]
 fn the_cursor_snaps_to_the_grid_unless_an_electrical_target_is_near() {
     let grid = Nm(1_270_000);
-    let targets = SnapTargets {
-        points: vec![p(3.0, 3.0)],
-        segments: vec![(p(10.0, 0.0), p(10.0, 20.0))],
+    let targets = [
+        Target::point(p(3.0, 3.0), Hotspot::PinEnd, id(1), OnLayers::Every),
+        Target {
+            shape: Shape::Segment(p(10.0, 0.0), p(10.0, 20.0)),
+            kind: Hotspot::Wire,
+            object: id(2),
+            layers: OnLayers::Every,
+        },
+    ];
+    let rules = Rules {
+        capture: mm(0.5),
+        grid: Some(Grid {
+            pitch: grid,
+            origin: Point::default(),
+        }),
+        objects: Objects::All,
+        off: Default::default(),
+        guides: true,
     };
-    let radius = 0.5e6;
     // Nothing near: the nearest 50 mil grid point.
-    let snapped = targets.snap(at(1.0, 1.4), grid, radius);
+    let snapped = snap(at(1.0, 1.4), &targets, &[], &rules);
     assert_eq!(snapped.at, Point::new(Nm(1_270_000), Nm(1_270_000)));
-    assert!(!snapped.electrical);
+    assert_eq!(snapped.hit, Hit::Grid);
     // A Pin or Wire end near the cursor wins over the grid.
-    let snapped = targets.snap(at(3.2, 2.9), grid, radius);
+    let snapped = snap(at(3.2, 2.9), &targets, &[], &rules);
     assert_eq!(snapped.at, p(3.0, 3.0));
-    assert!(snapped.electrical);
+    assert_eq!(snapped.hit.hotspot(), Some(Hotspot::PinEnd));
     // Near a Wire, the cursor lands on the Wire at the grid point along it.
-    let snapped = targets.snap(at(10.3, 5.0), grid, radius);
+    let snapped = snap(at(10.3, 5.0), &targets, &[], &rules);
     assert_eq!(snapped.at, Point::new(mm(10.0), Nm(1_270_000 * 4)));
-    assert!(snapped.electrical);
+    assert_eq!(snapped.hit.hotspot(), Some(Hotspot::Wire));
 }
