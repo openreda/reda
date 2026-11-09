@@ -205,6 +205,9 @@ pub struct RatsnestVisibility {
     pub hidden: bool,
     /// Nets whose lines are hidden.
     pub hidden_nets: BTreeSet<Uuid>,
+    /// Footprints whose lines are hidden: every line ending on one of their Pads.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub hidden_footprints: BTreeSet<Uuid>,
 }
 
 impl RatsnestVisibility {

@@ -550,6 +550,45 @@ fn the_layers_panel_hides_a_layer() {
 }
 
 #[test]
+fn mod_click_on_a_layers_eye_pins_it_and_the_panel_applies_sets_and_view_toggles() {
+    let mut w = window();
+    w.h.run();
+    let outline = {
+        let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+        pcb.layers()
+            .find(LayerKind::BoardOutline, None)
+            .unwrap()
+            .uuid
+    };
+    w.h.get_by_label("Show Board Outline")
+        .click_modifiers(Modifiers::COMMAND);
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.layer.pin");
+    let layers = &shell(&w).board_view().layers;
+    assert!(layers.pinned.contains(&outline));
+    assert!(!layers.hidden.contains(&outline), "pinning does not hide");
+    assert!(
+        w.h.query_by_label("Show Board Outline (pinned: stays in single-Layer mode)")
+            .is_some()
+    );
+
+    w.h.get_by_label("Net colours on copper (F5)").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.view.net_colors");
+    assert!(shell(&w).board_view().layers.net_colors);
+    w.h.get_by_label("Repeated Net Names").click();
+    w.h.run();
+    assert!(shell(&w).board_view().layers.labels.repeated_net_names);
+
+    w.h.get_by_label("Layer set").click();
+    w.h.run();
+    w.h.get_by_label("Signal").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.view.layer_set.apply");
+    assert!(shell(&w).board_view().layers.hidden.contains(&outline));
+}
+
+#[test]
 fn a_board_with_no_outline_offers_a_rectangle() {
     let mut w = window();
     w.h.run();

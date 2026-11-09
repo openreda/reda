@@ -2,7 +2,9 @@
 //! electrical snap, and the select-and-place Tool that drives the canvas.
 //!
 //! - [`view`]: [`BoardView`], the Layer state kept in `view.json`, units and grid.
-//! - `commands`: the view Commands the Layers panel and the view keys run.
+//! - `commands`: the view Commands the Layers panel and the view keys run;
+//!   [`view_commands`] adds Layer sets, pinned Layers, per-kind display, Net colours on
+//!   copper and the Net label toggles.
 //! - [`snap`]: electrical and grid snap.
 //! - [`canvas`]: the board canvas in the window: pointer and keys, overlays, the
 //!   "No Board Outline" hint.
@@ -22,6 +24,7 @@ mod select_commands;
 pub mod snap;
 pub mod tool;
 pub mod view;
+pub mod view_commands;
 
 pub use route::Router;
 pub use tool::SelectTool;
@@ -30,6 +33,7 @@ pub use tool::SelectTool;
 /// `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut reda_engine::command::Registry) {
     commands::register_all(registry);
+    view_commands::register_all(registry);
     route_commands::register_all(registry);
     select_commands::register_all(registry);
 }
