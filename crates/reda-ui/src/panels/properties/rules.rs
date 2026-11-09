@@ -225,7 +225,7 @@ fn compare_value(value: Option<&Value>) -> String {
 }
 
 /// The original copy's Pads in outline, the edited Pads filled over them.
-fn compare_drawing(ui: &mut Ui, edited: &Footprint, original: &Footprint) {
+pub(crate) fn compare_drawing(ui: &mut Ui, edited: &Footprint, original: &Footprint) {
     let (rect, response) = ui.allocate_exact_size(Vec2::new(220.0, 120.0), Sense::hover());
     let label = tr!("properties-compare-drawing");
     response.widget_info(|| WidgetInfo::labeled(egui::Role::Image, true, label.clone()));

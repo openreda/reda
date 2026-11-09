@@ -4,13 +4,13 @@
 //! Footprint change removes.
 
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{Footprint, Uuid};
 
 /// One property of one Pad or graphic that differs from the copy it came from.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct LocalEdit {
     /// The Pad, for a Pad edit.
     #[serde(skip_serializing_if = "Option::is_none")]

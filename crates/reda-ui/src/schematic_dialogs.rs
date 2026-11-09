@@ -7,10 +7,12 @@
 //! Commands (`schematic.find`, `selection.set`, `schematic.reannotate`, …).
 
 mod cross;
+mod library;
 mod reannotate;
+mod replace;
 mod similar;
 mod text;
-mod update;
+pub mod update;
 
 use std::path::Path;
 
@@ -27,10 +29,15 @@ use crate::shell::Shell;
 use crate::tr;
 
 pub use cross::ConvertCrossDialog;
+pub use library::LibraryDialog;
 pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
+pub use replace::{KeepFields, Outcome, PickRow, ReplaceDialog};
 pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;
-pub use update::{UpdateDialog, UpdateRow};
+pub use update::{
+    ComponentRow, GridCell, Page, PartRow, Replacement, Section, SheetRow, UpdateDialog,
+    UpdateScope,
+};
 
 /// A schematic dialog the menus open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -53,6 +60,7 @@ pub enum DialogKind {
 /// Adds `schematic.dialog.open` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(OpenDialog);
+    library::register_all(registry);
     registry.add(crate::panels::find::FindStep);
 }
 
@@ -150,8 +158,10 @@ impl Command for OpenDialog {
 pub enum SchematicDialog {
     Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
-    Update(UpdateDialog),
+    Update(Box<UpdateDialog>),
     ConvertCross(ConvertCrossDialog),
+    Replace(Box<ReplaceDialog>),
+    Board(Box<crate::pcb::update_dialog::BoardUpdateDialog>),
 }
 
 impl SchematicDialog {
@@ -176,7 +186,9 @@ impl SchematicDialog {
                 dialog.refresh(shell);
                 SchematicDialog::Reannotate(dialog)
             }
-            DialogKind::UpdateFromLibrary => SchematicDialog::Update(UpdateDialog::new(shell)),
+            DialogKind::UpdateFromLibrary => {
+                SchematicDialog::Update(Box::new(UpdateDialog::new(shell, UpdateScope::default())))
+            }
             DialogKind::ConvertCrossJunctions => {
                 SchematicDialog::ConvertCross(ConvertCrossDialog::new(shell)?)
             }
@@ -191,6 +203,8 @@ impl SchematicDialog {
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),
             SchematicDialog::ConvertCross(d) => d.show(ctx, shell),
+            SchematicDialog::Replace(d) => d.show(ctx, shell) == Outcome::Open,
+            SchematicDialog::Board(d) => d.show(ctx, shell),
         }
     }
 }
