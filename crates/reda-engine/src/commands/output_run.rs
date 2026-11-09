@@ -248,12 +248,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         err
     })?;
     let bom = reda_output::bom_file(project, &pcb, &preset.bom.columns, &preset.bom.mount_values);
-    let cpl = reda_output::cpl_file(
-        project,
-        &instances,
-        &preset.cpl.columns,
-        &preset.bom.mount_values,
-    );
+    let cpl = reda_output::cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
     let drills = reda_output::drill_files(&plot);
     let values = |token: &str| {
         Some(match token {

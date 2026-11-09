@@ -3,7 +3,9 @@
 
 use std::path::{Path, PathBuf};
 
-use reda_model::{Column, ColumnSource, Uuid};
+use reda_model::{
+    BottomPosition, BottomRotation, Column, ColumnSource, CplSettings, CplUnits, SideValues, Uuid,
+};
 use reda_output::{OutputFile, bom_file, cpl_file};
 use reda_testkit::{TempDir, TestEngine, assert_golden, test_engine_with_library};
 use serde_json::{Value, json};
@@ -129,6 +131,17 @@ fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
 }
 
 fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
+    cpl_settings(
+        engine,
+        &CplSettings {
+            columns: columns.to_vec(),
+            ..Default::default()
+        },
+    )
+}
+
+/// The CPL with `settings`, measured from design zero.
+fn cpl_settings(engine: &TestEngine, settings: &CplSettings) -> String {
     let project = engine.project().unwrap();
     text(cpl_file(
         project,
@@ -137,7 +150,7 @@ fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
             &Default::default(),
             reda_model::FileOrigin::Absolute,
         )],
-        columns,
+        settings,
         &default_mount(),
     ))
 }
@@ -185,7 +198,10 @@ fn the_files_are_named_after_the_project() {
             &Default::default(),
             reda_model::FileOrigin::Absolute,
         )],
-        &c,
+        &CplSettings {
+            columns: c,
+            ..Default::default()
+        },
         &default_mount(),
     );
     assert_eq!((cpl.name.as_str(), cpl.function), ("Demo-CPL.csv", "cpl"));
@@ -301,20 +317,8 @@ const SCREW: &str = "5c4e3a10-0000-4000-8000-000000000001";
 /// A copy of the starter Library whose Resistor is a Mechanical Part (In BOM, not In
 /// CPL), with a footprintless Mechanical [`SCREW`] beside it.
 fn mechanical_library(dir: &TempDir) -> PathBuf {
-    fn copy(from: &Path, to: &Path) {
-        std::fs::create_dir_all(to).unwrap();
-        for entry in std::fs::read_dir(from).unwrap() {
-            let entry = entry.unwrap();
-            let target = to.join(entry.file_name());
-            if entry.file_type().unwrap().is_dir() {
-                copy(&entry.path(), &target);
-            } else {
-                std::fs::copy(entry.path(), target).unwrap();
-            }
-        }
-    }
     let library = dir.path().join("library");
-    copy(&starter_library(), &library);
+    copy_dir(&starter_library(), &library);
     let part = library.join("parts/Resistor.redapart");
     let text = std::fs::read_to_string(&part).unwrap().replace(
         "\"component_type\":\"standard\",\"in_bom\":true,\"in_cpl\":true",
@@ -412,8 +416,9 @@ fn cpl_rotation_is_the_footprint_turn_and_layer_its_side() {
         [
             "R1,5.000000,5.000000,Top,90.000",
             "R2,10.000000,5.000000,Top,315.000",
-            "R3,15.000000,5.000000,Bottom,330.000",
-        ]
+            "R3,15.000000,5.000000,Bottom,150.000",
+        ],
+        "Generic writes a bottom part's rotation plus 180"
     );
 }
 
@@ -518,7 +523,7 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
                 &Default::default(),
                 preset.gerber.file_origin,
             )],
-            &preset.cpl.columns,
+            &preset.cpl,
             &preset.bom.mount_values,
         );
         assert_golden(golden(&format!("{}-CPL.csv", preset.name)), &cpl.bytes);
@@ -536,7 +541,302 @@ fn relative_cpl(engine: &TestEngine) -> String {
             &Default::default(),
             reda_model::FileOrigin::Relative,
         )],
-        &preset.cpl.columns,
+        &preset.cpl,
         &preset.bom.mount_values,
     ))
+}
+
+/// The CPL columns the key tests below read: Designator, centre, side and rotation.
+fn key_columns() -> Vec<Column> {
+    columns(&[
+        ("Ref", ColumnSource::Designator),
+        ("X", ColumnSource::CentreX),
+        ("Y", ColumnSource::CentreY),
+        ("Side", ColumnSource::Side),
+        ("Rot", ColumnSource::Rotation),
+    ])
+}
+
+/// A copy of the starter Library whose 2-pin header has Pad 1 at (1, 0) and Pad 2 at
+/// (1, −2.54) mm, away from its origin, plus a non-plated hole at (6, 5) mm.
+fn offset_header_library(dir: &TempDir) -> PathBuf {
+    let library = dir.path().join("library");
+    copy_dir(&starter_library(), &library);
+    let file = library.join("footprints/HDRV0W64P254R1L508T254H850B.redafp");
+    let text = std::fs::read_to_string(&file).unwrap();
+    let pad2 = r#""at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}"#;
+    assert!(text.contains(pad2));
+    let text = text
+        .replace(r#""at":{"x":0,"y":1270000}"#, r#""at":{"x":1000000,"y":0}"#)
+        .replace(
+            pad2,
+            &format!(
+                "{},\n    {}",
+                pad2.replace("\"y\":-1270000", "\"y\":-2540000")
+                    .replace("\"x\":0", "\"x\":1000000"),
+                r#"{"uuid":"5c4e3a10-0000-4000-8000-0000000000f1","number":"","kind":"non_plated","shape":"circle","at":{"x":6000000,"y":5000000},"rotation":0,"width":1000000,"height":1000000,"hole":{"width":1000000,"height":1000000}}"#
+            ),
+        );
+    std::fs::write(&file, text).unwrap();
+    library
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn cpl_positions_are_the_copper_pad_centre_the_origin_or_pad_1() {
+    let dir = TempDir::new("assembly-positions");
+    let library = offset_header_library(&dir);
+    let mut engine = engine_on(&dir, &library);
+    place(&mut engine, HEADER_1X02, None, 1);
+    sync(&mut engine);
+    put(&mut engine, "J1", 20, 10, 90);
+    // Only a non-plated hole, so no copper Pads: every position is the origin.
+    let hole = engine.run_ok(
+        "pcb.mechanical.place",
+        json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "4mm"}}),
+    );
+    engine.run_ok(
+        "pcb.mechanical.set",
+        json!({"footprints": [hole["result"]["footprint"]], "in_cpl": true}),
+    );
+    let positions = columns(&[
+        ("Ref", ColumnSource::Designator),
+        ("Mid X", ColumnSource::CentreX),
+        ("Mid Y", ColumnSource::CentreY),
+        ("Ref X", ColumnSource::OriginX),
+        ("Ref Y", ColumnSource::OriginY),
+        ("Pad X", ColumnSource::Pad1X),
+        ("Pad Y", ColumnSource::Pad1Y),
+    ]);
+    // Turned 90°: the Pads' centre (1, −1.27) lands at (21.27, 11), Pad 1 (1, 0) at
+    // (20, 11); the non-plated hole at (6, 5) doesn't widen the box.
+    assert_eq!(
+        lines(&cpl_with(&engine, &positions))[1..],
+        [
+            "H1,3.000000,4.000000,3.000000,4.000000,3.000000,4.000000",
+            "J1,21.270000,11.000000,20.000000,10.000000,20.000000,11.000000",
+        ]
+    );
+    engine.run_ok("pcb.flip", json!({"objects": [footprint(&engine, "J1")]}));
+    let flipped = engine.project().unwrap().pcb().unwrap();
+    let j1 = flipped.footprint(footprint(&engine, "J1")).unwrap();
+    assert_eq!(j1.side, reda_model::Side::Bottom);
+    // Flipping mirrors the part left-right on the board (its 90° becomes 270°): the
+    // centre lands 1.27 left and 1 up of J1's origin, Pad 1 still 1 up.
+    let (x, y) = (j1.at.x.0, j1.at.y.0);
+    let mm = |nm: i64| format!("{}.{:06}", nm / 1_000_000, nm % 1_000_000);
+    assert_eq!(
+        lines(&cpl_with(&engine, &positions))[2],
+        format!(
+            "J1,{},{},{},{},{},{}",
+            mm(x - 1_270_000),
+            mm(y + 1_000_000),
+            mm(x),
+            mm(y),
+            mm(x),
+            mm(y + 1_000_000)
+        )
+    );
+}
+
+#[test]
+fn bottom_rotation_writes_a_flipped_30_degree_part_as_330_150_or_30() {
+    let dir = TempDir::new("assembly-bottom-rotation");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 2);
+    sync(&mut engine);
+    put(&mut engine, "R1", 5, 5, 30);
+    put(&mut engine, "R2", 10, 5, 30);
+    engine.run_ok("pcb.flip", json!({"objects": [footprint(&engine, "R2")]}));
+    for (rule, written) in [
+        (BottomRotation::Stored, "330.000"),
+        (BottomRotation::Plus180, "150.000"),
+        (BottomRotation::Negate, "30.000"),
+    ] {
+        let settings = CplSettings {
+            columns: key_columns(),
+            bottom_rotation: rule,
+            ..Default::default()
+        };
+        assert_eq!(
+            lines(&cpl_settings(&engine, &settings))[1..],
+            [
+                "R1,5.000000,5.000000,Top,30.000".to_owned(),
+                format!("R2,10.000000,5.000000,Bottom,{written}"),
+            ],
+            "{rule:?} leaves a top part alone"
+        );
+    }
+}
+
+#[test]
+fn bottom_position_negates_x_or_y_of_bottom_parts_only() {
+    let dir = TempDir::new("assembly-bottom-position");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 2);
+    sync(&mut engine);
+    put(&mut engine, "R1", 5, 5, 0);
+    put(&mut engine, "R2", 10, 6, 0);
+    engine.run_ok("pcb.flip", json!({"objects": [footprint(&engine, "R2")]}));
+    let position = columns(&[
+        ("Ref", ColumnSource::Designator),
+        ("X", ColumnSource::CentreX),
+        ("Y", ColumnSource::CentreY),
+        ("RX", ColumnSource::OriginX),
+        ("RY", ColumnSource::OriginY),
+        ("PX", ColumnSource::Pad1X),
+        ("PY", ColumnSource::Pad1Y),
+    ]);
+    for (rule, r2) in [
+        (
+            BottomPosition::TopView,
+            "R2,10.000000,6.000000,10.000000,6.000000,10.775000,6.000000",
+        ),
+        (
+            BottomPosition::NegateX,
+            "R2,-10.000000,6.000000,-10.000000,6.000000,-10.775000,6.000000",
+        ),
+        (
+            BottomPosition::NegateY,
+            "R2,10.000000,-6.000000,10.000000,-6.000000,10.775000,-6.000000",
+        ),
+    ] {
+        let settings = CplSettings {
+            columns: position.clone(),
+            bottom_position: rule,
+            ..Default::default()
+        };
+        assert_eq!(
+            lines(&cpl_settings(&engine, &settings))[1..],
+            [
+                "R1,5.000000,5.000000,5.000000,5.000000,4.225000,5.000000",
+                r2
+            ],
+            "{rule:?}"
+        );
+    }
+}
+
+#[test]
+fn side_values_units_and_unit_suffix_spell_the_rows() {
+    let dir = TempDir::new("assembly-units");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 2);
+    sync(&mut engine);
+    put(&mut engine, "R1", 5, 5, 0);
+    put(&mut engine, "R2", -10, 25, 0);
+    engine.run_ok("pcb.flip", json!({"objects": [footprint(&engine, "R2")]}));
+    let row = |units, unit_suffix| {
+        let settings = CplSettings {
+            columns: key_columns(),
+            side_values: SideValues {
+                top: "T".into(),
+                bottom: "B".into(),
+            },
+            units,
+            unit_suffix,
+            ..Default::default()
+        };
+        lines(&cpl_settings(&engine, &settings))[1..]
+            .iter()
+            .map(|l| (*l).to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        row(CplUnits::Mm, false),
+        [
+            "R1,5.000000,5.000000,T,0.000",
+            "R2,-10.000000,25.000000,B,180.000"
+        ]
+    );
+    assert_eq!(
+        row(CplUnits::Mm, true),
+        [
+            "R1,5.000000mm,5.000000mm,T,0.000",
+            "R2,-10.000000mm,25.000000mm,B,180.000"
+        ]
+    );
+    // 5 mm is 196.8503937 mil and 0.19685039 in, rounded to 6 decimals.
+    assert_eq!(
+        row(CplUnits::Mil, true),
+        [
+            "R1,196.850394mil,196.850394mil,T,0.000",
+            "R2,-393.700787mil,984.251969mil,B,180.000"
+        ]
+    );
+    assert_eq!(
+        row(CplUnits::In, false),
+        [
+            "R1,0.196850,0.196850,T,0.000",
+            "R2,-0.393701,0.984252,B,180.000"
+        ]
+    );
+}
+
+#[test]
+fn exclude_through_hole_leaves_out_footprints_with_a_plated_hole() {
+    let dir = TempDir::new("assembly-exclude-tht");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 1);
+    place(&mut engine, HEADER_1X02, None, 1);
+    sync(&mut engine);
+    // A non-plated hole only: not through-hole, so it stays.
+    let hole = engine.run_ok(
+        "pcb.mechanical.place",
+        json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
+    );
+    engine.run_ok(
+        "pcb.mechanical.set",
+        json!({"footprints": [hole["result"]["footprint"]], "in_cpl": true}),
+    );
+    let mut settings = CplSettings {
+        columns: key_columns(),
+        ..Default::default()
+    };
+    assert_eq!(
+        designators(&cpl_settings(&engine, &settings)),
+        ["H1", "J1", "R1"]
+    );
+    settings.exclude_through_hole = true;
+    assert_eq!(designators(&cpl_settings(&engine, &settings)), ["H1", "R1"]);
+}
+
+#[test]
+fn pcbway_cpl_fills_its_reference_and_pad_columns_with_suffixed_positions() {
+    let dir = TempDir::new("assembly-pcbway");
+    let engine = demo(&dir);
+    let project = engine.project().unwrap();
+    let pcbway = reda_output::shipped_named("PCBWay").unwrap();
+    let cpl = text(cpl_file(
+        project,
+        &[reda_output::BoardInstance::single(
+            project.pcb().unwrap(),
+            &Default::default(),
+            reda_model::FileOrigin::Absolute,
+        )],
+        &pcbway.cpl,
+        &pcbway.bom.mount_values,
+    ));
+    assert_eq!(
+        lines(&cpl),
+        [
+            "Designator,Footprint,Mid X,Mid Y,Ref X,Ref Y,Pad X,Pad Y,TB,Rotation,Comment",
+            "R1,RESC1608X55N,5.000000mm,5.000000mm,5.000000mm,5.000000mm,4.225000mm,5.000000mm,Top,0.000,10k",
+            "R2,RESC1608X55N,10.000000mm,5.000000mm,10.000000mm,5.000000mm,10.000000mm,4.225000mm,Top,90.000,10k",
+            "R3,RESC1608X55N,15.000000mm,5.000000mm,15.000000mm,5.000000mm,15.775000mm,5.000000mm,Bottom,180.000,4k7",
+        ],
+        "J1 is through-hole, so PCBWay leaves it out"
+    );
 }
