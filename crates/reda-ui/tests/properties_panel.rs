@@ -78,7 +78,8 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
     let r1 = placed(&mut h, R_10K, 0);
     let r2 = placed(&mut h, R_10K, 1000);
     h.run();
-    h.get_by_role_and_label(Role::Label, "Selection Filter");
+    // Nothing selected: the overview, with the Selection Filter region.
+    assert!(h.query_all_by_label("Selection Filter").next().is_some());
     h.get_by_role_and_label(Role::CheckBox, "Select Component");
 
     run(
