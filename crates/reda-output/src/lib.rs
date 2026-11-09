@@ -16,7 +16,7 @@ mod presets;
 
 pub use archive::zip;
 pub use assembly::{bom_file, cpl_file};
-pub use drill::drill_files;
+pub use drill::{Drills, drill_file_names, drill_files};
 pub use gerber::MAX_COORDINATE;
 pub use instance::{BoardInstance, InstanceTransform, resolve_origin};
 pub use jobs::{job_destination, new_job, register_all};
