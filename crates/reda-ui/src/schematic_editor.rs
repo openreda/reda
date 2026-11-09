@@ -877,8 +877,10 @@ impl Cx<'_> {
             };
             grab::grab_point(sheet, &self.shell.preferences().editing, g, point(from))
         });
+        // The held point keeps its distance from the pointer (nothing jumps on the press),
+        // and it is what snaps as the drag goes.
         let (anchor, lead) = match grab {
-            Some(held) => (held, (0.0, 0.0)),
+            Some(held) => (held, (held.x.0 as f64 - from.0, held.y.0 as f64 - from.1)),
             None => {
                 let anchor = snap::snap_at(self.shell, self.document, from, &all).at;
                 let lead = (anchor.x.0 as f64 - from.0, anchor.y.0 as f64 - from.1);

@@ -187,8 +187,9 @@ fn a_drag_shows_the_junctions_it_would_make_and_names_the_nets_it_would_join() {
     let home = TempDir::new("drag-check-home");
     let mut shell = shell(&dir, &home);
     two_nets(&mut shell);
-    // Grabbed at its Hot Spot (the left end), the SCL Wire goes 200 mil left: OK.
-    start_drag(&mut shell, at(1200.0, 500.0), at(800.0, 500.0));
+    // Pressed 100 mil in from its left end (held there, Hot Spot), the SCL Wire goes 200
+    // mil left: OK.
+    start_drag(&mut shell, at(1100.0, 500.0), at(900.0, 500.0));
     assert_eq!(offset(&shell), mil(-200, 0));
     assert_eq!(
         schematic_editor::drag_chip(&shell, sheet()).as_deref(),
@@ -197,7 +198,7 @@ fn a_drag_shows_the_junctions_it_would_make_and_names_the_nets_it_would_join() {
     let tab = shell.document_tab(sheet()).unwrap();
     assert!(tab.overlay.junctions.is_empty());
     // Its end on the SDA Wire: a T, so a Junction, and the Nets join.
-    pointer(&mut shell, &[Pointer::Drag(at(0.0, 500.0))]);
+    pointer(&mut shell, &[Pointer::Drag(at(100.0, 500.0))]);
     assert_eq!(offset(&shell), mil(-1000, 0));
     let chip = schematic_editor::drag_chip(&shell, sheet()).unwrap();
     assert!(
@@ -208,7 +209,7 @@ fn a_drag_shows_the_junctions_it_would_make_and_names_the_nets_it_would_join() {
     assert_eq!(&tab.overlay.junctions[..], [mil(0, 500)]);
     // It never blocks the drop.
     assert_eq!(
-        pointer(&mut shell, &[Pointer::DragEnd(at(0.0, 500.0))]),
+        pointer(&mut shell, &[Pointer::DragEnd(at(100.0, 500.0))]),
         ["schematic.drag"]
     );
     assert!(schematic_editor::drag_chip(&shell, sheet()).is_none());
@@ -255,7 +256,7 @@ fn with_display_when_dragging_off_there_is_no_chip_and_no_junctions() {
         )
         .unwrap();
     two_nets(&mut shell);
-    start_drag(&mut shell, at(1200.0, 500.0), at(0.0, 500.0));
+    start_drag(&mut shell, at(1100.0, 500.0), at(100.0, 500.0));
     assert_eq!(offset(&shell), mil(-1000, 0));
     assert!(schematic_editor::drag_chip(&shell, sheet()).is_none());
     assert!(
@@ -275,13 +276,13 @@ fn alt_keeps_a_drag_horizontal_or_vertical() {
     let mut shell = shell(&dir, &home);
     two_nets(&mut shell);
     shell.hold_snap_keys(sheet(), Modifiers::ALT, true);
-    start_drag(&mut shell, at(1200.0, 500.0), at(700.0, 650.0));
+    start_drag(&mut shell, at(1100.0, 500.0), at(800.0, 650.0));
     assert_eq!(offset(&shell), mil(-300, 0));
-    pointer(&mut shell, &[Pointer::Drag(at(1100.0, 1100.0))]);
+    pointer(&mut shell, &[Pointer::Drag(at(1000.0, 1100.0))]);
     assert_eq!(offset(&shell), mil(0, 600));
     // Let go of Alt: the drag follows the pointer again.
     shell.hold_snap_keys(sheet(), Modifiers::NONE, false);
-    pointer(&mut shell, &[Pointer::Drag(at(700.0, 650.0))]);
+    pointer(&mut shell, &[Pointer::Drag(at(800.0, 650.0))]);
     assert_eq!(offset(&shell), mil(-300, 150));
 }
 
@@ -375,14 +376,18 @@ fn the_grab_preferences_pick_where_a_moved_object_is_held() {
         }
         let w = wire(&mut shell, &[(1000, 500), (1500, 500)]);
         shell.run("selection.set", json!({"objects": [w]})).unwrap();
-        // Pressed at 1180 mil, dragged to 3000: the held point lands on 3000.
-        start_drag(&mut shell, at(1180.0, 500.0), at(3000.0, 500.0));
-        offset(&shell).x.0 / 25_400
+        // Pressed at 1180 mil: the held point keeps its distance from the pointer and is
+        // what snaps.
+        start_drag(&mut shell, at(1180.0, 500.0), at(1180.0, 500.0));
+        match interaction(&shell) {
+            Interaction::Flight(f) => (f.anchor.x.0 / 25_400, f.anchor.y.0 / 25_400),
+            other => panic!("no drag in flight: {other:?}"),
+        }
     };
-    // Hot Spot: the nearest end (1000) is held, and it overrides Center.
-    assert_eq!(grabbed(true, true), 2000);
+    // Hot Spot: the nearest end (1000), and it overrides Center.
+    assert_eq!(grabbed(true, true), (1000, 500));
     // Center: the Wire's middle (1250).
-    assert_eq!(grabbed(false, true), 1750);
-    // Neither: where it was pressed, snapped to the grid (1200).
-    assert_eq!(grabbed(false, false), 1800);
+    assert_eq!(grabbed(false, true), (1250, 500));
+    // Neither: where it was pressed, on the grid (1200).
+    assert_eq!(grabbed(false, false), (1200, 500));
 }

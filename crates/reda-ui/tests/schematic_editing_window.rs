@@ -200,7 +200,7 @@ fn moving_a_wire_onto_another_net_shows_the_chip_naming_the_join() {
         .clone();
     run(&mut h, "selection.set", json!({"objects": [scl, label]}));
     h.run();
-    h.hover_at(screen(&h, 1200.0, 500.0));
+    h.hover_at(screen(&h, 1000.0, 500.0));
     h.run();
     h.key_press(Key::M);
     h.run();

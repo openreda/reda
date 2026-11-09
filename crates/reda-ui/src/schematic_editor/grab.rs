@@ -3,7 +3,9 @@
 //! - **Grab point:** the Preferences Object's Electrical Hot Spot (on) and Center of
 //!   Object (off). Hot Spot holds an electrical object at its connection point nearest the
 //!   click and overrides Center for it; Center holds an object by its reference point or
-//!   centre; with neither it is held where it was clicked ([`grab_point`]).
+//!   centre; with neither it is held where it was clicked ([`grab_point`]). The held
+//!   point keeps its distance from the pointer and is what snaps as the drag goes, so
+//!   nothing jumps on the press.
 //! - **Alt** held during a drag keeps it horizontal or vertical ([`DragKeys`]).
 //! - **`Mod`+Space** during a drag turns the rubber-banded Wires' corners the other way
 //!   ([`flip_corners`], bound to `tool.cycle_corner`).
