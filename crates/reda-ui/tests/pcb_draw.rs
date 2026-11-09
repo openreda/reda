@@ -344,8 +344,11 @@ fn measure_changes_nothing() {
     assert_eq!(m.distance(), Nm::from_mm(5));
     b.click(mm(3.0, 4.0));
     b.shell.pcb_hover(mm(8.0, 8.0));
-    let m = b.shell.pcb_draw().measurement().unwrap();
-    assert_eq!(m.to, mm(3.0, 4.0), "a second click holds the measurement");
+    assert!(
+        b.shell.pcb_draw().measurement().is_none(),
+        "a second click finishes the measurement"
+    );
+    assert_eq!(reda_ui::pcb::measure::shown(&b.shell)[0].to, mm(3.0, 4.0));
     assert!(b.edits_since(start).is_empty());
 }
 

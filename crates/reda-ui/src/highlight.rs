@@ -197,6 +197,9 @@ impl Command for ClearHighlight {
         _: reda_engine::command::NoParams,
     ) -> Result<HighlightResult, CommandError> {
         *cx.view::<Highlight>()? = Highlight::default();
+        if let Ok(measured) = cx.view::<crate::pcb::measure::Measurements>() {
+            crate::pcb::measure::clear(measured);
+        }
         // A highlighted Layer (Mod+click on a Layer chip) clears too.
         if let Ok(board) = cx.view::<crate::pcb::view::BoardView>() {
             board.layers.highlighted = None;

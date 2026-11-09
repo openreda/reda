@@ -22,7 +22,9 @@
 //!   Y, plus Add and Remove), edited with `schematic.wire.set_vertices`.
 //! - Any one selected object shows its stored properties, read-only.
 
+pub mod annotation;
 pub mod commands;
+pub mod footprint_edit;
 mod numbers;
 pub mod overview;
 pub mod rules;

@@ -127,6 +127,33 @@ impl Target {
                     ("priority", Some(Attr::Number(i64::from(z.object.priority)))),
                 ],
             ),
+            Object::Dimension(d) => {
+                let d = &d.object;
+                (
+                    "pcb.dimension.set",
+                    "uuid",
+                    false,
+                    d.uuid,
+                    &[
+                        ("offset", Length, Set),
+                        ("width", Length, Set),
+                        ("extension_width", Length, Set),
+                        ("gap", Length, Set),
+                        ("text_gap", Length, Set),
+                        ("arrow_size", Length, Set),
+                        ("arrow_length", Length, Set),
+                    ][..],
+                    vec![
+                        ("offset", Some(Attr::Length(d.offset))),
+                        ("width", Some(Attr::Length(d.width))),
+                        ("extension_width", Some(Attr::Length(d.extension_width))),
+                        ("gap", Some(Attr::Length(d.gap))),
+                        ("text_gap", Some(Attr::Length(d.text_gap))),
+                        ("arrow_size", Some(Attr::Length(d.arrow_size))),
+                        ("arrow_length", Some(Attr::Length(d.arrow_length))),
+                    ],
+                )
+            }
             Object::Track(t) => {
                 let straight = match t.object.geometry {
                     TrackGeometry::Line { .. } => {

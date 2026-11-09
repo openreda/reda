@@ -41,6 +41,7 @@ use reda_engine::render::{BoardColor, ColorKey, Primitive, SceneLayer};
 use serde_json::{Value, json};
 
 use super::copper_drag::{self, CopperDrag, DragMode};
+use super::dimension_edit::{self, DimensionEdit};
 use super::polygon_edit::{self, Grab, PolygonEdit};
 use crate::shell::Shell;
 use crate::snap::{self, Guide, Hit, Snapped, Target};
@@ -87,6 +88,12 @@ enum State {
     CopperDrag(CopperDrag),
     /// A press on the selected polygon's handles or edges (see [`super::polygon_edit`]).
     Polygon(PolygonPress),
+    /// A press on the selected Dimension's handles (see [`super::dimension_edit`]).
+    Dimension {
+        edit: Box<DimensionEdit>,
+        at: Point,
+        dragged: bool,
+    },
     /// The press can do nothing more until release (a refused move, a cancel).
     Spent,
     /// A press while Track Properties waits for a Net pick: release picks there.
@@ -435,6 +442,16 @@ impl SelectTool {
             return;
         }
         if shell.tool() == Tool::Select
+            && let Some(edit) = dimension_edit::grab_at(shell, at, tolerance)
+        {
+            self.state = State::Dimension {
+                edit: Box::new(edit),
+                at,
+                dragged: false,
+            };
+            return;
+        }
+        if shell.tool() == Tool::Select
             && let Some((object, vertices)) = polygon_edit::selected(shell)
             && let Some(grab) = polygon_edit::grab_at(&vertices, at, tolerance)
             && let Some((_, document)) = board(shell)
@@ -505,6 +522,14 @@ impl SelectTool {
                 self.snap = p.edit.snap().or(self.snap);
                 self.state = State::Polygon(p);
             }
+            State::Dimension { mut edit, at, .. } => {
+                self.snap = Some(edit.follow(shell, to));
+                self.state = State::Dimension {
+                    edit,
+                    at,
+                    dragged: true,
+                };
+            }
             State::Band { from, .. } => self.state = State::Band { from, to },
             State::Moving(mut m) => {
                 self.track(shell, &mut m, to, false);
@@ -547,6 +572,18 @@ impl SelectTool {
                 }
             }
             State::Polygon(p) => self.release_polygon(shell, p),
+            State::Dimension { edit, at, dragged } => {
+                if !dragged {
+                    self.click(shell, edit.document, at);
+                } else {
+                    let ran = edit
+                        .command()
+                        .is_some_and(|(id, params)| shell.run_reporting(id, params).is_ok());
+                    if !ran {
+                        shell.redraw(edit.document);
+                    }
+                }
+            }
             State::Band { from, to } => {
                 let Some((_, document)) = board(shell) else {
                     return;
@@ -671,6 +708,18 @@ impl SelectTool {
         }
     }
 
+    /// The Dimension handle drag in flight, once the press has dragged.
+    pub fn dimension_edit(&self) -> Option<&DimensionEdit> {
+        match &self.state {
+            State::Dimension {
+                edit,
+                dragged: true,
+                ..
+            } => Some(edit.as_ref()),
+            _ => None,
+        }
+    }
+
     /// The polygon reshape in flight, once the press has dragged.
     pub fn polygon_edit(&self) -> Option<&PolygonEdit> {
         match &self.state {
@@ -712,6 +761,9 @@ impl SelectTool {
         }
         if let State::Polygon(p) = &self.state {
             shell.redraw(p.edit.document);
+        }
+        if let State::Dimension { edit, .. } = &self.state {
+            shell.redraw(edit.document);
         }
         if let State::CopperDrag(d) = &self.state {
             shell.end_tool();

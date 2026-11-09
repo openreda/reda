@@ -304,6 +304,8 @@ impl Shell {
             .view_mut()
             .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
+        engine.view_mut().set(pcb::measure::Measurements::default());
+        engine.view_mut().set(pcb::delete::DeletePrompt::default());
         engine.view_mut().set(crate::keys_card::KeysCard::default());
         engine
             .view_mut()
@@ -1477,6 +1479,11 @@ impl Shell {
                 return Ok(json!({}));
             }
         }
+        if base == "pcb.copper.delete"
+            && let Some(out) = pcb::delete::intercept(self, &params)
+        {
+            return out;
+        }
         let silkscreen = crate::pcb::silkscreen::COMMANDS
             .contains(&base)
             .then(|| params.clone());
@@ -1501,6 +1508,7 @@ impl Shell {
         if let Some(params) = silkscreen {
             crate::pcb::silkscreen::after_run(self, base, &params, &out);
         }
+        crate::pcb::measure::after_run(self, base, &out);
         Ok(out)
     }
 
@@ -2331,6 +2339,7 @@ impl Shell {
             "tool.move_board_shape" => self.pcb_move_board_shape(false),
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
+            "pcb.delete.confirm" => pcb::delete::after_confirm(self, out),
             "tool.cycle_corner" => {
                 if let Some(sheet) = self.active_sheet() {
                     crate::schematic_editor::flip_corners(self, sheet);
