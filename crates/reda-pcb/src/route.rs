@@ -24,7 +24,7 @@ pub mod width;
 
 pub use loops::{LoopOptions, Piece, Removal};
 pub use path::{CornerMode, Posture, corner_path};
-pub use width::{WidthChoice, WidthMode, WidthSource};
+pub use width::{ViaChoice, ViaSize, WidthChoice, WidthMode, WidthSource};
 
 /// How the Tool treats copper in the way. Remembered in `pcb.route.obstacle_mode`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -387,7 +387,8 @@ pub struct Leg {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Step {
     Leg(Leg),
-    Via(Point),
+    /// A Via at a point, of a chosen size or (`None`) the Net's.
+    Via(Point, Option<ViaSize>),
 }
 
 /// The Commands that commit a route, and what loop removal decided.
@@ -477,8 +478,12 @@ pub fn commit(
                     .push(json!({"id": "pcb.track.add", "params": params}));
             }
             Step::Leg(_) => {}
-            Step::Via(at) => {
+            Step::Via(at, size) => {
                 let mut params = json!({"at": point(*at)});
+                if let Some(size) = size {
+                    params["diameter"] = json!(size.diameter.0);
+                    params["hole"] = json!(size.hole.0);
+                }
                 net_param(&mut params);
                 out.steps
                     .push(json!({"id": "pcb.via.add", "params": params}));

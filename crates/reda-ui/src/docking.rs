@@ -965,7 +965,10 @@ impl Cx<'_, '_> {
                 for (id, params) in edits {
                     self.push_call(id, params);
                 }
-                if !view_only {
+                // While routing, a right-click ends the route instead (pcb::canvas).
+                let routing = kind == bars::DocumentType::Pcb
+                    && crate::pcb::route::takes_right_click(self.shell);
+                if !view_only && !routing {
                     crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {

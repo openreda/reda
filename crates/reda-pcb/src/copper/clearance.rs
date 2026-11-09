@@ -116,6 +116,63 @@ impl Copper {
     }
 }
 
+/// Other-Net copper grown by the clearance a route on one Net must keep from it: the
+/// Track Tool's clearance display (`C`). Where the route's centre line may not go is the
+/// halo grown by a further half route width.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Halo {
+    pub item: Item,
+    /// The copper's outline, each primitive grown by `clearance`.
+    pub shape: reda_model::geom::grown::Shape,
+    pub clearance: Nm,
+}
+
+impl Copper {
+    /// The clearance halos on `layer` for a route on `net`: every piece of copper of
+    /// another Net (or of no Net) other than Zone fills, grown by the clearance between the
+    /// two Nets, sorted by item. With `near`, only copper within that distance of the
+    /// point.
+    pub fn halos(
+        &self,
+        pcb: &PcbDocument,
+        layer: Uuid,
+        net: Option<Uuid>,
+        near: Option<(Point, Nm)>,
+    ) -> Vec<Halo> {
+        let envelope = match near {
+            Some((at, reach)) => AABB::from_corners(
+                [at.x.0 - reach.0, at.y.0 - reach.0],
+                [at.x.0 + reach.0, at.y.0 + reach.0],
+            ),
+            None => AABB::from_corners([i64::MIN / 4, i64::MIN / 4], [i64::MAX / 4, i64::MAX / 4]),
+        };
+        let mut out: Vec<Halo> = Vec::new();
+        for piece in self.candidates(layer, envelope) {
+            let other = self.net(piece.item);
+            if matches!(piece.item, Item::Zone { .. }) || (net.is_some() && other == net) {
+                continue;
+            }
+            if let Some((at, reach)) = near
+                && piece.shape.distance(&Shape::disc(at, Nm::ZERO)) > reach.0 as f64
+            {
+                continue;
+            }
+            let clearance = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
+            let mut shape = piece.shape.clone();
+            for prim in &mut shape.prims {
+                prim.radius += clearance.0;
+            }
+            out.push(Halo {
+                item: piece.item,
+                shape,
+                clearance,
+            });
+        }
+        out.sort_by_key(|h| h.item);
+        out
+    }
+}
+
 /// Two pieces of stored copper closer than the clearance rules allow, without touching.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Gap {

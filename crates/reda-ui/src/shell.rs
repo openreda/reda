@@ -2348,6 +2348,23 @@ impl Shell {
                 self.with_router(|r, shell| r.undo_segment(shell))
             }
             "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
+            "pcb.route.via_end" => self.with_router(|r, shell| r.via_end(shell)),
+            "pcb.route.end" => self.with_router(|r, shell| r.end(shell)),
+            "pcb.route.mode" => {
+                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
+                    self.with_router(|r, shell| r.change_mode(shell, mode));
+                }
+            }
+            "pcb.route.chooser" => {
+                if let Ok(kind) = serde_json::from_value(out["kind"].clone()) {
+                    self.with_router(|r, shell| r.open_chooser(shell, kind));
+                }
+            }
+            "pcb.route.via_size" => {
+                if let (Some(d), Some(h)) = (out["diameter"].as_i64(), out["hole"].as_i64()) {
+                    self.with_router(|r, shell| r.set_via_size(shell, Nm(d), Nm(h)));
+                }
+            }
             "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
             "pcb.route.width" => {
                 let width = out["width"].as_i64().map(Nm);

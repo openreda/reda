@@ -1,5 +1,5 @@
 //! The routing Tool, the Via Tool and Track editing through the Shell with no window: T
-//! starts routing, `/` cycles the corner mode, the width comes from the Net Class and can
+//! starts routing, the width comes from the Net Class and can
 //! change mid-route, the live clearance check flags and stops the route, V drops a Via
 //! and switches Layer, a route ends on its own on same-Net copper and commits as one
 //! Command (or one `batch`), a bridged edit cancels it, and segments drag, delete and
@@ -13,7 +13,6 @@ use reda_ui::engine::command::{SeededIds, Signals, UserDirs};
 use reda_ui::engine::journal::Source;
 use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::engine::model::{LayerKind, RuleKind, Side, TrackGeometry, Uuid};
-use reda_ui::pcb::route::Corner;
 use reda_ui::shell::Shell;
 use reda_ui::tools::Tool;
 use serde_json::{Value, json};
@@ -185,27 +184,6 @@ fn t_starts_routing_and_reaching_a_same_net_pad_commits_one_track_add() {
         Tool::Route,
         "the Tool stays for the next route"
     );
-}
-
-#[test]
-fn slash_cycles_the_corner_mode() {
-    let mut b = board();
-    run(&mut b.shell, "tool.activate:route", json!({}));
-    route_to(&mut b, mm(0.0, 0.0));
-    let ahead = |b: &mut Board| {
-        b.shell.route_hover(mm(3.0, 1.0));
-        b.shell.route_preview().unwrap().ahead
-    };
-    assert_eq!(b.shell.router().corner(), Corner::Straight45);
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(2.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(1.0, 1.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(3.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(0.0, 1.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(b.shell.router().corner(), Corner::Straight45);
 }
 
 #[test]

@@ -394,8 +394,12 @@ key = "Esc"
 command = "tool.activate:select"
 
 # Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
-# corner mode, Backspace takes back the last corner, V drops a Via and switches Layer,
-# W / Shift+W step the width and Enter finishes. Del deletes the selected Tracks and Vias
+# corner mode and Space flips the posture, Backspace takes back the last corner, V drops a
+# Via and switches Layer, E drops a Via and ends the route, Enter finishes and Esc (or a
+# right-click) ends the route keeping what is placed (a second Esc returns to Select).
+# 1 toggles look-ahead, 3 steps the width mode, Shift+W and Shift+V open the width and
+# Via size choosers, Shift+R the obstacle mode, Shift+A auto-terminate, Shift+L loop
+# removal and C the clearance display. Del deletes the selected Tracks and Vias
 # (Shift+Del whole Tracks) and U selects the copper connected to the selection.
 
 [[bind]]
@@ -430,13 +434,58 @@ command = "pcb.route.finish"
 
 [[bind]]
 context = "tool:route"
-key = "W"
-command = "pcb.route.width:next"
+key = "Shift+W"
+command = "pcb.route.chooser:width"
 
 [[bind]]
 context = "tool:route"
-key = "Shift+W"
-command = "pcb.route.width:previous"
+key = "Shift+V"
+command = "pcb.route.chooser:via"
+
+[[bind]]
+context = "tool:route"
+key = "E"
+command = "pcb.route.via_end"
+
+[[bind]]
+context = "tool:route"
+key = "Esc"
+command = "pcb.route.end"
+
+[[bind]]
+context = "tool:route"
+key = "Space"
+command = "pcb.route.mode:posture"
+
+[[bind]]
+context = "tool:route"
+key = "1"
+command = "pcb.route.mode:lookahead"
+
+[[bind]]
+context = "tool:route"
+key = "3"
+command = "pcb.route.mode:width_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+R"
+command = "pcb.route.mode:obstacle_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+A"
+command = "pcb.route.mode:auto_terminate"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+L"
+command = "pcb.route.mode:loop_removal"
+
+[[bind]]
+context = "tool:route"
+key = "C"
+command = "pcb.route.mode:clearance_display"
 
 [[bind]]
 context = "pcb"
