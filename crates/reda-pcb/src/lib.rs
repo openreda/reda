@@ -16,8 +16,10 @@ pub mod copper;
 pub mod dimension;
 pub mod drc;
 pub mod keepout;
+pub mod net_info;
 pub mod placed;
 pub mod rules;
+pub mod select;
 mod text;
 pub mod zone;
 
@@ -25,13 +27,16 @@ pub use board::{
     DEAD_COPPER_MIN_AREA, DEFAULT_NET_CLASS, PAD_CONNECTION_SEED, V01_LAYERS, VIA_CONNECTION_SEED,
     board_fab_rules, default_rules, new_board, seed_rules,
 };
+pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     AreaParam, DrcRunParams, DrcRunResult, MechanicalSet, MechanicalSetParams, Placed, PlacementOp,
     SyncCheck, SyncState, TrackDragPlan, drc_run, glob_match, placement_anchor, placement_preview,
     rect_outline, register_all, register_all_with_user, track_drag_plan,
 };
-pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};
+pub use copper::{
+    ClearanceHit, Connections, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility,
+};
 pub use text::{
     FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, board_layer, element_texts,
     font_is_missing, footprint_texts, missing_fonts, text_geometry,

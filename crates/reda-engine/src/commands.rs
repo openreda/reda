@@ -13,6 +13,7 @@ pub mod import_part;
 pub mod library;
 pub mod library_check;
 pub mod local_edits;
+pub mod net_info;
 pub mod output_run;
 pub mod package;
 pub mod pcb_update;
@@ -52,6 +53,7 @@ pub fn register_all(registry: &mut Registry) {
     extract::register_all(registry);
     library_check::register_all(registry);
     local_edits::register_all(registry);
+    net_info::register_all(registry);
     output_run::register_all(registry);
     pcb_update::register_all(registry);
     port_partners::register_all(registry);

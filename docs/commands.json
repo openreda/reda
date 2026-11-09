@@ -24429,6 +24429,17 @@
                 },
                 "type": "array"
               },
+              "color": {
+                "description": "Its colour as `#rrggbb`, for its Ratsnest lines (and its copper with Net colours\non); left out when unset. No manufacturing output reads it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "loop_removal": {
+                "description": "Whether a route that closes a loop on this Net removes the old path; left out when\non. Off for power and ground Nets that need loops.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -31869,6 +31880,17 @@
                 },
                 "type": "array"
               },
+              "color": {
+                "description": "Its colour as `#rrggbb`, for its Ratsnest lines (and its copper with Net colours\non); left out when unset. No manufacturing output reads it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "loop_removal": {
+                "description": "Whether a route that closes a loop on this Net removes the old path; left out when\non. Off for power and ground Nets that need loops.",
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -36977,6 +36999,100 @@
     },
     {
       "category": "pcb",
+      "description": "The board's size, area, Component area, density (Component area ÷ (2 × board area)), routed percentage, and counts of Components, copper Layers, Nets and primitives.",
+      "icon": "inspect",
+      "id": "pcb.board.info",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
+        "title": "NoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "area": {
+            "description": "The board's area in mm²: inside the Board Outline, less the Board Cutouts.",
+            "format": "double",
+            "type": "number"
+          },
+          "component_area": {
+            "description": "The area the Components take in mm²: each Footprint's Courtyard box (its Pads' box\nwithout a Courtyard), added up.",
+            "format": "double",
+            "type": "number"
+          },
+          "components": {
+            "description": "Placed Footprints.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "density": {
+            "description": "Component area ÷ (2 × board area), both sides counting; left out without an area.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "height": {
+            "description": "The Board Outline's height; left out without an outline.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "layers": {
+            "description": "Copper Layers.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "nets": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "primitives": {
+            "description": "Pads, Free Pads, Tracks, Vias, Zones, board graphics and board text.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "routed_percent": {
+            "description": "The share of connections copper has made, in percent; 100 with none to make.",
+            "format": "double",
+            "type": "number"
+          },
+          "width": {
+            "description": "The Board Outline's width; left out without an outline.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "area",
+          "component_area",
+          "routed_percent",
+          "components",
+          "layers",
+          "nets",
+          "primitives"
+        ],
+        "title": "BoardInfoResult",
+        "type": "object"
+      },
+      "title": "Board Information"
+    },
+    {
+      "category": "pcb",
       "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
       "icon": "move",
       "id": "pcb.board.move",
@@ -38368,6 +38484,89 @@
         "type": "object"
       },
       "title": "Delete Copper"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets Tracks and Vias to the Net of the Footprint Pads they touch, through the Tracks and Vias joined to them. Copper touching Pads of two Nets stays as it is and is reported; copper touching no Pad keeps its Net. With `nets`, only copper touching Pads of those Nets.",
+      "icon": "net",
+      "id": "pcb.copper.update_nets",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "nets": {
+            "default": null,
+            "description": "Only copper touching Pads of these Nets; left out, all copper.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "UpdateNetsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "NetConflict": {
+            "description": "Copper left as it is because it touches Pads of more than one Net.",
+            "properties": {
+              "nets": {
+                "description": "The Nets of the Pads they touch, sorted.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "objects": {
+                "description": "The joined Tracks and Vias, sorted.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "objects",
+              "nets"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "changed": {
+            "description": "The Tracks and Vias whose Net changed, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conflicts": {
+            "description": "Copper touching Pads of two or more Nets, which stays as it is.",
+            "items": {
+              "$ref": "#/$defs/NetConflict"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed",
+          "conflicts"
+        ],
+        "title": "UpdateNetsResult",
+        "type": "object"
+      },
+      "title": "Update Copper Nets"
     },
     {
       "category": "pcb",
@@ -42778,6 +42977,217 @@
     },
     {
       "category": "pcb",
+      "description": "The smallest gap between two primitives (copper, board graphics or the board edge), wherever it falls: with the Layers flattened and on a Layer both are on, with each one's Layer and nearest point. Group objects such as Footprints and Dimensions can't be measured; measure a Pad instead.",
+      "icon": "measure",
+      "id": "pcb.measure.clearance",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "Primitive": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/PadRef"
+              }
+            ],
+            "description": "A primitive to measure: a UUID, or a Pad of a Footprint instance."
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/Primitive",
+            "description": "A Track, Via, Free Pad, Zone (its fill), board graphic, the Board Outline or a\nBoard Cutout by UUID, or a Footprint Pad as `{footprint, pad}`."
+          },
+          "b": {
+            "$ref": "#/$defs/Primitive",
+            "description": "The other primitive, as `a`."
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "title": "MeasureClearanceParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "GapEnd": {
+            "description": "One end of a measured gap.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The point on the primitive nearest the other."
+              },
+              "layer": {
+                "description": "The Layer the primitive is on there.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer",
+              "at"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "SameLayerGap": {
+            "description": "The gap on one Layer both primitives are on.",
+            "properties": {
+              "distance": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "distance",
+              "layer"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "a": {
+            "$ref": "#/$defs/GapEnd",
+            "description": "Where the smallest gap falls on `a`."
+          },
+          "b": {
+            "$ref": "#/$defs/GapEnd",
+            "description": "Where the smallest gap falls on `b`."
+          },
+          "same_layer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SameLayerGap"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The smallest gap on a Layer both are on; left out when they share none."
+          },
+          "xy": {
+            "description": "The smallest gap, wherever it falls, with the Layers flattened: 0 where the\nprimitives overlap seen from above.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "xy",
+          "a",
+          "b"
+        ],
+        "title": "MeasureClearanceResult",
+        "type": "object"
+      },
+      "title": "Measure Clearance"
+    },
+    {
+      "category": "pcb",
+      "description": "The total length of the Tracks among `objects`, arcs along their curve. Vias, Pads, fills and other objects don't count.",
+      "icon": "measure",
+      "id": "pcb.measure.length",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "The selected objects; only Tracks count.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "MeasureLengthParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "length": {
+            "description": "The Tracks' total centreline length, arcs along their curve.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "tracks": {
+            "description": "How many Tracks were counted.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "length",
+          "tracks"
+        ],
+        "title": "MeasureLengthResult",
+        "type": "object"
+      },
+      "title": "Measure Selection Length"
+    },
+    {
+      "category": "pcb",
       "description": "Removes Mechanical Parts placed on the PCB, and any Footprint copy no Footprint uses any more. Footprints synced from the schematic go away by deleting their Component and syncing.",
       "icon": "delete",
       "id": "pcb.mechanical.delete",
@@ -43234,6 +43644,205 @@
     },
     {
       "category": "pcb",
+      "description": "The Net block of Track Properties: the Net's classes, colour, loop removal, routed length and routed percentage, and for a Track width on a Layer its resistance (copper at 1.72e-8 Ω·m, the Stackup thickness) and the IPC-2221 estimate of its maximum current at the temperature rise `delta_t`. Every default used is returned.",
+      "icon": "net",
+      "id": "pcb.net.info",
+      "kind": "query",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "delta_t": {
+            "default": null,
+            "description": "The temperature rise in °C the current estimate allows; left out, the\n`pcb.net_info.delta_t` Preference (10 °C unless changed).",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "net": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "track": {
+            "default": null,
+            "description": "A Track whose Layer, width and resistance to use: \"this Track\" in the block.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The Track width to give figures for; left out, the Track's, else the Net Class's\ntrack width."
+          }
+        },
+        "required": [
+          "net"
+        ],
+        "title": "NetInfoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Connections": {
+            "description": "How many of a Net's connections copper makes: a Net with `n` Pads (Footprint Pads and\nFree Pads) needs `n - 1`, and each island of its copper holding a Pad beyond the first\nis one not made yet.",
+            "properties": {
+              "made": {
+                "description": "Those copper makes.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total": {
+                "description": "The connections the Net needs.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "total",
+              "made"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the Net block shows for one Net and one Track width on one Layer.",
+        "properties": {
+          "classes": {
+            "description": "Its Net Classes besides the Default Net Class, which every Net is in.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "color": {
+            "description": "Its colour; left out when unset.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connections": {
+            "$ref": "#/$defs/Connections",
+            "description": "Its connections, and how many copper makes."
+          },
+          "delta_t": {
+            "description": "The temperature rise the current estimate allows, in °C.",
+            "format": "double",
+            "type": "number"
+          },
+          "layer": {
+            "description": "The copper Layer they are for, and its Stackup copper thickness.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "loop_removal": {
+            "type": "boolean"
+          },
+          "max_current_estimate": {
+            "description": "The IPC-2221 estimate of the most current this width carries, in A. An estimate.",
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "net": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "outer": {
+            "description": "Whether the Layer is outer copper.",
+            "type": "boolean"
+          },
+          "resistance_per_mm": {
+            "description": "The resistance of 1 mm of this width, in Ω.",
+            "format": "double",
+            "type": "number"
+          },
+          "routed_length": {
+            "description": "The length of all its Tracks.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "routed_percent": {
+            "description": "The share of its connections copper makes, in percent.",
+            "format": "double",
+            "type": "number"
+          },
+          "thickness": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "track_resistance": {
+            "description": "The Track's resistance in Ω, when a Track was given.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "width": {
+            "description": "The width the figures below are for.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "net",
+          "name",
+          "classes",
+          "loop_removal",
+          "routed_length",
+          "connections",
+          "routed_percent",
+          "width",
+          "layer",
+          "thickness",
+          "outer",
+          "delta_t",
+          "resistance_per_mm",
+          "max_current_estimate"
+        ],
+        "title": "NetInfo",
+        "type": "object"
+      },
+      "title": "Net Information"
+    },
+    {
+      "category": "pcb",
       "description": "Removes Nets from the Net Class `class`: the `nets` listed, or those whose names match the glob `pattern` (`*` and `?`, ignoring case). Every Net stays in the Default Net Class. Returns the Nets that changed.",
       "icon": "net_class",
       "id": "pcb.net.remove_from_class",
@@ -43295,6 +43904,111 @@
         "type": "object"
       },
       "title": "Remove Nets from Net Class"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets the colour of Nets (`#rrggbb`), or unsets it when `color` is left out. It always colours the Nets' Ratsnest lines, and their copper with Net colours on; no manufacturing output reads it. Returns the Nets that changed.",
+      "icon": "net",
+      "id": "pcb.net.set_color",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "default": null,
+            "description": "The colour as `#rrggbb`; left out (or `null`), the Nets have none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nets": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets"
+        ],
+        "title": "SetColorParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the Net setting Commands return.",
+        "properties": {
+          "nets": {
+            "description": "The Nets that changed, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets"
+        ],
+        "title": "NetsChanged",
+        "type": "object"
+      },
+      "title": "Set Net Colour"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets how routes behave on Nets: `loop_removal` (on by default) removes the old path when a route closes a loop. Returns the Nets that changed.",
+      "icon": "net",
+      "id": "pcb.net.set_routing",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "loop_removal": {
+            "description": "Whether a route that joins two points already joined on the Net removes the old\npath. Off for power and ground Nets that need loops.",
+            "type": "boolean"
+          },
+          "nets": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets",
+          "loop_removal"
+        ],
+        "title": "SetRoutingParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the Net setting Commands return.",
+        "properties": {
+          "nets": {
+            "description": "The Nets that changed, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "nets"
+        ],
+        "title": "NetsChanged",
+        "type": "object"
+      },
+      "title": "Set Net Routing"
     },
     {
       "category": "pcb",
@@ -50097,6 +50811,146 @@
         "type": "object"
       },
       "title": "Drag Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Sets values of Track segments: Start and End, Length (Start stays and End moves along the line), width, copper Layer and Net (`null` for none). Values left out stay. Returns the Tracks that changed.",
+      "icon": "track",
+      "id": "pcb.track.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The new end point; not with `length`."
+          },
+          "layer": {
+            "description": "A copper Layer, such as `copper_bottom`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "length": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The new length of a straight Track: Start stays and End moves along the line."
+          },
+          "net": {
+            "default": null,
+            "description": "The Net's UUID, or `null` for no Net; left out, the Net stays.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The new start point."
+          },
+          "tracks": {
+            "description": "The Track segments' UUIDs; each gets every value given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "tracks"
+        ],
+        "title": "TrackSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "tracks": {
+            "description": "The Tracks that changed, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "tracks"
+        ],
+        "title": "TrackSetResult",
+        "type": "object"
+      },
+      "title": "Set Track"
     },
     {
       "category": "pcb",
