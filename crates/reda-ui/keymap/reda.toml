@@ -70,6 +70,16 @@ command = "view.messages.step:next"
 key = "Shift+F4"
 command = "view.messages.step:previous"
 
+# F3 and Shift+F3 step through the Find Panel's matches.
+
+[[bind]]
+key = "F3"
+command = "schematic.find.step:next"
+
+[[bind]]
+key = "Shift+F3"
+command = "schematic.find.step:previous"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]
@@ -216,25 +226,25 @@ params = { objects = "$selection", segments = "$segments" }
 [[bind]]
 context = "schematic"
 key = "Mod+X"
-command = "schematic.cut"
-params = { objects = "$selection" }
+command = "tool.copy"
+params = { objects = "$selection", cut = true }
 
 [[bind]]
 context = "schematic"
 key = "Mod+C"
-command = "schematic.copy"
+command = "tool.copy"
 params = { objects = "$selection" }
 
 [[bind]]
 context = "schematic"
 key = "Mod+V"
-command = "schematic.paste"
-params = { document = "$active_document", clipboard = "$clipboard", at = "$cursor" }
+command = "tool.paste"
+params = { document = "$active_document", clipboard = "$clipboard" }
 
 [[bind]]
 context = "schematic"
 key = "Mod+D"
-command = "schematic.duplicate"
+command = "tool.duplicate"
 params = { objects = "$selection" }
 
 [[bind]]
@@ -376,7 +386,87 @@ context = "tool:break_wire"
 key = "Tab"
 command = "tool.edit_properties"
 
-# Find (Mod+F) searches every sheet by Designator, value or Net name.
+# During a drag, Mod+Space turns the rubber-banded Wires' corners the other way (Alt held
+# keeps the drag horizontal or vertical). Mod+arrows nudge the selection one snap grid,
+# Shift+Mod+arrows ten, as one drag each.
+
+[[bind]]
+context = "schematic"
+key = "Mod+Space"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "schematic"
+key = "Mod+Left"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "left" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Left"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "left", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Right"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "right" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Right"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "right", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Up"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "up" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Up"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "up", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Down"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "down" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Down"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "down", steps = 10 }
+
+# F2 edits the selected name, Designator, value, field or text in place. Tab while
+# placing a Net Label, Port or Power Port pauses the Tool to edit the next name.
+
+[[bind]]
+context = "schematic"
+key = "F2"
+command = "schematic.edit_in_place"
+
+[[bind]]
+context = "tool:net_label"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:port"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:power_port"
+key = "Tab"
+command = "tool.edit_properties"
+
+# Find (Mod+F) shows the Find Panel with its text field focused.
 
 [[bind]]
 context = "schematic"

@@ -88,7 +88,7 @@ fn designators(h: &Harness<'_, App>) -> Vec<String> {
 }
 
 #[test]
-fn mod_f_opens_find_which_selects_and_zooms_to_the_match() {
+fn mod_f_opens_the_find_panel_which_selects_and_zooms_to_the_match() {
     let dir = TempDir::new("find-window");
     let mut h = harness(&dir);
     h.run();
@@ -117,6 +117,9 @@ fn mod_f_opens_find_which_selects_and_zooms_to_the_match() {
         .unwrap();
     assert_eq!(unit.designator, "R3");
     h.get_by_label("R3 (Designator) on Sheet 1");
+    // It is a Panel, with its options.
+    h.get_by_label("Mask Matching");
+    h.get_by_label("Whole word");
 }
 
 #[test]

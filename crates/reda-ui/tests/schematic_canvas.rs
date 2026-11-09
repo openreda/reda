@@ -796,8 +796,12 @@ fn keys_on_the_canvas_run_commands_and_the_edit_menu_aligns() {
     h.run();
     let ids = journal_since(&h, before);
     assert!(ids.contains(&"view.grid.cycle".to_owned()), "{ids:?}");
-    assert!(ids.contains(&"schematic.duplicate".to_owned()), "{ids:?}");
+    // Mod+D starts stamping copies (Duplicate), which floats them on the cursor.
+    assert!(ids.contains(&"tool.duplicate".to_owned()), "{ids:?}");
     assert_eq!(ids.last().unwrap(), "schematic.delete");
+    // Esc ends the stamping.
+    h.key_press(Key::Escape);
+    h.run();
 
     // Select everything and align it from the Edit menu.
     h.hover_at(pin);

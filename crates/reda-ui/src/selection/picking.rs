@@ -229,6 +229,29 @@ pub fn click(
     Some(set_command(&selection))
 }
 
+/// How long after the click that picked something a click on it again is a slow second
+/// click (in-place edit) rather than a double-click or a cycling repeat, in seconds.
+pub const SLOW_SECOND_CLICK: f64 = 0.6;
+
+/// What a plain click at `at` hits when it is a slow second click: it lands on exactly
+/// what is selected, which the last plain click picked from the same spot more than
+/// [`SLOW_SECOND_CLICK`] ago. The hit is an object, or a field's child id.
+pub fn slow_second_click(
+    shell: &Shell,
+    document: Uuid,
+    at: (f64, f64),
+    tolerance: f64,
+) -> Option<Uuid> {
+    let picker = shell.engine().view().get::<Picking>()?;
+    let last = picker.stacks.get(&document)?;
+    let now = picker.now();
+    let top = *stack(shell, document, at, tolerance).first()?;
+    let picked = last.objects.get(last.index) == Some(&top);
+    let slow = last.time.is_finite() && now - last.time > SLOW_SECOND_CLICK;
+    let only = shell.selection().canvas_ids() == selected(shell, document, &[top]).canvas_ids();
+    (picked && slow && only).then_some(top)
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CycleParams {

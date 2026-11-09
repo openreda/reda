@@ -454,8 +454,9 @@ fn mirror_x_mirror_y_flip_side_and_edit_properties_are_tool_keys() {
     press(&mut shell, "N");
     assert_eq!(press(&mut shell, "X"), ["tool.mirror_x"]);
     assert_eq!(press(&mut shell, "Y"), ["tool.mirror_y"]);
-    // Tab is Properties only in a Tool that has them.
-    assert!(shell.run("tool.edit_properties", json!({})).is_err());
+    // Tab is Properties only in a Tool that has them; in the Net Label Tool it edits the
+    // next name in place.
+    assert!(shell.run("tool.edit_properties", json!({})).is_ok());
     press(&mut shell, "Esc");
     assert!(shell.run("tool.edit_properties", json!({})).is_err());
     let registry = shell.engine().registry();

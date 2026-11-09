@@ -119,6 +119,7 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
         PanelId::Navigator => tr!("panel-navigator"),
+        PanelId::Find => tr!("panel-find"),
     }
 }
 
@@ -1018,6 +1019,8 @@ impl Cx<'_, '_> {
                 self.frame.commands.extend(options);
                 let options = schematic_editor::break_wire_options(ui, self.shell, *uuid, rect);
                 self.frame.commands.extend(options);
+                let edits = schematic_editor::decorate(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(edits);
                 let active = self.shell.active_document().map(|d| d.document) == Some(*uuid);
                 if active {
                     crate::keys_card::show(ui, self.shell, rect);
@@ -1058,6 +1061,7 @@ impl Cx<'_, '_> {
                     self.push_call(id, params);
                 }
             }
+            TabKey::Panel(PanelId::Find) => panels::find::show(ui, self.shell),
             TabKey::Panel(PanelId::Navigator) => {
                 let commands = panels::navigator::show(ui, self.shell);
                 self.frame.commands.extend(commands);

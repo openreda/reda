@@ -134,6 +134,47 @@ impl Command for NetLabelAdd {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct NetLabelSetParams {
+    /// The Net Label's UUID.
+    pub uuid: Uuid,
+    /// The new Net name, checked as `schematic.net_label.add` checks it.
+    pub name: String,
+}
+
+pub struct NetLabelSet;
+
+impl Command for NetLabelSet {
+    const META: Meta = Meta {
+        id: "schematic.net_label.set",
+        title: "Rename Net Label",
+        description: "Renames a Net Label, with the name checks of schematic.net_label.add \
+                      (in-place edit uses it).",
+        category: "schematic",
+        icon: "net_label",
+        kind: Kind::Edit,
+    };
+    type Params = NetLabelSetParams;
+    type Output = crate::ports::SetResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: NetLabelSetParams,
+    ) -> Result<crate::ports::SetResult, CommandError> {
+        let Some(Object::NetLabel(mut label)) = cx.project()?.object(p.uuid) else {
+            return Err(CommandError::not_found(format!(
+                "no Net Label has UUID {}",
+                p.uuid
+            )));
+        };
+        label.object.name = crate::ports::net_name(&p.name, "Net Label")?;
+        cx.tx()?.replace(Object::NetLabel(label))?;
+        Ok(crate::ports::SetResult { uuid: p.uuid })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NoConnectAddParams {
     /// The Schematic Sheet.
     pub document: Uuid,
