@@ -80,7 +80,7 @@ impl ParamsDialog for ParamForm {
 }
 
 /// One field: its label, its input, and its problem under the input.
-pub(crate) fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
+fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
     let label = if field.required {
         field.label.clone()
     } else {

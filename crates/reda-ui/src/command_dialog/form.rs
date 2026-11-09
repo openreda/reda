@@ -225,7 +225,7 @@ impl ParamForm {
 
 /// A param check's message for the field `name`: the pointer is left out when it is the
 /// field itself, else given from inside the field (`height: expected …`).
-fn field_message(name: &str, error: &reda_engine::command::CommandError) -> String {
+pub(crate) fn field_message(name: &str, error: &reda_engine::command::CommandError) -> String {
     let pointer = error
         .details
         .as_ref()
@@ -248,7 +248,7 @@ fn field_message(name: &str, error: &reda_engine::command::CommandError) -> Stri
 
 /// The value a field gives: `Ok(None)` when it is left empty, `Err` when what was typed
 /// cannot be read.
-fn value(input: &Input) -> Result<Option<Value>, String> {
+pub(crate) fn value(input: &Input) -> Result<Option<Value>, String> {
     Ok(match input {
         Input::Text(t) if t.is_empty() => None,
         Input::Text(t) => Some(Value::String(t.clone())),
@@ -284,7 +284,13 @@ fn value(input: &Input) -> Result<Option<Value>, String> {
     })
 }
 
-fn field(root: &Value, name: &str, schema: &Value, required: bool, given: Option<&Value>) -> Field {
+pub(crate) fn field(
+    root: &Value,
+    name: &str,
+    schema: &Value,
+    required: bool,
+    given: Option<&Value>,
+) -> Field {
     let resolved = unwrap(root, schema);
     let text = |v: Option<&Value>| match v {
         None | Some(Value::Null) => String::new(),
@@ -332,7 +338,7 @@ fn field(root: &Value, name: &str, schema: &Value, required: bool, given: Option
 }
 
 /// `fab_preset` as "Fab preset".
-fn words(name: &str) -> String {
+pub(crate) fn words(name: &str) -> String {
     let spaced = name.replace('_', " ");
     let mut chars = spaced.chars();
     match chars.next() {
@@ -342,7 +348,7 @@ fn words(name: &str) -> String {
 }
 
 /// `schema` with `$ref`s followed and an optional's `anyOf [X, null]` reduced to X.
-fn unwrap<'a>(root: &'a Value, schema: &'a Value) -> &'a Value {
+pub(crate) fn unwrap<'a>(root: &'a Value, schema: &'a Value) -> &'a Value {
     let mut schema = schema;
     for _ in 0..16 {
         if let Some(target) = schema["$ref"]

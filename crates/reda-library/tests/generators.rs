@@ -432,7 +432,8 @@ fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it()
     let params = json!({"library": LIBRARY, "size": "0603"});
     let footprint = reda_library::generate::preview(chip, &params)
         .expect("the chip generator has a preview")
-        .unwrap();
+        .unwrap()
+        .footprint;
     assert_eq!(footprint.name, "RESC1608X55N");
     let mut pads: Vec<_> = footprint
         .pads
@@ -451,7 +452,7 @@ fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it()
     // A name the caller gives replaces the IPC-7351 one; bad params say which one.
     let named = json!({"library": LIBRARY, "size": "0603", "name": "R0603"});
     let preview = reda_library::generate::preview(chip, &named);
-    assert_eq!(preview.unwrap().unwrap().name, "R0603");
+    assert_eq!(preview.unwrap().unwrap().footprint.name, "R0603");
     let bad = json!({"library": LIBRARY, "rows": 3, "pins_per_row": 4, "pitch": "2.54"});
     let error = reda_library::generate::preview("library.footprint.generate.header", &bad)
         .unwrap()
@@ -466,6 +467,36 @@ fn a_preview_computes_the_footprint_a_generator_would_write_without_writing_it()
     }
     assert_eq!(reda_library::generate::GENERATORS.len(), 11);
     assert!(reda_library::generate::preview("library.check", &json!({})).is_none());
+}
+
+#[test]
+fn a_preview_gives_the_warnings_and_names_the_values_a_generator_calculates() {
+    let chip = "library.footprint.generate.chip";
+    let plain = json!({"library": LIBRARY, "size": "0603"});
+    let preview = reda_library::generate::preview(chip, &plain)
+        .unwrap()
+        .unwrap();
+    assert!(preview.warnings.is_empty());
+    let toe = json!({"library": LIBRARY, "size": "0603", "goals": {"fillet": {"toe": "0.6mm"}}});
+    let preview = reda_library::generate::preview(chip, &toe)
+        .unwrap()
+        .unwrap();
+    assert_eq!(preview.warnings.len(), 1);
+    assert_eq!(preview.warnings[0].params, ["/goals/fillet/toe"]);
+    // The values left out to be calculated: IPC-7351's for surface mount, the hole and
+    // Pad for through-hole.
+    let smd = reda_library::generate::calculated(chip).unwrap();
+    assert!(smd.contains(&"/pads/length") && smd.contains(&"/goals/fillet/toe"));
+    let th = reda_library::generate::calculated("library.footprint.generate.header").unwrap();
+    assert_eq!(
+        th,
+        [
+            "/tolerances/courtyard_excess",
+            "/pads/hole",
+            "/pads/diameter"
+        ]
+    );
+    assert!(reda_library::generate::calculated("library.check").is_none());
 }
 
 /// Each Pad's number, centre and size, sorted by number.

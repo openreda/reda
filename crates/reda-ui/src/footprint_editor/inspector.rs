@@ -87,6 +87,9 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         if read_only {
             ui.colored_label(ui.visuals().warn_fg_color, tr!("footprint-read-only"));
         }
+        if let Some(generator) = &footprint.generator {
+            generated_by(ui, shell, element, &generator.command, read_only, &mut out);
+        }
         ui.horizontal(|ui| {
             let save = ui.add_enabled(!read_only, egui::Button::new(tr!("footprint-save")));
             if save.clicked() {
@@ -116,6 +119,30 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         }
     });
     out
+}
+
+/// Which generator made the Footprint, and Regenerate…, which opens the generator form
+/// on its stored params.
+fn generated_by(
+    ui: &mut Ui,
+    shell: &Shell,
+    element: Uuid,
+    command: &str,
+    read_only: bool,
+    out: &mut Vec<Invocation>,
+) {
+    let title = shell.engine().registry().get(command).map_or_else(
+        || command.to_owned(),
+        |m| crate::bars::command_title(command, m.title),
+    );
+    ui.weak(tr!("footprint-generated-by", generator = title));
+    let regenerate = ui.add_enabled(!read_only, egui::Button::new(tr!("footprint-regenerate")));
+    if regenerate.clicked() {
+        out.push(cmd(
+            "library.footprint.regenerate",
+            json!({ "footprint": element }),
+        ));
+    }
 }
 
 fn cmd(id: &str, params: Value) -> Invocation {

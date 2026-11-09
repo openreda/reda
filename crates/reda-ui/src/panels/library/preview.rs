@@ -12,7 +12,7 @@ const HEIGHT: f32 = 120.0;
 const MARGIN: f32 = 8.0;
 
 /// Fits Document points (nm, y up) into a screen rect.
-struct Fit {
+pub(crate) struct Fit {
     rect: Rect,
     center: (f64, f64),
     scale: f64,
@@ -20,7 +20,11 @@ struct Fit {
 
 impl Fit {
     fn new(rect: Rect, lo: (f64, f64), hi: (f64, f64)) -> Fit {
-        let inner = rect.shrink(MARGIN);
+        Fit::with_margin(rect, lo, hi, MARGIN)
+    }
+
+    fn with_margin(rect: Rect, lo: (f64, f64), hi: (f64, f64), margin: f32) -> Fit {
+        let inner = rect.shrink(margin);
         let w = (hi.0 - lo.0).max(1.0);
         let h = (hi.1 - lo.1).max(1.0);
         let scale = (f64::from(inner.width()) / w).min(f64::from(inner.height()) / h);
@@ -31,7 +35,7 @@ impl Fit {
         }
     }
 
-    fn pos(&self, p: Point) -> Pos2 {
+    pub(crate) fn pos(&self, p: Point) -> Pos2 {
         let c = self.rect.center();
         pos2(
             c.x + ((p.x.0 as f64 - self.center.0) * self.scale) as f32,
@@ -39,7 +43,7 @@ impl Fit {
         )
     }
 
-    fn len(&self, n: Nm) -> f32 {
+    pub(crate) fn len(&self, n: Nm) -> f32 {
         (n.0 as f64 * self.scale) as f32
     }
 }
@@ -92,7 +96,11 @@ fn point(p: (f64, f64)) -> Point {
 
 /// A box for a preview, announced by `label`.
 fn canvas(ui: &mut Ui, label: String) -> (Rect, egui::Painter) {
-    let size = Vec2::new(ui.available_width(), HEIGHT);
+    canvas_sized(ui, label, HEIGHT)
+}
+
+fn canvas_sized(ui: &mut Ui, label: String, height: f32) -> (Rect, egui::Painter) {
+    let size = Vec2::new(ui.available_width(), height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::Image, true, label.clone()));
     let painter = ui.painter_at(rect);
@@ -208,6 +216,17 @@ fn layer_colour(ui: &Ui, layer: FootprintLayer) -> Color32 {
 
 /// Draws `footprint`: its Pads (copper colour) and graphics.
 pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
+    footprint_fitted(ui, footprint, HEIGHT, MARGIN);
+}
+
+/// [`footprint`] in a box `height` high with `margin` round the drawing, giving back its
+/// painter and fit for drawing over it.
+pub(crate) fn footprint_fitted(
+    ui: &mut Ui,
+    footprint: &Footprint,
+    height: f32,
+    margin: f32,
+) -> Option<(egui::Painter, Fit)> {
     let mut bounds = Bounds::default();
     footprint
         .graphics
@@ -217,11 +236,9 @@ pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
         let r = (pad.width.0.max(pad.height.0) as f64) / 2.0;
         bounds.add(pad.at, r);
     }
-    let (rect, painter) = canvas(ui, tr!("library-footprint-preview"));
-    let Some((lo, hi)) = bounds.0 else {
-        return;
-    };
-    let fit = Fit::new(rect, lo, hi);
+    let (rect, painter) = canvas_sized(ui, tr!("library-footprint-preview"), height);
+    let (lo, hi) = bounds.0?;
+    let fit = Fit::with_margin(rect, lo, hi, margin);
     let copper = Color32::from_rgb(0xc8, 0x8a, 0x2e);
     for pad in &footprint.pads {
         let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
@@ -254,4 +271,5 @@ pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
         let stroke = Stroke::new(1.0, layer_colour(ui, g.layer));
         draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
     }
+    Some((painter, fit))
 }

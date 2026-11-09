@@ -373,6 +373,12 @@ impl App {
     /// Runs a Command the GUI asked for, unless it would close a dirty Document's tab or
     /// replace a Project with unsaved changes: then the closing prompt asks first.
     fn run_held(&mut self, id: &str, params: serde_json::Value) {
+        // A panel's button for a Command that always asks first, such as Regenerate…,
+        // opens its dialog.
+        if self.dialogs.asks_always(id) {
+            self.call(id, params);
+            return;
+        }
         if self.closing.hold(&self.shell, &self.settings, id, &params) {
             let _ = self.shell.run_reporting(id, params);
         }
