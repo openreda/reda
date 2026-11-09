@@ -19,6 +19,9 @@ pub const NOTO_SANS_FONT: &str = "Noto Sans";
 #[serde(deny_unknown_fields)]
 pub struct PcbText {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The Layer it is drawn on.
     pub layer: Uuid,
     /// The text; `\n` starts a new line.
@@ -56,6 +59,9 @@ impl std::ops::DerefMut for PcbText {
 #[serde(deny_unknown_fields)]
 pub struct PcbGraphic {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The Layer it is drawn on.
     pub layer: Uuid,
     /// The pen width.

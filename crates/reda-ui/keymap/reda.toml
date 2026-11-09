@@ -428,6 +428,18 @@ context = "pcb"
 key = "U"
 command = "pcb.selection.connected"
 
+[[bind]]
+context = "pcb"
+key = "Mod+C"
+command = "pcb.copy"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+V"
+command = "pcb.paste"
+params = { clipboard = "$clipboard" }
+
 # Placing a Part from the Library panel: Space, X, Y, L and Esc come from the sheet and
 # board bindings above (they turn the Part in flight first); Tab opens Properties to edit
 # it, and later placements keep the edits.

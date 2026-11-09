@@ -173,7 +173,7 @@ fn an_update_keeps_placement_and_leaves_fields_alone() {
         json!({"footprint": h1, "at": {"x": "25mm", "y": "3mm"}, "size": "1.5mm"}),
     );
     b.engine
-        .run_ok("pcb.lock", json!({"footprints": [h1], "locked": true}));
+        .run_ok("pcb.lock", json!({"objects": [h1], "locked": true}));
     let before = b.object(&h1);
     assert!(before.get("text_overrides").is_some(), "{before}");
     assert_eq!(

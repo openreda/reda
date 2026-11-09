@@ -718,6 +718,7 @@ fn note_text(note: route::Note) -> String {
         route::Note::LoopNarrower => tr!("route-loop-narrower"),
         route::Note::LoopBranch => tr!("route-loop-branch"),
         route::Note::LoopThroughVias => tr!("route-loop-through-vias"),
+        route::Note::LoopLocked => tr!("route-loop-locked"),
         route::Note::ZoneNotConnected => tr!("route-zone-not-connected"),
     }
 }

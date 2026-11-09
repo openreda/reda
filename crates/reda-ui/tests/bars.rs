@@ -352,6 +352,11 @@ fn every_binding_names_a_command_or_preset_and_fits_its_params() {
             if id == "app.quit" || id == "app.cli.install" || id == "library.element.close" {
                 continue;
             }
+            // A binding that leaves out a required param opens its form instead of running
+            // (Move by ΔX/ΔY asks for the delta, Rotate About a Point for the angle).
+            if reda_ui::command_dialog::lacks_required(shell.engine().registry(), &id, &params) {
+                continue;
+            }
             if let Err(e) = shell.run(&id, params.clone()) {
                 assert!(
                     !matches!(e.code, ErrorCode::InvalidParams | ErrorCode::NotFound),

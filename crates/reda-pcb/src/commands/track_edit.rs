@@ -82,13 +82,15 @@ pub fn drag_plan(
                 p == end || q == end
             })
             .collect();
+        // A locked neighbour stays put: the drag stops at it, as at a Pad.
         let stretchy = !fixed
             && neighbours
                 .iter()
-                .all(|t| matches!(t.geometry, TrackGeometry::Line { .. }));
+                .all(|t| matches!(t.geometry, TrackGeometry::Line { .. }) && !t.locked);
         if !stretchy {
             if fixed || !neighbours.is_empty() {
                 plan.created.push(Track {
+                    locked: false,
                     uuid: new_id(),
                     layer: dragged.layer,
                     net: dragged.net,
@@ -146,6 +148,9 @@ pub struct TrackDragParams {
     /// Moves the segment alone, leaving its neighbours where they are.
     #[serde(default)]
     pub detach: bool,
+    /// Drags a locked Track too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -187,6 +192,7 @@ impl Command for TrackDrag {
                 format!("no Track has UUID {}", p.track),
             ));
         }
+        crate::lock::refuse(pcb, [p.track], p.include_locked, "drag")?;
         let by = p.by.point();
         if by == Point::default() {
             return Err(CommandError::invalid_params(
@@ -231,6 +237,9 @@ pub struct CopperDeleteParams {
     /// to end with it on the same Layer, up to a Pad, a Via or a branch.
     #[serde(default)]
     pub whole: bool,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -284,6 +293,7 @@ impl Command for CopperDelete {
         };
         deleted.sort();
         deleted.dedup();
+        crate::lock::refuse(pcb, deleted.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in &deleted {
             tx.remove(*uuid)?;

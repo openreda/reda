@@ -1,8 +1,8 @@
 //! The Board Outline and Board Cutouts.
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams,
-    Registry, Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
+    Unavailable,
 };
 use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
 use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
@@ -74,7 +74,11 @@ fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, C
     if let Some(old) = old {
         tx.remove(old)?;
     }
-    let outline = BoardOutline { uuid, vertices };
+    let outline = BoardOutline {
+        locked: false,
+        uuid,
+        vertices,
+    };
     tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
     Ok(Created { uuid })
 }
@@ -300,27 +304,38 @@ impl Command for CutoutAddFromGraphics {
 
 pub struct OutlineDelete;
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineDeleteParams {
+    /// Deletes a locked Board Outline too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
 impl Command for OutlineDelete {
     const META: Meta = Meta {
         id: "pcb.board_outline.delete",
         title: "Delete Board Outline",
-        description: "Deletes the Board Outline.",
+        description: "Deletes the Board Outline. Refused when it is locked, unless \
+                      `include_locked`.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,
     };
-    type Params = NoParams;
+    type Params = OutlineDeleteParams;
     type Output = ();
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
-        let outline = pcb(cx)?
+    fn run(&self, cx: &mut Context<'_>, p: OutlineDeleteParams) -> Result<(), CommandError> {
+        let pcb = pcb(cx)?;
+        let outline = pcb
             .outline()
             .map(|o| o.uuid)
             .ok_or_else(|| CommandError::not_found("the board has no Board Outline"))?;
+        crate::lock::refuse(pcb, [outline], p.include_locked, "delete")?;
         cx.tx()?.remove(outline)?;
         Ok(())
     }
@@ -361,7 +376,11 @@ impl Command for CutoutAdd {
 fn add_cutout(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
     let document = pcb(cx)?.uuid;
     let uuid = cx.new_id();
-    let cutout = BoardCutout { uuid, vertices };
+    let cutout = BoardCutout {
+        locked: false,
+        uuid,
+        vertices,
+    };
     cx.tx()?
         .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
     Ok(Created { uuid })
@@ -374,6 +393,9 @@ pub struct CutoutDelete;
 pub struct CutoutDeleteParams {
     /// The Board Cutout's UUID.
     pub cutout: Uuid,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for CutoutDelete {
@@ -399,6 +421,7 @@ impl Command for CutoutDelete {
                 p.cutout
             )));
         }
+        crate::lock::refuse(pcb(cx)?, [p.cutout], p.include_locked, "delete")?;
         cx.tx()?.remove(p.cutout)?;
         Ok(())
     }

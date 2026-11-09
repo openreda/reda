@@ -484,6 +484,41 @@ fn zones_refill_after_each_edit_unless_turned_off() {
 }
 
 #[test]
+fn placement_preferences_keep_the_footprint_move_modes() {
+    let home = TempDir::new("prefs-placement");
+    for (key, default) in [
+        ("pcb.place.obstacle_mode", json!("ignore")),
+        ("pcb.place.alignment_guides", json!(true)),
+        ("pcb.place.ratsnest_mode", json!("breaks")),
+    ] {
+        let out = get(home.path(), key);
+        assert_eq!(out["value"], default, "{key}");
+        assert_eq!(out["default"], default, "{key}");
+        assert_eq!(
+            reda_engine::preferences::pages::page_of(key),
+            "pcb.placement",
+            "{key}"
+        );
+    }
+    let mut engine = test_engine_in(home.path());
+    for (key, value) in [
+        ("pcb.place.obstacle_mode", json!("avoid")),
+        ("pcb.place.alignment_guides", json!(false)),
+        ("pcb.place.ratsnest_mode", json!("pad_to_pad")),
+        ("pcb.place.ratsnest_mode", json!("hidden")),
+    ] {
+        engine.run_ok("app.preferences.set", json!({"key": key, "value": value}));
+        assert_eq!(get(home.path(), key)["value"], value, "{key}");
+    }
+    // `push` is reserved for v0.4.
+    let err = engine.run_err(
+        "app.preferences.set",
+        json!({"key": "pcb.place.obstacle_mode", "value": "push"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
 fn the_board_view_preferences_default_to_smart_track_ends_and_solid_net_colours() {
     use reda_engine::preferences::{NetColorPattern, NetColorZoomOut, Preferences, pages};
     let prefs = Preferences::default();

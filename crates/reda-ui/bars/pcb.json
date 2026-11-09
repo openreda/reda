@@ -1,6 +1,24 @@
 {
   "menus": [
     {
+      "id": "edit",
+      "title": "menu-edit",
+      "items": [
+        { "id": "edit.copy", "command": "pcb.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "edit.paste", "command": "pcb.paste", "params": { "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
+        { "id": "edit.paste_special", "command": "pcb.paste", "params": { "clipboard": "$clipboard", "keep_nets": true, "layer": "$active_layer" }, "title": "menu-edit-paste-special" },
+        "separator",
+        { "id": "edit.move_by", "command": "pcb.move", "params": { "objects": "$selection" }, "title": "menu-edit-move-by" },
+        { "id": "edit.move_by_points", "command": "tool.activate:move_by" },
+        { "id": "edit.rotate_about", "command": "tool.rotate_about" },
+        { "id": "edit.swap", "command": "tool.activate:swap" },
+        { "id": "edit.arrange_outside_board", "command": "pcb.arrange_outside_board", "params": { "footprints": "$selection" } },
+        "separator",
+        { "id": "edit.lock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": true }, "title": "menu-edit-lock" },
+        { "id": "edit.unlock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": false }, "title": "menu-edit-unlock" }
+      ]
+    },
+    {
       "id": "view",
       "title": "menu-view",
       "items": [

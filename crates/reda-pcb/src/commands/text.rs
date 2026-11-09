@@ -128,6 +128,7 @@ impl Command for TextAdd {
         let (document, layer) = (pcb.uuid, layer.uuid);
         let uuid = cx.new_id();
         let text = PcbText {
+            locked: false,
             uuid,
             layer,
             text: p.text,
@@ -191,6 +192,9 @@ pub struct TextSetParams {
     pub clear_knockout: bool,
     #[serde(default)]
     pub clear_frame: bool,
+    /// Moves a locked text too; without it `x`, `y` or `rotation` on a locked text is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for TextSet {
@@ -217,6 +221,9 @@ impl Command for TextSet {
             .text(p.uuid)
             .cloned()
             .ok_or_else(|| CommandError::not_found(format!("no text has UUID {}", p.uuid)))?;
+        if p.x.is_some() || p.y.is_some() || p.rotation.is_some() {
+            crate::lock::refuse(pcb, [p.uuid], p.include_locked, "move")?;
+        }
         if let Some(value) = p.text {
             check_text(&value)?;
             text.text = value;
@@ -279,6 +286,9 @@ pub struct TextDelete;
 pub struct TextDeleteParams {
     /// The text object's UUID.
     pub uuid: Uuid,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for TextDelete {
@@ -304,6 +314,7 @@ impl Command for TextDelete {
                 p.uuid
             )));
         }
+        crate::lock::refuse(pcb(cx)?, [p.uuid], p.include_locked, "delete")?;
         cx.tx()?.remove(p.uuid)?;
         Ok(())
     }

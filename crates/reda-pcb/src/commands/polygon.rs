@@ -85,9 +85,11 @@ fn reshape(
     cx: &mut Context<'_>,
     uuid: Uuid,
     vertices: Vec<Vertex>,
+    include_locked: bool,
 ) -> Result<Reshaped, CommandError> {
     refuse_crossing(&vertices)?;
     let pcb = pcb(cx)?;
+    crate::lock::refuse(pcb, [uuid], include_locked, "reshape")?;
     let document = pcb.uuid;
     let count = vertices.len();
     let object = if let Some(o) = pcb.outline().filter(|o| o.uuid == uuid) {
@@ -153,6 +155,9 @@ pub struct SetVerticesParams {
     pub object: Uuid,
     /// Its new vertices in order; the last joins the first.
     pub vertices: Vec<VertexParam>,
+    /// Reshapes a locked object too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for SetVertices {
@@ -177,7 +182,7 @@ impl Command for SetVertices {
     fn run(&self, cx: &mut Context<'_>, p: SetVerticesParams) -> Result<Reshaped, CommandError> {
         vertices_of(pcb(cx)?, p.object)?;
         let vertices = contour(&p.vertices)?;
-        reshape(cx, p.object, vertices)
+        reshape(cx, p.object, vertices, p.include_locked)
     }
 }
 
@@ -194,6 +199,9 @@ pub struct FilletParams {
     pub vertices: Option<Vec<usize>>,
     /// The arc's radius.
     pub radius: Length,
+    /// Reshapes a locked object too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for Fillet {
@@ -222,7 +230,7 @@ impl Command for Fillet {
         let explicit = p.vertices.is_some();
         let new = geom::fillet(&old, p.vertices.as_deref(), radius)
             .map_err(|e| corner_error(e, explicit))?;
-        reshape(cx, p.object, new)
+        reshape(cx, p.object, new, p.include_locked)
     }
 }
 
@@ -239,6 +247,9 @@ pub struct ChamferParams {
     pub vertices: Option<Vec<usize>>,
     /// How far back along each edge the bevel starts.
     pub distance: Length,
+    /// Reshapes a locked object too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for Chamfer {
@@ -267,6 +278,6 @@ impl Command for Chamfer {
         let explicit = p.vertices.is_some();
         let new = geom::chamfer(&old, p.vertices.as_deref(), distance)
             .map_err(|e| corner_error(e, explicit))?;
-        reshape(cx, p.object, new)
+        reshape(cx, p.object, new, p.include_locked)
     }
 }

@@ -68,6 +68,10 @@ pub const SELECTABLE: &str = "$selectable";
 /// holding it is left out while the pointer has not been over the canvas.
 pub const CURSOR: &str = "$cursor";
 
+/// The raw-params placeholder for the board's active Layer, by UUID (Paste Special). An
+/// item using it is greyed while no board is open.
+pub const ACTIVE_LAYER: &str = "$active_layer";
+
 /// One clickable item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Action {
@@ -296,6 +300,11 @@ pub fn resolve_in(
     if cursor.is_none() {
         drop_placeholder(&mut params, CURSOR);
     }
+    let active_layer = shell
+        .engine()
+        .project()
+        .and_then(|p| shell.board_view().active_layer(p))
+        .map(|l| json!(l));
     let selected = document
         .map(|d| selected_on(shell, d))
         .filter(|s| !s.is_empty())
@@ -306,6 +315,7 @@ pub fn resolve_in(
         .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
         .and_then(|()| fill(&mut params, SELECTABLE, selectable.as_ref()))
         .and_then(|()| fill(&mut params, CURSOR, cursor.as_ref()))
+        .and_then(|()| fill(&mut params, ACTIVE_LAYER, active_layer.as_ref()))
         .map_err(|()| tr!("bars-no-active-document"))
         .and_then(|()| {
             fill(&mut params, SELECTION, selected.as_ref())
@@ -481,6 +491,7 @@ fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String 
                         | GRID
                         | SELECTABLE
                         | CURSOR
+                        | ACTIVE_LAYER
                 )
             )
         })

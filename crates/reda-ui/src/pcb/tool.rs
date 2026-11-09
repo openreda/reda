@@ -182,6 +182,14 @@ impl SelectTool {
         matches!(self.state, State::Moving(_))
     }
 
+    /// The objects the move in flight carries; `None` with no move in flight.
+    pub fn carried(&self) -> Option<&[Uuid]> {
+        match &self.state {
+            State::Moving(m) => Some(&m.objects),
+            _ => None,
+        }
+    }
+
     /// Move Board Shape: picks up the Board Outline (with the selected Board Cutouts) by
     /// the middle of the outline's box, which then follows the pointer until a click puts
     /// it down.

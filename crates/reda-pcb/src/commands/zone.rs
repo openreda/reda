@@ -60,6 +60,7 @@ pub(super) fn fixed_zone(
     vertices: Vec<reda_model::geom::Vertex>,
 ) -> Zone {
     Zone {
+        locked: false,
         uuid,
         name: None,
         layer,
@@ -201,6 +202,9 @@ pub struct ZoneSetParams {
     pub min_island_area: Option<AreaValue>,
     #[serde(default)]
     pub priority: Option<u32>,
+    /// Reshapes a locked Zone too; without it `vertices` on a locked Zone is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for ZoneSet {
@@ -224,6 +228,9 @@ impl Command for ZoneSet {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
         let mut zone = existing_zone(pcb, p.zone)?.clone();
+        if p.vertices.is_some() {
+            crate::lock::refuse(pcb, [p.zone], p.include_locked, "reshape")?;
+        }
         if let Some(name) = p.name {
             zone.name = name
                 .map(|n| unique_name(pcb, &n, Some(zone.uuid)))
@@ -320,6 +327,9 @@ pub struct ZoneDelete;
 pub struct ZoneDeleteParams {
     /// The Zones' UUIDs.
     pub zones: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for ZoneDelete {
@@ -339,7 +349,14 @@ impl Command for ZoneDelete {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: ZoneDeleteParams) -> Result<Deleted, CommandError> {
-        delete(cx, p.zones, "zones", |pcb, u| pcb.zone(u).is_some(), "Zone")
+        delete(
+            cx,
+            p.zones,
+            "zones",
+            |pcb, u| pcb.zone(u).is_some(),
+            "Zone",
+            p.include_locked,
+        )
     }
 }
 
@@ -349,6 +366,7 @@ pub(super) fn delete(
     field: &str,
     exists: fn(&PcbDocument, Uuid) -> bool,
     kind: &str,
+    include_locked: bool,
 ) -> Result<Deleted, CommandError> {
     let pcb = pcb(cx)?;
     for (i, uuid) in uuids.iter().enumerate() {
@@ -359,6 +377,7 @@ pub(super) fn delete(
             ));
         }
     }
+    crate::lock::refuse(pcb, uuids.iter().copied(), include_locked, "delete")?;
     let mut deleted = uuids;
     deleted.sort();
     deleted.dedup();

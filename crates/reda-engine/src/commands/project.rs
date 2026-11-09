@@ -208,6 +208,7 @@ fn build_project(
     let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
     let outline = outline.map(|vertices| {
         let outline = BoardOutline {
+            locked: false,
             uuid: cx.new_id(),
             vertices,
         };

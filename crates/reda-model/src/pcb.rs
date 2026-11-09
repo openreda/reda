@@ -218,6 +218,9 @@ pub struct BoardSetup {
 #[serde(deny_unknown_fields)]
 pub struct BoardOutline {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The contour, counter-clockwise or not; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
 }
@@ -227,6 +230,9 @@ pub struct BoardOutline {
 #[serde(deny_unknown_fields)]
 pub struct BoardCutout {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The contour; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
 }
@@ -1133,4 +1139,8 @@ impl serde::Serialize for PcbDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(self.objects())
     }
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

@@ -29,6 +29,9 @@ pub enum PourOver {
 #[serde(deny_unknown_fields)]
 pub struct Zone {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// Its typed name, unique on the board. Left out, it shows a name derived from the
     /// board's [`ZoneNameScheme`], which is never stored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -120,6 +123,8 @@ pub struct ZoneCutout {
 #[serde(try_from = "KeepoutRecord", into = "KeepoutRecord")]
 pub struct Keepout {
     pub uuid: Uuid,
+    /// Locked against geometry changes.
+    pub locked: bool,
     /// The copper Layer it applies to; `None` for every copper Layer, so "all" still means
     /// all when Layers are added.
     pub layer: Option<Uuid>,
@@ -209,6 +214,9 @@ pub enum KeepoutShapeKind {
 #[serde(deny_unknown_fields)]
 pub struct KeepoutRecord {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The copper Layer; left out for every copper Layer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layer: Option<Uuid>,
@@ -241,6 +249,7 @@ impl TryFrom<KeepoutRecord> for Keepout {
         };
         Ok(Keepout {
             uuid: r.uuid,
+            locked: r.locked,
             layer: r.layer,
             shape,
             restrict: r.restrict,
@@ -258,6 +267,7 @@ impl From<Keepout> for KeepoutRecord {
         };
         KeepoutRecord {
             uuid: k.uuid,
+            locked: k.locked,
             layer: k.layer,
             shape,
             vertices,
