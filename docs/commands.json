@@ -50717,7 +50717,7 @@
     {
       "category": "pcb",
       "description": "Deletes stacked duplicate Track segments (the same ends on the same Layer and Net, keeping the widest) and merges collinear segments of one width that meet end to end with nothing else at the joint.",
-      "icon": "clean",
+      "icon": "track",
       "id": "pcb.track.cleanup",
       "kind": "edit",
       "params": {

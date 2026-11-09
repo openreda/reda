@@ -158,7 +158,7 @@ impl Command for TrackCleanup {
                       Layer and Net, keeping the widest) and merges collinear segments of \
                       one width that meet end to end with nothing else at the joint.",
         category: "pcb",
-        icon: "clean",
+        icon: "track",
         kind: Kind::Edit,
     };
     type Params = TrackCleanupParams;
@@ -205,6 +205,9 @@ impl Command for TrackCleanup {
     }
 }
 
+/// What makes two Tracks a stack: Layer, Net and both ends, in order.
+type StackKey = (Uuid, Option<Uuid>, [(i64, i64); 2]);
+
 #[derive(Default)]
 struct Cleanup {
     duplicates: Vec<Uuid>,
@@ -222,7 +225,7 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
         .collect();
 
     // Stacked duplicates: the same two ends on one Layer and Net; the widest stays.
-    let mut stacks: BTreeMap<(Uuid, Option<Uuid>, [(i64, i64); 2]), Vec<Uuid>> = BTreeMap::new();
+    let mut stacks: BTreeMap<StackKey, Vec<Uuid>> = BTreeMap::new();
     for t in tracks.values() {
         let (a, b) = t.geometry.ends();
         let mut ends = [(a.x.0, a.y.0), (b.x.0, b.y.0)];
