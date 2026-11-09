@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use reda_model::{LayerKind, PadRef, PcbDocument, Uuid};
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::copper::{Copper, Item};
 
@@ -205,4 +205,69 @@ fn routed_from(
         }
     }
     seen.into_iter().map(|i| i.object()).collect()
+}
+
+/// How far [`connected`] reaches from its seeds: the Tab cycle's steps.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    /// The contiguous Track on each seed Track's Layer: the Tracks joined to it there,
+    /// stopping at Pads, Free Pads and Zones and never passing a Via.
+    Layer,
+    /// All the copper physically connected, whatever its Net.
+    #[default]
+    Copper,
+    /// All the copper of the seeds' Nets.
+    Net,
+}
+
+/// The copper `seeds` reach in `scope`, the seeds' own objects and Pads included.
+pub fn connected(pcb: &PcbDocument, copper: &Copper, seeds: &[Item], scope: Scope) -> Picked {
+    let mut objects = BTreeSet::new();
+    let mut pads = BTreeSet::new();
+    let mut add = |item: Item| match item {
+        Item::Pad { footprint, pad } => {
+            pads.insert((footprint, pad));
+        }
+        other => {
+            objects.insert(other.object());
+        }
+    };
+    let nets: BTreeSet<Uuid> = seeds.iter().filter_map(|s| copper.net(*s)).collect();
+    for seed in seeds {
+        add(*seed);
+    }
+    match scope {
+        Scope::Layer => {
+            for seed in seeds {
+                if let Item::Track { uuid } = seed
+                    && let Some(track) = pcb.track(*uuid)
+                {
+                    for o in routed_from(pcb, copper, &[*seed], Some(track.layer)) {
+                        add(Item::Track { uuid: o });
+                    }
+                }
+            }
+        }
+        Scope::Copper => {
+            for item in seeds.iter().flat_map(|s| copper.connected(*s)) {
+                add(item);
+            }
+        }
+        Scope::Net => {
+            for n in nets {
+                let picked = net(pcb, n);
+                for o in picked.objects {
+                    add(Item::Track { uuid: o });
+                }
+                for p in picked.pads {
+                    add(Item::Pad {
+                        footprint: p.footprint,
+                        pad: p.pad,
+                    });
+                }
+            }
+        }
+    }
+    Picked::from_sets(objects, pads)
 }

@@ -1,4 +1,4 @@
-//! The routing Tool's keys and select connected, as view Commands. What a route has in
+//! The routing Tool's keys, as view Commands. What a route has in
 //! flight lives in the window, so the Commands that act on it (`tool.cycle_corner`,
 //! `pcb.route.add_via`, `pcb.route.finish`, `pcb.route.width`, `pcb.route.mode`,
 //! `pcb.route.end`, `pcb.route.chooser`, `pcb.route.via_size`, `pcb.route.via_end`) only
@@ -12,14 +12,11 @@ use reda_engine::command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams, Preset,
     Registry, Unavailable,
 };
-use reda_engine::model::Uuid;
 use reda_engine::model::geom::Nm;
-use reda_engine::pcb::{Copper, Item};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::selection::{PadRef, Selection, SelectionSetResult};
 use crate::tools::{ActiveTool, Tool};
 
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
@@ -32,7 +29,6 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ViaEnd);
     registry.add(ChooserOpen);
     registry.add(ViaSizeSet);
-    registry.add(SelectConnected);
 }
 
 fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -410,74 +406,5 @@ impl Command for Width {
             width,
             step: p.step,
         })
-    }
-}
-
-/// `pcb.selection.connected`: adds to the selection all copper physically connected to
-/// the selected copper.
-struct SelectConnected;
-
-impl Command for SelectConnected {
-    const META: Meta = Meta {
-        id: "pcb.selection.connected",
-        title: "Select Connected",
-        description: "Adds to the selection every piece of copper physically connected to the \
-                      selected Tracks, Vias, Pads and Footprints, whatever its Net.",
-        category: "selection",
-        icon: "select_connected",
-        kind: Kind::View,
-    };
-    type Params = NoParams;
-    type Output = SelectionSetResult;
-
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
-        needs_pcb(cx)
-    }
-
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<SelectionSetResult, CommandError> {
-        let mut selection = cx.view::<Selection>()?.clone();
-        let project = cx.project()?;
-        let pcb = project
-            .pcb()
-            .ok_or_else(|| CommandError::unavailable("the Project has no PCB Document"))?;
-        let copper = Copper::of(project).expect("the Project has a PCB Document");
-        let mut starts: Vec<Item> = Vec::new();
-        for o in &selection.objects {
-            if pcb.track(*o).is_some() {
-                starts.push(Item::Track { uuid: *o });
-            } else if pcb.via(*o).is_some() {
-                starts.push(Item::Via { uuid: *o });
-            } else if pcb.free_pad(*o).is_some() {
-                starts.push(Item::FreePad { uuid: *o });
-            } else if let Some(f) = pcb.footprint(*o) {
-                starts.extend(f.pads.iter().map(|p| Item::Pad {
-                    footprint: *o,
-                    pad: p.pad,
-                }));
-            }
-        }
-        starts.extend(selection.pads.iter().map(|p| Item::Pad {
-            footprint: p.footprint,
-            pad: p.pad,
-        }));
-        for item in starts.iter().flat_map(|s| copper.connected(*s)) {
-            match item {
-                Item::Pad { footprint, pad } => {
-                    let pad = PadRef { footprint, pad };
-                    if !selection.pads.contains(&pad) && !selection.objects.contains(&footprint) {
-                        selection.pads.push(pad);
-                    }
-                }
-                other => {
-                    let o: Uuid = other.object();
-                    if !selection.objects.contains(&o) {
-                        selection.objects.push(o);
-                    }
-                }
-            }
-        }
-        let count = selection.len();
-        *cx.view::<Selection>()? = selection;
-        Ok(SelectionSetResult { count })
     }
 }
