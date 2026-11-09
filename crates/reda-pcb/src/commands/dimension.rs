@@ -327,6 +327,7 @@ impl Command for DimensionAdd {
         let document = pcb.uuid;
         let uuid = cx.new_id();
         let mut d = Dimension {
+            locked: false,
             uuid,
             layer,
             a,
@@ -380,6 +381,9 @@ pub struct DimensionSetParams {
     pub b: Option<EndParam>,
     #[serde(flatten)]
     pub fields: FieldsParam,
+    /// Moves a locked Dimension too; without it `a`, `b`, `rotation` or `offset` on a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for DimensionSet {
@@ -402,6 +406,10 @@ impl Command for DimensionSet {
     fn run(&self, cx: &mut Context<'_>, p: DimensionSetParams) -> Result<(), CommandError> {
         let pcb = pcb(cx)?;
         let mut d = find(pcb, p.uuid)?.clone();
+        if p.a.is_some() || p.b.is_some() || p.fields.rotation.is_some() || p.fields.offset.is_some()
+        {
+            crate::lock::refuse(pcb, [p.uuid], p.include_locked, "move")?;
+        }
         if let Some(layer) = p.layer {
             d.layer = drawing_layer(pcb, layer, "/layer")?.uuid;
         }
@@ -427,6 +435,9 @@ pub struct DimensionDelete;
 pub struct DimensionUuidParams {
     /// The Dimension's UUID.
     pub uuid: Uuid,
+    /// Takes a locked Dimension too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for DimensionDelete {
@@ -446,7 +457,9 @@ impl Command for DimensionDelete {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DimensionUuidParams) -> Result<(), CommandError> {
-        find(pcb(cx)?, p.uuid)?;
+        let pcb = pcb(cx)?;
+        find(pcb, p.uuid)?;
+        crate::lock::refuse(pcb, [p.uuid], p.include_locked, "delete")?;
         cx.tx()?.remove(p.uuid)?;
         Ok(())
     }
@@ -484,6 +497,7 @@ impl Command for DimensionExplode {
     fn run(&self, cx: &mut Context<'_>, p: DimensionUuidParams) -> Result<Exploded, CommandError> {
         let pcb = pcb(cx)?;
         let d = find(pcb, p.uuid)?;
+        crate::lock::refuse(pcb, [p.uuid], p.include_locked, "explode")?;
         let document = pcb.uuid;
         let layer = d.layer;
         let drawn = dimension::drawing(d, cx.fonts());
@@ -495,6 +509,7 @@ impl Command for DimensionExplode {
             objects.push(Object::PcbGraphic(InDocument::new(
                 document,
                 PcbGraphic {
+                    locked: false,
                     uuid,
                     layer,
                     width: line.width,

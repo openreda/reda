@@ -153,6 +153,8 @@ pub struct Editing {
     pub net_info: NetInfoPreferences,
     /// Interactive Routing: the Track Tool's values.
     pub route: RoutePreferences,
+    /// Placement: how Footprint moves behave.
+    pub place: PlacePreferences,
 }
 
 impl Default for Editing {
@@ -166,6 +168,31 @@ impl Default for Editing {
             zone: ZonePreferences::default(),
             net_info: NetInfoPreferences::default(),
             route: RoutePreferences::default(),
+            place: PlacePreferences::default(),
+        }
+    }
+}
+
+/// Placement: how Footprint moves behave (docs/spec/v0.1/pcb.md#moving-footprints).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct PlacePreferences {
+    /// What a Footprint move does at other Footprints (`R`): `ignore` (goes anywhere,
+    /// overlaps in the violation colour) or `avoid` (stops at the last position that keeps
+    /// `courtyard_clearance`).
+    pub obstacle_mode: reda_pcb::place::ObstacleMode,
+    /// Guides to neighbours' Courtyard edges and Pad centres during a Footprint move.
+    pub alignment_guides: bool,
+    /// The Ratsnest during a Footprint move (`N`): `breaks`, `hidden` or `pad_to_pad`.
+    pub ratsnest_mode: reda_pcb::place::RatsnestMode,
+}
+
+impl Default for PlacePreferences {
+    fn default() -> PlacePreferences {
+        PlacePreferences {
+            obstacle_mode: reda_pcb::place::ObstacleMode::Ignore,
+            alignment_guides: true,
+            ratsnest_mode: reda_pcb::place::RatsnestMode::Breaks,
         }
     }
 }
@@ -342,6 +369,7 @@ impl Default for SchematicEditing {
             zone: _,
             net_info: _,
             route: _,
+            place: _,
         } = Editing::default();
         SchematicEditing {
             default_units,

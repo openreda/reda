@@ -195,3 +195,30 @@ fn deleting_copper_takes_tracks_and_vias_together_or_whole_tracks() {
     let err = engine.run_err("pcb.copper.delete", json!({"objects": [footprint]}));
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn a_drag_stops_at_a_locked_neighbour() {
+    let dir = TempDir::new("track-drag-locked");
+    let mut engine = engine_with_pcb(&dir);
+    let t = route(&mut engine, &[(0, 0), (0, 10), (10, 10), (10, 0)]);
+    engine.run_ok("pcb.lock", json!({"objects": [t[0]], "locked": true}));
+
+    let out = drag(&mut engine, t[1], (0, 5), false);
+    // The locked neighbour stays; a new segment joins it to the dragged end, as at a Pad.
+    assert_eq!(line(&engine, t[0]), (mm(0, 0), mm(0, 10)));
+    assert_eq!(line(&engine, t[1]), (mm(0, 15), mm(10, 15)));
+    assert_eq!(line(&engine, t[2]), (mm(10, 15), mm(10, 0)));
+    let added: Vec<Uuid> = uuids(&out["tracks"])
+        .into_iter()
+        .filter(|u| !t.contains(u))
+        .collect();
+    assert_eq!(added.len(), 1);
+    assert_eq!(line(&engine, added[0]), (mm(0, 10), mm(0, 15)));
+
+    // The locked one itself refuses a drag.
+    let err = engine.run_err(
+        "pcb.track.drag",
+        json!({"track": t[0], "by": {"x": "1mm", "y": 0}}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected);
+}

@@ -323,3 +323,17 @@ fn a_track_split_by_the_route_end_keeps_what_stays() {
         ]
     );
 }
+
+#[test]
+fn a_locked_track_keeps_the_old_path_with_a_note() {
+    let mut b = board("loops-locked");
+    let old = b.old[1];
+    b.engine
+        .run_ok("pcb.lock", json!({"objects": [old], "locked": true}));
+    let c = plan(&b, &straight(&b, Nm::from_um(250)), LoopOptions::default());
+    assert!(c.removes.objects.is_empty(), "{:?}", c.removes.objects);
+    assert_eq!(c.note, Some(Note::LoopLocked));
+    run(&mut b, &c);
+    assert!(pcb(&b.engine).track(old).is_some());
+    assert_eq!(pcb(&b.engine).tracks().count(), 4);
+}

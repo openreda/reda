@@ -254,3 +254,38 @@ fn cleanup_can_be_limited_to_some_nets() {
     assert_eq!(uuids(&out["result"]["merged"]).len(), 1);
     assert_eq!(pcb(&engine).tracks().count(), 3);
 }
+
+#[test]
+fn unroute_keeps_locked_copper_unless_include_locked() {
+    let mut r = routed("unroute-locked");
+    let locked = vec![r.first[0], r.via];
+    r.engine
+        .run_ok("pcb.lock", json!({"objects": locked, "locked": true}));
+    let out = r.engine.run_ok("pcb.route.unroute", json!({"nets": [r.sig]}));
+    assert_eq!(uuids(&out["result"]["kept_locked"]), sorted(locked.clone()));
+    assert_eq!(uuids(&out["result"]["deleted"]).len(), 3);
+    assert!(pcb(&r.engine).track(r.first[0]).is_some());
+    assert!(pcb(&r.engine).via(r.via).is_some());
+
+    let out = r.engine.run_ok(
+        "pcb.route.unroute",
+        json!({"nets": [r.sig], "include_locked": true}),
+    );
+    assert_eq!(uuids(&out["result"]["deleted"]), sorted(locked));
+    assert!(out["result"].get("kept_locked").is_none());
+}
+
+#[test]
+fn cleanup_leaves_locked_tracks_alone() {
+    let dir = TempDir::new("cleanup-locked");
+    let mut engine = engine(&dir);
+    let sig = net(&mut engine, "SIG");
+    let thin = track(&mut engine, sig, "0.2mm", &[(0.0, 0.0), (5.0, 5.0)]);
+    track(&mut engine, sig, "0.4mm", &[(5.0, 5.0), (0.0, 0.0)]);
+    let run = track(&mut engine, sig, "0.25mm", &[(0.0, 10.0), (2.0, 10.0), (5.0, 10.0)]);
+    engine.run_ok("pcb.lock", json!({"objects": [thin[0], run[0]], "locked": true}));
+    let out = engine.run_ok("pcb.track.cleanup", json!({}));
+    assert_eq!(out["result"]["duplicates"], json!([]), "a locked duplicate stays");
+    assert_eq!(out["result"]["merged"], json!([]), "a locked segment is not merged");
+    assert_eq!(pcb(&engine).tracks().count(), 4);
+}

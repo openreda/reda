@@ -329,6 +329,14 @@ pub fn plan(
         return (Removal::default(), Some(Note::LoopBranch));
     }
 
+    // Locked copper stays, and with it the old path.
+    let locked = gone.iter().any(|e| match g.edges[*e].kind {
+        Kind::Via(uuid) | Kind::Track(uuid, _) => crate::lock::is_locked(pcb, uuid),
+    });
+    if locked {
+        return (Removal::default(), Some(Note::LoopLocked));
+    }
+
     let mut out = Removal::default();
     let mut tracks = BTreeSet::new();
     for e in &gone {

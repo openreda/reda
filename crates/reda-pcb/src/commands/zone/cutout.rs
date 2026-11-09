@@ -157,6 +157,7 @@ impl Command for ZoneCutoutDelete {
             "cutouts",
             |pcb, u| pcb.zone_cutout(u).is_some(),
             "Zone Cutout",
+            false,
         )
     }
 }

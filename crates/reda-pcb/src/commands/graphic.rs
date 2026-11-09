@@ -35,6 +35,7 @@ fn add(
     let document = pcb.uuid;
     let uuid = cx.new_id();
     let graphic = PcbGraphic {
+        locked: false,
         uuid,
         layer,
         width,
@@ -209,6 +210,9 @@ pub struct GraphicDelete;
 pub struct GraphicDeleteParams {
     /// The graphic's UUID.
     pub uuid: Uuid,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for GraphicDelete {
@@ -234,6 +238,7 @@ impl Command for GraphicDelete {
                 p.uuid
             )));
         }
+        crate::lock::refuse(pcb(cx)?, [p.uuid], p.include_locked, "delete")?;
         cx.tx()?.remove(p.uuid)?;
         Ok(())
     }

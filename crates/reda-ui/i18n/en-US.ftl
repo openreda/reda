@@ -913,6 +913,7 @@ route-width-clipped = Width clipped to the Net's { $limit }: { $width }
 route-loop-narrower = Loop kept: the new route is narrower than the old path
 route-loop-branch = Loop kept: a branch joins the old path; delete it by hand
 route-loop-through-vias = Loop kept: the old path goes through Vias
+route-loop-locked = Loop kept: the old path has locked copper
 route-zone-not-connected = Not connected: end with a Via or Enter
 
 # Library element editors (shared) and the Library check.

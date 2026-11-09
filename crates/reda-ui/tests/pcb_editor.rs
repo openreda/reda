@@ -330,7 +330,7 @@ fn a_protected_locked_footprint_is_skipped_by_the_canvas() {
     run(
         &mut b.shell,
         "pcb.lock",
-        json!({"footprints": [f1], "locked": true}),
+        json!({"objects": [f1], "locked": true}),
     );
     run(
         &mut b.shell,

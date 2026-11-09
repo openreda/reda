@@ -115,6 +115,7 @@ impl Command for FreePadAdd {
         let document = pcb.uuid;
         let uuid = cx.new_id();
         let pad = FreePad {
+            locked: false,
             uuid,
             kind: p.kind,
             shape,
@@ -248,6 +249,9 @@ impl Command for FreePadSetNet {
 pub struct FreePadDeleteParams {
     /// The Free Pads, by UUID.
     pub pads: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct FreePadDelete;
@@ -269,8 +273,10 @@ impl Command for FreePadDelete {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: FreePadDeleteParams) -> Result<Placed, CommandError> {
-        let pads = free_pads(pcb(cx)?, &p.pads)?;
+        let pcb = pcb(cx)?;
+        let pads = free_pads(pcb, &p.pads)?;
         let objects: Vec<Uuid> = pads.iter().map(|p| p.uuid).collect();
+        crate::lock::refuse(pcb, objects.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in &objects {
             tx.remove(*uuid)?;
