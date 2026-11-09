@@ -47,6 +47,21 @@ auto-wire-avoid-low = Low
 auto-wire-avoid-medium = Medium
 auto-wire-avoid-high = High
 auto-wire-close = Close
+break-wire-title = Break Wire
+break-wire-close = Close
+convert-cross-title = Convert Cross Junctions
+convert-cross-scope-sheet = This sheet
+convert-cross-scope-project = Project
+convert-cross-all = All
+convert-cross-selected = Selected Objects
+convert-cross-nothing-selected = Select the Wires of the 4-ways first
+convert-cross-miter = Miter Size
+convert-cross-convert = Convert
+convert-cross-bad-miter = Type a positive Miter Size
+convert-cross-done = Converted { $count } cross { $count ->
+    [one] junction
+   *[other] junctions
+}
 
 ## The bridge: agents connecting through the control port
 
@@ -320,6 +335,17 @@ properties-thickness = Thickness
 properties-rotation = Rotation
 properties-clearance = Clearance
 properties-min-width = Minimum Width
+properties-vertices = Vertices
+properties-vertex-index = Index
+properties-vertex-x = X
+properties-vertex-y = Y
+properties-vertex-field = Vertex { $index } { $axis ->
+    [x] X
+   *[y] Y
+}
+properties-vertex-remove = Remove
+properties-vertex-remove-tip = Remove vertex { $index }
+properties-vertex-add = Add
 properties-tool-options = { $tool } Tool options
 properties-tool-zone = Zone
 properties-tool-keepout = Keepout
@@ -1086,6 +1112,21 @@ pref-schematic-unit-suffix = Unit Suffix
 pref-schematic-auto-increment = Auto-increment
 pref-schematic-auto-increment-primary = Primary step
 pref-schematic-auto-increment-secondary = Secondary step
+pref-schematic-break-wire = Break Wire
+pref-schematic-break-wire-cutting-length = Cutting Length
+pref-schematic-break-wire-cutting-length-segment = Snap To Segment
+pref-schematic-break-wire-cutting-length-grid-multiple = Snap Grid Size Multiple
+pref-schematic-break-wire-cutting-length-fixed = Fixed Length
+pref-schematic-break-wire-grid-multiple = Snap grid multiple
+pref-schematic-break-wire-fixed-length = Fixed Length
+pref-schematic-break-wire-show-cutter-box = Show Cutter Box
+pref-schematic-break-wire-show-cutter-box-never = Never
+pref-schematic-break-wire-show-cutter-box-always = Always
+pref-schematic-break-wire-show-cutter-box-on-wire = On Wire
+pref-schematic-break-wire-show-extremity-markers = Show Extremity Markers
+pref-schematic-break-wire-show-extremity-markers-never = Never
+pref-schematic-break-wire-show-extremity-markers-always = Always
+pref-schematic-break-wire-show-extremity-markers-on-wire = On Wire
 pref-pcb-default-grid = Default grid
 pref-pcb-default-units = Default units
 pref-pcb-default-units-mm = mm
