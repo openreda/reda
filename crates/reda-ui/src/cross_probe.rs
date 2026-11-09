@@ -20,7 +20,7 @@
 use std::collections::BTreeSet;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::model::{DocumentKind, Object, Project, Uuid};
+use reda_engine::model::{DocumentKind, Object, PcbDocument, Project, Uuid};
 use reda_engine::sync::{self, NetLink};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -107,7 +107,9 @@ pub fn marks(
                 pcb_nets.extend(pcb_net_in(&links, *uuid));
             }
             for net in pcb_nets {
-                out.extend(pcb_objects_of(project, net));
+                if let Some(pcb) = project.pcb() {
+                    out.extend(pcb_objects_of(pcb, net));
+                }
             }
         }
     }
@@ -157,10 +159,7 @@ fn schematic_objects_in(links: &[NetLink], net: Uuid) -> impl Iterator<Item = Uu
 }
 
 /// What draws PCB Net `net`: its copper, and the Footprints with a Pad on it.
-fn pcb_objects_of(project: &Project, net: Uuid) -> Vec<Uuid> {
-    let Some(pcb) = project.pcb() else {
-        return Vec::new();
-    };
+pub(crate) fn pcb_objects_of(pcb: &PcbDocument, net: Uuid) -> Vec<Uuid> {
     let on = Some(net);
     pcb.tracks()
         .filter(|t| t.net == on)

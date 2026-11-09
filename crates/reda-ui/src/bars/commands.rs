@@ -37,6 +37,8 @@ pub enum Request {
     ZoomFit(Uuid),
     /// Zoom this Document's canvas to the selection.
     ZoomSelection(Uuid),
+    /// Zoom this Document's canvas to these objects (`view.zoom_to`).
+    ZoomTo(Uuid, Vec<Uuid>),
     /// Move this Document's canvas (`view.jump_to`).
     JumpTo(Uuid, crate::navigation::Jump),
     /// Show the window in this theme.
@@ -76,6 +78,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Quit);
     registry.add(ZoomFit);
     registry.add(ZoomSelection);
+    registry.add(ZoomTo);
     registry.add(crate::navigation::JumpTo);
     registry.add(SetTheme);
     registry.add(OpenSettings);
@@ -360,6 +363,49 @@ impl Command for ZoomSelection {
             return Err(CommandError::unavailable("nothing is selected"));
         }
         request(cx, Request::ZoomSelection(document))?;
+        Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ZoomToParams {
+    /// The Document whose canvas to zoom; the active Document when left out.
+    #[serde(default)]
+    document: Option<Uuid>,
+    /// The objects to frame, by UUID: Pads and texts go by their Footprint or owner.
+    objects: Vec<Uuid>,
+}
+
+struct ZoomTo;
+
+impl Command for ZoomTo {
+    const META: Meta = Meta {
+        id: "view.zoom_to",
+        title: "Zoom to Objects",
+        description: "Zooms a Document's canvas, the active Document's by default, to the given objects without selecting them.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = ZoomToParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: ZoomToParams) -> Result<Done, CommandError> {
+        let document = match p.document {
+            Some(document) => document,
+            None => cx
+                .view::<Layout>()?
+                .active_document()
+                .ok_or_else(|| CommandError::unavailable("no Document is active"))?,
+        };
+        if p.objects.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/objects",
+                "no objects to zoom to",
+            ));
+        }
+        request(cx, Request::ZoomTo(document, p.objects))?;
         Ok(Done {})
     }
 }

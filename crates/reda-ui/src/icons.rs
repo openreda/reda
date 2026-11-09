@@ -38,6 +38,7 @@ pub fn panel_icon(panel: PanelId) -> &'static str {
         PanelId::Library => "panel_library",
         PanelId::Layers => "panel_layers",
         PanelId::Journal => "panel_journal",
+        PanelId::Navigator => "panel_navigator",
     }
 }
 
