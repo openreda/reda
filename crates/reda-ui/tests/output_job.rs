@@ -6,7 +6,7 @@
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{CancelToken, UserDirs};
-use reda_ui::engine::model::{DocumentKind, Scope, Severity, Uuid};
+use reda_ui::engine::model::{DocumentKind, PdfColour, Scope, Severity, Uuid};
 use reda_ui::job_run::{JobRunner, RunOutcome};
 use reda_ui::settings::output_job::{self, JobPage};
 use reda_ui::shell::Shell;
@@ -87,6 +87,32 @@ fn the_dialog_edits_one_job_and_applies_as_one_batch() {
     shell.undo(false, Some(Scope::Project)).unwrap();
     let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
     assert_ne!(job.name, "Fab");
+}
+
+#[test]
+fn the_dialog_toggles_the_schematic_pdf_and_picks_its_colour() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    let page = d.page_mut::<JobPage>().unwrap();
+    assert!(
+        *page.schematic_pdf.value() && *page.reports.value(),
+        "on by default"
+    );
+    assert_eq!(*page.schematic_pdf_colour.value(), PdfColour::Colour);
+    page.schematic_pdf_colour.set(PdfColour::Mono);
+    page.reports.set(false);
+    d.apply(&mut shell).unwrap();
+    let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
+    assert_eq!(job.schematic_pdf_colour, PdfColour::Mono);
+    assert!(!job.outputs.reports && job.outputs.schematic_pdf);
+
+    let page = d.page_mut::<JobPage>().unwrap();
+    page.schematic_pdf.set(false);
+    d.apply(&mut shell).unwrap();
+    let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
+    assert!(!job.outputs.schematic_pdf);
 }
 
 #[test]

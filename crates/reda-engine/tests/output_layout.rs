@@ -121,6 +121,7 @@ fn the_zip_holds_the_fab_files_and_the_bom_cpl_manifest_reports_and_fab_copies_s
             "Demo-Generic.zip",
             "Demo-Generic-BOM.csv",
             "Demo-Generic-CPL.csv",
+            "Demo-Generic-schematic.pdf",
             "reports/Demo-erc.json",
             "reports/Demo-drc.json",
             "reports/Demo-change-list.json",
@@ -140,6 +141,7 @@ fn the_zip_holds_the_fab_files_and_the_bom_cpl_manifest_reports_and_fab_copies_s
             "zip",
             "bom",
             "cpl",
+            "schematic_pdf",
             "erc_report",
             "drc_report",
             "change_list_report"
@@ -157,7 +159,10 @@ fn the_zip_holds_the_fab_files_and_the_bom_cpl_manifest_reports_and_fab_copies_s
 
     let entries = zip_entries(&folder.join("Demo-Generic.zip"));
     let names: Vec<&str> = entries.iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(names, fab, "BOM, CPL and reports stay out of the zip");
+    assert_eq!(
+        names, fab,
+        "BOM, CPL, the schematic PDF and reports stay out of the zip"
+    );
     for (name, bytes) in &entries {
         assert_eq!(
             &std::fs::read(folder.join("fab").join(name)).unwrap(),
@@ -391,6 +396,65 @@ fn a_new_run_removes_what_the_last_runs_manifest_listed() {
     assert!(
         folder.join("notes.txt").exists(),
         "other files are left alone"
+    );
+}
+
+#[test]
+fn the_schematic_pdf_is_every_sheet_beside_the_zip_in_the_jobs_colour_and_has_a_toggle() {
+    let dir = TempDir::new("layout-schematic-pdf");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "document.add",
+        json!({"kind": "schematic", "title": "Power"}),
+    );
+    run(&mut engine);
+    let folder = folder(&dir);
+    let pdf = std::fs::read(folder.join("Demo-Generic-schematic.pdf")).unwrap();
+    engine.run_ok("schematic.export_pdf", json!({"path": "all.pdf"}));
+    assert_eq!(
+        pdf,
+        std::fs::read(dir.path().join("Demo/all.pdf")).unwrap(),
+        "every sheet, as `schematic.export_pdf` draws them"
+    );
+    assert!(
+        String::from_utf8_lossy(&pdf).contains("/Count 2 >>"),
+        "two pages"
+    );
+    let listed = manifest(&folder)["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == "Demo-Generic-schematic.pdf")
+        .cloned()
+        .expect("the manifest lists the PDF");
+    assert_eq!(listed["kind"], "schematic_pdf");
+    assert_eq!(listed["size"], pdf.len());
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "schematic_pdf_colour": "mono"}),
+    );
+    run(&mut engine);
+    engine.run_ok(
+        "schematic.export_pdf",
+        json!({"path": "mono.pdf", "colour": "mono"}),
+    );
+    let mono = std::fs::read(folder.join("Demo-Generic-schematic.pdf")).unwrap();
+    assert_ne!(mono, pdf);
+    assert_eq!(
+        mono,
+        std::fs::read(dir.path().join("Demo/mono.pdf")).unwrap()
+    );
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"schematic_pdf": false}}),
+    );
+    let out = run(&mut engine);
+    assert!(!paths(&out).iter().any(|p| p.ends_with(".pdf")));
+    assert!(
+        !folder.join("Demo-Generic-schematic.pdf").exists(),
+        "turning it off drops the old PDF"
     );
 }
 

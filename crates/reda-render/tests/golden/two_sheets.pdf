@@ -1,12 +1,12 @@
 %PDF-1.4
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R /PageMode /UseOutlines >>
 endobj
 2 0 obj
 << /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
 endobj
 3 0 obj
-<< /Title (Demo) /Producer (REDA) /CreationDate (D:20260101000000Z) >>
+<< /Title (Demo) /Producer (REDA) >>
 endobj
 4 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 1190.551 841.89] /Contents 5 0 R >>
@@ -12878,18 +12878,34 @@ f
 
 endstream
 endobj
+8 0 obj
+<< /Type /Outlines /First 9 0 R /Last 9 0 R /Count 3 >>
+endobj
+9 0 obj
+<< /Title (Demo) /Parent 8 0 R /Dest [4 0 R /Fit] /First 10 0 R /Last 11 0 R /Count 2 >>
+endobj
+10 0 obj
+<< /Title (1 Sheet 1) /Parent 9 0 R /Dest [4 0 R /Fit] /Next 11 0 R >>
+endobj
+11 0 obj
+<< /Title (2 Power) /Parent 9 0 R /Dest [6 0 R /Fit] /Prev 10 0 R >>
+endobj
 xref
-0 8
+0 12
 0000000000 65535 f 
 0000000009 00000 n 
-0000000058 00000 n 
-0000000121 00000 n 
-0000000207 00000 n 
-0000000302 00000 n 
-0000147313 00000 n 
-0000147407 00000 n 
+0000000097 00000 n 
+0000000160 00000 n 
+0000000212 00000 n 
+0000000307 00000 n 
+0000147318 00000 n 
+0000147412 00000 n 
+0000278944 00000 n 
+0000279015 00000 n 
+0000279119 00000 n 
+0000279206 00000 n 
 trailer
-<< /Size 8 /Root 1 0 R /Info 3 0 R >>
+<< /Size 12 /Root 1 0 R /Info 3 0 R >>
 startxref
-278939
+279291
 %%EOF

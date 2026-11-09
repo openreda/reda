@@ -71,6 +71,10 @@
         "path": "UsbMcu-JLCPCB-CPL.csv"
       },
       {
+        "function": "schematic_pdf",
+        "path": "UsbMcu-JLCPCB-schematic.pdf"
+      },
+      {
         "function": "erc_report",
         "path": "reports/UsbMcu-erc.json"
       },
@@ -96,9 +100,5 @@
       }
     ],
     "zip": "outputs/JLCPCB/UsbMcu-JLCPCB.zip"
-  },
-  {
-    "pages": 1,
-    "path": "outputs/schematic.pdf"
   }
 ]
