@@ -971,3 +971,126 @@ fn a_zone_cutout_has_a_layers_panel_row_and_a_selection_filter_kind() {
             .contains(&reda_ui::engine::model::ObjectType::ZoneCutout)
     );
 }
+
+#[test]
+fn move_board_shape_carries_the_outline_alone_until_a_click() {
+    let mut w = window();
+    let (outline, cutout) = {
+        let shell = w.h.state_mut().shell_mut();
+        shell
+            .run(
+                "pcb.board_outline.add_rect",
+                json!({"width": "20mm", "height": "10mm"}),
+            )
+            .unwrap();
+        let out = shell
+            .run(
+                "pcb.board_cutout.add",
+                json!({"vertices": [{"x": "2mm", "y": "2mm"}, {"x": "4mm", "y": "2mm"},
+                                    {"x": "4mm", "y": "4mm"}]}),
+            )
+            .unwrap();
+        let cutout: Uuid = out["result"]["uuid"].as_str().unwrap().parse().unwrap();
+        let pcb = shell.engine().project().unwrap().pcb().unwrap();
+        (pcb.outline().unwrap().uuid, cutout)
+    };
+    w.h.run();
+    let start = on_screen(&w, Point::new(mm(-1.0), mm(-1.0)));
+    w.h.hover_at(start);
+    w.h.run();
+
+    w.h.get_by_label("Design").click();
+    w.h.run();
+    w.h.get_by_label("Move Board Shape").click();
+    w.h.run();
+    assert!(shell(&w).pcb_tool().moving(), "the outline is picked up");
+    let before = journal_len(&w);
+
+    // Its middle follows the pointer with no button held, and nothing runs in flight.
+    let end = on_screen(&w, Point::new(mm(0.0), mm(-1.0)));
+    w.h.hover_at(start + egui::vec2(5.0, 0.0));
+    w.h.run();
+    w.h.hover_at(end);
+    w.h.run();
+    assert!(
+        shell(&w).engine().journal()[before..]
+            .iter()
+            .all(|e| e.id != "pcb.move"),
+        "the move waits for the click"
+    );
+    click(&mut w, end);
+
+    assert_eq!(last_command(&w), "pcb.move");
+    let entry = shell(&w).engine().journal().last().unwrap().clone();
+    assert_eq!(entry.params["objects"], json!([outline]));
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    let corner = pcb.outline().unwrap().vertices[0].point();
+    assert_eq!(
+        corner,
+        Point::new(mm(-10.0), mm(-6.0)),
+        "the outline's middle, (10, 5) mm, follows the pointer to (0, -1) mm"
+    );
+    assert_eq!(
+        pcb.cutout(cutout).unwrap().vertices[0].point(),
+        Point::new(mm(2.0), mm(2.0)),
+        "an unselected Cutout stays"
+    );
+    assert_eq!(footprint_at(&w), Point::default(), "the Footprint stays");
+    assert!(!shell(&w).pcb_tool().moving());
+}
+
+#[test]
+fn move_board_shape_takes_selected_cutouts_and_turns_in_flight() {
+    let mut w = window();
+    let cutout = {
+        let shell = w.h.state_mut().shell_mut();
+        shell
+            .run(
+                "pcb.board_outline.add_rect",
+                json!({"width": "20mm", "height": "10mm"}),
+            )
+            .unwrap();
+        let out = shell
+            .run(
+                "pcb.board_cutout.add",
+                json!({"vertices": [{"x": "2mm", "y": "2mm"}, {"x": "4mm", "y": "2mm"},
+                                    {"x": "4mm", "y": "4mm"}]}),
+            )
+            .unwrap();
+        let cutout: Uuid = out["result"]["uuid"].as_str().unwrap().parse().unwrap();
+        shell
+            .run("selection.set", json!({"objects": [cutout]}))
+            .unwrap();
+        shell.run("tool.move_board_shape", json!({})).unwrap();
+        cutout
+    };
+    w.h.run();
+    let end = on_screen(&w, Point::new(mm(0.0), mm(-1.0)));
+    w.h.hover_at(end);
+    w.h.run();
+    w.h.state_mut()
+        .shell_mut()
+        .run("tool.rotate", json!({}))
+        .unwrap();
+    w.h.run();
+    click(&mut w, end);
+
+    assert_eq!(last_command(&w), "batch");
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    // Moved so its middle sits at (0, -1), then turned 90° about it: the 20 × 10 box
+    // now spans x -5..5 and y -11..9.
+    let bounds =
+        reda_ui::engine::model::geom::contour_bounds(&pcb.outline().unwrap().vertices).unwrap();
+    assert_eq!(
+        (bounds.min, bounds.max),
+        (
+            Point::new(mm(-5.0), mm(-11.0)),
+            Point::new(mm(5.0), mm(9.0))
+        )
+    );
+    // The selected Cutout went with it: (2, 2) was 8 left of and 3 below the middle.
+    assert_eq!(
+        pcb.cutout(cutout).unwrap().vertices[0].point(),
+        Point::new(mm(3.0), mm(-9.0))
+    );
+}

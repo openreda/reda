@@ -54,6 +54,7 @@ fn shape(
             }
             geom::check_contour(&vertices)
                 .map_err(|e| CommandError::invalid_params("/vertices", e.to_string()))?;
+            super::super::polygon::refuse_crossing(&vertices)?;
             Ok(KeepoutShape::Polygon { vertices })
         }
         KeepoutShapeKind::Line => {
