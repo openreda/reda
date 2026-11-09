@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use egui::accesskit::Role;
 use egui::{Key, Pos2};
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;
@@ -167,4 +167,186 @@ fn t_and_two_clicks_route_a_track_then_it_drags_and_deletes() {
     w.h.run();
     assert_eq!(last_command(&w), "pcb.copper.delete");
     assert_eq!(tracks(&w).len(), 2);
+}
+
+fn route_with_keys(w: &mut Window) {
+    w.h.run();
+    let empty = on_screen(w, mm(5.0, 8.0));
+    click(w, empty);
+    w.h.key_press(Key::T);
+    w.h.run();
+}
+
+#[test]
+fn a_route_with_a_via_commits_as_one_batch() {
+    let mut w = window();
+    route_with_keys(&mut w);
+    let start = shell(&w).engine().journal().len();
+    let a = on_screen(&w, mm(0.0, 0.0));
+    let mid = on_screen(&w, mm(0.0, 4.0));
+    let end = on_screen(&w, mm(4.0, 4.0));
+    click(&mut w, a);
+    w.h.hover_at(mid);
+    w.h.run();
+    w.h.key_press(Key::V);
+    w.h.run();
+    click(&mut w, end);
+    w.h.key_press(Key::Enter);
+    w.h.run();
+    let edits: Vec<String> = ids_since(&w, start)
+        .into_iter()
+        .filter(|id| {
+            shell(&w)
+                .engine()
+                .registry()
+                .get(id.split(':').next().unwrap())
+                .is_none_or(|m| m.kind == reda_ui::engine::command::Kind::Edit)
+        })
+        .collect();
+    assert_eq!(edits, ["batch"], "one batch per route");
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.tracks().count(), 2);
+    assert_eq!(pcb.vias().count(), 1);
+}
+
+#[test]
+fn right_click_ends_the_route_instead_of_opening_the_menu() {
+    let mut w = window();
+    route_with_keys(&mut w);
+    let a = on_screen(&w, mm(0.0, 0.0));
+    let b = on_screen(&w, mm(0.0, 4.0));
+    click(&mut w, a);
+    click(&mut w, b);
+    w.h.hover_at(on_screen(&w, mm(3.0, 4.0)));
+    w.h.run();
+    w.h.get_by_role(Role::Canvas).click_secondary();
+    w.h.run();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.track.add", "the route ended, kept");
+    assert_eq!(tracks(&w), [(mm(0.0, 0.0), mm(0.0, 4.0))]);
+    assert!(
+        w.h.query_by_label("Rotate").is_none(),
+        "no context menu while routing"
+    );
+    assert_eq!(shell(&w).tool(), reda_ui::tools::Tool::Route);
+}
+
+#[test]
+fn the_routing_bar_floats_over_the_bottom_while_routing_and_its_buttons_run_the_keys() {
+    use reda_ui::bars::draw::tool_bar_anchor;
+    let mut w = window();
+    w.h.run();
+    assert!(w.h.query_by_label("Toggle Look-Ahead").is_none(), "only in the Tool");
+    route_with_keys(&mut w);
+    let canvas = w.h.get_by_role(Role::Canvas).rect();
+    let anchor = tool_bar_anchor(canvas, false);
+    let look = w.h.get_by_label("Toggle Look-Ahead");
+    let bar = look.rect();
+    assert!((bar.bottom() - anchor.y).abs() < 8.0, "{bar:?} at {anchor:?}");
+    assert!(bar.center().y > canvas.center().y, "at the bottom");
+    let toggled = |w: &Window, label: &str| {
+        w.h.get_by_label(label).accesskit_node().toggled()
+            == Some(egui::accesskit::Toggled::True)
+    };
+    assert!(toggled(&w, "Toggle Look-Ahead"), "on by default");
+    assert!(toggled(&w, "Next Obstacle Mode"), "toggled in `stop`");
+    for label in [
+        "Next Obstacle Mode",
+        "Toggle Auto-Terminate",
+        "Toggle Loop Removal",
+        "Next Clearance Display",
+    ] {
+        assert!(w.h.query_by_label(label).is_some(), "{label}");
+    }
+    assert!(
+        w.h.query_by_label_contains("Choose Width").is_none(),
+        "the width shows only with a route in flight"
+    );
+
+    let start = shell(&w).engine().journal().len();
+    w.h.get_by_label("Toggle Look-Ahead").click();
+    w.h.run();
+    assert_eq!(ids_since(&w, start), ["pcb.route.mode:lookahead"]);
+    assert!(!shell(&w).router().lookahead());
+    assert!(!toggled(&w, "Toggle Look-Ahead"));
+    w.h.get_by_label("Toggle Loop Removal").click();
+    w.h.run();
+    assert!(!shell(&w).preferences().pcb.route.loop_removal);
+
+    // With a route in flight the width shows; a click opens the chooser, and a row
+    // runs `pcb.route.width`.
+    let a = on_screen(&w, mm(0.0, 0.0));
+    click(&mut w, a);
+    w.h.hover_at(on_screen(&w, mm(0.0, 4.0)));
+    w.h.run();
+    w.h.get_by_label("Choose Width: 0.25 mm").click();
+    w.h.run();
+    assert!(shell(&w).router().chooser().is_some());
+    w.h.get_by_label("0.25 mm  preferred").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.route.width");
+    assert!(shell(&w).router().chooser().is_none());
+}
+
+#[test]
+fn the_routing_bar_moves_up_with_the_layer_strip() {
+    use reda_ui::bars::draw::tool_bar_anchor;
+    let mut w = window();
+    route_with_keys(&mut w);
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.view.layer_control", "value": "strip"}),
+        )
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let canvas = w.h.get_by_role(Role::Canvas).rect();
+    let anchor = tool_bar_anchor(canvas, true);
+    let bar = w.h.get_by_label("Toggle Look-Ahead").rect();
+    assert!((bar.bottom() - anchor.y).abs() < 8.0, "{bar:?} at {anchor:?}");
+}
+
+#[test]
+fn the_tools_note_shows_just_above_the_bar() {
+    let mut w = window();
+    let sig = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .nets()
+        .next()
+        .unwrap()
+        .uuid;
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "net": sig, "width": "1mm",
+                   "points": [{"x": 0, "y": 0}, {"x": 0, "y": "5mm"},
+                              {"x": "10mm", "y": "5mm"}, {"x": "10mm", "y": 0}]}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.route.pickup_width", "value": false}),
+        )
+        .unwrap();
+    route_with_keys(&mut w);
+    let a = on_screen(&w, mm(0.0, 0.0));
+    click(&mut w, a);
+    w.h.hover_at(on_screen(&w, mm(10.0, 0.0)));
+    w.h.run();
+    w.h.run();
+    let note = w
+        .h
+        .get_by_label("Loop kept: the new route is narrower than the old path");
+    let bar = w.h.get_by_label("Toggle Look-Ahead").rect();
+    assert!(note.rect().bottom() <= bar.top() + 1.0, "above the bar");
+    assert!(note.rect().bottom() > bar.top() - 20.0, "just above");
 }

@@ -103,12 +103,15 @@ pub enum Item {
     Action(Action),
 }
 
-/// The menus, the toolbar and the Active Bar of one context.
+/// The menus, the toolbar, the Active Bar and the Tools' bars of one context.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bars {
     pub menus: Vec<Menu>,
     pub toolbar: Vec<Item>,
     pub active_bar: Vec<Item>,
+    /// A Tool's bar at the canvas's bottom while that Tool is active, by Tool id: the
+    /// Routing Bar is `route` (docs/spec/v0.1/app.md#routing-bar).
+    pub tool_bars: std::collections::BTreeMap<String, Vec<Item>>,
 }
 
 /// The Document types the bars are listed for.

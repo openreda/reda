@@ -100,5 +100,18 @@
     { "id": "active_bar.zone", "command": "tool.activate:zone" },
     "separator",
     { "id": "active_bar.layers", "command": "panel.show:layers" }
-  ]
+  ],
+  "tool_bars": {
+    "route": [
+      { "id": "route_bar.width", "command": "pcb.route.chooser:width" },
+      { "id": "route_bar.corner", "command": "tool.cycle_corner" },
+      { "id": "route_bar.lookahead", "command": "pcb.route.mode:lookahead" },
+      { "id": "route_bar.obstacle_mode", "command": "pcb.route.mode:obstacle_mode" },
+      { "id": "route_bar.auto_terminate", "command": "pcb.route.mode:auto_terminate" },
+      { "id": "route_bar.loop_removal", "command": "pcb.route.mode:loop_removal" },
+      { "id": "route_bar.clearance_display", "command": "pcb.route.mode:clearance_display" },
+      "separator",
+      { "id": "route_bar.keys", "command": "view.keys_card.toggle" }
+    ]
+  }
 }

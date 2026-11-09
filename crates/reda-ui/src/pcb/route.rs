@@ -460,11 +460,13 @@ impl Router {
         self.recheck(shell);
     }
 
-    /// Esc or right-click: ends the route and keeps what is placed; with only the start
-    /// point, drops it; with no route, returns to Select.
+    /// Esc or right-click: closes an open chooser, else ends the route and keeps what is
+    /// placed; with only the start point, drops it; with no route, returns to Select.
     pub fn end(&mut self, shell: &mut Shell) {
         self.notice_cancel(shell);
-        self.chooser = None;
+        if self.chooser.take().is_some() {
+            return;
+        }
         match &self.route {
             None => {
                 let _ = shell.run_reporting("tool.activate:select", json!({}));
@@ -879,6 +881,12 @@ impl Router {
         let _ = shell.run_reporting("pcb.via.add", json!({"at": {"x": at.x, "y": at.y}}));
         self.check(shell, at);
     }
+}
+
+/// Whether a right-click on the board ends the route rather than opening the context
+/// menu: while the Track Tool is active (docs/spec/v0.1/pcb.md#placing-and-ending).
+pub fn takes_right_click(shell: &Shell) -> bool {
+    shell.tool() == Tool::Route
 }
 
 /// The status-bar text for a `propose` or `commit` note.

@@ -279,6 +279,18 @@ fn icon_button_for(
     side: f32,
     icon: f32,
 ) -> Option<Invocation> {
+    icon_button_toggled(ui, cx, action, side, icon, None)
+}
+
+/// [`icon_button_for`], shown toggled on or off by `toggled` when it is a toggle.
+fn icon_button_toggled(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    action: &Action,
+    side: f32,
+    icon: f32,
+    toggled: Option<bool>,
+) -> Option<Invocation> {
     let theme = ui.ctx().theme();
     let mut clicked = None;
     let item = resolve_for(cx.shell, action, cx.document);
@@ -289,7 +301,7 @@ fn icon_button_for(
         Some(shortcut) => format!("{} ({shortcut})", item.title),
         None => item.title.clone(),
     };
-    let checked = cx.is_checked(&item);
+    let checked = toggled.unwrap_or_else(|| cx.is_checked(&item));
     // A disabled button still senses the pointer, for the tooltip saying why.
     let response = match icons::image(&item.icon, icons::TOOLBAR, theme, enabled) {
         Some(image) => chrome::icon_button(ui, image, icon, side, checked, enabled),
@@ -323,8 +335,9 @@ fn icon_button_for(
             }
         }
     };
-    // A choice among several (the active Tool) reads as on or off.
-    let selected = (cx.checked.contains_key(item.command.as_str())).then(|| cx.is_checked(&item));
+    // A choice among several (the active Tool) or a toggle reads as on or off.
+    let selected = toggled
+        .or_else(|| (cx.checked.contains_key(item.command.as_str())).then(|| cx.is_checked(&item)));
     a11y::name(
         &response,
         Role::Button,
@@ -473,4 +486,134 @@ fn more_tools(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> {
         menu_items(ui, cx, items, &mut clicked);
     });
     clicked
+}
+
+/// How a Tool's bar shows one of its items now.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ToolBarItem {
+    /// Left off the bar (the Routing Bar's width with no route in flight).
+    pub hidden: bool,
+    /// The icon that shows the mode, instead of the item's own.
+    pub icon: Option<String>,
+    /// Shown toggled on or off; `None` is a plain button.
+    pub toggled: Option<bool>,
+    /// Shown as this text instead of an icon (the width's value).
+    pub text: Option<String>,
+}
+
+/// A Tool's bar (the Routing Bar): `items` in the Active Bar's frame and buttons, pivoted
+/// on its bottom centre at `anchor` ([`tool_bar_anchor`]), each item as `state` says. A
+/// `note` shows just above it. Returns the item clicked.
+pub fn tool_bar(
+    ui: &Ui,
+    cx: &Cx<'_>,
+    items: &[Item],
+    id: Id,
+    anchor: egui::Pos2,
+    note: Option<&str>,
+    state: &dyn Fn(&Action) -> ToolBarItem,
+) -> Option<Invocation> {
+    let shown = egui::Area::new(id.with("tool-bar"))
+        .order(Order::Middle)
+        .fixed_pos(anchor)
+        .pivot(Align2::CENTER_BOTTOM)
+        .show(ui.ctx(), |ui| {
+            egui::Frame::window(ui.style())
+                .inner_margin(egui::Margin::same(ACTIVE_BAR_MARGIN))
+                .corner_radius(egui::CornerRadius::same(5))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
+                        let mut clicked = None;
+                        for item in items {
+                            let action = match item {
+                                Item::Separator => {
+                                    chrome::bar_separator(ui, chrome::BAR_BUTTON);
+                                    continue;
+                                }
+                                Item::Submenu(_) => continue,
+                                Item::Action(action) => action,
+                            };
+                            let look = state(action);
+                            if look.hidden {
+                                continue;
+                            }
+                            let hit = match &look.text {
+                                Some(text) => text_button(ui, cx, action, text),
+                                None => {
+                                    let mut action = action.clone();
+                                    if look.icon.is_some() {
+                                        action.icon = look.icon.clone();
+                                    }
+                                    icon_button_toggled(
+                                        ui,
+                                        cx,
+                                        &action,
+                                        chrome::BAR_BUTTON,
+                                        icons::TOOLBAR,
+                                        look.toggled,
+                                    )
+                                }
+                            };
+                            clicked = clicked.or(hit);
+                        }
+                        clicked
+                    })
+                    .inner
+                })
+                .inner
+        });
+    if let Some(note) = note {
+        let top = shown.response.rect.center_top() - Vec2::new(0.0, 4.0);
+        egui::Area::new(id.with("tool-bar-note"))
+            .order(Order::Middle)
+            .fixed_pos(top)
+            .pivot(Align2::CENTER_BOTTOM)
+            .interactable(false)
+            .show(ui.ctx(), |ui| {
+                egui::Frame::window(ui.style())
+                    .inner_margin(egui::Margin::symmetric(6, 2))
+                    .corner_radius(egui::CornerRadius::same(4))
+                    .show(ui, |ui| {
+                        let response = ui.label(note);
+                        a11y::name(&response, Role::Label, true, note, None, None);
+                    });
+            });
+    }
+    shown.inner
+}
+
+/// A bar button showing `text` (a value) instead of an icon, named "<title>: <text>".
+fn text_button(ui: &mut Ui, cx: &Cx<'_>, action: &Action, text: &str) -> Option<Invocation> {
+    let item = resolve_for(cx.shell, action, cx.document);
+    let shortcut = cx.shortcut(ui, action);
+    let heading = match &shortcut {
+        Some(shortcut) => format!("{} ({shortcut})", item.title),
+        None => item.title.clone(),
+    };
+    let response = ui
+        .add_enabled(
+            item.run.is_ok(),
+            Button::new(text)
+                .frame_when_inactive(false)
+                .min_size(Vec2::new(chrome::BAR_BUTTON, chrome::BAR_BUTTON)),
+        )
+        .on_hover_ui(|ui| {
+            ui.strong(&heading);
+            ui.label(&item.description);
+        });
+    let name = format!("{}: {text}", item.title);
+    a11y::name(
+        &response,
+        Role::Button,
+        item.run.is_ok(),
+        &name,
+        None,
+        shortcut.as_deref(),
+    );
+    if response.clicked() {
+        item.run.ok()
+    } else {
+        None
+    }
 }
