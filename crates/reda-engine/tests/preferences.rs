@@ -535,3 +535,30 @@ fn the_board_view_preferences_default_to_smart_track_ends_and_solid_net_colours(
         assert_eq!(pages::page_of(key), "pcb.view", "{key}");
     }
 }
+
+#[test]
+fn break_wire_preferences_start_at_snap_to_segment_with_both_displays_always() {
+    let home = TempDir::new("prefs-break-wire");
+    let mut engine = test_engine_in(home.path());
+    let out = engine.run_ok("app.preferences.get", json!({}));
+    let break_wire = &out["values"]["schematic"]["break_wire"];
+    assert_eq!(break_wire["cutting_length"], "segment");
+    assert_eq!(break_wire["grid_multiple"], 2);
+    // 10 default units of 10 mil.
+    assert_eq!(break_wire["fixed_length"], 2_540_000);
+    assert_eq!(break_wire["show_cutter_box"], "always");
+    assert_eq!(break_wire["show_extremity_markers"], "always");
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "schematic.break_wire.show_cutter_box", "value": "on_wire"}),
+    );
+    assert!(read_prefs(home.path()).contains("show_cutter_box = \"on_wire\""));
+    // Snap Grid Size Multiple runs from 2 to 10.
+    for refused in [1, 11] {
+        let err = engine.run_err(
+            "app.preferences.set",
+            json!({"key": "schematic.break_wire.grid_multiple", "value": refused}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{refused}");
+    }
+}

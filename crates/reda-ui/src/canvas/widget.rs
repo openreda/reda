@@ -40,7 +40,32 @@ pub struct Overlay {
     pub dotted: Arc<[(Point, Point)]>,
     /// Where the pointer snapped to.
     pub cursor: Option<Point>,
+    /// The selected Wires' handles: (where, red), red for a selected segment's.
+    pub handles: Arc<[(Point, bool)]>,
+    /// Selected Wire segments, drawn over in the selection colour.
+    pub segments: Arc<[(Point, Point)]>,
+    /// The Break Wire Tool's preview of the cut under the pointer.
+    pub cutter: Option<Cutter>,
 }
+
+/// What the Break Wire Tool shows of the cut it would make.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cutter {
+    /// The stretch of Wire that would go.
+    pub gap: (Point, Point),
+    /// The Cutter Box around it, as four corners in order (Show Cutter Box).
+    pub cutter_box: Option<[Point; 4]>,
+    /// Extremity Markers across the Wire at both ends of the gap, half as long as the
+    /// box is wide (Show Extremity Markers).
+    pub extremities: Option<[(Point, Point); 2]>,
+    /// With both displays Never: the gap itself is highlighted.
+    pub highlight: bool,
+}
+
+/// The colour of a selected segment's handles.
+pub const SEGMENT_HANDLE: Color32 = Color32::from_rgb(230, 40, 40);
+/// A handle's half size in points.
+const HANDLE_POINTS: f32 = 3.5;
 
 /// A selection box being dragged out: its corners (nm) and how it picks.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -253,6 +278,34 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
         }
     }
     let accent = ui.visuals().selection.stroke.color;
+    for &(a, b) in overlay.segments.iter() {
+        painter.line_segment([screen(a), screen(b)], Stroke::new(width + 2.0, accent));
+    }
+    if let Some(cutter) = overlay.cutter {
+        let (a, b) = (screen(cutter.gap.0), screen(cutter.gap.1));
+        if cutter.highlight {
+            let hot = ui.visuals().warn_fg_color;
+            painter.line_segment([a, b], Stroke::new(width + 3.0, hot));
+        }
+        if let Some(corners) = cutter.cutter_box {
+            let points: Vec<egui::Pos2> = corners.iter().map(|&p| screen(p)).collect();
+            painter.add(egui::Shape::closed_line(points, Stroke::new(1.0, accent)));
+        }
+        for (from, to) in cutter.extremities.into_iter().flatten() {
+            painter.line_segment([screen(from), screen(to)], Stroke::new(2.0, accent));
+        }
+    }
+    for &(at, red) in overlay.handles.iter() {
+        let fill = if red { SEGMENT_HANDLE } else { accent };
+        let square = Rect::from_center_size(screen(at), egui::Vec2::splat(HANDLE_POINTS * 2.0));
+        painter.rect_filled(square, 0.0, fill);
+        painter.rect_stroke(
+            square,
+            0.0,
+            Stroke::new(1.0, Color32::WHITE),
+            egui::StrokeKind::Outside,
+        );
+    }
     if let Some(at) = overlay.cursor {
         let c = screen(at);
         let r = 6.0;

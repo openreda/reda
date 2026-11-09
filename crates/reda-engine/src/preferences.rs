@@ -561,6 +561,90 @@ pub struct SchematicEditing {
     pub unit_suffix: reda_model::UnitSuffix,
     /// How far repeat placement steps a trailing number in the next name.
     pub auto_increment: AutoIncrement,
+    /// The Break Wire Tool's Cutting Length and Display Preferences. The Tool writes its
+    /// changes straight back here.
+    pub break_wire: BreakWirePreferences,
+}
+
+/// The Break Wire Tool (docs/spec/v0.1/schematic.md#break-wire).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct BreakWirePreferences {
+    /// Cutting Length (Space cycles it in the Tool): `segment` (Snap To Segment, the
+    /// whole segment), `grid_multiple` (Snap Grid Size Multiple) or `fixed` (Fixed
+    /// Length). The cutter shrinks to fit a shorter segment.
+    pub cutting_length: CuttingLength,
+    /// How many snap grids long the cut is with `grid_multiple`: 2 to 10.
+    pub grid_multiple: u32,
+    /// How long the cut is with `fixed`: 10 default units of 10 mil (100 mil) at first.
+    pub fixed_length: Length,
+    /// Show Cutter Box: `never`, `always` or `on_wire` (only while over a Wire).
+    pub show_cutter_box: BreakWireShow,
+    /// Show Extremity Markers at the cut's two ends: `never`, `always` or `on_wire`.
+    /// With both Never, the part to be cut is highlighted instead.
+    pub show_extremity_markers: BreakWireShow,
+}
+
+impl Default for BreakWirePreferences {
+    fn default() -> BreakWirePreferences {
+        BreakWirePreferences {
+            cutting_length: CuttingLength::Segment,
+            grid_multiple: 2,
+            fixed_length: Length(reda_model::geom::Nm(254_000 * 10)),
+            show_cutter_box: BreakWireShow::Always,
+            show_extremity_markers: BreakWireShow::Always,
+        }
+    }
+}
+
+impl BreakWirePreferences {
+    /// The fewest and most snap grids a `grid_multiple` cut is long.
+    pub const GRID_MULTIPLES: std::ops::RangeInclusive<u32> = 2..=10;
+
+    /// How long a gap the Tool cuts on a sheet whose snap grid is `grid`: `None` for the
+    /// whole segment.
+    pub fn length(&self, grid: reda_model::geom::Nm) -> Option<reda_model::geom::Nm> {
+        match self.cutting_length {
+            CuttingLength::Segment => None,
+            CuttingLength::GridMultiple => Some(grid * i64::from(self.grid_multiple)),
+            CuttingLength::Fixed => Some(self.fixed_length.0),
+        }
+    }
+}
+
+/// The Break Wire Tool's Cutting Length.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CuttingLength {
+    /// Snap To Segment: the whole segment.
+    #[default]
+    Segment,
+    /// Snap Grid Size Multiple.
+    GridMultiple,
+    /// Fixed Length.
+    Fixed,
+}
+
+impl CuttingLength {
+    /// The next one, as Space cycles them in the Tool.
+    pub fn next(self) -> CuttingLength {
+        match self {
+            CuttingLength::Segment => CuttingLength::GridMultiple,
+            CuttingLength::GridMultiple => CuttingLength::Fixed,
+            CuttingLength::Fixed => CuttingLength::Segment,
+        }
+    }
+}
+
+/// When the Break Wire Tool draws its cutter box or extremity markers.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BreakWireShow {
+    Never,
+    #[default]
+    Always,
+    /// Only while the cursor is over a Wire.
+    OnWire,
 }
 
 /// The steps of Auto-increment. Only a trailing number steps, keeping its padding; a
@@ -618,6 +702,7 @@ impl Default for SchematicEditing {
             convert_cross_junctions: true,
             unit_suffix: reda_model::UnitSuffix::Alpha,
             auto_increment: AutoIncrement::default(),
+            break_wire: BreakWirePreferences::default(),
         }
     }
 }
@@ -839,6 +924,19 @@ impl Preferences {
             return Err((
                 "general.ui_scale",
                 format!("{scale} is not a UI scale step (0.75, 0.85, 1, 1.15, 1.25, 1.5 or 2)"),
+            ));
+        }
+        let multiple = self.schematic.break_wire.grid_multiple;
+        if !BreakWirePreferences::GRID_MULTIPLES.contains(&multiple) {
+            return Err((
+                "schematic.break_wire.grid_multiple",
+                format!("{multiple} is not between 2 and 10"),
+            ));
+        }
+        if self.schematic.break_wire.fixed_length.0 <= reda_model::geom::Nm(0) {
+            return Err((
+                "schematic.break_wire.fixed_length",
+                "the Fixed Length must be positive".to_owned(),
             ));
         }
         let themes = &self.display.layer_colors;

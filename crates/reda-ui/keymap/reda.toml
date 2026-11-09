@@ -185,7 +185,7 @@ params = { document = "$active_document" }
 context = "schematic"
 key = "Del"
 command = "schematic.delete"
-params = { objects = "$selection" }
+params = { objects = "$selection", segments = "$segments" }
 
 [[bind]]
 context = "schematic"
@@ -310,6 +310,25 @@ command = "tool.finish"
 
 [[bind]]
 context = "tool:wire"
+key = "Tab"
+command = "tool.edit_properties"
+
+# Editing a placed Wire: Insert while holding a segment's handle adds a vertex (Del while
+# holding a vertex removes it). The Break Wire Tool cuts a gap per click; Space cycles its
+# Cutting Length and Tab opens its options, both written back to the Preferences.
+
+[[bind]]
+context = "schematic"
+key = "Insert"
+command = "tool.insert_vertex"
+
+[[bind]]
+context = "tool:break_wire"
+key = "Space"
+command = "tool.cycle_cutting_length"
+
+[[bind]]
+context = "tool:break_wire"
 key = "Tab"
 command = "tool.edit_properties"
 

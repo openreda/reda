@@ -72,6 +72,9 @@ pub enum Tool {
     /// Draws orthogonal Wire runs: each click fixes a corner, and the run ends on a Pin or
     /// Wire (W).
     Wire,
+    /// Cuts a gap out of the Wire under each click (`schematic.wire.break`), as long as
+    /// the Cutting Length Preference says; Space cycles it, Tab opens its options.
+    BreakWire,
     /// Places Net Labels, one per click (N).
     NetLabel,
     /// Places Ports, one per click (P).
@@ -118,6 +121,7 @@ impl Tool {
             Tool::Via => "via",
             Tool::Place => "place",
             Tool::Wire => "wire",
+            Tool::BreakWire => "break_wire",
             Tool::NetLabel => "net_label",
             Tool::Port => "port",
             Tool::PowerPort => "power_port",
@@ -261,7 +265,8 @@ pub struct ToolStack {
 
 /// Adds `tool.activate` and the in-flight Commands (`tool.rotate`, `tool.mirror_x`,
 /// `tool.mirror_y`, `tool.flip_side`, `tool.edit_properties`, `tool.cycle_corner`,
-/// `tool.cycle_wire_mode`, `tool.insert_vertex`, `tool.undo_segment`, `tool.finish`)
+/// `tool.cycle_wire_mode`, `tool.cycle_cutting_length`, `tool.insert_vertex`,
+/// `tool.undo_segment`, `tool.finish`)
 /// to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(ToolActivate);
@@ -273,6 +278,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ToolCycleCorner);
     registry.add(ToolCycleWireMode);
     registry.add(ToolInsertVertex);
+    registry.add(ToolCycleCuttingLength);
     registry.add(ToolAutoWireSet);
     registry.add(ToolUndoSegment);
     registry.add(ToolFinish);
@@ -386,6 +392,12 @@ impl Command for ToolActivate {
             Preset::new("route", "Route Tracks", "track", json!({"tool": "route"})),
             Preset::new("via", "Place Vias", "via", json!({"tool": "via"})),
             Preset::new("wire", "Wire", "wire", json!({"tool": "wire"})),
+            Preset::new(
+                "break_wire",
+                "Break Wire",
+                "split",
+                json!({"tool": "break_wire"}),
+            ),
             Preset::new(
                 "net_label",
                 "Net Label",
@@ -770,8 +782,39 @@ impl Command for ToolCycleWireMode {
     }
 }
 
+/// The Break Wire Tool's session state: whether its options window is open (Tab).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BreakWireTool {
+    pub options_open: bool,
+}
+
+/// `tool.cycle_cutting_length` (Space in the Break Wire Tool): the next Cutting Length,
+/// written back to the Preference by the window's Shell.
+struct ToolCycleCuttingLength;
+
+impl Command for ToolCycleCuttingLength {
+    const META: Meta = Meta {
+        id: "tool.cycle_cutting_length",
+        title: "Cycle Cutting Length",
+        description: "Steps the Break Wire Tool's Cutting Length: Snap To Segment, Snap Grid \
+                      Size Multiple, Fixed Length. The window writes it straight back to the \
+                      `schematic.break_wire.cutting_length` Preference.",
+        category: "tool",
+        icon: "split",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        only_in(cx, &[Tool::BreakWire], "Cycle Cutting Length")?;
+        Ok(Turned {})
+    }
+}
+
 /// `tool.insert_vertex` (Insert): adds a vertex to the Wire run where the pointer is,
-/// look-ahead segment and all; applied by the window's Shell.
+/// look-ahead segment and all, or, with the Select Tool, to the segment whose handle is
+/// held; applied by the window's Shell.
 struct ToolInsertVertex;
 
 impl Command for ToolInsertVertex {
@@ -779,7 +822,9 @@ impl Command for ToolInsertVertex {
         id: "tool.insert_vertex",
         title: "Insert Vertex",
         description: "Adds a vertex to the Wire run in flight where the pointer is, keeping \
-                      the corner on the way there, or starts a run there.",
+                      the corner on the way there, or starts a run there. With the Select \
+                      Tool, while a Wire segment's handle is held, adds a vertex there that \
+                      the pointer then carries.",
         category: "tool",
         icon: "wire",
         kind: Kind::View,
@@ -788,7 +833,7 @@ impl Command for ToolInsertVertex {
     type Output = Turned;
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
-        only_in(cx, &[Tool::Wire], "Insert Vertex")?;
+        only_in(cx, &[Tool::Wire, Tool::Select], "Insert Vertex")?;
         Ok(Turned {})
     }
 }
@@ -800,7 +845,8 @@ pub struct EditPropertiesResult {
 }
 
 /// `tool.edit_properties` (Tab): the active Tool's properties. The Wire Tool opens (or
-/// closes) its Auto Wire options; a Part being placed opens the Properties Panel.
+/// closes) its Auto Wire options, the Break Wire Tool its Cutting Length and Display
+/// options; a Part being placed opens the Properties Panel.
 struct ToolEditProperties;
 
 impl Command for ToolEditProperties {
@@ -809,8 +855,10 @@ impl Command for ToolEditProperties {
         title: "Edit Tool Properties",
         description: "Shows the active Tool's properties in flight: the Wire Tool's Auto \
                       Wire options (Time Out After and Avoid cutting wires), opened or \
-                      closed; for a Part being placed, the Properties Panel, whose edits \
-                      later placements keep.",
+                      closed; the Break Wire Tool's options (Cutting Length, Show Cutter \
+                      Box, Show Extremity Markers), which write straight back to the \
+                      Preferences; for a Part being placed, the Properties Panel, whose \
+                      edits later placements keep.",
         category: "tool",
         icon: "properties",
         kind: Kind::View,
@@ -819,10 +867,18 @@ impl Command for ToolEditProperties {
     type Output = EditPropertiesResult;
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<EditPropertiesResult, CommandError> {
-        let tool = only_in(cx, &[Tool::Wire, Tool::Place], "Edit Tool Properties")?;
+        let tool = only_in(
+            cx,
+            &[Tool::Wire, Tool::BreakWire, Tool::Place],
+            "Edit Tool Properties",
+        )?;
         if tool == Tool::Wire {
             let wire = cx.view::<WireTool>()?;
             wire.options_open = !wire.options_open;
+        }
+        if tool == Tool::BreakWire {
+            let options = cx.view::<BreakWireTool>()?;
+            options.options_open = !options.options_open;
         }
         Ok(EditPropertiesResult { tool })
     }

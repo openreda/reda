@@ -7,11 +7,12 @@ use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
 use crate::placement::Placing;
-use reda_engine::model::geom::Nm;
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::preferences::Units;
 
 use crate::properties::{
     ComponentProperties, Edit, Kind, MIXED, NetClassProperty, Numbers, Properties, Shared,
+    WireVertices,
 };
 use crate::shell::Shell;
 use crate::tr;
@@ -68,7 +69,17 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
             ui.separator();
             numbers_section(ui, &properties.numbers, units(shell), &mut numbers);
         }
-        if properties.component.is_none() && !properties.details.is_empty() {
+        if let Some(list) = &properties.vertices {
+            ui.separator();
+            let grid = shell
+                .active_document()
+                .map_or(crate::grid::SCHEMATIC_DEFAULT, |t| shell.grid(t.document));
+            vertex_section(ui, list, units(shell), grid, &mut edits);
+        }
+        if properties.component.is_none()
+            && properties.vertices.is_none()
+            && !properties.details.is_empty()
+        {
             ui.separator();
             Grid::new("properties-details")
                 .num_columns(2)
@@ -86,6 +97,104 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
         .filter_map(|edit| properties.command(edit))
         .chain(numbers)
         .collect()
+}
+
+/// The vertex list of the one Wire selected: Index, X and Y for each vertex (X and Y
+/// typed as lengths, a bare number in `units`), a Remove button on each row while more
+/// than two are left, and Add, which puts a new end one snap grid (`grid`) on.
+fn vertex_section(ui: &mut Ui, list: &WireVertices, units: Units, grid: Nm, edits: &mut Vec<Edit>) {
+    ui.label(tr!("properties-vertices"));
+    let removable = list.vertices.len() > 2;
+    Grid::new("properties-vertices")
+        .num_columns(4)
+        .show(ui, |ui| {
+            ui.weak(tr!("properties-vertex-index"));
+            ui.weak(tr!("properties-vertex-x"));
+            ui.weak(tr!("properties-vertex-y"));
+            ui.label("");
+            ui.end_row();
+            for (i, at) in list.vertices.iter().enumerate() {
+                ui.label(i.to_string());
+                let axes = [("x", at.x), ("y", at.y)];
+                for (axis, value) in axes {
+                    let key = format!("vertex-{}-{i}-{axis}", list.wire);
+                    let shown = Shared::Same(crate::pcb::view::format_length(value, units));
+                    let label = tr!("properties-vertex-field", index = i as i64, axis = axis);
+                    if let Some(text) = vertex_field(ui, &key, &label, &shown)
+                        && let Some(length) = parse_length(&text, units)
+                    {
+                        let to = match axis {
+                            "x" => Point::new(length, at.y),
+                            _ => Point::new(at.x, length),
+                        };
+                        edits.push(Edit::Vertex(i, to));
+                    }
+                }
+                let remove = ui
+                    .add_enabled(
+                        removable,
+                        egui::Button::new(tr!("properties-vertex-remove")),
+                    )
+                    .on_hover_text(tr!("properties-vertex-remove-tip", index = i as i64));
+                if remove.clicked() {
+                    edits.push(Edit::RemoveVertex(i));
+                }
+                ui.end_row();
+            }
+        });
+    if ui.button(tr!("properties-vertex-add")).clicked() {
+        edits.push(Edit::AddVertex(grid));
+    }
+}
+
+/// A coordinate field in the vertex list, labelled for accessibility but drawn without
+/// its own label (the column headers name it).
+fn vertex_field(ui: &mut Ui, key: &str, label: &str, value: &Shared<String>) -> Option<String> {
+    let id = Id::NULL.with(("properties-field", key));
+    let shown = value.same().cloned().unwrap_or_default();
+    let mut draft: Draft = ui.data(|d| d.get_temp(id)).unwrap_or_default();
+    let focused = ui.memory(|m| m.has_focus(id));
+    if draft.shown.as_ref() != Some(&shown) && !focused {
+        draft = Draft {
+            text: shown.clone(),
+            shown: Some(shown.clone()),
+            committed: None,
+        };
+    }
+    let response = ui.add(
+        TextEdit::singleline(&mut draft.text)
+            .id(id)
+            .desired_width(80.0),
+    );
+    let name = label.to_owned();
+    response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name.as_str()));
+    if response.changed() {
+        draft.committed = None;
+    }
+    let mut committed = None;
+    if response.lost_focus() && draft.text != shown && draft.committed.as_ref() != Some(&draft.text)
+    {
+        if ui.input(|i| i.key_pressed(Key::Escape)) {
+            draft.text = shown.clone();
+        } else {
+            draft.committed = Some(draft.text.clone());
+            committed = Some(draft.text.clone());
+        }
+    }
+    ui.data_mut(|d| d.insert_temp(id, draft));
+    committed
+}
+
+/// `text` as a length: a bare number in `units`, else a length with its unit.
+fn parse_length(text: &str, units: Units) -> Option<Nm> {
+    let text = text.trim();
+    match text.parse::<f64>() {
+        Ok(v) => Some(Nm(match units {
+            Units::Mm => (v * 1e6).round() as i64,
+            Units::Mil => (v * 25_400.0).round() as i64,
+        })),
+        Err(_) => Nm::parse(&text.replace(' ', "")).ok(),
+    }
 }
 
 /// The units a bare number typed into a length field is read in: the board's units on a

@@ -20,5 +20,6 @@ pub use gpu::{
 };
 pub(crate) use widget::MARKER_RADIUS;
 pub use widget::{
-    CanvasInputs, Overlay, RubberBand, canvas, canvas_id, canvas_input, canvas_paint,
+    CanvasInputs, Cutter, Overlay, RubberBand, SEGMENT_HANDLE, canvas, canvas_id, canvas_input,
+    canvas_paint,
 };

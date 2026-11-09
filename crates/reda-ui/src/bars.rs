@@ -52,6 +52,11 @@ pub const UNDO_STACK: &str = "$undo_stack";
 /// array of UUIDs. An item using it is greyed while nothing there is selected.
 pub const SELECTION: &str = "$selection";
 
+/// The raw-params placeholder for the selected Wire segments on the active sheet, as an
+/// array of `{wire, index}` (empty when none). With some selected, [`SELECTION`] in the
+/// same params may be empty, so Delete deletes segments alone.
+pub const SEGMENTS: &str = "$segments";
+
 /// The raw-params placeholder for what the last copy or cut returned (Paste). An item
 /// using it is greyed while the clipboard is empty.
 pub const CLIPBOARD: &str = "$clipboard";
@@ -308,10 +313,22 @@ pub fn resolve_in(
         .project()
         .and_then(|p| shell.board_view().active_layer(p))
         .map(|l| json!(l));
+    let segments: Vec<_> = (shell.selection().segments.iter())
+        .filter(|s| {
+            document.is_some_and(|d| {
+                (shell.engine().project())
+                    .and_then(|p| p.schematic_sheet(d))
+                    .is_some_and(|sheet| sheet.wire(s.wire).is_some())
+            })
+        })
+        .copied()
+        .collect();
+    let by_segments = !segments.is_empty() && mentions(&params, SEGMENTS);
     let selected = document
         .map(|d| selected_on(shell, d))
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() || by_segments)
         .map(|s| json!(s));
+    let segments = json!(segments);
     let select_all = command == "selection.set" && params["objects"].as_str() == Some(SELECTABLE);
     let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
         .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
@@ -319,6 +336,7 @@ pub fn resolve_in(
         .and_then(|()| fill(&mut params, SELECTABLE, selectable.as_ref()))
         .and_then(|()| fill(&mut params, CURSOR, cursor.as_ref()))
         .and_then(|()| fill(&mut params, ACTIVE_LAYER, active_layer.as_ref()))
+        .and_then(|()| fill(&mut params, SEGMENTS, Some(&segments)))
         .map_err(|()| tr!("bars-no-active-document"))
         .and_then(|()| {
             fill(&mut params, SELECTION, selected.as_ref())
@@ -490,6 +508,7 @@ fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String 
                     ACTIVE_DOCUMENT
                         | UNDO_STACK
                         | SELECTION
+                        | SEGMENTS
                         | CLIPBOARD
                         | GRID
                         | SELECTABLE

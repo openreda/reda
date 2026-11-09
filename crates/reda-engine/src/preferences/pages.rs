@@ -85,6 +85,7 @@ pub fn page_of(key: &str) -> &'static str {
             | "cross_reference_sheet_style"
             | "cross_reference_location_style",
         ) => "schematic.names_units",
+        ("schematic", name) if name.starts_with("break_wire.") => "schematic.wires",
         ("schematic", _) => "schematic",
         ("pcb", name) if name.starts_with("zone.") => "pcb.zones",
         ("pcb", name) if name.starts_with("route.") || name.starts_with("drag.") => "pcb.routing",
