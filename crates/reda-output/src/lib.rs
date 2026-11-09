@@ -20,7 +20,7 @@ mod presets;
 mod sha256;
 
 pub use archive::zip;
-pub use assembly::{bom_file, cpl_file};
+pub use assembly::{Bom, MissingField, bom_file, cpl_file};
 pub use drill::{Drills, drill_file_names, drill_files};
 pub use drill_report::{drill_report_file, drill_report_name};
 pub use fab_notes::{fab_notes_file, fab_notes_name};

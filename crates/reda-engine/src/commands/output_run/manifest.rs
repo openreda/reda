@@ -182,6 +182,11 @@ fn message(v: &Violation) -> String {
                 mm(v, "preset_limit")
             )
         }
+        "bom_missing_field" => format!(
+            "BOM row {} has no {}",
+            arg(v, "designators"),
+            arg(v, "field")
+        ),
         "missing_font" => format!("the font \"{}\" is missing on this machine", arg(v, "font")),
         other => {
             let args: Vec<String> = v
