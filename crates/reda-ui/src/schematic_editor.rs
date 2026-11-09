@@ -1169,6 +1169,14 @@ impl Cx<'_> {
             Some(reda_engine::render::Child::Field { unit, field }) => {
                 target_of(project, *unit, Some(field))
             }
+            // A Unit's body is not text: a second click on it deselects it.
+            _ if matches!(
+                project.object(hit),
+                Some(reda_engine::model::Object::Unit(_))
+            ) =>
+            {
+                None
+            }
             _ => target_of(project, hit, None),
         }?;
         in_place::start(self.shell, target)
