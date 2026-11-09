@@ -29,6 +29,7 @@ fn paper() -> Scene {
             corner_radius: Nm(0),
             stroke: None,
         },
+        look: Default::default(),
     });
     scene
 }

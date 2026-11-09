@@ -40,6 +40,7 @@ fn push(scene: &mut Scene, object: Uuid, color: SchematicColor, primitive: Primi
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(color),
         primitive,
+        look: Default::default(),
     });
 }
 
@@ -384,6 +385,7 @@ fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Prim
         layer: SceneLayer::Board(id(layer)),
         color: ColorKey::Board(color),
         primitive,
+        look: Default::default(),
     });
 }
 
@@ -581,4 +583,146 @@ fn the_grid_stops_at_the_papers_edge() {
     assert_eq!(pixel(&img, 30, 120), canvas, "grid drawn past the paper");
     // So does one above the paper, Document (20 mm, 130 mm): pixel (70, 20).
     assert_eq!(pixel(&img, 70, 20), canvas, "grid drawn past the paper");
+}
+
+/// The widest run of non-background pixels down column `x`.
+fn ink_rows(img: &Image, x: u32, background: [u8; 4]) -> u32 {
+    (0..img.height)
+        .filter(|y| distance(pixel(img, x, *y), background) > 40)
+        .count() as u32
+}
+
+#[test]
+fn a_hairline_is_one_pixel_wide_at_every_zoom() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = Scene::new(SceneSource::None);
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Wire,
+        Primitive::Hairline {
+            a: Point::new(mm(0), mm(50)),
+            b: Point::new(mm(100), mm(50)),
+        },
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let background = rgb(palette.background());
+    for nm_per_px in [1_000_000.0, 100_000.0, 10_000.0] {
+        let view = View {
+            center: (50_000_000.0, 50_000_000.0),
+            nm_per_px,
+            width: 64,
+            height: 64,
+            mirrored: false,
+        };
+        let img = gpu
+            .render(&scene, &view, &palette, &Highlight::new())
+            .unwrap();
+        let rows = ink_rows(&img, 32, background);
+        assert!((1..=2).contains(&rows), "{rows} rows at {nm_per_px} nm/px");
+    }
+    // A capsule 0.1 mm wide grows with the zoom.
+    scene.items[0].primitive = Primitive::Capsule {
+        a: Point::new(mm(0), mm(50)),
+        b: Point::new(mm(100), mm(50)),
+        width: Nm(100_000),
+    };
+    let view = View {
+        center: (50_000_000.0, 50_000_000.0),
+        nm_per_px: 10_000.0,
+        width: 64,
+        height: 64,
+        mirrored: false,
+    };
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert!(ink_rows(&img, 32, background) >= 9);
+}
+
+#[test]
+fn masking_greys_the_rest_where_dimming_only_shades_it() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let corner = Point::new(mm(10), mm(10));
+    push(
+        &mut scene,
+        id(3),
+        SchematicColor::Pin,
+        filled_rect(corner, 10, 10),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let lit = Highlight::new().mark(id(2), Flags::HIGHLIGHTED).clone();
+    let dimmed = gpu.render(&scene, &view, &palette, &lit).unwrap();
+    let mut masking = lit.clone();
+    masking.mask_rest();
+    assert_eq!(masking.rest(), Flags::MASKED);
+    assert_eq!(lit.rest(), Flags::DIMMED);
+    let masked = gpu.render(&scene, &view, &palette, &masking).unwrap();
+    assert_eq!(
+        pixel(&masked, 50, 50),
+        pixel(&dimmed, 50, 50),
+        "the highlight"
+    );
+    let [r, g, b, _] = pixel(&masked, 10, 90);
+    assert!(
+        r.abs_diff(g) <= 2 && g.abs_diff(b) <= 2,
+        "grey: {r} {g} {b}"
+    );
+    assert_ne!(pixel(&masked, 10, 90), pixel(&dimmed, 10, 90));
+}
+
+#[test]
+fn net_colours_checker_and_transparency_draw_as_the_look_says() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let view = view_of(&scene, 100);
+    let orange = Rgba::rgb(0xff, 0x80, 0x00);
+    scene.items[1].color = ColorKey::Net(orange);
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), rgb(orange), "a Net's own colour");
+
+    scene.items[1].look.transparency = 50;
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert!(distance(pixel(&img, 50, 50), mix(paper, rgb(orange), 0.5)) <= 3);
+
+    scene.items[1].look = reda_render::Look {
+        checker: true,
+        ..Default::default()
+    };
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    // 4 px cells: (44, 44) and (48, 44) are in neighbouring cells.
+    let cells = [pixel(&img, 45, 45), pixel(&img, 49, 45)];
+    assert!(cells.contains(&rgb(orange)), "{cells:?}");
+    assert!(cells.contains(&paper), "{cells:?}");
+
+    scene.items[1].look = reda_render::Look {
+        zoom_out: Some(mm(1)),
+        ..Default::default()
+    };
+    let far = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(
+        pixel(&far, 50, 50),
+        paper,
+        "1 mm is under 4 px here: hidden"
+    );
+    let near = View {
+        nm_per_px: 10_000.0,
+        ..view
+    };
+    let img = gpu
+        .render(&scene, &near, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), rgb(orange));
 }

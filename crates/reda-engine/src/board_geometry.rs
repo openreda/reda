@@ -7,11 +7,22 @@ use reda_model::{FootprintInstance, PcbDocument, PcbText, Project, Shape, Uuid};
 use reda_pcb::placed::{self, PlacedPad};
 use reda_pcb::zone::{self, FillState};
 use reda_pcb::{Copper, PlacedText, board_layer, footprint_texts, text_geometry};
-use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, RatsnestLine, ZoneFillState};
+use reda_pcb::{Item, RatsnestEnds};
+use reda_render::{
+    BoardGeometry, BoardGraphic, BoardPad, BoardStyle, BoardText, RatsnestLine, ZoneFillState,
+};
+
+mod sheet_labels;
 use reda_render::{Mesh, Segment};
 
-/// Everything `reda_render::pcb_scene` needs from PCB behaviour for `pcb`.
-pub(crate) fn board_geometry(project: &Project, pcb: &PcbDocument, fonts: &Fonts) -> BoardGeometry {
+/// Everything `reda_render::pcb_scene` needs from PCB behaviour for `pcb`, its Ratsnest
+/// starting as `style` says.
+pub(crate) fn board_geometry(
+    project: &Project,
+    pcb: &PcbDocument,
+    fonts: &Fonts,
+    style: &BoardStyle,
+) -> BoardGeometry {
     let mut out = BoardGeometry::default();
     for instance in pcb.footprints() {
         footprint(pcb, instance, fonts, &mut out);
@@ -45,15 +56,26 @@ pub(crate) fn board_geometry(project: &Project, pcb: &PcbDocument, fonts: &Fonts
     }
     let fills = project.zone_fills(pcb.uuid);
     let copper = Copper::of(project).expect("the Project's PCB Document");
+    let ends = if style.smart_track_ends {
+        RatsnestEnds::SmartTrackEnds
+    } else {
+        RatsnestEnds::Pads
+    };
+    let footprint = |item: Item| match item {
+        Item::Pad { footprint, .. } => Some(footprint),
+        _ => None,
+    };
     out.ratsnest = copper
-        .ratsnest()
+        .ratsnest_with(ends)
         .into_iter()
         .map(|l| RatsnestLine {
             net: l.net,
             from: l.from,
             to: l.to,
+            footprints: [footprint(l.from_item), footprint(l.to_item)],
         })
         .collect();
+    out.sheet_labels = sheet_labels::labels(project, pcb);
     out.zones = zone::status(pcb, fills)
         .zones
         .into_iter()

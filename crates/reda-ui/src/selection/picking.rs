@@ -465,6 +465,7 @@ fn document_scene(shell: &Shell, document: Uuid) -> Scene {
                     corner_radius: reda_engine::model::geom::Nm(0),
                     stroke: None,
                 },
+                look: Default::default(),
             });
         }
     }

@@ -49,6 +49,7 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         (0, "PCB"),
         (1, "Interactive Routing"),
         (1, "Zones"),
+        (1, "View"),
         (0, "Checks"),
         (0, "Display"),
         (0, "Libraries"),
