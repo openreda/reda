@@ -17,6 +17,7 @@ pub use reda_library::generate::{
 /// How `project.library.add` stores a Project Library path, for front ends that check a
 /// path before running it.
 pub use reda_library::normalise_library_path;
+pub use reda_library::wizard;
 /// Where an element is used in a Project, and the element kinds, for the Library panel.
 pub use reda_library::{ComponentUse, ElementKind, components_using};
 /// The scanned Libraries and their search, for front ends that list Parts.

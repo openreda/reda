@@ -86,6 +86,7 @@ panel_layers | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no r
 panel_library | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_messages | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_navigator | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+panel_pins | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_projects | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_properties | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 part_edit | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5)
