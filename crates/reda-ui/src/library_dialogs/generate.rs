@@ -1,23 +1,39 @@
-//! A Footprint generator's dialog: the form generated from the generator Command's params
-//! schema, with the target Library as a picker instead of a UUID field, and a preview of
-//! the land pattern the params give, computed as they are typed
-//! ([`reda_engine::library::preview_footprint`]).
+//! The Footprint generator form: one modal, not a wizard. The family list, then the
+//! sections of the generator's params (target, package, goals, tolerances, Pads,
+//! outputs) with every value the generator calculates shown in its empty field, and a
+//! live preview with dimension callouts and the generator's warnings. A typed value
+//! overrides the calculated one; one that breaks IPC-7351 compliance is flagged where it
+//! was typed. **Generate** works whenever the params are complete.
+//!
+//! Regenerate… in a generated Footprint's properties opens the same form on its stored
+//! params, for `library.footprint.regenerate`; the preview then also lists what the
+//! Footprint loses.
+
+mod callouts;
+mod draw;
+mod form;
 
 use std::any::Any;
 
-use egui::{Id, Ui};
 use reda_engine::command::CommandError;
-use reda_engine::model::{Footprint, Uuid};
-use serde_json::Value;
+use reda_engine::library::{GeneratorWarning, RegenerateChange};
+use reda_engine::model::{Footprint, LibraryElement, Uuid};
+use serde_json::{Value, json};
 
-use crate::command_dialog::{Outcome, ParamForm, ParamsDialog, form_row};
-use crate::panels::library::preview;
+use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::shell::Shell;
-use crate::tr;
 
-/// A generator's dialog.
+pub use callouts::{Axis, Callout, Side, callouts};
+pub use form::{GeneratorForm, Row, Section, mm};
+
+/// The Command a Regenerate… form runs.
+pub const REGENERATE: &str = "library.footprint.regenerate";
+
+/// A generator's form.
 pub struct GenerateDialog {
-    form: ParamForm,
+    form: GeneratorForm,
+    /// The Footprint being regenerated, for a Regenerate… form.
+    regenerating: Option<Box<Footprint>>,
     library: Option<Uuid>,
     /// The Library the call gave, until the first frame picks the starting one.
     given_library: Option<Value>,
@@ -29,25 +45,74 @@ pub struct GenerateDialog {
 pub enum Preview {
     /// The form is not complete yet.
     Incomplete,
-    /// The land pattern the generator would write.
-    Footprint(Box<Footprint>),
+    /// What the generator would write.
+    Footprint(Box<Generated>),
     /// Why the params give no land pattern.
     Invalid(String),
+}
+
+/// What the generator would write with the form's params.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Generated {
+    pub footprint: Footprint,
+    /// The params with every value resolved, as the Footprint would store them.
+    pub resolved: Value,
+    pub warnings: Vec<GeneratorWarning>,
+    /// Regenerating: what the Footprint loses, and what it gains.
+    pub lost: Vec<RegenerateChange>,
+    pub added: Vec<RegenerateChange>,
+    /// Regenerating: whether the Footprint would stay as it is.
+    pub unchanged: Option<bool>,
+}
+
+/// How one row reads now.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Shown {
+    /// The value typed, else the one calculated or defaulted, as text.
+    pub text: String,
+    /// The value is not typed in: the generator calculates it or takes its default.
+    pub calculated: bool,
+    /// The typed value overrides IPC-7351's and the land pattern is no longer compliant.
+    pub overrides_ipc: bool,
 }
 
 impl GenerateDialog {
     /// The dialog for generator `id`, filled in with what the call gave.
     pub fn new(shell: &Shell, id: &str, given: &Value) -> GenerateDialog {
         GenerateDialog {
-            form: ParamForm::new(shell.engine().registry(), id, given),
+            form: GeneratorForm::new(shell.engine().registry(), id, given),
+            regenerating: None,
             library: None,
             given_library: Some(given["library"].clone()),
             error: None,
         }
     }
 
-    /// The generated form, for tests that fill it in.
-    pub fn form_mut(&mut self) -> &mut ParamForm {
+    /// The Regenerate… form for the open generated Footprint `footprint`, on its stored
+    /// params; `None` when it is not open or no generator made it.
+    pub fn regenerate(shell: &Shell, footprint: Uuid) -> Option<GenerateDialog> {
+        let Some(LibraryElement::Footprint(old)) = shell.engine().element(footprint) else {
+            return None;
+        };
+        let generator = old.generator.as_ref()?;
+        let registry = shell.engine().registry();
+        Some(GenerateDialog {
+            form: GeneratorForm::stored(registry, &generator.command, &generator.params),
+            library: generator.params["library"]
+                .as_str()
+                .and_then(|l| l.parse().ok()),
+            regenerating: Some(Box::new(old.clone())),
+            given_library: None,
+            error: None,
+        })
+    }
+
+    /// The form, for tests that fill it in.
+    pub fn form(&self) -> &GeneratorForm {
+        &self.form
+    }
+
+    pub fn form_mut(&mut self) -> &mut GeneratorForm {
         &mut self.form
     }
 
@@ -55,79 +120,144 @@ impl GenerateDialog {
         self.library
     }
 
+    /// The Footprint a Regenerate… form regenerates.
+    pub fn regenerating(&self) -> Option<Uuid> {
+        self.regenerating.as_ref().map(|f| f.uuid)
+    }
+
+    /// Switches the form to another generator family, keeping the target Library.
+    pub fn set_family(&mut self, shell: &Shell, id: &str) {
+        if self.regenerating.is_none() && id != self.form.command() {
+            let library = self.form.given("/library");
+            let given = library.map_or_else(|| json!({}), |l| json!({ "library": l }));
+            self.form = GeneratorForm::new(shell.engine().registry(), id, &given);
+        }
+    }
+
+    /// The generator's params from the form, checked, with a stand-in Library while
+    /// none is picked: the preview does not need one.
+    fn checked_params(&self, shell: &Shell) -> Option<Value> {
+        let mut form = self.form.clone();
+        if form.given("/library").is_none() {
+            form.set_text("/library", &Uuid::NIL.to_string());
+        }
+        form.params(shell.engine().registry())
+    }
+
     /// What the preview shows for the params so far.
     pub fn preview(&self, shell: &Shell) -> Preview {
-        // Without a Library yet, the preview still shows the land pattern.
-        let mut form = self.form.clone();
-        if self.library.is_none() {
-            form.set_text("library", &Uuid::NIL.to_string());
-        }
-        let Some(params) = form.params(shell.engine().registry()) else {
+        let Some(params) = self.checked_params(shell) else {
             return Preview::Incomplete;
         };
+        if let Some(old) = &self.regenerating {
+            let library = self.library.unwrap_or(Uuid::NIL);
+            let mut next = u128::from(u32::MAX);
+            let mut new_id = || {
+                next += 1;
+                Uuid::from_u128(next)
+            };
+            return match reda_engine::library::regenerate_footprint(
+                old,
+                library,
+                Some(&params),
+                &mut new_id,
+            ) {
+                Ok((footprint, out)) => Preview::Footprint(Box::new(Generated {
+                    resolved: resolved(&footprint),
+                    footprint,
+                    warnings: out.warnings,
+                    lost: out.lost,
+                    added: out.added,
+                    unchanged: Some(out.unchanged),
+                })),
+                Err(e) => Preview::Invalid(e.message),
+            };
+        }
         match reda_engine::library::preview_footprint(self.form.command(), &params) {
-            Some(Ok(footprint)) => Preview::Footprint(Box::new(footprint)),
+            Some(Ok(preview)) => Preview::Footprint(Box::new(Generated {
+                resolved: resolved(&preview.footprint),
+                footprint: preview.footprint,
+                warnings: preview.warnings,
+                lost: Vec::new(),
+                added: Vec::new(),
+                unchanged: None,
+            })),
             Some(Err(e)) => Preview::Invalid(e.message),
             None => Preview::Incomplete,
         }
     }
 
-    fn sync_library(&mut self) {
-        let text = self.library.map(|l| l.to_string()).unwrap_or_default();
-        self.form.set_text("library", &text);
+    /// How the row at `pointer` reads with `preview`: what was typed, else the value the
+    /// generator calculated for it.
+    pub fn shown(&self, preview: &Preview, pointer: &str) -> Option<Shown> {
+        let row = self.form.row(pointer)?;
+        let generated = match preview {
+            Preview::Footprint(g) => Some(g),
+            _ => None,
+        };
+        let overrides_ipc =
+            generated.is_some_and(|g| form::overridden(&g.warnings).iter().any(|p| p == pointer));
+        if let Some(given) = self.form.given(pointer) {
+            return Some(Shown {
+                text: text(row, &given),
+                calculated: false,
+                overrides_ipc,
+            });
+        }
+        let value = generated
+            .and_then(|g| g.resolved.pointer(pointer).cloned())
+            .or_else(|| row.default.clone())?;
+        Some(Shown {
+            text: text(row, &value),
+            calculated: true,
+            overrides_ipc: false,
+        })
     }
 
-    fn draw_form(&mut self, ui: &mut Ui, shell: &mut Shell) {
-        egui::Grid::new("generate-fields")
-            .num_columns(2)
-            .spacing([8.0, 4.0])
-            .show(ui, |ui| {
-                super::library_picker(
-                    ui,
-                    shell,
-                    Id::NULL.with("generate-library"),
-                    &mut self.library,
-                );
-                ui.end_row();
-                self.sync_library();
-                let problems = self.form.problems(shell.engine().registry());
-                for field in self.form.fields_mut() {
-                    if field.name == "library" {
-                        continue;
-                    }
-                    let problem = problems
-                        .iter()
-                        .find(|(name, _)| *name == field.name)
-                        .map(|(_, m)| m.as_str());
-                    form_row(ui, field, problem);
-                }
-            });
+    /// The params **Generate** (or **Regenerate**) runs its Command with, once the form
+    /// is complete.
+    pub fn run_params(&self, shell: &Shell) -> Option<Value> {
+        let params = self.form.params(shell.engine().registry())?;
+        Some(match &self.regenerating {
+            Some(old) => json!({ "footprint": old.uuid, "params": params }),
+            None => params,
+        })
+    }
+
+    fn sync_library(&mut self) {
+        if self.regenerating.is_some() {
+            return;
+        }
+        let text = self.library.map(|l| l.to_string()).unwrap_or_default();
+        self.form.set_text("/library", &text);
     }
 }
 
-fn draw_preview(ui: &mut Ui, preview: &Preview) {
-    ui.strong(tr!("generate-preview"));
-    match preview {
-        Preview::Incomplete => {
-            ui.weak(tr!("generate-preview-incomplete"));
+/// The params a generated Footprint stores: every value resolved.
+fn resolved(footprint: &Footprint) -> Value {
+    footprint
+        .generator
+        .as_ref()
+        .map_or(Value::Null, |g| g.params.clone())
+}
+
+/// A value as a row shows it: lengths in millimetres.
+fn text(row: &Row, value: &Value) -> String {
+    match (&row.field.input, value) {
+        (crate::command_dialog::Input::Measure(_), Value::Number(n)) => {
+            n.as_i64().map_or_else(|| n.to_string(), mm)
         }
-        Preview::Invalid(why) => {
-            ui.colored_label(ui.visuals().error_fg_color, why);
-        }
-        Preview::Footprint(footprint) => {
-            ui.label(&footprint.name);
-            ui.weak(tr!(
-                "generate-preview-pads",
-                count = footprint.pads.len().to_string()
-            ));
-            preview::footprint(ui, footprint);
-        }
+        (_, Value::String(s)) => s.clone(),
+        (_, other) => other.to_string(),
     }
 }
 
 impl ParamsDialog for GenerateDialog {
     fn command(&self) -> &str {
-        self.form.command()
+        match self.regenerating {
+            Some(_) => REGENERATE,
+            None => self.form.command(),
+        }
     }
 
     fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> Outcome {
@@ -135,44 +265,7 @@ impl ParamsDialog for GenerateDialog {
             self.library = super::initial_library(shell, &given);
         }
         self.sync_library();
-        let mut outcome = Outcome::Open;
-        let modal = crate::modal::Dialog::new(
-            Id::NULL.with("generate-footprint"),
-            self.form.title().to_owned(),
-        )
-        .width(480.0)
-        .show(ctx, |ui| {
-            ui.weak(self.form.description().to_owned());
-            ui.add_space(6.0);
-            self.draw_form(ui, shell);
-            ui.separator();
-            draw_preview(ui, &self.preview(shell));
-            if super::writable_libraries(shell).is_empty() {
-                ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
-            }
-            if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
-            }
-            ui.add_space(8.0);
-            let ready = self.form.params(shell.engine().registry());
-            ui.horizontal(|ui| {
-                let run = ui.add_enabled(ready.is_some(), egui::Button::new(tr!("generate-run")));
-                match ready {
-                    Some(params) if run.clicked() => outcome = Outcome::Run(params),
-                    Some(_) => {}
-                    None => {
-                        run.on_disabled_hover_text(tr!("form-fix-fields"));
-                    }
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    outcome = Outcome::Cancel;
-                }
-            });
-        });
-        if modal.should_close() && outcome == Outcome::Open {
-            outcome = Outcome::Cancel;
-        }
-        outcome
+        draw::show(self, ctx, shell)
     }
 
     fn failed(&mut self, error: &CommandError) {

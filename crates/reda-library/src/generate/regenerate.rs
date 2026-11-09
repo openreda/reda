@@ -144,13 +144,27 @@ fn regenerated(
         };
         (old.clone(), source.library)
     };
+    regenerate_footprint(&old, library, p.params.as_ref(), &mut || cx.new_id())
+}
+
+/// `old` regenerated with `params` (its stored params when `None`), as the Footprint
+/// regenerating gives and how it differs from `old`, without changing anything: the
+/// preview a regenerate form shows. `library` is the one `old` is in, used when `params`
+/// leave it out; `new_id` gives the UUIDs of what is new.
+pub fn regenerate_footprint(
+    old: &Footprint,
+    library: Uuid,
+    params: Option<&serde_json::Value>,
+    new_id: &mut dyn FnMut() -> Uuid,
+) -> Result<(Footprint, Regenerated), CommandError> {
     let Some(generator) = &old.generator else {
         return Err(CommandError::rejected(format!(
             "{} was not made by a generator, so it has no params to run again",
             old.name
         )));
     };
-    let mut params = p.params.clone().unwrap_or_else(|| generator.params.clone());
+    let params_given = params.is_some();
+    let mut params = params.cloned().unwrap_or_else(|| generator.params.clone());
     let Some(fields) = params.as_object_mut() else {
         return Err(CommandError::invalid_params(
             "/params",
@@ -172,10 +186,10 @@ fn regenerated(
             old.name, generator.command
         ))
     })?
-    .map_err(|e| under_params(e, p.params.is_some()))?;
-    keep_uuids(&old, &mut new, &mut || cx.new_id());
-    let (lost, added) = differences(&old, &new);
-    let unchanged = new == old;
+    .map_err(|e| under_params(e, params_given))?;
+    keep_uuids(old, &mut new, new_id);
+    let (lost, added) = differences(old, &new);
+    let unchanged = new == *old;
     let out = Regenerated {
         footprint: old.uuid,
         lost,

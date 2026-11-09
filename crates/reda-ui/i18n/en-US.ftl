@@ -1399,6 +1399,24 @@ generate-preview = Preview
 generate-preview-incomplete = Fill in the form to see the land pattern.
 generate-preview-pads = { $count } Pads
 generate-run = Generate
+generate-family = Family
+generate-regenerating = Regenerating { $name }: it keeps its UUID, name and Pad UUIDs; everything else is replaced.
+generate-regenerate-run = Regenerate
+generate-section-target = Target
+generate-section-package = Package
+generate-section-goals = Goals
+generate-section-tolerances = Tolerances
+generate-section-pads = Pads
+generate-section-outputs = Outputs
+generate-calculated = { $value } (calculated)
+generate-overrides-ipc = Overrides IPC-7351: the land pattern is no longer compliant.
+generate-use-calculated = Use calculated
+generate-warnings = Warnings
+generate-lost = Lost or changed: { $what } ({ $change })
+generate-added = Added: { $what }
+generate-unchanged = Regenerating changes nothing.
+footprint-generated-by = Made by { $generator }
+footprint-regenerate = Regenerate…
 
 # The Part editor.
 part-read-only = Read-only: this Part is in the starter Library.
