@@ -331,6 +331,9 @@ impl App {
         self.show_palette(&ctx);
         self.show_params_dialog(&ctx);
         self.show_relink_confirm(&ctx);
+        if let Some((id, params)) = crate::pcb::placement_bar::dialogs(&ctx, &mut self.shell) {
+            let _ = self.shell.run_reporting(&id, params);
+        }
         self.show_notice(&ctx);
         if let Some(dialog) = &mut self.schematic_dialog
             && !dialog.show(&ctx, &mut self.shell)

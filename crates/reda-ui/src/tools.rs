@@ -441,7 +441,14 @@ impl Command for ToolActivate {
                 "pick the Part to place in the Library panel (tool.place)",
             ));
         }
-        if p.tool.moves_selection() && cx.view::<Selection>()?.objects.is_empty() {
+        // On the board Move needs no selection: its click picks up, or opens Choose
+        // Component.
+        let on_board = p.tool == Tool::Move && {
+            let active = cx.view::<crate::layout::Layout>()?.active_document();
+            let board = cx.project().ok().and_then(|p| p.pcb()).map(|p| p.uuid);
+            active.is_some() && active == board
+        };
+        if p.tool.moves_selection() && !on_board && cx.view::<Selection>()?.objects.is_empty() {
             return Err(CommandError::rejected(
                 "nothing is selected: select what to move first",
             ));

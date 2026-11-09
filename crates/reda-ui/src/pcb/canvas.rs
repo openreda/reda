@@ -132,6 +132,13 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
         input.response.id,
         input.rect,
     ));
+    super::placement_bar::draw_move(ui, shell, input);
+    out.extend(super::placement_bar::show(
+        ui,
+        shell,
+        input.response.id,
+        input.rect,
+    ));
     out.extend(super::routing_bar::show(
         ui,
         shell,

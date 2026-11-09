@@ -5,8 +5,11 @@
 //!   closer than `courtyard_clearance` once moved, exactly as DRC finds them.
 //! - [`avoid`]: in [`ObstacleMode::Avoid`], how far a move gets before it would break
 //!   `courtyard_clearance`: the last clear point on the straight path.
+//! - [`alignment_guides`]: the lines a moved Footprint's held point snaps across to, so its
+//!   Pad centres and Courtyard edges line up with its neighbours'.
+//! - [`pad_to_pad`]: the Ratsnest's Pad To Pad mode during a move.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::{Nm, Point};
 use reda_model::{FootprintInstance, PcbDocument, Side, Uuid};
@@ -14,7 +17,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::drc::placement::{courtyard_clearance, courtyards_or_box, too_close};
-use crate::zone::poly::Area;
+use crate::placed::placed_pads;
+use crate::zone::poly::{self, Area};
 
 /// Why X and Y (same-side mirroring) are refused on a Footprint: the model holds only a
 /// side, and a mirrored part can't be built.
@@ -162,4 +166,142 @@ pub fn avoid(pcb: &PcbDocument, moving: &[Uuid], by: Point) -> Point {
         return along(clear);
     }
     by
+}
+
+/// The outlines a Footprint is checked by in `avoid` and the live overlap: its Courtyard
+/// contours on each side, or else the fallback box, as closed loops of board points.
+pub fn selection_outlines(pcb: &PcbDocument, footprint: Uuid) -> Vec<Vec<Point>> {
+    let Some(f) = pcb.footprint(footprint) else {
+        return Vec::new();
+    };
+    courtyards_or_box(pcb, f)
+        .values()
+        .flatten()
+        .flatten()
+        .map(|contour| contour.iter().map(|p| poly::point(*p)).collect())
+        .collect()
+}
+
+/// The box around a Footprint's [`selection_outlines`], as (min, max).
+fn selection_box(pcb: &PcbDocument, f: &FootprintInstance) -> Option<(Point, Point)> {
+    courtyards_or_box(pcb, f)
+        .values()
+        .filter_map(poly::bounds)
+        .map(|(a, b)| {
+            (
+                Point::new(Nm(a[0]), Nm(a[1])),
+                Point::new(Nm(b[0]), Nm(b[1])),
+            )
+        })
+        .reduce(|(a, b), (c, d)| {
+            (
+                Point::new(a.x.min(c.x), a.y.min(c.y)),
+                Point::new(b.x.max(d.x), b.y.max(d.y)),
+            )
+        })
+}
+
+/// What a Footprint lines up by: its selection box's edges and its Pad centres.
+#[derive(Default)]
+struct Features {
+    edges_x: Vec<Nm>,
+    edges_y: Vec<Nm>,
+    pads: Vec<Point>,
+}
+
+fn features(pcb: &PcbDocument, f: &FootprintInstance) -> Features {
+    let mut out = Features::default();
+    if let Some((lo, hi)) = selection_box(pcb, f) {
+        out.edges_x = vec![lo.x, hi.x];
+        out.edges_y = vec![lo.y, hi.y];
+    }
+    out.pads = placed_pads(pcb, f).iter().map(|p| p.at).collect();
+    out
+}
+
+/// Alignment guides for a move: the x and y values the held point may snap to.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Guides {
+    pub x: BTreeSet<Nm>,
+    pub y: BTreeSet<Nm>,
+}
+
+/// The alignment guides of a move of the Footprints `moving` (as they stand in `pcb`)
+/// held at `reference`: each value puts one of their Pad centres on a neighbour's Pad
+/// centre, or one of their selection-box edges on a neighbour's edge (aligned or
+/// abutting), on that axis. Neighbours are the Footprints not moving.
+pub fn alignment_guides(pcb: &PcbDocument, moving: &[Uuid], reference: Point) -> Guides {
+    let mut own = Features::default();
+    for f in pcb.footprints().filter(|f| moving.contains(&f.uuid)) {
+        let mut one = features(pcb, f);
+        own.edges_x.append(&mut one.edges_x);
+        own.edges_y.append(&mut one.edges_y);
+        own.pads.append(&mut one.pads);
+    }
+    let mut guides = Guides::default();
+    let lines = |out: &mut BTreeSet<Nm>, own: &[Nm], theirs: &[Nm], at: Nm| {
+        for o in own {
+            for t in theirs {
+                out.insert(*t + (at - *o));
+            }
+        }
+    };
+    let own_px: BTreeSet<Nm> = own.pads.iter().map(|p| p.x).collect();
+    let own_py: BTreeSet<Nm> = own.pads.iter().map(|p| p.y).collect();
+    let (own_px, own_py): (Vec<Nm>, Vec<Nm>) =
+        (own_px.into_iter().collect(), own_py.into_iter().collect());
+    for f in pcb.footprints().filter(|f| !moving.contains(&f.uuid)) {
+        let theirs = features(pcb, f);
+        lines(&mut guides.x, &own.edges_x, &theirs.edges_x, reference.x);
+        lines(&mut guides.y, &own.edges_y, &theirs.edges_y, reference.y);
+        let px: Vec<Nm> = theirs.pads.iter().map(|p| p.x).collect();
+        let py: Vec<Nm> = theirs.pads.iter().map(|p| p.y).collect();
+        lines(&mut guides.x, &own_px, &px, reference.x);
+        lines(&mut guides.y, &own_py, &py, reference.y);
+    }
+    guides
+}
+
+/// One Pad To Pad line during a move.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PadLine {
+    pub net: Uuid,
+    /// The moved Pad.
+    pub from: Point,
+    /// The nearest Pad on its Net of a Footprint not moving.
+    pub to: Point,
+}
+
+/// The Ratsnest's Pad To Pad mode: from each Pad of the Footprints `moving` that is on a
+/// Net, a line to the nearest Pad on that Net of a Footprint not moving, whatever copper
+/// joins them already.
+pub fn pad_to_pad(pcb: &PcbDocument, moving: &[Uuid]) -> Vec<PadLine> {
+    let mut standing: BTreeMap<Uuid, Vec<Point>> = BTreeMap::new();
+    for f in pcb.footprints().filter(|f| !moving.contains(&f.uuid)) {
+        for pad in placed_pads(pcb, f) {
+            if let Some(net) = pad.net {
+                standing.entry(net).or_default().push(pad.at);
+            }
+        }
+    }
+    let distance = |a: Point, b: Point| ((a.x.0 - b.x.0) as f64).hypot((a.y.0 - b.y.0) as f64);
+    let mut out = Vec::new();
+    for f in pcb.footprints().filter(|f| moving.contains(&f.uuid)) {
+        for pad in placed_pads(pcb, f) {
+            let Some(net) = pad.net else { continue };
+            let nearest = standing.get(&net).and_then(|pads| {
+                pads.iter()
+                    .copied()
+                    .min_by(|a, b| distance(pad.at, *a).total_cmp(&distance(pad.at, *b)))
+            });
+            if let Some(to) = nearest {
+                out.push(PadLine {
+                    net,
+                    from: pad.at,
+                    to,
+                });
+            }
+        }
+    }
+    out
 }
