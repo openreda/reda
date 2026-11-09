@@ -276,6 +276,9 @@ impl Shell {
         if engine.registry().get("view.keys_card.toggle").is_none() {
             engine.register(crate::keys_card::register_all);
         }
+        if engine.registry().get("view.properties.rules").is_none() {
+            engine.register(crate::properties::commands::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -284,6 +287,9 @@ impl Shell {
             .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(crate::keys_card::KeysCard::default());
+        engine
+            .view_mut()
+            .set(crate::properties::commands::RevealRules::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(pcb::placing::PlaceFlight::default());
         engine.view_mut().set(PowerPortName::default());

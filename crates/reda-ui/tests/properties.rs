@@ -343,12 +343,14 @@ fn a_numeric_expression_runs_per_object_and_commits_one_batch_of_resolved_values
     assert_eq!(
         names,
         [
+            ("x", Kind::Length),
+            ("y", Kind::Length),
+            ("rotation", Kind::Angle),
             ("height", Kind::Length),
             ("thickness", Kind::Length),
-            ("rotation", Kind::Angle)
         ]
     );
-    assert_eq!(p.numbers.rows[0].value, Shared::Mixed);
+    assert_eq!(p.numbers.rows[3].value, Shared::Mixed);
     assert_eq!(p.numbers.rows[2].value, Shared::Same(Some(0)));
 
     // Each text doubles its own height and adds 5 mil; the Command carries the results.
@@ -468,7 +470,8 @@ fn numeric_rows_show_only_when_every_selected_object_has_them() {
     select(&mut shell, json!({"objects": [text, sheet_text]}));
     let p = properties(&shell);
     let names: Vec<&str> = p.numbers.rows.iter().map(|r| r.name).collect();
-    assert_eq!(names, ["height", "rotation"]);
+    // Location rows come first, then the Graphical ones.
+    assert_eq!(names, ["rotation", "height"]);
     let (_, params) = p
         .numbers
         .command("height", "!", Units::Mm)

@@ -78,8 +78,9 @@ fn menu(h: &mut Harness<'static, App>, item: &str, action: &str) {
 fn the_tree_lists_documents_jobs_and_libraries_with_dirty_markers() {
     let (home, work) = (TempDir::new("pp-home"), TempDir::new("pp-work"));
     let mut h = harness(&home, &work, "Tree");
-    // The Project and its PCB Document share the name.
-    assert_eq!(h.query_all_by_label("Tree").count(), 2);
+    // The Project and its PCB Document share the name, which the open sheet's title
+    // block in Properties shows too.
+    assert_eq!(h.query_all_by_label("Tree").count(), 3);
     for heading in ["Schematic", "PCB", "Output Jobs", "Libraries"] {
         h.get_by_label(heading);
     }
@@ -101,7 +102,7 @@ fn the_tree_lists_documents_jobs_and_libraries_with_dirty_markers() {
 
     menu(&mut h, "Tree *", "Save All");
     assert!(h.query_by_label("Sheet 2 *").is_none());
-    assert_eq!(h.query_all_by_label("Tree").count(), 2);
+    assert_eq!(h.query_all_by_label("Tree").count(), 3);
 }
 
 #[test]

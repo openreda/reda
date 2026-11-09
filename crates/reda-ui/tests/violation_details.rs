@@ -110,8 +110,9 @@ fn group_by_regroups_the_list_and_the_details_pane_shows_the_selected_line() {
 
     h.get_by_label(FIRST_END).click();
     h.run();
-    // Under the list: the message again, and its objects as links.
-    assert_eq!(h.get_all_by_label(FIRST_END).count(), 2);
+    // Under the list: the message again, and its objects as links; Properties' Checks
+    // region shows it on the objects going to it selected.
+    assert_eq!(h.get_all_by_label(FIRST_END).count(), 3);
     h.get_by_label("Objects:");
     // Clear the selection going to the line made, so the link's own selecting shows.
     h.state_mut()

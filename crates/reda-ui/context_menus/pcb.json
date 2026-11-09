@@ -74,7 +74,7 @@
         { "id": "context.highlight_net", "command": "view.highlight.net_of", "params": { "objects": "$selection" }, "title": "context-highlight-net" },
         { "id": "context.clear_highlight", "command": "view.highlight.clear" },
         { "id": "context.cross_probe", "command": "view.cross_probe", "params": { "objects": "$selection" }, "title": "context-cross-probe" },
-        { "id": "context.applicable_rules", "command": "pcb.rules.applicable", "params": { "objects": "$selection" }, "title": "context-applicable-rules" }
+        { "id": "context.applicable_rules", "command": "view.properties.rules", "title": "context-applicable-rules" }
       ]
     },
     {
