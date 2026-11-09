@@ -60,11 +60,13 @@ impl Progress for Reporter {
     }
 }
 
-/// A job running on its own thread.
+/// A job, or every job, running on its own thread.
 pub struct JobRunner {
-    job: Uuid,
+    /// The job run; `None` for Run all.
+    job: Option<Uuid>,
     name: String,
-    pcb: Uuid,
+    /// The PCB Document the Messages panel files the run's lines under.
+    pcb: Option<Uuid>,
     cancel: CancelToken,
     reporter: Arc<Reporter>,
     thread: JoinHandle<Finished>,
@@ -94,12 +96,37 @@ pub enum RunOutcome {
     Cancelled,
     /// It failed, with the error's message.
     Failed(String),
+    /// Run all: how each job went, in Projects panel order, and whether a blocked job
+    /// stopped the run.
+    All { jobs: Vec<JobLine>, stopped: bool },
+}
+
+/// One job of a Run all.
+#[derive(Clone, Debug, PartialEq)]
+pub struct JobLine {
+    pub job: Uuid,
+    pub name: String,
+    pub status: JobStatus,
+}
+
+/// How one job of a Run all went.
+#[derive(Clone, Debug, PartialEq)]
+pub enum JobStatus {
+    /// It wrote its files into `destination`.
+    Written { destination: PathBuf },
+    /// A blocking problem stopped it.
+    Blocked,
+    /// It could not run, with why.
+    Failed(String),
+    /// An earlier job was blocked, so it did not run.
+    NotRun,
 }
 
 /// The run report: how it ended, and what blocked it or what it warns about.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RunReport {
-    pub job: Uuid,
+    /// The job run; `None` for Run all.
+    pub job: Option<Uuid>,
     pub job_name: String,
     pub outcome: RunOutcome,
     pub blockers: Vec<String>,
@@ -137,6 +164,35 @@ impl JobRunner {
         let detached = shell
             .engine()
             .detach("output.job.run", json!({ "job": job }))?;
+        JobRunner::spawn(detached, Some(job), name, Some(pcb), cancel, waker)
+    }
+
+    /// Starts every job of the Project (`output.job.run_all`, stopping at the first
+    /// blocked one) with `cancel` as its token, waking the window through `waker`.
+    pub fn start_all(
+        shell: &Shell,
+        cancel: CancelToken,
+        waker: Option<Waker>,
+    ) -> Result<JobRunner, CommandError> {
+        let project = shell
+            .engine()
+            .project()
+            .ok_or_else(|| CommandError::unavailable("no Project is open"))?;
+        let pcb = project.pcb().map(|p| p.uuid);
+        let detached = shell
+            .engine()
+            .detach("output.job.run_all", json!({ "stop_on_block": true }))?;
+        JobRunner::spawn(detached, None, tr!("output-job-all"), pcb, cancel, waker)
+    }
+
+    fn spawn(
+        detached: reda_engine::Detached,
+        job: Option<Uuid>,
+        name: String,
+        pcb: Option<Uuid>,
+        cancel: CancelToken,
+        waker: Option<Waker>,
+    ) -> Result<JobRunner, CommandError> {
         let reporter = Arc::new(Reporter {
             step: Mutex::new(Step {
                 fraction: 0.0,
@@ -165,7 +221,8 @@ impl JobRunner {
         })
     }
 
-    pub fn job(&self) -> Uuid {
+    /// The job run; `None` for Run all.
+    pub fn job(&self) -> Option<Uuid> {
         self.job
     }
 
@@ -205,16 +262,17 @@ impl JobRunner {
             Err(_) => Err(CommandError::internal("the run stopped unexpectedly")),
         };
         let (outcome, blockers, warnings) = match outcome {
+            Ok(result) if self.job.is_none() => all(&result),
             Ok(result) => {
-                let warnings = violations(&result["warnings"]);
+                let warnings = untagged(violations(&result["warnings"]));
                 (written(&result), Vec::new(), warnings)
             }
             Err(e) if e.is_cancelled() => (RunOutcome::Cancelled, Vec::new(), Vec::new()),
             Err(e) => match &e.details {
                 Some(details) if details.get("blockers").is_some() => (
                     RunOutcome::Blocked,
-                    violations(&details["blockers"]),
-                    violations(&details["warnings"]),
+                    untagged(violations(&details["blockers"])),
+                    untagged(violations(&details["warnings"])),
                 ),
                 _ => (RunOutcome::Failed(e.message), Vec::new(), Vec::new()),
             },
@@ -223,25 +281,37 @@ impl JobRunner {
             let document = shell
                 .engine()
                 .project()
-                .and_then(|p| p.document(self.pcb))
+                .zip(self.pcb)
+                .and_then(|(p, pcb)| p.document(pcb))
                 .map(|d| d.uuid);
             let notes = blockers
                 .iter()
                 .chain(&warnings)
-                .map(|v| Note {
+                .map(|(job, v)| Note {
                     source: SOURCE.to_owned(),
                     document,
                     severity: v.severity,
                     text: tr!(
                         "message-output-job",
-                        job = self.name.as_str(),
+                        job = job.as_deref().unwrap_or(self.name.as_str()),
                         text = messages::violation_text(v)
                     ),
                 })
                 .collect();
             shell.set_notes(SOURCE, notes);
         }
-        let text = |list: Vec<Violation>| list.iter().map(messages::violation_text).collect();
+        let text = |list: Vec<(Option<String>, Violation)>| {
+            list.iter()
+                .map(|(job, v)| match job {
+                    Some(job) => tr!(
+                        "message-output-job",
+                        job = job.as_str(),
+                        text = messages::violation_text(v)
+                    ),
+                    None => messages::violation_text(v),
+                })
+                .collect()
+        };
         RunReport {
             job: self.job,
             job_name: self.name,
@@ -260,6 +330,52 @@ fn violations(list: &Value) -> Vec<Violation> {
         .filter_map(|v| serde_json::from_value::<Violation>(v.clone()).ok())
         .filter(|v| v.severity != Severity::Off)
         .collect()
+}
+
+/// Violations of the one job run, not tagged with a job name.
+fn untagged(list: Vec<Violation>) -> Vec<(Option<String>, Violation)> {
+    list.into_iter().map(|v| (None, v)).collect()
+}
+
+type Tagged = Vec<(Option<String>, Violation)>;
+
+/// A Run all's report: each job's line, and the blockers and warnings of every job,
+/// each tagged with its job's name.
+fn all(result: &Value) -> (RunOutcome, Tagged, Tagged) {
+    let (mut blockers, mut warnings) = (Vec::new(), Vec::new());
+    let jobs = result["jobs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|j| {
+            let name = j["name"].as_str().unwrap_or_default().to_owned();
+            let tag = |list: Vec<Violation>| list.into_iter().map(|v| (Some(name.clone()), v));
+            blockers.extend(tag(violations(&j["blockers"])));
+            warnings.extend(tag(violations(&j["result"]["warnings"])));
+            let status = match j["status"].as_str() {
+                Some("written") => JobStatus::Written {
+                    destination: PathBuf::from(
+                        j["result"]["destination"].as_str().unwrap_or_default(),
+                    ),
+                },
+                Some("blocked") => JobStatus::Blocked,
+                Some("failed") => {
+                    JobStatus::Failed(j["error"].as_str().unwrap_or_default().to_owned())
+                }
+                _ => JobStatus::NotRun,
+            };
+            JobLine {
+                job: j["job"]
+                    .as_str()
+                    .and_then(|u| u.parse().ok())
+                    .unwrap_or_default(),
+                name,
+                status,
+            }
+        })
+        .collect();
+    let stopped = result["stopped"].as_bool().unwrap_or_default();
+    (RunOutcome::All { jobs, stopped }, blockers, warnings)
 }
 
 fn written(result: &Value) -> RunOutcome {
@@ -310,6 +426,23 @@ impl JobRuns {
         }
     }
 
+    /// Starts every job of the Project (Run all), waking the window as it goes.
+    pub fn start_all(&mut self, ctx: &egui::Context, shell: &mut Shell) {
+        if self.busy() {
+            shell.report(tr!("output-job-busy"));
+            return;
+        }
+        let ctx = ctx.clone();
+        let waker: Waker = Arc::new(move || ctx.request_repaint());
+        match JobRunner::start_all(shell, CancelToken::new(), Some(waker)) {
+            Ok(runner) => {
+                self.report = None;
+                self.running = Some(runner);
+            }
+            Err(e) => shell.report(tr!("error-command", error = e.message)),
+        }
+    }
+
     /// Runs the job the Output Job dialog asked to run, after applying the dialog.
     pub fn run_from_dialog(
         &mut self,
@@ -317,10 +450,10 @@ impl JobRuns {
         shell: &mut Shell,
         dialog: &mut crate::settings::SettingsDialog,
     ) {
-        let job = dialog
-            .page_mut::<output_job::JobPage>()
-            .and_then(|p| p.take_run());
-        if let Some(job) = job
+        if !dialog.take_run() {
+            return;
+        }
+        if let Some(job) = output_job::job_of(dialog)
             && dialog.apply(shell).is_ok()
         {
             self.start(ctx, shell, job);
@@ -346,8 +479,7 @@ impl JobRuns {
             return;
         };
         match show_report(ctx, report) {
-            Some(ReportAction::ShowZip(zip)) => {
-                let folder = zip.parent().map(PathBuf::from).unwrap_or(zip);
+            Some(ReportAction::ShowFolder(folder)) => {
                 if let Err(e) = crate::os::show_in_folder(&folder) {
                     shell.report(tr!("error-show-in-folder", error = e.to_string()));
                 }

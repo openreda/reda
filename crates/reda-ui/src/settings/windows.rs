@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use reda_engine::model::{Project, Uuid};
 use reda_engine::state::{self, WindowPlace};
 
+use super::fab_preset::PresetPage;
 use super::{FileRequest, Outcome, SettingsDialog, board_setup, change_list, output_job, project};
 use crate::bridge::Bridge;
 use crate::layout::{Layout, SettingsWindow, TabKey, WindowRect};
@@ -35,8 +36,12 @@ pub enum Request {
     PickFolder(SettingsWindow),
     /// A page wants a file picked.
     PickFile(SettingsWindow, FileRequest),
-    /// Preferences wants a folder shown in the file manager.
+    /// Preferences or the Output Job window's Last run wants a folder shown in the file
+    /// manager.
     ShowFolder(PathBuf),
+    /// The Output Job window's **Edit preset copy…**: show that page of the Project's Fab
+    /// Preset copy in Project Settings.
+    EditPreset(Uuid, PresetPage),
 }
 
 /// The open settings windows' state.
@@ -157,6 +162,22 @@ impl SettingsWindows {
         Some(open)
     }
 
+    /// Opens Project Settings on `page` of the Fab Preset copy `preset`; returns whether
+    /// it was open already, or `None` when it cannot open.
+    pub fn open_preset_page(
+        &mut self,
+        shell: &mut Shell,
+        preset: Uuid,
+        page: PresetPage,
+    ) -> Option<bool> {
+        let window = SettingsWindow::ProjectSettings;
+        let open = self.open(shell, window)?;
+        if let Some(dialog) = self.dialogs.get_mut(&window) {
+            dialog.select_where::<project::CopyPage>(|p| p.preset() == preset && p.page() == page);
+        }
+        Some(open)
+    }
+
     fn show_tab(&mut self, shell: &mut Shell, window: SettingsWindow) {
         let saved = shell.engine().user_dirs().and_then(|dirs| {
             let place = state::read(dirs)
@@ -204,6 +225,10 @@ impl SettingsWindows {
             Outcome::PickFolder => self.requests.push(Request::PickFolder(window)),
             Outcome::PickFile(request) => {
                 self.requests.push(Request::PickFile(window, request));
+            }
+            Outcome::ShowFolder(folder) => self.requests.push(Request::ShowFolder(folder)),
+            Outcome::EditPreset(preset, page) => {
+                self.requests.push(Request::EditPreset(preset, page));
             }
         }
     }

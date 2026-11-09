@@ -1,23 +1,56 @@
-//! The Output Job dialog: one job's name, PCB Document, Fab Preset, outputs and
-//! destination, applied with `output.job.set`, plus Run. A job whose PCB Document is gone
-//! is broken: the PCB field is flagged until the user points it at another.
+//! The Output Job window: one job's pages General, Outputs, Gerber, Drill, BOM, CPL and
+//! Last run, applied with `output.job.set`, plus Run, which applies and then runs the job
+//! (`job_run`). A job whose PCB Document is gone is broken: the PCB field is flagged until
+//! the user points it at another.
+//!
+//! The pages share one draft of the job ([`JobDraft`]); General owns loading it, its
+//! Commands and its problems. The read-only pages preview what a run of the drafted job
+//! would write, from the writers themselves (`reda_engine::output_preview`), and Last run
+//! reads the destination's `manifest.json` ([`last_run`]).
 
-use egui::{Button, ComboBox, Role, Ui, WidgetInfo};
-use reda_engine::model::{DocumentKind, PdfColour, Project, Uuid};
+use std::cell::{RefCell, RefMut};
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::time::SystemTime;
+
+use reda_engine::Engine;
+use reda_engine::model::{
+    DocumentKind, NameTemplate, NotFittedPaste, OutputJob, PdfColour, Project, Uuid,
+};
 use reda_engine::output::job_destination;
+use reda_engine::output_preview::{JobPreview, job_preview};
 use serde_json::{Map, Value, json};
 
-use super::{Draft, Page, PageCx, Problem, SettingsDialog, Step, field, problem_label};
+use super::{Draft, Page, PageCx, Problem, SettingsDialog, Step};
+use crate::settings::fab_preset::PresetPage;
 use crate::tr;
 
-/// The Output Job dialog on `job`; `None` when the Project has no such job.
+mod draw;
+pub mod last_run;
+
+pub use draw::empty_columns;
+pub use last_run::{FileCheck, LastRun, Manifest, ManifestFile};
+
+/// The Output Job window on `job`; `None` when the Project has no such job.
 pub fn dialog(project: &Project, job: Uuid) -> Option<SettingsDialog> {
     let name = project.output_job(job)?.name.clone();
-    Some(SettingsDialog::new(
-        tr!("output-job-title", job = name.as_str()),
-        vec![Box::new(JobPage::new(job))],
-        project,
-    ))
+    let draft = Rc::new(RefCell::new(JobDraft::new(job)));
+    let pages: Vec<Box<dyn Page>> = Section::ALL
+        .into_iter()
+        .map(|section| {
+            Box::new(JobPage {
+                section,
+                draft: draft.clone(),
+            }) as Box<dyn Page>
+        })
+        .collect();
+    let title = tr!("output-job-title", job = name.as_str());
+    Some(SettingsDialog::new(title, pages, project).with_run())
+}
+
+/// The job an Output Job window edits.
+pub fn job_of(dialog: &SettingsDialog) -> Option<Uuid> {
+    dialog.page::<JobPage>().map(JobPage::job)
 }
 
 /// Whether `job` names a PCB Document the Project no longer has.
@@ -33,9 +66,132 @@ fn is_pcb(project: &Project, document: Uuid) -> bool {
         .is_some_and(|d| d.kind == DocumentKind::Pcb)
 }
 
-/// The dialog's one page: a draft of each of the job's settings.
-#[derive(Clone, Debug)]
+/// The window's pages, in tree order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Section {
+    General,
+    Outputs,
+    Gerber,
+    Drill,
+    Bom,
+    Cpl,
+    LastRun,
+}
+
+impl Section {
+    pub const ALL: [Section; 7] = [
+        Section::General,
+        Section::Outputs,
+        Section::Gerber,
+        Section::Drill,
+        Section::Bom,
+        Section::Cpl,
+        Section::LastRun,
+    ];
+
+    pub fn title(self) -> String {
+        match self {
+            Section::General => tr!("output-job-page-general"),
+            Section::Outputs => tr!("output-job-page-outputs"),
+            Section::Gerber => tr!("output-job-page-gerber"),
+            Section::Drill => tr!("output-job-page-drill"),
+            Section::Bom => tr!("output-job-page-bom"),
+            Section::Cpl => tr!("output-job-page-cpl"),
+            Section::LastRun => tr!("output-job-page-last-run"),
+        }
+    }
+
+    /// The Fab Preset page its read-only values come from, for **Edit preset copy…**.
+    pub fn preset_page(self) -> Option<PresetPage> {
+        match self {
+            Section::General => Some(PresetPage::Packaging),
+            Section::Gerber => Some(PresetPage::Gerber),
+            Section::Drill => Some(PresetPage::Drill),
+            Section::Bom => Some(PresetPage::Bom),
+            Section::Cpl => Some(PresetPage::Cpl),
+            Section::Outputs | Section::LastRun => None,
+        }
+    }
+}
+
+/// One page of the window, on the job's shared draft.
 pub struct JobPage {
+    section: Section,
+    draft: Rc<RefCell<JobDraft>>,
+}
+
+impl JobPage {
+    pub fn section(&self) -> Section {
+        self.section
+    }
+
+    /// The job's draft, shared by every page.
+    pub fn draft(&self) -> RefMut<'_, JobDraft> {
+        self.draft.borrow_mut()
+    }
+
+    /// The job edited.
+    pub fn job(&self) -> Uuid {
+        self.draft.borrow().job
+    }
+
+    /// The PCB Documents the job may plot.
+    pub fn pcbs(&self) -> Vec<Uuid> {
+        self.draft
+            .borrow()
+            .pcbs
+            .iter()
+            .map(|(uuid, _)| *uuid)
+            .collect()
+    }
+
+    /// Whether the PCB Document picked is gone.
+    pub fn broken(&self) -> bool {
+        self.draft.borrow().broken()
+    }
+
+    /// Whether this page loads the draft and reports its Commands and problems.
+    fn owns(&self) -> bool {
+        self.section == Section::General
+    }
+}
+
+impl Page for JobPage {
+    fn title(&self) -> String {
+        self.section.title()
+    }
+
+    fn load(&mut self, project: &Project, reset: bool) {
+        if self.owns() {
+            self.draft.borrow_mut().load(project, reset);
+        }
+    }
+
+    fn steps(&self) -> Vec<Step> {
+        if self.owns() {
+            self.draft.borrow().steps()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn problems(&self) -> Vec<Problem> {
+        if self.owns() {
+            self.draft.borrow().problems()
+        } else {
+            Vec::new()
+        }
+    }
+
+    fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {
+        let section = self.section;
+        draw::page(ui, cx, section, &mut self.draft.borrow_mut());
+    }
+}
+
+/// The job's settings as edited, what the pages need from the Project, and the previews
+/// worked out from them.
+pub struct JobDraft {
     job: Uuid,
     pub name: Draft<String>,
     pub pcb: Draft<Uuid>,
@@ -50,22 +206,31 @@ pub struct JobPage {
     pub reports: Draft<bool>,
     pub schematic_pdf: Draft<bool>,
     pub schematic_pdf_colour: Draft<PdfColour>,
+    pub not_fitted_paste: Draft<NotFittedPaste>,
     /// The destination folder as typed; empty for the default.
     pub destination: Draft<String>,
-    /// The job is no longer in the Project.
-    gone: bool,
+    /// The name template as typed.
+    pub name_template: Draft<String>,
+    /// The job as the Project has it; `None` once it is deleted.
+    saved: Option<OutputJob>,
     /// The other jobs' names, which this one may not take.
     others: Vec<String>,
     /// The Project's PCB Documents, with their titles.
     pcbs: Vec<(Uuid, String)>,
     /// The Project's Fab Preset copies, with their names.
     presets: Vec<(Uuid, String)>,
-    run: bool,
+    /// The last preview, with what it was worked out from (the Journal's length and the
+    /// drafted job).
+    preview: Option<(PreviewKey, Option<JobPreview>)>,
+    /// The last manifest read, with its path and modification time.
+    last_run: Option<(PathBuf, Option<SystemTime>, LastRun)>,
 }
 
-impl JobPage {
-    pub fn new(job: Uuid) -> JobPage {
-        JobPage {
+type PreviewKey = (usize, OutputJob);
+
+impl JobDraft {
+    fn new(job: Uuid) -> JobDraft {
+        JobDraft {
             job,
             name: Draft::default(),
             pcb: Draft::new(job),
@@ -80,23 +245,20 @@ impl JobPage {
             reports: Draft::default(),
             schematic_pdf: Draft::default(),
             schematic_pdf_colour: Draft::default(),
+            not_fitted_paste: Draft::default(),
             destination: Draft::default(),
-            gone: false,
+            name_template: Draft::default(),
+            saved: None,
             others: Vec::new(),
             pcbs: Vec::new(),
             presets: Vec::new(),
-            run: false,
+            preview: None,
+            last_run: None,
         }
     }
 
-    /// The job edited.
     pub fn job(&self) -> Uuid {
         self.job
-    }
-
-    /// The PCB Documents the job may plot.
-    pub fn pcbs(&self) -> Vec<Uuid> {
-        self.pcbs.iter().map(|(uuid, _)| *uuid).collect()
     }
 
     /// Whether the PCB Document picked is gone.
@@ -104,37 +266,9 @@ impl JobPage {
         !self.pcbs.iter().any(|(uuid, _)| *uuid == *self.pcb.value())
     }
 
-    /// Asks the window to apply the dialog and run the job.
-    pub fn request_run(&mut self) {
-        self.run = true;
-    }
-
-    /// The job, once, after the user asked to run it.
-    pub fn take_run(&mut self) -> Option<Uuid> {
-        std::mem::take(&mut self.run).then_some(self.job)
-    }
-
     /// The default destination for the name typed.
     fn default_destination(&self) -> String {
         format!("outputs/{}", self.name.value().trim())
-    }
-
-    fn name_problem(&self) -> Option<Problem> {
-        let name = self.name.value().trim();
-        let message = if name.is_empty() {
-            tr!("output-job-name-blank")
-        } else if self.others.iter().any(|o| o.eq_ignore_ascii_case(name)) {
-            tr!("output-job-name-taken", name = name)
-        } else {
-            return None;
-        };
-        Some(Problem::new("name", message))
-    }
-}
-
-impl Page for JobPage {
-    fn title(&self) -> String {
-        tr!("output-job-page")
     }
 
     fn load(&mut self, project: &Project, reset: bool) {
@@ -152,11 +286,10 @@ impl Page for JobPage {
             .filter(|j| j.uuid != self.job)
             .map(|j| j.name.clone())
             .collect();
-        let Some(job) = project.output_job(self.job) else {
-            self.gone = true;
+        self.saved = project.output_job(self.job).cloned();
+        let Some(job) = &self.saved else {
             return;
         };
-        self.gone = false;
         self.name.load(job.name.clone(), reset);
         self.pcb.load(job.pcb, reset);
         self.fab_preset.load(job.fab_preset, reset);
@@ -171,12 +304,29 @@ impl Page for JobPage {
         self.schematic_pdf.load(job.outputs.schematic_pdf, reset);
         self.schematic_pdf_colour
             .load(job.schematic_pdf_colour, reset);
+        self.not_fitted_paste.load(job.not_fitted_paste, reset);
         self.destination
             .load(job.destination.clone().unwrap_or_default(), reset);
+        self.name_template
+            .load(job.name_template.as_str().to_owned(), reset);
+    }
+
+    fn output_drafts(&self) -> [(&'static str, &Draft<bool>); 9] {
+        [
+            ("gerber", &self.gerber),
+            ("drill", &self.drill),
+            ("bom", &self.bom),
+            ("cpl", &self.cpl),
+            ("fab_notes", &self.fab_notes),
+            ("drill_report", &self.drill_report),
+            ("gerber_job", &self.gerber_job),
+            ("reports", &self.reports),
+            ("schematic_pdf", &self.schematic_pdf),
+        ]
     }
 
     fn steps(&self) -> Vec<Step> {
-        if self.gone {
+        if self.saved.is_none() {
             return Vec::new();
         }
         let mut params = Map::new();
@@ -190,17 +340,7 @@ impl Page for JobPage {
             params.insert("fab_preset".into(), json!(self.fab_preset.value()));
         }
         let mut outputs = Map::new();
-        for (key, draft) in [
-            ("gerber", &self.gerber),
-            ("drill", &self.drill),
-            ("bom", &self.bom),
-            ("cpl", &self.cpl),
-            ("fab_notes", &self.fab_notes),
-            ("drill_report", &self.drill_report),
-            ("gerber_job", &self.gerber_job),
-            ("reports", &self.reports),
-            ("schematic_pdf", &self.schematic_pdf),
-        ] {
+        for (key, draft) in self.output_drafts() {
             if draft.changed() {
                 outputs.insert(key.into(), json!(draft.value()));
             }
@@ -214,8 +354,17 @@ impl Page for JobPage {
                 json!(self.schematic_pdf_colour.value()),
             );
         }
+        if self.not_fitted_paste.changed() {
+            params.insert(
+                "not_fitted_paste".into(),
+                json!(self.not_fitted_paste.value()),
+            );
+        }
         if self.destination.changed() {
             params.insert("destination".into(), json!(self.destination.value().trim()));
+        }
+        if self.name_template.changed() {
+            params.insert("name_template".into(), json!(self.name_template.value()));
         }
         if params.is_empty() {
             return Vec::new();
@@ -224,8 +373,20 @@ impl Page for JobPage {
         vec![Step::new("output.job.set", Value::Object(params))]
     }
 
+    fn name_problem(&self) -> Option<Problem> {
+        let name = self.name.value().trim();
+        let message = if name.is_empty() {
+            tr!("output-job-name-blank")
+        } else if self.others.iter().any(|o| o.eq_ignore_ascii_case(name)) {
+            tr!("output-job-name-taken", name = name)
+        } else {
+            return None;
+        };
+        Some(Problem::new("name", message))
+    }
+
     fn problems(&self) -> Vec<Problem> {
-        if self.gone {
+        if self.saved.is_none() {
             return vec![Problem::new("job", tr!("output-job-gone"))];
         }
         let mut problems: Vec<Problem> = self.name_problem().into_iter().collect();
@@ -238,119 +399,106 @@ impl Page for JobPage {
                 tr!("output-job-destination-invalid"),
             ));
         }
+        if let Err(e) = NameTemplate::new(self.name_template.value().clone()) {
+            problems.push(Problem::new("name_template", e.to_string()));
+        }
         problems
     }
 
-    fn show(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
-        if let Some(problem) = cx.problem("job") {
-            problem_label(ui, problem);
-            return;
+    /// The job as drafted: the Project's job with every valid draft in it. A value that
+    /// is invalid keeps the Project's.
+    pub fn drafted(&self) -> Option<OutputJob> {
+        let mut job = self.saved.clone()?;
+        let name = self.name.value().trim();
+        if !name.is_empty() {
+            job.name = name.to_owned();
         }
-        egui::Grid::new("output-job")
-            .num_columns(2)
-            .spacing([12.0, 8.0])
-            .show(ui, |ui| {
-                let label = tr!("output-job-name");
-                ui.label(&label);
-                field(ui, &label, self.name.value_mut(), 280.0, cx.problem("name"));
-                ui.end_row();
-
-                ui.label(tr!("output-job-pcb"));
-                ui.vertical(|ui| {
-                    let shown = self
-                        .pcbs
-                        .iter()
-                        .find(|(uuid, _)| uuid == self.pcb.value())
-                        .map_or_else(|| tr!("output-job-pcb-missing"), |(_, t)| t.clone());
-                    let combo = ComboBox::from_id_salt("output-job-pcb")
-                        .selected_text(shown)
-                        .width(280.0)
-                        .show_ui(ui, |ui| {
-                            for (uuid, title) in &self.pcbs {
-                                let mut picked = *self.pcb.value();
-                                ui.selectable_value(&mut picked, *uuid, title);
-                                self.pcb.set(picked);
-                            }
-                        });
-                    labelled(&combo.response, tr!("output-job-pcb"));
-                    if let Some(problem) = cx.problem("pcb") {
-                        problem_label(ui, problem);
-                    }
-                });
-                ui.end_row();
-
-                ui.label(tr!("output-job-fab-preset"));
-                let shown = self
-                    .presets
-                    .iter()
-                    .find(|(uuid, _)| uuid == self.fab_preset.value())
-                    .map(|(_, n)| n.clone())
-                    .unwrap_or_default();
-                let combo = ComboBox::from_id_salt("output-job-fab-preset")
-                    .selected_text(shown)
-                    .width(280.0)
-                    .show_ui(ui, |ui| {
-                        for (uuid, name) in &self.presets {
-                            let mut picked = *self.fab_preset.value();
-                            ui.selectable_value(&mut picked, *uuid, name);
-                            self.fab_preset.set(picked);
-                        }
-                    });
-                labelled(&combo.response, tr!("output-job-fab-preset"));
-                ui.end_row();
-
-                ui.label(tr!("output-job-outputs"));
-                ui.vertical(|ui| {
-                    for (label, draft) in [
-                        (tr!("output-job-gerber"), &mut self.gerber),
-                        (tr!("output-job-drill"), &mut self.drill),
-                        (tr!("output-job-bom"), &mut self.bom),
-                        (tr!("output-job-cpl"), &mut self.cpl),
-                        (tr!("output-job-fab-notes"), &mut self.fab_notes),
-                        (tr!("output-job-drill-report"), &mut self.drill_report),
-                        (tr!("output-job-gerber-job"), &mut self.gerber_job),
-                        (tr!("output-job-reports"), &mut self.reports),
-                        (tr!("output-job-schematic-pdf"), &mut self.schematic_pdf),
-                    ] {
-                        ui.checkbox(draft.value_mut(), label);
-                    }
-                    ui.horizontal(|ui| {
-                        ui.label(tr!("output-job-pdf-colour"));
-                        let colour = self.schematic_pdf_colour.value_mut();
-                        ui.radio_value(
-                            colour,
-                            PdfColour::Colour,
-                            tr!("output-job-pdf-colour-colour"),
-                        );
-                        ui.radio_value(colour, PdfColour::Mono, tr!("output-job-pdf-colour-mono"));
-                    });
-                });
-                ui.end_row();
-
-                let label = tr!("output-job-destination");
-                ui.label(&label);
-                ui.vertical(|ui| {
-                    let problem = cx.problem("destination");
-                    field(ui, &label, self.destination.value_mut(), 280.0, problem);
-                    if self.destination.value().trim().is_empty() {
-                        let default = self.default_destination();
-                        ui.weak(tr!("output-job-destination-default", folder = default));
-                    }
-                });
-                ui.end_row();
-            });
-        ui.add_space(10.0);
-        let can_run = self.problems().is_empty();
-        let run = ui
-            .add_enabled(can_run, Button::new(tr!("output-job-run")))
-            .on_hover_text(tr!("output-job-run-hint"));
-        if run.clicked() {
-            self.request_run();
+        job.pcb = *self.pcb.value();
+        job.fab_preset = *self.fab_preset.value();
+        let o = &mut job.outputs;
+        o.gerber = *self.gerber.value();
+        o.drill = *self.drill.value();
+        o.bom = *self.bom.value();
+        o.cpl = *self.cpl.value();
+        o.fab_notes = *self.fab_notes.value();
+        o.drill_report = *self.drill_report.value();
+        o.gerber_job = *self.gerber_job.value();
+        o.reports = *self.reports.value();
+        o.schematic_pdf = *self.schematic_pdf.value();
+        job.schematic_pdf_colour = *self.schematic_pdf_colour.value();
+        job.not_fitted_paste = *self.not_fitted_paste.value();
+        if let Ok(destination) = job_destination(self.destination.value().clone()) {
+            job.destination = destination;
         }
+        if let Ok(template) = NameTemplate::new(self.name_template.value().clone()) {
+            job.name_template = template;
+        }
+        Some(job)
     }
-}
 
-/// Announces a combo box as `label`.
-fn labelled(response: &egui::Response, label: String) {
-    response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+    /// What a run of the drafted job would write; worked out again only when the job or
+    /// the Project changed.
+    pub fn preview(&mut self, engine: &Engine) -> Option<&JobPreview> {
+        let job = self.drafted()?;
+        let key = (engine.journal().len(), job);
+        if self.preview.as_ref().map(|(k, _)| k) != Some(&key) {
+            let preview = job_preview(engine, &key.1);
+            self.preview = Some((key, preview));
+        }
+        self.preview.as_ref().and_then(|(_, p)| p.as_ref())
+    }
+
+    /// A warning about the resolved name: one with non-ASCII characters, which some fabs
+    /// refuse.
+    pub fn name_warning(&mut self, engine: &Engine) -> Option<String> {
+        let stem = self.preview(engine)?.stem.as_ref().ok()?;
+        (!stem.is_ascii()).then(|| tr!("output-job-name-template-ascii"))
+    }
+
+    /// The drafted job's destination folder, resolved, in the Project folder.
+    pub fn destination_folder(&mut self, engine: &Engine) -> Option<PathBuf> {
+        let folder = engine.location()?.to_path_buf();
+        let destination = self.preview(engine)?.destination.clone().ok()?;
+        Some(
+            destination
+                .split('/')
+                .fold(folder, |path, part| path.join(part)),
+        )
+    }
+
+    /// The last run in the destination, read from its `manifest.json` again whenever the
+    /// file changes.
+    pub fn last_run(&mut self, engine: &Engine) -> LastRun {
+        let Some(folder) = self.destination_folder(engine) else {
+            return LastRun::NotRun;
+        };
+        let manifest = folder.join(last_run::MANIFEST);
+        let modified = std::fs::metadata(&manifest).and_then(|m| m.modified()).ok();
+        let fresh = matches!(&self.last_run,
+            Some((path, time, _)) if *path == manifest && *time == modified);
+        if !fresh {
+            let read = last_run::read(&folder);
+            self.last_run = Some((manifest, modified, read));
+        }
+        self.last_run
+            .as_ref()
+            .map_or(LastRun::NotRun, |(_, _, run)| run.clone())
+    }
+
+    /// The picked PCB Document's title.
+    fn pcb_title(&self) -> String {
+        self.pcbs
+            .iter()
+            .find(|(uuid, _)| uuid == self.pcb.value())
+            .map_or_else(|| tr!("output-job-pcb-missing"), |(_, t)| t.clone())
+    }
+
+    /// The picked Fab Preset copy's name.
+    fn preset_name(&self) -> String {
+        self.presets
+            .iter()
+            .find(|(uuid, _)| uuid == self.fab_preset.value())
+            .map(|(_, n)| n.clone())
+            .unwrap_or_default()
+    }
 }
