@@ -95,6 +95,8 @@ pub struct DocumentTab {
     pub markers_not_shown: usize,
     /// The snap grid the canvas draws and Tools snap to.
     pub grid: Nm,
+    /// The visible grid the canvas draws.
+    pub grid_visible: grid::Visible,
     /// The Document point the visible grid runs through.
     pub grid_origin: Point,
     /// What the editor has in flight on this canvas.
@@ -132,6 +134,7 @@ impl DocumentTab {
             markers: Arc::from([]),
             markers_not_shown: 0,
             grid: grid::SCHEMATIC_DEFAULT,
+            grid_visible: grid::Visible::default(),
             grid_origin: Point::default(),
             interaction: Interaction::Idle,
             suspended: None,
@@ -264,6 +267,9 @@ impl Shell {
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
+        if engine.registry().get("view.hud.toggle").is_none() {
+            engine.register(crate::hud::register_all);
+        }
         if engine.registry().get("selection.filter.set").is_none() {
             engine.register(working_state::register_all);
         }
@@ -288,6 +294,9 @@ impl Shell {
         if engine.registry().get("view.properties.rules").is_none() {
             engine.register(crate::properties::commands::register_all);
         }
+        if engine.registry().get("view.properties.pick_net").is_none() {
+            engine.register(crate::properties::track::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -301,6 +310,13 @@ impl Shell {
             .set(crate::properties::commands::RevealRules::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(pcb::placing::PlaceFlight::default());
+        engine.view_mut().set(pcb::CopperCycle::default());
+        engine
+            .view_mut()
+            .set(crate::properties::track::NetPick::default());
+        engine
+            .view_mut()
+            .set(pcb::copper_drag::DragFlight::default());
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
@@ -316,6 +332,7 @@ impl Shell {
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
+        engine.view_mut().set(crate::hud::HudState::default());
         let working = WorkingState::following(&preferences::current(engine.user_dirs()));
         engine.view_mut().set(working);
         engine.view_mut().set(CrossProbe::default());
@@ -481,6 +498,14 @@ impl Shell {
     }
 
     /// What is selected; it changes through `selection.set`.
+    /// The Tracks waiting for a canvas click to pick their Net (Track Properties).
+    pub fn net_pick(&self) -> &[Uuid] {
+        self.engine
+            .view()
+            .get::<crate::properties::track::NetPick>()
+            .map_or(&[], |p| p.0.as_slice())
+    }
+
     pub fn selection(&self) -> &Selection {
         self.engine
             .view()
@@ -512,6 +537,24 @@ impl Shell {
             .get::<Grids>()
             .map(|g| g.of(self.engine.elements(), document))
             .unwrap_or(grid::SCHEMATIC_DEFAULT)
+    }
+
+    /// The grids in force, their preset tables and custom values.
+    pub fn grids(&self) -> Grids {
+        self.engine
+            .view()
+            .get::<Grids>()
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// The Electrical Range on a sheet or Symbol: its grid row's, else 0.8 of the step.
+    pub fn electrical_range(&self, document: Uuid) -> Nm {
+        self.engine
+            .view()
+            .get::<Grids>()
+            .map(|g| g.range(self.engine.elements(), document))
+            .unwrap_or_else(|| grid::default_range(self.grid(document)))
     }
 
     /// The origin the Document's grid runs through (the Output Origin on a board).
@@ -797,6 +840,14 @@ impl Shell {
             self.pcb_tool.carries_footprints(self),
             self.pcb_tool.queue(),
         );
+        let dragging = self.pcb_tool.copper_drag().is_some();
+        if let Some(flight) = self
+            .engine
+            .view_mut()
+            .get_mut::<pcb::copper_drag::DragFlight>()
+        {
+            flight.0 = dragging;
+        }
         if let Some(flight) = pcb::placing::flight_mut(self) {
             flight.moving = moving;
             flight.queue = queue;
@@ -1415,6 +1466,10 @@ impl Shell {
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
         }
+        // Tab skips a Footprint while Reposition Selected runs, and widens otherwise.
+        if base == "pcb.selection.widen" && self.pcb_tool.queue().is_some() {
+            return self.run("pcb.place.skip", json!({}));
+        }
         if base == "pcb.copper.delete" && self.pcb_tool.polygon_edit().is_some() {
             // Del while holding a polygon's vertex removes the vertex, not the selection.
             let held = self.with_pcb_tool(|tool, shell| tool.delete_held_vertex(shell));
@@ -1434,6 +1489,9 @@ impl Shell {
             self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
         let out = out?;
+        if base == "pcb.route.unroute" {
+            pcb::placing::ask_about_locked_unroute(self, &params, &out);
+        }
         self.after_edit(base, &out);
         self.after_run(id);
         if matches!(base, "library.element.open" | "library.element.new") {
@@ -1573,12 +1631,12 @@ impl Shell {
         {
             self.library_generation += 1;
         }
-        self.sync_selection();
-        self.sync_messages(base);
-        self.sync_board_view();
         if base.starts_with("app.preferences.") {
             self.follow_grid_preferences();
         }
+        self.sync_selection();
+        self.sync_messages(base);
+        self.sync_board_view();
         self.note_focus();
         if matches!(base, "project.open" | "project.new" | "project.save") {
             self.remember_project();
@@ -1864,7 +1922,11 @@ impl Shell {
             let Some(kind) = kinds.get(document).copied() else {
                 continue;
             };
-            if let Some(g) = view.grid.filter(|g| grid::presets(kind).contains(g)) {
+            if let Some(g) = (view.grid).filter(|g| {
+                grid::tables_in(&prefs.editing.grid, kind.into())
+                    .row(*g)
+                    .is_some()
+            }) {
                 picked.insert(*document, g);
             }
             let ty = kind.into();
@@ -2158,9 +2220,20 @@ impl Shell {
                 let (id, params) = crate::schematic_editor::cycle_cutting_length(self);
                 let _ = self.run_reporting(&id, params);
             }
+            // With no segment held, Insert resets the HUD's delta, as it does off a sheet.
             "tool.insert_vertex" if self.tool() == Tool::Select => {
-                if let Some(sheet) = self.active_sheet() {
-                    crate::schematic_editor::insert_held_vertex(self, sheet);
+                let held = self
+                    .active_sheet()
+                    .is_some_and(|sheet| crate::schematic_editor::insert_held_vertex(self, sheet));
+                if !held && let Some(sheet) = self.active_sheet() {
+                    crate::hud::reset(self, sheet);
+                }
+            }
+            "view.hud.reset_delta" => crate::hud::apply_resets(self),
+            // A custom grid's range at or above its step is kept, with this advice.
+            "view.grid.custom" => {
+                if let Some(warning) = out["warning"].as_str() {
+                    self.set_note(warning.to_owned());
                 }
             }
             "tool.edit_properties"
@@ -2210,6 +2283,21 @@ impl Shell {
                 }
             }
             "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
+            "pcb.drag.mode" => {
+                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
+                    self.with_pcb_tool(|t, shell| t.drag_mode(shell, mode));
+                }
+            }
+            // Unwinding hands the selection on to the neighbour, if there is one.
+            "pcb.copper.unwind" => {
+                let objects: Vec<Value> = out["result"]["next"]
+                    .as_str()
+                    .map(|n| vec![json!(n)])
+                    .unwrap_or_default();
+                let _ = self
+                    .engine
+                    .run("selection.set", json!({ "objects": objects }));
+            }
             "pcb.route.width" => {
                 let width = out["width"].as_i64().map(Nm);
                 let step = match out["step"].as_str() {
@@ -2423,6 +2511,7 @@ impl Shell {
                 tab.selection = self.marked.clone();
             }
             tab.grid = grids.of(project, tab.document);
+            tab.grid_visible = grids.visible(project, tab.document);
             tab.grid_origin = grid::origin(project, tab.document);
             if tab.palette.generation != self.palette.generation {
                 tab.palette = self.palette.clone();

@@ -26,6 +26,7 @@ pub mod commands;
 mod numbers;
 pub mod overview;
 pub mod rules;
+pub mod track;
 
 use std::collections::BTreeSet;
 use std::fmt;

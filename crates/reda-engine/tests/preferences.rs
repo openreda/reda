@@ -608,3 +608,71 @@ fn the_check_display_grid_has_details_on_for_all_and_overlay_on_three_checks() {
     );
     assert!(err.is_err());
 }
+
+#[test]
+fn grid_tables_ship_per_document_type_and_take_edited_rows() {
+    let home = TempDir::new("prefs-grid");
+    let mut engine = test_engine_in(home.path());
+    let mil = 25_400;
+    let all = engine.run_ok("app.preferences.get", json!({}));
+    let grid = all["values"]["editing"]["grid"].clone();
+    // Sheet rows: Snap, Electrical Range, Visible (equal to Snap) and In cycle.
+    assert_eq!(
+        grid["schematic"]["imperial"],
+        json!([
+            {"snap": 10 * mil, "range": 8 * mil, "visible": 10 * mil, "in_cycle": true},
+            {"snap": 25 * mil, "range": 20 * mil, "visible": 25 * mil, "in_cycle": true},
+            {"snap": 50 * mil, "range": 40 * mil, "visible": 50 * mil, "in_cycle": true},
+            {"snap": 100 * mil, "range": 80 * mil, "visible": 100 * mil, "in_cycle": true},
+        ])
+    );
+    assert_eq!(grid["symbol"], grid["schematic"]);
+    // Board rows have no range.
+    assert_eq!(
+        grid["pcb"]["metric"],
+        json!([
+            {"snap": 100_000, "visible": 100_000, "in_cycle": true},
+            {"snap": 250_000, "visible": 250_000, "in_cycle": true},
+            {"snap": 500_000, "visible": 500_000, "in_cycle": true},
+            {"snap": 1_000_000, "visible": 1_000_000, "in_cycle": true},
+        ])
+    );
+    assert_eq!(grid["pcb"]["imperial"][0]["snap"], 5 * mil);
+    assert_eq!(grid["footprint"], grid["pcb"]);
+    assert_eq!(grid["style"], "dots");
+    assert_eq!(grid["coarse_multiplier"], 5);
+    let hud = all["values"]["editing"]["hud"].clone();
+    assert_eq!(
+        hud,
+        json!({"show": true, "follow_cursor": true, "xy": true, "delta": true,
+               "layer": true, "grid": true})
+    );
+    assert_eq!(
+        all["values"]["editing"]["display_precision"],
+        json!({"mm": 3, "mil": 1})
+    );
+
+    // A custom row with lengths as text; a range above the step is kept, not clamped.
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "editing.grid.schematic.imperial", "value": [
+            {"snap": "20mil", "range": "30mil", "visible": "100mil", "in_cycle": false},
+        ]}),
+    );
+    assert_eq!(
+        get(home.path(), "editing.grid.schematic.imperial")["value"],
+        json!([{"snap": 20 * mil, "range": 30 * mil, "visible": 100 * mil, "in_cycle": false}])
+    );
+    for (key, value) in [
+        ("editing.grid.coarse_multiplier", json!(3)),
+        ("editing.grid.pcb.metric", json!([])),
+        (
+            "editing.grid.pcb.metric",
+            json!([{"snap": 0, "visible": 1}]),
+        ),
+        ("editing.display_precision.mm", json!(9)),
+    ] {
+        let err = engine.run_err("app.preferences.set", json!({"key": key, "value": value}));
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{key} = {value}");
+    }
+}

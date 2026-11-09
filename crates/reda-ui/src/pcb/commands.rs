@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::view::{BoardView, VIEW_TYPES};
-use crate::grid::{self, Grids};
+use crate::grid::Grids;
 
 /// Adds the PCB view Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
@@ -554,7 +554,8 @@ impl Command for UnitsToggle {
         view.units = units;
         let grids = cx.view::<Grids>()?;
         let current = grids.picked.get(&pcb).copied();
-        let grid = grid::pcb_in_units(current.unwrap_or(grids.pcb), units);
+        let grid = grids.pcb_in_units(current.unwrap_or(grids.pcb), units);
+        grids.custom.remove(&pcb);
         grids.picked.insert(pcb, grid);
         Ok(UnitsNow { units, grid })
     }

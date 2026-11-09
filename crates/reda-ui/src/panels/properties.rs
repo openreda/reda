@@ -7,6 +7,7 @@
 
 mod overview;
 mod rules;
+mod track;
 mod unit;
 mod zone;
 
@@ -167,6 +168,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     },
                 );
             }
+            track::show(ui, shell, project, units(shell), &mut out);
             zone::zones_section(ui, shell, &mut numbers);
             if let Some(found) = &properties.rules {
                 rules::show(ui, shell, found, units(shell), &mut out);

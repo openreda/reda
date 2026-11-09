@@ -61,6 +61,27 @@ pub struct PlaceFlight {
 pub struct Pending {
     pub commands: Vec<(String, Value)>,
     pub locked: usize,
+    /// The question is Unroute's (`pcb.route.unroute` left locked copper): yes runs it
+    /// again with `include_locked`.
+    pub unroute: bool,
+}
+
+/// After `pcb.route.unroute` from the window left locked copper (`kept_locked`) without
+/// being told about it, asks whether to take that too.
+pub(crate) fn ask_about_locked_unroute(shell: &mut Shell, params: &Value, out: &Value) {
+    let kept = out["result"]["kept_locked"]
+        .as_array()
+        .map_or(0, |a| a.len());
+    if kept == 0 || params.get("include_locked").is_some() {
+        return;
+    }
+    if let Some(f) = flight_mut(shell) {
+        f.confirm = Some(Pending {
+            commands: vec![("pcb.route.unroute".to_owned(), params.clone())],
+            locked: kept,
+            unroute: true,
+        });
+    }
 }
 
 fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -459,7 +480,11 @@ pub(crate) fn commit(shell: &mut Shell, commands: Vec<(String, Value)>) -> bool 
     let locked = locked_in(shell, &commands);
     if locked > 0 && !shell.preferences().editing.protect_locked_objects {
         if let Some(f) = flight_mut(shell) {
-            f.confirm = Some(Pending { commands, locked });
+            f.confirm = Some(Pending {
+                commands,
+                locked,
+                unroute: false,
+            });
         }
         return false;
     }

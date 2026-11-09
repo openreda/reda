@@ -135,8 +135,13 @@ pub fn resolve_keys(
 /// What is active in `shell`: its Tool and its active Document's type.
 pub fn active(shell: &Shell) -> Active {
     Active {
-        // One Tool is always active (Select at rest); its id names its context.
-        tool: Some(shell.tool().id().to_owned()),
+        // One Tool is always active (Select at rest); its id names its context. A copper
+        // drag in flight has the keys of `tool:drag`.
+        tool: Some(if shell.pcb_tool().copper_drag().is_some() {
+            "drag".to_owned()
+        } else {
+            shell.tool().id().to_owned()
+        }),
         document: bars::active_type(shell),
         part: shell
             .active_document()

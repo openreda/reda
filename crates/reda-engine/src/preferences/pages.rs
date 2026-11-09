@@ -62,6 +62,8 @@ pub fn page(id: &str) -> Option<&'static Page> {
 pub fn page_of(key: &str) -> &'static str {
     let (section, name) = key.split_once('.').unwrap_or((key, ""));
     match (section, name) {
+        ("editing", name) if name.starts_with("grid.") => "editing.grid",
+        ("editing", name) if name.starts_with("hud.") => "editing.hud",
         ("editing", _) => "editing",
         ("general", "default_layout") => "window",
         ("schematic" | "pcb", "default_units" | "repeat_placement") => "editing",

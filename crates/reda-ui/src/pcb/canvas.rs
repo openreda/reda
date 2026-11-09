@@ -118,6 +118,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     super::live_hover::draw(ui, shell, input);
     drawing(ui, shell, input);
     super::polygon_edit::draw(ui, shell, input);
+    super::copper_drag::draw(ui, shell, input);
     overlay(ui, shell, input);
     let mut out = Vec::new();
     // A right-click ends the route instead of opening the menu (the window leaves the

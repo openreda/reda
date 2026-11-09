@@ -167,6 +167,11 @@ fn every_default_binding_names_a_command_or_preset_and_fits_its_params() {
         if id == "app.quit" || id == "app.cli.install" {
             continue;
         }
+        // A key that leaves required params out opens the Command's params dialog
+        // (Mod+Shift+G asks for a custom grid).
+        if reda_ui::command_dialog::lacks_required(shell.engine().registry(), &id, &params) {
+            continue;
+        }
         if let Err(e) = shell.run(&id, params.clone()) {
             assert!(
                 !matches!(e.code, ErrorCode::InvalidParams | ErrorCode::NotFound),

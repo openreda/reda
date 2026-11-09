@@ -1021,9 +1021,11 @@ impl Cx<'_, '_> {
                 self.frame.commands.extend(options);
                 let edits = schematic_editor::decorate(ui, self.shell, *uuid, rect);
                 self.frame.commands.extend(edits);
-                if self.shell.active_document().map(|d| d.document) == Some(*uuid) {
+                let active = self.shell.active_document().map(|d| d.document) == Some(*uuid);
+                if active {
                     crate::keys_card::show(ui, self.shell, rect);
                 }
+                crate::hud::show(ui, self.shell, *uuid, rect, active);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

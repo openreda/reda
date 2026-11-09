@@ -81,6 +81,9 @@
         { "id": "route.track", "command": "tool.activate:route" },
         { "id": "route.via", "command": "tool.activate:via" },
         "separator",
+        { "id": "route.unroute_all", "command": "pcb.route.unroute", "params": { "all": true }, "title": "menu-route-unroute-all" },
+        { "id": "route.unroute_footprints", "command": "pcb.route.unroute", "params": { "footprints": "$selection" }, "title": "menu-route-unroute-footprints" },
+        { "id": "route.cleanup", "command": "pcb.track.cleanup", "title": "menu-route-cleanup" },
         { "id": "route.zone_fill", "command": "pcb.zone.fill" },
         { "id": "route.ratsnest", "command": "pcb.ratsnest" }
       ]

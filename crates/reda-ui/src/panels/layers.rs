@@ -11,7 +11,6 @@ use reda_engine::preferences::{InactiveLayerMode, Units};
 use reda_engine::render::{BoardColor, ColorKey, Rgba};
 use serde_json::{Value, json};
 
-use crate::grid::pcb_presets;
 use crate::pcb::layer_control::{ordered, set_buttons};
 use crate::pcb::view::{VIEW_TYPES, color_key, format_length, to_hex};
 use crate::shell::Shell;
@@ -217,8 +216,15 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             ComboBox::from_label(tr!("layers-grid"))
                 .selected_text(format_length(current, view.units))
                 .show_ui(ui, |ui| {
-                    for g in pcb_presets(view.units) {
-                        ui.selectable_value(&mut grid, *g, format_length(*g, view.units));
+                    let rows = shell.grids().rows(shell.engine().elements(), pcb.uuid);
+                    let tables = shell.grids().tables(crate::bars::DocumentType::Pcb).clone();
+                    let imperial = view.units == reda_engine::preferences::Units::Mil;
+                    for g in rows
+                        .iter()
+                        .map(|r| r.snap.0)
+                        .filter(|g| tables.is_imperial(*g) == imperial)
+                    {
+                        ui.selectable_value(&mut grid, g, format_length(g, view.units));
                     }
                 });
             if grid != current {

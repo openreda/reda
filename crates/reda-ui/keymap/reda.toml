@@ -38,6 +38,22 @@ command = "view.ui_scale.step:down"
 key = "Mod+0"
 command = "view.ui_scale.set:100"
 
+# The HUD: Shift+H toggles it, Shift+D its delta line, and Insert resets the delta (the
+# Wire Tool's Insert still adds a vertex: the Tool context wins).
+
+[[bind]]
+key = "Shift+H"
+command = "view.hud.toggle"
+
+[[bind]]
+key = "Shift+D"
+command = "view.hud.delta"
+
+[[bind]]
+key = "Insert"
+command = "view.hud.reset_delta"
+params = { document = "$active_document" }
+
 # Keys in Tool: Shift+F1 toggles the card of the active Tool's keys.
 
 [[bind]]
@@ -241,6 +257,24 @@ params = { objects = "$selectable" }
 context = "schematic"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 # Move (detach) and Drag pick the selection up; Esc puts back what is in flight and returns
@@ -532,6 +566,24 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "pcb"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Alt+G"
+command = "view.grid.show"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
 key = "Space"
 command = "tool.rotate"
 
@@ -547,7 +599,8 @@ command = "tool.activate:select"
 
 # Moving Footprints: M picks one up with a click (on empty space it opens Choose
 # Component); while only Footprints are selected or moving, R steps the obstacle mode and N
-# the Ratsnest shown in a move, and during Reposition Selected Tab skips one.
+# the Ratsnest shown in a move, and during Reposition Selected Tab skips one (the Shell
+# turns Tab's `pcb.selection.widen` into `pcb.place.skip` while the queue runs).
 
 [[bind]]
 context = "pcb"
@@ -567,7 +620,7 @@ command = "pcb.place.mode:ratsnest_mode"
 [[bind]]
 context = "pcb"
 key = "Tab"
-command = "pcb.place.skip"
+command = "pcb.selection.widen"
 
 # Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
 # corner mode and Space flips the posture, Backspace takes back the last corner, V drops a
@@ -680,6 +733,47 @@ context = "pcb"
 key = "U"
 command = "pcb.selection.connected"
 
+# Selecting and clearing copper with no Tool in flight: Tab widens a copper selection
+# (contiguous Track on its Layer, connected copper, the whole Net, back to the start),
+# Backspace unwinds one selected end Track or Via (deletes it and selects its neighbour)
+# and Mod+Del unwinds both ways.
+
+[[bind]]
+context = "pcb"
+key = "Backspace"
+command = "pcb.copper.unwind"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Del"
+command = "pcb.copper.unwind"
+params = { objects = "$selection", both = true }
+
+# Dragging copper (the `drag` context, while a Track, Track end, Via or Free Pad drag is
+# in flight): C toggles Include Miters, R Merge Collinear, Space Deform / Scale for a
+# corner, and Shift+R steps the obstacle mode shared with routing.
+
+[[bind]]
+context = "tool:drag"
+key = "C"
+command = "pcb.drag.mode:miter"
+
+[[bind]]
+context = "tool:drag"
+key = "R"
+command = "pcb.drag.mode:merge_collinear"
+
+[[bind]]
+context = "tool:drag"
+key = "Space"
+command = "pcb.drag.mode:corner"
+
+[[bind]]
+context = "tool:drag"
+key = "Shift+R"
+command = "pcb.drag.mode:obstacle_mode"
+
 [[bind]]
 context = "pcb"
 key = "Mod+C"
@@ -728,6 +822,24 @@ params = { objects = "$selectable" }
 context = "footprint"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -788,6 +900,24 @@ params = { objects = "$selectable" }
 context = "symbol"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 [[bind]]

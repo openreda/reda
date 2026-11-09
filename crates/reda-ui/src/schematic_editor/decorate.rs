@@ -75,7 +75,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, document: Uuid, rect: Rect) -> Vec<I
         chip(
             ui,
             Id::NULL.with(("paused", document)),
-            rect.left_top(),
+            rect.left_top() + egui::vec2(0.0, 48.0),
             &paused,
         );
         let label = crate::tr!("in-place-next-name");
@@ -158,7 +158,9 @@ fn text_field(
 pub(super) fn chip(ui: &Ui, id: egui::Id, at: egui::Pos2, text: &str) {
     egui::Area::new(id)
         .order(egui::Order::Tooltip)
-        .fixed_pos(at + egui::vec2(16.0, 16.0))
+        // Above-right of the cursor: the HUD sits below-right of it.
+        .fixed_pos(at + egui::vec2(16.0, -16.0))
+        .pivot(egui::Align2::LEFT_BOTTOM)
         .interactable(false)
         .show(ui.ctx(), |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {

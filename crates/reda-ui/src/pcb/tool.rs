@@ -8,11 +8,9 @@
 //!   selection when it is selected). The move is drawn from a preview of the board
 //!   (`reda_pcb::placement_preview`) and runs nothing until release, when it becomes one
 //!   Command (`pcb.move`), or one `batch` when it was also turned or flipped in flight.
-//! - Dragging a Track segment slides it across itself by the slide rules, its neighbours
-//!   keeping their angles (`Mod`+drag moves it freely, detached; with
-//!   `pcb.drag.preserve_angle` off it moves freely and its neighbours' ends follow), drawn
-//!   from the same plan as `pcb.track.drag` (`reda_pcb::drag::segment`) and run as that one
-//!   Command on release.
+//! - Dragging routed copper (a Track segment, end or corner, a midpoint handle, a Via or a
+//!   lone Free Pad) runs the drag gestures of [`super::copper_drag`]: drawn from the same
+//!   plan as the drag Command and run as that one Command on release.
 //! - Dragging from nothing draws a rubber band: left to right (as seen on screen) it
 //!   selects what it encloses, right to left what it touches, unless Directional
 //!   Rectangle is off.
@@ -33,17 +31,18 @@
 //! canvas and the tests drive it the same way.
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
+use reda_engine::model::{Object, ObjectType, Project, TrackGeometry, Uuid};
 use reda_engine::pcb::place::{self, ObstacleMode, Overlap, RatsnestMode};
 use reda_engine::pcb::{
-    Copper, Item, PlacementOp, drag, placement_anchor, placement_preview,
+    Copper, Item, PlacementOp, placement_anchor, placement_preview,
     placement_preview_including_locked,
 };
 use reda_engine::render::{BoardColor, ColorKey, Primitive, SceneLayer};
 use serde_json::{Value, json};
 
+use super::copper_drag::{self, CopperDrag, DragMode};
 use super::polygon_edit::{self, Grab, PolygonEdit};
-use crate::shell::{Shell, ToolPreview};
+use crate::shell::Shell;
 use crate::snap::{self, Guide, Hit, Snapped, Target};
 use crate::tools::Tool;
 
@@ -85,11 +84,15 @@ enum State {
         to: Point,
     },
     Moving(Move),
-    TrackDrag(TrackDrag),
+    CopperDrag(CopperDrag),
     /// A press on the selected polygon's handles or edges (see [`super::polygon_edit`]).
     Polygon(PolygonPress),
     /// The press can do nothing more until release (a refused move, a cancel).
     Spent,
+    /// A press while Track Properties waits for a Net pick: release picks there.
+    Picking {
+        at: Point,
+    },
 }
 
 #[derive(Debug)]
@@ -150,23 +153,6 @@ struct PolygonPress {
     /// `Mod` on an edge: a click inserts a vertex.
     insert: bool,
     dragged: bool,
-}
-
-/// A Track segment being dragged.
-#[derive(Debug)]
-struct TrackDrag {
-    document: Uuid,
-    track: Uuid,
-    /// The press, on the grid.
-    grab: Point,
-    detach: bool,
-    /// `pcb.drag.preserve_angle` when the drag began.
-    preserve_angle: bool,
-    /// The unit normal of a straight segment, which a plain drag moves along.
-    normal: Option<(f64, f64)>,
-    /// The drag so far.
-    by: Point,
-    copper: std::sync::Arc<Copper>,
 }
 
 /// The kinds of object the Tool can move.
@@ -443,6 +429,11 @@ impl SelectTool {
         self.tolerance = tolerance;
         self.dragged = false;
         self.cursor = Some(at);
+        if !shell.net_pick().is_empty() {
+            // The Net row's canvas pick takes this press.
+            self.state = State::Picking { at };
+            return;
+        }
         if shell.tool() == Tool::Select
             && let Some((object, vertices)) = polygon_edit::selected(shell)
             && let Some(grab) = polygon_edit::grab_at(&vertices, at, tolerance)
@@ -498,14 +489,14 @@ impl SelectTool {
                     .map_or(id, |c| c.owner())
             }) {
                 None => self.state = State::Band { from: at, to },
-                Some(object) if is_track(shell, object) => {
-                    self.start_track_drag(shell, at, object, toggle, to)
-                }
-                Some(object) => self.start_move(shell, at, object, toggle, to),
+                Some(object) => match self.copper_grab(shell, object, at) {
+                    Some(grab) => self.start_copper_drag(shell, at, object, grab, to),
+                    None => self.start_move(shell, at, object, toggle, to),
+                },
             },
-            State::TrackDrag(mut d) => {
-                follow(shell, &mut d, to);
-                self.state = State::TrackDrag(d);
+            State::CopperDrag(mut d) => {
+                d.follow(shell, to);
+                self.state = State::CopperDrag(d);
             }
             State::Polygon(mut p) => {
                 p.dragged = true;
@@ -551,7 +542,7 @@ impl SelectTool {
                     if let Some((id, params)) = select {
                         let _ = shell.run_reporting(&id, params);
                     }
-                } else {
+                } else if !self.break_at(shell, at, hit) {
                     self.click(shell, document, at);
                 }
             }
@@ -606,17 +597,28 @@ impl SelectTool {
                     let _ = shell.run_reporting("tool.activate", json!({"tool": "select"}));
                 }
             }
-            State::TrackDrag(d) => {
+            State::CopperDrag(d) => {
                 shell.end_tool();
-                if d.by == Point::default() {
+                let ran = d
+                    .command(shell)
+                    .is_some_and(|(id, params)| shell.run_reporting(id, params).is_ok());
+                if !ran {
                     shell.redraw(d.document);
-                } else {
-                    let by = json!({"x": d.by.x, "y": d.by.y});
-                    let params = json!({"track": d.track, "by": by, "detach": d.detach,
-                                        "preserve_angle": d.preserve_angle});
-                    if shell.run_reporting("pcb.track.drag", params).is_err() {
-                        shell.redraw(d.document);
+                }
+            }
+            State::Picking { at } => {
+                let tracks = shell.net_pick().to_vec();
+                let net = shell
+                    .engine()
+                    .project()
+                    .and_then(|p| crate::properties::track::net_at(p, &tracks, at));
+                let _ = shell.run_reporting("view.properties.pick_net", json!({"tracks": []}));
+                match net {
+                    Some(net) => {
+                        let params = json!({"tracks": tracks, "net": net});
+                        let _ = shell.run_reporting("pcb.track.set", params);
                     }
+                    None => shell.report(crate::tr!("properties-pick-net-none")),
                 }
             }
             State::Idle | State::Spent => {}
@@ -702,13 +704,16 @@ impl SelectTool {
 
     /// Esc: drops a move or rubber band in flight, leaving the board as it was.
     pub fn cancel(&mut self, shell: &mut Shell) {
+        if !shell.net_pick().is_empty() {
+            let _ = shell.run_reporting("view.properties.pick_net", json!({"tracks": []}));
+        }
         if let State::Moving(m) = &self.state {
             shell.redraw(m.document);
         }
         if let State::Polygon(p) = &self.state {
             shell.redraw(p.edit.document);
         }
-        if let State::TrackDrag(d) = &self.state {
+        if let State::CopperDrag(d) = &self.state {
             shell.end_tool();
             shell.redraw(d.document);
         }
@@ -923,129 +928,78 @@ impl SelectTool {
 }
 
 impl SelectTool {
-    fn start_track_drag(
+    /// The copper drag gesture a press at `at` on `object` starts, if any.
+    fn copper_grab(&self, shell: &Shell, object: Uuid, at: Point) -> Option<copper_drag::Grab> {
+        if shell.tool() != Tool::Select {
+            return None;
+        }
+        let pcb = board(shell)?.0.pcb()?;
+        copper_drag::grab_at(shell, pcb, object, at, self.modifiers, self.tolerance)
+    }
+
+    fn start_copper_drag(
         &mut self,
         shell: &mut Shell,
         at: Point,
-        track: Uuid,
-        detach: bool,
+        target: Uuid,
+        grab: copper_drag::Grab,
         to: Point,
     ) {
-        let Some((project, document)) = board(shell) else {
+        let Some((_, document)) = board(shell) else {
             return;
         };
-        let pcb = project.pcb().expect("a board");
-        let geometry = pcb.track(track).expect("a Track").geometry;
-        let normal = match geometry {
-            TrackGeometry::Line { from, to } => {
-                let (dx, dy) = ((to.x.0 - from.x.0) as f64, (to.y.0 - from.y.0) as f64);
-                let len = (dx * dx + dy * dy).sqrt();
-                (len > 0.0).then(|| (-dy / len, dx / len))
-            }
-            TrackGeometry::Arc { .. } => None,
-        };
-        let Some(copper) = Copper::of(project) else {
+        let detach = self.modifiers.command && !self.modifiers.shift;
+        let Some(mut d) = CopperDrag::start(shell, document, target, grab, at, detach) else {
+            self.state = State::Spent;
             return;
         };
-        if shell.selection().objects != [track] {
-            let (id, params) =
-                crate::selection::picking::set_command(&crate::selection::Selection {
-                    objects: vec![track],
-                    ..Default::default()
-                });
-            let _ = shell.run_reporting(&id, params);
-        }
-        shell.begin_tool(ToolPreview::new(crate::tr!("tool-drag-track"), [track]));
-        let mut d = TrackDrag {
-            document,
-            track,
-            grab: board_to_grid(shell, at),
-            detach,
-            preserve_angle: shell.preferences().pcb.drag.preserve_angle,
-            normal,
-            by: Point::default(),
-            copper,
-        };
-        follow(shell, &mut d, to);
-        self.state = State::TrackDrag(d);
+        d.follow(shell, to);
+        self.state = State::CopperDrag(d);
     }
-}
 
-/// Whether `object` is a Track of the board.
-fn is_track(shell: &Shell, object: Uuid) -> bool {
-    board(shell)
-        .and_then(|(p, _)| p.pcb())
-        .is_some_and(|pcb| pcb.track(object).is_some())
-}
+    /// The copper drag in flight.
+    pub fn copper_drag(&self) -> Option<&CopperDrag> {
+        match &self.state {
+            State::CopperDrag(d) => Some(d),
+            _ => None,
+        }
+    }
 
-/// Follows the cursor at `to` with the segment drag `d`, redrawing the preview when the
-/// drag changed. A plain drag of a straight segment moves it across itself only.
-fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
-    let raw = board_to_grid(shell, to) - d.grab;
-    let by = match (d.detach || !d.preserve_angle, d.normal) {
-        (false, Some((nx, ny))) => {
-            let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
-            Point::new(
-                Nm((along * nx).round() as i64),
-                Nm((along * ny).round() as i64),
-            )
-        }
-        _ => raw,
-    };
-    if by == d.by {
-        return;
-    }
-    d.by = by;
-    if by == Point::default() {
-        shell.redraw(d.document);
-        return;
-    }
-    let Some(project) = shell.engine().project() else {
-        return;
-    };
-    let Some(pcb) = project.pcb() else {
-        return;
-    };
-    let mut n = 0u128;
-    let options = drag::Options {
-        detach: d.detach,
-        preserve_angle: d.preserve_angle,
-        ..drag::Options::default()
-    };
-    let Ok(plan) = drag::segment(pcb, &d.copper, d.track, by, options, || {
-        n += 1;
-        Uuid::v4_from_bits(u128::MAX - n)
-    }) else {
-        return;
-    };
-    let mut project = project.clone();
-    let mut tx = project.transaction();
-    let document = d.document;
-    for track in plan.modified {
-        if tx
-            .replace(Object::Track(InDocument::new(document, track)))
-            .is_err()
-        {
+    /// A drag key (`pcb.drag.mode`): flips the option on the copper drag in flight, or
+    /// steps the obstacle mode shared with routing.
+    pub fn drag_mode(&mut self, shell: &mut Shell, mode: DragMode) {
+        let State::CopperDrag(mut d) = std::mem::take(&mut self.state) else {
             return;
+        };
+        if mode == DragMode::ObstacleMode {
+            let next = shell.preferences().pcb.route.obstacle_mode.next();
+            let _ = shell.run_reporting(
+                "app.preferences.set",
+                json!({"key": "pcb.route.obstacle_mode", "value": next}),
+            );
+            d.refresh(shell, self.cursor);
+        } else {
+            d.change_mode(shell, mode);
         }
+        self.state = State::CopperDrag(d);
     }
-    for track in plan.created {
-        if tx
-            .insert(Object::Track(InDocument::new(document, track)))
-            .is_err()
-        {
-            return;
+
+    /// A `Mod`+Shift click on a straight Track segment: breaks it there.
+    fn break_at(&self, shell: &mut Shell, at: Point, hit: Option<Uuid>) -> bool {
+        if !(self.modifiers.command && self.modifiers.shift) {
+            return false;
         }
+        let Some(track) = hit.and_then(|h| board(shell)?.0.pcb()?.track(h).cloned()) else {
+            return false;
+        };
+        let TrackGeometry::Line { from, to } = track.geometry else {
+            return false;
+        };
+        let p = copper_drag::on_segment(from, to, at);
+        let params = json!({"track": track.uuid, "at": {"x": p.x, "y": p.y}});
+        let _ = shell.run_reporting("pcb.track.break", params);
+        true
     }
-    for uuid in plan.deleted {
-        if tx.remove(uuid).is_err() {
-            return;
-        }
-    }
-    if tx.commit().is_err() {
-        return;
-    }
-    shell.show_preview(document, &project);
 }
 
 /// `p` as the shared canvas functions take it: nm, y up.
@@ -1079,7 +1033,7 @@ pub(crate) fn snap_board(shell: &Shell, at: Point, targets: &[Target]) -> Snappe
 }
 
 /// `at` on the board's grid level alone.
-fn board_to_grid(shell: &Shell, at: Point) -> Point {
+pub(crate) fn board_to_grid(shell: &Shell, at: Point) -> Point {
     let xy = (at.x.0 as f64, at.y.0 as f64);
     match board(shell) {
         Some((_, document)) => snap::to_grid(shell, document, xy),

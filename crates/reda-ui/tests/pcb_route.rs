@@ -457,9 +457,10 @@ fn dragging_a_segment_previews_then_runs_one_track_drag_keeping_neighbours() {
         }
     );
 
-    // Mod+drag detaches.
-    b.shell.pcb_press(mm(5.0, 7.0), true, TOLERANCE);
-    b.shell.pcb_drag(mm(5.0, 9.0));
+    // Mod+drag detaches. (Off the midpoint: on the selected segment's midpoint handle a
+    // drag breaks it.)
+    b.shell.pcb_press(mm(3.0, 7.0), true, TOLERANCE);
+    b.shell.pcb_drag(mm(3.0, 9.0));
     b.shell.pcb_release();
     let (id, params) = last_entry(&b);
     assert_eq!(id, "pcb.track.drag");
@@ -499,8 +500,8 @@ fn the_drag_passes_pcb_drag_preserve_angle_to_the_command() {
             json!({"key": "pcb.drag.preserve_angle", "value": false}),
         )
         .unwrap();
-    b.shell.pcb_press(mm(5.0, 7.0), false, TOLERANCE);
-    b.shell.pcb_drag(mm(7.0, 8.0));
+    b.shell.pcb_press(mm(3.0, 7.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(5.0, 8.0));
     b.shell.pcb_release();
     let (id, params) = last_entry(&b);
     assert_eq!(id, "pcb.track.drag");

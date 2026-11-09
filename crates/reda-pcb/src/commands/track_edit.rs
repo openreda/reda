@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use super::outline::PointParam;
 use super::{needs_pcb, pcb};
 use crate::drag::{self, Corner, Options, Plan, TrackEnd};
+use crate::route::ObstacleMode;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(TrackDrag);
@@ -24,6 +25,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(TrackBreak);
     registry.add(CopperDrag);
     registry.add(CopperDelete);
+    registry.add(CopperUnwind);
 }
 
 fn yes() -> bool {
@@ -142,9 +144,19 @@ pub struct TrackDragParams {
     /// it.
     #[serde(default = "yes")]
     pub merge_collinear: bool,
+    /// What copper of other Nets in the way does: `stop` ends the slide at the last
+    /// clear position (where it breaks no clearance rule it did not already break);
+    /// `ignore` and `highlight` let it through for DRC to report. The Tool passes
+    /// `pcb.route.obstacle_mode`.
+    #[serde(default = "ignore")]
+    pub obstacle_mode: ObstacleMode,
     /// Drags a locked Track too; without it a locked one is refused.
     #[serde(default)]
     pub include_locked: bool,
+}
+
+fn ignore() -> ObstacleMode {
+    ObstacleMode::Ignore
 }
 
 impl Command for TrackDrag {
@@ -157,7 +169,8 @@ impl Command for TrackDrag {
                       neighbour can't follow (a Pad, Via, branch or parallel neighbour) a \
                       connector is added, 45° with `miter`, else square. With `detach` \
                       only the segment moves; without `preserve_angle` it moves freely and \
-                      its neighbours' ends follow.",
+                      its neighbours' ends follow. In the `stop` obstacle mode it ends at \
+                      the last clear position.",
         category: "pcb",
         icon: "drag",
         kind: Kind::Edit,
@@ -183,7 +196,15 @@ impl Command for TrackDrag {
             merge_collinear: p.merge_collinear,
         };
         let copper = super::board_copper(cx)?;
-        let plan = drag::segment(pcb(cx)?, &copper, p.track, by, options, Uuid::default)
+        let board = pcb(cx)?;
+        let by = if p.obstacle_mode == ObstacleMode::Stop {
+            drag::last_clear(board, &copper, by, |b| {
+                drag::segment(board, &copper, p.track, b, options, Uuid::default).ok()
+            })
+        } else {
+            by
+        };
+        let plan = drag::segment(board, &copper, p.track, by, options, Uuid::default)
             .map_err(|e| CommandError::invalid_params("/track", e))?;
         apply(cx, plan, p.include_locked, true)
     }
@@ -505,5 +526,69 @@ impl Command for CopperDelete {
             tx.remove(*uuid)?;
         }
         Ok(CopperDeleteResult { deleted })
+    }
+}
+
+pub struct CopperUnwind;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CopperUnwindParams {
+    /// The one Track segment or Via to unwind from (the selection, as a list).
+    pub objects: Vec<Uuid>,
+    /// Unwinds both ways along the chain, up to Pads and branches (`Mod`+Del); without
+    /// it one step (Backspace).
+    #[serde(default)]
+    pub both: bool,
+    /// Deletes locked copper too; without it locked copper refuses the Command.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
+impl Command for CopperUnwind {
+    const META: Meta = Meta {
+        id: "pcb.copper.unwind",
+        title: "Unwind Copper",
+        description: "Deletes the one selected Track segment or Via and returns its \
+                      neighbour to select next, passing through Vias and stopping at a \
+                      Pad; one that touches several objects returns nothing. With `both` \
+                      it deletes along the chain both ways, up to Pads and branches.",
+        category: "pcb",
+        icon: "delete",
+        kind: Kind::Edit,
+    };
+    type Params = CopperUnwindParams;
+    type Output = crate::unwind::Unwound;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: CopperUnwindParams,
+    ) -> Result<crate::unwind::Unwound, CommandError> {
+        let [object] = p.objects[..] else {
+            return Err(CommandError::invalid_params(
+                "/objects",
+                "unwinding starts from exactly one Track or Via",
+            ));
+        };
+        let copper = super::board_copper(cx)?;
+        let pcb = pcb(cx)?;
+        let unwound = crate::unwind::unwind(pcb, &copper, object, p.both)
+            .map_err(|e| CommandError::invalid_params("/objects/0", e))?;
+        crate::lock::refuse(
+            pcb,
+            unwound.deleted.iter().copied(),
+            p.include_locked,
+            "delete",
+        )?;
+        let tx = cx.tx()?;
+        for uuid in &unwound.deleted {
+            tx.remove(*uuid)?;
+        }
+        Ok(unwound)
     }
 }
