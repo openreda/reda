@@ -940,6 +940,9 @@ impl Cx<'_, '_> {
                 let edits = if view_only {
                     Vec::new()
                 } else {
+                    let (modifiers, pressed) =
+                        ui.input(|i| (i.modifiers, i.pointer.primary_down()));
+                    self.shell.hold_snap_keys(*uuid, modifiers, pressed);
                     self.edit(*uuid, &input)
                 };
                 // A Command still lacking params (text's words) asks for them in a dialog.

@@ -240,7 +240,7 @@ pub(super) fn segment_distance(p: P, a: P, b: P) -> f64 {
 }
 
 /// The point of the segment `a`–`b` nearest `p`.
-pub(super) fn closest_on_segment(p: P, a: P, b: P) -> P {
+pub(crate) fn closest_on_segment(p: P, a: P, b: P) -> P {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len2 = dx * dx + dy * dy;
     let t = if len2 > 0.0 {

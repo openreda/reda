@@ -155,8 +155,8 @@ fn pads_follow_the_shared_click_shift_toggle_and_filter_rules() {
     w.h.hover_at(near_pad);
     w.h.run();
     assert_eq!(
-        shell(&w).pcb_snap(),
-        Some((Point::default(), reda_ui::pcb::snap::SnapKind::Pad)),
+        shell(&w).pcb_snap().map(|s| (s.at, s.hit.hotspot())),
+        Some((Point::default(), Some(reda_ui::snap::Hotspot::PadCenter))),
         "filtering a Pad does not remove its snap target"
     );
 }

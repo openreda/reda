@@ -27,9 +27,8 @@ use reda_engine::pcb::rules::net_rules;
 use reda_engine::pcb::{ClearanceHit, Copper, Proposal, keepout};
 use serde_json::json;
 
-use super::snap::{self, SnapKind};
-use super::tool::DEFAULT_SNAP_RADIUS;
 use crate::shell::{Shell, ToolPreview};
+use crate::snap::Snapped;
 use crate::tools::Tool;
 use crate::tr;
 
@@ -149,8 +148,7 @@ pub struct Router {
     route: Option<Route>,
     corner: Corner,
     /// The cursor, snapped.
-    cursor: Option<(Point, SnapKind)>,
-    radius: Option<Nm>,
+    cursor: Option<Snapped>,
     /// What the path ahead (or the Via at the cursor) hits.
     hits: Vec<ClearanceHit>,
     keepouts: Vec<Uuid>,
@@ -169,18 +167,13 @@ fn title() -> String {
 }
 
 impl Router {
-    /// Sets how far electrical points catch the cursor (a few pixels at the zoom).
-    pub fn set_snap_radius(&mut self, radius: Nm) {
-        self.radius = Some(radius);
-    }
-
     /// The corner mode.
     pub fn corner(&self) -> Corner {
         self.corner
     }
 
     /// Where the cursor last snapped, for the snap marker.
-    pub fn snap(&self) -> Option<(Point, SnapKind)> {
+    pub fn snap(&self) -> Option<Snapped> {
         self.cursor
     }
 
@@ -193,7 +186,7 @@ impl Router {
     pub fn preview(&self) -> Option<Preview> {
         let route = self.route.as_ref()?;
         let ahead = match self.cursor {
-            Some((at, _)) => corner_path(route.last(), at, self.corner),
+            Some(Snapped { at, .. }) => corner_path(route.last(), at, self.corner),
             None => vec![route.last()],
         };
         Some(Preview {
@@ -281,7 +274,7 @@ impl Router {
     /// the other side.
     pub fn add_via(&mut self, shell: &mut Shell) {
         self.notice_cancel(shell);
-        let (Some(route), Some((at, _))) = (&self.route, self.cursor) else {
+        let (Some(route), Some(Snapped { at, .. })) = (&self.route, self.cursor) else {
             return;
         };
         let net = route.net;
@@ -348,7 +341,7 @@ impl Router {
             route.leg = leg;
             route.leg.points.pop();
         }
-        if let Some((at, _)) = self.cursor {
+        if let Some(Snapped { at, .. }) = self.cursor {
             self.check(shell, at);
         }
     }
@@ -356,7 +349,7 @@ impl Router {
     /// `/`: the next corner mode.
     pub fn cycle_corner(&mut self, shell: &mut Shell) {
         self.corner = self.corner.next();
-        if let Some((at, _)) = self.cursor {
+        if let Some(Snapped { at, .. }) = self.cursor {
             self.check(shell, at);
         }
     }
@@ -415,7 +408,7 @@ impl Router {
         } else {
             route.leg.width = width;
         }
-        if let Some((at, _)) = self.cursor {
+        if let Some(Snapped { at, .. }) = self.cursor {
             self.check(shell, at);
         }
     }
@@ -474,24 +467,10 @@ impl Router {
     }
 
     fn snap_to(&mut self, shell: &Shell, at: Point) -> Point {
-        let grid = match board(shell) {
-            Some((_, pcb)) => shell.grid(pcb),
-            None => crate::grid::pcb_default(shell.board_view().units),
-        };
-        let targets = board(shell)
-            .and_then(|(p, _)| p.pcb())
-            .filter(|_| shell.preferences().pcb.electrical_snap)
-            .map(snap::targets)
-            .unwrap_or_default();
-        let snapped = snap::snap(
-            at,
-            grid,
-            shell.board_grid_origin(),
-            &targets,
-            self.radius.unwrap_or(DEFAULT_SNAP_RADIUS),
-        );
+        let targets = super::tool::board_hotspots(shell);
+        let snapped = super::tool::snap_board(shell, at, &targets);
         self.cursor = Some(snapped);
-        snapped.0
+        snapped.at
     }
 
     /// The board's copper index, kept in the Project between edits.

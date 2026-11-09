@@ -746,3 +746,40 @@ fn opening_a_project_keeps_unanswered_per_user_snapshots() {
     next.flush_recovery();
     assert_eq!(snapshots::scan(&folder, None).len(), 1, "still there");
 }
+
+#[test]
+fn the_symbol_editor_snaps_onto_pin_ends_within_the_electrical_range() {
+    let mut f = Fixture::new("sym-snap");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -213.0, 30.0);
+    f.shell
+        .run(
+            "view.snap.set",
+            json!({"document": symbol, "gridless": true}),
+        )
+        .unwrap();
+    f.shell.run("tool.activate:line", json!({})).unwrap();
+    // 50 mil grid: a 40 mil range. 30 mil off on both axes lands on the Pin end
+    // (-200, 50); further off, gridless, the click stays where it is.
+    f.click(symbol, -170.0, 80.0);
+    f.click(symbol, -100.0, 133.0);
+    f.click(symbol, -100.0, 133.0);
+    let s = f.symbol(symbol);
+    let points: Vec<Point> = s
+        .graphics
+        .iter()
+        .flat_map(|g| match &g.shape {
+            reda_ui::engine::model::Shape::Line { start, end } => vec![*start, *end],
+            reda_ui::engine::model::Shape::Polygon { points } => points.clone(),
+            other => panic!("unexpected {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        points,
+        [
+            Point::new(mil(-200), mil(50)),
+            Point::new(mil(-100), mil(133))
+        ]
+    );
+}

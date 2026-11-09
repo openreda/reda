@@ -9,7 +9,6 @@ use reda_engine::model::Uuid;
 use reda_engine::model::geom::{Nm, Point};
 use serde_json::{Value, json};
 
-use super::snap::SnapKind;
 use super::view::format_length;
 use crate::canvas::interact::Pointer;
 use crate::canvas::{CanvasInputs, RubberBand};
@@ -19,8 +18,6 @@ use crate::tr;
 
 /// How near a click counts as on an object, in points.
 const PICK_POINTS: f64 = 5.0;
-/// How near electrical points catch the cursor, in points.
-const SNAP_POINTS: f64 = 10.0;
 
 /// Feeds this frame's pointer events on the board `document`'s canvas to the Tool: a
 /// press, drag and release (a click is a press and release), and with no button down the
@@ -36,10 +33,6 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         let net = live_hover_net(shell, document, at, tolerance.0 as f64);
         shell.set_live_hover_candidate(net);
     }
-    shell.set_pcb_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
-    shell
-        .router_mut()
-        .set_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
     if matches!(shell.tool(), Tool::Route | Tool::Via) {
         for &event in &input.events {
             match event {
@@ -233,24 +226,8 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         Tool::Route | Tool::Via => shell.router().snap(),
         _ => shell.pcb_snap(),
     };
-    if hovered && let Some((at, kind)) = snapped {
-        let c = screen(at);
-        match kind {
-            SnapKind::Grid => {
-                let r = 4.0;
-                painter.line_segment(
-                    [c - vec2(r, 0.0), c + vec2(r, 0.0)],
-                    Stroke::new(1.0, accent),
-                );
-                painter.line_segment(
-                    [c - vec2(0.0, r), c + vec2(0.0, r)],
-                    Stroke::new(1.0, accent),
-                );
-            }
-            _ => {
-                painter.circle_stroke(c, 6.0, Stroke::new(2.0, accent));
-            }
-        }
+    if hovered && let Some(snapped) = snapped {
+        crate::snap::marker(&painter, screen(snapped.at), snapped.hit, accent);
     }
     let units = shell.board_view().units;
     let grid = shell
@@ -259,8 +236,8 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         .and_then(|p| p.pcb())
         .map_or(crate::grid::pcb_default(units), |pcb| shell.grid(pcb.uuid));
     let text = match snapped.filter(|_| hovered) {
-        Some((at, _)) => {
-            let at = shell.pcb_cursor_from_origin(at);
+        Some(snapped) => {
+            let at = shell.pcb_cursor_from_origin(snapped.at);
             tr!(
                 "pcb-cursor",
                 x = format_length(at.x, units),
