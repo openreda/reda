@@ -25,6 +25,7 @@ status-active = Active: { $kind }
 status-cursor = X { $x }  Y { $y }
 status-cursor-name = Cursor: { $at }
 status-snap = Object snap: { $mode }
+status-layer = Status bar Layer: { $layer }
 status-tool = Tool: { $tool }
 status-grid-custom = Custom…
 status-grid-visible = Show visible grid

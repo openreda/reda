@@ -102,7 +102,7 @@ fn the_status_bar_segments_run_in_the_specs_order() {
     over_canvas(&mut h, 0.0);
     let cursor = format!("Cursor: {}", cursor_text(&h));
     let layer = h
-        .get_all_by_label_contains("Active Layer: ")
+        .get_all_by_label_contains("Status bar Layer: ")
         .max_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y))
         .unwrap()
         .accesskit_node()
@@ -303,8 +303,7 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
     h.run();
     // The dialog's page tree draws after the Properties panel's Grid region.
     h.get_all_by_label("Grid")
-        .filter(|n| n.accesskit_node().role() == Role::TreeItem)
-        .last()
+        .rfind(|n| n.accesskit_node().role() == Role::TreeItem)
         .unwrap()
         .click();
     h.run();

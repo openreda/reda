@@ -144,7 +144,8 @@ pub fn show(ui: &Ui, shell: &mut Shell, document: Uuid, rect: Rect, active: bool
     let follow = shell.preferences().editing.hud.follow_cursor;
     let (at, pivot): (Pos2, Align2) = match (follow, hover) {
         (true, Some(p)) => (p + vec2(OFFSET, OFFSET), Align2::LEFT_TOP),
-        (true, None) if !active => return,
+        (true, None) => return,
+        (false, _) if !active => return,
         _ => (
             rect.left_bottom()
                 + vec2(
@@ -161,6 +162,8 @@ pub fn show(ui: &Ui, shell: &mut Shell, document: Uuid, rect: Rect, active: bool
         .fixed_pos(at)
         .pivot(pivot)
         .interactable(false)
+        // A fade never ends under a test window's fixed input time.
+        .fade_in(false)
         .constrain_to(rect)
         .show(ui.ctx(), |ui| {
             let frame = egui::Frame::window(ui.style())

@@ -56,7 +56,11 @@ impl GridRow {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GridTables {
+    /// The imperial rows: each a `snap` step, a Hotspot capture `range` (sheets and Symbols),
+    /// the `visible` grid's spacing and whether G cycles through it (`in_cycle`).
     pub imperial: Vec<GridRow>,
+    /// The metric rows: each a `snap` step, a Hotspot capture `range` (sheets and Symbols),
+    /// the `visible` grid's spacing and whether G cycles through it (`in_cycle`).
     pub metric: Vec<GridRow>,
 }
 

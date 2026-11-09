@@ -167,7 +167,7 @@ pub fn status_swatch(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
         return;
     };
     let name = layer_name(pcb, active);
-    let label = tr!("layer-control-active", layer = name.as_str());
+    let label = tr!("status-layer", layer = name.as_str());
     let face = chip(ui, shell, active, &name, label, false);
     egui::Popup::menu(&face).show(|ui| {
         ui.set_min_width(160.0);
