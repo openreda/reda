@@ -91,6 +91,9 @@ fn actions(bars: &Bars) -> Vec<&bars::Action> {
     }
     walk(&bars.toolbar, &mut out);
     walk(&bars.active_bar, &mut out);
+    for items in bars.tool_bars.values() {
+        walk(items, &mut out);
+    }
     out
 }
 
@@ -861,4 +864,42 @@ fn project_settings_need_a_project_and_board_setup_a_board() {
             Request::KeyboardShortcuts
         ]
     );
+}
+
+#[test]
+fn the_routing_bar_is_data_bound_to_the_track_tools_commands() {
+    let bars = bars::for_document(Some(DocumentType::Pcb));
+    let items = &bars.tool_bars["route"];
+    let bound: Vec<String> = items
+        .iter()
+        .filter_map(|i| match i {
+            Item::Action(a) => Some(match &a.binding {
+                Binding::Command(id) | Binding::Preset(id) => id.clone(),
+                Binding::Raw { command, .. } => command.clone(),
+            }),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        bound,
+        [
+            "pcb.route.chooser:width",
+            "tool.cycle_corner",
+            "pcb.route.mode:lookahead",
+            "pcb.route.mode:obstacle_mode",
+            "pcb.route.mode:auto_terminate",
+            "pcb.route.mode:loop_removal",
+            "pcb.route.mode:clearance_display",
+            "view.keys_card.toggle",
+        ]
+    );
+    assert!(
+        bars::for_document(Some(DocumentType::Schematic))
+            .tool_bars
+            .is_empty()
+    );
+    let err =
+        bars::parse(r#"{"tool_bars": {"route": [{"id": "x", "command": "a", "on_click": 1}]}}"#)
+            .unwrap_err();
+    assert!(err.contains("on_click"), "{err}");
 }

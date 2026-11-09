@@ -972,10 +972,13 @@ impl Cx<'_, '_> {
                 for (id, params) in edits {
                     self.push_call(id, params);
                 }
-                // In the Wire Tool a right-click is Esc (see `edit`), not the menu.
+                // In the Wire Tool a right-click is Esc (see `edit`), and while routing it
+                // ends the route (pcb::canvas), instead of the menu.
                 let wiring = kind == bars::DocumentType::Schematic
                     && self.shell.tool() == crate::tools::Tool::Wire;
-                if !view_only && !wiring {
+                let routing = kind == bars::DocumentType::Pcb
+                    && crate::pcb::route::takes_right_click(self.shell);
+                if !view_only && !wiring && !routing {
                     crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {

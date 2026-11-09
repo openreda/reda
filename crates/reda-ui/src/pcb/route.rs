@@ -22,60 +22,19 @@
 
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LayerKind, PcbDocument, Project, RuleKind, Side, Uuid};
-use reda_engine::pcb::route::{self, CornerMode, Posture, Proposed, Request, Status, Step};
+use reda_engine::pcb::route::{
+    self, CornerMode, Posture, Proposed, Request, Status, Step, ViaChoice, ViaSize, WidthChoice,
+};
 use reda_engine::pcb::rules::net_rules;
-use reda_engine::pcb::{ClearanceHit, Copper, Proposal, keepout};
+use reda_engine::pcb::{ClearanceHit, Copper, Halo, Proposal, keepout};
+use reda_engine::preferences::ClearanceDisplay;
 use serde_json::json;
 
+use super::route_commands::{ChooserKind, RouteMode};
 use crate::shell::{Shell, ToolPreview};
 use crate::snap::Snapped;
 use crate::tools::Tool;
 use crate::tr;
-
-/// How a route turns the corner between its last point and the cursor.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Corner {
-    /// Straight along the longer axis, then 45° into the cursor.
-    #[default]
-    Straight45,
-    /// 45° first, then straight into the cursor.
-    Diagonal45,
-    /// Horizontal, then vertical.
-    Horizontal90,
-    /// Vertical, then horizontal.
-    Vertical90,
-}
-
-impl Corner {
-    /// The mode `/` goes to next.
-    pub fn next(self) -> Corner {
-        match self {
-            Corner::Straight45 => Corner::Diagonal45,
-            Corner::Diagonal45 => Corner::Horizontal90,
-            Corner::Horizontal90 => Corner::Vertical90,
-            Corner::Vertical90 => Corner::Straight45,
-        }
-    }
-}
-
-impl Corner {
-    /// The `propose` corner mode and posture this mode is.
-    pub fn modes(self) -> (CornerMode, Posture) {
-        match self {
-            Corner::Straight45 => (CornerMode::Deg45, Posture::Default),
-            Corner::Diagonal45 => (CornerMode::Deg45, Posture::Flipped),
-            Corner::Horizontal90 => (CornerMode::Deg90, Posture::Default),
-            Corner::Vertical90 => (CornerMode::Deg90, Posture::Flipped),
-        }
-    }
-}
-
-/// The path from `from` to `to` turning `corner`'s way: `from`, the corner when there is
-/// one, and `to`.
-pub fn corner_path(from: Point, to: Point, corner: Corner) -> Vec<Point> {
-    let (mode, posture) = corner.modes();
-    route::corner_path(from, to, mode, posture)
-}
 
 pub use route::Leg;
 
@@ -103,7 +62,7 @@ impl Route {
             .iter()
             .map(|s| match s {
                 Step::Leg(l) => l.points.len() - 1,
-                Step::Via(_) => 1,
+                Step::Via(..) => 1,
             })
             .sum::<usize>()
             + self.leg.points.len()
@@ -142,11 +101,24 @@ pub struct ViaCursor {
     pub blocked: bool,
 }
 
+/// A chooser open over the canvas, with its rows.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Chooser {
+    /// Shift+W: the Track widths.
+    Width(Vec<WidthChoice>),
+    /// Shift+V: the Via sizes.
+    Via(Vec<ViaChoice>),
+}
+
+/// How far from the cursor the clearance display reaches in `near`.
+pub const CLEARANCE_NEAR: Nm = Nm::from_mm(5);
+
 /// The routing and Via Tools' state between events.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Router {
     route: Option<Route>,
-    corner: Corner,
+    corner: CornerMode,
+    posture: Posture,
     /// The cursor, snapped.
     cursor: Option<Snapped>,
     /// What the path ahead (or the Via at the cursor) hits.
@@ -159,6 +131,34 @@ pub struct Router {
     lookahead: bool,
     /// The last width typed or chosen, for the `user` width mode.
     user_width: Option<Nm>,
+    /// The Via size chosen with Shift+V; `None` is the Net's.
+    via_size: Option<ViaSize>,
+    chooser: Option<Chooser>,
+    /// What the clearance display shades.
+    halos: Vec<Halo>,
+    /// The Tool's note, shown above the Routing Bar.
+    note: Option<String>,
+}
+
+impl Default for Router {
+    fn default() -> Router {
+        Router {
+            route: None,
+            corner: CornerMode::default(),
+            posture: Posture::default(),
+            cursor: None,
+            hits: Vec::new(),
+            keepouts: Vec::new(),
+            via: None,
+            proposed: None,
+            lookahead: true,
+            user_width: None,
+            via_size: None,
+            chooser: None,
+            halos: Vec::new(),
+            note: None,
+        }
+    }
 }
 
 /// The title of the route's [`ToolPreview`].
@@ -167,9 +167,45 @@ fn title() -> String {
 }
 
 impl Router {
-    /// The corner mode.
-    pub fn corner(&self) -> Corner {
+    /// The corner mode (`/`).
+    pub fn corner(&self) -> CornerMode {
         self.corner
+    }
+
+    /// Which leg comes first (Space).
+    pub fn posture(&self) -> Posture {
+        self.posture
+    }
+
+    /// Whether look-ahead (`1`) is on.
+    pub fn lookahead(&self) -> bool {
+        self.lookahead
+    }
+
+    /// Whether a route is in flight.
+    pub fn routing(&self) -> bool {
+        self.route.is_some()
+    }
+
+    /// The chooser open over the canvas.
+    pub fn chooser(&self) -> Option<&Chooser> {
+        self.chooser.as_ref()
+    }
+
+    /// Closes the chooser.
+    pub fn close_chooser(&mut self) {
+        self.chooser = None;
+    }
+
+    /// What the clearance display shades now: other-Net copper on the routed Layer,
+    /// grown by its clearance.
+    pub fn halos(&self) -> &[Halo] {
+        &self.halos
+    }
+
+    /// The Tool's note, such as why a loop stays.
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
     }
 
     /// Where the cursor last snapped, for the snap marker.
@@ -186,7 +222,9 @@ impl Router {
     pub fn preview(&self) -> Option<Preview> {
         let route = self.route.as_ref()?;
         let ahead = match self.cursor {
-            Some(Snapped { at, .. }) => corner_path(route.last(), at, self.corner),
+            Some(Snapped { at, .. }) => {
+                route::corner_path(route.last(), at, self.corner, self.posture)
+            }
             None => vec![route.last()],
         };
         Some(Preview {
@@ -207,14 +245,14 @@ impl Router {
                 .iter()
                 .filter_map(|s| match s {
                     Step::Leg(l) => Some(l.clone()),
-                    Step::Via(_) => None,
+                    Step::Via(..) => None,
                 })
                 .collect(),
             vias: route
                 .steps
                 .iter()
                 .filter_map(|s| match s {
-                    Step::Via(at) => Some(*at),
+                    Step::Via(at, _) => Some(*at),
                     Step::Leg(_) => None,
                 })
                 .collect(),
@@ -273,29 +311,52 @@ impl Router {
     /// V while routing: places the path to the cursor, drops a Via there and carries on on
     /// the other side.
     pub fn add_via(&mut self, shell: &mut Shell) {
+        self.place_via_here(shell);
+    }
+
+    /// E: places the path to the cursor and a Via there, and ends the route.
+    pub fn via_end(&mut self, shell: &mut Shell) {
+        if self.place_via_here(shell) {
+            self.finish(shell);
+        }
+    }
+
+    /// The Via the route places next: the size chosen with Shift+V, else the Net's.
+    fn via_diameter(&self, pcb: &PcbDocument, net: Option<Uuid>) -> Nm {
+        self.via_size.map_or_else(
+            || net_rules(pcb, net).via_diameter.default_size(),
+            |s| s.diameter,
+        )
+    }
+
+    /// Places the path to the cursor and a Via there; `false` when nothing is in flight or
+    /// the Via is refused (the status bar says why).
+    fn place_via_here(&mut self, shell: &mut Shell) -> bool {
         self.notice_cancel(shell);
         let (Some(route), Some(Snapped { at, .. })) = (&self.route, self.cursor) else {
-            return;
+            return false;
         };
         let net = route.net;
         self.check(shell, at);
         if let Some(why) = self.why_blocked(shell) {
             shell.report(why);
-            return;
+            return false;
         }
         let Some((project, _)) = board(shell) else {
-            return;
+            return false;
         };
         let pcb = project.pcb().expect("a board");
-        let diameter = net_rules(pcb, net).via_diameter.default_size();
+        let diameter = self.via_diameter(pcb, net);
         let proposal = Proposal::Via { at, diameter, net };
         if let Some(why) = self.blocked_by(shell, &proposal) {
             shell.report(why);
-            return;
+            return false;
         }
         let other = other_side(pcb, self.route.as_ref().expect("routing").leg.layer);
+        let via_size = self.via_size;
+        let (corner, posture) = (self.corner, self.posture);
         let route = self.route.as_mut().expect("routing");
-        let path = corner_path(route.last(), at, self.corner);
+        let path = route::corner_path(route.last(), at, corner, posture);
         route.leg.points.extend_from_slice(&path[1..]);
         let next = Leg {
             layer: other,
@@ -306,10 +367,11 @@ impl Router {
         if done.points.len() > 1 {
             route.steps.push(Step::Leg(done));
         }
-        route.steps.push(Step::Via(at));
+        route.steps.push(Step::Via(at, via_size));
         self.depend_on(shell, at);
         let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": other }));
         self.check(shell, at);
+        true
     }
 
     /// Backspace: takes back the last corner (or Via); with nothing left, drops the route.
@@ -320,7 +382,7 @@ impl Router {
         };
         if route.leg.points.len() > 1 {
             route.leg.points.pop();
-        } else if let Some(Step::Via(_)) = route.steps.last() {
+        } else if let Some(Step::Via(..)) = route.steps.last() {
             route.steps.pop();
             let at = route.last();
             route.leg = match route.steps.pop() {
@@ -349,15 +411,120 @@ impl Router {
     /// `/`: the next corner mode.
     pub fn cycle_corner(&mut self, shell: &mut Shell) {
         self.corner = self.corner.next();
+        self.recheck(shell);
+    }
+
+    /// Checks the path ahead again at the cursor, after a mode changed.
+    pub fn recheck(&mut self, shell: &mut Shell) {
+        self.notice_cancel(shell);
         if let Some(Snapped { at, .. }) = self.cursor {
             self.check(shell, at);
         }
+    }
+
+    /// A key or Routing Bar button: toggles or steps `mode`. Modes kept in Preferences
+    /// are set through `app.preferences.set`.
+    pub fn change_mode(&mut self, shell: &mut Shell, mode: RouteMode) {
+        let prefs = shell.preferences().pcb.route.clone();
+        let set = |shell: &mut Shell, key: &str, value: serde_json::Value| {
+            let _ = shell.run_reporting(
+                "app.preferences.set",
+                json!({ "key": format!("pcb.route.{key}"), "value": value }),
+            );
+        };
+        match mode {
+            RouteMode::Lookahead => self.lookahead = !self.lookahead,
+            RouteMode::Posture => self.posture = self.posture.flipped(),
+            RouteMode::ObstacleMode => {
+                set(shell, "obstacle_mode", json!(prefs.obstacle_mode.next()));
+            }
+            RouteMode::AutoTerminate => set(shell, "auto_terminate", json!(!prefs.auto_terminate)),
+            RouteMode::LoopRemoval => set(shell, "loop_removal", json!(!prefs.loop_removal)),
+            RouteMode::ClearanceDisplay => set(
+                shell,
+                "clearance_display",
+                json!(prefs.clearance_display.next()),
+            ),
+            RouteMode::WidthMode => {
+                let Some((project, _)) = board(shell) else {
+                    return;
+                };
+                let pcb = project.pcb().expect("a board");
+                let net = self.route.as_ref().and_then(|r| r.net);
+                let next = route::width::next_mode(pcb, net, prefs.width_mode, self.user_width);
+                let width = route::width::mode_width(pcb, net, next, self.user_width);
+                set(shell, "width_mode", json!(next));
+                if let Some(width) = width {
+                    self.apply_width(shell, width);
+                }
+            }
+        }
+        self.recheck(shell);
+    }
+
+    /// Esc or right-click: closes an open chooser, else ends the route and keeps what is
+    /// placed; with only the start point, drops it; with no route, returns to Select.
+    pub fn end(&mut self, shell: &mut Shell) {
+        self.notice_cancel(shell);
+        if self.chooser.take().is_some() {
+            return;
+        }
+        match &self.route {
+            None => {
+                let _ = shell.run_reporting("tool.activate:select", json!({}));
+            }
+            Some(route) if route.segments() == 0 => self.cancel(shell),
+            Some(_) => self.finish(shell),
+        }
+    }
+
+    /// Shift+W or Shift+V: opens a chooser for the route in flight.
+    pub fn open_chooser(&mut self, shell: &Shell, kind: ChooserKind) {
+        let Some((project, _)) = board(shell) else {
+            return;
+        };
+        let pcb = project.pcb().expect("a board");
+        let net = self.route.as_ref().and_then(|r| r.net);
+        self.chooser = Some(match kind {
+            ChooserKind::Width => Chooser::Width(route::width::width_choices(
+                pcb,
+                net,
+                &shell.preferences().pcb.route.favourites(),
+            )),
+            ChooserKind::Via => Chooser::Via(route::width::via_choices(pcb, net)),
+        });
+    }
+
+    /// The Via size chosen or typed, clipped to the Net's range, for the Vias placed from
+    /// here on.
+    pub fn set_via_size(&mut self, shell: &mut Shell, diameter: Nm, hole: Nm) {
+        self.chooser = None;
+        let Some((project, _)) = board(shell) else {
+            return;
+        };
+        let net = self.route.as_ref().and_then(|r| r.net);
+        let rules = net_rules(project.pcb().expect("a board"), net);
+        let size = ViaSize {
+            diameter: rules.via_diameter.clip(diameter),
+            hole: rules.via_hole.clip(hole),
+        };
+        if size.diameter != diameter || size.hole != hole {
+            let units = shell.board_view().units;
+            shell.report(tr!(
+                "route-via-clipped",
+                diameter = super::view::format_length(size.diameter, units),
+                hole = super::view::format_length(size.hole, units)
+            ));
+        }
+        self.via_size = Some(size);
+        self.recheck(shell);
     }
 
     /// Changes the width from here on: `width`, or with `step` the board's next or
     /// previous Track width (its rule and Net Classes').
     pub fn set_width(&mut self, shell: &mut Shell, width: Option<Nm>, step: Option<i32>) {
         self.notice_cancel(shell);
+        self.chooser = None;
         let Some(current) = self.route.as_ref().map(|r| r.leg.width) else {
             return;
         };
@@ -393,7 +560,14 @@ impl Router {
             }
             (None, None) => return,
         };
-        let route = self.route.as_mut().expect("routing");
+        self.apply_width(shell, width);
+    }
+
+    /// Routes on at `width` from the last placed vertex.
+    fn apply_width(&mut self, shell: &mut Shell, width: Nm) {
+        let Some(route) = self.route.as_mut() else {
+            return;
+        };
         if width == route.leg.width {
             return;
         }
@@ -437,8 +611,11 @@ impl Router {
             &steps,
             &loops,
         );
-        if let Some(note) = plan.note {
-            shell.report(note_text(note));
+        self.chooser = None;
+        self.halos.clear();
+        self.note = plan.note.map(note_text);
+        if let Some(note) = &self.note {
+            shell.report(note.clone());
         }
         if let Some((id, params)) = plan.command() {
             let _ = shell.run_reporting(&id, params);
@@ -454,6 +631,9 @@ impl Router {
         self.keepouts.clear();
         self.via = None;
         self.proposed = None;
+        self.chooser = None;
+        self.halos.clear();
+        self.note = None;
     }
 
     /// Drops the route when an agent's edit cancelled its preview.
@@ -505,6 +685,7 @@ impl Router {
         }
         self.via = None;
         self.proposed = None;
+        self.halos.clear();
         let Some(route) = &self.route else {
             return;
         };
@@ -512,13 +693,13 @@ impl Router {
             return;
         };
         let prefs = &shell.preferences().pcb.route;
-        let (corner, posture) = self.corner.modes();
+        let (corner, posture) = (self.corner, self.posture);
         let origin = route
             .steps
             .iter()
             .find_map(|s| match s {
                 Step::Leg(l) => Some(l),
-                Step::Via(_) => None,
+                Step::Via(..) => None,
             })
             .unwrap_or(&route.leg);
         let narrowest = route
@@ -526,7 +707,7 @@ impl Router {
             .iter()
             .filter_map(|s| match s {
                 Step::Leg(l) => Some(l.width),
-                Step::Via(_) => None,
+                Step::Via(..) => None,
             })
             .min();
         let request = Request {
@@ -539,6 +720,7 @@ impl Router {
                 at: origin.points[0],
             }),
             narrowest,
+            auto_terminate: prefs.auto_terminate,
             loops: prefs.loops(),
             ignore: if route.net.is_none() {
                 route.start_objects.clone()
@@ -553,7 +735,16 @@ impl Router {
                 route.net,
             )
         };
-        let proposed = route::propose(&copper, project.pcb().expect("a board"), &request);
+        let pcb = project.pcb().expect("a board");
+        let proposed = route::propose(&copper, pcb, &request);
+        self.halos = match prefs.clearance_display {
+            ClearanceDisplay::Off => Vec::new(),
+            ClearanceDisplay::Near => {
+                copper.halos(pcb, route.leg.layer, route.net, Some((at, CLEARANCE_NEAR)))
+            }
+            ClearanceDisplay::All => copper.halos(pcb, route.leg.layer, route.net, None),
+        };
+        self.note = proposed.note.map(note_text);
         self.hits = proposed.obstacles.copper.clone();
         self.keepouts = proposed.obstacles.keepouts.clone();
         self.proposed = Some(proposed);
@@ -691,6 +882,12 @@ impl Router {
     }
 }
 
+/// Whether a right-click on the board ends the route rather than opening the context
+/// menu: while the Track Tool is active (docs/spec/v0.1/pcb.md#placing-and-ending).
+pub fn takes_right_click(shell: &Shell) -> bool {
+    shell.tool() == Tool::Route
+}
+
 /// The status-bar text for a `propose` or `commit` note.
 fn note_text(note: route::Note) -> String {
     match note {
@@ -743,6 +940,90 @@ fn board(shell: &Shell) -> Option<(&Project, Uuid)> {
     Some((project, project.pcb()?.uuid))
 }
 
+/// How a piece of the route's preview is drawn (docs/spec/v0.1/pcb.md#preview).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Look {
+    /// Held by the Tool: solid.
+    Placed,
+    /// What the next click places: translucent, not hatched.
+    Proposed,
+    /// Proposed but breaking a rule (`ignore`, `highlight`): translucent in the violation
+    /// colour.
+    Violating,
+    /// The look-ahead tail the next click doesn't place: hollow.
+    LookAhead,
+    /// Out of reach in `stop`: a thin ghost to the cursor, an X at its end.
+    Blocked,
+    /// What loop removal deletes when the route ends: red.
+    Removed,
+}
+
+impl Look {
+    /// The colour, from the theme's `accent` and violation colour `refused`.
+    pub fn color(self, accent: egui::Color32, refused: egui::Color32) -> egui::Color32 {
+        match self {
+            Look::Placed => accent,
+            Look::Proposed => accent.gamma_multiply(0.55),
+            Look::Violating => refused.gamma_multiply(0.55),
+            Look::LookAhead => accent,
+            Look::Blocked => refused.gamma_multiply(0.7),
+            Look::Removed => refused,
+        }
+    }
+
+    /// Drawn as an outline at its width rather than filled.
+    pub fn hollow(self) -> bool {
+        matches!(self, Look::LookAhead | Look::Removed)
+    }
+}
+
+/// One piece of the preview: a path at a width, drawn its [`Look`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreviewStroke {
+    pub look: Look,
+    pub points: Vec<Point>,
+    /// The copper width; zero draws a hairline.
+    pub width: Nm,
+}
+
+/// What the canvas draws for `preview`, in paint order: the old path loop removal
+/// deletes, placed legs, the proposed segments, the look-ahead tail and the ghost.
+pub fn strokes(preview: &Preview) -> Vec<PreviewStroke> {
+    let mut out = Vec::new();
+    let mut push = |look, points: &[Point], width| {
+        if points.len() > 1 {
+            out.push(PreviewStroke {
+                look,
+                points: points.to_vec(),
+                width,
+            });
+        }
+    };
+    if let Some(proposed) = &preview.proposed {
+        for piece in &proposed.removes.removed {
+            push(Look::Removed, &[piece.from, piece.to], piece.width);
+        }
+    }
+    for leg in &preview.legs {
+        push(Look::Placed, &leg.points, leg.width);
+    }
+    push(Look::Placed, &preview.placed, preview.width);
+    match &preview.proposed {
+        Some(proposed) => {
+            let look = if proposed.status == Status::Violating {
+                Look::Violating
+            } else {
+                Look::Proposed
+            };
+            push(look, &proposed.place, preview.width);
+            push(Look::LookAhead, &proposed.look_ahead, preview.width);
+            push(Look::Blocked, &proposed.blocked, Nm::ZERO);
+        }
+        None => push(Look::Proposed, &preview.ahead, preview.width),
+    }
+    out
+}
+
 /// Draws the route in flight (placed legs, the path ahead in red while it breaks
 /// clearance, its Vias) or the Via Tool's Via at the cursor, over the board canvas.
 pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
@@ -761,34 +1042,63 @@ pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
             );
         }
     };
+    // A hollow path: the two edges of each segment at `width` apart.
+    let outline = |pts: &[Point], width: Nm, color: Color32| {
+        let half = points(width) / 2.0;
+        for pair in pts.windows(2) {
+            let (a, b) = (screen(pair[0]), screen(pair[1]));
+            let along = (b - a).normalized();
+            let side = egui::vec2(-along.y, along.x) * half;
+            let stroke = Stroke::new(1.0, color);
+            painter.line_segment([a + side, b + side], stroke);
+            painter.line_segment([a - side, b - side], stroke);
+            painter.circle_stroke(a, half, stroke);
+            painter.circle_stroke(b, half, stroke);
+        }
+    };
     let via = |at: Point, diameter: Nm, color: Color32| {
         painter.circle_stroke(screen(at), points(diameter) / 2.0, Stroke::new(2.0, color));
     };
-    if let Some(p) = router.preview() {
-        let placed = accent.gamma_multiply(0.8);
-        for leg in &p.legs {
-            path(&leg.points, leg.width, placed);
-        }
-        path(&p.placed, p.width, placed);
-        match &p.proposed {
-            Some(proposed) => {
-                let color = if proposed.status == Status::Violating {
-                    refused
-                } else {
-                    accent
-                };
-                path(&proposed.place, p.width, color.gamma_multiply(0.6));
-                path(&proposed.look_ahead, p.width, color.gamma_multiply(0.3));
-                path(&proposed.blocked, Nm::ZERO, refused);
-                for piece in &proposed.removes.removed {
-                    path(
-                        &[piece.from, piece.to],
-                        piece.width,
-                        refused.gamma_multiply(0.8),
-                    );
+    for halo in router.halos() {
+        let shade = refused.gamma_multiply(0.12);
+        for prim in &halo.shape.prims {
+            let r = points(Nm(prim.radius));
+            let at = |p: [i64; 2]| screen(Point::new(Nm(p[0]), Nm(p[1])));
+            match &prim.core {
+                reda_engine::model::geom::grown::Core::Seg(a, b) => {
+                    painter.line_segment([at(*a), at(*b)], Stroke::new(2.0 * r, shade));
+                    painter.circle_filled(at(*a), r, shade);
+                    painter.circle_filled(at(*b), r, shade);
+                }
+                reda_engine::model::geom::grown::Core::Poly(corners) => {
+                    let ring: Vec<egui::Pos2> = corners.iter().map(|c| at(*c)).collect();
+                    painter.add(egui::Shape::convex_polygon(
+                        ring.clone(),
+                        shade,
+                        Stroke::new(2.0 * r, shade),
+                    ));
                 }
             }
-            None => path(&p.ahead, p.width, accent.gamma_multiply(0.6)),
+        }
+    }
+    if let Some(p) = router.preview() {
+        let placed = accent.gamma_multiply(0.8);
+        for stroke in strokes(&p) {
+            let color = stroke.look.color(accent, refused);
+            if stroke.look.hollow() {
+                outline(&stroke.points, stroke.width, color);
+            } else {
+                path(&stroke.points, stroke.width, color);
+            }
+            if stroke.look == Look::Blocked
+                && let Some(end) = stroke.points.last()
+            {
+                let c = screen(*end);
+                let d = 4.0;
+                let x = Stroke::new(1.5, color);
+                painter.line_segment([c + egui::vec2(-d, -d), c + egui::vec2(d, d)], x);
+                painter.line_segment([c + egui::vec2(-d, d), c + egui::vec2(d, -d)], x);
+            }
         }
         let diameter = board(shell)
             .and_then(|(project, _)| project.pcb())

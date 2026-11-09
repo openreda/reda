@@ -11,7 +11,8 @@
 //!       "separator",
 //!       { "id": "view.theme", "title": "menu-view-theme", "items": [ … ] } ] }],
 //!   "toolbar": [ … ],
-//!   "active_bar": [ … ] }
+//!   "active_bar": [ … ],
+//!   "tool_bars": { "route": [ … ] } }
 //! ```
 
 use serde_json::{Map, Value};
@@ -22,7 +23,11 @@ use super::{Action, Bars, Binding, Item, Menu};
 pub fn parse(text: &str) -> Result<Bars, String> {
     let value: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
     let root = object(&value, "the file")?;
-    only(root, &["menus", "toolbar", "active_bar"], "the file")?;
+    only(
+        root,
+        &["menus", "toolbar", "active_bar", "tool_bars"],
+        "the file",
+    )?;
     let menus = match root.get("menus") {
         None => Vec::new(),
         Some(v) => array(v, "menus")?
@@ -42,10 +47,18 @@ pub fn parse(text: &str) -> Result<Bars, String> {
         None => Ok(Vec::new()),
         Some(v) => items(v, key),
     };
+    let tool_bars = match root.get("tool_bars") {
+        None => Default::default(),
+        Some(v) => object(v, "tool_bars")?
+            .iter()
+            .map(|(tool, items)| Ok((tool.clone(), self::items(items, tool)?)))
+            .collect::<Result<_, String>>()?,
+    };
     Ok(Bars {
         menus,
         toolbar: bar("toolbar")?,
         active_bar: bar("active_bar")?,
+        tool_bars,
     })
 }
 
@@ -92,6 +105,7 @@ pub fn merge(mut common: Bars, own: Bars) -> Bars {
         }
     }
     common.active_bar.extend(own.active_bar);
+    common.tool_bars.extend(own.tool_bars);
     common
 }
 
