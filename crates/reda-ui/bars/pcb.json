@@ -109,9 +109,7 @@
       { "id": "route_bar.obstacle_mode", "command": "pcb.route.mode:obstacle_mode" },
       { "id": "route_bar.auto_terminate", "command": "pcb.route.mode:auto_terminate" },
       { "id": "route_bar.loop_removal", "command": "pcb.route.mode:loop_removal" },
-      { "id": "route_bar.clearance_display", "command": "pcb.route.mode:clearance_display" },
-      "separator",
-      { "id": "route_bar.keys", "command": "view.keys_card.toggle" }
+      { "id": "route_bar.clearance_display", "command": "pcb.route.mode:clearance_display" }
     ]
   }
 }
