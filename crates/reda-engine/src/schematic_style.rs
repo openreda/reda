@@ -22,6 +22,7 @@ pub fn schematic_style(project: &Project, preferences: &Preferences, drawn: Draw
         unit_suffix: schematic.unit_suffix,
         single_negation: schematic.single_negation,
         canvas: drawn == Drawn::Canvas,
+        cross_overs: drawn == Drawn::Canvas && schematic.display_cross_overs,
         cross_references: reda_schematic::cross_ref::notes(
             project,
             (project.props().schematic)

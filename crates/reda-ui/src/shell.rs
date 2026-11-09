@@ -1280,6 +1280,13 @@ impl Shell {
     /// Refreshes what a successful run of `id` may have changed.
     fn after_run(&mut self, id: &str) {
         let base = id.split(':').next().unwrap_or(id);
+        // First, so the Scenes the refresh below rebuilds are drawn with them.
+        if matches!(
+            base,
+            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
+        ) {
+            self.reload_preferences();
+        }
         match base {
             "project.open" | "project.new" => {
                 self.show_project();
@@ -1312,12 +1319,6 @@ impl Shell {
             || matches!(base, "app.preferences.set" | "app.preferences.reset")
         {
             self.library_generation += 1;
-        }
-        if matches!(
-            base,
-            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
-        ) {
-            self.reload_preferences();
         }
         self.sync_selection();
         self.sync_show_waived();

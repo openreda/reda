@@ -320,3 +320,44 @@ fn opening_a_document_file_opens_its_project_on_that_document() {
     assert_eq!(shell.layout().focus, Some(TabKey::Document(pcb)));
     assert_eq!(shell.recent_projects()[0].name, "Board");
 }
+
+#[test]
+fn the_canvas_draws_sheets_in_this_users_style_and_follows_its_changes() {
+    use reda_ui::engine::render::{ColorKey, SchematicColor};
+    let home = TempDir::new("shell-style");
+    let work = TempDir::new("shell-style-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell
+        .run("project.new", json!({"path": work.path(), "name": "Demo"}))
+        .unwrap();
+    let sheet: Uuid = (shell.engine().project().unwrap().documents())
+        .find(|d| d.kind == DocumentKind::Schematic)
+        .unwrap()
+        .uuid;
+    let mm = |x: i64, y: i64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
+    for points in [[mm(20, 50), mm(80, 50)], [mm(50, 20), mm(50, 80)]] {
+        shell
+            .run("schematic.wire.add", json!({"document": sheet, "points": points}))
+            .unwrap();
+    }
+    let count = |shell: &Shell, color: SchematicColor| {
+        let tab = shell.document_tab(sheet).expect("the sheet is open");
+        (tab.scene.scene.items.iter())
+            .filter(|i| i.color == ColorKey::Schematic(color))
+            .count()
+    };
+    // The canvas tints the empty title fields; two straight Wires.
+    assert!(count(&shell, SchematicColor::EmptyField) > 0);
+    assert_eq!(count(&shell, SchematicColor::Wire), 2);
+
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "schematic.display_cross_overs", "value": true}),
+        )
+        .unwrap();
+    assert!(
+        count(&shell, SchematicColor::Wire) > 2,
+        "one Wire bridges the other at once"
+    );
+}

@@ -49,6 +49,16 @@ fn only_the_canvas_tints_empty_title_fields() {
 }
 
 #[test]
+fn display_cross_overs_reaches_the_canvas_and_never_an_output() {
+    let home = TempDir::new("style-cross-overs");
+    let mut engine = demo(&home);
+    assert!(!style(&engine, Drawn::Canvas).cross_overs, "off by default");
+    set(&mut engine, "schematic.display_cross_overs", json!(true));
+    assert!(style(&engine, Drawn::Canvas).cross_overs);
+    assert!(!style(&engine, Drawn::Output).cross_overs);
+}
+
+#[test]
 fn port_cross_references_come_from_the_project_once_it_opts_in() {
     let home = TempDir::new("style-xref");
     let mut engine = demo(&home);

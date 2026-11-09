@@ -576,3 +576,5 @@ mod frame;
 mod cross_references;
 #[path = "schematic_scene/not_fitted.rs"]
 mod not_fitted;
+#[path = "schematic_scene/cross_overs.rs"]
+mod cross_overs;

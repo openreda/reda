@@ -1,5 +1,6 @@
 //! Building the Scene of a Schematic Sheet.
 
+mod cross_over;
 mod drawing;
 mod frame;
 mod ports;
@@ -45,6 +46,9 @@ pub struct SchematicStyle {
     /// Each Port's cross-reference note, such as `[2:B3]`, keyed by Port UUID: derived
     /// from the Project and the styles it uses (see `reda_schematic::cross_ref::notes`).
     pub cross_references: BTreeMap<Uuid, String>,
+    /// Display Cross-Overs: a Wire hops over each Wire it crosses without connecting.
+    /// Canvas only: outputs never set it.
+    pub cross_overs: bool,
 }
 
 /// [`schematic_scene`] drawn in `style`.
@@ -67,7 +71,7 @@ pub fn schematic_scene_styled(
         style,
         project.props().schematic.not_fitted_display,
     );
-    drawing::wires(&mut b, body);
+    drawing::wires(&mut b, body, junctions, style.cross_overs);
     drawing::junctions(&mut b, body, junctions);
     drawing::net_labels(&mut b, body, style.single_negation);
     drawing::no_connects(&mut b, body);
