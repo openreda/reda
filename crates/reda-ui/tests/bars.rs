@@ -225,6 +225,9 @@ fn the_menus_are_the_leading_suites_in_its_order_with_route_only_on_a_board() {
         [
             "route.track",
             "route.via",
+            "route.unroute_all",
+            "route.unroute_footprints",
+            "route.cleanup",
             "route.zone_fill",
             "route.ratsnest"
         ]

@@ -16,6 +16,8 @@
 //!   angle keeping the attached segments move with it and their far ends slide along
 //!   their neighbours, as a slide's do; without it their ends follow.
 //! - **Break** ([`split`]): adds a vertex inside a segment, and can drag it at once.
+//! - **Stop** ([`last_clear`]): in the `stop` obstacle mode a drag ends at the last
+//!   position where its copper breaks no clearance rule it did not already break.
 //! - **Merge Collinear** ([`Options::merge_collinear`]): after any of these, a changed
 //!   segment that lines up with its lone neighbour (same width, Net and Layer, nothing
 //!   else at the joint) merges into one segment.
@@ -28,7 +30,10 @@ use serde::{Deserialize, Serialize};
 use crate::copper::{Copper, Item};
 
 mod merge;
+pub mod stop;
 mod translate;
+
+pub use stop::last_clear;
 
 /// How a drag treats what it leaves and meets. Commands take these as explicit values;
 /// the Tool fills them from `pcb.drag.preserve_angle` and its in-flight keys.

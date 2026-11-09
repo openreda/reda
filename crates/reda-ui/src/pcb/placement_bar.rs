@@ -173,7 +173,7 @@ pub fn draw_move(ui: &Ui, shell: &Shell, input: &CanvasInputs) {
 pub fn dialogs(ctx: &egui::Context, shell: &mut Shell) -> Option<Invocation> {
     let flight = placing::flight(shell);
     if let Some(pending) = &flight.confirm {
-        return confirm_dialog(ctx, pending.locked);
+        return confirm_dialog(ctx, pending.locked, pending.unroute);
     }
     let mut filter = flight.choose?;
     let pcb = shell.engine().project()?.pcb()?;
@@ -240,24 +240,36 @@ pub fn dialogs(ctx: &egui::Context, shell: &mut Shell) -> Option<Invocation> {
     out
 }
 
-fn confirm_dialog(ctx: &egui::Context, locked: usize) -> Option<Invocation> {
+fn confirm_dialog(ctx: &egui::Context, locked: usize, unroute: bool) -> Option<Invocation> {
     let mut out = None;
-    let response = crate::modal::Dialog::new(
-        Id::NULL.with("confirm-locked-move"),
-        tr!("place-locked-title"),
-    )
-    .width(320.0)
-    .show(ctx, |ui| {
-        ui.label(tr!("place-locked-body", count = locked));
-        ui.horizontal(|ui| {
-            if ui.button(tr!("place-locked-proceed")).clicked() {
-                out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": true})));
-            }
-            if ui.button(tr!("place-locked-cancel")).clicked() {
-                out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": false})));
-            }
+    let (title, body, proceed, cancel) = if unroute {
+        (
+            tr!("unroute-locked-title"),
+            tr!("unroute-locked-body", count = locked),
+            tr!("unroute-locked-proceed"),
+            tr!("unroute-locked-cancel"),
+        )
+    } else {
+        (
+            tr!("place-locked-title"),
+            tr!("place-locked-body", count = locked),
+            tr!("place-locked-proceed"),
+            tr!("place-locked-cancel"),
+        )
+    };
+    let response = crate::modal::Dialog::new(Id::NULL.with("confirm-locked-move"), title)
+        .width(320.0)
+        .show(ctx, |ui| {
+            ui.label(body);
+            ui.horizontal(|ui| {
+                if ui.button(proceed).clicked() {
+                    out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": true})));
+                }
+                if ui.button(cancel).clicked() {
+                    out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": false})));
+                }
+            });
         });
-    });
     if out.is_none() && response.should_close() {
         out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": false})));
     }

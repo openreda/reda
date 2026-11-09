@@ -24,6 +24,12 @@
         { "id": "context.object.unlock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": false }, "title": "pcb-unlock" }
       ],
       "kinds": {
+        "footprint_instance": [
+          { "id": "context.object.unroute_footprints", "command": "pcb.route.unroute", "params": { "footprints": "$selection" }, "title": "menu-route-unroute-footprints" }
+        ],
+        "track": [
+          { "id": "context.object.cleanup", "command": "pcb.track.cleanup", "title": "menu-route-cleanup" }
+        ],
         "pcb_graphic": [
           { "id": "context.object.outline_from_selection", "command": "pcb.board_outline.add_from_graphics", "params": { "graphics": "$selection" }, "title": "pcb-outline-from-selection" },
           { "id": "context.object.board_cutout_from_selection", "command": "pcb.board_cutout.add_from_graphics", "params": { "graphics": "$selection" } },
