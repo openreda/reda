@@ -110,6 +110,20 @@ fn uuids(value: &Value) -> Vec<Uuid> {
         .collect()
 }
 
+/// Whether two segments are in line and share more than a point.
+fn overlap((a, b): (Point, Point), (p, q): (Point, Point)) -> bool {
+    let (ax, ay) = xy(a);
+    let (ux, uy) = (xy(b).0 - ax, xy(b).1 - ay);
+    let len = ux.hypot(uy);
+    let off = |p: Point| ((xy(p).1 - ay) * ux - (xy(p).0 - ax) * uy) / len;
+    if off(p).abs() > 2.0 || off(q).abs() > 2.0 {
+        return false;
+    }
+    let along = |p: Point| ((xy(p).0 - ax) * ux + (xy(p).1 - ay) * uy) / len;
+    let (s, t) = (along(p), along(q));
+    s.max(t).min(len) - s.min(t).max(0.0) > 2.0
+}
+
 fn near(a: Point, b: Point) -> bool {
     (a.x.0 - b.x.0).abs() <= 2 && (a.y.0 - b.y.0).abs() <= 2
 }
@@ -231,43 +245,71 @@ proptest! {
     /// its last (connectors included), and no two segments at a free joint are in line.
     #[test]
     fn a_slide_leaves_one_unbroken_chain_with_no_collinear_joints(c in case()) {
-        let dir = TempDir::new("track-drag-chain");
-        let (mut engine, t) = setup(&c, &dir);
-        let before = points(&c);
-        let out = engine.run(
-            "pcb.track.drag",
-            json!({"track": t[1], "by": {"x": c.by.0 * 1000, "y": c.by.1 * 1000},
-                   "miter": c.miter}),
-        );
-        if let Err(e) = out {
-            prop_assert_eq!(e.code, ErrorCode::Rejected, "{}", e);
-            return Ok(());
-        }
-        let pcb = engine.project().unwrap().pcb().unwrap();
-        let mut segments: Vec<(Point, Point)> =
-            pcb.tracks().map(|t| t.geometry.ends()).collect();
-        // Walk from the first point, each joint leading to exactly one next segment.
-        let mut at = before[0];
-        let mut last: Option<(Point, Point)> = None;
-        while let Some(i) = segments.iter().position(|(p, q)| *p == at || *q == at) {
-            let (p, q) = segments.remove(i);
-            let next = if p == at { q } else { p };
-            prop_assert!(
-                !segments.iter().any(|(p, q)| *p == at || *q == at),
-                "a branch at {at:?}"
-            );
-            // A Via holds its joint: segments there stay apart even in line.
-            let held = c.via && at == before[1];
-            if let Some((a, b)) = last.filter(|_| !held) {
-                prop_assert!(
-                    !same_angle(angle(a, b), angle(at, next)),
-                    "collinear joint at {at:?}"
-                );
-            }
-            last = Some((at, next));
-            at = next;
-        }
-        prop_assert!(segments.is_empty(), "left over: {segments:?}");
-        prop_assert_eq!(at, before[3]);
+        one_unbroken_chain(&c)?;
     }
+}
+
+/// The body of `a_slide_leaves_one_unbroken_chain_with_no_collinear_joints`.
+fn one_unbroken_chain(c: &Case) -> Result<(), TestCaseError> {
+    let dir = TempDir::new("track-drag-chain");
+    let (mut engine, t) = setup(c, &dir);
+    let before = points(c);
+    let out = engine.run(
+        "pcb.track.drag",
+        json!({"track": t[1], "by": {"x": c.by.0 * 1000, "y": c.by.1 * 1000},
+               "miter": c.miter}),
+    );
+    if let Err(e) = out {
+        prop_assert_eq!(e.code, ErrorCode::Rejected, "{}", e);
+        return Ok(());
+    }
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let mut segments: Vec<(Point, Point)> = pcb.tracks().map(|t| t.geometry.ends()).collect();
+    // No segment lies over another: a mitred connector leans away from copper already at
+    // its fixed end. A square one has no choice of direction (it runs along the normal,
+    // as the spec asks), so it may lie over the Track beyond a Via.
+    for (i, s) in segments.iter().enumerate().filter(|_| c.miter) {
+        for o in &segments[i + 1..] {
+            prop_assert!(!overlap(*s, *o), "{s:?} lies over {o:?}");
+        }
+    }
+    // Walk from the first point, each joint leading to exactly one next segment.
+    let mut at = before[0];
+    let mut last: Option<(Point, Point)> = None;
+    while let Some(i) = segments.iter().position(|(p, q)| *p == at || *q == at) {
+        let (p, q) = segments.remove(i);
+        let next = if p == at { q } else { p };
+        prop_assert!(
+            !segments.iter().any(|(p, q)| *p == at || *q == at),
+            "a branch at {at:?}"
+        );
+        // A Via holds its joint: segments there stay apart even in line.
+        let held = c.via && at == before[1];
+        if let Some((a, b)) = last.filter(|_| !held) {
+            prop_assert!(
+                !same_angle(angle(a, b), angle(at, next)),
+                "collinear joint at {at:?}"
+            );
+        }
+        last = Some((at, next));
+        at = next;
+    }
+    prop_assert!(segments.is_empty(), "left over: {segments:?}");
+    prop_assert_eq!(at, before[3]);
+    Ok(())
+}
+
+/// A mitred connector from a Via must not run back over the Track beyond the Via. Here
+/// it used to retrace the first segment exactly, back to the Track's first point, and
+/// leave a branch there (a shrunk proptest case).
+#[test]
+fn a_mitred_connector_does_not_retrace_the_track_beyond_a_via() {
+    let c = Case {
+        dirs: [2, 5, 7],
+        steps: [88, 45, 44],
+        by: (682, -8118),
+        miter: true,
+        via: true,
+    };
+    one_unbroken_chain(&c).unwrap();
 }
