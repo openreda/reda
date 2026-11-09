@@ -53,6 +53,7 @@ pub mod schematic_editor;
 pub mod selection;
 pub mod settings;
 pub mod shell;
+pub mod show_on_board;
 mod start_page;
 pub mod status_bar;
 pub mod symbol_editor;

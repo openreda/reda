@@ -963,6 +963,46 @@ fn snapshot_of_board_setup_net_classes_grid() {
     board_setup_snapshot("Net Classes", "board_setup_net_classes_dark");
 }
 
+#[test]
+fn snapshot_of_board_setup_mask_and_paste() {
+    board_setup_snapshot("Mask & Paste", "board_setup_mask_paste_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_zone_connections() {
+    board_setup_snapshot("Zone Connections", "board_setup_zone_connections_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_stackup_with_its_cross_section() {
+    board_setup_snapshot("Stackup", "board_setup_stackup_dark");
+}
+
+#[test]
+fn snapshot_of_the_board_shown_for_board_setup_with_its_banner() {
+    let home = TempDir::new("app-home");
+    let name = "board_setup_show_on_board_dark";
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    // The board as Show on board leaves it, with the settings window (its own OS
+    // window in the app) out of the way.
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let rule = pcb
+        .board_rule(reda_ui::engine::model::RuleKind::Clearance)
+        .uuid;
+    shell.show_on_board(&[reda_ui::show_on_board::Shown::Rule(rule)]);
+    h.run();
+    h.get_by_label("Back to Board Setup");
+    h.snapshot(name);
+}
+
 /// A harness on a Project with no Board Outline, so its job's run is blocked.
 fn output_job_harness(name: &str) -> Option<(TempDir, Harness<'static, App>)> {
     let home = TempDir::new("app-home");

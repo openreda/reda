@@ -9,6 +9,7 @@ use std::task::{Context, Poll, Wake, Waker};
 use reda_engine::model::{DocumentKind, Uuid};
 
 use crate::layout::SettingsWindow;
+use crate::settings::FileRequest;
 use crate::tr;
 
 /// What a pending file picker is for.
@@ -23,6 +24,8 @@ pub enum Pick {
     /// A folder a settings window's page asked for (a user Library folder, for
     /// Preferences).
     SettingsFolder(SettingsWindow),
+    /// A file a settings window's page asked for.
+    SettingsFile(SettingsWindow, FileRequest),
     /// Where to save the exported Journal.
     ExportJournal,
     /// The symbol file Import part reads.
@@ -70,6 +73,13 @@ impl FileDialogs {
             Pick::LibraryFolder | Pick::SettingsFolder(_) => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-library-folder-title"))
             }
+            Pick::SettingsFile(_, FileRequest::ExportRules) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("rules-export-title"))
+                .add_filter(tr!("rules-filter"), &["redarules"])
+                .set_file_name(file_name),
+            Pick::SettingsFile(_, FileRequest::ImportRules) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("rules-import-title"))
+                .add_filter(tr!("rules-filter"), &["redarules"]),
             Pick::ExportJournal => rfd::AsyncFileDialog::new()
                 .set_title(tr!("journal-export-title"))
                 .add_filter(tr!("journal-export-filter"), &["jsonl"])
@@ -93,11 +103,14 @@ impl FileDialogs {
                 Pick::OpenProject
                 | Pick::ImportSymbol
                 | Pick::ImportFootprint
-                | Pick::Relink(..) => block_on(dialog.pick_file()),
+                | Pick::Relink(..)
+                | Pick::SettingsFile(_, FileRequest::ImportRules) => block_on(dialog.pick_file()),
                 Pick::NewProjectLocation | Pick::LibraryFolder | Pick::SettingsFolder(_) => {
                     block_on(dialog.pick_folder())
                 }
-                Pick::ExportJournal | Pick::ExportPdf => block_on(dialog.save_file()),
+                Pick::ExportJournal
+                | Pick::ExportPdf
+                | Pick::SettingsFile(_, FileRequest::ExportRules) => block_on(dialog.save_file()),
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

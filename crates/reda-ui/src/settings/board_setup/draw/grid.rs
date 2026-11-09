@@ -305,6 +305,7 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                         delete = Some(key);
                     }
                 }
+                super::show_button(ui, cx, &name, board.shown_row(key));
                 ui.end_row();
             }
         });

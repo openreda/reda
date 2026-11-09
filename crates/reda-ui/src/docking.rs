@@ -923,8 +923,15 @@ impl Cx<'_, '_> {
                     return;
                 };
                 let input = canvas_input(ui, doc, kind);
+                // Shown on the board for a settings window, the canvas only pans and zooms.
+                let view_only = self.shell.view_only(*uuid);
+                let edits = if view_only {
+                    Vec::new()
+                } else {
+                    self.edit(*uuid, &input)
+                };
                 // A Command still lacking params (text's words) asks for them in a dialog.
-                for (id, params) in self.edit(*uuid, &input) {
+                for (id, params) in edits {
                     let registry = self.shell.engine().registry();
                     if crate::command_dialog::lacks_required(registry, &id, &params) {
                         self.frame.calls.push((id, params));
@@ -936,11 +943,12 @@ impl Cx<'_, '_> {
                     return;
                 };
                 canvas_paint(ui, &input, doc, theme);
-                if self
-                    .shell
-                    .engine()
-                    .project()
-                    .is_some_and(|p| p.pcb_document(*uuid).is_some())
+                if !view_only
+                    && self
+                        .shell
+                        .engine()
+                        .project()
+                        .is_some_and(|p| p.pcb_document(*uuid).is_some())
                 {
                     crate::pcb::canvas::decorate(ui, self.shell, &input);
                 }
@@ -948,8 +956,17 @@ impl Cx<'_, '_> {
                     return;
                 };
                 let id = canvas_id(doc);
-                if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
-                    self.frame.commands.push(clicked);
+                match self.shell.shown_on_board().filter(|_| view_only) {
+                    Some(count) => {
+                        if crate::show_on_board::banner(ui, id, rect, count) {
+                            self.shell.back_to_board_setup();
+                        }
+                    }
+                    None => {
+                        if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
+                            self.frame.commands.push(clicked);
+                        }
+                    }
                 }
                 crate::selection::picking::show(ui, self.shell, *uuid);
                 self.focus_on_press(ui, rect, tab, start);

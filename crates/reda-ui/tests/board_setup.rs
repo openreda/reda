@@ -6,7 +6,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::geom::Nm;
 use reda_ui::engine::model::{
-    DrcCheck, Limit, PcbDocument, RuleKind, Severity, SilkMaskMode, Uuid,
+    ConnectionTarget, DrcCheck, Limit, PcbDocument, RuleKind, Severity, SilkMaskMode, Uuid,
 };
 use reda_ui::settings::board_setup::{self, ClassKey, DrcPage, NetClassesPage, Rule, RuleField};
 use reda_ui::settings::{SettingsDialog, Step};
@@ -65,7 +65,10 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Vias",
             "Holes",
             "Board Edge",
+            "Mask & Paste",
             "Silkscreen",
+            "Zone Connections",
+            "Stackup",
             "Net Classes",
             "DRC"
         ]
@@ -236,17 +239,18 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
         board.preview_fab_preset(preset);
         let preview = board.fab_preview().unwrap();
         assert_eq!(preview.name, "Generic");
-        let changes: Vec<(RuleField, &str, Nm)> = preview
+        let changes: Vec<(RuleField, &str, &str, bool)> = preview
             .changes
             .iter()
-            .map(|c| (c.rule, c.board.as_str(), c.preset))
+            .map(|c| (c.rule, c.board.as_str(), c.preset.as_str(), c.ticked))
             .collect();
+        // The preferred hole stays inside the new range, so it starts unticked.
         assert_eq!(
             changes,
             [
-                (RuleField::Clearance, "0.3", Nm::from_um(160)),
-                (RuleField::ViaHole, "0.4", Nm::from_um(300)),
-                (RuleField::ViaHolePreferred, "0.4", Nm::from_um(300)),
+                (RuleField::Clearance, "0.3", "0.16", true),
+                (RuleField::ViaHole, "0.4", "0.3", true),
+                (RuleField::ViaHolePreferred, "0.4", "0.3", false),
             ]
         );
     }
@@ -261,8 +265,7 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
             ),
             Step::new(
                 "pcb.rules.set",
-                json!({"kind": "via_size",
-                       "values": {"hole": {"min": 300_000, "preferred": 300_000}}})
+                json!({"kind": "via_size", "values": {"hole": {"min": 300_000}}})
             ),
         ]
     );
@@ -424,7 +427,7 @@ fn add_class(shell: &mut Shell, params: serde_json::Value) -> Uuid {
 #[test]
 fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
     use RuleField as F;
-    type Sections = Vec<(DrcCheck, Vec<RuleField>)>;
+    type Sections = Vec<(Option<DrcCheck>, Vec<RuleField>)>;
     let pages: Vec<(Rule, Sections)> = Rule::ALL
         .iter()
         .map(|r| {
@@ -441,19 +444,19 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
         [
             (
                 Rule::Clearance,
-                vec![(DrcCheck::Clearance, vec![F::Clearance])]
+                vec![(Some(DrcCheck::Clearance), vec![F::Clearance])]
             ),
             (
                 Rule::TrackWidth,
                 vec![(
-                    DrcCheck::TrackWidth,
+                    Some(DrcCheck::TrackWidth),
                     vec![F::TrackWidth, F::TrackPreferred, F::TrackMax]
                 )]
             ),
             (
                 Rule::Vias,
                 vec![(
-                    DrcCheck::ViaSize,
+                    Some(DrcCheck::ViaSize),
                     vec![
                         F::ViaDiameter,
                         F::ViaDiameterPreferred,
@@ -467,21 +470,47 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             (
                 Rule::Holes,
                 vec![
-                    (DrcCheck::HoleSize, vec![F::HoleMin, F::HoleMax]),
-                    (DrcCheck::AnnularRing, vec![F::AnnularRing]),
-                    (DrcCheck::HoleToHole, vec![F::HoleToHole]),
+                    (Some(DrcCheck::HoleSize), vec![F::HoleMin, F::HoleMax]),
+                    (Some(DrcCheck::AnnularRing), vec![F::AnnularRing]),
+                    (Some(DrcCheck::HoleToHole), vec![F::HoleToHole]),
                 ]
             ),
             (
                 Rule::BoardEdge,
                 vec![
-                    (DrcCheck::EdgeClearance, vec![F::EdgeClearance]),
-                    (DrcCheck::SilkToEdge, vec![F::SilkToEdge]),
+                    (Some(DrcCheck::EdgeClearance), vec![F::EdgeClearance]),
+                    (Some(DrcCheck::SilkToEdge), vec![F::SilkToEdge]),
+                ]
+            ),
+            (
+                Rule::MaskPaste,
+                vec![
+                    (
+                        None,
+                        vec![
+                            F::MaskTop,
+                            F::MaskBottom,
+                            F::MaskFromHoleEdge,
+                            F::TentViasTop,
+                            F::TentViasBottom
+                        ]
+                    ),
+                    (None, vec![F::PasteExpansion, F::PastePercent]),
                 ]
             ),
             (
                 Rule::Silkscreen,
-                vec![(DrcCheck::SilkToMask, vec![F::SilkToMask])]
+                vec![(Some(DrcCheck::SilkToMask), vec![F::SilkToMask])]
+            ),
+            (
+                Rule::ZoneConnections,
+                [
+                    ConnectionTarget::ThroughHole,
+                    ConnectionTarget::Smd,
+                    ConnectionTarget::Via
+                ]
+                .map(|t| (None, RuleField::connection(t).to_vec()))
+                .to_vec()
             ),
         ]
     );

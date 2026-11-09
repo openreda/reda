@@ -30,6 +30,15 @@ pub mod windows;
 
 pub use draw::{Outcome, PageCx, field, problem_label, tree_row};
 
+/// A file a page asked the window to pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileRequest {
+    /// Where Board Setup's Export rules… writes a `.redarules` file.
+    ExportRules,
+    /// The `.redarules` file Board Setup's Import rules… reads.
+    ImportRules,
+}
+
 /// One Command a page wants run when the dialog applies.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Step {
@@ -94,6 +103,9 @@ pub trait Page: Any {
     /// folder when it can be).
     fn picked_folder(&mut self, _path: &Path) {}
 
+    /// A file the user picked after the page asked for one.
+    fn picked_file(&mut self, _shell: &mut Shell, _request: FileRequest, _path: &Path) {}
+
     /// Whether the page offers Reset to defaults.
     fn has_defaults(&self) -> bool {
         false
@@ -101,6 +113,15 @@ pub trait Page: Any {
 
     /// Puts the defaults in the drafts, as pending edits until Apply.
     fn reset_to_defaults(&mut self, _shell: &mut Shell) {}
+
+    /// Notes the drafts as they are now, for [`Page::step_back`] (Board Setup's pages).
+    fn checkpoint(&mut self) {}
+
+    /// Steps back over the last pending edit (`Mod+Z` inside Board Setup); false when the
+    /// page keeps no such steps or has none left.
+    fn step_back(&mut self) -> bool {
+        false
+    }
 }
 
 /// The buttons along a settings window's bottom.
@@ -262,6 +283,20 @@ impl SettingsDialog {
             .find_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
     }
 
+    /// Notes the drafts as they are now: a change since the last check becomes one step
+    /// back.
+    pub fn checkpoint(&mut self) {
+        for page in &mut self.pages {
+            page.checkpoint();
+        }
+    }
+
+    /// Steps back over the last pending edit; false when there is none, so `Mod+Z` falls
+    /// through to the undo stack.
+    pub fn step_back(&mut self) -> bool {
+        self.pages.iter_mut().any(|p| p.step_back())
+    }
+
     /// Every page's Commands, in page order.
     pub fn steps(&self) -> Vec<Step> {
         self.pages.iter().flat_map(|p| p.steps()).collect()
@@ -309,6 +344,13 @@ impl SettingsDialog {
     pub fn picked_folder(&mut self, path: &Path) {
         for page in &mut self.pages {
             page.picked_folder(path);
+        }
+    }
+
+    /// Hands a picked file to the pages.
+    pub fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        for page in &mut self.pages {
+            page.picked_file(shell, request, path);
         }
     }
 
