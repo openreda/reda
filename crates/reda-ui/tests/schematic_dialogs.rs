@@ -7,7 +7,6 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
-use reda_ui::engine::model::geom::Nm;
 use reda_ui::schematic_dialogs::{
     ReannotateDialog, ReannotateScope, SimilarDialog, UpdateDialog, export_pdf,
 };
