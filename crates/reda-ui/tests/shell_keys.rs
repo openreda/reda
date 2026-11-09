@@ -117,3 +117,30 @@ fn shift_f1_toggles_a_card_of_the_active_tools_keys_from_the_keymap() {
     h.run();
     assert!(h.query_by_label("Wire keys").is_none());
 }
+
+#[test]
+fn the_ui_scale_commands_take_only_the_steps_and_stop_at_the_ends() {
+    let dir = TempDir::new("ui-scale-commands");
+    let mut shell = Shell::new(
+        Engine::builder()
+            .user_dirs(Some(UserDirs::under(&dir.path().join("home"))))
+            .starter_library(None)
+            .headless(false)
+            .build(),
+    );
+    assert!(
+        shell
+            .run("view.ui_scale.set", json!({"scale": 1.1}))
+            .is_err()
+    );
+    shell
+        .run("view.ui_scale.set", json!({"scale": 1.5}))
+        .unwrap();
+    assert_eq!(shell.preferences().general.ui_scale, 1.5);
+    for _ in 0..3 {
+        shell
+            .run("view.ui_scale.step", json!({"direction": "up"}))
+            .unwrap();
+    }
+    assert_eq!(shell.preferences().general.ui_scale, 2.0);
+}

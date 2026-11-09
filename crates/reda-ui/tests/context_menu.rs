@@ -348,7 +348,7 @@ fn right_click(h: &mut Harness<'_, App>, at: Pos2) {
 
 /// The menu entry `name` (its label is the name, maybe followed by its shortcut) in the
 /// menu opened at `at`, below and right of it.
-fn entry<'h>(h: &'h Harness<'_, App>, at: Pos2, name: &str) -> Option<egui::Rect> {
+fn entry(h: &Harness<'_, App>, at: Pos2, name: &str) -> Option<egui::Rect> {
     let prefix = format!("{name} ");
     h.query_all_by(|n: &_| {
         let n: &egui_kittest::kittest::AccessKitNode<'_> = n;
@@ -422,4 +422,17 @@ fn a_right_click_on_an_empty_spot_offers_document_properties() {
     assert!(entry(&h, at, "Document properties").is_some());
     assert!(entry(&h, at, "Copy").is_some());
     assert!(entry(&h, at, "Track").is_none());
+}
+
+#[test]
+fn select_similar_selects_the_same_kind_where_the_object_lives() {
+    let mut b = board();
+    b.shell
+        .run("selection.similar", json!({"objects": [b.r1]}))
+        .unwrap();
+    let mut selected = b.shell.selection().objects.clone();
+    selected.sort();
+    let mut both = vec![b.r1, b.r2];
+    both.sort();
+    assert_eq!(selected, both);
 }

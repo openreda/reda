@@ -463,14 +463,29 @@ pub struct Layout {
     /// The Document last activated: menus and toolbars follow it.
     last_document: Option<Uuid>,
     next_id: u64,
+    /// What the layout remembers for this session; it is not saved and two layouts that
+    /// put the same tabs in the same places are equal whatever it holds.
+    #[serde(skip)]
+    memory: Memory,
+}
+
+/// A layout's session memory.
+#[derive(Clone, Debug, Default)]
+struct Memory {
     /// The tabs in the order they were last activated, the latest last: closing a group's
     /// active tab activates the group's last active one.
-    #[serde(skip)]
     recent: Vec<TabKey>,
     /// Where each closed Panel was, so it reopens there.
-    #[serde(skip)]
     closed_at: Vec<(PanelId, ClosedAt)>,
 }
+
+impl PartialEq for Memory {
+    fn eq(&self, _: &Memory) -> bool {
+        true
+    }
+}
+
+impl Eq for Memory {}
 
 /// Where a Panel was when it was closed: its group and position, and the Dock it was in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -538,8 +553,7 @@ impl Layout {
             flyout: None,
             last_document: None,
             next_id: 5,
-            recent: Vec::new(),
-            closed_at: Vec::new(),
+            memory: Memory::default(),
         };
         if let Some(first) = layout
             .group(GroupId(1))
@@ -570,8 +584,7 @@ impl Layout {
             flyout: None,
             last_document,
             next_id: 0,
-            recent: Vec::new(),
-            closed_at: Vec::new(),
+            memory: Memory::default(),
         };
         // Tidying needs a centre with a group in it.
         let mut centre = Vec::new();
@@ -896,9 +909,10 @@ impl Layout {
                 .is_some_and(|g| g.active == place.index);
             l.remember_panel(tab, place);
             l.take(tab)?;
-            l.recent.retain(|t| t != tab);
+            l.memory.recent.retain(|t| t != tab);
             if was_active
                 && let Some(next) = l
+                    .memory
                     .recent
                     .iter()
                     .rev()
@@ -919,8 +933,8 @@ impl Layout {
                 Area::Dock(side) => Some(side),
                 _ => None,
             };
-            self.closed_at.retain(|(p, _)| p != panel);
-            self.closed_at.push((
+            self.memory.closed_at.retain(|(p, _)| p != panel);
+            self.memory.closed_at.push((
                 *panel,
                 ClosedAt {
                     group: place.group,
@@ -988,6 +1002,7 @@ impl Layout {
         self.apply(|l| {
             if l.place(&tab).is_none() {
                 let was = l
+                    .memory
                     .closed_at
                     .iter()
                     .find(|(p, _)| *p == panel)
@@ -1006,7 +1021,7 @@ impl Layout {
                     }) => l.put_in_dock(tab.clone(), side),
                     _ => l.put_in_dock(tab.clone(), panel.home()),
                 }
-                l.closed_at.retain(|(p, _)| *p != panel);
+                l.memory.closed_at.retain(|(p, _)| *p != panel);
             }
             Ok(l.activate_in_place(&tab))
         })
@@ -1135,8 +1150,8 @@ impl Layout {
         let place = self.place(tab).expect("activating an open tab");
         self.group_mut(place.group).expect("placed").active = place.index;
         self.focus = Some(tab.clone());
-        self.recent.retain(|t| t != tab);
-        self.recent.push(tab.clone());
+        self.memory.recent.retain(|t| t != tab);
+        self.memory.recent.push(tab.clone());
         if let TabKey::Document(uuid) = tab {
             self.last_document = Some(*uuid);
         }
