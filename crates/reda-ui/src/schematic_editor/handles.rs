@@ -182,9 +182,13 @@ pub fn nearest_segment(wire: &Wire, at: P) -> usize {
 impl Cx<'_> {
     /// A click with the Select Tool on a Wire that is selected, whole or by a segment:
     /// selects the segment under the pointer (Shift adds it, or drops it when it is
-    /// selected already). `false` when the click is not one of these, and picks as usual.
+    /// selected already). `false` when the click is not one of these, or lands where
+    /// objects overlap (a repeated click cycles them), and picks as usual.
     pub(super) fn segment_click(&mut self, at: P, modifiers: egui::Modifiers) -> bool {
-        let Some(hit) = self.hit(at) else {
+        // Where objects overlap, a repeated click cycles through them instead.
+        let stack =
+            crate::selection::picking::stack(self.shell, self.document, at, self.scale.pick);
+        let [hit] = stack[..] else {
             return false;
         };
         let Some(wire) = self.sheet().and_then(|s| s.wire(hit)).cloned() else {
