@@ -7,6 +7,7 @@
 mod generate;
 mod import;
 mod new_library;
+mod to_library;
 
 use reda_engine::library::LibraryOrigin;
 use reda_engine::model::Uuid;
@@ -20,8 +21,10 @@ pub use generate::{
 };
 pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
+pub use to_library::ToLibraryDialog;
 
-/// The window's hand-written dialogs: New Library's, Import part's and every generator's.
+/// The window's hand-written dialogs: New Library's, Import part's, every generator's, and
+/// Copy to Library's and Extract's (Make Project Library).
 pub fn dialogs() -> Dialogs {
     let mut dialogs = Dialogs::new();
     dialogs.register("library.create", |shell, params| {
@@ -30,6 +33,11 @@ pub fn dialogs() -> Dialogs {
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))
     });
+    for id in [to_library::COPY, to_library::EXTRACT] {
+        dialogs.register(id, move |shell, params| {
+            Box::new(ToLibraryDialog::new(shell, id, &params))
+        });
+    }
     // Regenerate… asks first even with the Footprint given: the form shows its stored
     // params and what regenerating loses.
     dialogs.register_always(generate::REGENERATE, |shell, params| {

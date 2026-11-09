@@ -268,7 +268,7 @@ impl App {
                 }
             }
         }
-        for (id, params) in frame.calls {
+        for (id, params) in frame.calls.into_iter().chain(self.shell.take_calls()) {
             self.call(&id, params);
         }
         self.handle_requests(&ctx);
