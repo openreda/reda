@@ -90,7 +90,7 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
             }
             if sheet && let Some(project) = project {
                 region(ui, shell, "sheet", tr!("properties-sheet"), |ui| {
-                    sheet_figures(ui, project, document);
+                    super::sheet_frame::show(ui, project, document, &mut out);
                 });
             }
             if board || sheet {
@@ -268,47 +268,6 @@ fn board_figures(ui: &mut Ui, figures: &BoardFigures, units: Units) {
         row(
             tr!("properties-board-primitives"),
             info.primitives.to_string(),
-        );
-    });
-}
-
-/// The sheet's name, size and title block, read-only.
-fn sheet_figures(ui: &mut Ui, project: &reda_engine::model::Project, document: Uuid) {
-    let name = project
-        .documents()
-        .find(|d| d.uuid == document)
-        .map(|d| d.name.clone())
-        .unwrap_or_default();
-    let Ok(block) = reda_engine::schematic::title_block(project, document) else {
-        return;
-    };
-    Grid::new("properties-sheet").num_columns(2).show(ui, |ui| {
-        let mut row = |name: String, value: String| {
-            ui.weak(name);
-            ui.label(value);
-            ui.end_row();
-        };
-        row(tr!("properties-sheet-name"), name);
-        row(
-            tr!("properties-sheet-size"),
-            format!(
-                "{} x {}",
-                format_length(block.width, Units::Mm),
-                format_length(block.height, Units::Mm)
-            ),
-        );
-        row(tr!("properties-sheet-title"), block.title.clone());
-        row(tr!("properties-sheet-revision"), block.revision.clone());
-        row(
-            tr!("properties-sheet-drawing-number"),
-            block.drawing_number.clone(),
-        );
-        row(tr!("properties-sheet-date"), block.date.clone());
-        row(tr!("properties-sheet-author"), block.author.clone());
-        row(tr!("properties-sheet-company"), block.company.clone());
-        row(
-            tr!("properties-sheet-number"),
-            format!("{} / {}", block.sheet_number, block.sheet_count),
         );
     });
 }

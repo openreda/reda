@@ -27,6 +27,9 @@
           { "id": "context.object.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } },
           { "id": "context.object.update_from_library", "command": "schematic.update_from_library.open", "params": { "objects": "$selection" } },
           { "id": "context.object.replace_part", "command": "schematic.component.replace.open", "params": { "objects": "$selection" } }
+        ],
+        "port": [
+          { "id": "context.object.go_to_partner", "command": "schematic.port.go_to_partner", "params": { "objects": "$selection" }, "title": "context-go-to-partner" }
         ]
       }
     },

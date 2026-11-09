@@ -66,7 +66,7 @@ fn project_settings_opens_from_the_projects_panel_with_its_page_tree() {
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
     h.get_by_label("Project Settings");
-    for page in ["Properties", "ERC", "Fab Presets", "Libraries"] {
+    for page in ["Properties", "ERC", "Schematic", "Fab Presets", "Libraries"] {
         h.get_by_role_and_label(Role::TreeItem, page);
     }
     // Nothing changed yet: OK closes, Apply has nothing to do.
@@ -118,7 +118,7 @@ fn apply_on_the_erc_page_commits_and_keeps_the_dialog_open() {
     open_settings(&mut h, "Dlg");
     h.get_by_role_and_label(Role::TreeItem, "ERC").click();
     h.run();
-    h.get_by_label("Pin Matrix: E is an Error, W a Warning, a dot Off.");
+    h.get_by_label("Pin Matrix");
     h.get_by_label("Single-Pin Net: Off").click();
     h.run();
     h.get_by_label("Apply").click();
@@ -166,8 +166,120 @@ fn page_tree_labels_are_left_aligned() {
     let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
-    for page in ["Properties", "ERC", "Fab Presets", "Libraries"] {
+    for page in ["Properties", "ERC", "Schematic", "Fab Presets", "Libraries"] {
         let indent = tree_label_indent(&h, page);
         assert!(indent < 10.0, "{page:?} starts {indent} pt into its row");
     }
+}
+
+#[test]
+fn the_schematic_page_sets_options_and_resets_the_saved_reannotate_settings() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "schematic.reannotate",
+            serde_json::json!({"order": "across_then_up"}),
+        )
+        .unwrap();
+    h.run();
+    // The run dirtied the Project.
+    open_settings(&mut h, "Dlg *");
+    h.get_by_role_and_label(Role::TreeItem, "Schematic").click();
+    h.run();
+    for group in [
+        "Nets",
+        "Cross-references",
+        "Assembly",
+        "Re-annotate",
+        "Update from Library",
+    ] {
+        h.get_by_label(group);
+    }
+    h.get_by_label("Order: Across, then up");
+    h.get_by_label("Nothing saved yet: the defaults apply.");
+    h.get_by_label("Automatic Cross References").click();
+    h.run();
+    h.get_by_label("Not Fitted display: Mesh").click();
+    h.run();
+    h.get_by_label("Reset Re-annotate Settings").click();
+    h.run();
+    h.get_by_label("Cleared on Apply.");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "batch");
+    let props = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .clone();
+    assert!(props.schematic.cross_references);
+    assert_eq!(
+        props.schematic.not_fitted_display,
+        reda_ui::engine::model::NotFittedDisplay::Mesh
+    );
+    assert!(props.reannotate.is_none());
+    let none = h
+        .query_all_by_label("Nothing saved yet: the defaults apply.")
+        .count();
+    assert_eq!(none, 2, "both summaries are empty now");
+}
+
+#[test]
+fn the_erc_page_edits_the_pin_matrix_and_sets_picked_checks_together() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    open_settings(&mut h, "Dlg");
+    h.get_by_role_and_label(Role::TreeItem, "ERC").click();
+    h.run();
+    for group in ["Pins", "Nets", "Ports", "Components", "Drawing"] {
+        h.get_by_label(group);
+    }
+    // A click cycles a cell: Error goes to Off.
+    h.get_by_label("Output Pin connected to Output Pin: Error")
+        .click();
+    h.run();
+    h.get_by_label("Output Pin connected to Output Pin: Off");
+    // The right-click menu sets every cell.
+    h.get_by_label("Input Pin unconnected: Error")
+        .click_secondary();
+    h.run();
+    h.get_by_label("All Warning").click();
+    h.run();
+    h.get_by_label("Input Pin unconnected: Warning");
+    h.get_by_label("Output Pin connected to Output Pin: Warning");
+
+    // Pick two checks (the second with Mod held) and set both to Off.
+    h.get_by_role_and_label(Role::Row, "Undriven Power").click();
+    h.run();
+    h.get_by_role_and_label(Role::Row, "No Driving Source")
+        .click_modifiers(egui::Modifiers::COMMAND);
+    h.run();
+    h.get_by_label("Set picked checks to Off").click();
+    h.run();
+    h.get_by_label("OK").click();
+    h.run();
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    assert_eq!(
+        erc.severities.get(ErcCheck::UndrivenPower),
+        Some(Severity::Off)
+    );
+    assert_eq!(
+        erc.severities.get(ErcCheck::NoDrivingSource),
+        Some(Severity::Off)
+    );
+    let input = reda_ui::engine::model::Cell::unconnected(reda_ui::engine::model::PinType::Input);
+    assert_eq!(erc.pin_matrix_overrides.get(input), Severity::Warning);
 }

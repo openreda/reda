@@ -45,6 +45,7 @@ mod panels;
 pub mod part_editor;
 pub mod pcb;
 pub mod placement;
+pub mod port_partner;
 pub mod preferences_dialog;
 mod projects_panel;
 pub mod properties;
