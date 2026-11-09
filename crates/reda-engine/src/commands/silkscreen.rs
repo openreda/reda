@@ -439,6 +439,7 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
         rotation: Default::default(),
         side: Side::Top,
         locked: false,
+        graphics_unlocked: false,
         designator: DESIGNATOR_PLACEHOLDER.to_owned(),
         fields: Fields {
             value: footprint.name.clone(),
