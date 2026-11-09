@@ -222,7 +222,7 @@ fn an_empty_spot_starts_with_document_properties_in_the_spec_order() {
             "Document properties",
             "Copy, Paste, Delete",
             "Select >",
-            "Highlight Net, Clear Highlight, Cross-probe, Applicable rules",
+            "Highlight Net, Clear Highlight, Cross-probe, Cross-probe and Jump, Applicable rules",
             "Place >",
             "Properties",
         ]
