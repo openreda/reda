@@ -78,7 +78,10 @@ pub fn start_paste(shell: &mut Shell, document: Uuid, clipboard: Value, repeat: 
     // An origin on the grid (a reference point clicked, or a corner that happens to be)
     // is held itself; else a hotspot of the objects is.
     let grid = shell.grid(document).0.max(1);
-    let origin = (clipboard["origin"]["x"].as_i64(), clipboard["origin"]["y"].as_i64());
+    let origin = (
+        clipboard["origin"]["x"].as_i64(),
+        clipboard["origin"]["y"].as_i64(),
+    );
     let hold = match origin {
         (Some(x), Some(y)) if x % grid == 0 && y % grid == 0 => Point::default(),
         _ => hotspot(&clipboard),
@@ -226,7 +229,7 @@ pub(super) fn preview(shell: &mut Shell, document: Uuid, p: &mut Pasting, genera
 }
 
 /// Adds `tool.copy`, `tool.paste` and `tool.duplicate` to `registry`.
-pub fn register_all(registry: &mut Registry) {
+pub(super) fn register(registry: &mut Registry) {
     registry.add(ToolCopy);
     registry.add(ToolPaste);
     registry.add(ToolDuplicate);

@@ -897,7 +897,8 @@ impl Command for ToolEditProperties {
                       closed; the Break Wire Tool's options (Cutting Length, Show Cutter \
                       Box, Show Extremity Markers), which write straight back to the \
                       Preferences; for a Part being placed, the Properties Panel, whose \
-                      edits later placements keep.",
+                      edits later placements keep; for a Net Label, Port or Power Port \
+                      being placed, an in-place edit of its name (the Tool pauses).",
         category: "tool",
         icon: "properties",
         kind: Kind::View,
@@ -908,7 +909,14 @@ impl Command for ToolEditProperties {
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<EditPropertiesResult, CommandError> {
         let tool = only_in(
             cx,
-            &[Tool::Wire, Tool::BreakWire, Tool::Place],
+            &[
+                Tool::Wire,
+                Tool::BreakWire,
+                Tool::Place,
+                Tool::NetLabel,
+                Tool::Port,
+                Tool::PowerPort,
+            ],
             "Edit Tool Properties",
         )?;
         if tool == Tool::Wire {

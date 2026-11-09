@@ -352,6 +352,29 @@ context = "tool:break_wire"
 key = "Tab"
 command = "tool.edit_properties"
 
+# F2 edits the selected name, Designator, value, field or text in place. Tab while
+# placing a Net Label, Port or Power Port pauses the Tool to edit the next name.
+
+[[bind]]
+context = "schematic"
+key = "F2"
+command = "schematic.edit_in_place"
+
+[[bind]]
+context = "tool:net_label"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:port"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:power_port"
+key = "Tab"
+command = "tool.edit_properties"
+
 # Find (Mod+F) shows the Find Panel with its text field focused.
 
 [[bind]]

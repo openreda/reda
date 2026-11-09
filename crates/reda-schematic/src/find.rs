@@ -134,9 +134,7 @@ impl Command for Find {
             matches.retain(|m| m.document == document);
         }
         if let Some(objects) = &p.objects {
-            matches.retain(|m| {
-                m.unit.iter().chain(&m.objects).any(|o| objects.contains(o))
-            });
+            matches.retain(|m| m.unit.iter().chain(&m.objects).any(|o| objects.contains(o)));
         }
         Ok(FindResult { matches })
     }
@@ -269,9 +267,17 @@ pub fn find(project: &Project, matcher: &Matcher, fields: &[FindField]) -> Vec<F
 /// that order of kind, each in natural order.
 fn text_matches(sheet: &reda_model::SchematicSheet, matcher: &Matcher) -> Vec<FindMatch> {
     let mut found: Vec<(usize, &str, Uuid, &'static str)> = Vec::new();
-    found.extend(sheet.net_labels().map(|o| (0, o.name.as_str(), o.uuid, "net_label")));
+    found.extend(
+        sheet
+            .net_labels()
+            .map(|o| (0, o.name.as_str(), o.uuid, "net_label")),
+    );
     found.extend(sheet.ports().map(|o| (1, o.name.as_str(), o.uuid, "port")));
-    found.extend(sheet.power_ports().map(|o| (2, o.name.as_str(), o.uuid, "power_port")));
+    found.extend(
+        sheet
+            .power_ports()
+            .map(|o| (2, o.name.as_str(), o.uuid, "power_port")),
+    );
     found.extend(sheet.texts().map(|o| (3, o.text.as_str(), o.uuid, "text")));
     found.retain(|(_, text, _, _)| matcher.matches(text));
     found.sort_by(|a, b| {

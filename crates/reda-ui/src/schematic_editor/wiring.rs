@@ -164,6 +164,8 @@ pub struct Placing {
     /// What the canvas shows: the preview drawn for (at, rotation, name), and the Scene
     /// generation it was drawn as.
     pub(super) shown: Option<(Point, Millideg, String, u64)>,
+    /// Paused by Tab: the name being edited in place, until Enter or Esc resumes.
+    pub paused: Option<String>,
 }
 
 impl Placing {
@@ -294,6 +296,7 @@ impl Cx<'_> {
                         next_name(engine.project(), tool, preset.as_deref())
                     },
                     shown: None,
+                    paused: None,
                 }))
             }
             _ => None,
@@ -447,6 +450,9 @@ impl Cx<'_> {
         event: crate::canvas::interact::Pointer,
     ) -> Placing {
         use crate::canvas::interact::Pointer;
+        if p.paused.is_some() {
+            return p;
+        }
         match event {
             Pointer::Hover(at) | Pointer::Drag(at) | Pointer::DragStart { at, .. } => {
                 p.at = self.snap(at)

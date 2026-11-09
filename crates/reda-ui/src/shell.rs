@@ -459,7 +459,8 @@ impl Shell {
         self.focus_state().request.take()
     }
 
-    pub(crate) fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
+    /// The canvases' picking state (tests set its clock with `set_time`).
+    pub fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
         self.engine
             .view_mut()
             .get_mut::<selection::picking::Picking>()
@@ -2121,6 +2122,18 @@ impl Shell {
             "tool.insert_vertex" if self.tool() == Tool::Select => {
                 if let Some(sheet) = self.active_sheet() {
                     crate::schematic_editor::insert_held_vertex(self, sheet);
+                }
+            }
+            "tool.edit_properties"
+                if matches!(self.tool(), Tool::NetLabel | Tool::Port | Tool::PowerPort) =>
+            {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::pause_placing(self, sheet);
+                }
+            }
+            "schematic.edit_in_place" => {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::edit_selected(self, sheet);
                 }
             }
             "tool.edit_properties" if self.tool() == Tool::Place => {

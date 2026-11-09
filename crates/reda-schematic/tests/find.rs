@@ -278,7 +278,10 @@ fn find_matches_a_designator_with_or_without_its_unit_suffix() {
 
 /// The `text` of each match, in order.
 fn texts(engine: &mut TestEngine, params: Value) -> Vec<String> {
-    find(engine, params).into_iter().map(|(_, t, _)| t).collect()
+    find(engine, params)
+        .into_iter()
+        .map(|(_, t, _)| t)
+        .collect()
 }
 
 fn add_label(engine: &mut TestEngine, sheet: &Value, name: &str, x: i64) -> Value {
@@ -316,12 +319,18 @@ fn find_options_case_whole_word_wildcards_and_regular_expressions() {
     );
     // Case on.
     assert_eq!(
-        texts(&mut engine, text(json!({"text": "sda", "match_case": true}))),
+        texts(
+            &mut engine,
+            text(json!({"text": "sda", "match_case": true}))
+        ),
         ["sda_out"]
     );
     // Whole word: `_` joins words, a space or a hyphen does not.
     assert_eq!(
-        texts(&mut engine, text(json!({"text": "SDA", "whole_word": true}))),
+        texts(
+            &mut engine,
+            text(json!({"text": "SDA", "whole_word": true}))
+        ),
         ["SDA", "Check the SDA pull-up"]
     );
     // Wildcards match the whole text, always ignoring case.
@@ -334,7 +343,10 @@ fn find_options_case_whole_word_wildcards_and_regular_expressions() {
     );
     // Regular expressions; the case option applies.
     assert_eq!(
-        texts(&mut engine, text(json!({"text": "^s[cd]", "syntax": "regex"}))),
+        texts(
+            &mut engine,
+            text(json!({"text": "^s[cd]", "syntax": "regex"}))
+        ),
         ["SCL", "SDA", "sda_out"]
     );
     assert_eq!(
@@ -344,7 +356,10 @@ fn find_options_case_whole_word_wildcards_and_regular_expressions() {
         ),
         ["sda_out"]
     );
-    let bad = engine.run_err("schematic.find", text(json!({"text": "(", "syntax": "regex"})));
+    let bad = engine.run_err(
+        "schematic.find",
+        text(json!({"text": "(", "syntax": "regex"})),
+    );
     assert_eq!(bad.code, ErrorCode::InvalidParams);
     // A text match names its kind and object.
     let out = engine.run_ok("schematic.find", text(json!({"text": "pull"})));
@@ -352,7 +367,10 @@ fn find_options_case_whole_word_wildcards_and_regular_expressions() {
     assert_eq!(out["matches"][0]["objects"], json!([note]));
     // Net names ignore case unless the case option is on.
     assert_eq!(
-        texts(&mut engine, json!({"text": "scl", "fields": ["net"], "exact": true})),
+        texts(
+            &mut engine,
+            json!({"text": "scl", "fields": ["net"], "exact": true})
+        ),
         ["SCL"]
     );
     assert_eq!(

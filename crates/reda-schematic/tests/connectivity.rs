@@ -649,3 +649,25 @@ fn dropping_a_component_on_a_straight_stretch_of_a_polyline_cuts_out_the_piece_b
     assert_eq!(pins(&net_of_pin(&mut engine, "R1", "1")), ["R1-1"]);
     assert_eq!(pins(&net_of_pin(&mut engine, "R1", "2")), ["R1-2"]);
 }
+
+#[test]
+fn a_net_label_is_renamed_with_the_name_checks_of_placing_one() {
+    let dir = TempDir::new("label-set");
+    let mut engine = demo(&dir);
+    let sda = label(&mut engine, SHEET, "SDA", 0, 0);
+    engine.run_ok(
+        "schematic.net_label.set",
+        json!({"uuid": sda, "name": " SCL "}),
+    );
+    assert_eq!(object(&mut engine, &sda)["name"], "SCL");
+    let bad = engine.run_err(
+        "schematic.net_label.set",
+        json!({"uuid": sda, "name": "D[0..3]"}),
+    );
+    assert_eq!(bad.code, ErrorCode::InvalidParams, "{bad:?}");
+    let missing = engine.run_err(
+        "schematic.net_label.set",
+        json!({"uuid": SHEET, "name": "X"}),
+    );
+    assert_eq!(missing.code, ErrorCode::NotFound);
+}

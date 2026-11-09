@@ -18,8 +18,8 @@ pub use arrange::{
     Align, AlignParams, AlignTo, Direction, Distribute, DistributeParams, SnapParams, SnapToGrid,
 };
 pub use clipboard::{
-    Clipboard, CopiedText, Copy, CopyAsText, CopyAsTextParams, CopyParams, Cut, CutParams, Duplicate, DuplicateParams, Paste, PasteParams,
-    PasteResult,
+    Clipboard, CopiedText, Copy, CopyAsText, CopyAsTextParams, CopyParams, Cut, CutParams,
+    Duplicate, DuplicateParams, Paste, PasteParams, PasteResult,
 };
 pub use delete::{Delete, DeleteParams, DeleteResult, WireSegment};
 pub use graphics::{

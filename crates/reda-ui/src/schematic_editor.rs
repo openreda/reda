@@ -20,6 +20,7 @@ mod clipboard;
 mod decorate;
 mod graphics;
 mod handles;
+mod in_place;
 mod wiring;
 
 use std::collections::BTreeSet;
@@ -39,11 +40,22 @@ use crate::tr;
 
 pub use auto_wire::options as auto_wire_options;
 pub use break_wire::{Breaking, cycle_cutting_length, options as break_wire_options};
-pub use clipboard::{Pasting, Referencing, copy, duplicate, paste, register_all};
+pub use clipboard::{Pasting, Referencing, copy, duplicate, paste};
 pub use decorate::{decorate, hover_tip};
 pub use graphics::Drawing;
 pub use handles::{Grip, Handle, HandleDrag, delete_held_vertex, insert_held_vertex};
+pub use in_place::{
+    EditTarget, InPlace, begin_edit, cancel_edit, commit as commit_edit, edit_selected, editing,
+    pause_placing, paused, set_text as set_edit_text, target_of,
+};
 pub use wiring::{Corner, Placing, Wiring};
+
+/// Adds the editor's view Commands to `registry`: `tool.copy`, `tool.paste`,
+/// `tool.duplicate` and `schematic.edit_in_place`. The Shell does this for its engine.
+pub fn register_all(registry: &mut reda_engine::command::Registry) {
+    clipboard::register(registry);
+    registry.add(in_place::EditInPlace);
+}
 
 /// A Command for the window to run after the frame.
 pub type Invocation = (String, Value);
@@ -81,6 +93,8 @@ pub enum Interaction {
     Pasting(Pasting),
     /// Cut or copy waiting for a click on the reference point.
     Referencing(Referencing),
+    /// An in-place edit of a name, field or text.
+    Editing(InPlace),
 }
 
 impl Interaction {
@@ -589,7 +603,9 @@ fn show(
                 ..Overlay::default()
             },
         ),
-        Interaction::Referencing(_) => (Vec::new(), Vec::new(), (0.0, 0.0), idle),
+        Interaction::Referencing(_) | Interaction::Editing(_) => {
+            (Vec::new(), Vec::new(), (0.0, 0.0), idle)
+        }
         Interaction::Drawing(d) => {
             let mut wires = d.committed.clone();
             wires.extend(d.segments());
@@ -931,6 +947,15 @@ impl Cx<'_> {
             (Interaction::Breaking(b), event) => self.break_step(b, event),
             (Interaction::Pasting(p), event) => self.paste_step(p, event),
             (Interaction::Referencing(r), event) => self.reference_step(r, event),
+            // The text field has the keyboard; Enter or Esc ends the edit.
+            (Interaction::Editing(edit), _) => Interaction::Editing(edit),
+            (Interaction::Idle, Pointer::Click { at, modifiers })
+                if tool == Tool::Select
+                    && modifiers.is_none()
+                    && let Some(edit) = self.slow_second_click(at) =>
+            {
+                Interaction::Editing(edit)
+            }
             (Interaction::Idle, event) if tool == Tool::BreakWire => {
                 self.break_step(Breaking::default(), event)
             }
@@ -1052,6 +1077,24 @@ impl Cx<'_> {
             }
             (Interaction::Idle, Pointer::Drag(_) | Pointer::DragEnd(_)) => Interaction::Idle,
         }
+    }
+
+    /// The in-place edit a slow second click at `at` starts, if it is one.
+    fn slow_second_click(&self, at: P) -> Option<InPlace> {
+        let hit = crate::selection::picking::slow_second_click(
+            self.shell,
+            self.document,
+            at,
+            self.scale.pick,
+        )?;
+        let project = self.shell.engine().project()?;
+        let target = match crate::selection::rules::child(self.shell, self.document, hit) {
+            Some(reda_engine::render::Child::Field { unit, field }) => {
+                target_of(project, *unit, Some(field))
+            }
+            _ => target_of(project, hit, None),
+        }?;
+        in_place::start(self.shell, target)
     }
 
     /// Alt+click: highlights the Net under the pointer on every sheet, or clears the
