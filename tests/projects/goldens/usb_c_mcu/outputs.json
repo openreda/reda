@@ -4,69 +4,86 @@
     "files": [
       {
         "function": "copper_top",
-        "name": "UsbMcu.GTL"
+        "path": "fab/UsbMcu.gtl"
       },
       {
         "function": "copper_bottom",
-        "name": "UsbMcu.GBL"
+        "path": "fab/UsbMcu.gbl"
       },
       {
         "function": "solder_mask_top",
-        "name": "UsbMcu.GTS"
+        "path": "fab/UsbMcu.gts"
       },
       {
         "function": "solder_mask_bottom",
-        "name": "UsbMcu.GBS"
+        "path": "fab/UsbMcu.gbs"
       },
       {
         "function": "paste_top",
-        "name": "UsbMcu.GTP"
+        "path": "fab/UsbMcu.gtp"
       },
       {
         "function": "paste_bottom",
-        "name": "UsbMcu.GBP"
+        "path": "fab/UsbMcu.gbp"
       },
       {
         "function": "silkscreen_top",
-        "name": "UsbMcu.GTO"
+        "path": "fab/UsbMcu.gto"
       },
       {
         "function": "silkscreen_bottom",
-        "name": "UsbMcu.GBO"
+        "path": "fab/UsbMcu.gbo"
       },
       {
         "function": "profile",
-        "name": "UsbMcu.GKO"
+        "path": "fab/UsbMcu.gm1"
       },
       {
         "function": "drill_plated",
-        "name": "UsbMcu-PTH.drl"
+        "path": "fab/UsbMcu-PTH.drl"
       },
       {
         "function": "drill_non_plated",
-        "name": "UsbMcu-NPTH.drl"
+        "path": "fab/UsbMcu-NPTH.drl"
       },
       {
         "function": "fab_notes",
-        "name": "UsbMcu-fab-notes.txt"
+        "path": "fab/UsbMcu-fab-notes.txt"
       },
       {
         "function": "drill_report",
-        "name": "UsbMcu-drill-report.txt"
+        "path": "fab/UsbMcu-drill-report.txt"
       },
       {
         "function": "gerber_job",
-        "name": "UsbMcu-job.gbrjob"
+        "path": "fab/UsbMcu-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "UsbMcu-JLCPCB.zip"
       },
       {
         "function": "bom",
-        "name": "UsbMcu-BOM.csv"
+        "path": "UsbMcu-JLCPCB-BOM.csv"
       },
       {
         "function": "cpl",
-        "name": "UsbMcu-CPL.csv"
+        "path": "UsbMcu-JLCPCB-CPL.csv"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/UsbMcu-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/UsbMcu-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/UsbMcu-change-list.json"
       }
     ],
+    "manifest": "outputs/JLCPCB/manifest.json",
     "skipped": [],
     "warnings": [
       {

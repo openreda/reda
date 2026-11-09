@@ -163,7 +163,7 @@ fn a_run_writes_its_files_and_zip_and_is_journalled() {
         panic!("{report:?}");
     };
     assert!(zip.exists(), "{zip:?}");
-    assert!(files.iter().any(|f| f.name == "Board.gtl"), "{files:?}");
+    assert!(files.iter().any(|f| f.name == "fab/Board.gtl"), "{files:?}");
     assert_eq!(journal_ids(&shell).last().unwrap(), "output.job.run");
     assert!(report.blockers.is_empty());
 }

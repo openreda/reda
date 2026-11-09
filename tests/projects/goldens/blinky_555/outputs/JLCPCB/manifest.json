@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "reda": "0.0.0-test",
+  "job": {"uuid":"00000000-0000-4000-8000-000000000017","name":"JLCPCB"},
+  "fab_preset": {"name":"JLCPCB","sha256":"1174da20591deb436afb04183e69bfb67a3900e635361f17415f9ef0657c41e6"},
+  "pcb": "00000000-0000-4000-8000-000000000003",
+  "revision": "A",
+  "date": "2026-01-01T00:00:00Z",
+  "zip": {"path":"Blinky-JLCPCB.zip","sha256":"3402a8cb3cfdeb77873052327a8dbd996f535cb3a79a40fbc8c23e463dabd889"},
+  "files": [
+    {"path":"fab/Blinky.gtl","size":4010,"sha256":"30f38b4f68056a942e18c3efd6a8700c99e661e42feb6e5cefb5164061d4c094","kind":"copper_top"},
+    {"path":"fab/Blinky.gbl","size":18992,"sha256":"8c6a82e8367b154f3414b17f9fccff058309f9be16945777b72beb60e2b54b61","kind":"copper_bottom"},
+    {"path":"fab/Blinky.gts","size":1937,"sha256":"87f884ff9a6d30e06e5073a39037bc8b5f9cc9e1cae17cd9f78288d4fd73d4e1","kind":"solder_mask_top"},
+    {"path":"fab/Blinky.gbs","size":566,"sha256":"dcc72d2d7479b8621344e38fdd0a1a7cf3b81c8b5c082009203f0a3e5a440c0e","kind":"solder_mask_bottom"},
+    {"path":"fab/Blinky.gtp","size":1661,"sha256":"5615e032f04cb3417758a1a41982ad87fb9fbeaf231d8ad000111b19496dee3f","kind":"paste_top"},
+    {"path":"fab/Blinky.gto","size":9951,"sha256":"bba72fe0621db4537cf0df5b5379180d546afc5280c19a26821baccf55c71f5f","kind":"silkscreen_top"},
+    {"path":"fab/Blinky.gbo","size":1236,"sha256":"37e51adeb3971bdee4de01fd5e36111b36d646158a3a0a8b7e1173bc67792d74","kind":"silkscreen_bottom"},
+    {"path":"fab/Blinky.gm1","size":592,"sha256":"60b2f41ef056011386d1e8e5bd8caa63043ed6a5b8ff56e8c2b9077381bdf375","kind":"profile"},
+    {"path":"fab/Blinky-PTH.drl","size":510,"sha256":"cb3da1ea77a9a1bc8e73ac46f948fb176ae853ed0131bb07f4f2281d1b2ba7c9","kind":"drill_plated"},
+    {"path":"fab/Blinky-NPTH.drl","size":368,"sha256":"ab389596dce386aeadfd22ad7ee38ab3d2f7e8f1a86d66d919871c7d7b56b170","kind":"drill_non_plated"},
+    {"path":"fab/Blinky-fab-notes.txt","size":623,"sha256":"bd8d0a391b1561586eb9c7fd4c8e11bf54c1839a6783da29d79232afd2965295","kind":"fab_notes"},
+    {"path":"fab/Blinky-drill-report.txt","size":547,"sha256":"2f46b8296e4313a0020e8f27f5cf424b3326026ef94658b6a4a13345f02395b4","kind":"drill_report"},
+    {"path":"fab/Blinky-job.gbrjob","size":1569,"sha256":"ab4f97d374eac3fafaac8b5f9f1efbe318a62e446e225e265f4686b4f730dd5f","kind":"gerber_job"},
+    {"path":"Blinky-JLCPCB.zip","size":14548,"sha256":"3402a8cb3cfdeb77873052327a8dbd996f535cb3a79a40fbc8c23e463dabd889","kind":"zip"},
+    {"path":"Blinky-JLCPCB-BOM.csv","size":245,"sha256":"8f0caf74268bb002231e5a8101a84d2c3ab430a525dedbd204d8f55356281d81","kind":"bom"},
+    {"path":"Blinky-JLCPCB-CPL.csv","size":337,"sha256":"6fbd16de0cc4451d7f46490a9bdec5d01c0b475593d79822d5442470a541a58a","kind":"cpl"},
+    {"path":"reports/Blinky-erc.json","size":195,"sha256":"8a435f11150786d4295d6a303e900b09a49fadb24c82fe3f09bab6b26d8f8e93","kind":"erc_report"},
+    {"path":"reports/Blinky-drc.json","size":2175,"sha256":"0599e3b23a9e9d87a94e87d7b187dad5873ff98ab8c5df5328fb4a4001950340","kind":"drc_report"},
+    {"path":"reports/Blinky-change-list.json","size":179,"sha256":"e632e6a0f1364ff21c790ce8c599e4dcc77f2de4f62616ce0603eede8b28491f","kind":"change_list_report"}
+  ],
+  "warnings": []
+}

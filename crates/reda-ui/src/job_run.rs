@@ -73,6 +73,7 @@ pub struct JobRunner {
 /// One file a run wrote.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WrittenFile {
+    /// Its path in the destination, such as `fab/Demo.gtl`.
     pub name: String,
     /// What it holds, such as `copper_top` or `bom`.
     pub function: String,
@@ -268,7 +269,7 @@ fn written(result: &Value) -> RunOutcome {
         .into_iter()
         .flatten()
         .map(|f| WrittenFile {
-            name: f["name"].as_str().unwrap_or_default().to_owned(),
+            name: f["path"].as_str().unwrap_or_default().to_owned(),
             function: f["function"].as_str().unwrap_or_default().to_owned(),
         })
         .collect();
