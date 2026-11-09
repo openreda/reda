@@ -36977,6 +36977,70 @@
     },
     {
       "category": "pcb",
+      "description": "Moves the whole board by `dx`, `dy`: the Board Outline, its Board Cutouts, the Output Origin and every object with any part inside the outline. A Track crossing the edge moves whole; objects wholly outside, such as unplaced Footprints, stay. Locked objects move too and stay locked.",
+      "icon": "move",
+      "id": "pcb.board.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dx": {
+            "$ref": "#/$defs/Length",
+            "description": "How far to move it along x."
+          },
+          "dy": {
+            "$ref": "#/$defs/Length",
+            "description": "How far to move it along y."
+          }
+        },
+        "required": [
+          "dx",
+          "dy"
+        ],
+        "title": "BoardMoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Move Board"
+    },
+    {
+      "category": "pcb",
       "description": "Adds a Board Cutout: a polygon through `vertices`, whose edges are straight or, with a `sweep`, arcs, where board material is removed.",
       "icon": "board_cutout",
       "id": "pcb.board_cutout.add",
@@ -39965,7 +40029,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints and SMD Free Pads to the other side of the board, mirroring them left-right: their Pads and silkscreen, courtyard and assembly drawing go to the other face, mirrored. Dimensions mirror in place on their Layer. A lone object flips in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "description": "Moves Footprints and SMD Free Pads to the other side of the board, mirroring them left-right: their Pads and silkscreen, courtyard and assembly drawing go to the other face, mirrored. Dimensions mirror in place on their Layer, and the Board Outline and Board Cutouts mirror left-right. A lone object flips in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
       "icon": "flip",
       "id": "pcb.flip",
       "kind": "edit",
@@ -40018,7 +40082,7 @@
             "description": "A point on the vertical line to mirror about: by default a lone object's own\nposition, else the middle of the selection's extent. Only its x counts."
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions and Output Origin to flip, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto flip, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -43021,7 +43085,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints, Free Pads, Dimensions and the Output Origin by an offset. Refused when any of them is a locked Footprint, or a Dimension without the objects it references.",
+      "description": "Moves Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline alone is Move Board Shape; `pcb.board.move` moves the whole board. Refused when any of them is a locked Footprint, or a Dimension without the objects it references.",
       "icon": "move",
       "id": "pcb.move",
       "kind": "edit",
@@ -43067,7 +43131,7 @@
             "description": "How far to move them."
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions and Output Origin to move, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto move, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -44605,6 +44669,285 @@
     },
     {
       "category": "pcb",
+      "description": "Bevels corners of a Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout with a straight edge `distance` back along each edge: the corners at `vertices`, or every corner between straight edges when left out. Refused when an edge is too short for the distance, or the result crosses itself.",
+      "icon": "board_outline",
+      "id": "pcb.polygon.chamfer",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "$ref": "#/$defs/Length",
+            "description": "How far back along each edge the bevel starts."
+          },
+          "object": {
+            "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "vertices": {
+            "default": null,
+            "description": "The corners to bevel, by vertex index; every corner between straight edges when\nleft out.",
+            "items": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "object",
+          "distance"
+        ],
+        "title": "ChamferParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the polygon Commands return.",
+        "properties": {
+          "uuid": {
+            "description": "The object changed.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "vertices": {
+            "description": "How many vertices it has now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "vertices"
+        ],
+        "title": "Reshaped",
+        "type": "object"
+      },
+      "title": "Chamfer Corners"
+    },
+    {
+      "category": "pcb",
+      "description": "Rounds corners of a Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout with arcs of `radius` tangent to both edges: the corners at `vertices`, or every corner between straight edges when left out. Refused when an edge is too short for the radius, or the result crosses itself.",
+      "icon": "board_outline",
+      "id": "pcb.polygon.fillet",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "radius": {
+            "$ref": "#/$defs/Length",
+            "description": "The arc's radius."
+          },
+          "vertices": {
+            "default": null,
+            "description": "The corners to round, by vertex index; every corner between straight edges when\nleft out.",
+            "items": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "object",
+          "radius"
+        ],
+        "title": "FilletParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the polygon Commands return.",
+        "properties": {
+          "uuid": {
+            "description": "The object changed.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "vertices": {
+            "description": "How many vertices it has now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "vertices"
+        ],
+        "title": "Reshaped",
+        "type": "object"
+      },
+      "title": "Fillet Corners"
+    },
+    {
+      "category": "pcb",
+      "description": "Replaces the outline of a Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout with `vertices`, whose edges are straight or, with a `sweep`, arcs. A shape that crosses itself is refused with the crossing point.",
+      "icon": "board_outline",
+      "id": "pcb.polygon.set_vertices",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "VertexParam": {
+            "additionalProperties": false,
+            "description": "One vertex of a contour and the edge that leaves it towards the next.",
+            "properties": {
+              "sweep": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Angle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "The edge to the next vertex: left out for a straight edge, otherwise an arc sweeping\nthis angle, counter-clockwise when positive."
+              },
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "vertices": {
+            "description": "Its new vertices in order; the last joins the first.",
+            "items": {
+              "$ref": "#/$defs/VertexParam"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "object",
+          "vertices"
+        ],
+        "title": "SetVerticesParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What the polygon Commands return.",
+        "properties": {
+          "uuid": {
+            "description": "The object changed.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "vertices": {
+            "description": "How many vertices it has now.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uuid",
+          "vertices"
+        ],
+        "title": "Reshaped",
+        "type": "object"
+      },
+      "title": "Set Polygon Vertices"
+    },
+    {
+      "category": "pcb",
       "description": "The Ratsnest: for each Net, the shortest set of lines that would join the islands its copper forms. Connections copper already makes are left out.",
       "icon": "ratsnest",
       "id": "pcb.ratsnest",
@@ -44811,7 +45154,7 @@
     },
     {
       "category": "pcb",
-      "description": "Turns Footprints, Free Pads, Dimensions and the Output Origin counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "description": "Turns Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
       "icon": "rotate",
       "id": "pcb.rotate",
       "kind": "edit",
@@ -44890,7 +45233,7 @@
             "description": "The point to turn about: by default a lone object's own position, else the middle\nof the selection's extent."
           },
           "objects": {
-            "description": "The Footprints, Free Pads, Dimensions and Output Origin to turn, by UUID.",
+            "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto turn, by UUID.",
             "items": {
               "format": "uuid",
               "type": "string"

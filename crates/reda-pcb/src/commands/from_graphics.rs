@@ -46,13 +46,16 @@ pub struct FromGraphics {
 
 impl FromGraphics {
     /// The closed contour the graphics make. A gap is refused (`rejected`) with its
-    /// location and size in `details.gap`, and `details.retry` suggesting `outer_edge`.
+    /// location and size in `details.gap`, and `details.retry` suggesting `outer_edge`; a
+    /// loop that crosses itself is refused with the point in `details.crossing`.
     pub fn contour(&self, pcb: &PcbDocument) -> Result<Vec<Vertex>, CommandError> {
         let strokes = strokes(pcb, &self.graphics)?;
-        match self.mode {
-            LoopMode::Centerline => centerline(&strokes),
-            LoopMode::OuterEdge => outer_edge(&strokes),
-        }
+        let vertices = match self.mode {
+            LoopMode::Centerline => centerline(&strokes)?,
+            LoopMode::OuterEdge => outer_edge(&strokes)?,
+        };
+        super::polygon::refuse_crossing(&vertices)?;
+        Ok(vertices)
     }
 
     /// Removes the graphics unless `keep` is set.

@@ -173,6 +173,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ToolCycleCorner);
     registry.add(ToolUndoSegment);
     registry.add(ToolFinish);
+    registry.add(ToolMoveBoardShape);
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -396,6 +397,43 @@ impl Command for ToolMirror {
     fn run(&self, cx: &mut Context<'_>, p: ToolMirrorParams) -> Result<Mirrored, CommandError> {
         edit_placing(cx, |placing| placing.mirror(p.axis == MirrorAxis::X))?;
         Ok(Mirrored { axis: p.axis })
+    }
+}
+
+/// `tool.move_board_shape`: Move Board Shape. The Board Outline (with any selected Board
+/// Cutouts) follows the pointer until a click puts it down, as one `pcb.move`; Space and L
+/// turn and flip it in flight. The Command makes Select active; the window's Shell picks
+/// the outline up (`Shell::pcb_move_board_shape`).
+struct ToolMoveBoardShape;
+
+impl Command for ToolMoveBoardShape {
+    const META: Meta = Meta {
+        id: "tool.move_board_shape",
+        title: "Move Board Shape",
+        description: "Picks up the Board Outline alone, with any selected Board Cutouts: \
+                      it follows the pointer, turning and flipping with the rotate and flip \
+                      keys, until a click puts it down. Everything else stays; \
+                      `pcb.board.move` moves the whole board.",
+        category: "tool",
+        icon: "move",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = Turned;
+
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<Turned, CommandError> {
+        let has_outline = cx
+            .project()?
+            .pcb()
+            .is_some_and(|pcb| pcb.outline().is_some());
+        if !has_outline {
+            return Err(CommandError::rejected(
+                "the board has no Board Outline to move",
+            ));
+        }
+        cx.view::<ActiveTool>()?.0 = Tool::Select;
+        cx.view::<Placement>()?.placing = None;
+        Ok(Turned {})
     }
 }
 

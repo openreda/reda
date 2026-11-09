@@ -656,6 +656,19 @@ impl Shell {
         self.pcb_tool = tool;
     }
 
+    /// Move Board Shape: the Board Outline, with any selected Board Cutouts, follows the
+    /// pointer until a click puts it down. Anything in flight is dropped first.
+    pub(crate) fn pcb_move_board_shape(&mut self) {
+        selection::picking::cancel(self);
+        self.pcb_cancel();
+        self.with_router(|r, shell| r.cancel(shell));
+        let tool = self.tool();
+        self.pcb_draw.start(tool);
+        let mut tool = std::mem::take(&mut self.pcb_tool);
+        tool.carry_board_shape(self);
+        self.pcb_tool = tool;
+    }
+
     /// L: flips the move in flight, or the selection, to the other side.
     pub(crate) fn pcb_flip(&mut self) {
         let mut tool = std::mem::take(&mut self.pcb_tool);
@@ -672,7 +685,7 @@ impl Shell {
             return snapped;
         }
         let mut tool = std::mem::take(&mut self.pcb_tool);
-        let snapped = tool.hover(self, at);
+        let snapped = tool.hover_mut(self, at);
         self.pcb_tool = tool;
         snapped
     }
@@ -2210,6 +2223,7 @@ impl Shell {
                 }
             }
             "tool.flip" if self.board_is_active() => self.pcb_flip(),
+            "tool.move_board_shape" => self.pcb_move_board_shape(),
             "schematic.paste" | "schematic.duplicate" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self
