@@ -19,7 +19,7 @@
       "id": "object",
       "items": [
         { "id": "context.object.rotate", "command": "tool.rotate", "title": "pcb-rotate" },
-        { "id": "context.object.flip", "command": "tool.flip", "title": "pcb-flip" },
+        { "id": "context.object.flip", "command": "tool.flip_side", "title": "pcb-flip" },
         { "id": "context.object.lock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": true }, "title": "pcb-lock" },
         { "id": "context.object.unlock", "command": "pcb.lock", "params": { "objects": "$selection", "locked": false }, "title": "pcb-unlock" }
       ],

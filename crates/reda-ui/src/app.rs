@@ -946,9 +946,9 @@ impl App {
                     ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
                 }
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                    // Active: <kind> | X … Y … | Grid: …, then any message or note.
+                    // Active: <kind> | X … Y … | Grid: … | Wire: <mode>, then any message or note.
                     let readout = crate::status_bar::readout(&self.shell);
-                    let parts = [readout.kind, readout.cursor, readout.grid];
+                    let parts = [readout.kind, readout.cursor, readout.grid, readout.tool];
                     let mut first = true;
                     for part in parts.into_iter().flatten() {
                         if !first {

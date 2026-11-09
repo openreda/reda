@@ -1,6 +1,6 @@
 //! The placement Tool's view Commands: `tool.place` picks a Part up and `tool.place.set`
-//! changes it in flight (`tool.rotate`, `tool.mirror` and `tool.flip`, in
-//! [`crate::tools`], turn it too).
+//! changes it in flight (`tool.rotate`, `tool.mirror_x`, `tool.mirror_y` and
+//! `tool.flip_side`, in [`crate::tools`], turn it too).
 
 use std::collections::BTreeMap;
 

@@ -36,6 +36,8 @@ pub struct Overlay {
     pub rubber_band: Option<RubberBand>,
     /// Wires a drag in flight redraws, as (from, to).
     pub wires: Arc<[(Point, Point)]>,
+    /// Wires a Tool proposes (Auto Wire's route), drawn as a thick dotted line.
+    pub dotted: Arc<[(Point, Point)]>,
     /// Where the pointer snapped to.
     pub cursor: Option<Point>,
 }
@@ -235,6 +237,20 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     let width = ((WIRE_NM / camera.nm_per_point) as f32).max(MIN_WIRE_POINTS);
     for &(a, b) in overlay.wires.iter() {
         painter.line_segment([screen(a), screen(b)], Stroke::new(width, wire));
+    }
+    // Dots of twice the Wire's width, as far apart again as they are wide.
+    let dot = width.max(2.0);
+    for &(a, b) in overlay.dotted.iter() {
+        let (a, b) = (screen(a), screen(b));
+        let steps = ((b - a).length() / (dot * 2.0)).floor() as usize;
+        for i in 0..=steps {
+            let t = if steps == 0 {
+                0.0
+            } else {
+                i as f32 / steps as f32
+            };
+            painter.circle_filled(a + (b - a) * t, dot, wire);
+        }
     }
     let accent = ui.visuals().selection.stroke.color;
     if let Some(at) = overlay.cursor {
