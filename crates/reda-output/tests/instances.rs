@@ -65,7 +65,8 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         part: reda_output::Part::Single,
     };
     assert!(gerber_files(&empty).unwrap().files.is_empty());
-    assert!(drill_files(&empty).is_empty());
+    let drills = drill_files(&empty);
+    assert!(drills.files.is_empty() && drills.skipped.is_empty());
     let instances = [
         BoardInstance::single(pcb, &fills, FileOrigin::Absolute),
         BoardInstance {
@@ -162,7 +163,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
     }
     let profile = read("Demo.GKO");
     assert_eq!(profile.draws().count(), 8);
-    let drills = drill_files(&plot);
+    let drills = drill_files(&plot).files;
     let plated = drill_reader::read(
         &drills
             .iter()

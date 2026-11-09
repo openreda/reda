@@ -2,25 +2,26 @@ M48
 ; #@! TF.GenerationSoftware,openreda,REDA,0.0.0-test
 ; #@! TF.ProjectId,Blinky,00000000-0000-4000-8000-000000000001,A
 ; #@! TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2
-; #@! TF.FileFunction,Plated,1,2,PTH
+; #@! TF.FileFunction,Plated,1,2,PTH,Drill
+; #@! TF.FilePolarity,Positive
 FMAT,2
 METRIC
-; #@! TA.AperFunction,Plated,PTH,ViaDrill
+; #@! TA.AperFunction,ViaDrill
 T1C0.150
-; #@! TA.AperFunction,Plated,PTH,ComponentDrill
+; #@! TA.AperFunction,ComponentDrill
 T2C1.150
 %
 G90
 G05
 T1
-X19.4Y13.095
-X20.6Y16.905
-X15.6Y16.905
-X17.8Y21.0
-X28.9Y13.095
-X36.0Y14.365
-X11.2125Y8.6
+X19.400Y13.095
+X20.600Y16.905
+X15.600Y16.905
+X17.800Y21.000
+X28.900Y13.095
+X36.000Y14.365
+X11.213Y8.600
 T2
-X5.0Y16.27
-X5.0Y13.73
+X5.000Y16.270
+X5.000Y13.730
 M30

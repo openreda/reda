@@ -42,7 +42,7 @@ pub struct WrittenFile {
     pub name: String,
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
-    /// `drill_plated`, `drill_non_plated`, `bom` or `cpl`.
+    /// `drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `bom` or `cpl`.
     pub function: &'static str,
 }
 
@@ -51,8 +51,9 @@ pub struct WrittenFile {
 pub struct SkippedFile {
     /// The name it would have had, such as `Demo.GBP`.
     pub name: String,
-    /// What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top` or
-    /// `silkscreen_bottom`. Copper, Solder Mask and the Profile are always written.
+    /// What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top`,
+    /// `silkscreen_bottom`, `drill_plated`, `drill_non_plated` or `drill_mixed`. Copper,
+    /// Solder Mask and the Profile are always written.
     pub function: &'static str,
 }
 
@@ -65,8 +66,8 @@ pub struct JobRunResult {
     pub zip: PathBuf,
     /// Every file written, in zip order.
     pub files: Vec<WrittenFile>,
-    /// The Gerber files left out because they would have been empty: a Silkscreen or Paste
-    /// with nothing on it.
+    /// The files left out because they would have been empty: a Silkscreen or Paste with
+    /// nothing on it, or a drill file with no holes.
     pub skipped: Vec<SkippedFile>,
     /// What the run noticed but did not stop for, as Violations with severity `warning`:
     /// `out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet
@@ -84,7 +85,8 @@ impl Command for JobRun {
                       (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board \
                       Outline as the Profile; an empty Silkscreen or Paste is left out and \
                       listed in `skipped`) and the Excellon drill files (plated and \
-                      non-plated) and writes them with the CSV BOM and CPL (columns from the \
+                      non-plated, or one file with the preset's `merge_drill`; a drill file \
+                      with no holes is left out and listed in `skipped`) and writes them with the CSV BOM and CPL (columns from the \
                       job's Fab Preset; Not Fitted and Mechanical Parts left out) and their \
                       zip, `<project>-<job>.zip`, to the job's destination \
                       (default `outputs/<job>/`), replacing the last run's files. Gerber, \
@@ -209,22 +211,25 @@ impl Command for JobRun {
         );
         let mut known: Vec<String> = Vec::new();
         let mut files: Vec<OutputFile> = Vec::new();
-        let skipped = if job.outputs.gerber {
-            gerbers
-                .skipped
-                .iter()
-                .map(|f| SkippedFile {
+        let drills = reda_output::drill_files(&plot);
+        let mut skipped = Vec::new();
+        for (on, left_out) in [
+            (job.outputs.gerber, &gerbers.skipped),
+            (job.outputs.drill, &drills.skipped),
+        ] {
+            if on {
+                skipped.extend(left_out.iter().map(|f| SkippedFile {
                     name: f.name.clone(),
                     function: f.function,
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+                }));
+            }
+        }
         known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
+        // Every drill name, so switching `merge_drill` drops the other form's old files.
+        known.extend(reda_output::drill_file_names(&name));
         for (on, every) in [
             (job.outputs.gerber, gerbers.files),
-            (job.outputs.drill, reda_output::drill_files(&plot)),
+            (job.outputs.drill, drills.files),
             (job.outputs.bom, vec![bom]),
             (job.outputs.cpl, vec![cpl]),
         ] {
