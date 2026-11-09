@@ -45,7 +45,8 @@ pub use pattern::{Body, FootprintPlan, GeneratorWarning, PadSpec, Resolved, Warn
 pub use qfp::{Qfp, QfpDimensions, QfpParams};
 pub use quad::Pin1Location;
 pub use regenerate::{
-    Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated, still_made,
+    Change, Lost, Regenerate, RegenerateParams, RegeneratePreview, Regenerated,
+    regenerate_footprint, still_made,
 };
 pub use small_outline::{SmallOutlineParams, Soic, SoicParams, Ssop, Tssop};
 pub use sot::{Sot, SotPackage, SotParams};
@@ -237,19 +238,54 @@ pub fn rebuild(
     Some(BUILDS[i](params, new_id))
 }
 
-/// The Footprint the generator Command `command` would write with `params`, computed
-/// without writing anything (its UUIDs count up from 1), for a generator form's preview. `None`
-/// when `command` is not a generator; `invalid_params` when the params do not work.
-pub fn preview(
-    command: &str,
-    params: &serde_json::Value,
-) -> Option<Result<Footprint, CommandError>> {
+/// What a generator would write, computed without writing anything: the Footprint (its
+/// UUIDs count up from 1) and the warnings that go with it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Preview {
+    pub footprint: Footprint,
+    pub warnings: Vec<GeneratorWarning>,
+}
+
+/// What the generator Command `command` would write with `params`, for a generator form's
+/// preview. `None` when `command` is not a generator; `invalid_params` when the params do
+/// not work.
+pub fn preview(command: &str, params: &serde_json::Value) -> Option<Result<Preview, CommandError>> {
     let mut next = 0;
     let built = rebuild(command, params, &mut || {
         next += 1;
         Uuid::from_u128(next)
     })?;
-    Some(built.map(|(footprint, _)| footprint))
+    Some(built.map(|(footprint, warnings)| Preview {
+        footprint,
+        warnings,
+    }))
+}
+
+/// The values of generator `command`'s params, as JSON pointers, that it calculates when
+/// they are left out: IPC-7351's for a surface-mount family, IPC-7251's for a
+/// through-hole one. `None` when `command` is not a generator.
+pub fn calculated(command: &str) -> Option<&'static [&'static str]> {
+    let i = GENERATORS.iter().position(|id| *id == command)?;
+    Some(CALCULATED[i])
+}
+
+/// Each of [`GENERATORS`]' calculated values, in the same order.
+const CALCULATED: [&[&str]; 11] = [
+    calculated_of::<Chip>(),
+    calculated_of::<Molded>(),
+    calculated_of::<Sot>(),
+    calculated_of::<Soic>(),
+    calculated_of::<Ssop>(),
+    calculated_of::<Tssop>(),
+    calculated_of::<Dfn>(),
+    calculated_of::<Qfn>(),
+    calculated_of::<Qfp>(),
+    calculated_of::<Dip>(),
+    calculated_of::<Header>(),
+];
+
+const fn calculated_of<F: FootprintFamily>() -> &'static [&'static str] {
+    <F::Params as Sections>::IPC_VALUES
 }
 
 /// The Footprint family `F` makes from `p`, taking UUIDs from `new_id`, and the warnings
