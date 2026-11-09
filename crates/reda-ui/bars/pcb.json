@@ -72,7 +72,9 @@
         { "id": "design.drc", "command": "drc.run" },
         "separator",
         { "id": "design.move_board_shape", "command": "tool.move_board_shape" },
-        { "id": "design.move_board", "command": "tool.move_board" }
+        { "id": "design.move_board", "command": "tool.move_board" },
+        "separator",
+        { "id": "design.update_from_library", "command": "pcb.update_from_library.open" }
       ]
     },
     {

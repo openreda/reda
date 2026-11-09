@@ -62767,6 +62767,170 @@
     },
     {
       "category": "schematic",
+      "description": "Forgets the Update from Library settings saved with the Project, so the next update starts from the defaults (Project Settings ▸ Schematic ▸ Update from Library, Reset).",
+      "icon": "library_update",
+      "id": "schematic.component.update_settings.reset",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "title": "ResetSettingsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ComponentFieldMissing": {
+            "description": "A field the Component has and the Library Part does not (any more), with a value other\nthan the old default.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "remove",
+                "description": "The cell starts as Update, which removes the field.",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintChoice": {
+            "description": "Which Footprint a Component chooses after its alternates are updated.",
+            "oneOf": [
+              {
+                "const": "keep_if_present",
+                "description": "The current Footprint while it is still an alternate, else the new default.",
+                "type": "string"
+              },
+              {
+                "const": "default",
+                "description": "Always the new default.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryFieldMissing": {
+            "description": "A field the Library Part has and the Component has no value for.",
+            "oneOf": [
+              {
+                "const": "add",
+                "description": "The cell starts as Update: the Component takes the field.",
+                "type": "string"
+              },
+              {
+                "const": "add_if_not_blank",
+                "description": "Update when the Library value is not blank.",
+                "type": "string"
+              },
+              {
+                "const": "skip",
+                "description": "The cell starts as Reject.",
+                "type": "string"
+              }
+            ]
+          },
+          "LibraryUpdateSettings": {
+            "additionalProperties": false,
+            "description": "The Update from Library settings. A setting left out has its default.",
+            "properties": {
+              "add_new_footprints": {
+                "default": true,
+                "description": "Footprints new in the Library join the alternates.",
+                "type": "boolean"
+              },
+              "component_field_missing": {
+                "$ref": "#/$defs/ComponentFieldMissing",
+                "default": "keep",
+                "description": "A field on the Component and not in the Library."
+              },
+              "fields_to_update": {
+                "default": null,
+                "description": "The cells that may start as Update, by name: field names, `component_type`,\n`in_bom` and `in_cpl`. `null` (the default) is every one; a cell not listed starts\nas Reject.",
+                "items": {
+                  "type": "string"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "footprint_choice": {
+                "$ref": "#/$defs/FootprintChoice",
+                "default": "keep_if_present"
+              },
+              "library_field_missing": {
+                "$ref": "#/$defs/LibraryFieldMissing",
+                "default": "add",
+                "description": "A field in the Library and not on the Component."
+              },
+              "locally_edited": {
+                "$ref": "#/$defs/LocallyEdited",
+                "default": "keep",
+                "description": "A changed default the Component has its own value for."
+              },
+              "preserve_field_locations": {
+                "default": true,
+                "description": "Fields moved by hand stay where they are; off, they return to Autoposition.",
+                "type": "boolean"
+              },
+              "preserve_field_visibility": {
+                "default": true,
+                "description": "Which fields show stays as it is; off, the Designator and value show.",
+                "type": "boolean"
+              },
+              "remove_missing_footprints": {
+                "default": true,
+                "description": "Footprints gone from the Library leave the alternates.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "library_field_missing",
+              "component_field_missing",
+              "locally_edited",
+              "fields_to_update",
+              "add_new_footprints",
+              "remove_missing_footprints",
+              "footprint_choice",
+              "preserve_field_locations",
+              "preserve_field_visibility"
+            ],
+            "type": "object"
+          },
+          "LocallyEdited": {
+            "description": "A changed default where the Component holds a value of its own.",
+            "oneOf": [
+              {
+                "const": "keep",
+                "description": "The cell starts as Reject: the Component keeps its value.",
+                "type": "string"
+              },
+              {
+                "const": "take_new",
+                "description": "The cell starts as Update: the Component takes the new default.",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "settings": {
+            "$ref": "#/$defs/LibraryUpdateSettings",
+            "description": "The settings in force now: the defaults."
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "title": "SettingsReset",
+        "type": "object"
+      },
+      "title": "Reset Update from Library Settings"
+    },
+    {
+      "category": "schematic",
       "description": "Copies the selected objects, with the part-table entries their Units use, and returns them as a clipboard for schematic.paste. Changes nothing.",
       "icon": "copy",
       "id": "schematic.copy",

@@ -37,13 +37,13 @@ fn journal_ids(shell: &Shell) -> Vec<String> {
 }
 
 #[test]
-fn project_settings_starts_with_its_four_pages() {
+fn project_settings_starts_with_its_five_pages() {
     let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
     let shell = shell_with_project(&home, &work);
     let d = dialog(&shell);
     assert_eq!(
-        d.page_titles()[..4],
-        ["Properties", "ERC", "Libraries", "Fab Presets"]
+        d.page_titles()[..5],
+        ["Properties", "ERC", "Schematic", "Libraries", "Fab Presets"]
     );
     assert!(!d.has_changes());
 }

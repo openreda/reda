@@ -581,6 +581,47 @@ impl Command for UpdateFromLibrary {
     }
 }
 
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResetSettingsParams {}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SettingsReset {
+    /// The settings in force now: the defaults.
+    pub settings: LibraryUpdateSettings,
+}
+
+pub struct ResetUpdateSettings;
+
+impl Command for ResetUpdateSettings {
+    const META: Meta = Meta {
+        id: "schematic.component.update_settings.reset",
+        title: "Reset Update from Library Settings",
+        description: "Forgets the Update from Library settings saved with the Project, so \
+                      the next update starts from the defaults (Project Settings ▸ \
+                      Schematic ▸ Update from Library, Reset).",
+        category: "schematic",
+        icon: "library_update",
+        kind: Kind::Edit,
+    };
+    type Params = ResetSettingsParams;
+    type Output = SettingsReset;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        _: ResetSettingsParams,
+    ) -> Result<SettingsReset, CommandError> {
+        let mut props = cx.project()?.props().clone();
+        if props.library_update.take().is_some() {
+            cx.tx()?.replace(Object::Project(props))?;
+        }
+        Ok(SettingsReset {
+            settings: LibraryUpdateSettings::default(),
+        })
+    }
+}
+
 /// Points each plan's Units at its new content, and removes the entries and copies no
 /// Unit uses any more. Returns the Components changed.
 fn apply_plans(

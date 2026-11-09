@@ -14,6 +14,7 @@
       "title": "menu-tools",
       "items": [
         { "id": "tools.library_check", "command": "library.check", "params": { "element": "$active_document" } },
+        { "id": "tools.update_in_project", "command": "schematic.update_from_library.open", "params": { "element": "$active_document" }, "title": "menu-tools-update-in-project" },
         { "id": "tools.silkscreen_prepare", "command": "library.footprint.silkscreen.prepare", "params": { "footprint": "$active_document" } }
       ]
     },
