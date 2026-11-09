@@ -33,6 +33,25 @@ pub struct BoardGeometry {
     pub zones: BTreeMap<Uuid, ZoneFillState>,
     /// The derived sheet-name labels over clusters of placed Footprints.
     pub sheet_labels: Vec<SheetLabel>,
+    /// Resolved Solder Mask and Paste openings. `None` draws each Pad's copper shape on
+    /// its mask and paste Layers; the Footprint editor gives the openings its preview
+    /// resolves (library.md#footprint-editor).
+    pub openings: Option<Vec<BoardOpening>>,
+}
+
+/// One Solder Mask or Paste opening of a Pad, already grown, shrunk or split.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoardOpening {
+    /// The Pad it opens over, as [`BoardPad::object`].
+    pub object: Uuid,
+    pub side: Side,
+    /// Paste; otherwise Solder Mask.
+    pub paste: bool,
+    /// The Pad's anchor and turn, as [`BoardPad`]'s.
+    pub at: Point,
+    pub rotation: Millideg,
+    /// The opening in the Pad's frame, about `at`.
+    pub outline: CornerRect,
 }
 
 /// A view-only, derived label: a Schematic Sheet's name above that sheet's Footprints
@@ -232,7 +251,7 @@ pub fn pcb_scene_styled(
     };
     zones::build(&mut b, project.zone_fills(document), &geometry.zones);
     copper::tracks(&mut b);
-    copper::pads(&mut b, &geometry.pads);
+    copper::pads(&mut b, &geometry.pads, geometry.openings.as_deref());
     copper::vias(&mut b);
     drawing::graphics(&mut b, &geometry.graphics);
     drawing::texts(&mut b, &geometry.texts);

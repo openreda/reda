@@ -8,6 +8,7 @@ pub mod elements;
 pub mod export_pdf;
 pub mod extract;
 pub mod fab_preset;
+pub mod free_pad_edit;
 pub mod history;
 pub mod import_part;
 pub mod library;
@@ -55,6 +56,7 @@ pub fn register_all(registry: &mut Registry) {
     extract::register_all(registry);
     library_check::register_all(registry);
     local_edits::register_all(registry);
+    free_pad_edit::register_all(registry);
     silkscreen::register_all(registry);
     net_info::register_all(registry);
     output_run::register_all(registry);

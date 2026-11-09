@@ -6,8 +6,8 @@
 use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
-    DESIGNATOR_FIELD, Footprint, FootprintLayer, FootprintText, LibraryElement, Pad, PadKind,
-    PadShape, Uuid, VALUE_FIELD,
+    DESIGNATOR_FIELD, Footprint, FootprintLayer, FootprintText, LibraryElement, PadKind, Uuid,
+    VALUE_FIELD,
 };
 use serde_json::{Value, json};
 
@@ -19,14 +19,7 @@ use crate::tr;
 /// The panel's width in points.
 pub const WIDTH: f32 = 240.0;
 
-pub const KINDS: [PadKind; 3] = [PadKind::Smd, PadKind::PlatedThroughHole, PadKind::NonPlated];
-pub const SHAPES: [PadShape; 5] = [
-    PadShape::Circle,
-    PadShape::Rect,
-    PadShape::RoundedRect,
-    PadShape::ChamferedRect,
-    PadShape::Oval,
-];
+pub use crate::pad_form::draw::{KINDS, SHAPES, kind_name, shape_name};
 /// The Layers a field text can go on.
 const TEXT_LAYERS: [FootprintLayer; 4] = [
     FootprintLayer::SilkscreenTop,
@@ -43,24 +36,6 @@ pub const LAYERS: [FootprintLayer; 6] = [
     FootprintLayer::AssemblyTop,
     FootprintLayer::AssemblyBottom,
 ];
-
-pub fn kind_name(kind: PadKind) -> String {
-    match kind {
-        PadKind::Smd => tr!("footprint-pad-smd"),
-        PadKind::PlatedThroughHole => tr!("footprint-pad-pth"),
-        PadKind::NonPlated => tr!("footprint-pad-npth"),
-    }
-}
-
-pub fn shape_name(shape: PadShape) -> String {
-    match shape {
-        PadShape::Circle => tr!("footprint-shape-circle"),
-        PadShape::Rect => tr!("footprint-shape-rect"),
-        PadShape::RoundedRect => tr!("footprint-shape-rounded-rect"),
-        PadShape::ChamferedRect => tr!("footprint-shape-chamfered-rect"),
-        PadShape::Oval => tr!("footprint-shape-oval"),
-    }
-}
 
 pub fn layer_name(layer: FootprintLayer) -> String {
     match layer {
@@ -270,11 +245,20 @@ fn selection(
     let fp = footprint.uuid;
     if let Some(pad) = footprint.pads.iter().find(|p| p.uuid == selected) {
         ui.strong(tr!("footprint-selected-pad"));
-        Grid::new(id.with(("pad", selected)))
-            .num_columns(2)
-            .show(ui, |ui| {
-                pad_properties(ui, id.with(selected), fp, pad, out);
-            });
+        let edits = crate::pad_form::draw::rows(
+            ui,
+            id.with(("pad", selected)),
+            pad,
+            true,
+            true,
+            reda_engine::preferences::Units::Mm,
+        );
+        out.extend(
+            edits
+                .iter()
+                .filter_map(|e| crate::pad_form::footprint_command(fp, pad, e))
+                .map(|(id, params)| cmd(id, params)),
+        );
     } else if let Some(text) = footprint.texts.iter().find(|t| t.uuid == selected) {
         ui.strong(match text.field.as_str() {
             DESIGNATOR_FIELD => tr!("footprint-designator-text"),
@@ -321,153 +305,6 @@ fn selection(
                 }
                 ui.end_row();
             });
-    }
-}
-
-fn pad_properties(ui: &mut Ui, id: Id, fp: Uuid, pad: &Pad, out: &mut Vec<Invocation>) {
-    let edit = |field: &str, value: Value| {
-        let mut p = json!({"footprint": fp, "pad": pad.uuid});
-        p[field] = value;
-        cmd("library.footprint.pad.edit", p)
-    };
-    ui.label(tr!("footprint-pad-number"));
-    if let Some(number) = text_field(
-        ui,
-        id.with("number"),
-        &tr!("footprint-pad-number"),
-        &pad.number,
-    ) {
-        out.push(edit("number", json!(number)));
-    }
-    ui.end_row();
-    let mut kind = pad.kind;
-    combo(
-        ui,
-        id.with("kind"),
-        &tr!("footprint-pad-kind"),
-        &mut kind,
-        &KINDS,
-        kind_name,
-    );
-    if kind != pad.kind {
-        // Changing to or from SMD changes whether the Pad has a hole.
-        let mut p = json!({"footprint": fp, "pad": pad.uuid, "kind": kind});
-        match (kind, pad.hole) {
-            (PadKind::Smd, Some(_)) => p["hole"] = Value::Null,
-            (k, None) if k != PadKind::Smd => {
-                let side = super::DEFAULT_HOLE.0.min(pad.width.0).min(pad.height.0);
-                p["hole"] = json!({"width": side, "height": side});
-            }
-            _ => {}
-        }
-        out.push(cmd("library.footprint.pad.edit", p));
-    }
-    ui.end_row();
-    let mut shape = pad.shape;
-    combo(
-        ui,
-        id.with("shape"),
-        &tr!("footprint-pad-shape"),
-        &mut shape,
-        &SHAPES,
-        shape_name,
-    );
-    if shape != pad.shape {
-        let mut p = json!({"footprint": fp, "pad": pad.uuid, "shape": shape});
-        if shape == PadShape::ChamferedRect && pad.chamfer_ratio.is_none() {
-            p["chamfer_ratio"] = json!(super::DEFAULT_CHAMFER_RATIO.0);
-        }
-        out.push(cmd("library.footprint.pad.edit", p));
-    }
-    ui.end_row();
-    for (key, label, value) in [
-        ("width", tr!("footprint-pad-width"), pad.width),
-        ("height", tr!("footprint-pad-height"), pad.height),
-    ] {
-        if let Some(Some(v)) = length(ui, id.with(key), &label, Some(value), false) {
-            out.push(edit(key, json!(v.0)));
-        }
-        ui.end_row();
-    }
-    if let Some(r) = angle(
-        ui,
-        id.with("rotation"),
-        &tr!("footprint-rotation"),
-        pad.rotation,
-    ) {
-        out.push(edit("rotation", json!(r.0)));
-    }
-    ui.end_row();
-    if let Some(hole) = pad.hole {
-        for (key, label, value) in [
-            ("hw", tr!("footprint-hole-width"), hole.width),
-            ("hh", tr!("footprint-hole-height"), hole.height),
-        ] {
-            if let Some(Some(v)) = length(ui, id.with(key), &label, Some(value), false) {
-                let (w, h) = if key == "hw" {
-                    (v, hole.height)
-                } else {
-                    (hole.width, v)
-                };
-                out.push(edit("hole", json!({"width": w.0, "height": h.0})));
-            }
-            ui.end_row();
-        }
-    }
-    let side = pad.copper_side().unwrap_or(reda_engine::model::Side::Top);
-    let mask = pad.mask.unwrap_or_default();
-    let own = match side {
-        reda_engine::model::Side::Top => mask.top,
-        reda_engine::model::Side::Bottom => mask.bottom,
-    };
-    let expansion = match own {
-        Some(reda_engine::model::MaskSide::Expansion { expansion }) => Some(expansion),
-        _ => None,
-    };
-    if let Some(value) = length(
-        ui,
-        id.with("mask"),
-        &tr!("footprint-mask-margin"),
-        expansion,
-        true,
-    ) {
-        let mut mask = mask;
-        let own = value.map(|expansion| reda_engine::model::MaskSide::Expansion { expansion });
-        match side {
-            reda_engine::model::Side::Top => mask.top = own,
-            reda_engine::model::Side::Bottom => mask.bottom = own,
-        }
-        if pad.kind != PadKind::Smd {
-            mask.bottom = own;
-        }
-        out.push(edit(
-            "mask",
-            if mask == Default::default() {
-                Value::Null
-            } else {
-                json!(mask)
-            },
-        ));
-    }
-    ui.end_row();
-    if pad.kind == PadKind::Smd {
-        let expansion = match pad.paste {
-            Some(reda_engine::model::Paste::Expansion { expansion }) => Some(expansion),
-            _ => None,
-        };
-        if let Some(value) = length(
-            ui,
-            id.with("paste"),
-            &tr!("footprint-paste-margin"),
-            expansion,
-            true,
-        ) {
-            out.push(edit(
-                "paste",
-                value.map_or(Value::Null, |expansion| json!({"expansion": expansion})),
-            ));
-        }
-        ui.end_row();
     }
 }
 

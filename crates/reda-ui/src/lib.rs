@@ -40,6 +40,7 @@ pub mod modal;
 pub mod navigation;
 mod new_project;
 mod os;
+pub mod pad_form;
 pub mod palette;
 mod panels;
 pub mod part_editor;
