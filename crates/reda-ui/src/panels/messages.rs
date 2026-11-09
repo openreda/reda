@@ -42,6 +42,8 @@ pub enum Action {
     SetReason(LineKey, String),
     /// Waives the line's Violation with this reason, from Violation Details.
     WaiveWith(LineKey, String),
+    /// Opens a settings window on the page with this title (a Rules row in Properties).
+    ShowPage(SettingsWindow, String),
 }
 
 /// Applies `action` to the shell. Errors go to the status bar. Show rule returns the
@@ -88,6 +90,7 @@ pub fn apply(shell: &mut Shell, action: Action) -> Option<(SettingsWindow, Strin
             None => Ok(()),
         },
         Action::ShowRule(key) => return rule_page(shell, key),
+        Action::ShowPage(window, page) => return Some((window, page)),
         Action::GroupBy(g) => {
             shell.set_group_by(g);
             Ok(())

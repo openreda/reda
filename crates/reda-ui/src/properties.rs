@@ -14,11 +14,18 @@
 //!   all in it already, takes them out with `pcb.net.remove_from_class`.
 //! - Selected texts and Zones give their numeric properties ([`Numbers`]), which take
 //!   numeric expressions run per object and committed as one batch.
+//! - Selected Tracks, Vias and Footprints give their sizes and Location the same way.
+//! - One or two selected copper objects give the design rules that apply ([`Rules`]).
+//! - A selected Pad or Footprint whose Footprint was edited on the board gives its local
+//!   edits ([`LocalEdits`]), with the compare and the Revert Command.
 //! - One selected Wire, or segments of only one Wire, give its vertex list (Index, X and
 //!   Y, plus Add and Remove), edited with `schematic.wire.set_vertices`.
 //! - Any one selected object shows its stored properties, read-only.
 
+pub mod commands;
 mod numbers;
+pub mod overview;
+pub mod rules;
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -31,7 +38,8 @@ use serde_json::{Value, json};
 
 use crate::selection::Selection;
 
-pub use numbers::{Kind, NumberRow, Numbers};
+pub use numbers::{Kind, NumberRow, Numbers, Region};
+pub use rules::Rules;
 
 /// A value the selected objects share, or `Mixed` when they differ.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -148,8 +156,28 @@ pub struct Properties {
     pub numbers: Numbers,
     /// With one object selected, its stored properties as `(name, value)`, read-only.
     pub details: Vec<(String, String)>,
+    /// The design rules that apply, for one or two copper objects.
+    pub rules: Option<Rules>,
+    /// The local edits of the selected Pads' or Footprints' Footprints, when any of them
+    /// was edited on the board.
+    pub local_edits: Option<LocalEdits>,
+    /// The selected objects of each kind, in the order of `kinds`.
+    by_kind: Vec<Vec<Uuid>>,
     /// With one Wire selected (whole or by segments), its vertex list.
     pub vertices: Option<WireVertices>,
+}
+
+/// The selected Footprint instances that were edited on the board.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocalEdits {
+    /// The locally edited instances, by UUID.
+    pub instances: Vec<Uuid>,
+    /// With one instance: what changed, Pad or graphic by property, edited against
+    /// original.
+    pub edits: Vec<reda_engine::model::local_edit::LocalEdit>,
+    /// With one instance: the Footprint as edited and the copy it came from, for the
+    /// compare drawing.
+    pub compare: Option<(reda_engine::model::Footprint, reda_engine::model::Footprint)>,
 }
 
 /// The properties the selected Components share.
@@ -213,15 +241,23 @@ impl Properties {
             .filter_map(|uuid| project.object(*uuid))
             .collect();
         let mut kinds: Vec<(String, usize)> = Vec::new();
+        let mut by_kind: Vec<Vec<Uuid>> = Vec::new();
         for object in &objects {
             let kind = kind_name(object);
-            match kinds.iter_mut().find(|(k, _)| *k == kind) {
-                Some((_, n)) => *n += 1,
-                None => kinds.push((kind, 1)),
+            match kinds.iter().position(|(k, _)| *k == kind) {
+                Some(i) => {
+                    kinds[i].1 += 1;
+                    by_kind[i].push(object.uuid());
+                }
+                None => {
+                    kinds.push((kind, 1));
+                    by_kind.push(vec![object.uuid()]);
+                }
             }
         }
         if !selection.segments.is_empty() {
             kinds.push(("wire_segment".to_owned(), selection.segments.len()));
+            by_kind.push(Vec::new());
         }
         let details = match objects.as_slice() {
             [one] => details(one),
@@ -252,8 +288,29 @@ impl Properties {
             net_class: net_class(project, &objects, selection),
             numbers: Numbers::of(&objects),
             details,
+            rules: Rules::of(project, selection),
+            local_edits: local_edits(project, &objects, selection),
+            by_kind,
             vertices,
         }
+    }
+
+    /// The `selection.set` that narrows the selection to the objects of kind `kind` (a
+    /// kind chip's click); `None` for a kind not selected.
+    pub fn narrow(&self, kind: &str) -> Option<(&'static str, Value)> {
+        let i = self.kinds.iter().position(|(k, _)| k == kind)?;
+        let objects = self.by_kind.get(i).filter(|o| !o.is_empty())?;
+        Some(("selection.set", json!({ "objects": objects })))
+    }
+
+    /// The Command that returns the locally edited Footprints to the copies they were
+    /// edited from (Revert).
+    pub fn revert(&self) -> Option<(&'static str, Value)> {
+        let edits = self.local_edits.as_ref()?;
+        Some((
+            "pcb.footprint.revert_local_edits",
+            json!({"instances": edits.instances}),
+        ))
     }
 
     /// The Command that makes `edit` to everything selected, as `(id, params)`; `None`
@@ -625,5 +682,47 @@ fn net_class(
         nets,
         class,
         classes,
+    })
+}
+
+/// The local edits of the Footprints of the selected Pads and Footprints.
+fn local_edits(project: &Project, objects: &[Object], selection: &Selection) -> Option<LocalEdits> {
+    let pcb = project.pcb()?;
+    let mut instances: Vec<Uuid> = Vec::new();
+    let footprints = objects
+        .iter()
+        .filter_map(|o| match o {
+            Object::FootprintInstance(f) => Some(f.object.uuid),
+            _ => None,
+        })
+        .chain(selection.pads.iter().map(|p| p.footprint));
+    for uuid in footprints {
+        let edited = pcb
+            .footprint(uuid)
+            .and_then(|f| pcb.footprint_copy(f.footprint))
+            .is_some_and(|c| c.is_locally_edited());
+        if edited && !instances.contains(&uuid) {
+            instances.push(uuid);
+        }
+    }
+    if instances.is_empty() {
+        return None;
+    }
+    let compare = match instances.as_slice() {
+        [one] => pcb.footprint(*one).and_then(|f| {
+            let copy = pcb.footprint_copy(f.footprint)?;
+            let original = pcb.footprint_copy(copy.edited_from.as_ref()?.uuid)?;
+            Some((copy.footprint.clone(), original.footprint.clone()))
+        }),
+        _ => None,
+    };
+    Some(LocalEdits {
+        edits: compare
+            .as_ref()
+            .map_or_else(Vec::new, |(edited, original)| {
+                reda_engine::model::local_edit::local_edits(original, edited)
+            }),
+        compare,
+        instances,
     })
 }

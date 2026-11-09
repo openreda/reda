@@ -32,7 +32,7 @@ impl Shell {
             &format!("{}.run", kind.id()),
             json!({"include_waived": true}),
         )?;
-        self.show_run(kind, &out, None);
+        self.show_run(kind, &out, None, true);
         self.open_messages_on_errors(kind);
         Ok(())
     }
@@ -59,7 +59,7 @@ impl Shell {
             &format!("{}.run", kind.id()),
             json!({"include_waived": true, "checks": [check]}),
         )?;
-        self.show_run(kind, &out, Some(check));
+        self.show_run(kind, &out, Some(check), true);
         self.open_messages_on_errors(kind);
         Ok(())
     }
@@ -86,13 +86,14 @@ impl Shell {
             "violations": waived.violations,
             "design": reda_engine::pcb::drc::design_fingerprint(pcb),
         });
-        self.show_run(CheckKind::Drc, &out, None);
+        self.show_run(CheckKind::Drc, &out, None, false);
     }
 
     /// Shows a check run's result (`erc.run`/`drc.run` output) in Messages and on the
     /// canvas. With `only`, the run covered that one check, so the last run's other
-    /// lines stay.
-    fn show_run(&mut self, kind: CheckKind, out: &Value, only: Option<&str>) {
+    /// lines stay. `ran` is false for the health checks run on open, which keep the last
+    /// run's time.
+    fn show_run(&mut self, kind: CheckKind, out: &Value, only: Option<&str>, ran: bool) {
         let violations: Vec<Violation> =
             serde_json::from_value(out["violations"].clone()).unwrap_or_default();
         let unmatched: Vec<Uuid> =
@@ -141,6 +142,10 @@ impl Shell {
             stale_waivers,
             design: out["design"].as_str().unwrap_or_default().to_owned(),
             stale: false,
+            ran_at: match ran {
+                true => Some(std::time::SystemTime::now()),
+                false => self.messages.run(kind).and_then(|r| r.ran_at),
+            },
         });
         // The line gone to stays current when the run still has it.
         if let Some(key) = current.and_then(|id| self.messages.find(&id)) {

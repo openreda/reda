@@ -7,8 +7,9 @@
 //! entry and the Journal records the resolved values, not the expression. Any failure
 //! commits nothing.
 
+use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::expr::{self, Attr, Field};
-use reda_engine::model::{Object, Uuid};
+use reda_engine::model::{Object, TrackGeometry, Uuid};
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
 
@@ -30,8 +31,39 @@ pub struct NumberRow {
     /// Its English schema name, which expressions also use: `height`, `clearance`.
     pub name: &'static str,
     pub kind: Kind,
+    pub region: Region,
     /// In nanometres or millidegrees; `None` where an object has no value of its own.
     pub value: Shared<Option<i64>>,
+}
+
+/// Which region of the panel a numeric row belongs in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Region {
+    /// X, Y and rotation.
+    Location,
+    /// Sizes: widths, heights, clearances.
+    Graphical,
+}
+
+impl Region {
+    fn of(name: &str) -> Region {
+        match name {
+            "x" | "y" | "rotation" => Region::Location,
+            _ => Region::Graphical,
+        }
+    }
+}
+
+/// How a value reaches the object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Apply {
+    /// The object's own set Command takes it by name.
+    Set,
+    /// `pcb.move` by the difference, along X or Y.
+    MoveX,
+    MoveY,
+    /// `pcb.rotate` in place by the difference.
+    Rotate,
 }
 
 /// One selected object: the Command that edits it and the values expressions can use.
@@ -40,49 +72,109 @@ struct Target {
     command: &'static str,
     /// The Command's param that names the object.
     key: &'static str,
+    /// The param takes a list (`tracks: [..]`) rather than one UUID.
+    list: bool,
     uuid: Uuid,
-    editable: &'static [(&'static str, Kind)],
+    editable: &'static [(&'static str, Kind, Apply)],
     attributes: Vec<(&'static str, Attr)>,
 }
 
 impl Target {
     fn of(object: &Object) -> Option<Target> {
+        use Apply::{MoveX, MoveY, Rotate, Set};
         use Kind::{Angle, Length};
-        let (command, key, uuid, editable, attributes) = match object {
+        let (command, key, list, uuid, editable, attributes) = match object {
             Object::PcbText(t) => (
                 "pcb.text.set",
                 "uuid",
+                false,
                 t.object.uuid,
                 &[
-                    ("height", Length),
-                    ("thickness", Length),
-                    ("rotation", Angle),
+                    ("x", Length, Set),
+                    ("y", Length, Set),
+                    ("rotation", Angle, Set),
+                    ("height", Length, Set),
+                    ("thickness", Length, Set),
                 ][..],
                 vec![
+                    ("x", Some(Attr::Length(t.object.position.x))),
+                    ("y", Some(Attr::Length(t.object.position.y))),
+                    ("rotation", Some(Attr::Angle(t.object.rotation))),
                     ("height", Some(Attr::Length(t.object.style.height))),
                     ("thickness", Some(Attr::Length(t.object.style.thickness))),
-                    ("rotation", Some(Attr::Angle(t.object.rotation))),
                 ],
             ),
             Object::SheetText(t) => (
                 "schematic.text.set",
                 "uuid",
+                false,
                 t.object.uuid,
-                &[("height", Length), ("rotation", Angle)][..],
+                &[("rotation", Angle, Set), ("height", Length, Set)][..],
                 vec![
-                    ("height", Some(Attr::Length(t.object.height))),
                     ("rotation", Some(Attr::Angle(t.object.rotation))),
+                    ("height", Some(Attr::Length(t.object.height))),
                 ],
             ),
             Object::Zone(z) => (
                 "pcb.zone.set",
                 "zone",
+                false,
                 z.object.uuid,
-                &[("clearance", Length), ("min_width", Length)][..],
+                &[("clearance", Length, Set), ("min_width", Length, Set)][..],
                 vec![
                     ("clearance", z.object.clearance.map(Attr::Length)),
                     ("min_width", z.object.min_width.map(Attr::Length)),
                     ("priority", Some(Attr::Number(i64::from(z.object.priority)))),
+                ],
+            ),
+            Object::Track(t) => {
+                let straight = match t.object.geometry {
+                    TrackGeometry::Line { .. } => {
+                        Some(Attr::Length(Nm(t.object.geometry.length().round() as i64)))
+                    }
+                    TrackGeometry::Arc { .. } => None,
+                };
+                (
+                    "pcb.track.set",
+                    "tracks",
+                    true,
+                    t.object.uuid,
+                    if straight.is_some() {
+                        &[("width", Length, Set), ("length", Length, Set)][..]
+                    } else {
+                        &[("width", Length, Set)][..]
+                    },
+                    vec![
+                        ("width", Some(Attr::Length(t.object.width))),
+                        ("length", straight),
+                    ],
+                )
+            }
+            Object::Via(v) => (
+                "pcb.via.set",
+                "vias",
+                true,
+                v.object.uuid,
+                &[("diameter", Length, Set), ("hole", Length, Set)][..],
+                vec![
+                    ("diameter", Some(Attr::Length(v.object.diameter))),
+                    ("hole", Some(Attr::Length(v.object.hole))),
+                ],
+            ),
+            Object::FootprintInstance(f) => (
+                "pcb.move",
+                "objects",
+                true,
+                f.object.uuid,
+                &[
+                    ("x", Length, MoveX),
+                    ("y", Length, MoveY),
+                    ("rotation", Angle, Rotate),
+                ][..],
+                vec![
+                    ("x", Some(Attr::Length(f.object.at.x))),
+                    ("y", Some(Attr::Length(f.object.at.y))),
+                    ("rotation", Some(Attr::Angle(f.object.rotation))),
                 ],
             ),
             _ => return None,
@@ -90,6 +182,7 @@ impl Target {
         Some(Target {
             command,
             key,
+            list,
             uuid,
             editable,
             attributes: attributes
@@ -111,11 +204,37 @@ impl Target {
             })
     }
 
-    fn step(&self, name: &str, value: i64) -> (&'static str, Value) {
-        let mut params = json!({});
-        params[self.key] = json!(self.uuid);
-        params[name] = json!(value);
-        (self.command, params)
+    /// The Command that gives row `name` the value `value`; `None` when it already has it
+    /// and the edit is a move or turn by the difference.
+    fn step(&self, name: &str, value: i64) -> Option<(&'static str, Value)> {
+        let apply = self
+            .editable
+            .iter()
+            .find(|(n, ..)| *n == name)
+            .map_or(Apply::Set, |(.., a)| *a);
+        let by = value - self.value(name).unwrap_or(0);
+        match apply {
+            Apply::Set => {
+                let mut params = json!({});
+                params[self.key] = if self.list {
+                    json!([self.uuid])
+                } else {
+                    json!(self.uuid)
+                };
+                params[name] = json!(value);
+                Some((self.command, params))
+            }
+            _ if by == 0 => None,
+            Apply::MoveX => Some((
+                "pcb.move",
+                json!({"objects": [self.uuid], "by": {"x": by, "y": 0}}),
+            )),
+            Apply::MoveY => Some((
+                "pcb.move",
+                json!({"objects": [self.uuid], "by": {"x": 0, "y": by}}),
+            )),
+            Apply::Rotate => Some(("pcb.rotate", json!({"objects": [self.uuid], "angle": by}))),
+        }
     }
 }
 
@@ -131,10 +250,15 @@ impl Numbers {
         let rows = first
             .editable
             .iter()
-            .filter(|row| targets.iter().all(|t| t.editable.contains(row)))
-            .map(|&(name, kind)| NumberRow {
+            .filter(|(name, ..)| {
+                targets
+                    .iter()
+                    .all(|t| t.editable.iter().any(|(n, ..)| n == name))
+            })
+            .map(|&(name, kind, _)| NumberRow {
                 name,
                 kind,
+                region: Region::of(name),
                 value: Shared::of(targets.iter().map(|t| t.value(name))).expect("not empty"),
             })
             .collect();
@@ -183,15 +307,17 @@ impl Numbers {
                 e.error.to_string()
             }
         })?;
-        let mut steps = self
+        let mut steps: Vec<(&'static str, Value)> = self
             .targets
             .iter()
             .zip(values)
-            .map(|(t, v)| t.step(row.name, v));
-        if self.targets.len() == 1 {
-            return Ok(steps.next());
+            .filter_map(|(t, v)| t.step(row.name, v))
+            .collect();
+        if steps.len() <= 1 {
+            return Ok(steps.pop());
         }
         let commands: Vec<Value> = steps
+            .into_iter()
             .map(|(id, params)| json!({"id": id, "params": params}))
             .collect();
         Ok(Some(("batch", json!({ "commands": commands }))))

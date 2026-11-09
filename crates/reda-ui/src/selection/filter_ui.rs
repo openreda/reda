@@ -42,17 +42,6 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
     commands
 }
 
-pub fn properties(ui: &mut egui::Ui, shell: &Shell) -> Vec<(&'static str, Value)> {
-    let Some(document) = shell.active_document().map(|d| d.document) else {
-        return Vec::new();
-    };
-    if crate::bars::document_type(shell, document).is_none() {
-        return Vec::new();
-    }
-    ui.strong(crate::tr!("selection-filter-title"));
-    controls(ui, shell, document)
-}
-
 /// The Active Bar owns this square button, so its responsive overflow keeps working.
 pub fn button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Option<(String, Value)> {
     let title = crate::tr!("selection-filter-title");

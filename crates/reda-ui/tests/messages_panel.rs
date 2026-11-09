@@ -151,7 +151,8 @@ fn right_click_sets_the_severity_of_the_check() {
     h.run();
     h.get_by_label("Set severity of “Dangling Wire”").hover();
     h.run();
-    h.get_by_label("Off").click();
+    // The submenu is drawn last: Properties' Snap Options has an "Off" too.
+    h.get_all_by_label("Off").last().unwrap().click();
     h.run();
     assert!(journal(&h).contains(&"erc.set_severity".to_owned()));
     assert!(h.query_by_label(FIRST_END).is_none());

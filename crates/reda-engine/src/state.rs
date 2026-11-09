@@ -36,6 +36,10 @@ pub struct UserState {
     /// the platform says.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub settings_windows: BTreeMap<String, WindowPlace>,
+    /// The Properties panel's regions the user collapsed, by key (such as `rules`); every
+    /// other region is open.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeSet::is_empty")]
+    pub properties_collapsed: std::collections::BTreeSet<String>,
     /// Fields written by another version of REDA, kept as they are.
     #[serde(flatten)]
     pub other: BTreeMap<String, Value>,
