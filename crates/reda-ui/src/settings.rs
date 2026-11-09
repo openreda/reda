@@ -38,6 +38,8 @@ pub enum FileRequest {
     ExportRules,
     /// The `.redarules` file Board Setup's Import rules… reads.
     ImportRules,
+    /// Where the Change List's Export writes its report (`.html` or `.json`).
+    ExportChangeList,
 }
 
 /// One Command a page wants run when the dialog applies.
@@ -106,6 +108,11 @@ pub trait Page: Any {
 
     /// A file the user picked after the page asked for one.
     fn picked_file(&mut self, _shell: &mut Shell, _request: FileRequest, _path: &Path) {}
+
+    /// Draws the page's own footer buttons, left of the window's; returns a file to pick.
+    fn footer(&mut self, _ui: &mut egui::Ui) -> Option<FileRequest> {
+        None
+    }
 
     /// Whether the page offers Reset to defaults.
     fn has_defaults(&self) -> bool {

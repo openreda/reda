@@ -106,6 +106,7 @@ impl BoardSetupDraft {
                     Err(e) => self.notice = Some(tr!("error-command", error = e.message)),
                 }
             }
+            FileRequest::ExportChangeList => {}
         }
     }
 

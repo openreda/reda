@@ -77,6 +77,10 @@ impl FileDialogs {
                 .set_title(tr!("rules-export-title"))
                 .add_filter(tr!("rules-filter"), &["redarules"])
                 .set_file_name(file_name),
+            Pick::SettingsFile(_, FileRequest::ExportChangeList) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("change-list-export-title"))
+                .add_filter(tr!("change-list-export-filter"), &["html", "json"])
+                .set_file_name(file_name),
             Pick::SettingsFile(_, FileRequest::ImportRules) => rfd::AsyncFileDialog::new()
                 .set_title(tr!("rules-import-title"))
                 .add_filter(tr!("rules-filter"), &["redarules"]),
@@ -110,7 +114,10 @@ impl FileDialogs {
                 }
                 Pick::ExportJournal
                 | Pick::ExportPdf
-                | Pick::SettingsFile(_, FileRequest::ExportRules) => block_on(dialog.save_file()),
+                | Pick::SettingsFile(_, FileRequest::ExportRules)
+                | Pick::SettingsFile(_, FileRequest::ExportChangeList) => {
+                    block_on(dialog.save_file())
+                }
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

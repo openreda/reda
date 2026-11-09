@@ -1026,11 +1026,15 @@ impl Cx<'_, '_> {
                 };
                 let id = canvas_id(doc);
                 match self.shell.shown_on_board().filter(|_| view_only) {
-                    Some(count) => {
-                        if crate::show_on_board::banner(ui, id, rect, count) {
-                            self.shell.back_to_board_setup();
+                    Some(_) => match crate::show_on_board::banner(ui, id, rect, self.shell) {
+                        Some(crate::show_on_board::BannerAction::Back) => {
+                            self.shell.back_from_show();
                         }
-                    }
+                        Some(crate::show_on_board::BannerAction::Switch) => {
+                            self.shell.switch_shown_side();
+                        }
+                        None => {}
+                    },
                     None => {
                         if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
                             self.frame.commands.push(clicked);
