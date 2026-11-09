@@ -13,7 +13,7 @@
 mod connections;
 mod copper;
 mod details;
-mod edge;
+pub(crate) mod edge;
 pub mod health;
 mod holes;
 mod placement;

@@ -85,6 +85,7 @@ pub fn page_of(key: &str) -> &'static str {
         ) => "schematic.names_units",
         ("schematic", _) => "schematic",
         ("pcb", name) if name.starts_with("zone.") => "pcb.zones",
+        ("pcb", name) if name.starts_with("route.") => "pcb.routing",
         ("pcb", _) => "pcb",
         ("checks", _) => "checks",
         ("display", _) => "display",
