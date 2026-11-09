@@ -1,5 +1,5 @@
 //! The Symbol editor on a Shell, without a window: its tab with or without a Project,
-//! Units as tabs, the Pin and drawing Tools, select, move and delete, the pin table's
+//! Units as tabs, the Pin and drawing Tools, select, move and delete, the Pins Panel's
 //! paste, Save with the Library check in Messages, read-only starter Symbols, Edit in
 //! Library and Recovery Snapshots of element tabs with no Project open.
 
@@ -14,6 +14,7 @@ use reda_ui::element_editor;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::format::library::write_library_info;
+use reda_ui::engine::library::wizard::paste::PasteTable;
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::model::{LibraryElement, LibraryInfo, Scope, Shape, Symbol, Uuid};
 use reda_ui::engine::recovery as snapshots;
@@ -523,7 +524,8 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
     f.key("P");
     f.click(symbol, -200.0, 0.0);
     let text = "Number\tName\tType\n1\tVCC\tpower_in\n2\tGND\tPower In\n3\tPA0\tbidirectional\n";
-    let out = symbol_editor::paste_pins(&mut f.shell, symbol, text).unwrap();
+    let rows = PasteTable::parse(text, None).pins().unwrap();
+    let out = symbol_editor::paste_pins(&mut f.shell, symbol, &rows).unwrap();
     assert_eq!(out.added, 2);
     assert_eq!(out.updated, 1);
     let s = f.symbol(symbol);
@@ -563,18 +565,6 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
         .run("edit.undo", json!({"document": symbol}))
         .unwrap();
     assert_eq!(f.symbol(symbol).pins.len(), 1, "the paste is one undo step");
-}
-
-#[test]
-fn pin_rows_parse_from_tabs_or_commas_and_bad_rows_are_reported() {
-    let rows = symbol_editor::parse_pin_rows("1, A, input, 0mil, 100mil\n\n2;B\n").unwrap();
-    assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0].number, "1");
-    assert_eq!(rows[0].name, "A");
-    assert_eq!(rows[0].at, Some(Point::new(Nm(0), mil(100))));
-    assert_eq!(rows[1].name, "B");
-    let err = symbol_editor::parse_pin_rows("1\tA\tsideways\n").unwrap_err();
-    assert!(err.contains("row 1"), "{err}");
 }
 
 #[test]
@@ -782,4 +772,50 @@ fn the_symbol_editor_snaps_onto_pin_ends_within_the_electrical_range() {
             Point::new(mil(-100), mil(133))
         ]
     );
+}
+
+#[test]
+fn the_origin_tool_moves_the_origin_to_the_point_clicked() {
+    let mut f = Fixture::new("sym-origin-pick");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -200.0, 0.0);
+    f.shell.run("tool.activate:origin", json!({})).unwrap();
+    f.click(symbol, -200.0, 100.0);
+    let s = f.symbol(symbol);
+    assert_eq!(s.pins[0].at, Point::new(Nm(0), mil(-100)));
+    assert_eq!(
+        f.shell.tool(),
+        Tool::Select,
+        "one pick, then back to Select"
+    );
+}
+
+#[test]
+fn hovering_a_pin_shows_its_description() {
+    let mut f = Fixture::new("sym-hover");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -200.0, 0.0);
+    f.shell.run("tool.activate:select", json!({})).unwrap();
+    let pin = f.symbol(symbol).pins[0].uuid;
+    f.events(symbol, &[Pointer::Hover((-150.0 * MIL, 0.0))]);
+    assert_eq!(
+        symbol_editor::hover_text(&f.shell, symbol),
+        None,
+        "no description"
+    );
+    f.shell
+        .run(
+            "library.symbol.pin.edit",
+            json!({"symbol": symbol, "pin": pin, "name": "RST", "description": "Resets the chip"}),
+        )
+        .unwrap();
+    f.events(symbol, &[Pointer::Hover((-150.0 * MIL, 0.0))]);
+    assert_eq!(
+        symbol_editor::hover_text(&f.shell, symbol).as_deref(),
+        Some("Pin 1 RST: Resets the chip")
+    );
+    f.events(symbol, &[Pointer::Hover((500.0 * MIL, 500.0 * MIL))]);
+    assert_eq!(symbol_editor::hover_text(&f.shell, symbol), None);
 }

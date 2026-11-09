@@ -178,9 +178,11 @@ fn edit_opens_the_part_and_new_asks_for_the_new_parts_name() {
     choose(&mut h, "Resistor");
     h.get_by_role_and_label(Role::Button, "Edit Part").click();
     h.run();
-    // The Part opens, then its Part editor tab, which links to its Symbol.
+    // The Part opens, then the Pins Panel and its Part editor tab, which links to its
+    // Symbol.
     let journal = h.state().shell().engine().journal();
-    let entry = journal[journal.len() - 2].clone();
+    let entry = journal[journal.len() - 3].clone();
+    assert_eq!(journal[journal.len() - 2].id, "panel.show");
     assert_eq!(entry.id, "library.element.open");
     assert_eq!(entry.params, json!({"element": RESISTOR}));
     assert_eq!(journal.last().unwrap().id, "document.open");

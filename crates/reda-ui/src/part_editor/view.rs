@@ -1,6 +1,6 @@
 //! Drawing the Part editor's form: Save and Check, the name and Component Type, the
-//! Symbol picker with its preview, the ordered alternate Footprints with theirs, the
-//! pin-pad map and the fields. Edits become the Commands of [`super`]; the Edit buttons
+//! Symbol picker with its preview, the ordered alternate Footprints with theirs and the
+//! fields. The pin-pad map is in the Pins Panel ([`pin_map_panel`]). Edits become the Commands of [`super`]; the Edit buttons
 //! open the Symbol or a Footprint in its own editor. A starter Library Part shows the same
 //! form with the edits disabled.
 
@@ -36,8 +36,6 @@ pub(crate) fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocat
             symbol(ui, shell, id, &part, locked, &mut out);
             ui.add_space(8.0);
             footprints(ui, shell, id, &part, locked, &mut out);
-            ui.add_space(8.0);
-            pin_map(ui, shell, id, &part, locked, &mut out);
             ui.add_space(8.0);
             fields(ui, id, &part, locked, &mut out);
         });
@@ -218,10 +216,18 @@ fn symbol(
         if let Some(picked) = picked {
             out.extend(super::set_symbol(part, picked));
         }
+        let wizard = ui.add_enabled(!locked, egui::Button::new(tr!("part-symbol-wizard")));
+        if wizard.clicked() {
+            out.push((
+                "library.symbol.generate".to_owned(),
+                json!({ "part": part.uuid }),
+            ));
+        }
         let edit = ui.add_enabled(found.is_some(), egui::Button::new(tr!("part-edit-symbol")));
         if edit.clicked()
             && let Some(symbol) = part.symbol
         {
+            crate::shared_element::opened_from_part(shell, symbol, part.uuid);
             out.push(open(symbol));
         }
     });
@@ -297,6 +303,7 @@ fn footprints(
                     let what = tr!("part-edit-footprint", name = name.as_str());
                     edit.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
                     if edit.clicked() {
+                        crate::shared_element::opened_from_part(shell, *uuid, part.uuid);
                         out.push(open(*uuid));
                     }
                 });
@@ -335,6 +342,25 @@ fn footprints(
         }
         None => {}
     }
+}
+
+/// The Pins Panel on the Part `element`: its pin-pad map, each Pin's Pads and the Pads
+/// left unconnected.
+pub(crate) fn pin_map_panel(
+    ui: &mut Ui,
+    shell: &mut Shell,
+    element: Uuid,
+    out: &mut Vec<Invocation>,
+) {
+    let Some(LibraryElement::Part(part)) = shell.engine().element(element).cloned() else {
+        return;
+    };
+    let locked = element_editor::read_only(shell.engine(), element);
+    let id = Id::NULL.with(("part-editor", element));
+    ScrollArea::vertical()
+        .id_salt(id.with("pin-map-scroll"))
+        .auto_shrink([false, false])
+        .show(ui, |ui| pin_map(ui, shell, id, &part, locked, out));
 }
 
 fn pin_map(

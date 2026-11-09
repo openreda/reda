@@ -333,6 +333,11 @@ impl App {
         self.crash_recovery(&ctx);
         self.show_palette(&ctx);
         self.show_params_dialog(&ctx);
+        if let Some(answer) = crate::shared_element::show(&ctx, &self.shell)
+            && let Err(e) = crate::shared_element::answer(&mut self.shell, answer)
+        {
+            self.shell.report(tr!("error-command", error = e.message));
+        }
         self.show_relink_confirm(&ctx);
         if let Some((id, params)) = crate::pcb::placement_bar::dialogs(&ctx, &mut self.shell) {
             let _ = self.shell.run_reporting(&id, params);
@@ -389,7 +394,9 @@ impl App {
             self.call(id, params);
             return;
         }
-        if self.closing.hold(&self.shell, &self.settings, id, &params) {
+        if self.closing.hold(&self.shell, &self.settings, id, &params)
+            && crate::shared_element::hold(&mut self.shell, id, &params)
+        {
             let _ = self.shell.run_reporting(id, params);
         }
     }
@@ -713,6 +720,9 @@ impl App {
         if !self.closing.hold(&self.shell, &self.settings, id, &params) {
             return;
         }
+        if !crate::shared_element::hold(&mut self.shell, id, &params) {
+            return;
+        }
         if let Call::Dialog(dialog) = self.dialogs.call(&mut self.shell, id, params) {
             self.params_dialog = Some(dialog);
         }
@@ -782,6 +792,11 @@ impl App {
                 let id = dialog.command().to_owned();
                 if !self.closing.hold(&self.shell, &self.settings, &id, &params) {
                     // It runs once the closing prompt is answered.
+                    self.params_dialog = None;
+                    return;
+                }
+                if !crate::shared_element::hold(&mut self.shell, &id, &params) {
+                    // It runs once the shared-element question is answered.
                     self.params_dialog = None;
                     return;
                 }

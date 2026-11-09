@@ -173,10 +173,20 @@ pub fn selected_on(shell: &Shell, element: Uuid) -> Vec<Uuid> {
 }
 
 /// Opens a tab for the element a successful `library.element.open` or `.new` returned.
+/// A Symbol or Part brings up the Pins Panel too, unless it is already in the layout.
 pub(crate) fn after_open(shell: &mut Shell, out: &Value) {
     let Some(element) = out["element"].as_str() else {
         return;
     };
+    let pins = crate::layout::TabKey::Panel(crate::layout::PanelId::Pins);
+    let kind = element.parse().ok().and_then(|e| shell.engine().element(e));
+    if matches!(
+        kind,
+        Some(LibraryElement::Symbol(_) | LibraryElement::Part(_))
+    ) && shell.layout().place(&pins).is_none()
+    {
+        let _ = shell.run("panel.show", json!({ "panel": "pins" }));
+    }
     let _ = shell.run("document.open", json!({ "document": element }));
 }
 
