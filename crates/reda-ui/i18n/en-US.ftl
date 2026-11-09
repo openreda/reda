@@ -1131,8 +1131,27 @@ settings-date = Date
 settings-author = Author
 settings-company = Company
 settings-erc-choice = { $check }: { $severity }
-settings-erc-matrix = Pin Matrix: E is an Error, W a Warning, a dot Off.
+settings-erc-matrix = E is an Error, W a Warning, blank Off; a dot marks a changed cell. Click to change.
 settings-erc-set-by-matrix = { $check }: set by the Pin Matrix
+settings-erc-by-matrix = Set by the Pin Matrix
+settings-erc-set-picked = { $count ->
+    [one] 1 check picked: set to
+   *[other] { $count } checks picked: set to
+}
+settings-erc-set-picked-to = Set picked checks to { $severity }
+settings-erc-group-pins = Pins
+settings-erc-group-nets = Nets
+settings-erc-group-ports = Ports
+settings-erc-group-components = Components
+settings-erc-group-drawing = Drawing
+settings-erc-matrix-title = Pin Matrix
+settings-erc-matrix-all-off = All Off
+settings-erc-matrix-all-warning = All Warning
+settings-erc-matrix-all-error = All Error
+settings-erc-matrix-default = Default
+pin-matrix-pin = { $kind } Pin
+pin-matrix-cell = { $a } connected to { $b }: { $severity }
+pin-matrix-cell-unconnected = { $a } unconnected: { $severity }
 pin-matrix-port-in = Port in
 pin-matrix-port-in-short = >P
 pin-matrix-port-out = Port out

@@ -14,7 +14,7 @@ mod preset_pages;
 mod properties;
 mod schematic;
 
-pub use erc::ErcPage;
+pub use erc::{ErcGroup, ErcPage};
 pub use fab_presets::{FabPresetsPage, FieldChange, PresetCopy, Preview, Status};
 pub use libraries::LibrariesPage;
 pub use preset_pages::CopyPage;
