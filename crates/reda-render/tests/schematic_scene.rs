@@ -566,6 +566,12 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
     assert_eq!(designators(UnitSuffix::Numeric), ["U1:1", "U1:2", "R1"]);
     let default = schematic_scene(project, sheet(), &[]).unwrap();
     assert_eq!(field_runs(&default, &a)[0].0, "U1A");
+    let numeric = SchematicStyle {
+        unit_suffix: UnitSuffix::Numeric,
+        ..SchematicStyle::default()
+    };
+    let scene = schematic_scene_styled(project, sheet(), &[], &numeric).unwrap();
+    assert_golden(golden("unit_suffix.scene"), scene.to_text().as_bytes());
 }
 
 #[path = "schematic_scene/overbars.rs"]
