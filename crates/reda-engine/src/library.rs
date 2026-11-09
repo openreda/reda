@@ -17,6 +17,8 @@ pub use reda_library::generate::{
 /// How `project.library.add` stores a Project Library path, for front ends that check a
 /// path before running it.
 pub use reda_library::normalise_library_path;
+/// Where an element is used in a Project, and the element kinds, for the Library panel.
+pub use reda_library::{ComponentUse, ElementKind, components_using};
 /// The scanned Libraries and their search, for front ends that list Parts.
 pub use reda_library::{Library, LibraryIndex, Origin as LibraryOrigin, SearchHit, SearchQuery};
 
@@ -39,7 +41,7 @@ impl PartSource for ReadyParts {
             .ok_or_else(|| CommandError::not_found(format!("Part {uuid} is not at hand")))
     }
 }
-use reda_library::{ElementKind, LibraryFiles, LibraryRoot, Origin, scan};
+use reda_library::{LibraryFiles, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
@@ -287,6 +289,17 @@ impl PartSource for DiskParts {
             })
             .collect()
     }
+}
+
+/// Every placed Component's Library Status against the Libraries of `index`, as
+/// `schematic.component.library_status` gives it, without running a Command: the Library
+/// panel shows it per row.
+pub fn library_statuses(
+    project: &reda_model::Project,
+    index: &LibraryIndex,
+) -> Vec<reda_schematic::ComponentStatus> {
+    let parts = |uuids: &[Uuid]| uuids.iter().map(|u| copy_part(index, *u)).collect();
+    reda_schematic::library_statuses(project, &parts)
 }
 
 /// The Part `uuid` of the scanned Libraries, copied with its Symbol and Footprints and

@@ -228,6 +228,9 @@ pub struct Shell {
     library_index: Option<(u64, Arc<LibraryIndex>)>,
     /// A notice for the window to show once, such as Import part's vendor-terms notice.
     notice: Option<String>,
+    /// Commands to call from the GUI after the frame (asking for missing params in a
+    /// dialog), such as the Extract that Edit in Library offers on Source Missing.
+    calls: Vec<(String, Value)>,
     /// The titles of the open settings windows' tabs, as the window sets them.
     settings_titles: BTreeMap<SettingsWindow, String>,
 }
@@ -369,6 +372,7 @@ impl Shell {
             library_panel: Default::default(),
             library_index: None,
             notice: None,
+            calls: Vec::new(),
             settings_titles: BTreeMap::new(),
         };
         shell.load_preference_warnings();
@@ -650,7 +654,19 @@ impl Shell {
         self.notice.take()
     }
 
-    pub(crate) fn library_panel_mut(&mut self) -> &mut crate::panels::library::LibraryPanel {
+    /// Asks the window to call `id` after the frame, opening a dialog for the params it
+    /// lacks.
+    pub(crate) fn queue_call(&mut self, id: &str, params: Value) {
+        self.calls.push((id.to_owned(), params));
+    }
+
+    /// The calls [`Shell::queue_call`] asked for, oldest first.
+    pub(crate) fn take_calls(&mut self) -> Vec<(String, Value)> {
+        std::mem::take(&mut self.calls)
+    }
+
+    /// The Library panel's filters, chosen row and scan.
+    pub fn library_panel_mut(&mut self) -> &mut crate::panels::library::LibraryPanel {
         &mut self.library_panel
     }
 
@@ -1476,6 +1492,18 @@ impl Shell {
                 }
             }
             "library.element.save" => crate::element_editor::check_after_save(self),
+            "library.element.copy" => {
+                let copy = out["name"].as_str().unwrap_or_default().to_owned();
+                self.set_note(tr!("to-library-copied", copy = copy));
+            }
+            "library.extract_from_project" => {
+                let count = |key: &str| out[key].as_array().map_or(0, Vec::len);
+                self.set_note(tr!(
+                    "to-library-extracted",
+                    written = count("written"),
+                    skipped = count("skipped")
+                ));
+            }
             "library.import_part" => {
                 if let Some(notice) = out["notice"].as_str() {
                     self.notice = Some(notice.to_owned());

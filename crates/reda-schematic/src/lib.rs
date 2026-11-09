@@ -78,7 +78,7 @@ pub use update::{
     ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
     LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
     SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
-    UpdatePreview, UpdateResult, footprint_change,
+    UpdatePreview, UpdateResult, footprint_change, library_statuses,
 };
 pub use update::{
     KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,

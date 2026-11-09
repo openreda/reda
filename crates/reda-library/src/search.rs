@@ -47,6 +47,18 @@ impl LibraryIndex {
     }
 }
 
+impl SearchQuery {
+    /// Whether an element called `name` (a Symbol or Footprint, which have no fields)
+    /// matches the search text: every plain word and every `name:` word must match the
+    /// name, and a word for any other field never does.
+    pub fn matches_name(&self, name: &str) -> bool {
+        self.text
+            .split_whitespace()
+            .map(Token::parse)
+            .all(|t| t.field.as_deref().is_none_or(|f| f == "name") && t.matches_text(name))
+    }
+}
+
 /// One word of a search: a pattern, optionally restricted to one field.
 struct Token {
     /// The field name, lowercased, of a `field:value` word.
