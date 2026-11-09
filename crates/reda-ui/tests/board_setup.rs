@@ -424,7 +424,8 @@ fn add_class(shell: &mut Shell, params: serde_json::Value) -> Uuid {
 #[test]
 fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
     use RuleField as F;
-    let pages: Vec<(Rule, Vec<(DrcCheck, Vec<RuleField>)>)> = Rule::ALL
+    type Sections = Vec<(DrcCheck, Vec<RuleField>)>;
+    let pages: Vec<(Rule, Sections)> = Rule::ALL
         .iter()
         .map(|r| {
             let sections = r
