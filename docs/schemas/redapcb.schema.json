@@ -1400,44 +1400,62 @@
     },
     "Keepout": {
       "additionalProperties": false,
-      "description": "An area on some copper Layers where copper or Vias may not go.",
+      "description": "An area on one copper Layer, or on every copper Layer, where the kinds of object it\nrestricts may not go. Copper keeps the normal clearance from it unless the board-wide\n`clearance` rule sets `zero_keepout_clearance`. It has no Net and is never plotted.",
       "properties": {
-        "copper": {
-          "description": "Whether copper (Tracks, Pads, Zone fills) is forbidden inside.",
-          "type": "boolean"
+        "layer": {
+          "description": "The copper Layer; left out for every copper Layer.",
+          "format": "uuid",
+          "type": [
+            "string",
+            "null"
+          ]
         },
-        "layers": {
-          "description": "The copper Layers it applies to, top to bottom.",
+        "restrict": {
+          "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
           "items": {
-            "format": "uuid",
-            "type": "string"
+            "$ref": "#/$defs/Restriction"
           },
-          "type": "array"
+          "type": "array",
+          "uniqueItems": true
+        },
+        "shape": {
+          "$ref": "#/$defs/KeepoutShapeKind",
+          "description": "`polygon` or `line`."
         },
         "uuid": {
           "format": "uuid",
           "type": "string"
         },
         "vertices": {
-          "description": "The outline; the last vertex joins the first.",
           "items": {
             "$ref": "#/$defs/Vertex"
           },
           "type": "array"
         },
-        "vias": {
-          "description": "Whether Vias are forbidden inside.",
-          "type": "boolean"
+        "width": {
+          "description": "A line's width; only for `line`.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
         "uuid",
-        "layers",
+        "shape",
         "vertices",
-        "copper",
-        "vias"
+        "restrict"
       ],
       "type": "object"
+    },
+    "KeepoutShapeKind": {
+      "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+      "enum": [
+        "polygon",
+        "line"
+      ],
+      "type": "string"
     },
     "Layer": {
       "additionalProperties": false,
@@ -2123,12 +2141,40 @@
       ],
       "type": "object"
     },
+    "Restriction": {
+      "description": "A kind of object a Keepout keeps out.",
+      "oneOf": [
+        {
+          "enum": [
+            "tracks",
+            "vias",
+            "smd_pads"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "zones",
+          "description": "Zone fills.",
+          "type": "string"
+        },
+        {
+          "const": "tht_pads",
+          "description": "Through-hole Pads, plated or not.",
+          "type": "string"
+        },
+        {
+          "const": "footprints",
+          "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+          "type": "string"
+        }
+      ]
+    },
     "RuleKind": {
       "description": "What a rule record limits.",
       "oneOf": [
         {
           "const": "clearance",
-          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`.",
+          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
           "type": "string"
         },
         {
@@ -2405,6 +2451,13 @@
             }
           ],
           "description": "`zone_connection` only: how fills join Vias."
+        },
+        "zero_keepout_clearance": {
+          "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+          "type": [
+            "boolean",
+            "null"
+          ]
         }
       },
       "type": "object"

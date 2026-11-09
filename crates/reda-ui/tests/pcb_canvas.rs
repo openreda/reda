@@ -887,3 +887,87 @@ fn double_clicking_a_single_board_object_selects_it_and_opens_properties() {
         "a double-click on a single object opens Properties"
     );
 }
+
+#[test]
+fn a_zone_cutout_has_a_layers_panel_row_and_a_selection_filter_kind() {
+    let mut w = window();
+    // A Zone Cutout away from the Footprint, from (5, -2) to (9, 2) mm.
+    let cutout: Uuid =
+        w.h.state_mut()
+            .shell_mut()
+            .run(
+                "pcb.zone_cutout.add",
+                json!({"layer": "copper_top", "vertices": [
+                    {"x": "5mm", "y": "-2mm"}, {"x": "9mm", "y": "-2mm"},
+                    {"x": "9mm", "y": "2mm"}, {"x": "5mm", "y": "2mm"}]}),
+            )
+            .unwrap()["result"]["uuid"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({"document": w.pcb}))
+        .unwrap();
+    w.h.run();
+    w.h.run();
+    let shown = |w: &Window| {
+        let tab = shell(w).document_tab(w.pcb).unwrap();
+        tab.scene.scene.items_of(cutout).next().is_some()
+    };
+    assert!(shown(&w));
+
+    // Clicking its edge selects it.
+    let edge = on_screen(
+        &w,
+        Point::new(
+            reda_ui::engine::model::geom::Nm(5_000_000),
+            reda_ui::engine::model::geom::Nm(0),
+        ),
+    );
+    let click = |w: &mut Window| {
+        w.h.drag_at(edge);
+        w.h.drop_at(edge);
+        w.h.run();
+    };
+    click(&mut w);
+    assert_eq!(shell(&w).selection().objects, [cutout]);
+
+    // Its Selection Filter kind keeps it from being picked.
+    let kinds =
+        w.h.state_mut()
+            .shell_mut()
+            .run("selection.filter.set", json!({"document": w.pcb}))
+            .unwrap();
+    assert!(
+        kinds.to_string().contains("\"kind\":\"zone_cutout\""),
+        "{kinds}"
+    );
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "selection.filter.set",
+            json!({"document": w.pcb, "kinds": {"zone_cutout": false}}),
+        )
+        .unwrap();
+    w.h.state_mut()
+        .shell_mut()
+        .run("selection.set", json!({}))
+        .unwrap();
+    click(&mut w);
+    assert!(shell(&w).selection().objects.is_empty());
+
+    // The Layers panel's Zone Cutouts row hides every one.
+    w.h.get_by_label("Zone Cutouts").click();
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.view.object_type.show");
+    assert!(!shown(&w));
+    assert!(
+        shell(&w)
+            .board_view()
+            .layers
+            .hidden_types
+            .contains(&reda_ui::engine::model::ObjectType::ZoneCutout)
+    );
+}

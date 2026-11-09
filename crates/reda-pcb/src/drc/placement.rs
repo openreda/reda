@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    DrcCheck, FootprintInstance, FootprintLayer, LayerKind, Limit, PcbDocument, RuleField,
-    RuleKind, Shape, Side,
+    DrcCheck, FootprintInstance, FootprintLayer, LayerKind, Limit, PcbDocument, Restriction,
+    RuleField, RuleKind, Shape, Side,
 };
 
 use super::{Board, Report};
@@ -97,6 +97,57 @@ fn courtyard_overlap(board: &Board<'_>, report: &mut Report) {
                     .arg("actual", actual)
                     .object(a.uuid)
                     .object(b.uuid)
+            });
+        }
+    }
+}
+
+/// Footprints whose Courtyard (or fallback box) on a Keepout's side overlaps a Keepout
+/// that restricts `footprints`, with no clearance: touching passes. A Keepout on a top or
+/// bottom copper Layer checks that side, one on every Layer both sides, and one on an
+/// inner Layer neither.
+pub(super) fn footprints_in_keepouts(board: &Board<'_>, report: &mut Report) {
+    let pcb = board.pcb;
+    let keepouts: Vec<_> = pcb
+        .keepouts()
+        .filter(|k| k.restricts(Restriction::Footprints))
+        .collect();
+    if keepouts.is_empty() {
+        return;
+    }
+    let rule = pcb.board_rule(RuleKind::Clearance).uuid;
+    for instance in pcb.footprints() {
+        let yards = courtyards_or_box(pcb, instance);
+        for keepout in &keepouts {
+            let sides: Vec<Side> = match keepout.layer {
+                None => vec![Side::Top, Side::Bottom],
+                Some(layer) => pcb
+                    .layers()
+                    .layer(layer)
+                    .and_then(|l| l.side)
+                    .into_iter()
+                    .collect(),
+            };
+            let area = crate::keepout::area(keepout);
+            let hit = sides.iter().find_map(|side| {
+                let yard = yards.get(side)?;
+                let (_, points, overlaps) = poly::gap(&area, yard)?;
+                overlaps.then_some((*side, points))
+            });
+            let Some((side, [pa, pb])) = hit else {
+                continue;
+            };
+            report.add(DrcCheck::Keepout, |v| {
+                v.length(Nm::ZERO, Nm::ZERO, Limit::Min, rule)
+                    .distance_points(pa, pb)
+                    .arg("designator", instance.designator.clone())
+                    .object(instance.uuid)
+                    .object(keepout.uuid)
+                    .on_layers(
+                        pcb.layers()
+                            .find(LayerKind::Courtyard, Some(side))
+                            .map(|l| l.uuid),
+                    )
             });
         }
     }

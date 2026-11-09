@@ -370,7 +370,7 @@ fn blocked_spokes(own: Value) -> Vec<reda_pcb::RatsnestLine> {
     for x in [6.4, 2.4] {
         engine.run_ok(
             "pcb.keepout.add",
-            json!({"vertices": rect(x, 4.0, x + 1.2, 6.0), "layers": ["copper_top"]}),
+            json!({"vertices": rect(x, 4.0, x + 1.2, 6.0), "layer": "copper_top"}),
         );
     }
     let fills = fill(&engine);

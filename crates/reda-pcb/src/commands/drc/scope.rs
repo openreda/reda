@@ -112,7 +112,14 @@ fn bounds(pcb: &PcbDocument, uuid: Uuid) -> Option<Bounds> {
     } else if let Some(cutout) = pcb.zone_cutout(uuid) {
         &cutout.vertices
     } else if let Some(keepout) = pcb.keepout(uuid) {
-        &keepout.vertices
+        if let reda_model::KeepoutShape::Line { vertices, width } = &keepout.shape {
+            let r = Nm(width.0 / 2);
+            return vertices
+                .iter()
+                .map(|v| Bounds::around(v.point(), r))
+                .reduce(Bounds::union);
+        }
+        keepout.vertices()
     } else if let Some(cutout) = pcb.cutout(uuid) {
         &cutout.vertices
     } else {

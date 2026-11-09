@@ -1,4 +1,4 @@
-//! Zone Cutouts: `pcb.zone_cutout.add`, `add_from_graphics` and `delete`. A Zone Cutout
+//! Zone Cutouts: `pcb.zone_cutout.add`, `set`, `add_from_graphics` and `delete`. A Zone Cutout
 //! removes the fill of every Zone on its Layer inside its outline, exactly to its edge.
 
 use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
@@ -17,6 +17,7 @@ use super::{Deleted, delete};
 pub struct ZoneCutoutAdd;
 pub struct ZoneCutoutAddFromGraphics;
 pub struct ZoneCutoutDelete;
+pub struct ZoneCutoutSet;
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -157,5 +158,59 @@ impl Command for ZoneCutoutDelete {
             |pcb, u| pcb.zone_cutout(u).is_some(),
             "Zone Cutout",
         )
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneCutoutSetParams {
+    /// The Zone Cutout's UUID.
+    pub cutout: Uuid,
+    /// The copper Layer whose Zones it cuts.
+    #[serde(default)]
+    pub layer: Option<LayerRef>,
+    /// The outline's vertices in order; the last joins the first.
+    #[serde(default)]
+    pub vertices: Option<Vec<VertexParam>>,
+}
+
+impl Command for ZoneCutoutSet {
+    const META: Meta = Meta {
+        id: "pcb.zone_cutout.set",
+        title: "Change Zone Cutout",
+        description: "Changes a Zone Cutout's copper `layer` or outline `vertices`; what \
+                      is left out stays as it is.",
+        category: "pcb",
+        icon: "keepout",
+        kind: Kind::Edit,
+    };
+    type Params = ZoneCutoutSetParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: ZoneCutoutSetParams) -> Result<(), CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let mut cutout = pcb
+            .zone_cutout(p.cutout)
+            .ok_or_else(|| {
+                CommandError::invalid_params(
+                    "/cutout",
+                    format!("no Zone Cutout has UUID {}", p.cutout),
+                )
+            })?
+            .clone();
+        if let Some(layer) = p.layer {
+            cutout.layer = copper_layer(pcb, layer, "/layer")?;
+        }
+        if let Some(vertices) = &p.vertices {
+            cutout.vertices = contour(vertices)?;
+        }
+        cx.tx()?
+            .replace(Object::ZoneCutout(InDocument::new(document, cutout)))?;
+        Ok(())
     }
 }

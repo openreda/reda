@@ -2,15 +2,16 @@ M48
 ; #@! TF.GenerationSoftware,openreda,REDA,0.0.0-test
 ; #@! TF.ProjectId,Minimal,00000000-0000-4000-8000-000000000001,A
 ; #@! TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2
-; #@! TF.FileFunction,Plated,1,2,PTH
+; #@! TF.FileFunction,Plated,1,2,PTH,Drill
+; #@! TF.FilePolarity,Positive
 FMAT,2
 METRIC
-; #@! TA.AperFunction,Plated,PTH,ComponentDrill
+; #@! TA.AperFunction,ComponentDrill
 T1C1.150
 %
 G90
 G05
 T1
-X5.0Y11.27
-X5.0Y8.73
+X5.000Y11.270
+X5.000Y8.730
 M30

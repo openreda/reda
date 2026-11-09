@@ -39,10 +39,6 @@
         "name": "Minimal-PTH.drl"
       },
       {
-        "function": "drill_non_plated",
-        "name": "Minimal-NPTH.drl"
-      },
-      {
         "function": "bom",
         "name": "Minimal-BOM.csv"
       },
@@ -55,6 +51,10 @@
       {
         "function": "paste_bottom",
         "name": "Minimal.GBP"
+      },
+      {
+        "function": "drill_non_plated",
+        "name": "Minimal-NPTH.drl"
       }
     ],
     "warnings": [],

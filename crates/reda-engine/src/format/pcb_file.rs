@@ -69,10 +69,10 @@
 //!     ],"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,…}
 //!   ],
 //!   "keepouts": [
-//!     {"uuid":"…","layers":["…"],"vertices":[
+//!     {"uuid":"…","layer":"…","shape":"polygon","vertices":[
 //!       {"x":0,"y":0},
 //!       …
-//!     ],"copper":true,"vias":true}
+//!     ],"restrict":["tracks","vias","zones","smd_pads","tht_pads"]}
 //!   ],
 //!   "zone_cutouts": [
 //!     {"uuid":"…","layer":"…","vertices":[
@@ -97,8 +97,9 @@
 //! instances, each Pad's Net on its own line) are left out while the board has no
 //! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
 //! `zone_cutouts` and `waivers` (of DRC Violations) are left out while the board has none,
-//! `output_origin` while it is not set. Zone fills are never stored here: they live in the
-//! `.reda/` cache.
+//! `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
+//! copper Layer; a `line` Keepout adds its `width`. Zone fills are never stored here: they
+//! live in the `.reda/` cache.
 
 use std::path::Path;
 

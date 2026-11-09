@@ -104,10 +104,10 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
             }
             layers.push(z.layer);
         } else if let Some(k) = pcb.keepout(*uuid) {
-            if let Some(p) = center(k.vertices.iter().map(|v| v.point())) {
+            if let Some(p) = center(k.vertices().iter().map(|v| v.point())) {
                 candidates.push(p);
             }
-            layers.extend(k.layers.iter().copied());
+            layers.extend(pcb.keepout_layers(k));
         }
     }
     v.at =

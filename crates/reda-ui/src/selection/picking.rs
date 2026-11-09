@@ -120,7 +120,7 @@ fn rank_with_locks(shell: &Shell, document: Uuid, item: &Item, protect: bool) ->
     };
     Some(match kind {
         FilterKind::FootprintInstance => 2,
-        FilterKind::Zone | FilterKind::Keepout => 3,
+        FilterKind::Zone | FilterKind::Keepout | FilterKind::ZoneCutout => 3,
         FilterKind::BoardOutline | FilterKind::BoardCutout => 4,
         _ if item.layer
             == shell

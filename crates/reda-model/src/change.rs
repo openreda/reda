@@ -146,7 +146,7 @@ pub enum ObjectType {
     Via,
     /// A copper fill on a Net, on one copper Layer.
     Zone,
-    /// An area where copper or Vias may not go.
+    /// An area on one or every copper Layer that keeps out the kinds of object it restricts.
     Keepout,
     /// An area on a copper Layer where every Zone's fill is removed.
     ZoneCutout,

@@ -10,7 +10,6 @@
 //! Arcs in outlines and copper are flattened to chords no further than [`ARC_TOLERANCE`]
 //! from the true arc.
 
-use crate::copper::shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Nm;
@@ -27,8 +26,7 @@ pub(crate) use fill::shape_copper;
 pub use merge::{LayerFill, layer_fills};
 pub use names::{NO_NET, name, names};
 
-use crate::copper::shape::Shape;
-use crate::copper::{Copper, Proposal};
+use crate::copper::Copper;
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
 const FILL_VERSION: u32 = 2;
@@ -214,10 +212,7 @@ pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
                 .vias()
                 .filter(|v| pcb.span_layers(v.span).contains(&zone.layer))
                 .collect();
-            let keepouts: Vec<_> = pcb
-                .keepouts()
-                .filter(|k| k.layers.contains(&zone.layer))
-                .collect();
+            let keepouts: Vec<_> = pcb.keepouts().filter(|k| k.on_layer(zone.layer)).collect();
             let cutouts: Vec<_> = zone_cutouts
                 .iter()
                 .filter(|c| c.layer == zone.layer)
@@ -306,47 +301,4 @@ pub fn status(pcb: &PcbDocument, fills: Option<&ZoneFills>) -> FillStatus {
 /// old fill.
 pub fn current(pcb: &PcbDocument, stored: Option<&ZoneFills>) -> ZoneFills {
     refill(pcb, stored, &mut |_, _| true).expect("an uncancelled fill finishes")
-}
-
-/// The Keepouts `proposal` would enter, sorted: a Track on a Layer where a Keepout
-/// forbids copper, a Via where one forbids Vias or copper on any Layer it spans. Touching
-/// the outline counts as entering.
-pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
-    let (shape, layers, is_via) = match *proposal {
-        Proposal::Track {
-            layer,
-            geometry,
-            width,
-            ..
-        } => (Shape::track(&geometry, width), vec![layer], false),
-        Proposal::Via { at, diameter, .. } => (
-            Shape::disc(at, diameter),
-            pcb.copper_layers().map(|l| l.uuid).collect(),
-            true,
-        ),
-    };
-    keepouts_entered(pcb, &shape, &layers, is_via)
-}
-
-/// The Keepouts that copper `shape` on `layers` enters, sorted: those forbidding copper on
-/// any of the Layers, and for a Via (`is_via`) also those forbidding Vias.
-pub(crate) fn keepouts_entered(
-    pcb: &PcbDocument,
-    shape: &Shape,
-    layers: &[Uuid],
-    is_via: bool,
-) -> Vec<Uuid> {
-    let mut copper = None;
-    pcb.keepouts()
-        .filter(|k| {
-            let forbids =
-                (k.copper || (is_via && k.vias)) && k.layers.iter().any(|l| layers.contains(l));
-            forbids && {
-                let copper = copper.get_or_insert_with(|| poly::union(poly::grown(shape, 0)));
-                let area = poly::polygon(poly::contour(&k.vertices));
-                poly::overlaps(&area, copper)
-            }
-        })
-        .map(|k| k.uuid)
-        .collect()
 }

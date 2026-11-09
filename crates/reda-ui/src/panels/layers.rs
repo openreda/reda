@@ -234,6 +234,7 @@ fn type_title(kind: ObjectType) -> String {
         ObjectType::Via => tr!("layers-type-vias"),
         ObjectType::Zone => tr!("layers-type-zones"),
         ObjectType::Keepout => tr!("layers-type-keepouts"),
+        ObjectType::ZoneCutout => tr!("layers-type-zone-cutouts"),
         ObjectType::FreePad => tr!("layers-type-free-pads"),
         ObjectType::PcbText => tr!("layers-type-text"),
         ObjectType::PcbGraphic => tr!("layers-type-graphics"),

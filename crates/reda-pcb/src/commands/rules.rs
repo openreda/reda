@@ -68,7 +68,8 @@ pub struct ConnectionParam {
 }
 
 /// The values to change; those left out keep theirs, and `null` clears one. Which a kind
-/// holds: `clearance` `value` and `ignore_pad_to_pad`; `track_width` `min`, `preferred`
+/// holds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)
+/// `zero_keepout_clearance`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
 /// `edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`
@@ -85,6 +86,10 @@ pub struct ValuesParam {
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<bool>")]
     pub ignore_pad_to_pad: Option<Option<bool>>,
+    /// `clearance`, board-wide only: Keepout edges are exact, with no clearance.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub zero_keepout_clearance: Option<Option<bool>>,
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
     pub min: Option<Option<Length>>,
@@ -182,6 +187,9 @@ impl ValuesParam {
         }
         if let Some(flag) = self.ignore_pad_to_pad {
             out.push((RuleField::IgnorePadToPad, flag.map(RuleValue::Flag)));
+        }
+        if let Some(flag) = self.zero_keepout_clearance {
+            out.push((RuleField::ZeroKeepoutClearance, flag.map(RuleValue::Flag)));
         }
         if let Some(area) = self.min_area {
             out.push((RuleField::MinArea, area.map(|a| RuleValue::Area(a.0))));
@@ -289,6 +297,12 @@ pub(super) fn set_record(
             return Err(CommandError::invalid_params(
                 &pointer,
                 format!("`{}` cannot be negative", field.path()),
+            ));
+        }
+        if field == RuleField::ZeroKeepoutClearance && !scope.is_board_wide() {
+            return Err(CommandError::invalid_params(
+                &pointer,
+                "`zero_keepout_clearance` is set on the board-wide record only",
             ));
         }
         if value.is_none() && scope.is_board_wide() && kind.required().contains(&field) {
