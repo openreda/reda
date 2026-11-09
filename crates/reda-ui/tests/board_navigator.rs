@@ -395,3 +395,22 @@ fn zones_mode_lists_the_pour_order_and_reorders_by_drag_and_auto_order_and_shelv
     assert_eq!(b.last(), ("pcb.zone.restore".to_owned(), json!({})));
     assert!(!b.checked("Shelve SMALL"));
 }
+
+#[test]
+fn view_zoom_to_frames_objects_without_selecting_them() {
+    let mut b = board();
+    let err = b
+        .shell()
+        .run("view.zoom_to", json!({ "objects": [] }))
+        .unwrap_err();
+    assert!(err.to_string().contains("no objects"), "{err}");
+    let camera = |b: &Board| b.h.state().shell().document_tab(b.pcb).unwrap().camera;
+    let before = camera(&b);
+    let r2 = b.r2;
+    run(b.shell(), "view.zoom_to", json!({ "objects": [r2] }));
+    // The window takes the request in one frame and the canvas frames it in the next.
+    b.h.run();
+    b.h.run();
+    assert_ne!(camera(&b), before);
+    assert!(b.h.state().shell().selection().objects.is_empty());
+}

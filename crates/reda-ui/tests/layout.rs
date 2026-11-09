@@ -325,7 +325,8 @@ fn closing_panels_and_documents_and_reopening_panels() {
             PanelId::Messages,
             PanelId::Library,
             PanelId::Layers,
-            PanelId::Journal
+            PanelId::Journal,
+            PanelId::Navigator
         ]
     );
 
