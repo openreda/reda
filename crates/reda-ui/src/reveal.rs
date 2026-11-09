@@ -40,10 +40,16 @@ impl Shell {
         let objects: Vec<Uuid> = (selection.objects.iter().copied())
             .chain(selection.pads.iter().map(|p| p.footprint))
             .collect();
+        self.zoom_to_objects(document, &objects)
+    }
+
+    /// Zooms `document`'s canvas to what it draws of `objects` when it next lays out;
+    /// false when it draws none of them.
+    pub fn zoom_to_objects(&mut self, document: Uuid, objects: &[Uuid]) -> bool {
         let Some(tab) = self.document_tab_mut(document) else {
             return false;
         };
-        let Some(frame) = frame(&tab.scene.scene, &objects) else {
+        let Some(frame) = frame(&tab.scene.scene, objects) else {
             return false;
         };
         tab.zoom_to = Some(frame);

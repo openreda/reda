@@ -17,7 +17,7 @@ use reda_ui::App;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::{Engine, preferences, state};
 use reda_ui::shell::Shell;
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn engine_in(home: &Path) -> Engine {
     Engine::builder()
@@ -1219,4 +1219,88 @@ fn the_sheet_grid_stops_at_the_papers_edge() {
     // Off the paper, left of it and below it, there is no dot.
     assert_eq!(at(-5.08, 5.08), at(-6.35, 6.35), "no dot left of the paper");
     assert_eq!(at(5.08, -5.08), at(6.35, -6.35), "no dot below the paper");
+}
+
+/// The Board navigator in its Nets and Zones modes: Nets GND (coloured) and SIG with
+/// Tracks, and two Zones on Top Copper, the small one stale after a refill and an edit.
+#[test]
+fn snapshot_of_the_board_navigator() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("navigator");
+    let file = make_project(&folder, "Nav");
+    set_theme(home.path(), "dark");
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "pcb.zone.auto_refill",
+        json!("off"),
+    )
+    .unwrap();
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(None)
+        .ids(reda_ui::engine::command::SeededIds::new(0))
+        .commands(reda_testkit::probe_commands)
+        .headless(false)
+        .build();
+    let Some(mut h) = snapshot_harness_on(engine) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    let mut net = |name: &str| {
+        let out = shell.run("test.net.add", json!({ "name": name })).unwrap();
+        out["result"]["uuid"].clone()
+    };
+    let (gnd, sig) = (net("GND"), net("SIG"));
+    for (net, y, length) in [
+        (&gnd, "0mm", "4mm"),
+        (&gnd, "2mm", "6mm"),
+        (&sig, "4mm", "3mm"),
+    ] {
+        shell
+            .run(
+                "pcb.track.add",
+                json!({"layer": "copper_top", "net": net, "width": "0.5mm",
+                       "points": [{"x": 0, "y": y}, {"x": length, "y": y}]}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "pcb.net.set_color",
+            json!({"nets": [gnd], "color": "#3cb44b"}),
+        )
+        .unwrap();
+    let mut zone = |name: &str, net: &Value, (a, b): (i64, i64)| {
+        let v = |x: i64, y: i64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
+        let out = shell
+            .run(
+                "pcb.zone.add",
+                json!({"layer": "copper_top", "net": net, "name": name,
+                       "vertices": [v(a, a), v(b, a), v(b, b), v(a, b)]}),
+            )
+            .unwrap();
+        out["result"]["uuid"].clone()
+    };
+    zone("BIG", &gnd, (0, 20));
+    let small = zone("SMALL", &sig, (2, 4));
+    shell.run("pcb.zone.fill", json!({})).unwrap();
+    shell
+        .run("pcb.zone.set", json!({"zone": small, "clearance": "0.5mm"}))
+        .unwrap();
+    shell
+        .run("document.open", json!({ "document": pcb }))
+        .unwrap();
+    shell
+        .run("panel.show", json!({"panel": "navigator"}))
+        .unwrap();
+    h.run();
+    h.snapshot("board_navigator_nets_dark");
+    h.get_by_label("Navigator mode: Zones").click();
+    h.run();
+    h.remove_cursor();
+    h.run();
+    h.snapshot("board_navigator_zones_dark");
 }
