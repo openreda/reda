@@ -87,6 +87,13 @@ pub struct SelectionEditing {
     pub directional_rectangle: bool,
     /// Click and rectangle skip locked objects. Explicit picks can still select them.
     pub protect_locked_objects: bool,
+    /// Object's Electrical Hot Spot: a moved electrical object is held at its nearest
+    /// connection point (a Pin end, a Wire end, a label's anchor). Overrides Center of
+    /// Object for it.
+    pub grab_hot_spot: bool,
+    /// Center of Object: a moved object is held by its reference point or centre. With
+    /// neither grab Preference, it is held where it was clicked.
+    pub grab_center: bool,
 }
 
 impl Default for SelectionEditing {
@@ -95,6 +102,8 @@ impl Default for SelectionEditing {
             click_clears_selection: true,
             directional_rectangle: true,
             protect_locked_objects: true,
+            grab_hot_spot: true,
+            grab_center: false,
         }
     }
 }
@@ -639,6 +648,15 @@ pub struct SchematicEditing {
     /// The Break Wire Tool's Cutting Length and Display Preferences. The Tool writes its
     /// changes straight back here.
     pub break_wire: BreakWirePreferences,
+    /// Clipboard Reference: cut and copy ask for a click on the reference point a paste
+    /// then holds. Off, it is the lower-left corner of what was copied.
+    pub clipboard_reference: bool,
+    /// In-Place Editing: F2 or a slow second click edits a name, Designator, value,
+    /// visible field or free text on the canvas.
+    pub in_place_editing: bool,
+    /// Display When Dragging: a drag or move shows the Junctions it would make and a chip
+    /// by the cursor saying whether Nets would change ("joins GND and VCC").
+    pub display_when_dragging: bool,
 }
 
 /// The Break Wire Tool (docs/spec/v0.1/schematic.md#break-wire).
@@ -779,6 +797,9 @@ impl Default for SchematicEditing {
             unit_suffix: reda_model::UnitSuffix::Alpha,
             auto_increment: AutoIncrement::default(),
             break_wire: BreakWirePreferences::default(),
+            clipboard_reference: false,
+            in_place_editing: true,
+            display_when_dragging: true,
         }
     }
 }

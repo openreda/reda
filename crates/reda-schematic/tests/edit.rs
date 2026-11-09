@@ -1009,3 +1009,54 @@ fn dragging_the_end_of_a_diagonal_wire_keeps_it_straight() {
         json!([point(100, 150), point(300, 450)])
     );
 }
+
+#[test]
+fn copy_and_cut_take_a_reference_point_that_paste_puts_at_at() {
+    let dir = TempDir::new("paste-reference");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    // The reference point is held instead of the lower-left corner.
+    let clipboard = engine.run_ok(
+        "schematic.copy",
+        json!({"objects": [r1], "origin": at(0, 150)}),
+    );
+    assert_eq!(clipboard["origin"], point(0, 150));
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(1000, 1150)}),
+    );
+    let units = objects(&mut engine, SHEET, "unit");
+    let pasted = units.iter().find(|u| u["designator"] == "R2").unwrap();
+    assert_eq!(pasted["at"], point(1000, 1000));
+
+    let cut = engine.run_ok(
+        "schematic.cut",
+        json!({"objects": [r1], "origin": at(50, 50)}),
+    );
+    assert_eq!(cut["result"]["origin"], point(50, 50));
+}
+
+#[test]
+fn copy_as_text_copies_the_names_and_designators_line_by_line() {
+    let dir = TempDir::new("copy-as-text");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let vcc = label(&mut engine, "VCC", 500, 150);
+    let text = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Filter\nstage", "at": at(0, 500)}),
+    )["result"]["text"]
+        .clone();
+    let gnd = engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "GND", "at": at(0, -500)}),
+    )["result"]["power_port"]
+        .clone();
+    let w = wire(&mut engine, &[(0, 150), (1000, 150)]);
+    let out = engine.run_ok(
+        "schematic.copy_as_text",
+        json!({"objects": [r1, vcc, text, gnd, w[0]]}),
+    );
+    // Wires carry no text; the order is the selection's.
+    assert_eq!(out["text"], "R1\nVCC\nFilter\nstage\nGND");
+}

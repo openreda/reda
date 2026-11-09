@@ -190,6 +190,9 @@ pub struct Shell {
     preferences: Watched,
     /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
     clipboard: Option<Value>,
+    /// Text `schematic.copy_as_text` returned, for the window to put on the system
+    /// clipboard.
+    copied_text: Option<String>,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::SelectTool,
     /// The board's routing and Via Tools.
@@ -273,6 +276,9 @@ impl Shell {
         if engine.registry().get("view.messages.show_waived").is_none() {
             engine.register(messages::register_all);
         }
+        if engine.registry().get("tool.paste").is_none() {
+            engine.register(crate::schematic_editor::register_all);
+        }
         if engine.registry().get("view.keys_card.toggle").is_none() {
             engine.register(crate::keys_card::register_all);
         }
@@ -336,6 +342,7 @@ impl Shell {
             keymap: Keymap::default(),
             preferences: Watched::default(),
             clipboard: None,
+            copied_text: None,
             pcb_tool: pcb::SelectTool::default(),
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
@@ -564,6 +571,11 @@ impl Shell {
     /// What the last copy or cut put on the clipboard, for `schematic.paste`.
     pub fn clipboard(&self) -> Option<&Value> {
         self.clipboard.as_ref()
+    }
+
+    /// Takes the text Copy As Text left for the system clipboard.
+    pub fn take_copied_text(&mut self) -> Option<String> {
+        self.copied_text.take()
     }
 
     /// The board's view: its Layer state, units and snap grid. It changes through the
@@ -2179,6 +2191,24 @@ impl Shell {
             "tool.move_board_shape" => self.pcb_move_board_shape(false),
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
+            "tool.copy" | "tool.duplicate" => {
+                let objects: Vec<Uuid> =
+                    serde_json::from_value(out["objects"].clone()).unwrap_or_default();
+                if id == "tool.copy" {
+                    crate::schematic_editor::copy(self, objects, out["cut"] == true);
+                } else {
+                    crate::schematic_editor::duplicate(self, objects);
+                }
+            }
+            "tool.paste" => {
+                if let Some(document) = out["document"].as_str().and_then(|s| s.parse().ok()) {
+                    let clipboard = out["clipboard"].clone();
+                    crate::schematic_editor::paste(self, document, clipboard);
+                }
+            }
+            "schematic.copy_as_text" => {
+                self.copied_text = out["text"].as_str().map(str::to_owned);
+            }
             "schematic.find.step" => {
                 crate::panels::find::step(self, out["direction"] == "next");
             }

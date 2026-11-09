@@ -64,7 +64,11 @@ pub fn rows(project: &Project, selection: &[Uuid]) -> Option<UnitRows> {
 }
 
 /// Draws the rows; returns the Commands their buttons ask for.
-pub fn section(ui: &mut Ui, rows: &UnitRows, field_label: impl Fn(&str) -> String) -> Vec<(&'static str, Value)> {
+pub fn section(
+    ui: &mut Ui,
+    rows: &UnitRows,
+    field_label: impl Fn(&str) -> String,
+) -> Vec<(&'static str, Value)> {
     let mut out = Vec::new();
     if rows.count > 1 {
         ui.label(tr!(
@@ -96,9 +100,8 @@ pub fn section(ui: &mut Ui, rows: &UnitRows, field_label: impl Fn(&str) -> Strin
             ui.weak(tr!("properties-field-moved", field = label.clone()));
             let button = ui.button(tr!("properties-field-reset"));
             let name = tr!("properties-field-reset-named", field = label);
-            button.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, true, name.clone())
-            });
+            button
+                .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, name.clone()));
             if button.clicked() {
                 out.push((
                     "schematic.field.reset_position",

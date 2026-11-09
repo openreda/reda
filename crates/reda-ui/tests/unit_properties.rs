@@ -57,7 +57,11 @@ fn place_picks_up_an_unplaced_unit_and_a_click_places_it() {
         json!({"document": SHEET, "part": LM358, "at": {"x": 0, "y": 0}}),
     )["result"]
         .clone();
-    run(&mut h, "selection.set", json!({"objects": [placed["unit"]]}));
+    run(
+        &mut h,
+        "selection.set",
+        json!({"objects": [placed["unit"]]}),
+    );
     run(&mut h, "panel.show:properties", json!({}));
     h.run();
     h.get_by_label_contains("Unit A");
@@ -89,7 +93,11 @@ fn place_picks_up_an_unplaced_unit_and_a_click_places_it() {
     assert_eq!(project.schematic_sheet(sheet).unwrap().units().count(), 2);
 
     // With every Unit placed, there is nothing left to place.
-    run(&mut h, "selection.set", json!({"objects": [placed["unit"]]}));
+    run(
+        &mut h,
+        "selection.set",
+        json!({"objects": [placed["unit"]]}),
+    );
     h.run();
     assert!(h.query_by_label("Place Unit B").is_none());
 }
@@ -109,7 +117,11 @@ fn reset_position_puts_a_moved_field_back_on_autoposition() {
         "schematic.field.move",
         json!({"unit": placed["unit"], "field": "value", "at": {"x": "15mm", "y": "2mm"}}),
     );
-    run(&mut h, "selection.set", json!({"objects": [placed["unit"]]}));
+    run(
+        &mut h,
+        "selection.set",
+        json!({"objects": [placed["unit"]]}),
+    );
     run(&mut h, "panel.show:properties", json!({}));
     h.run();
     h.get_by_label("Reset position of Value").click();

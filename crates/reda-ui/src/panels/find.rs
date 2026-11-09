@@ -305,7 +305,12 @@ pub fn step(shell: &mut Shell, forward: bool) {
 /// Draws the Panel.
 pub fn show(ui: &mut Ui, shell: &mut Shell) {
     let mut panel = state(shell);
-    let before = (panel.kinds, panel.match_case, panel.whole_word, panel.syntax);
+    let before = (
+        panel.kinds,
+        panel.match_case,
+        panel.whole_word,
+        panel.syntax,
+    );
     let before = (before, panel.scope, panel.mask);
     let mut search_now = false;
     let mut go_to = None;
@@ -374,7 +379,12 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
             }
         }
     });
-    let after = (panel.kinds, panel.match_case, panel.whole_word, panel.syntax);
+    let after = (
+        panel.kinds,
+        panel.match_case,
+        panel.whole_word,
+        panel.syntax,
+    );
     // Changing an option searches again once there is a search to redo.
     let changed = (after, panel.scope, panel.mask) != before;
     let searched = panel.searched;

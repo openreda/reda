@@ -226,6 +226,9 @@ impl App {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
         self.keys(&ctx);
+        if let Some(text) = self.shell.take_copied_text() {
+            ctx.copy_text(text);
+        }
         tab_switcher::release(&ctx, &mut self.shell);
 
         let clicked = self.bars(ui);

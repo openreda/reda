@@ -10,8 +10,8 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::geom::Nm;
-use reda_ui::highlight::Highlight;
 use reda_ui::find::{self, Scope, Syntax};
+use reda_ui::highlight::Highlight;
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -113,14 +113,14 @@ fn find_selects_the_match_opens_its_sheet_and_zooms_to_it() {
 fn f3_and_shift_f3_step_through_the_matches_wrapping_around() {
     let dir = TempDir::new("find-step");
     let mut shell = shell(&dir);
-    let units: Vec<Uuid> = (0..3).map(|i| place(&mut shell, sheet(), i * 1000, 0)).collect();
+    let units: Vec<Uuid> = (0..3)
+        .map(|i| place(&mut shell, sheet(), i * 1000, 0))
+        .collect();
     search(&mut shell, "R");
     find::edit(&mut shell, |p| p.kinds.values = false);
     find::search(&mut shell);
     assert_eq!(shell.selection().objects, [units[0]]);
-    shell
-        .run("schematic.find.step:next", json!({}))
-        .unwrap();
+    shell.run("schematic.find.step:next", json!({})).unwrap();
     assert_eq!(shell.selection().objects, [units[1]]);
     assert_eq!(find::state(&shell).current(), Some(1));
     shell

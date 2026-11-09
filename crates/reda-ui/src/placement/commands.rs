@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use reda_engine::command::{
-    AvailabilityContext, Command, CommandError, Context, FootprintCopyData, Kind, Meta,
-    PartCopy, Registry, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, FootprintCopyData, Kind, Meta, PartCopy,
+    Registry, Unavailable,
 };
 use reda_engine::model::geom::Millideg;
 use reda_engine::model::{ComponentType, Side, Uuid};

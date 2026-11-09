@@ -34,7 +34,7 @@ pub use component::{
 pub use edit::Gap as BreakGap;
 pub use edit::{
     Align, AlignParams, AlignTo, Axis, Clipboard, ConvertCross, ConvertCrossParams,
-    ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
+    ConvertCrossResult, ConvertedJunction, CopiedText, Copy, CopyAsText, CopyAsTextParams, CopyParams, Cut, CutParams, Delete, DeleteParams,
     DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
     EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
     Mirror, MirrorParams, Move, MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange,
@@ -142,6 +142,7 @@ pub fn register_all_with_user(
     registry.add(Cut);
     registry.add(Paste);
     registry.add(Duplicate);
+    registry.add(CopyAsText);
     registry.add(Move);
     registry.add(MoveToSheet);
     registry.add(Drag);

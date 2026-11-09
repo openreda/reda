@@ -16,6 +16,8 @@
 
 mod auto_wire;
 mod break_wire;
+mod clipboard;
+mod decorate;
 mod graphics;
 mod handles;
 mod wiring;
@@ -37,6 +39,8 @@ use crate::tr;
 
 pub use auto_wire::options as auto_wire_options;
 pub use break_wire::{Breaking, cycle_cutting_length, options as break_wire_options};
+pub use clipboard::{Pasting, Referencing, copy, duplicate, paste, register_all};
+pub use decorate::{decorate, hover_tip};
 pub use graphics::Drawing;
 pub use handles::{Grip, Handle, HandleDrag, delete_held_vertex, insert_held_vertex};
 pub use wiring::{Corner, Placing, Wiring};
@@ -73,6 +77,10 @@ pub enum Interaction {
     Handle(HandleDrag),
     /// The Break Wire Tool, with the pointer over a Wire or not.
     Breaking(Breaking),
+    /// A paste or Duplicate stamp floating on the cursor.
+    Pasting(Pasting),
+    /// Cut or copy waiting for a click on the reference point.
+    Referencing(Referencing),
 }
 
 impl Interaction {
@@ -81,6 +89,7 @@ impl Interaction {
         match self {
             Interaction::Placing(p) => p.shown.is_some(),
             Interaction::Flight(f) => f.shown.is_some(),
+            Interaction::Pasting(p) => p.shown.is_some(),
             _ => false,
         }
     }
@@ -571,6 +580,16 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Pasting(p) => (
+            Vec::new(),
+            Vec::new(),
+            (0.0, 0.0),
+            Overlay {
+                cursor: Some(p.at + p.hold),
+                ..Overlay::default()
+            },
+        ),
+        Interaction::Referencing(_) => (Vec::new(), Vec::new(), (0.0, 0.0), idle),
         Interaction::Drawing(d) => {
             let mut wires = d.committed.clone();
             wires.extend(d.segments());
@@ -677,6 +696,10 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
                 .map_or(generation, |t| t.scene.generation);
             f.shown = Some((f.offset, f.turns.len(), generation));
         }
+        return;
+    }
+    if let Interaction::Pasting(p) = state {
+        clipboard::preview(shell, document, p, generation);
         return;
     }
     let Interaction::Placing(p) = state else {
@@ -906,6 +929,8 @@ impl Cx<'_> {
         match (state, event) {
             (Interaction::Handle(d), event) => self.handle_step(d, event),
             (Interaction::Breaking(b), event) => self.break_step(b, event),
+            (Interaction::Pasting(p), event) => self.paste_step(p, event),
+            (Interaction::Referencing(r), event) => self.reference_step(r, event),
             (Interaction::Idle, event) if tool == Tool::BreakWire => {
                 self.break_step(Breaking::default(), event)
             }

@@ -1019,6 +1019,7 @@ impl Cx<'_, '_> {
                 self.frame.commands.extend(options);
                 let options = schematic_editor::break_wire_options(ui, self.shell, *uuid, rect);
                 self.frame.commands.extend(options);
+                schematic_editor::decorate(ui, self.shell, *uuid, rect);
                 if self.shell.active_document().map(|d| d.document) == Some(*uuid) {
                     crate::keys_card::show(ui, self.shell, rect);
                 }
