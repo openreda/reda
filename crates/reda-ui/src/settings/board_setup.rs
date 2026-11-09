@@ -26,8 +26,9 @@ mod length;
 mod model;
 
 pub use model::{
-    ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS, NetRow,
-    ImportPreview, PasteMode, RuleChange, Band, CrossBand, StackupDraft, StackupRow, RuleField, SPOKES, STYLES, ValueKind, class_field, kind_name,
+    ANGLES, Band, BoardSetupDraft, ClassKey, ClassRow, CrossBand, FabPreview, GRID_FIELDS,
+    GRID_KINDS, ImportPreview, NetRow, PasteMode, RuleChange, RuleField, SPOKES, STYLES,
+    StackupDraft, StackupRow, ValueKind, class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -112,48 +113,48 @@ impl Rule {
         const VIA: [RuleField; 5] = connection(T::Via);
         const CLEARANCE: &[Section] = &[Section::check(DrcCheck::Clearance, &[F::Clearance])];
         const TRACK_WIDTH: &[Section] = &[Section::check(
-                DrcCheck::TrackWidth,
-                &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
-            )];
+            DrcCheck::TrackWidth,
+            &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
+        )];
         const VIAS: &[Section] = &[Section::check(
-                DrcCheck::ViaSize,
-                &[
-                    F::ViaDiameter,
-                    F::ViaDiameterPreferred,
-                    F::ViaDiameterMax,
-                    F::ViaHole,
-                    F::ViaHolePreferred,
-                    F::ViaHoleMax,
-                ],
-            )];
+            DrcCheck::ViaSize,
+            &[
+                F::ViaDiameter,
+                F::ViaDiameterPreferred,
+                F::ViaDiameterMax,
+                F::ViaHole,
+                F::ViaHolePreferred,
+                F::ViaHoleMax,
+            ],
+        )];
         const HOLES: &[Section] = &[
-                Section::check(DrcCheck::HoleSize, &[F::HoleMin, F::HoleMax]),
-                Section::check(DrcCheck::AnnularRing, &[F::AnnularRing]),
-                Section::check(DrcCheck::HoleToHole, &[F::HoleToHole]),
-            ];
+            Section::check(DrcCheck::HoleSize, &[F::HoleMin, F::HoleMax]),
+            Section::check(DrcCheck::AnnularRing, &[F::AnnularRing]),
+            Section::check(DrcCheck::HoleToHole, &[F::HoleToHole]),
+        ];
         const BOARD_EDGE: &[Section] = &[
-                Section::check(DrcCheck::EdgeClearance, &[F::EdgeClearance]),
-                Section::check(DrcCheck::SilkToEdge, &[F::SilkToEdge]),
-            ];
+            Section::check(DrcCheck::EdgeClearance, &[F::EdgeClearance]),
+            Section::check(DrcCheck::SilkToEdge, &[F::SilkToEdge]),
+        ];
         const MASK_PASTE: &[Section] = &[
-                Section::plain(
-                    None,
-                    &[
-                        F::MaskTop,
-                        F::MaskBottom,
-                        F::MaskFromHoleEdge,
-                        F::TentViasTop,
-                        F::TentViasBottom,
-                    ],
-                ),
-                Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
-            ];
+            Section::plain(
+                None,
+                &[
+                    F::MaskTop,
+                    F::MaskBottom,
+                    F::MaskFromHoleEdge,
+                    F::TentViasTop,
+                    F::TentViasBottom,
+                ],
+            ),
+            Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
+        ];
         const SILKSCREEN: &[Section] = &[Section::check(DrcCheck::SilkToMask, &[F::SilkToMask])];
         const ZONE_CONNECTIONS: &[Section] = &[
-                Section::plain(Some(T::ThroughHole), &TH),
-                Section::plain(Some(T::Smd), &SMD),
-                Section::plain(Some(T::Via), &VIA),
-            ];
+            Section::plain(Some(T::ThroughHole), &TH),
+            Section::plain(Some(T::Smd), &SMD),
+            Section::plain(Some(T::Via), &VIA),
+        ];
         match self {
             Rule::Clearance => CLEARANCE,
             Rule::TrackWidth => TRACK_WIDTH,

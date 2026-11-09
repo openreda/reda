@@ -14,23 +14,21 @@ use reda_engine::pcb::rules::presets::{PresetRules, job_presets, strictest_limit
 use reda_engine::schematic::natural_cmp;
 use serde_json::{Map, Value, json};
 
-
-mod field;
 mod actions;
+mod field;
 mod grid;
 pub use actions::ImportPreview;
 mod stackup;
-pub use stackup::{Band, CrossBand, StackupDraft, StackupRow};
+use super::Rule;
+use crate::settings::{Draft, Problem, Step};
+use crate::show_on_board::Shown;
+use crate::tr;
 pub use field::{
     ANGLES, GRID_FIELDS, GRID_KINDS, RuleField, SPOKES, STYLES, ValueKind, connection_value_name,
     kind_name, style_name, target_name,
 };
 use field::{by_kind, values_param};
-use super::Rule;
-use crate::show_on_board::Shown;
-use crate::settings::{Draft, Problem, Step};
-use crate::tr;
-
+pub use stackup::{Band, CrossBand, StackupDraft, StackupRow};
 
 /// A Net Class row: the Default Net Class, one the board has, or one added in the dialog
 /// and not applied yet.
@@ -777,11 +775,7 @@ impl BoardSetupDraft {
 
     /// Ticks or unticks row `row` of the preview.
     pub fn set_preview_ticked(&mut self, row: usize, ticked: bool) {
-        if let Some(change) = self
-            .preview
-            .as_mut()
-            .and_then(|p| p.changes.get_mut(row))
-        {
+        if let Some(change) = self.preview.as_mut().and_then(|p| p.changes.get_mut(row)) {
             change.ticked = ticked;
         }
     }
@@ -1045,29 +1039,28 @@ impl BoardSetupDraft {
             steps.extend(self.record_steps(Some((row, uuid))));
         }
         for row in self.live_classes().filter(|r| !existing(r)) {
-            let rules: Vec<Value> =
-                by_kind(
-                    row.overrides
-                        .iter()
-                        .filter_map(|(rule, d)| Some((*rule, rule.parse(d.value()).ok()??))),
-                )
-                .into_iter()
-                .map(|(kind, values)| {
-                    let mut rule = Map::new();
-                    rule.insert("kind".into(), json!(kind));
-                    rule.insert("values".into(), values_param(&values));
-                    if let Some(m) = row.meta.get(&kind) {
-                        if !*m.enabled.value() {
-                            rule.insert("enabled".into(), json!(false));
-                        }
-                        let comment = m.comment.value().trim();
-                        if !comment.is_empty() {
-                            rule.insert("comment".into(), json!(comment));
-                        }
+            let rules: Vec<Value> = by_kind(
+                row.overrides
+                    .iter()
+                    .filter_map(|(rule, d)| Some((*rule, rule.parse(d.value()).ok()??))),
+            )
+            .into_iter()
+            .map(|(kind, values)| {
+                let mut rule = Map::new();
+                rule.insert("kind".into(), json!(kind));
+                rule.insert("values".into(), values_param(&values));
+                if let Some(m) = row.meta.get(&kind) {
+                    if !*m.enabled.value() {
+                        rule.insert("enabled".into(), json!(false));
                     }
-                    Value::Object(rule)
-                })
-                .collect();
+                    let comment = m.comment.value().trim();
+                    if !comment.is_empty() {
+                        rule.insert("comment".into(), json!(comment));
+                    }
+                }
+                Value::Object(rule)
+            })
+            .collect();
             let mut params = Map::new();
             params.insert("name".to_owned(), json!(row.name.value().trim()));
             let nets: Vec<Uuid> = self

@@ -264,9 +264,7 @@ impl RuleField {
             RuleField::TentViasBottom => (RuleKind::MaskExpansion, F::TentViasBottom),
             RuleField::PasteExpansion => (RuleKind::PasteExpansion, F::Expansion),
             RuleField::PastePercent => (RuleKind::PasteExpansion, F::Percent),
-            RuleField::Connection(t, v) => {
-                (RuleKind::ZoneConnection, F::connection_field(t, v))
-            }
+            RuleField::Connection(t, v) => (RuleKind::ZoneConnection, F::connection_field(t, v)),
         }
     }
 
@@ -339,10 +337,7 @@ impl RuleField {
             return Ok(None);
         }
         let one_of = |options: &[&str], message: String| {
-            options
-                .contains(&text)
-                .then_some(())
-                .ok_or(message)
+            options.contains(&text).then_some(()).ok_or(message)
         };
         Ok(Some(match self.kind() {
             ValueKind::Length => json!(optional(text)?.map_or(0, |n| n.0)),

@@ -10,6 +10,9 @@ use crate::settings::{PageCx, field, problem_label};
 use crate::tr;
 
 const THICKNESS_WIDTH: f32 = 90.0;
+
+/// Where one of the Stackup's texts lives in the drafts.
+type TextOf = fn(&mut StackupDraft) -> &mut String;
 const SECTION_WIDTH: f32 = 160.0;
 /// The table's column, which the totals and notes under it wrap to.
 const TABLE_WIDTH: f32 = 340.0;
@@ -168,11 +171,7 @@ fn cross_section(ui: &mut Ui, board: &BoardSetupDraft) {
         }
         y += h;
     }
-    let summary = bands
-        .iter()
-        .map(band_text)
-        .collect::<Vec<_>>()
-        .join(", ");
+    let summary = bands.iter().map(band_text).collect::<Vec<_>>().join(", ");
     let label = tr!("board-setup-cross-section-of", bands = summary);
     response.widget_info(|| WidgetInfo::labeled(Role::Image, true, &label));
     ui.weak(tr!("board-setup-not-to-scale"));
@@ -195,7 +194,7 @@ fn looks(ui: &mut Ui, board: &mut BoardSetupDraft) {
         .num_columns(2)
         .spacing([12.0, 6.0])
         .show(ui, |ui| {
-            let rows: [(String, &[String], fn(&mut StackupDraft) -> &mut String); 3] = [
+            let rows: [(String, &[String], TextOf); 3] = [
                 (
                     tr!("board-setup-finish"),
                     &suggestions.finish,

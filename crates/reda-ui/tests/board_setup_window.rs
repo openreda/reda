@@ -121,8 +121,16 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     );
     retype(&mut h, "Top Copper thickness", "2oz");
     // The cross-section and the totals follow as you type.
-    assert!(section(&h).contains("Top Copper 0.07 mm"), "{}", section(&h));
-    assert!(section(&h).contains("Dielectric 1 1.495 mm"), "{}", section(&h));
+    assert!(
+        section(&h).contains("Top Copper 0.07 mm"),
+        "{}",
+        section(&h)
+    );
+    assert!(
+        section(&h).contains("Dielectric 1 1.495 mm"),
+        "{}",
+        section(&h)
+    );
     h.get_by_label_contains("total 1.6 mm against a target of 1.6 mm");
     choose(&mut h, "Surface finish", "ENIG");
     h.get_by_role_and_label(Role::MultilineTextInput, "Fab Notes text")
@@ -137,7 +145,10 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     assert!(h.query_by_label("Board Setup").is_none(), "OK closes");
     let board = pcb(&h);
     let mask = board.board_rule(RuleKind::MaskExpansion).values;
-    assert_eq!((mask.top.unwrap().0, mask.bottom.unwrap().0), (80_000, 80_000));
+    assert_eq!(
+        (mask.top.unwrap().0, mask.bottom.unwrap().0),
+        (80_000, 80_000)
+    );
     let paste = board.board_rule(RuleKind::PasteExpansion).values;
     assert_eq!((paste.expansion, paste.percent), (None, Some(-10)));
     let zones = board.board_rule(RuleKind::ZoneConnection).values;
@@ -216,7 +227,10 @@ fn show_on_board_raises_the_board_view_only_with_a_banner_and_back_returns() {
         [track.parse().unwrap()]
     );
     h.get_by_label("1 object affected (view only)");
-    assert!(h.query_by_label("Select").is_none(), "the banner takes the Active Bar's place");
+    assert!(
+        h.query_by_label("Select").is_none(),
+        "the banner takes the Active Bar's place"
+    );
     // View-only: an edit key does nothing.
     h.state_mut()
         .shell_mut()
@@ -245,7 +259,11 @@ fn reset_page_previews_row_by_row_and_save_rules_as_fab_preset_adds_a_preset() {
     let seeded = value(&h, field);
     retype(&mut h, field, "0.5");
     // Acting on the applied rules waits until nothing is pending.
-    for action in ["Save Rules as Fab Preset…", "Export Rules…", "Import Rules…"] {
+    for action in [
+        "Save Rules as Fab Preset…",
+        "Export Rules…",
+        "Import Rules…",
+    ] {
         assert!(
             h.get_by_role_and_label(Role::Button, action)
                 .accesskit_node()

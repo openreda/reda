@@ -448,13 +448,15 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             ),
             (
                 Rule::TrackWidth,
-                vec![(Some(DrcCheck::TrackWidth),
+                vec![(
+                    Some(DrcCheck::TrackWidth),
                     vec![F::TrackWidth, F::TrackPreferred, F::TrackMax]
                 )]
             ),
             (
                 Rule::Vias,
-                vec![(Some(DrcCheck::ViaSize),
+                vec![(
+                    Some(DrcCheck::ViaSize),
                     vec![
                         F::ViaDiameter,
                         F::ViaDiameterPreferred,

@@ -4,8 +4,8 @@
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{
-    CopperEntry, DielectricEntry, PcbDocument, Project, Stackup, StackupEntry,
-    StackupSuggestions, StackupTotals, Uuid,
+    CopperEntry, DielectricEntry, PcbDocument, Project, Stackup, StackupEntry, StackupSuggestions,
+    StackupTotals, Uuid,
 };
 use serde_json::{Map, Value, json};
 
@@ -131,8 +131,7 @@ impl StackupDraft {
                     uuid,
                     thickness: Draft::default(),
                 };
-                let same = row_value(&row, thickness.value()).ok()
-                    == row_value(&row, &fresh).ok();
+                let same = row_value(&row, thickness.value()).ok() == row_value(&row, &fresh).ok();
                 thickness.load(fresh, reset || same);
                 StackupRow { thickness, ..row }
             })

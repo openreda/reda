@@ -14,9 +14,7 @@ use std::path::PathBuf;
 use reda_engine::model::{Project, Uuid};
 use reda_engine::state::{self, WindowPlace};
 
-use super::{
-    FileRequest, Outcome, SettingsDialog, board_setup, change_list, output_job, project,
-};
+use super::{FileRequest, Outcome, SettingsDialog, board_setup, change_list, output_job, project};
 use crate::bridge::Bridge;
 use crate::layout::{Layout, SettingsWindow, TabKey, WindowRect};
 use crate::preferences_dialog::{Outcome as PreferencesOutcome, PageId, PreferencesDialog};
@@ -99,7 +97,9 @@ impl SettingsWindows {
     /// Steps `window` back over its last pending edit (`Mod+Z` inside Board Setup); false
     /// when it has none, so the key falls through to the undo stack.
     pub fn step_back(&mut self, window: SettingsWindow) -> bool {
-        self.dialogs.get_mut(&window).is_some_and(SettingsDialog::step_back)
+        self.dialogs
+            .get_mut(&window)
+            .is_some_and(SettingsDialog::step_back)
     }
 
     /// Applies `window`'s changes as one `batch`; the error says why it could not.

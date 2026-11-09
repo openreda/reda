@@ -158,10 +158,7 @@ fn zone_connections_set_values_per_target_and_class_and_the_naming_scheme() {
         assert_eq!(board.rule(smd(V::Spokes)), "4");
         assert_eq!(board.rule(smd(V::Gap)), "0.25");
         assert_eq!(board.rule(smd(V::Angle)), "0");
-        assert_eq!(
-            board.rule(RuleField::Connection(T::Via, V::Style)),
-            "solid"
-        );
+        assert_eq!(board.rule(RuleField::Connection(T::Via, V::Style)), "solid");
         board.set_rule(smd(V::Spokes), "2");
         board.set_rule(smd(V::Angle), "90");
         board.set_rule(smd(V::Gap), "0.3");
@@ -386,7 +383,10 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
         .set_rule(RuleField::Clearance, "0.3");
     assert!(d.step_back());
     assert_eq!(
-        d.page::<DrcPage>().unwrap().board().rule(RuleField::Clearance),
+        d.page::<DrcPage>()
+            .unwrap()
+            .board()
+            .rule(RuleField::Clearance),
         "0.25"
     );
     d.apply(&mut shell).unwrap();
@@ -464,7 +464,11 @@ fn reset_page_to_fab_preset_previews_only_that_pages_values() {
     assert_eq!(rules, [RuleField::TrackWidth]);
     board.accept_fab_preview();
     assert_eq!(board.rule(RuleField::TrackWidth), seeded);
-    assert_eq!(board.rule(RuleField::Clearance), "0.3", "another page's value");
+    assert_eq!(
+        board.rule(RuleField::Clearance),
+        "0.3",
+        "another page's value"
+    );
 }
 
 #[test]

@@ -30,7 +30,11 @@ fn preview_rows(result: &Value) -> Vec<String> {
             .unwrap_or_default();
         let kind = capitalised(&kind);
         rows.push(match o["net_class"].as_str() {
-            Some(class) => tr!("board-setup-import-class-record", rule = kind, class = class),
+            Some(class) => tr!(
+                "board-setup-import-class-record",
+                rule = kind,
+                class = class
+            ),
             None => tr!("board-setup-import-board-record", rule = kind),
         });
     }

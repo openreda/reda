@@ -12,7 +12,12 @@ use crate::settings::{FileRequest, PageCx};
 use crate::tr;
 
 /// The actions, then any preview, form or report they opened.
-pub fn rule_actions(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft, page: Option<Rule>) {
+pub fn rule_actions(
+    ui: &mut Ui,
+    cx: &mut PageCx<'_>,
+    board: &mut BoardSetupDraft,
+    page: Option<Rule>,
+) {
     let presets: Vec<(Uuid, String)> = board.presets().map(|(u, n)| (u, n.to_owned())).collect();
     ui.horizontal_wrapped(|ui| {
         ui.label(tr!("board-setup-fab-preset"));
@@ -139,7 +144,10 @@ fn save_form(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
             let edit = ui.add(TextEdit::singleline(&mut name).desired_width(200.0));
             edit.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, &label));
             save = ui
-                .add_enabled(!name.trim().is_empty(), Button::new(tr!("board-setup-save")))
+                .add_enabled(
+                    !name.trim().is_empty(),
+                    Button::new(tr!("board-setup-save")),
+                )
                 .clicked();
             cancel = ui.button(tr!("dialog-cancel")).clicked();
         });

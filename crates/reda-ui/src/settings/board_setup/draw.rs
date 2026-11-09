@@ -187,7 +187,12 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
         });
     let kind = section.fields[0].rule().0;
     let what = tr!("board-setup-board-wide-kind", kind = kind_name(kind));
-    show_button(ui, cx, &what, board.shown(kind, ClassKey::Default).into_iter().collect());
+    show_button(
+        ui,
+        cx,
+        &what,
+        board.shown(kind, ClassKey::Default).into_iter().collect(),
+    );
     ui.add_space(6.0);
     let overrides = section.fields;
     let classes: Vec<(ClassKey, String)> = board
