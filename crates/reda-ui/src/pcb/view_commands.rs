@@ -123,7 +123,7 @@ impl Command for LayerSetApply {
             .map(|set| {
                 Preset::new(
                     *set,
-                    &format!("Layer Set: {}", title(set)),
+                    format!("Layer Set: {}", title(set)),
                     "layers",
                     json!({ "set": set }),
                 )

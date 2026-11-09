@@ -93,7 +93,7 @@ impl BoardView {
     pub fn style(&self, prefs: &Preferences) -> BoardStyle {
         use reda_engine::preferences::{NetColorPattern as P, NetColorZoomOut as Z};
         let view = &prefs.pcb.view;
-        let net_colors = self.layers.net_colors.then(|| NetColorStyle {
+        let net_colors = self.layers.net_colors.then_some(NetColorStyle {
             pattern: match view.net_color_pattern {
                 P::Solid => NetColorPattern::Solid,
                 P::Checker => NetColorPattern::Checker,

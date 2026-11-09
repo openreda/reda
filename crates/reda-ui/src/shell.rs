@@ -46,6 +46,7 @@ use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
+
 use crate::working_state::{self, SelectionFilter, SnapOptions, WorkingState};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
@@ -66,6 +67,10 @@ impl InstalledFonts for NoFonts {
         None
     }
 }
+
+/// What a canvas's masking was worked out for (Scene and marks generations), and the
+/// answer.
+type MaskingKey = ((u64, u64), bool);
 
 /// A Document open in a tab.
 #[derive(Clone, Debug, PartialEq)]
@@ -168,7 +173,7 @@ pub struct Shell {
     marked: SelectionHandle,
     /// Per Document: whether its canvas masks what is not highlighted, keyed by the Scene
     /// and marks generations it was worked out for.
-    masking: std::cell::RefCell<HashMap<Uuid, ((u64, u64), bool)>>,
+    masking: std::cell::RefCell<HashMap<Uuid, MaskingKey>>,
     /// What the highlight marks were last worked out from: the selection, the
     /// [`Highlight`], the edit count and the switches.
     probed: Option<(Selection, Highlight, u64, CrossProbe)>,
