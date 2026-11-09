@@ -95,7 +95,10 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         ])
     );
     for name in ["Demo.gtp", "Demo.gto", "Demo-PTH.drl", "Demo-NPTH.drl"] {
-        assert!(!folder.join("fab").join(name).exists(), "{name} is not written");
+        assert!(
+            !folder.join("fab").join(name).exists(),
+            "{name} is not written"
+        );
     }
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
@@ -266,7 +269,10 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     std::fs::write(folder.join("notes.txt"), b"mine").unwrap();
     run(&mut engine);
     assert_ne!(std::fs::read(fab.join("Demo.gtl")).unwrap(), b"old");
-    assert!(!folder.join("Demo.gtl").exists(), "the old layout's loose file is gone");
+    assert!(
+        !folder.join("Demo.gtl").exists(),
+        "the old layout's loose file is gone"
+    );
 
     engine.run_ok(
         "output.job.set",
@@ -316,8 +322,14 @@ fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
         .map(|f| (f["path"].as_str().unwrap(), f["function"].as_str().unwrap()))
         .collect();
     // Beside the zip, named from the name template.
-    assert!(files.contains(&("Demo-Generic-BOM.csv", "bom")), "{files:?}");
-    assert!(files.contains(&("Demo-Generic-CPL.csv", "cpl")), "{files:?}");
+    assert!(
+        files.contains(&("Demo-Generic-BOM.csv", "bom")),
+        "{files:?}"
+    );
+    assert!(
+        files.contains(&("Demo-Generic-CPL.csv", "cpl")),
+        "{files:?}"
+    );
     assert!(
         !out["warnings"]
             .as_array()
@@ -344,8 +356,14 @@ fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
         json!({"job": JOB, "outputs": {"bom": false, "cpl": false}}),
     );
     run(&mut engine);
-    assert!(!folder.join("Demo-Generic-BOM.csv").exists(), "BOM turned off");
-    assert!(!folder.join("Demo-Generic-CPL.csv").exists(), "CPL turned off");
+    assert!(
+        !folder.join("Demo-Generic-BOM.csv").exists(),
+        "BOM turned off"
+    );
+    assert!(
+        !folder.join("Demo-Generic-CPL.csv").exists(),
+        "CPL turned off"
+    );
 }
 
 #[test]
@@ -372,7 +390,8 @@ fn stale_zones_are_refilled_before_plotting() {
         true
     );
     run(&mut engine);
-    let gtl = std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/fab/Demo.gtl")).unwrap();
+    let gtl =
+        std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/fab/Demo.gtl")).unwrap();
     assert!(gtl.contains("G36*"), "the fill is plotted as a region");
     assert_eq!(
         engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
@@ -761,7 +780,11 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
             let destination = PathBuf::from(out["destination"].as_str().unwrap());
             let read = |name: &str| {
                 let fab = destination.join("fab").join(name);
-                let path = if fab.exists() { fab } else { destination.join(name) };
+                let path = if fab.exists() {
+                    fab
+                } else {
+                    destination.join(name)
+                };
                 std::fs::read_to_string(path).unwrap()
             };
             let copper = read("Demo.gtl");
