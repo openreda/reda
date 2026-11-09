@@ -21,7 +21,7 @@ pub mod draw;
 pub mod layer_control;
 pub mod live_hover;
 pub mod route;
-mod route_commands;
+pub mod route_commands;
 mod select_commands;
 pub mod silkscreen;
 pub mod tool;

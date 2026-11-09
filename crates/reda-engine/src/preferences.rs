@@ -374,6 +374,34 @@ pub struct RoutePreferences {
     pub remove_antennas: bool,
     /// Loop removal takes an old path through Vias, with its Vias.
     pub remove_loops_through_vias: bool,
+    /// Reaching a same-Net Pad, Via or Track ends the route (`Shift+A`). Off, a re-route
+    /// can run along an existing path.
+    pub auto_terminate: bool,
+    /// Other-Net copper grown by its clearance, shaded while routing (`C`): `off`,
+    /// `near` (within 5 mm of the cursor) or `all`.
+    pub clearance_display: ClearanceDisplay,
+}
+
+/// Which clearance halos the Track Tool shades. Kept in `pcb.route.clearance_display`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ClearanceDisplay {
+    Off,
+    /// Copper within 5 mm of the cursor.
+    #[default]
+    Near,
+    All,
+}
+
+impl ClearanceDisplay {
+    /// The value `C` goes to next.
+    pub fn next(self) -> ClearanceDisplay {
+        match self {
+            ClearanceDisplay::Off => ClearanceDisplay::Near,
+            ClearanceDisplay::Near => ClearanceDisplay::All,
+            ClearanceDisplay::All => ClearanceDisplay::Off,
+        }
+    }
 }
 
 impl Default for RoutePreferences {
@@ -386,6 +414,8 @@ impl Default for RoutePreferences {
             loop_removal: true,
             remove_antennas: true,
             remove_loops_through_vias: true,
+            auto_terminate: true,
+            clearance_display: ClearanceDisplay::Near,
         }
     }
 }

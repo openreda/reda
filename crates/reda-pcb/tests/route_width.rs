@@ -154,3 +154,48 @@ fn the_chooser_lists_the_nets_widths_favourites_and_widths_on_the_board() {
         ]
     );
 }
+
+#[test]
+fn the_via_chooser_lists_the_nets_size_then_the_sizes_on_the_board() {
+    use reda_pcb::route::width::via_choices;
+    use reda_pcb::route::{ViaChoice, ViaSize};
+    let dir = TempDir::new("via-choices");
+    let (mut engine, pwr) = board(&dir);
+    let preferred = {
+        let rules = reda_pcb::rules::net_rules(pcb(&engine), Some(pwr));
+        ViaSize {
+            diameter: rules.via_diameter.default_size(),
+            hole: rules.via_hole.default_size(),
+        }
+    };
+    for (x, d, h) in [(0, "1mm", "0.5mm"), (5, "0.8mm", "0.4mm"), (9, "1mm", "0.5mm")] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at": {"x": format!("{x}mm"), "y": 0}, "diameter": d, "hole": h}),
+        );
+    }
+    let choices = via_choices(pcb(&engine), Some(pwr));
+    assert_eq!(
+        choices,
+        [
+            ViaChoice {
+                size: preferred,
+                source: WidthSource::Preferred
+            },
+            ViaChoice {
+                size: ViaSize {
+                    diameter: um(800),
+                    hole: um(400)
+                },
+                source: WidthSource::Board
+            },
+            ViaChoice {
+                size: ViaSize {
+                    diameter: um(1000),
+                    hole: um(500)
+                },
+                source: WidthSource::Board
+            },
+        ]
+    );
+}

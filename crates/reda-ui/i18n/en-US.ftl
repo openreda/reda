@@ -966,6 +966,7 @@ route-blocked = Too close to other copper: { $actual } where { $required } is ne
 route-keepout = That would put copper in a Keepout
 route-edge = Too close to the board edge
 route-width-clipped = Width clipped to the Net's { $limit }: { $width }
+route-via-clipped = Via size clipped to the Net's range: { $diameter } with a { $hole } hole
 route-loop-narrower = Loop kept: the new route is narrower than the old path
 route-loop-branch = Loop kept: a branch joins the old path; delete it by hand
 route-loop-through-vias = Loop kept: the old path goes through Vias

@@ -40,7 +40,7 @@ pub use commands::{
     placement_preview, rect_outline, register_all, register_all_with_user, zone_listing,
 };
 pub use copper::{
-    ClearanceHit, Connections, Copper, Item, Proposal, RatsnestEnds, RatsnestLine,
+    ClearanceHit, Connections, Copper, Halo, Item, Proposal, RatsnestEnds, RatsnestLine,
     RatsnestVisibility,
 };
 pub use text::{

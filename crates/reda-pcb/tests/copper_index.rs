@@ -272,3 +272,48 @@ fn a_pads_copper_follows_its_side_offset_and_cut_corners() {
     assert_eq!(copper.items_at(top, at(x + 1900 - 2000, 400)), [pad]);
     assert!(copper.items_at(bottom, at(x - 1000, 0)).is_empty());
 }
+
+#[test]
+fn clearance_halos_grow_other_net_copper_near_the_cursor() {
+    use reda_model::geom::{Nm, Point};
+    use reda_model::{LayerKind, Side};
+    let dir = TempDir::new("halos");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let sig = uuid(&engine.run_ok("test.net.add", json!({"name": "SIG"}))["result"]["uuid"]);
+    let gnd = uuid(&engine.run_ok("test.net.add", json!({"name": "GND"}))["result"]["uuid"]);
+    let track = |engine: &mut TestEngine, net: Uuid, y: &str| {
+        uuid(
+            &engine.run_ok(
+                "pcb.track.add",
+                json!({"layer": "copper_top", "net": net, "width": "0.2mm",
+                       "points": [{"x": 0, "y": y}, {"x": "1mm", "y": y}]}),
+            )["result"]["tracks"][0],
+        )
+    };
+    let own = track(&mut engine, sig, "0mm");
+    let near = track(&mut engine, gnd, "2mm");
+    let far = track(&mut engine, gnd, "20mm");
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let top = pcb.layers().find(LayerKind::Copper, Some(Side::Top)).unwrap().uuid;
+    let copper = Copper::of(project).unwrap();
+    let origin = Point::new(Nm::ZERO, Nm::ZERO);
+
+    let all = copper.halos(pcb, top, Some(sig), None);
+    let items: Vec<Uuid> = all.iter().map(|h| h.item.object()).collect();
+    assert!(!items.contains(&own), "the route's own Net has no halo");
+    assert_eq!(items.len(), 2);
+    assert!(items.contains(&near) && items.contains(&far));
+    let halo = &all[0];
+    assert!(halo.clearance > Nm::ZERO);
+    assert_eq!(
+        halo.shape.prims[0].radius,
+        Nm::from_um(100).0 + halo.clearance.0,
+        "half the width plus the clearance"
+    );
+
+    let close = copper.halos(pcb, top, Some(sig), Some((origin, Nm::from_mm(5))));
+    let items: Vec<Uuid> = close.iter().map(|h| h.item.object()).collect();
+    assert_eq!(items, [near], "only copper within 5 mm");
+}

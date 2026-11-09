@@ -162,3 +162,49 @@ pub fn width_choices(pcb: &PcbDocument, net: Option<Uuid>, favourites: &[Nm]) ->
     }
     out
 }
+
+/// A Via's copper diameter and hole.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, JsonSchema)]
+pub struct ViaSize {
+    pub diameter: Nm,
+    pub hole: Nm,
+}
+
+/// One row of the Via size chooser (`Shift+V`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct ViaChoice {
+    pub size: ViaSize,
+    pub source: WidthSource,
+}
+
+/// The Net's preferred Via size (each clipped into its range).
+pub fn preferred_via(pcb: &PcbDocument, net: Option<Uuid>) -> ViaSize {
+    let rules = net_rules(pcb, net);
+    ViaSize {
+        diameter: rules.via_diameter.default_size(),
+        hole: rules.via_hole.default_size(),
+    }
+}
+
+/// The Via size chooser's list: the Net's preferred size, then the sizes of the Vias
+/// already on the board, each size once, sorted.
+pub fn via_choices(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<ViaChoice> {
+    let preferred = preferred_via(pcb, net);
+    let mut out = vec![ViaChoice {
+        size: preferred,
+        source: WidthSource::Preferred,
+    }];
+    let board: BTreeSet<ViaSize> = pcb
+        .vias()
+        .map(|v| ViaSize {
+            diameter: v.diameter,
+            hole: v.hole,
+        })
+        .filter(|s| *s != preferred)
+        .collect();
+    out.extend(board.into_iter().map(|size| ViaChoice {
+        size,
+        source: WidthSource::Board,
+    }));
+    out
+}
