@@ -561,7 +561,9 @@ fn break_wire_preferences_start_at_snap_to_segment_with_both_displays_always() {
         );
         assert_eq!(err.code, ErrorCode::InvalidParams, "{refused}");
     }
+}
 
+#[test]
 fn checks_preferences_default_to_a_cross_pattern_and_the_override_colour_zoomed_out() {
     let home = TempDir::new("prefs-checks");
     let out = get(home.path(), "checks.overlay_style");
