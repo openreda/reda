@@ -4,7 +4,6 @@
 mod gerber_reader;
 
 use gerber_reader::{Object, read};
-use reda_command::Timestamp;
 use reda_model::Uuid;
 use reda_output::{OutputFile, Plot, gerber_files};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
@@ -51,6 +50,7 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
         fonts: &reda_command::Fonts::default(),
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     })
     .unwrap()
     .files
@@ -75,17 +75,17 @@ fn the_files_are_named_the_protel_way() {
     assert_eq!(
         names(&files),
         [
-            "Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GTP", "Demo.GBP", "Demo.GTO",
-            "Demo.GBO", "Demo.GKO"
+            "Demo.gtl", "Demo.gbl", "Demo.gts", "Demo.gbs", "Demo.gtp", "Demo.gbp", "Demo.gto",
+            "Demo.gbo", "Demo.gm1"
         ]
     );
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     assert!(top.ended);
     assert_eq!(top.file[".FileFunction"], "Copper,L1,Top");
     assert_eq!(top.file[".FilePolarity"], "Positive");
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
     assert_eq!(bottom.file[".FileFunction"], "Copper,L2,Bot");
-    let profile = read(&file(&files, "Demo.GKO").bytes);
+    let profile = read(&file(&files, "Demo.gm1").bytes);
     assert_eq!(profile.file[".FileFunction"], "Profile,NP");
 }
 
@@ -100,9 +100,9 @@ fn tracks_read_back_as_draws_with_their_width_and_net() {
                "points": [pt(2.0, 2.0), pt(10.0, 2.0), pt(12.5, 4.5)]}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     assert_eq!(top.draws().count(), 0);
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
     let mut draws: Vec<_> = bottom
         .draws()
         .map(|d| match d {
@@ -199,8 +199,8 @@ fn pads_read_back_with_their_shape_turn_and_side() {
                "width": "1.6mm", "hole": {"width": "0.8mm"}, "net": gnd}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
 
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
@@ -288,8 +288,8 @@ fn a_pad_with_mixed_corners_and_an_offset_is_one_flash_of_its_own_macro() {
         json!({"at": pt(35.0, 5.0), "pads": [bottom_pad]}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
     let um = |v: f64| v * 1_000.0;
     // (layer, anchor, probes seen from the top relative to the anchor: inside or not)
     type Probes = Vec<((f64, f64), bool)>;
@@ -362,7 +362,7 @@ fn vias_flash_on_every_layer_they_span() {
         json!({"at": pt(7.0, 8.0), "net": gnd, "diameter": "0.6mm", "hole": "0.3mm"}),
     );
     let files = plot(&engine);
-    for name in ["Demo.GTL", "Demo.GBL"] {
+    for name in ["Demo.gtl", "Demo.gbl"] {
         let layer = read(&file(&files, name).bytes);
         let Object::Flash {
             aperture,
@@ -409,7 +409,7 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
                "vertices": rect(8.0, 8.0, 12.0, 12.0)}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
@@ -489,7 +489,7 @@ fn the_profile_follows_the_board_outline_arcs_included() {
                "board": {"width": "30mm", "height": "20mm", "corner_radius": "2mm"}}),
     );
     let files = plot(&engine);
-    let profile = read(&file(&files, "Demo.GKO").bytes);
+    let profile = read(&file(&files, "Demo.gm1").bytes);
     let outline = engine
         .project()
         .unwrap()
@@ -610,25 +610,20 @@ fn the_files_match_their_goldens_byte_for_byte() {
 }
 
 #[test]
-fn the_zip_holds_every_file_stamped_with_the_clock() {
+fn the_zip_holds_every_file_dated_1980_01_01_so_it_is_the_same_on_every_run() {
     let dir = TempDir::new("gerber-zip");
     let engine = demo(&dir);
     let files = plot(&engine);
-    let created = Timestamp(1_767_225_600_000 + 3_723_000);
-    let bytes = reda_output::zip(&files, created);
-    assert_eq!(
-        bytes,
-        reda_output::zip(&files, created),
-        "the same every time"
-    );
+    let bytes = reda_output::zip(&files);
+    assert_eq!(bytes, reda_output::zip(&files), "the same every time");
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
     assert_eq!(archive.len(), files.len());
     for (i, f) in files.iter().enumerate() {
         let mut entry = archive.by_index(i).unwrap();
         assert_eq!(entry.name().unwrap(), f.name);
         let stamp = entry.last_modified().unwrap();
-        assert_eq!((stamp.year(), stamp.month(), stamp.day()), (2026, 1, 1));
-        assert_eq!((stamp.hour(), stamp.minute(), stamp.second()), (1, 2, 2));
+        assert_eq!((stamp.year(), stamp.month(), stamp.day()), (1980, 1, 1));
+        assert_eq!((stamp.hour(), stamp.minute(), stamp.second()), (0, 0, 0));
         let mut content = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut content).unwrap();
         assert_eq!(content, f.bytes);
@@ -649,7 +644,7 @@ fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
     let mask_files = |engine: &TestEngine| {
         plot(engine)
             .into_iter()
-            .filter(|f| f.name.ends_with(".GTS") || f.name.ends_with(".GBS"))
+            .filter(|f| f.name.ends_with(".gts") || f.name.ends_with(".gbs"))
             .collect::<Vec<_>>()
     };
     apply(&mut engine, "JLCPCB");
@@ -679,7 +674,7 @@ fn knockout_text_plots_dark_polygons_with_glyph_holes_without_erasing_other_silk
     engine.run_ok("pcb.graphic.add_line",json!({"layer":"silkscreen_top","width":"0.1mm","from":{"x":0,"y":0},"to":{"x":"20mm","y":0}}));
     engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"A","x":"5mm","y":"5mm","height":"2.1mm","thickness":"0.2mm","knockout":{"margin":"0.3mm"}}));
     let files = plot(&engine);
-    let layer = read(&file(&files, "Demo.GTO").bytes);
+    let layer = read(&file(&files, "Demo.gto").bytes);
     assert_eq!(layer.draws().count(), 1, "background silk is kept");
     let regions: Vec<_> = layer.regions().collect();
     // The box less the "A": the piece round it, and the island in its counter.
@@ -708,7 +703,7 @@ fn gerber_text_frames_omit_whole_lines_instead_of_clipping_glyphs() {
     let mut engine = board(&dir);
     engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"AAA","x":"5mm","y":"5mm","height":"2.1mm","frame":{"width":"3.6mm","height":"2.1mm"}}));
     let files = plot(&engine);
-    let layer = read(&file(&files, "Demo.GTO").bytes);
+    let layer = read(&file(&files, "Demo.gto").bytes);
     assert_eq!(
         layer.draws().count(),
         6,
@@ -734,7 +729,7 @@ fn outputs_leave_shelved_zones_out() {
         .clone();
     let regions = |engine: &TestEngine| {
         let files = plot(engine);
-        read(&file(&files, "Demo.GTL").bytes).regions().count()
+        read(&file(&files, "Demo.gtl").bytes).regions().count()
     };
     assert_eq!(regions(&engine), 1);
     // Filled, then shelved: even the fill still stored for it is left out.

@@ -54,6 +54,27 @@ impl NameTemplate {
         Ok(Self(raw))
     }
 
+    /// The template with its tokens replaced by `values` (one per [`NAME_TEMPLATE_TOKENS`]
+    /// name). A value may still bring in a character a file name can't hold, such as a
+    /// `/` in the revision, which is refused here.
+    pub fn resolve(
+        &self,
+        values: impl Fn(&str) -> Option<String>,
+    ) -> Result<String, NameTemplateError> {
+        let name = text::resolve(&self.0, values).map_err(|e| NameTemplateError(e.to_string()))?;
+        if let Some(c) = name.chars().find(|c| REFUSED.contains(c)) {
+            return Err(NameTemplateError(format!(
+                "the name \"{name}\" can't hold {c:?}"
+            )));
+        }
+        if name.trim().is_empty() {
+            return Err(NameTemplateError(
+                "the name template resolves to nothing".into(),
+            ));
+        }
+        Ok(name)
+    }
+
     /// The raw template, tokens unresolved.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -116,6 +137,33 @@ mod tests {
         ] {
             assert!(NameTemplate::new(bad).is_err(), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn resolving_fills_the_tokens_and_refuses_a_value_a_file_name_cannot_hold() {
+        let template =
+            NameTemplate::new("${project}_${revision}_${date}_${preset}-${job}").unwrap();
+        let values = |revision: &'static str| {
+            move |name: &str| {
+                Some(match name {
+                    "project" => "Demo".to_owned(),
+                    "revision" => revision.to_owned(),
+                    "date" => "2026-01-01".to_owned(),
+                    "preset" => "JLCPCB".to_owned(),
+                    "job" => "Bare".to_owned(),
+                    _ => return None,
+                })
+            }
+        };
+        assert_eq!(
+            template.resolve(values("B")).unwrap(),
+            "Demo_B_2026-01-01_JLCPCB-Bare"
+        );
+        assert!(template.resolve(values("A/B")).is_err());
+        assert_eq!(
+            NameTemplate::default().resolve(values("")).unwrap(),
+            "Demo-Bare"
+        );
     }
 
     #[test]

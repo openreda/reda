@@ -2,8 +2,8 @@
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
-    DocumentKind, NameTemplate, NotFittedPaste, Object, OutputJob, Outputs, PdfColour, Project,
-    Uuid,
+    DocumentKind, NAME_TEMPLATE_TOKENS, NameTemplate, NotFittedPaste, Object, OutputJob, Outputs,
+    PdfColour, Project, Uuid,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -130,6 +130,11 @@ pub fn job_destination(value: String) -> Result<Option<String>, CommandError> {
             "the destination must be a /-separated folder inside the Project folder",
         ));
     }
+    // The same tokens as the name template; the run resolves them.
+    let known = |name: &str| NAME_TEMPLATE_TOKENS.contains(&name).then(String::new);
+    reda_model::text::resolve(&value, known).map_err(|e| {
+        CommandError::invalid_params("/destination", format!("the destination: {e}"))
+    })?;
     Ok(Some(value))
 }
 

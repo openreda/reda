@@ -1,7 +1,7 @@
 //! Solder Mask and Paste geometry resolved from the board's rules and Pad/Via overrides.
 //! Each board contributes openings to the shared writer, which applies its instance transform.
 
-use reda_model::Side;
+use reda_model::{NotFittedPaste, Side};
 use reda_pcb::openings::{self, Kind};
 use reda_pcb::placed::PlacedPad;
 
@@ -32,11 +32,19 @@ pub(super) fn mask_openings(plot: &BoardPlot<'_>, side: Side) -> Vec<PlacedPad> 
         .collect()
 }
 
-/// The Paste file of `side`.
+/// The Paste file of `side`. With `not_fitted_paste: remove`, a Not Fitted Footprint's
+/// Pads open no paste.
 pub(super) fn paste(plot: &BoardPlot<'_>, side: Side, g: &mut Gerber) {
+    let removed = |o: &openings::Opening| {
+        plot.not_fitted_paste == NotFittedPaste::Remove
+            && o.objects
+                .first()
+                .and_then(|&u| plot.pcb.footprint(u))
+                .is_some_and(|f| f.not_fitted)
+    };
     for opening in openings::resolve(plot.pcb)
         .into_iter()
-        .filter(|o| o.side == side && o.kind == Kind::Paste)
+        .filter(|o| o.side == side && o.kind == Kind::Paste && !removed(o))
         .filter_map(|o| o.geometry)
     {
         flash(g, &opening);

@@ -63,6 +63,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         fonts: &fonts,
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     };
     assert!(gerber_files(&empty).unwrap().files.is_empty());
     let drills = drill_files(&empty);
@@ -85,11 +86,12 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         fonts: &fonts,
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     };
     let gerbers = gerber_files(&plot).unwrap().files;
     let read =
         |name: &str| gerber_reader::read(&gerbers.iter().find(|f| f.name == name).unwrap().bytes);
-    let copper = read("Demo.GTL");
+    let copper = read("Demo.gtl");
     assert!(copper.draws().any(|o| matches!(
         o,
         gerber_reader::Object::Draw {
@@ -98,7 +100,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
             ..
         }
     )));
-    for name in ["Demo.GTL", "Demo.GTS", "Demo.GTP"] {
+    for name in ["Demo.gtl", "Demo.gts", "Demo.gtp"] {
         assert!(
             read(name).flashes().any(|o| matches!(
                 o,
@@ -128,7 +130,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
     );
     for (name, at, inside_x, outside_x, inside_y, outside_y) in [
         (
-            "Demo.GTS",
+            "Demo.gts",
             (2_000_000, 32_000_000),
             690_000.0,
             710_000.0,
@@ -136,7 +138,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
             1_210_000.0,
         ),
         (
-            "Demo.GTP",
+            "Demo.gtp",
             (2_000_000, 32_500_000),
             90_000.0,
             110_000.0,
@@ -161,7 +163,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
         assert!(aperture.contains(0.0, inside_y), "{name}");
         assert!(!aperture.contains(0.0, outside_y), "{name}");
     }
-    let profile = read("Demo.GKO");
+    let profile = read("Demo.gm1");
     assert_eq!(profile.draws().count(), 8);
     let drills = drill_files(&plot).files;
     let plated = drill_reader::read(

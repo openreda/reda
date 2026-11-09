@@ -21,47 +21,47 @@
   },
   "FilesAttributes": [
     {
-      "Path": "UsbMcu.GTL",
+      "Path": "UsbMcu.gtl",
       "FileFunction": "Copper,L1,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GBL",
+      "Path": "UsbMcu.gbl",
       "FileFunction": "Copper,L2,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GTS",
+      "Path": "UsbMcu.gts",
       "FileFunction": "Soldermask,Top",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "UsbMcu.GBS",
+      "Path": "UsbMcu.gbs",
       "FileFunction": "Soldermask,Bot",
       "FilePolarity": "Negative"
     },
     {
-      "Path": "UsbMcu.GTP",
+      "Path": "UsbMcu.gtp",
       "FileFunction": "Paste,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GBP",
+      "Path": "UsbMcu.gbp",
       "FileFunction": "Paste,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GTO",
+      "Path": "UsbMcu.gto",
       "FileFunction": "Legend,Top",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GBO",
+      "Path": "UsbMcu.gbo",
       "FileFunction": "Legend,Bot",
       "FilePolarity": "Positive"
     },
     {
-      "Path": "UsbMcu.GKO",
+      "Path": "UsbMcu.gm1",
       "FileFunction": "Profile,NP",
       "FilePolarity": "Positive"
     },
