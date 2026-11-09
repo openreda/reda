@@ -8,9 +8,11 @@
 //!   selection when it is selected). The move is drawn from a preview of the board
 //!   (`reda_pcb::placement_preview`) and runs nothing until release, when it becomes one
 //!   Command (`pcb.move`), or one `batch` when it was also turned or flipped in flight.
-//! - Dragging a Track segment moves it across itself, its neighbours stretching to stay
-//!   attached (`Mod`+drag moves it freely, detached), drawn from the same plan as
-//!   `pcb.track.drag` (`reda_pcb::track_drag_plan`) and run as that one Command on release.
+//! - Dragging a Track segment slides it across itself by the slide rules, its neighbours
+//!   keeping their angles (`Mod`+drag moves it freely, detached; with
+//!   `pcb.drag.preserve_angle` off it moves freely and its neighbours' ends follow), drawn
+//!   from the same plan as `pcb.track.drag` (`reda_pcb::drag::segment`) and run as that one
+//!   Command on release.
 //! - Dragging from nothing draws a rubber band: left to right (as seen on screen) it
 //!   selects what it encloses, right to left what it touches, unless Directional
 //!   Rectangle is off.
@@ -24,7 +26,7 @@
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{InDocument, Object, ObjectType, Project, TrackGeometry, Uuid};
-use reda_engine::pcb::{Copper, PlacementOp, placement_anchor, placement_preview, track_drag_plan};
+use reda_engine::pcb::{Copper, PlacementOp, drag, placement_anchor, placement_preview};
 use serde_json::{Value, json};
 
 use super::snap::{self, SnapKind, Target};
@@ -112,6 +114,8 @@ struct TrackDrag {
     /// The press, on the grid.
     grab: Point,
     detach: bool,
+    /// `pcb.drag.preserve_angle` when the drag began.
+    preserve_angle: bool,
     /// The unit normal of a straight segment, which a plain drag moves along.
     normal: Option<(f64, f64)>,
     /// The drag so far.
@@ -374,7 +378,8 @@ impl SelectTool {
                     shell.redraw(d.document);
                 } else {
                     let by = json!({"x": d.by.x, "y": d.by.y});
-                    let params = json!({"track": d.track, "by": by, "detach": d.detach});
+                    let params = json!({"track": d.track, "by": by, "detach": d.detach,
+                                        "preserve_angle": d.preserve_angle});
                     if shell.run_reporting("pcb.track.drag", params).is_err() {
                         shell.redraw(d.document);
                     }
@@ -562,6 +567,7 @@ impl SelectTool {
             track,
             grab: snap::to_grid(at, board_grid(shell), shell.board_grid_origin()),
             detach,
+            preserve_angle: shell.preferences().pcb.drag.preserve_angle,
             normal,
             by: Point::default(),
             copper,
@@ -582,7 +588,7 @@ fn is_track(shell: &Shell, object: Uuid) -> bool {
 /// drag changed. A plain drag of a straight segment moves it across itself only.
 fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
     let raw = snap::to_grid(to, board_grid(shell), shell.board_grid_origin()) - d.grab;
-    let by = match (d.detach, d.normal) {
+    let by = match (d.detach || !d.preserve_angle, d.normal) {
         (false, Some((nx, ny))) => {
             let along = raw.x.0 as f64 * nx + raw.y.0 as f64 * ny;
             Point::new(
@@ -607,7 +613,12 @@ fn follow(shell: &mut Shell, d: &mut TrackDrag, to: Point) {
         return;
     };
     let mut n = 0u128;
-    let Ok(plan) = track_drag_plan(pcb, &d.copper, d.track, by, d.detach, || {
+    let options = drag::Options {
+        detach: d.detach,
+        preserve_angle: d.preserve_angle,
+        ..drag::Options::default()
+    };
+    let Ok(plan) = drag::segment(pcb, &d.copper, d.track, by, options, || {
         n += 1;
         Uuid::v4_from_bits(u128::MAX - n)
     }) else {

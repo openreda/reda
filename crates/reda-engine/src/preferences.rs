@@ -153,6 +153,8 @@ pub struct Editing {
     pub net_info: NetInfoPreferences,
     /// Interactive Routing: the Track Tool's values.
     pub route: RoutePreferences,
+    /// Dragging Tracks.
+    pub drag: DragPreferences,
     /// Placement: how Footprint moves behave.
     pub place: PlacePreferences,
     /// The Ratsnest.
@@ -252,6 +254,7 @@ impl Default for Editing {
             zone: ZonePreferences::default(),
             net_info: NetInfoPreferences::default(),
             route: RoutePreferences::default(),
+            drag: DragPreferences::default(),
             ratsnest: RatsnestPreferences::default(),
             view: BoardViewPreferences::default(),
             place: PlacePreferences::default(),
@@ -279,6 +282,24 @@ impl Default for PlacePreferences {
             obstacle_mode: reda_pcb::place::ObstacleMode::Ignore,
             alignment_guides: true,
             ratsnest_mode: reda_pcb::place::RatsnestMode::Breaks,
+        }
+    }
+}
+
+/// Dragging Tracks (docs/spec/v0.1/pcb.md#dragging-tracks). The drag Commands take
+/// these as explicit values; the Tool passes them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct DragPreferences {
+    /// Angle keeping (on): a slid segment's neighbours keep their lines and angles. Off,
+    /// the segment moves freely and its neighbours' ends follow.
+    pub preserve_angle: bool,
+}
+
+impl Default for DragPreferences {
+    fn default() -> DragPreferences {
+        DragPreferences {
+            preserve_angle: true,
         }
     }
 }
@@ -455,6 +476,7 @@ impl Default for SchematicEditing {
             zone: _,
             net_info: _,
             route: _,
+            drag: _,
             ratsnest: _,
             view: _,
             place: _,

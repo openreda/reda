@@ -496,6 +496,54 @@ fn dragging_a_segment_previews_then_runs_one_track_drag_keeping_neighbours() {
 }
 
 #[test]
+fn the_drag_passes_pcb_drag_preserve_angle_to_the_command() {
+    let mut b = board();
+    let t = add_route(&mut b, &[(0.0, 0.0), (0.0, 5.0), (10.0, 5.0), (10.0, 0.0)]);
+
+    // On (the default): a plain drag keeps the neighbours upright.
+    b.shell.pcb_press(mm(5.0, 5.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(7.0, 7.0));
+    b.shell.pcb_release();
+    let (_, params) = last_entry(&b);
+    assert_eq!(params["preserve_angle"], json!(true));
+    assert_eq!(
+        geometry(&b, t[0]),
+        TrackGeometry::Line {
+            from: mm(0.0, 0.0),
+            to: mm(0.0, 7.0)
+        }
+    );
+
+    // Off: the segment moves by the whole drag and its neighbours' ends follow.
+    b.shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.drag.preserve_angle", "value": false}),
+        )
+        .unwrap();
+    b.shell.pcb_press(mm(5.0, 7.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(7.0, 8.0));
+    b.shell.pcb_release();
+    let (id, params) = last_entry(&b);
+    assert_eq!(id, "pcb.track.drag");
+    assert_eq!(params["preserve_angle"], json!(false));
+    assert_eq!(
+        geometry(&b, t[1]),
+        TrackGeometry::Line {
+            from: mm(2.0, 8.0),
+            to: mm(12.0, 8.0)
+        }
+    );
+    assert_eq!(
+        geometry(&b, t[0]),
+        TrackGeometry::Line {
+            from: mm(0.0, 0.0),
+            to: mm(2.0, 8.0)
+        }
+    );
+}
+
+#[test]
 fn select_connected_and_delete_work_on_the_selection() {
     let mut b = board();
     let t = add_route(&mut b, &[(0.0, 0.0), (5.0, 0.0), (10.0, 0.0)]);
