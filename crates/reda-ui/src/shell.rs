@@ -1317,6 +1317,9 @@ impl Shell {
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
         }
+        let silkscreen = crate::pcb::silkscreen::COMMANDS
+            .contains(&base)
+            .then(|| params.clone());
         let out = self.engine.run(id, params);
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -1329,6 +1332,9 @@ impl Shell {
             crate::element_editor::after_open(self, &out);
         }
         self.after_element_run(base, &out);
+        if let Some(params) = silkscreen {
+            crate::pcb::silkscreen::after_run(self, base, &params, &out);
+        }
         Ok(out)
     }
 
