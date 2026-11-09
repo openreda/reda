@@ -95,7 +95,7 @@ impl Command for MeasureClearance {
         let copper = board_copper(cx)?;
         let a = pieces(pcb, &copper, p.a, "/a")?;
         let b = pieces(pcb, &copper, p.b, "/b")?;
-        let mut flat: Option<(f64, (Uuid, &Shape), (Uuid, &Shape))> = None;
+        let mut flat: Option<(f64, LayerShape<'_>, LayerShape<'_>)> = None;
         let mut same: Option<(f64, Uuid)> = None;
         for (la, sa) in &a {
             for (lb, sb) in &b {
@@ -121,6 +121,9 @@ impl Command for MeasureClearance {
         })
     }
 }
+
+/// A shape on a Layer.
+type LayerShape<'s> = (Uuid, &'s Shape);
 
 /// A primitive's shapes, one per Layer it is on; `pointer` names the param in errors.
 fn pieces(
