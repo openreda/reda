@@ -11,7 +11,7 @@ use reda_ui::engine::command::{FontFace, UserDirs};
 use reda_ui::engine::model::Severity;
 use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::layout::TabKey;
-use reda_ui::messages::{CheckKind, LineKey, MessageGroup};
+use reda_ui::messages::{CheckKind, GroupKind, LineKey, MessageGroup};
 use reda_ui::shell::{InstalledFonts, Shell};
 use serde_json::{Value, json};
 
@@ -96,7 +96,7 @@ fn violation_lines(shell: &Shell) -> Vec<(LineKey, String)> {
         .message_groups()
         .into_iter()
         .flat_map(|g| g.lines)
-        .filter(|l| matches!(l.key, LineKey::Violation(..)))
+        .filter(|l| matches!(l.key, LineKey::Violation(..)) && !l.waived)
         .map(|l| (l.key, l.text))
         .collect()
 }
@@ -200,7 +200,7 @@ fn the_canvas_has_a_marker_at_each_violation_of_its_document() {
 }
 
 #[test]
-fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
+fn a_waived_violation_moves_to_a_collapsed_waived_group_shown_by_default() {
     let mut d = demo();
     d.shell.run_check(CheckKind::Erc).unwrap();
     let (label_line, _) = violation_lines(&d.shell)[0].clone();
@@ -210,21 +210,35 @@ fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
     assert_eq!(lines.len(), 2, "{lines:?}");
     assert!(!d.shell.messages().run(CheckKind::Erc).unwrap().stale);
 
-    d.shell.set_show_waived(true).unwrap();
+    // Waived Violations show by default: in their own group, collapsed, at the end.
+    assert!(d.shell.messages().show_waived());
+    let groups = d.shell.message_groups();
+    let last = groups.last().unwrap();
+    assert_eq!(last.kind, GroupKind::Waived);
+    assert!(last.collapsed);
+    let waived: Vec<&str> = last.lines.iter().map(|l| l.text.as_str()).collect();
+    assert_eq!(waived, ["A is attached to nothing"]);
+    assert!(last.lines.iter().all(|l| l.waived));
+    // Their markers draw muted.
+    let sheet1: reda_ui::engine::model::Uuid = d.sheet1.parse().unwrap();
+    let markers = d.shell.markers(sheet1);
+    assert!(markers.iter().any(|m| m.waived), "{markers:?}");
+
+    // The view toggle hides both.
+    d.shell.set_show_waived(false).unwrap();
     let last = d.shell.engine().journal().last().unwrap().id.clone();
     assert_eq!(last, "view.messages.show_waived");
-    let groups = d.shell.message_groups();
-    let waived: Vec<&str> = groups
-        .iter()
-        .flat_map(|g| &g.lines)
-        .filter(|l| l.waived)
-        .map(|l| l.text.as_str())
-        .collect();
-    assert_eq!(waived, ["A is attached to nothing"]);
+    assert!(
+        d.shell
+            .message_groups()
+            .iter()
+            .all(|g| g.kind != GroupKind::Waived)
+    );
+    assert!(!d.shell.markers(sheet1).iter().any(|m| m.waived));
 
-    let key = groups[0].lines[0].key;
+    d.shell.set_show_waived(true).unwrap();
+    let key = d.shell.message_groups().last().unwrap().lines[0].key;
     d.shell.unwaive(key).unwrap();
-    d.shell.set_show_waived(false).unwrap();
     assert_eq!(violation_lines(&d.shell).len(), 3);
     let _ = d.label;
 }

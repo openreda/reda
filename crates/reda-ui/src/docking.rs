@@ -980,6 +980,7 @@ impl Cx<'_, '_> {
                     && crate::pcb::route::takes_right_click(self.shell);
                 if !view_only && !wiring && !routing {
                     crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
+                    crate::canvas::markers::click(self.shell, *uuid, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;

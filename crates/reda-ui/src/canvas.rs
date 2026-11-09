@@ -11,6 +11,7 @@
 mod camera;
 mod gpu;
 pub mod interact;
+pub mod markers;
 mod widget;
 
 pub use camera::{Camera, CanvasInput, grid_pitch};
@@ -18,7 +19,7 @@ pub use gpu::{
     CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, PaletteHandle, SceneHandle,
     SelectionHandle, paint,
 };
-pub(crate) use widget::MARKER_RADIUS;
+pub(crate) use markers::MARKER_RADIUS;
 pub use widget::{
     CanvasInputs, Cutter, Overlay, RubberBand, SEGMENT_HANDLE, canvas, canvas_id, canvas_input,
     canvas_paint,

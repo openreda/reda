@@ -11,7 +11,9 @@
 //! 6. Place
 //! 7. Properties, which focuses the Panel
 //!
-//! On a Violation marker it starts with Waive and Set severity.
+//! On a Violation marker it starts with Waive and Set severity. On a Pin Matrix check's
+//! marker (`unconnected_pin`, `pin_conflict`), Set severity sets the matrix cell of the
+//! Violation's pair of Pin types (`erc.set_pin_matrix`), as Messages does.
 //!
 //! A file is a list of sections, each named by its slot (`violation`, `object`,
 //! `document`, `edit`, `select`, `align`, `net`, `place`, `properties`), in that order.
@@ -220,10 +222,7 @@ pub fn shown(shell: &Shell, document: Uuid, ty: DocumentType, target: &Target) -
             .violation
             .and_then(|key| violation_params(shell, key))
         {
-            Some((violation, check)) => items
-                .into_iter()
-                .map(|i| fill_item(i, &violation, &check))
-                .collect(),
+            Some(filled) => items.into_iter().map(|i| fill_item(i, &filled)).collect(),
             None => items,
         };
         out.push(match &section.title {
@@ -265,21 +264,41 @@ pub fn object_name(shell: &Shell, document: Uuid, object: Uuid) -> String {
     }
 }
 
-/// The Violation's `{check, objects}` and check id, for `$violation` and `$check`.
-fn violation_params(shell: &Shell, key: LineKey) -> Option<(Value, Value)> {
-    let entry = shell.messages().entry(key)?;
-    let v = &entry.violation;
-    Some((
-        json!({ "check": v.check, "objects": v.objects }),
-        json!(v.check),
-    ))
+/// What the placeholders stand for on one Violation.
+struct Filled {
+    /// `$violation`: `{check, objects}`, as the waive Commands take it.
+    violation: Value,
+    /// `$check`: the check id.
+    check: Value,
+    /// The Pin Matrix cell of an ERC `unconnected_pin` or `pin_conflict` Violation: Set
+    /// severity changes that cell (`erc.set_pin_matrix`), not a check severity.
+    cell: Option<(String, String)>,
 }
 
-fn fill_item(item: Item, violation: &Value, check: &Value) -> Item {
+/// The Violation's placeholders.
+fn violation_params(shell: &Shell, key: LineKey) -> Option<Filled> {
+    let entry = shell.messages().entry(key)?;
+    let v = &entry.violation;
+    Some(Filled {
+        violation: json!({ "check": v.check, "objects": v.objects }),
+        check: json!(v.check),
+        cell: crate::messages::matrix_cell(v)
+            .filter(|_| matches!(key, LineKey::Violation(CheckKind::Erc, _))),
+    })
+}
+
+fn fill_item(item: Item, filled: &Filled) -> Item {
     match item {
         Item::Action(mut action) => {
-            if let Binding::Raw { params, .. } = &mut action.binding {
-                fill(params, violation, check);
+            if let Binding::Raw { command, params } = &mut action.binding {
+                fill(params, filled);
+                if command == "erc.set_severity"
+                    && let Some((a, b)) = &filled.cell
+                {
+                    let severity = params["severity"].clone();
+                    *command = "erc.set_pin_matrix".to_owned();
+                    *params = json!({ "cells": [{ "a": a, "b": b, "severity": severity }] });
+                }
             }
             Item::Action(action)
         }
@@ -287,7 +306,7 @@ fn fill_item(item: Item, violation: &Value, check: &Value) -> Item {
             menu.items = menu
                 .items
                 .into_iter()
-                .map(|i| fill_item(i, violation, check))
+                .map(|i| fill_item(i, filled))
                 .collect();
             Item::Submenu(menu)
         }
@@ -295,12 +314,12 @@ fn fill_item(item: Item, violation: &Value, check: &Value) -> Item {
     }
 }
 
-fn fill(params: &mut Value, violation: &Value, check: &Value) {
+fn fill(params: &mut Value, filled: &Filled) {
     match params {
-        Value::String(s) if s == "$violation" => *params = violation.clone(),
-        Value::String(s) if s == "$check" => *params = check.clone(),
-        Value::Array(items) => items.iter_mut().for_each(|v| fill(v, violation, check)),
-        Value::Object(map) => map.values_mut().for_each(|v| fill(v, violation, check)),
+        Value::String(s) if s == "$violation" => *params = filled.violation.clone(),
+        Value::String(s) if s == "$check" => *params = filled.check.clone(),
+        Value::Array(items) => items.iter_mut().for_each(|v| fill(v, filled)),
+        Value::Object(map) => map.values_mut().for_each(|v| fill(v, filled)),
         _ => {}
     }
 }
@@ -392,7 +411,7 @@ fn run(shell: &mut Shell, cmd: &str, params: Value) {
     }
     let base = cmd.split(':').next().unwrap_or(cmd);
     let kind = match base.split_once('.') {
-        Some(("erc", "waive" | "set_severity")) => CheckKind::Erc,
+        Some(("erc", "waive" | "set_severity" | "set_pin_matrix")) => CheckKind::Erc,
         Some(("drc", "waive" | "set_severity")) => CheckKind::Drc,
         _ => return,
     };

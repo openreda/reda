@@ -252,7 +252,10 @@ impl PreferencesDialog {
             PageId::KEYBOARD_SHORTCUTS => self.keyboard_shortcuts(ui, cx),
             PageId::ALL_SETTINGS => self.all_settings_table(ui, cx),
             page => {
-                let rows = self.rows(cx.shell, page);
+                let mut rows = self.rows(cx.shell, page);
+                if page == PageId::CHECKS {
+                    rows.retain(|s| !s.key.starts_with(super::check_grid::CHECK_DISPLAY));
+                }
                 if rows.is_empty() {
                     ui.weak(tr!("pref-none-modified"));
                 }
@@ -266,6 +269,9 @@ impl PreferencesDialog {
                         }
                     }
                     self.setting_row(ui, cx, &setting);
+                }
+                if page == PageId::CHECKS && !self.searching() {
+                    super::check_grid::show(self, ui, cx.shell);
                 }
             }
         }

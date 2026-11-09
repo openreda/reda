@@ -123,7 +123,7 @@ pub(crate) fn crash(ctx: &egui::Context, report: &std::path::Path) -> Option<Cra
 }
 
 /// `ms` since the Unix epoch as `YYYY-MM-DD HH:MM UTC`.
-fn utc(ms: i64) -> String {
+pub(crate) fn utc(ms: i64) -> String {
     let secs = ms.div_euclid(1000);
     let (days, rest) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
     // Howard Hinnant's days-to-civil algorithm.

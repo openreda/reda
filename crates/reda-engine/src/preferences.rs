@@ -11,6 +11,7 @@
 //! and kept. Front ends reach the values through the `app.preferences.get` and
 //! `app.preferences.set` Commands, or in-process through [`load`].
 
+mod checks;
 mod file;
 pub mod pages;
 
@@ -23,6 +24,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub use checks::{CheckDisplay, CheckDisplays, OVERLAY_BY_DEFAULT, OverlayStyle, OverlayZoomedOut};
 pub use file::{Loaded, load, parse, reset, set, value_of};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
@@ -743,11 +745,23 @@ pub struct Checks {
     /// The most Violation markers drawn on one canvas; the rest are counted as "not
     /// shown". Every Violation is still detected and listed.
     pub max_markers: u32,
+    /// How an overlay colours an offending object.
+    pub overlay_style: OverlayStyle,
+    /// What an overlay does when the object is too small on screen for its pattern.
+    pub overlay_zoomed_out: OverlayZoomedOut,
+    /// Per check: whether its Violations get a detail marker and an overlay. It changes
+    /// only what is drawn, never what is detected.
+    pub display: CheckDisplays,
 }
 
 impl Default for Checks {
     fn default() -> Checks {
-        Checks { max_markers: 500 }
+        Checks {
+            max_markers: 500,
+            overlay_style: OverlayStyle::default(),
+            overlay_zoomed_out: OverlayZoomedOut::default(),
+            display: CheckDisplays::default(),
+        }
     }
 }
 

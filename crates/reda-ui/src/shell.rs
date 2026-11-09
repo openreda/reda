@@ -9,6 +9,8 @@
 //! Each Project's view (the layout and each Document's camera and Layers) is kept in its
 //! `.reda/view.json`: see [`view_state`](crate::view_state).
 
+mod checks;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,9 +21,7 @@ use reda_engine::journal::Source;
 use reda_engine::library::LibraryIndex;
 use reda_engine::model::Project;
 use reda_engine::model::geom::{Nm, Point};
-use reda_engine::model::{
-    DocumentKind, DrcCheck, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid, Violation,
-};
+use reda_engine::model::{DocumentKind, HERSHEY_FONT, NOTO_SANS_FONT, Scope, Severity, Uuid};
 use reda_engine::preferences::Preferences;
 use reda_engine::sync::ChangeList;
 use reda_engine::{Engine, preferences, state, store};
@@ -33,9 +33,7 @@ use crate::grid::{self, Grids};
 use crate::highlight::Highlight;
 use crate::keymap::{self, Keymap};
 use crate::layout::{self, Layout, SettingsWindow, TabKey, WindowRect, saved};
-use crate::messages::{
-    self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
-};
+use crate::messages::{self, Marker, Messages, Note};
 use crate::pcb::{self, BoardView};
 use crate::recovery::{self, Recorder};
 use crate::schematic_editor::{Interaction, Turn};
@@ -303,6 +301,7 @@ impl Shell {
             .set(crate::snap::PaletteRequests::default());
         engine.view_mut().set(messages::ShowWaived::default());
         engine.view_mut().set(messages::ChecksCleared::default());
+        engine.view_mut().set(messages::MessageSteps::default());
         engine
             .view_mut()
             .set(crate::footprint_editor::FootprintEditorState::default());
@@ -1493,8 +1492,7 @@ impl Shell {
             self.library_generation += 1;
         }
         self.sync_selection();
-        self.sync_show_waived();
-        self.sync_checks_cleared();
+        self.sync_messages(base);
         self.sync_board_view();
         if base.starts_with("app.preferences.") {
             self.follow_grid_preferences();
@@ -1582,246 +1580,6 @@ impl Shell {
         out
     }
 
-    // ---- Messages ----
-
-    /// What the Messages panel lists.
-    pub fn messages(&self) -> &Messages {
-        &self.messages
-    }
-
-    /// The Messages panel's lines, grouped by Document.
-    pub fn message_groups(&self) -> Vec<MessageGroup> {
-        self.messages.groups(self.engine.project())
-    }
-
-    /// Runs ERC or DRC (`erc.run`/`drc.run`) and shows its Violations, waived ones
-    /// included so the panel can toggle them. An error goes to the status bar.
-    pub fn run_check(&mut self, kind: CheckKind) -> Result<(), CommandError> {
-        let out = self.run_reporting(
-            &format!("{}.run", kind.id()),
-            json!({"include_waived": true}),
-        )?;
-        self.show_run(kind, &out);
-        Ok(())
-    }
-
-    /// Runs the DRC health checks on the board of the Project just opened and lists what
-    /// they find in Messages. It never opens the panel, runs no Command (so the Journal
-    /// stays the user's) and edits nothing, so the Project stays clean. A board with
-    /// nothing to report leaves Messages as it is.
-    fn run_health_checks(&mut self) {
-        let Some(pcb) = self.engine.project().and_then(Project::pcb) else {
-            return;
-        };
-        let found = reda_engine::pcb::drc::health(pcb, None);
-        if found.is_empty() {
-            return;
-        }
-        let severities = pcb.setup().severities;
-        let waived = reda_engine::model::apply_waivers(found, pcb.waivers(), true, |id| {
-            DrcCheck::HEALTH
-                .iter()
-                .any(|c| c.id() == id && severities.get(*c) != Severity::Off)
-        });
-        let out = json!({
-            "violations": waived.violations,
-            "design": reda_engine::pcb::drc::design_fingerprint(pcb),
-        });
-        self.show_run(CheckKind::Drc, &out);
-    }
-
-    /// Shows a check run's result (`erc.run`/`drc.run` output) in Messages and on the
-    /// canvas.
-    fn show_run(&mut self, kind: CheckKind, out: &Value) {
-        let violations: Vec<Violation> =
-            serde_json::from_value(out["violations"].clone()).unwrap_or_default();
-        let project = self.engine.project();
-        let entries = violations
-            .into_iter()
-            .map(|violation| Entry {
-                document: project.and_then(|p| messages::violation_document(p, &violation)),
-                text: messages::violation_text(&violation),
-                violation,
-            })
-            .collect();
-        self.messages.set_run(CheckRun {
-            kind,
-            entries,
-            design: out["design"].as_str().unwrap_or_default().to_owned(),
-            stale: false,
-        });
-        self.update_markers();
-    }
-
-    /// Lists waived Violations too, or hides them again (`view.messages.show_waived`).
-    pub fn set_show_waived(&mut self, show: bool) -> Result<Value, CommandError> {
-        self.run_reporting("view.messages.show_waived", json!({ "show": show }))
-    }
-
-    /// Follows `view.messages.show_waived` into the Messages panel and the markers.
-    fn sync_show_waived(&mut self) {
-        let show = self
-            .engine
-            .view()
-            .get::<messages::ShowWaived>()
-            .is_some_and(|s| s.0);
-        if show != self.messages.show_waived() {
-            self.messages.set_show_waived(show);
-            self.update_markers();
-        }
-    }
-
-    /// Goes to a line's Violation: opens its Document (`document.open`), zooms to it and
-    /// selects the objects involved (`selection.set`). A load message about a Document
-    /// opens that Document.
-    pub fn go_to(&mut self, key: LineKey) {
-        let (document, objects) = match key {
-            LineKey::Violation(..) => match self.messages.entry(key) {
-                Some(e) => (e.document, e.violation.objects.clone()),
-                None => return,
-            },
-            LineKey::Note(i) => match self.messages.notes().get(i) {
-                Some(n) => (n.document, Vec::new()),
-                None => return,
-            },
-        };
-        self.messages.set_current(Some(key));
-        if let Some(document) = document
-            && self
-                .run_reporting("document.open", json!({ "document": document }))
-                .is_ok()
-        {
-            let location = self.messages.entry(key).and_then(|e| {
-                let tab = self.document_tab(document)?;
-                let project = self.engine.project()?;
-                messages::locate(project, document, &tab.scene.scene, &e.violation)
-            });
-            if let (Some(location), Some(tab)) = (location, self.document_tab_mut(document)) {
-                tab.zoom_to = Some(location.frame);
-            }
-        }
-        // `selection.set` takes only objects the Project has; a Violation may also name
-        // what has no UUID of its own in the model.
-        let objects: Vec<Uuid> = match self.engine.project() {
-            Some(project) => objects
-                .into_iter()
-                .filter(|o| project.object(*o).is_some())
-                .collect(),
-            None => Vec::new(),
-        };
-        let _ = self.run_reporting("selection.set", json!({ "objects": objects }));
-        self.update_markers();
-    }
-
-    /// Waives a line's Violation and runs its check again.
-    pub fn waive(&mut self, key: LineKey) -> Result<(), CommandError> {
-        self.waive_many(&[key], "")
-    }
-
-    /// Waives a selection with one reason. A mixed ERC/DRC selection is one atomic
-    /// batch; normal per-Document history gives each affected Document one undo entry.
-    pub fn waive_many(&mut self, keys: &[LineKey], reason: &str) -> Result<(), CommandError> {
-        let mut groups: BTreeMap<CheckKind, Vec<Value>> = BTreeMap::new();
-        for key in keys {
-            if let Some((kind, v)) = self.violation_of(*key) {
-                groups
-                    .entry(kind)
-                    .or_default()
-                    .push(json!({"check":v.check,"objects":v.objects}));
-            }
-        }
-        let commands: Vec<Value> = groups
-            .iter()
-            .map(|(kind, violations)| {
-                json!({
-                    "id": format!("{}.waive", kind.id()),
-                    "params": {"violations": violations, "reason": reason},
-                })
-            })
-            .collect();
-        match commands.as_slice() {
-            [] => return Ok(()),
-            [one] => {
-                self.run_reporting(
-                    one["id"].as_str().expect("Command id"),
-                    one["params"].clone(),
-                )?;
-            }
-            _ => {
-                self.run_reporting("batch", json!({"commands":commands}))?;
-            }
-        }
-        for kind in groups.keys() {
-            self.run_check(*kind)?;
-        }
-        Ok(())
-    }
-
-    /// Deletes the Waiver waiving a line's Violation and runs the check again.
-    pub fn unwaive(&mut self, key: LineKey) -> Result<(), CommandError> {
-        let Some((kind, v)) = self.violation_of(key) else {
-            return Ok(());
-        };
-        let Some(waiver) = v.waiver else {
-            return Ok(());
-        };
-        self.run_reporting(
-            &format!("{}.unwaive", kind.id()),
-            json!({"waivers": [waiver]}),
-        )?;
-        self.run_check(kind)
-    }
-
-    /// Sets the severity of a line's check (`erc.set_severity`/`drc.set_severity`) and
-    /// runs the check again. For a Pin Matrix check it sets the cell of the line's pair of
-    /// types instead (`erc.set_pin_matrix`).
-    pub fn set_severity(&mut self, key: LineKey, severity: Severity) -> Result<(), CommandError> {
-        let Some((kind, v)) = self.violation_of(key) else {
-            return Ok(());
-        };
-        match crate::messages::matrix_cell(&v).filter(|_| kind == CheckKind::Erc) {
-            Some((a, b)) => self.run_reporting(
-                "erc.set_pin_matrix",
-                json!({"cells": [{"a": a, "b": b, "severity": severity}]}),
-            )?,
-            None => self.run_reporting(
-                &format!("{}.set_severity", kind.id()),
-                json!({"check": v.check, "severity": severity}),
-            )?,
-        };
-        self.run_check(kind)
-    }
-
-    fn violation_of(&self, key: LineKey) -> Option<(CheckKind, Violation)> {
-        match key {
-            LineKey::Violation(kind, _) => {
-                Some((kind, self.messages.entry(key)?.violation.clone()))
-            }
-            LineKey::Note(_) => None,
-        }
-    }
-
-    /// Replaces the load errors and warnings `source` reports (such as `keymap`), each
-    /// about the whole application.
-    pub fn set_load_messages(&mut self, source: &str, messages: Vec<(Severity, String)>) {
-        let notes = messages
-            .into_iter()
-            .map(|(severity, text)| Note {
-                source: source.to_owned(),
-                document: None,
-                severity,
-                text,
-            })
-            .collect();
-        self.messages.set_notes(source, notes);
-    }
-
-    /// Replaces the Messages panel lines `source` reports, such as an Output Job run's
-    /// blockers and warnings or a Library check's Violations.
-    pub fn set_notes(&mut self, source: &str, notes: Vec<Note>) {
-        self.messages.set_notes(source, notes);
-    }
-
     /// Shows `note` in the status bar: news, not an error.
     pub(crate) fn set_note(&mut self, note: String) {
         self.note = Some(note);
@@ -1831,89 +1589,6 @@ impl Shell {
     /// and returns its outcome.
     pub fn finish_detached(&mut self, done: reda_engine::Finished) -> Result<Value, CommandError> {
         self.engine.finish(done)
-    }
-
-    /// The Violation markers on `document`'s canvas; none when it is not open.
-    pub fn markers(&self, document: Uuid) -> Arc<[Marker]> {
-        self.document_tab(document)
-            .map(|t| t.markers.clone())
-            .unwrap_or_else(|| Arc::from([]))
-    }
-
-    /// How many of `document`'s Violations have no marker because of the
-    /// `checks.max_markers` cap; 0 when it is not open.
-    pub fn markers_not_shown(&self, document: Uuid) -> usize {
-        self.document_tab(document)
-            .map_or(0, |t| t.markers_not_shown)
-    }
-
-    /// Follows `view.checks.clear`: forgets the check results and their markers.
-    fn sync_checks_cleared(&mut self) {
-        let cleared = self
-            .engine
-            .view()
-            .get::<messages::ChecksCleared>()
-            .map_or(0, |c| c.0);
-        if cleared != self.checks_cleared {
-            self.checks_cleared = cleared;
-            self.messages.clear_runs();
-            self.update_markers();
-        }
-    }
-
-    /// Marks check results stale once the design differs from the run's.
-    fn mark_stale_runs(&mut self) {
-        let Some(project) = self.engine.project() else {
-            return;
-        };
-        let erc = reda_engine::schematic::erc::design_fingerprint(project);
-        let drc = project.pcb().map(reda_engine::pcb::drc::design_fingerprint);
-        if let Some(run) = self.messages.run_mut(CheckKind::Erc) {
-            run.stale = run.design != erc;
-        }
-        if let Some(run) = self.messages.run_mut(CheckKind::Drc) {
-            run.stale = drc.as_ref() != Some(&run.design);
-        }
-    }
-
-    /// Recomputes every open tab's Violation markers.
-    fn update_markers(&mut self) {
-        let Some(project) = self.engine.project() else {
-            return;
-        };
-        let current = self.messages.current();
-        let cap = self.preferences.values().checks.max_markers as usize;
-        for tab in &mut self.documents {
-            let mut markers: Vec<Marker> = self
-                .messages
-                .listed()
-                .filter(|(_, e)| e.document == Some(tab.document))
-                .filter_map(|(key, e)| {
-                    let location =
-                        messages::locate(project, tab.document, &tab.scene.scene, &e.violation)?;
-                    Some(Marker {
-                        at: location.at,
-                        severity: e.violation.severity,
-                        waived: e.violation.waiver.is_some(),
-                        current: current == Some(key),
-                        key,
-                    })
-                })
-                .collect();
-            tab.markers_not_shown = markers.len().saturating_sub(cap);
-            if markers.len() > cap {
-                // The Violation last gone to keeps its marker.
-                let kept = markers.iter().position(|m| m.current);
-                let current = kept.filter(|i| *i >= cap).map(|i| markers[i]);
-                markers.truncate(cap);
-                if let Some(current) = current
-                    && let Some(last) = markers.last_mut()
-                {
-                    *last = current;
-                }
-            }
-            tab.markers = Arc::from(markers);
-        }
     }
 
     /// The Keymap in force: the base Keymap the Preferences pick, with the user's

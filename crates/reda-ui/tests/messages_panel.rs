@@ -1,6 +1,7 @@
 //! The Messages panel in the window, driven through AccessKit with `egui_kittest`: running
 //! ERC, going to a Violation, and the right-click menu's Waive and Set severity.
 
+use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use reda_testkit::TempDir;
@@ -77,7 +78,7 @@ fn running_erc_lists_violations_under_their_document_and_a_click_goes_to_one() {
 }
 
 #[test]
-fn right_click_waives_a_violation_and_show_waived_brings_it_back() {
+fn right_click_waive_asks_for_a_reason_and_the_waived_group_brings_it_back() {
     let (home, work) = (TempDir::new("panel-home"), TempDir::new("panel-work"));
     let (mut h, _) = harness(&home, &work);
     h.run();
@@ -88,16 +89,46 @@ fn right_click_waives_a_violation_and_show_waived_brings_it_back() {
     h.run();
     h.get_by_label("Waive").click();
     h.run();
+    // Waive opens a small window for the reason: nothing is waived yet.
+    assert!(!journal(&h).contains(&"erc.waive".to_owned()));
+    h.get_by_label("Waive 1 Violation with this reason:");
+    h.get_by_role_and_label(Role::TextInput, "Reason").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Reason")
+        .type_text("Test point");
+    h.run();
+    h.get_all_by_label("Waive").last().unwrap().click();
+    h.run();
+    h.run();
     assert!(journal(&h).contains(&"erc.waive".to_owned()));
-    // A Waiver matches by check and objects, so it waives both ends of the one Wire.
+    let shell = h.state().shell();
+    let waiver = (shell
+        .messages()
+        .run(reda_ui::messages::CheckKind::Erc)
+        .unwrap()
+        .entries)
+        .iter()
+        .find_map(|e| e.violation.waiver)
+        .unwrap();
+    let object = shell.engine().project().unwrap().object(waiver);
+    let Some(reda_ui::engine::model::Object::Waiver(w)) = object else {
+        panic!("a Waiver");
+    };
+    assert_eq!(w.object.reason, "Test point");
+    // A Waiver matches by check and objects, so it waives both ends of the one Wire;
+    // they sit in the collapsed Waived group.
     assert!(h.query_by_label(FIRST_END).is_none());
-    h.get_by_label("No messages.");
+    h.get_by_label("Waived (2)").click();
+    h.run();
+    h.get_by_label(&format!("{FIRST_END} (waived)"));
+    h.get_by_label(&format!("{SECOND_END} (waived)"));
 
     h.get_by_label("Show waived").click();
     h.run();
     assert!(journal(&h).contains(&"view.messages.show_waived".to_owned()));
-    h.get_by_label(&format!("{FIRST_END} (waived)"));
-    h.get_by_label(&format!("{SECOND_END} (waived)"));
+    assert!(h.query_by_label("Waived (2)").is_none());
+    h.get_by_label("Show waived").click();
+    h.run();
 
     h.get_by_label(&format!("{FIRST_END} (waived)"))
         .click_secondary();

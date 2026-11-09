@@ -149,3 +149,35 @@ fn a_blank_author_preference_falls_back_to_the_os_user_name() {
         "an omitted reason stays optional"
     );
 }
+
+#[test]
+fn a_waivers_reason_is_edited_in_place_as_one_undo_step() {
+    let dir = TempDir::new("waiver-reason");
+    let mut e = engine(dir.path());
+    e.run_ok("project.new", json!({"path": dir.path(), "name":"Demo"}));
+    two_narrow_tracks(&mut e);
+    let v = width_violations(&mut e)[0].clone();
+    let waived = e.run_ok(
+        "drc.waive",
+        json!({"violations":[{"check":v["check"],"objects":v["objects"]}],"reason":"First"}),
+    );
+    let waiver = waived["result"]["waivers"][0].clone();
+    let out = e.run_ok(
+        "checks.waiver.set_reason",
+        json!({"waivers":[waiver],"reason":"Test coupon on purpose"}),
+    );
+    assert_eq!(out["result"]["waivers"], json!([waiver]));
+    let w = e.run_ok("object.get", json!({"uuid":waiver}))["object"].clone();
+    assert_eq!(w["reason"], "Test coupon on purpose");
+    assert_eq!(w["created"], 1_767_225_600_000_i64);
+    e.run_ok("edit.undo", json!({"document":PCB}));
+    let w = e.run_ok("object.get", json!({"uuid":waiver}))["object"].clone();
+    assert_eq!(w["reason"], "First");
+    let err = e
+        .run(
+            "checks.waiver.set_reason",
+            json!({"waivers":[PCB],"reason":"x"}),
+        )
+        .unwrap_err();
+    assert_eq!(err.code, reda_engine::command::ErrorCode::InvalidParams);
+}
