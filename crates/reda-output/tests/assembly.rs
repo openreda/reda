@@ -4,7 +4,8 @@
 use std::path::{Path, PathBuf};
 
 use reda_model::{
-    BottomPosition, BottomRotation, Column, ColumnSource, CplSettings, CplUnits, SideValues, Uuid,
+    BomSettings, BottomPosition, BottomRotation, Column, ColumnSource, CplSettings, CplUnits,
+    SideValues, Uuid,
 };
 use reda_output::{OutputFile, bom_file, cpl_file};
 use reda_testkit::{TempDir, TestEngine, assert_golden, test_engine_with_library};
@@ -121,13 +122,19 @@ fn preset_columns(engine: &TestEngine) -> (Vec<Column>, Vec<Column>) {
 }
 
 fn bom_with(engine: &TestEngine, columns: &[Column]) -> String {
+    bom_settings(
+        engine,
+        &BomSettings {
+            columns: columns.to_vec(),
+            ..Default::default()
+        },
+    )
+}
+
+/// The BOM with `settings`.
+fn bom_settings(engine: &TestEngine, settings: &BomSettings) -> String {
     let project = engine.project().unwrap();
-    text(bom_file(
-        project,
-        project.pcb().unwrap(),
-        columns,
-        &default_mount(),
-    ))
+    text(bom_file(project, project.pcb().unwrap(), settings).file)
 }
 
 fn cpl_with(engine: &TestEngine, columns: &[Column]) -> String {
@@ -189,7 +196,15 @@ fn the_files_are_named_after_the_project() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let (b, c) = preset_columns(&engine);
-    let bom = bom_file(project, pcb, &b, &default_mount());
+    let bom = bom_file(
+        project,
+        pcb,
+        &BomSettings {
+            columns: b,
+            ..Default::default()
+        },
+    )
+    .file;
     assert_eq!((bom.name.as_str(), bom.function), ("Demo-BOM.csv", "bom"));
     let cpl = cpl_file(
         project,
@@ -233,8 +248,8 @@ fn bom_rows_group_part_footprint_and_value_with_designators_in_natural_order() {
         lines(&bom_with(&engine, &cols)),
         [
             "Designator,Qty,Value,Footprint",
-            "\"R1, R2, R10\",3,10k,RESC1608X55N",
-            "\"R3, R4, R5, R6, R7, R8, R9\",7,1k,RESC1608X55N",
+            "\"R1,R2,R10\",3,10k,RESC1608X55N",
+            "\"R3,R4,R5,R6,R7,R8,R9\",7,1k,RESC1608X55N",
         ]
     );
 }
@@ -256,7 +271,7 @@ fn a_different_footprint_or_field_makes_its_own_row() {
         lines(&bom_with(&engine, &cols)),
         [
             "Designator,Footprint,LCSC",
-            "\"R1, R3\",RESC1608X55N,",
+            "\"R1,R3\",RESC1608X55N,",
             "R2,RESC1608X55N,C25804",
             "R4,RESC1005X40N,",
         ]
@@ -281,7 +296,7 @@ fn the_bom_and_cpl_follow_in_bom_in_cpl_and_not_fitted() {
         lines(&bom(&engine)),
         [
             "Designator,Quantity,Value,Footprint,Manufacturer,MPN",
-            "\"R1, R3\",2,10k,RESC1608X55N,,",
+            "\"R1,R3\",2,10k,RESC1608X55N,,",
         ]
     );
     assert_eq!(designators(&cpl(&engine)), ["R1", "R4"]);
@@ -458,10 +473,10 @@ fn common_column_sources_follow_the_preset_mapping() {
         lines(&bom_with(&engine, &all)),
         [
             "#,Ref,N,Val,Pkg,Type,X,Y,Side,Rot,Maker,Part Number,LCSC Part #",
-            "1,J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,,,,,,,",
-            "2,\"R1, R2\",2,10k,RESC1608X55N,SMT,,,,,Yageo,RC0603FR-0710KL,C25804",
+            ",J1,1,\"PWR, 5V \"\"main\"\"\",HDRV0W64P254R1L508T254H850B,THT,,,,,,,",
+            ",\"R1,R2\",2,10k,RESC1608X55N,SMT,,,,,Yageo,RC0603FR-0710KL,C25804",
         ],
-        "position columns are blank in a BOM"
+        "position columns, and the line column with line numbers off, are blank in a BOM"
     );
     assert_eq!(
         lines(&cpl_with(&engine, &all))[1..],
@@ -514,7 +529,7 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     for preset in reda_output::shipped() {
-        let bom = bom_file(project, pcb, &preset.bom.columns, &preset.bom.mount_values);
+        let bom = bom_file(project, pcb, &preset.bom).file;
         assert_golden(golden(&format!("{}-BOM.csv", preset.name)), &bom.bytes);
         let cpl = cpl_file(
             project,
@@ -528,6 +543,14 @@ fn bom_and_cpl_match_their_goldens_for_every_shipped_preset() {
         );
         assert_golden(golden(&format!("{}-CPL.csv", preset.name)), &cpl.bytes);
     }
+    // Generic listing Not Fitted parts, with a fitted column.
+    let mut generic = reda_output::generic().bom;
+    generic.not_fitted = reda_model::NotFittedBom::List;
+    generic
+        .columns
+        .push(Column::new("Fitted", ColumnSource::Fitted));
+    let bom = bom_file(project, pcb, &generic).file;
+    assert_golden(golden("Generic-BOM-not-fitted-list.csv"), &bom.bytes);
 }
 
 fn relative_cpl(engine: &TestEngine) -> String {
@@ -839,4 +862,320 @@ fn pcbway_cpl_fills_its_reference_and_pad_columns_with_suffixed_positions() {
         ],
         "J1 is through-hole, so PCBWay leaves it out"
     );
+}
+
+/// Four Resistors: R1 and R2 10k on 0603, R3 1k on 0603, R4 10k on the default 0402.
+fn mixed_resistors(dir: &TempDir) -> TestEngine {
+    let mut engine = engine(dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 3);
+    place(&mut engine, RESISTOR, None, 1);
+    set(&mut engine, &["R3"], json!({"value": "1k"}));
+    sync(&mut engine);
+    engine
+}
+
+fn ref_qty_value_footprint() -> Vec<Column> {
+    columns(&[
+        ("Ref", ColumnSource::Designator),
+        ("Qty", ColumnSource::Quantity),
+        ("Value", ColumnSource::Value),
+        ("Footprint", ColumnSource::Footprint),
+    ])
+}
+
+#[test]
+fn a_flat_bom_writes_one_row_per_component() {
+    let dir = TempDir::new("assembly-flat");
+    let engine = mixed_resistors(&dir);
+    let settings = BomSettings {
+        columns: ref_qty_value_footprint(),
+        layout: reda_model::BomLayout::Flat,
+        ..Default::default()
+    };
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        [
+            "Ref,Qty,Value,Footprint",
+            "R1,1,10k,RESC1608X55N",
+            "R2,1,10k,RESC1608X55N",
+            "R3,1,1k,RESC1608X55N",
+            "R4,1,10k,RESC1005X40N",
+        ]
+    );
+}
+
+#[test]
+fn group_by_names_what_a_grouped_row_shares() {
+    use reda_model::BomGroup;
+    let dir = TempDir::new("assembly-group-by");
+    let engine = mixed_resistors(&dir);
+    let mut settings = BomSettings {
+        columns: ref_qty_value_footprint(),
+        group_by: vec![BomGroup::Value],
+        ..Default::default()
+    };
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        [
+            "Ref,Qty,Value,Footprint",
+            "\"R1,R2,R4\",3,10k,RESC1608X55N",
+            "R3,1,1k,RESC1608X55N",
+        ],
+        "grouped by value alone, the 0402 joins the 0603s"
+    );
+    settings.group_by = vec![BomGroup::Part, BomGroup::Footprint];
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        [
+            "Ref,Qty,Value,Footprint",
+            "\"R1,R2,R3\",3,10k,RESC1608X55N",
+            "R4,1,10k,RESC1005X40N",
+        ],
+        "grouped by Part and Footprint, values may differ (the first one is written)"
+    );
+    settings.group_by = vec![BomGroup::Field("value".into())];
+    assert_eq!(
+        designators(&bom_settings(&engine, &settings)),
+        ["R1", "R3"],
+        "a named field groups like the value"
+    );
+}
+
+#[test]
+fn sort_orders_rows_by_its_columns_in_turn_then_first_designator() {
+    let dir = TempDir::new("assembly-sort");
+    let engine = mixed_resistors(&dir);
+    let mut settings = BomSettings {
+        columns: ref_qty_value_footprint(),
+        sort: vec![ColumnSource::Value],
+        ..Default::default()
+    };
+    assert_eq!(
+        designators(&bom_settings(&engine, &settings)),
+        ["R3", "R1", "R4"],
+        "1k before 10k; the two 10k rows by first Designator"
+    );
+    settings.sort = vec![ColumnSource::Quantity, ColumnSource::Footprint];
+    assert_eq!(
+        designators(&bom_settings(&engine, &settings)),
+        ["R4", "R3", "R1"],
+        "by quantity (1, 1, 2), then Footprint name"
+    );
+    settings.sort = Vec::new();
+    assert_eq!(
+        designators(&bom_settings(&engine, &settings)),
+        ["R1", "R3", "R4"],
+        "no sort columns still orders by first Designator"
+    );
+}
+
+#[test]
+fn line_numbers_count_from_start_by_step_and_designators_join_with_the_separator() {
+    let dir = TempDir::new("assembly-lines");
+    let engine = mixed_resistors(&dir);
+    let settings = BomSettings {
+        columns: columns(&[("#", ColumnSource::Line), ("Ref", ColumnSource::Designator)]),
+        line_numbers: reda_model::LineNumbers {
+            enabled: true,
+            start: 10,
+            step: 5,
+        },
+        designator_separator: "; ".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        ["#,Ref", "10,R1; R2", "15,R3", "20,R4"]
+    );
+}
+
+fn with_fitted() -> Vec<Column> {
+    columns(&[
+        ("Ref", ColumnSource::Designator),
+        ("Qty", ColumnSource::Quantity),
+        ("Value", ColumnSource::Value),
+        ("Fitted", ColumnSource::Fitted),
+    ])
+}
+
+#[test]
+fn not_fitted_list_writes_not_fitted_parts_on_their_own_rows_with_quantity_0() {
+    let dir = TempDir::new("assembly-not-fitted-list");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 4);
+    set(&mut engine, &["R2", "R4"], json!({"not_fitted": true}));
+    sync(&mut engine);
+    let mut settings = BomSettings {
+        columns: with_fitted(),
+        ..Default::default()
+    };
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        ["Ref,Qty,Value,Fitted", "\"R1,R3\",2,10k,Fitted"],
+        "omit, the shipped value, leaves them out"
+    );
+    settings.not_fitted = reda_model::NotFittedBom::List;
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        [
+            "Ref,Qty,Value,Fitted",
+            "\"R1,R3\",2,10k,Fitted",
+            "\"R2,R4\",0,10k,Not Fitted",
+        ]
+    );
+    // The CPL never lists them, so its fitted column is always "Fitted".
+    assert_eq!(
+        lines(&cpl_with(
+            &engine,
+            &columns(&[
+                ("Ref", ColumnSource::Designator),
+                ("Fitted", ColumnSource::Fitted)
+            ])
+        )),
+        ["Ref,Fitted", "R1,Fitted", "R3,Fitted"]
+    );
+}
+
+#[test]
+fn a_missing_required_field_names_the_row_and_keeps_it() {
+    let dir = TempDir::new("assembly-required");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 3);
+    set(
+        &mut engine,
+        &["R3"],
+        json!({"value": "1k", "fields": {"LCSC": "C21190"}}),
+    );
+    sync(&mut engine);
+    let project = engine.project().unwrap();
+    let settings = BomSettings {
+        columns: with_fitted(),
+        required_fields: vec!["LCSC".into(), "MPN".into()],
+        ..Default::default()
+    };
+    let bom = bom_file(project, project.pcb().unwrap(), &settings);
+    assert_eq!(
+        lines(&text(bom.file)),
+        [
+            "Ref,Qty,Value,Fitted",
+            "\"R1,R2\",2,10k,Fitted",
+            "R3,1,1k,Fitted"
+        ],
+        "the rows stay"
+    );
+    let missing: Vec<(&str, Vec<&str>)> = bom
+        .missing
+        .iter()
+        .map(|m| {
+            (
+                m.field.as_str(),
+                m.designators.iter().map(String::as_str).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        missing,
+        [
+            ("LCSC", vec!["R1", "R2"]),
+            ("MPN", vec!["R1", "R2"]),
+            ("MPN", vec!["R3"]),
+        ]
+    );
+    assert_eq!(
+        bom.missing[0].footprints,
+        [footprint(&engine, "R1"), footprint(&engine, "R2")]
+    );
+}
+
+#[test]
+fn required_fields_skip_mechanical_rows() {
+    let dir = TempDir::new("assembly-required-mechanical");
+    let library = mechanical_library(&dir);
+    let mut engine = engine_on(&dir, &library);
+    // The Resistor is Mechanical in this Library; the header stays Standard.
+    place(&mut engine, RESISTOR, Some(RESC1608), 1);
+    place(&mut engine, HEADER_1X02, None, 1);
+    place(&mut engine, SCREW, None, 1);
+    sync(&mut engine);
+    let placed = engine.run_ok(
+        "pcb.mechanical.place",
+        json!({"part": MOUNTING_HOLE_M3, "at": {"x": "3mm", "y": "3mm"}}),
+    );
+    engine.run_ok(
+        "pcb.mechanical.set",
+        json!({"footprints": [placed["result"]["footprint"]], "in_bom": true}),
+    );
+    let project = engine.project().unwrap();
+    let settings = BomSettings {
+        columns: with_fitted(),
+        required_fields: vec!["LCSC".into()],
+        ..Default::default()
+    };
+    let bom = bom_file(project, project.pcb().unwrap(), &settings);
+    assert_eq!(
+        designators(&text(bom.file)),
+        ["H1", "J1", "R1", "R2"],
+        "all four are listed"
+    );
+    let named: Vec<&[String]> = bom.missing.iter().map(|m| &m.designators[..]).collect();
+    assert_eq!(
+        named,
+        [["J1".to_string()]],
+        "only the Standard header warns"
+    );
+}
+
+#[test]
+fn list_unplaced_is_on_for_generic_and_off_for_jlcpcb_and_pcbway() {
+    let shipped: Vec<(String, bool)> = reda_output::shipped()
+        .into_iter()
+        .map(|p| (p.name, p.bom.list_unplaced))
+        .collect();
+    assert_eq!(
+        shipped,
+        [
+            ("Generic".to_string(), true),
+            ("JLCPCB".to_string(), false),
+            ("PCBWay".to_string(), false),
+        ]
+    );
+}
+
+#[test]
+fn footprintless_mechanical_components_follow_list_unplaced_and_never_free_pads() {
+    let dir = TempDir::new("assembly-unplaced");
+    let library = mechanical_library(&dir);
+    let mut engine = engine_on(&dir, &library);
+    place(&mut engine, HEADER_1X02, None, 1);
+    // R1 and R2 are screws (footprintless Mechanical); R2 is Not Fitted.
+    place(&mut engine, SCREW, None, 2);
+    set(&mut engine, &["R2"], json!({"not_fitted": true}));
+    sync(&mut engine);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind": "plated_through_hole", "shape": "circle",
+               "at": {"x": "10mm", "y": "10mm"}, "width": "2mm", "height": "2mm",
+               "hole": {"width": "1mm", "height": "1mm"}}),
+    );
+    let mut settings = BomSettings {
+        columns: with_fitted(),
+        ..Default::default()
+    };
+    assert_eq!(
+        lines(&bom_settings(&engine, &settings)),
+        [
+            "Ref,Qty,Value,Fitted",
+            "J1,1,Header 1x2,Fitted",
+            "R1,1,M3 screw,Fitted",
+        ],
+        "the fitted screw is listed; the Not Fitted one and the Free Pad are not"
+    );
+    settings.list_unplaced = false;
+    assert_eq!(designators(&bom_settings(&engine, &settings)), ["J1"]);
+    for preset in reda_output::shipped() {
+        let project = engine.project().unwrap();
+        let bom = text(bom_file(project, project.pcb().unwrap(), &preset.bom).file);
+        let screw = bom.contains("M3 screw");
+        assert_eq!(screw, preset.bom.list_unplaced, "{}: {bom}", preset.name);
+    }
 }

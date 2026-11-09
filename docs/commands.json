@@ -36699,7 +36699,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`. The manifest lists them too.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`, and when the job writes a BOM\n`bom_missing_field {field, designators}` (a row with no value for one of the\npreset's `required_fields`; the row stays). The manifest lists them too.",
             "items": {
               "$ref": "#/$defs/Violation"
             },
@@ -36817,7 +36817,7 @@
                 "type": "array"
               },
               "warnings": {
-                "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`. The manifest lists them too.",
+                "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`, and when the job writes a BOM\n`bom_missing_field {field, designators}` (a row with no value for one of the\npreset's `required_fields`; the row stays). The manifest lists them too.",
                 "items": {
                   "$ref": "#/$defs/Violation"
                 },

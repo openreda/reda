@@ -90,7 +90,107 @@
         "name": "Blinky.gbp"
       }
     ],
-    "warnings": [],
+    "warnings": [
+      {
+        "args": {
+          "designators": "C1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000080"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "C2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000082"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "C3",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000083"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "D1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000085"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "J1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000087"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000089"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000008a"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R3",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000008b"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "U1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000008d"
+        ],
+        "severity": "warning"
+      }
+    ],
     "zip": "outputs/JLCPCB/Blinky-JLCPCB.zip"
   }
 ]

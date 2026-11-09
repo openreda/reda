@@ -97,6 +97,108 @@
         "check": "drc_errors",
         "objects": [],
         "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "C1,C2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000b7",
+          "00000000-0000-4000-8000-0000000000b8"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "C3,C4",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000ba",
+          "00000000-0000-4000-8000-0000000000bb"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "D1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000bd"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "J1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000bf"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "J2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000c1"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R1,R2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000c3",
+          "00000000-0000-4000-8000-0000000000c4"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R3",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000c5"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "U1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000c7"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "U2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-0000000000c9"
+        ],
+        "severity": "warning"
       }
     ],
     "zip": "outputs/JLCPCB/UsbMcu-JLCPCB.zip"

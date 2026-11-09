@@ -2,73 +2,28 @@
 //!
 //! Both read the PCB Document's Footprint instances, which carry their Component's
 //! Designator, fields, In BOM, In CPL and Not Fitted: the BOM lists those In BOM, the CPL
-//! those In CPL, whatever their Component Type, and neither lists a Not Fitted one. The
-//! one exception is a Mechanical Component on a sheet with no Footprint (a screw), which
+//! those In CPL, whatever their Component Type. The CPL never lists a Not Fitted one, the
+//! BOM only on its own rows when the preset's `not_fitted` is `list`. The one exception is a Mechanical Component on a sheet with no Footprint (a screw), which
 //! the BOM reads from the sheet. The columns are a Fab Preset's mapping; a column with
 //! nothing to say for a file (a position in the BOM) is left blank.
-
-use std::collections::BTreeSet;
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::text::display;
 use reda_model::{
     BottomPosition, BottomRotation, Column, ColumnSource, ComponentType, CplSettings, CplUnits,
     Fields, FootprintCopy, FootprintInstance, MountValues, PadKind, PcbDocument, Project, Side,
+    Uuid,
 };
 use reda_pcb::natural_cmp;
 use reda_pcb::placed::Frame;
 
+mod bom;
+
+pub use bom::{Bom, MissingField, bom_file};
+
 use crate::BoardInstance;
 use crate::gerber::degrees;
 use crate::plot::OutputFile;
-
-/// The BOM of `pcb`: one row per Part + chosen Footprint + fields, its Designators in
-/// natural order, the rows in the order of their first Designator. The mount column is
-/// spelled with `mount`, the preset's `mount_values`.
-pub fn bom_file(
-    project: &Project,
-    pcb: &PcbDocument,
-    columns: &[Column],
-    mount: &MountValues,
-) -> OutputFile {
-    let mut groups: Vec<Vec<Fitted<'_>>> = Vec::new();
-    for part in bom_parts(project, pcb) {
-        match groups.iter_mut().find(|g| g[0].same_line(&part)) {
-            Some(group) => group.push(part),
-            None => groups.push(vec![part]),
-        }
-    }
-    let rows = groups.iter().enumerate().map(|(i, group)| {
-        let first = &group[0];
-        columns
-            .iter()
-            .map(|c| match &c.source {
-                ColumnSource::Line => (i + 1).to_string(),
-                ColumnSource::Quantity => group.len().to_string(),
-                ColumnSource::Designator => group
-                    .iter()
-                    .map(|p| p.designator)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                ColumnSource::CentreX
-                | ColumnSource::CentreY
-                | ColumnSource::OriginX
-                | ColumnSource::OriginY
-                | ColumnSource::Pad1X
-                | ColumnSource::Pad1Y
-                | ColumnSource::Side
-                | ColumnSource::Rotation => String::new(),
-                source => first.describe(source, mount),
-            })
-            .collect()
-    });
-    OutputFile {
-        name: format!("{}-BOM.csv", project.props().name),
-        function: "bom",
-        bytes: csv(columns, rows),
-        attributes: None,
-    }
-}
 
 /// The CPL of the board `instances`: one row per placed part in natural Designator order,
 /// with `cpl`'s columns, units and bottom-side conventions. Positions come from the instance
@@ -203,6 +158,12 @@ struct Fitted<'a> {
     fields: &'a Fields,
     /// Left out for a Component with no Footprint.
     copy: Option<&'a FootprintCopy>,
+    /// The Library Part, when its Component is on a sheet.
+    part: Option<Uuid>,
+    component_type: ComponentType,
+    not_fitted: bool,
+    /// The Footprint instance it is, if any.
+    instance: Option<Uuid>,
 }
 
 impl<'a> Fitted<'a> {
@@ -211,14 +172,11 @@ impl<'a> Fitted<'a> {
             designator: &instance.designator,
             fields: &instance.fields,
             copy: Some(pcb.footprint_copy(instance.footprint)?),
+            part: None,
+            component_type: instance.component_type,
+            not_fitted: instance.not_fitted,
+            instance: Some(instance.uuid),
         })
-    }
-
-    /// Whether `other` shares this one's BOM line: the same Footprint (or none) and
-    /// fields (which hold the Part's own).
-    fn same_line(&self, other: &Fitted<'_>) -> bool {
-        self.copy.map(|c| c.footprint.uuid) == other.copy.map(|c| c.footprint.uuid)
-            && self.fields == other.fields
     }
 
     /// Whether its Footprint has a plated through-hole Pad.
@@ -233,7 +191,8 @@ impl<'a> Fitted<'a> {
 
     /// The value of a column the BOM and CPL fill the same way. A part with no Footprint
     /// leaves the Footprint and mount type blank; a Footprint with any plated through-hole
-    /// Pad is `mount.tht`, any other `mount.smt`.
+    /// Pad is `mount.tht`, any other `mount.smt`. The fitted column says "Fitted" or
+    /// "Not Fitted".
     fn describe(&self, source: &ColumnSource, mount: &MountValues) -> String {
         match (source, self.copy) {
             (ColumnSource::Value, _) => display(&self.fields.value).into_owned(),
@@ -244,6 +203,12 @@ impl<'a> Fitted<'a> {
                 &mount.smt
             }
             .clone(),
+            (ColumnSource::Fitted, _) => if self.not_fitted {
+                "Not Fitted"
+            } else {
+                "Fitted"
+            }
+            .into(),
             (ColumnSource::Field(name), _) => display(field(self.fields, name)).into_owned(),
             _ => String::new(),
         }
@@ -268,35 +233,6 @@ fn field<'a>(fields: &'a Fields, name: &str) -> &'a str {
                 .find(|f| f.name.eq_ignore_ascii_case(name))
         })
         .map_or("", |f| f.value.as_str())
-}
-
-/// What the BOM lists, in natural Designator order: every Footprint instance In BOM, and
-/// every Mechanical Component on a sheet In BOM with no Footprint choice; none Not Fitted.
-fn bom_parts<'a>(project: &'a Project, pcb: &'a PcbDocument) -> Vec<Fitted<'a>> {
-    let on_board = pcb
-        .footprints()
-        .filter(|i| i.in_bom && !i.not_fitted)
-        .filter_map(|i| Fitted::instance(pcb, i));
-    let mut seen = BTreeSet::new();
-    let on_sheets = project
-        .documents()
-        .filter_map(|d| project.schematic_sheet(d.uuid))
-        .flat_map(|sheet| sheet.units())
-        .filter(|u| {
-            u.component_type == ComponentType::Mechanical
-                && u.footprint.is_none()
-                && u.in_bom
-                && !u.not_fitted
-        })
-        .filter(|u| seen.insert(&u.component))
-        .map(|u| Fitted {
-            designator: &u.designator,
-            fields: &u.fields,
-            copy: None,
-        });
-    let mut parts: Vec<Fitted<'a>> = on_board.chain(on_sheets).collect();
-    parts.sort_by(|a, b| natural_cmp(a.designator, b.designator));
-    parts
 }
 
 /// What the CPL lists, in natural Designator order: every Footprint instance In CPL and

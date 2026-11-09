@@ -895,3 +895,52 @@ fn merge_drill_writes_one_drill_file_and_drops_the_split_ones() {
     assert!(!folder.join("Demo-PTH.drl").exists());
     assert!(!folder.join("Demo-NPTH.drl").exists());
 }
+
+#[test]
+fn a_bom_row_missing_a_required_field_warns_naming_its_designators_and_stays() {
+    let dir = TempDir::new("output-required-field");
+    let library = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../library/starter");
+    let mut engine = test_engine_with_library(&library);
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB",
+               "board": {"width": "60mm", "height": "60mm"}}),
+    );
+    for x in [20.0, 40.0] {
+        engine.run_ok(
+            "schematic.component.place",
+            json!({"document": SHEET,
+            "part": "84d5651a-bf4b-462e-9480-39e8f454a042",
+            "footprint": "0691e5e7-9eb6-49f3-9f3e-d4159258693e", "at": pt(x, 40.0)}),
+        );
+    }
+    let hash = engine.run_ok("sync.preview", json!({}))["hash"].clone();
+    engine.run_ok("sync.apply", json!({"hash": hash}));
+    let out = run(&mut engine);
+    let missing: Vec<&Value> = out["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|w| w["check"] == "bom_missing_field")
+        .collect();
+    assert_eq!(missing.len(), 1, "{}", out["warnings"]);
+    assert_eq!(missing[0]["severity"], "warning");
+    assert_eq!(missing[0]["args"]["field"], "LCSC");
+    assert_eq!(missing[0]["args"]["designators"], "R1,R2");
+    assert_eq!(missing[0]["objects"].as_array().unwrap().len(), 2);
+    let bom = std::fs::read_to_string(dir.path().join("Demo/outputs/JLCPCB/Demo-JLCPCB-BOM.csv"))
+        .unwrap();
+    assert!(bom.contains("10k,\"R1,R2\",RESC1608X55N,\n"), "{bom}");
+    let manifest =
+        std::fs::read_to_string(dir.path().join("Demo/outputs/JLCPCB/manifest.json")).unwrap();
+    assert!(manifest.contains("BOM row R1,R2 has no LCSC"), "{manifest}");
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job": JOB, "outputs": {"bom": false}}),
+    );
+    assert!(
+        !checks(&run(&mut engine)["warnings"]).contains(&"bom_missing_field".to_string()),
+        "no BOM, no warning"
+    );
+}
