@@ -326,7 +326,8 @@ fn closing_panels_and_documents_and_reopening_panels() {
             PanelId::Library,
             PanelId::Layers,
             PanelId::Journal,
-            PanelId::Navigator
+            PanelId::Navigator,
+            PanelId::Find
         ]
     );
 
@@ -363,6 +364,7 @@ fn every_panel_has_a_show_preset() {
             "panel.show:layers",
             "panel.show:journal",
             "panel.show:navigator",
+            "panel.show:find",
         ]
     );
 }

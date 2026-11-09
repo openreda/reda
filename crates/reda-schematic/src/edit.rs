@@ -18,8 +18,8 @@ pub use arrange::{
     Align, AlignParams, AlignTo, Direction, Distribute, DistributeParams, SnapParams, SnapToGrid,
 };
 pub use clipboard::{
-    Clipboard, Copy, CopyParams, Cut, CutParams, Duplicate, DuplicateParams, Paste, PasteParams,
-    PasteResult,
+    Clipboard, CopiedText, Copy, CopyAsText, CopyAsTextParams, CopyParams, Cut, CutParams,
+    Duplicate, DuplicateParams, Paste, PasteParams, PasteResult,
 };
 pub use delete::{Delete, DeleteParams, DeleteResult, WireSegment};
 pub use graphics::{
@@ -29,6 +29,7 @@ pub use graphics::{
 pub use move_to_sheet::{MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange};
 pub use moving::{
     Drag, EditResult, FlightStep, Move, ShiftParams, ShiftPreview, flight_preview, shift_preview,
+    shift_preview_flipped,
 };
 pub use selection::selectable;
 pub use transform::Axis;

@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::selection::{one_sheet, resolve};
-use super::transform::{Axis, Placement, place_anew, plan};
+use super::transform::{Axis, Placement, place_anew_bent, plan_bent};
 use crate::component::At;
 use crate::normalise::Wiring;
 
@@ -21,6 +21,10 @@ pub struct ShiftParams {
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: At,
+    /// A drag's rubber-banded Wires turn their corners the other way: the moved end keeps
+    /// its direction, rather than the end that stayed (`Mod`+Space during a drag).
+    #[serde(default)]
+    pub flip_corners: bool,
     /// How the Wires this edit touches are normalised; the fixed defaults when left out.
     pub wiring: Option<Wiring>,
 }
@@ -97,12 +101,23 @@ pub fn shift_preview(
     by: Point,
     keep_connections: bool,
 ) -> Result<ShiftPreview, CommandError> {
+    shift_preview_flipped(project, objects, by, keep_connections, false)
+}
+
+/// [`shift_preview`] of a drag with `flip_corners`.
+pub fn shift_preview_flipped(
+    project: &Project,
+    objects: &[Uuid],
+    by: Point,
+    keep_connections: bool,
+    flip: bool,
+) -> Result<ShiftPreview, CommandError> {
     let objects = resolve(project, objects, "/objects")?;
     let document = one_sheet(&objects, "/objects")?;
     let body = crate::sheet(project, document)?;
     let how = Placement::Translate(by);
     let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
-    let plan = plan(body, &moves, keep_connections)?;
+    let plan = plan_bent(body, &moves, keep_connections, flip)?;
     let mut preview = ShiftPreview::default();
     let selected: BTreeSet<Uuid> = moves.iter().map(|(o, _)| o.uuid()).collect();
     for object in plan.replaced {
@@ -135,11 +150,12 @@ fn shift(
     let document = one_sheet(&objects, "/objects")?;
     let how = Placement::Translate(p.by.point());
     let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
-    place_anew(
+    place_anew_bent(
         cx,
         document,
         &moves,
         keep_connections,
+        p.flip_corners,
         &p.wiring.unwrap_or_default(),
     )?;
     Ok(EditResult { document })
@@ -178,7 +194,7 @@ pub fn flight_preview(
             FlightStep::Mirror { center, axis } => Placement::Mirror { center, axis },
         };
         let moves: Vec<_> = resolved.into_iter().map(|o| (o, how)).collect();
-        let plan = plan(&body, &moves, keep_connections)?;
+        let plan = plan_bent(&body, &moves, keep_connections, false)?;
         let mut tx = out.transaction();
         for uuid in plan.removed {
             tx.remove(uuid)?;

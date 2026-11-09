@@ -1,5 +1,5 @@
-//! The clipboard: `schematic.copy`, `schematic.cut`, `schematic.paste` and
-//! `schematic.duplicate`.
+//! The clipboard: `schematic.copy`, `schematic.cut`, `schematic.paste`,
+//! `schematic.duplicate` and `schematic.copy_as_text`.
 //!
 //! The clipboard is plain data that `copy` and `cut` return and `paste` takes back, so a
 //! front end can keep it on the system clipboard and paste into any sheet, or any Project.
@@ -59,6 +59,9 @@ pub struct Clipboard {
 pub struct CopyParams {
     /// The objects to copy, by UUID, all on one sheet.
     pub objects: Vec<Uuid>,
+    /// The reference point a paste puts at its `at` (Clipboard Reference); the lower-left
+    /// corner of the copied objects by default.
+    pub origin: Option<At>,
 }
 
 pub struct Copy;
@@ -80,7 +83,11 @@ impl Command for Copy {
     fn run(&self, cx: &mut Context<'_>, p: CopyParams) -> Result<Clipboard, CommandError> {
         let project = cx.project()?;
         let objects = resolve(project, &p.objects, "/objects")?;
-        copy(project, &objects)
+        let mut clipboard = copy(project, &objects)?;
+        if let Some(origin) = p.origin {
+            clipboard.origin = origin.point();
+        }
+        Ok(clipboard)
     }
 }
 
@@ -89,6 +96,9 @@ impl Command for Copy {
 pub struct CutParams {
     /// The objects to cut, by UUID, all on one sheet.
     pub objects: Vec<Uuid>,
+    /// The reference point a paste puts at its `at` (Clipboard Reference); the lower-left
+    /// corner of the cut objects by default.
+    pub origin: Option<At>,
     /// How the Wires this edit touches are normalised; the fixed defaults when left out.
     pub wiring: Option<Wiring>,
 }
@@ -111,7 +121,10 @@ impl Command for Cut {
     fn run(&self, cx: &mut Context<'_>, p: CutParams) -> Result<Clipboard, CommandError> {
         let project = cx.project()?;
         let objects = resolve(project, &p.objects, "/objects")?;
-        let clipboard = copy(project, &objects)?;
+        let mut clipboard = copy(project, &objects)?;
+        if let Some(origin) = p.origin {
+            clipboard.origin = origin.point();
+        }
         delete_objects(cx, &objects, &p.wiring.unwrap_or_default())?;
         Ok(clipboard)
     }
@@ -410,4 +423,55 @@ fn paste(
     }
     let lineage = normalise(cx, document, &body, wiring)?;
     Ok(lineage.trace_all(&pasted))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CopyAsTextParams {
+    /// The objects whose text to copy, by UUID.
+    pub objects: Vec<Uuid>,
+}
+
+/// What `schematic.copy_as_text` returns.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct CopiedText {
+    /// One line per object (more for multi-line text), in the order given.
+    pub text: String,
+}
+
+pub struct CopyAsText;
+
+impl Command for CopyAsText {
+    const META: Meta = Meta {
+        id: "schematic.copy_as_text",
+        title: "Copy As Text",
+        description: "Returns the text of the given Net Labels, Ports, Power Ports, free \
+                      texts and Units (their Designators), one per line in the order given, \
+                      for the system clipboard. Objects with no text are skipped. Changes \
+                      nothing.",
+        category: "schematic",
+        icon: "copy",
+        kind: Kind::Query,
+    };
+    type Params = CopyAsTextParams;
+    type Output = CopiedText;
+
+    fn run(&self, cx: &mut Context<'_>, p: CopyAsTextParams) -> Result<CopiedText, CommandError> {
+        let project = cx.project()?;
+        let objects = resolve(project, &p.objects, "/objects")?;
+        let lines: Vec<&str> = objects
+            .iter()
+            .filter_map(|object| match object {
+                Object::Unit(u) => Some(u.object.designator.as_str()),
+                Object::NetLabel(l) => Some(l.object.name.as_str()),
+                Object::Port(p) => Some(p.object.name.as_str()),
+                Object::PowerPort(p) => Some(p.object.name.as_str()),
+                Object::SheetText(t) => Some(t.object.text.as_str()),
+                _ => None,
+            })
+            .collect();
+        Ok(CopiedText {
+            text: lines.join("\n"),
+        })
+    }
 }

@@ -193,6 +193,9 @@ pub struct Shell {
     preferences: Watched,
     /// What `schematic.copy` or `schematic.cut` last returned, for `schematic.paste`.
     clipboard: Option<Value>,
+    /// Text `schematic.copy_as_text` returned, for the window to put on the system
+    /// clipboard.
+    copied_text: Option<String>,
     /// The PCB canvas's select-and-place Tool.
     pcb_tool: pcb::SelectTool,
     /// The board's routing and Via Tools.
@@ -282,6 +285,9 @@ impl Shell {
         if engine.registry().get("view.messages.show_waived").is_none() {
             engine.register(messages::register_all);
         }
+        if engine.registry().get("tool.paste").is_none() {
+            engine.register(crate::schematic_editor::register_all);
+        }
         if engine.registry().get("view.keys_card.toggle").is_none() {
             engine.register(crate::keys_card::register_all);
         }
@@ -316,6 +322,12 @@ impl Shell {
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
+        engine
+            .view_mut()
+            .set(crate::schematic_editor::DragKeys::default());
+        engine
+            .view_mut()
+            .set(crate::panels::find::FindPanel::default());
         engine.view_mut().set(tools::BreakWireTool::default());
         engine.view_mut().set(tools::ToolStack::default());
         engine
@@ -361,6 +373,7 @@ impl Shell {
             keymap: Keymap::default(),
             preferences: Watched::default(),
             clipboard: None,
+            copied_text: None,
             pcb_tool: pcb::SelectTool::default(),
             router: pcb::Router::default(),
             pcb_draw: pcb::draw::Draw::default(),
@@ -478,7 +491,8 @@ impl Shell {
         self.focus_state().request.take()
     }
 
-    pub(crate) fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
+    /// The canvases' picking state (tests set its clock with `set_time`).
+    pub fn selection_picking_mut(&mut self) -> &mut selection::picking::Picking {
         self.engine
             .view_mut()
             .get_mut::<selection::picking::Picking>()
@@ -570,6 +584,8 @@ impl Shell {
     pub fn hold_snap_keys(&mut self, document: Uuid, modifiers: egui::Modifiers, pressed: bool) {
         let keys = crate::snap::held(self, document, modifiers, pressed);
         self.engine.view_mut().set(keys);
+        let alt = modifiers.alt;
+        (self.engine.view_mut()).set(crate::schematic_editor::DragKeys { alt });
     }
 
     /// `document`'s Selection Filter; it changes through `selection.filter.set`.
@@ -616,6 +632,11 @@ impl Shell {
     /// What the last copy or cut put on the clipboard, for `schematic.paste`.
     pub fn clipboard(&self) -> Option<&Value> {
         self.clipboard.as_ref()
+    }
+
+    /// Takes the text Copy As Text left for the system clipboard.
+    pub fn take_copied_text(&mut self) -> Option<String> {
+        self.copied_text.take()
     }
 
     /// The board's view: its Layer state, units and snap grid. It changes through the
@@ -2223,6 +2244,18 @@ impl Shell {
                     self.set_note(warning.to_owned());
                 }
             }
+            "tool.edit_properties"
+                if matches!(self.tool(), Tool::NetLabel | Tool::Port | Tool::PowerPort) =>
+            {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::pause_placing(self, sheet);
+                }
+            }
+            "schematic.edit_in_place" => {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::edit_selected(self, sheet);
+                }
+            }
             "tool.edit_properties" if self.tool() == Tool::Place => {
                 let _ = self.run_reporting("panel.show:properties", json!({}));
             }
@@ -2307,6 +2340,41 @@ impl Shell {
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "pcb.delete.confirm" => pcb::delete::after_confirm(self, out),
+            "tool.cycle_corner" => {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::flip_corners(self, sheet);
+                }
+            }
+            "schematic.nudge" => {
+                let objects: Vec<Uuid> =
+                    serde_json::from_value(out["objects"].clone()).unwrap_or_default();
+                let direction = serde_json::from_value(out["direction"].clone());
+                if let (Some(sheet), Ok(direction)) = (self.active_sheet(), direction) {
+                    let steps = out["steps"].as_i64().unwrap_or(1);
+                    crate::schematic_editor::nudge(self, sheet, objects, direction, steps);
+                }
+            }
+            "tool.copy" | "tool.duplicate" => {
+                let objects: Vec<Uuid> =
+                    serde_json::from_value(out["objects"].clone()).unwrap_or_default();
+                if id == "tool.copy" {
+                    crate::schematic_editor::copy(self, objects, out["cut"] == true);
+                } else {
+                    crate::schematic_editor::duplicate(self, objects);
+                }
+            }
+            "tool.paste" => {
+                if let Some(document) = out["document"].as_str().and_then(|s| s.parse().ok()) {
+                    let clipboard = out["clipboard"].clone();
+                    crate::schematic_editor::paste(self, document, clipboard);
+                }
+            }
+            "schematic.copy_as_text" => {
+                self.copied_text = out["text"].as_str().map(str::to_owned);
+            }
+            "schematic.find.step" => {
+                crate::panels::find::step(self, out["direction"] == "next");
+            }
             "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self

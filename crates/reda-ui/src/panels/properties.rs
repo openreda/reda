@@ -10,6 +10,7 @@ mod arc_tool;
 mod overview;
 mod rules;
 mod track;
+mod unit;
 mod zone;
 
 use std::collections::BTreeSet;
@@ -113,6 +114,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     |ui| {
                         if let Some(component) = &properties.component {
                             component_section(ui, component, &mut edits);
+                        }
+                        if let Some(rows) = unit::rows(project, &shell.selection().objects) {
+                            numbers.extend(unit::section(ui, &rows, field_label));
                         }
                         if let Some(class) = &properties.net_class {
                             net_class_row(ui, class, &mut edits);

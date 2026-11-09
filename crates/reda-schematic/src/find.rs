@@ -1,5 +1,6 @@
-//! Finding objects across sheets: `schematic.find` searches by Designator, value or Net
-//! name.
+//! Finding objects across sheets: `schematic.find` searches by Designator, value, Net
+//! name or any sheet text, as plain text, `*`/`?` wildcards or a regular expression, on
+//! a sheet, the Project or a selection.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta};
 use reda_model::{ComponentRef, Project, UnitSuffix, Uuid};
@@ -18,18 +19,48 @@ pub enum FindField {
     Value,
     /// The name of a Net.
     Net,
+    /// All text: Net Label, Port and Power Port names and free text.
+    Text,
+}
+
+/// How a find query's text is read.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FindSyntax {
+    /// The text itself.
+    #[default]
+    Plain,
+    /// `*` matches any run of characters and `?` any one character, over the whole
+    /// text, always ignoring case.
+    Wildcard,
+    /// A regular expression, matching anywhere unless anchored.
+    Regex,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FindParams {
-    /// The text to look for. Case does not matter.
+    /// The text to look for.
     pub text: String,
-    /// What to search; every field by default.
+    /// What to search; Designators, values and Net names by default.
     pub fields: Option<Vec<FindField>>,
     /// Match the whole text rather than any part of it.
     #[serde(default)]
     pub exact: bool,
+    /// Match case; case does not matter by default (and never for wildcards).
+    #[serde(default)]
+    pub match_case: bool,
+    /// Match only whole words: the text with no letter, digit or `_` on either side.
+    #[serde(default)]
+    pub whole_word: bool,
+    /// How `text` is read: plain text by default.
+    #[serde(default)]
+    pub syntax: FindSyntax,
+    /// Search only this Schematic Sheet; every sheet by default.
+    pub document: Option<Uuid>,
+    /// Search only these objects (the selection): a Net matches when one of its objects
+    /// is among them.
+    pub objects: Option<Vec<Uuid>>,
 }
 
 /// What a find query found.
@@ -55,7 +86,12 @@ pub struct FindMatch {
     /// The matched Unit's Component.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub component: Option<Uuid>,
-    /// The objects that carry the matched Net on this sheet, for Net matches.
+    /// For a text match, what holds the text: `net_label`, `port`, `power_port` or
+    /// `text`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<&'static str>,
+    /// The objects that carry the matched Net on this sheet, for Net matches; the one
+    /// object, for text matches.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub objects: Vec<Uuid>,
 }
@@ -66,8 +102,11 @@ impl Command for Find {
     const META: Meta = Meta {
         id: "schematic.find",
         title: "Find",
-        description: "Finds objects on every Schematic Sheet whose Designator, value or Net \
-                      name contains the text (or equals it, with `exact`), ignoring case. A \
+        description: "Finds objects on every Schematic Sheet (or one, or among given \
+                      objects) whose Designator, value, Net name or text contains the text \
+                      (or equals it, with `exact`), ignoring case unless `match_case`. \
+                      `whole_word` matches whole words; `syntax` reads the text as `*`/`?` \
+                      wildcards (the whole text, ignoring case) or a regular expression. A \
                       Designator also matches with its Unit suffix, as `U1A` or `U1:1`.",
         category: "schematic",
         icon: "find",
@@ -82,36 +121,95 @@ impl Command for Find {
         }
         let fields = p
             .fields
+            .clone()
             .unwrap_or_else(|| vec![FindField::Designator, FindField::Value, FindField::Net]);
-        let matcher = Matcher::new(&p.text, p.exact);
-        Ok(FindResult {
-            matches: find(cx.project()?, &matcher, &fields),
-        })
+        let matcher = Matcher::with(&p.text, &options(&p))
+            .map_err(|e| CommandError::invalid_params("/text", e))?;
+        let project = cx.project()?;
+        if let Some(document) = p.document {
+            crate::sheet(project, document)?;
+        }
+        let mut matches = find(project, &matcher, &fields);
+        if let Some(document) = p.document {
+            matches.retain(|m| m.document == document);
+        }
+        if let Some(objects) = &p.objects {
+            matches.retain(|m| m.unit.iter().chain(&m.objects).any(|o| objects.contains(o)));
+        }
+        Ok(FindResult { matches })
     }
 }
 
-/// Compares text with a query, ignoring case.
+fn options(p: &FindParams) -> MatchOptions {
+    MatchOptions {
+        exact: p.exact,
+        match_case: p.match_case,
+        whole_word: p.whole_word,
+        syntax: p.syntax,
+    }
+}
+
+/// How a [`Matcher`] compares.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MatchOptions {
+    pub exact: bool,
+    pub match_case: bool,
+    pub whole_word: bool,
+    pub syntax: FindSyntax,
+}
+
+/// Compares text with a query.
 pub struct Matcher {
-    needle: String,
-    exact: bool,
+    regex: regex_lite::Regex,
 }
 
 impl Matcher {
+    /// Plain text, ignoring case: the whole text with `exact`, else any part of it.
     pub fn new(text: &str, exact: bool) -> Matcher {
-        Matcher {
-            needle: text.to_lowercase(),
+        let options = MatchOptions {
             exact,
+            ..MatchOptions::default()
+        };
+        Matcher::with(text, &options).expect("escaped text always compiles")
+    }
+
+    /// A query read with `options`; the error says why a regular expression is invalid.
+    pub fn with(text: &str, options: &MatchOptions) -> Result<Matcher, String> {
+        let body = match options.syntax {
+            FindSyntax::Plain => regex_lite::escape(text),
+            FindSyntax::Regex => text.to_owned(),
+            FindSyntax::Wildcard => {
+                let mut out = String::from("^(?:");
+                for c in text.chars() {
+                    match c {
+                        '*' => out.push_str(".*"),
+                        '?' => out.push('.'),
+                        c => out.push_str(&regex_lite::escape(&c.to_string())),
+                    }
+                }
+                out.push_str(")$");
+                out
+            }
+        };
+        let mut pattern = format!("(?:{body})");
+        if options.whole_word {
+            pattern = format!(r"(?:^|[^\w])({pattern})(?:[^\w]|$)");
         }
+        if options.exact {
+            pattern = format!("^{pattern}$");
+        }
+        let fold = !options.match_case || options.syntax == FindSyntax::Wildcard;
+        if fold {
+            pattern = format!("(?i){pattern}");
+        }
+        regex_lite::Regex::new(&pattern)
+            .map(|regex| Matcher { regex })
+            .map_err(|e| e.to_string())
     }
 
     /// Whether `text`, as it displays, matches.
     pub fn matches(&self, text: &str) -> bool {
-        let text = reda_model::text::display(text).to_lowercase();
-        if self.exact {
-            text == self.needle
-        } else {
-            text.contains(&self.needle)
-        }
+        self.regex.is_match(&reda_model::text::display(text))
     }
 }
 
@@ -158,8 +256,47 @@ pub fn find(project: &Project, matcher: &Matcher, fields: &[FindField]) -> Vec<F
         if fields.contains(&FindField::Net) {
             out.extend(net_matches(project, sheet.uuid, matcher));
         }
+        if fields.contains(&FindField::Text) {
+            out.extend(text_matches(sheet, matcher));
+        }
     }
     out
+}
+
+/// The Net Labels, Ports, Power Ports and free texts on `sheet` whose text matches, in
+/// that order of kind, each in natural order.
+fn text_matches(sheet: &reda_model::SchematicSheet, matcher: &Matcher) -> Vec<FindMatch> {
+    let mut found: Vec<(usize, &str, Uuid, &'static str)> = Vec::new();
+    found.extend(
+        sheet
+            .net_labels()
+            .map(|o| (0, o.name.as_str(), o.uuid, "net_label")),
+    );
+    found.extend(sheet.ports().map(|o| (1, o.name.as_str(), o.uuid, "port")));
+    found.extend(
+        sheet
+            .power_ports()
+            .map(|o| (2, o.name.as_str(), o.uuid, "power_port")),
+    );
+    found.extend(sheet.texts().map(|o| (3, o.text.as_str(), o.uuid, "text")));
+    found.retain(|(_, text, _, _)| matcher.matches(text));
+    found.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| natural_cmp(a.1, b.1))
+            .then_with(|| a.2.cmp(&b.2))
+    });
+    found
+        .into_iter()
+        .map(|(_, text, uuid, kind)| FindMatch {
+            field: FindField::Text,
+            text: text.to_owned(),
+            document: sheet.uuid,
+            unit: None,
+            component: None,
+            kind: Some(kind),
+            objects: vec![uuid],
+        })
+        .collect()
 }
 
 fn unit_match(
@@ -175,6 +312,7 @@ fn unit_match(
         document,
         unit: Some(unit),
         component: Some(component.uuid),
+        kind: None,
         objects: vec![],
     }
 }
@@ -205,6 +343,7 @@ fn net_matches(project: &Project, sheet: Uuid, matcher: &Matcher) -> Vec<FindMat
                     document: sheet,
                     unit: None,
                     component: None,
+                    kind: None,
                     objects: objects.into_iter().collect(),
                 }
             })

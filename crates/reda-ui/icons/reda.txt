@@ -80,6 +80,7 @@ output_run | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 
 overview | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 pad | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent)
 panel | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
+panel_find | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5)
 panel_journal | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_layers | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)
 panel_library | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5)

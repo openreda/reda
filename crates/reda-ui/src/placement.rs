@@ -61,6 +61,9 @@ pub struct Placing {
     pub designator: Option<String>,
     /// Field values over the Part's defaults, by name.
     pub fields: BTreeMap<String, String>,
+    /// A further Unit of this placed Component (Properties' **Place**), rather than a new
+    /// Component: placed once with `schematic.unit.place`.
+    pub component: Option<Uuid>,
 }
 
 impl Placing {
@@ -93,6 +96,17 @@ impl Placing {
 
     /// The Command that places the Part with its origin at `at`.
     pub fn command(&self, at: Point) -> (&'static str, Value) {
+        if let Some(component) = self.component {
+            let params = json!({
+                "document": self.document,
+                "component": component,
+                "unit": self.unit,
+                "at": {"x": at.x, "y": at.y},
+                "rotation": self.rotation.0,
+                "mirror": self.mirror,
+            });
+            return ("schematic.unit.place", params);
+        }
         let mut params = json!({
             "part": self.copy.part.uuid,
             "at": {"x": at.x, "y": at.y},
@@ -218,7 +232,8 @@ pub fn click(shell: &mut Shell, document: Uuid, at: Point) {
     if shell.run_reporting(id, params).is_err() {
         return;
     }
-    if !shell.preferences().schematic.repeat_placement {
+    let one_unit = placing(shell).is_some_and(|p| p.component.is_some());
+    if one_unit || !shell.preferences().schematic.repeat_placement {
         let _ = shell.run_reporting("tool.activate:select", json!({}));
         return;
     }

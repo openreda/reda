@@ -93,6 +93,7 @@ reda-render -> wgpu
 reda-schematic -> reda-command
 reda-schematic -> reda-model
 reda-schematic -> reda-testkit [dev]
+reda-schematic -> regex-lite
 reda-schematic -> schemars
 reda-schematic -> serde
 reda-schematic -> serde_json [dev]

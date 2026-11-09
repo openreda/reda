@@ -226,6 +226,9 @@ impl App {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
         self.keys(&ctx);
+        if let Some(text) = self.shell.take_copied_text() {
+            ctx.copy_text(text);
+        }
         tab_switcher::release(&ctx, &mut self.shell);
 
         let clicked = self.bars(ui);
@@ -479,10 +482,7 @@ impl App {
             || self.settings.has_keys()
             || self.palette.is_some()
             || self.params_dialog.is_some()
-            || matches!(
-                self.schematic_dialog,
-                Some(ref d) if !matches!(d, SchematicDialog::Find(_))
-            )
+            || self.schematic_dialog.is_some()
     }
 
     /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs

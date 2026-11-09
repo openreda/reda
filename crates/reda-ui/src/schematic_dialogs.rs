@@ -1,4 +1,4 @@
-//! The schematic's dialogs: Find, Select Similar, Re-annotate, Update from Library,
+//! The schematic's dialogs: Select Similar, Re-annotate, Update from Library,
 //! Convert Cross Junctions, the words of new text, and Export PDF's file picker.
 //!
 //! Each dialog is a model that works on a [`Shell`] (tested without a window) plus its
@@ -7,7 +7,6 @@
 //! Commands (`schematic.find`, `selection.set`, `schematic.reannotate`, …).
 
 mod cross;
-mod find;
 mod reannotate;
 mod similar;
 mod text;
@@ -28,7 +27,6 @@ use crate::shell::Shell;
 use crate::tr;
 
 pub use cross::ConvertCrossDialog;
-pub use find::{FindDialog, FindRow};
 pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
 pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;
@@ -38,7 +36,7 @@ pub use update::{UpdateDialog, UpdateRow};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DialogKind {
-    /// Find by Designator, value or Net name, across sheets.
+    /// The Find Panel, with its text field focused.
     Find,
     /// Select the Units like the selected one.
     SelectSimilar,
@@ -55,6 +53,7 @@ pub enum DialogKind {
 /// Adds `schematic.dialog.open` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(OpenDialog);
+    registry.add(crate::panels::find::FindStep);
 }
 
 /// Adds the hand-written dialogs that ask for what an incomplete call lacks: the words
@@ -81,7 +80,8 @@ impl Command for OpenDialog {
     const META: Meta = Meta {
         id: "schematic.dialog.open",
         title: "Open Schematic Dialog",
-        description: "Opens one of the schematic's dialogs in the window: Find, Select \
+        description: "Opens one of the schematic's dialogs in the window: Find (the Find \
+                      Panel), Select \
                       Similar, Re-annotate, Update from Library, Convert Cross Junctions, \
                       or the file picker of Export PDF.",
         category: "schematic",
@@ -148,7 +148,6 @@ impl Command for OpenDialog {
 
 /// An open schematic dialog. The window keeps one and shows it every frame.
 pub enum SchematicDialog {
-    Find(FindDialog),
     Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
     Update(UpdateDialog),
@@ -161,7 +160,10 @@ impl SchematicDialog {
     /// bar).
     pub fn open(kind: DialogKind, shell: &mut Shell) -> Option<SchematicDialog> {
         Some(match kind {
-            DialogKind::Find => SchematicDialog::Find(FindDialog::default()),
+            DialogKind::Find => {
+                crate::panels::find::open(shell);
+                return None;
+            }
             DialogKind::SelectSimilar => match SimilarDialog::new(shell) {
                 Some(dialog) => SchematicDialog::Similar(dialog),
                 None => {
@@ -185,7 +187,6 @@ impl SchematicDialog {
     /// Draws the dialog for one frame. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         match self {
-            SchematicDialog::Find(d) => d.show(ctx, shell),
             SchematicDialog::Similar(d) => d.show(ctx, shell),
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),

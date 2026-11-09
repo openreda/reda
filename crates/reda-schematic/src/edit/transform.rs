@@ -119,8 +119,21 @@ pub(crate) fn place_anew(
     keep_connections: bool,
     wiring: &Wiring,
 ) -> Result<(), CommandError> {
+    place_anew_bent(cx, document, moves, keep_connections, false, wiring)
+}
+
+/// [`place_anew`], with the rubber-banded Wires' corners turned the other way when `flip`
+/// (`Mod`+Space during a drag): the moved end keeps its direction instead.
+pub(crate) fn place_anew_bent(
+    cx: &mut Context<'_>,
+    document: Uuid,
+    moves: &[(Object, Placement)],
+    keep_connections: bool,
+    flip: bool,
+    wiring: &Wiring,
+) -> Result<(), CommandError> {
     let body = &crate::sheet(cx.project()?, document)?.clone();
-    let plan = plan(body, moves, keep_connections)?;
+    let plan = plan_bent(body, moves, keep_connections, flip)?;
     let tx = cx.tx()?;
     for uuid in plan.removed {
         tx.remove(uuid)?;
@@ -145,6 +158,16 @@ pub(crate) fn plan(
     body: &SchematicSheet,
     moves: &[(Object, Placement)],
     keep_connections: bool,
+) -> Result<Plan, CommandError> {
+    plan_bent(body, moves, keep_connections, false)
+}
+
+/// [`plan`], with corners turned the other way when `flip` (see [`place_anew_bent`]).
+pub(crate) fn plan_bent(
+    body: &SchematicSheet,
+    moves: &[(Object, Placement)],
+    keep_connections: bool,
+    flip: bool,
 ) -> Result<Plan, CommandError> {
     let document = body.uuid;
     let mut followed: BTreeMap<Point, Point> = BTreeMap::new();
@@ -234,7 +257,14 @@ pub(crate) fn plan(
     followed.retain(|from, to| from != to);
     let selected: BTreeSet<Uuid> = moves.iter().map(|(o, _)| o.uuid()).collect();
     if keep_connections && !followed.is_empty() {
-        rubber_band(body, &selected, &followed, &mut replaced, &mut removed);
+        rubber_band(
+            body,
+            &selected,
+            &followed,
+            flip,
+            &mut replaced,
+            &mut removed,
+        );
     }
     Ok(Plan { replaced, removed })
 }
@@ -253,7 +283,7 @@ fn pins(body: &SchematicSheet, unit: &UnitInstance) -> Vec<Point> {
 /// `followed`, or `None` when neither end moved. An end segment that was horizontal or
 /// vertical keeps its direction from the vertex that stayed and turns a corner to the moved
 /// end, so the Wire stays orthogonal; one at another angle just goes straight to it.
-fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>) -> Option<Vec<Point>> {
+fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>, flip: bool) -> Option<Vec<Point>> {
     let [first, last] = wire.ends();
     let (to_first, to_last) = (followed.get(&first), followed.get(&last));
     if to_first.is_none() && to_last.is_none() {
@@ -267,7 +297,7 @@ fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>) -> Option<Vec<P
     if let Some(&to) = to_first {
         vertices[0] = to;
         if n > 2 || to_last.is_none() {
-            bend(&mut vertices, 0, 1, (original[0], original[1]));
+            bend(&mut vertices, 0, 1, (original[0], original[1]), flip);
         }
     }
     if let Some(&to) = to_last {
@@ -280,6 +310,7 @@ fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>) -> Option<Vec<P
             n - 1,
             next,
             (original[o - 1], original[o - 2]),
+            flip,
         );
     }
     Some(vertices)
@@ -287,14 +318,16 @@ fn rubber_banded(wire: &Wire, followed: &BTreeMap<Point, Point>) -> Option<Vec<P
 
 /// Turns a corner between the moved end `vertices[end]` and its neighbour `vertices[next]`
 /// when the segment between them was orthogonal (`was`, as it was drawn) and no longer is.
-fn bend(vertices: &mut Vec<Point>, end: usize, next: usize, was: (Point, Point)) {
+/// The segment from the vertex that stayed keeps its direction, or with `flip` the one to
+/// the moved end does.
+fn bend(vertices: &mut Vec<Point>, end: usize, next: usize, was: (Point, Point), flip: bool) {
     let (keep, go) = (vertices[next], vertices[end]);
     let horizontal = was.0.y == was.1.y && was.0.x != was.1.x;
     let vertical = was.0.x == was.1.x && was.0.y != was.1.y;
     if !(horizontal || vertical) || keep.x == go.x || keep.y == go.y {
         return;
     }
-    let corner = if horizontal {
+    let corner = if horizontal != flip {
         Point::new(go.x, keep.y)
     } else {
         Point::new(keep.x, go.y)
@@ -307,12 +340,13 @@ fn rubber_band(
     body: &SchematicSheet,
     selected: &BTreeSet<Uuid>,
     followed: &BTreeMap<Point, Point>,
+    flip: bool,
     replaced: &mut Vec<Object>,
     removed: &mut Vec<Uuid>,
 ) {
     let document = body.uuid;
     for wire in body.wires().filter(|w| !selected.contains(&w.uuid)) {
-        let Some(vertices) = rubber_banded(wire, followed) else {
+        let Some(vertices) = rubber_banded(wire, followed, flip) else {
             continue;
         };
         match Wire::through(wire.uuid, vertices) {
