@@ -120,6 +120,7 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Journal => tr!("panel-journal"),
         PanelId::Navigator => tr!("panel-navigator"),
         PanelId::Find => tr!("panel-find"),
+        PanelId::Pins => tr!("panel-pins"),
     }
 }
 
@@ -987,6 +988,9 @@ impl Cx<'_, '_> {
                     return;
                 };
                 canvas_paint(ui, &input, doc, theme);
+                if element_editor_symbol(self.shell, *uuid) {
+                    crate::symbol_editor::hover_tip(self.shell, *uuid, &input.response);
+                }
                 if !view_only
                     && self
                         .shell
@@ -1066,6 +1070,10 @@ impl Cx<'_, '_> {
                 }
             }
             TabKey::Panel(PanelId::Find) => panels::find::show(ui, self.shell),
+            TabKey::Panel(PanelId::Pins) => {
+                let commands = panels::pins::show(ui, self.shell);
+                self.frame.commands.extend(commands);
+            }
             TabKey::Panel(PanelId::Navigator) => {
                 let commands = panels::navigator::show(ui, self.shell);
                 self.frame.commands.extend(commands);
@@ -1160,4 +1168,9 @@ fn chevron(ui: &Ui, at: egui::Pos2, towards: Vec2, colour: egui::Color32) {
         .line_segment([back + across * 3.5, tip], stroke);
     ui.painter()
         .line_segment([tip, back - across * 3.5], stroke);
+}
+
+/// Whether the tab `uuid` is an open Symbol's.
+fn element_editor_symbol(shell: &Shell, uuid: Uuid) -> bool {
+    crate::symbol_editor::symbol_of(shell.engine(), uuid).is_some()
 }

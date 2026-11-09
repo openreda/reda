@@ -7,7 +7,9 @@
 mod generate;
 mod import;
 mod new_library;
+mod paste;
 mod to_library;
+mod wizard;
 
 use reda_engine::library::LibraryOrigin;
 use reda_engine::model::Uuid;
@@ -21,7 +23,9 @@ pub use generate::{
 };
 pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
+pub use paste::{PasteMapping, PasteOutcome};
 pub use to_library::ToLibraryDialog;
+pub use wizard::{SymbolWizardDialog, Target as WizardTarget};
 
 /// The window's hand-written dialogs: New Library's, Import part's, every generator's, and
 /// Copy to Library's and Extract's (Make Project Library).
@@ -29,6 +33,9 @@ pub fn dialogs() -> Dialogs {
     let mut dialogs = Dialogs::new();
     dialogs.register("library.create", |shell, params| {
         Box::new(NewLibraryDialog::new(shell, &params))
+    });
+    dialogs.register_always(wizard::COMMAND, |shell, params| {
+        Box::new(SymbolWizardDialog::new(shell, &params))
     });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))

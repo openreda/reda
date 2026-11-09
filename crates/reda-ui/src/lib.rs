@@ -55,6 +55,7 @@ pub mod schematic_dialogs;
 pub mod schematic_editor;
 pub mod selection;
 pub mod settings;
+pub mod shared_element;
 pub mod shell;
 pub mod show_on_board;
 pub mod snap;
@@ -72,7 +73,7 @@ pub mod zone_refill;
 
 pub use app::{App, install_canvas, run};
 pub use docking::windows;
-pub use panels::find;
+pub use panels::{find, pins};
 /// The control port, re-exported for tests that act as agents.
 pub use reda_control as control;
 /// The engine, re-exported so the app depends only on the UI.

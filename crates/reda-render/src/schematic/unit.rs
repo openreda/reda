@@ -6,8 +6,8 @@ use std::borrow::Cow;
 
 use reda_model::text::display;
 use reda_model::{
-    NotFittedDisplay, PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance,
-    Uuid,
+    InsideEdge, NotFittedDisplay, OutsideEdge, PartEntry, Pin, SchematicSheet, Shape, Symbol,
+    SymbolGraphic, UnitInstance, Uuid,
 };
 
 use super::{Builder, SchematicStyle};
@@ -23,6 +23,10 @@ const PIN_TEXT: Nm = Nm::from_um(1_270);
 const NAME_GAP: i64 = 508_000;
 /// Pin numbers sit this far off the Pin line.
 const NUMBER_GAP: i64 = 254_000;
+/// The size of a clock wedge or an active-low flag: 50 mil.
+const DECORATION: i64 = 1_270_000;
+/// An inversion dot's radius: 25 mil.
+const DOT_RADIUS: i64 = 635_000;
 const FIELD_TEXT: Nm = Nm::from_um(1_270);
 /// Autopositioned fields are stacked this far right of (or above) the body, this far
 /// apart.
@@ -315,15 +319,21 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
         Point::new(Nm(x), Nm(y))
     };
     let body_end = end + along(pin.length.0);
+    // An inversion dot sits on the line just outside the body edge; the line stops at it.
+    let line_end = match pin.outside_edge {
+        Some(OutsideEdge::Dot) => body_end + along(-2 * DOT_RADIUS),
+        _ => body_end,
+    };
     b.push(
         object,
         C::Pin,
         Primitive::Capsule {
             a: end,
-            b: body_end,
+            b: line_end,
             width: PIN_WIDTH,
         },
     );
+    draw_decorations(b, object, pin, body_end, dir);
     if pin.name_visible {
         b.name(
             object,
@@ -359,6 +369,57 @@ fn draw_pin(b: &mut Builder, object: Uuid, place: &Placement, pin: &Pin, number:
                 view_label: true,
             },
         );
+    }
+}
+
+/// A Pin's decorations at `edge`, where it meets the body, pointing `dir` into it: a
+/// clock wedge just inside, and an inversion dot or an active-low flag just outside.
+fn draw_decorations(b: &mut Builder, object: Uuid, pin: &Pin, edge: Point, dir: Millideg) {
+    // `at(along, across)`: a point `along` into the body and `across` to its left.
+    let at = |along: i64, across: i64| {
+        let (x, y) = rotate(along, across, dir);
+        edge + Point::new(Nm(x), Nm(y))
+    };
+    let mut stroke = |a: Point, c: Point| {
+        b.push(
+            object,
+            C::Pin,
+            Primitive::Capsule {
+                a,
+                b: c,
+                width: PIN_WIDTH,
+            },
+        );
+    };
+    if pin.inside_edge == Some(InsideEdge::Clock) {
+        let half = DECORATION / 2;
+        stroke(at(0, half), at(DECORATION, 0));
+        stroke(at(DECORATION, 0), at(0, -half));
+    }
+    match pin.outside_edge {
+        Some(OutsideEdge::Dot) => {
+            let width = PIN_WIDTH.0 / 2;
+            b.push(
+                object,
+                C::Pin,
+                Primitive::Ring {
+                    center: at(-DOT_RADIUS, 0),
+                    outer: Nm(DOT_RADIUS + width / 2),
+                    inner: Nm(DOT_RADIUS - width / 2),
+                },
+            );
+        }
+        // The flag below the line, as read from outside: a right triangle on an input,
+        // a slanted stroke on an output.
+        Some(OutsideEdge::ActiveLowInput) => {
+            let half = DECORATION / 2;
+            stroke(at(0, 0), at(-DECORATION, -half));
+            stroke(at(-DECORATION, -half), at(-DECORATION, 0));
+        }
+        Some(OutsideEdge::ActiveLowOutput) => {
+            stroke(at(0, -DECORATION / 2), at(-DECORATION, 0));
+        }
+        None => {}
     }
 }
 

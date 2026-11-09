@@ -25,11 +25,13 @@ pub enum PanelId {
     Navigator,
     /// Find on the schematic.
     Find,
+    /// The Pins of the open Symbol, or the pin-pad map of the open Part.
+    Pins,
 }
 
 impl PanelId {
     /// Every Panel, in the order the Panels button lists them.
-    pub const ALL: [PanelId; 8] = [
+    pub const ALL: [PanelId; 9] = [
         PanelId::Projects,
         PanelId::Properties,
         PanelId::Messages,
@@ -38,6 +40,7 @@ impl PanelId {
         PanelId::Journal,
         PanelId::Navigator,
         PanelId::Find,
+        PanelId::Pins,
     ];
 
     /// The id in Commands and Presets, such as `properties` in `panel.show:properties`.
@@ -51,6 +54,7 @@ impl PanelId {
             PanelId::Journal => "journal",
             PanelId::Navigator => "navigator",
             PanelId::Find => "find",
+            PanelId::Pins => "pins",
         }
     }
 
@@ -61,7 +65,7 @@ impl PanelId {
                 DockSide::Left
             }
             PanelId::Properties | PanelId::Layers => DockSide::Right,
-            PanelId::Messages | PanelId::Journal => DockSide::Bottom,
+            PanelId::Messages | PanelId::Journal | PanelId::Pins => DockSide::Bottom,
         }
     }
 }

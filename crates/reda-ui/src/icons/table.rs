@@ -233,6 +233,10 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         egui::include_image!("../../icons/panel_navigator.svg"),
     ),
     (
+        "panel_pins",
+        egui::include_image!("../../icons/panel_pins.svg"),
+    ),
+    (
         "panel_projects",
         egui::include_image!("../../icons/panel_projects.svg"),
     ),

@@ -95,9 +95,19 @@ fn canvas_with(kind: &str, builder: egui_kittest::HarnessBuilder<App>) -> Canvas
                 .unwrap(),
         );
     }
-    let h = builder
+    let mut h = builder
         .with_size([1100.0, 900.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    // A fixed view with room around the larger rectangle, whatever the canvas's size.
+    h.state_mut()
+        .shell_mut()
+        .document_tab_mut(document)
+        .unwrap()
+        .camera = Some(reda_ui::canvas::Camera {
+        center: (0.0, 0.0),
+        nm_per_point: 30_000.0,
+    });
     Canvas {
         h,
         document,
