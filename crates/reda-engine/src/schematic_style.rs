@@ -16,7 +16,11 @@ pub enum Drawn {
 
 /// The [`SchematicStyle`] `project`'s sheets are drawn in with `preferences`: the
 /// drawing Preferences, and the Port Cross-References the Project shows.
-pub fn schematic_style(project: &Project, preferences: &Preferences, drawn: Drawn) -> SchematicStyle {
+pub fn schematic_style(
+    project: &Project,
+    preferences: &Preferences,
+    drawn: Drawn,
+) -> SchematicStyle {
     let schematic = &preferences.schematic;
     SchematicStyle {
         unit_suffix: schematic.unit_suffix,
@@ -25,8 +29,7 @@ pub fn schematic_style(project: &Project, preferences: &Preferences, drawn: Draw
         cross_overs: drawn == Drawn::Canvas && schematic.display_cross_overs,
         cross_references: reda_schematic::cross_ref::notes(
             project,
-            (project.props().schematic)
-                .cross_reference_styles(schematic.cross_reference_styles()),
+            (project.props().schematic).cross_reference_styles(schematic.cross_reference_styles()),
         ),
     }
 }

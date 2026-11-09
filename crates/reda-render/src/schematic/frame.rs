@@ -46,7 +46,10 @@ impl TitleBlock {
             .documents()
             .filter(|d| d.kind == DocumentKind::Schematic)
             .collect();
-        let index = sheets.iter().position(|d| d.uuid == sheet.uuid).unwrap_or(0);
+        let index = sheets
+            .iter()
+            .position(|d| d.uuid == sheet.uuid)
+            .unwrap_or(0);
         let props = &project.props().properties;
         let frame = sheet.frame_settings();
         let shown = |raw: &str| display(raw).into_owned();
@@ -91,7 +94,14 @@ pub(super) fn build(b: &mut Builder, project: &Project, sheet: &SchematicSheet, 
         border_zones(b, object, &zones);
     }
     if sheet.frame_settings().title_block {
-        title_block(b, object, &TitleBlock::of(project, sheet), inner_lo, inner_hi, canvas);
+        title_block(
+            b,
+            object,
+            &TitleBlock::of(project, sheet),
+            inner_lo,
+            inner_hi,
+            canvas,
+        );
     }
 }
 
@@ -236,7 +246,15 @@ fn title_block(
             &format!("Sheet {} of {}", tb.sheet_number, tb.sheet_count),
             false,
         ),
-        cell(left, rows[4], BLOCK_WIDTH, TITLE_ROW, "Title: ", &tb.title, true),
+        cell(
+            left,
+            rows[4],
+            BLOCK_WIDTH,
+            TITLE_ROW,
+            "Title: ",
+            &tb.title,
+            true,
+        ),
     ];
     if canvas {
         for c in cells.iter().filter(|c| c.field && c.value.is_empty()) {

@@ -55,7 +55,11 @@ fn a_wire_bridges_another_where_they_cross_without_connecting() {
     assert_eq!(strokes(&plain, across).len(), 1, "off by default");
 
     let scene = schematic_scene_styled(project, sheet(), &[], &with_cross_overs()).unwrap();
-    assert_eq!(strokes(&scene, down).len(), 1, "the upright Wire stays straight");
+    assert_eq!(
+        strokes(&scene, down).len(),
+        1,
+        "the upright Wire stays straight"
+    );
     let pieces = strokes(&scene, across);
     assert!(pieces.len() > 3, "{pieces:?}");
     // It still runs from end to end ...
@@ -67,11 +71,15 @@ fn a_wire_bridges_another_where_they_cross_without_connecting() {
     // ... but hops over the crossing: no stroke stays on the Wire's line there.
     let crossing = Point::new(2000.mil(), 1000.mil());
     for (a, b) in &pieces {
-        let flat_through = a.y == crossing.y && b.y == crossing.y && a.x < crossing.x && b.x > crossing.x;
+        let flat_through =
+            a.y == crossing.y && b.y == crossing.y && a.x < crossing.x && b.x > crossing.x;
         assert!(!flat_through, "{a:?} {b:?}");
     }
     let top = pieces.iter().map(|(a, b)| a.y.max(b.y)).max().unwrap();
-    assert!(top > crossing.y + Nm::from_um(500), "the bridge rises over the crossing");
+    assert!(
+        top > crossing.y + Nm::from_um(500),
+        "the bridge rises over the crossing"
+    );
     assert_golden(golden("cross_overs.scene"), scene.to_text().as_bytes());
 }
 
@@ -99,5 +107,8 @@ fn connected_wires_get_no_bridge() {
             .cloned()
             .collect()
     };
-    assert_eq!(wires(&with_cross_overs()), wires(&SchematicStyle::default()));
+    assert_eq!(
+        wires(&with_cross_overs()),
+        wires(&SchematicStyle::default())
+    );
 }

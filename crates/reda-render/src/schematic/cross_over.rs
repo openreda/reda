@@ -63,7 +63,10 @@ fn crossing(s: &Segment, t: &Segment) -> Option<f64> {
 
 /// Where each segment that hops is crossed, keyed by (Wire, segment index), as parameters
 /// along it. Crossings on a Junction connect, so they get no bridge.
-pub(super) fn hops(sheet: &SchematicSheet, junctions: &[Point]) -> BTreeMap<(Uuid, usize), Vec<f64>> {
+pub(super) fn hops(
+    sheet: &SchematicSheet,
+    junctions: &[Point],
+) -> BTreeMap<(Uuid, usize), Vec<f64>> {
     let segments: Vec<Segment> = sheet
         .wires()
         .flat_map(|w| {

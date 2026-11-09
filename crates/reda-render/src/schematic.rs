@@ -135,5 +135,8 @@ const OVERBAR_WIDTH: i64 = 10;
 
 /// `name` as drawn: its characters without the overbar markup.
 pub(crate) fn plain_name(name: &str, single_negation: bool) -> String {
-    overbars(name, single_negation).iter().map(|g| g.ch).collect()
+    overbars(name, single_negation)
+        .iter()
+        .map(|g| g.ch)
+        .collect()
 }

@@ -574,13 +574,13 @@ fn the_unit_suffix_follows_the_designator_from_the_units_position() {
     assert_golden(golden("unit_suffix.scene"), scene.to_text().as_bytes());
 }
 
-#[path = "schematic_scene/overbars.rs"]
-mod overbars;
-#[path = "schematic_scene/frame.rs"]
-mod frame;
-#[path = "schematic_scene/cross_references.rs"]
-mod cross_references;
-#[path = "schematic_scene/not_fitted.rs"]
-mod not_fitted;
 #[path = "schematic_scene/cross_overs.rs"]
 mod cross_overs;
+#[path = "schematic_scene/cross_references.rs"]
+mod cross_references;
+#[path = "schematic_scene/frame.rs"]
+mod frame;
+#[path = "schematic_scene/not_fitted.rs"]
+mod not_fitted;
+#[path = "schematic_scene/overbars.rs"]
+mod overbars;

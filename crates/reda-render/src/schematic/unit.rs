@@ -6,8 +6,8 @@ use std::borrow::Cow;
 
 use reda_model::text::display;
 use reda_model::{
-    NotFittedDisplay, PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic,
-    UnitInstance, Uuid,
+    NotFittedDisplay, PartEntry, Pin, SchematicSheet, Shape, Symbol, SymbolGraphic, UnitInstance,
+    Uuid,
 };
 
 use super::{Builder, SchematicStyle};

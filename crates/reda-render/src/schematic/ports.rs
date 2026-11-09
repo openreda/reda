@@ -244,7 +244,11 @@ pub(super) fn power_ports(b: &mut Builder, sheet: &SchematicSheet, single_negati
         };
         if !port.hide_name {
             let beyond = NAME_GAP + NAME_TEXT.0 / 2;
-            l.name(&port.name, single_negation, (0, reach + reach.signum() * beyond));
+            l.name(
+                &port.name,
+                single_negation,
+                (0, reach + reach.signum() * beyond),
+            );
         }
     }
 }

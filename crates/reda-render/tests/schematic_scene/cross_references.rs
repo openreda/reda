@@ -27,7 +27,10 @@ fn reach(scene: &reda_render::Scene, object: Uuid, text: &str) -> ((i64, i64), (
             }
         }
     }
-    ((lo, hi), note.unwrap_or_else(|| panic!("no {text:?} drawn")))
+    (
+        (lo, hi),
+        note.unwrap_or_else(|| panic!("no {text:?} drawn")),
+    )
 }
 
 #[test]
@@ -38,19 +41,28 @@ fn a_ports_cross_reference_is_drawn_past_its_flag() {
     let left = port(&mut engine, 5000, "180deg");
     let bare = port(&mut engine, 8000, "0deg");
     let style = SchematicStyle {
-        cross_references: [(right, "[2:B3]".to_owned()), (left, "[2:A1, 3:C4]".to_owned())]
-            .into_iter()
-            .collect(),
+        cross_references: [
+            (right, "[2:B3]".to_owned()),
+            (left, "[2:A1, 3:C4]".to_owned()),
+        ]
+        .into_iter()
+        .collect(),
         ..SchematicStyle::default()
     };
     let scene = schematic_scene_styled(engine.project().unwrap(), sheet(), &[], &style).unwrap();
 
     let ((_, flag_end), (lo, _)) = reach(&scene, right, "[2:B3]");
-    assert!(lo.x.0 > flag_end, "past the far end of a flag reaching right");
+    assert!(
+        lo.x.0 > flag_end,
+        "past the far end of a flag reaching right"
+    );
     // Turned half a turn, the flag reaches left and the note is left of it, reading
     // left to right.
     let ((flag_end, _), (_, hi)) = reach(&scene, left, "[2:A1, 3:C4]");
-    assert!(hi.x.0 < flag_end, "past the far end of a flag reaching left");
+    assert!(
+        hi.x.0 < flag_end,
+        "past the far end of a flag reaching left"
+    );
     let texts = |uuid| {
         scene
             .items_of(uuid)

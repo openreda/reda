@@ -68,8 +68,8 @@ pub use pcb::{
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;
 pub use project::{
-    CrossReferenceStyles, LocationStyle, NotFittedDisplay, Project, ProjectProperties, ProjectProps,
-    SchematicOptions, SheetStyle,
+    CrossReferenceStyles, LocationStyle, NotFittedDisplay, Project, ProjectProperties,
+    ProjectProps, SchematicOptions, SheetStyle,
 };
 pub use schematic::{
     BorderZones, ComponentRef, EditedFrom, FieldText, FootprintCopy, FrameSize, Justify,

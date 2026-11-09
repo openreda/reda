@@ -337,7 +337,10 @@ fn the_canvas_draws_sheets_in_this_users_style_and_follows_its_changes() {
     let mm = |x: i64, y: i64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
     for points in [[mm(20, 50), mm(80, 50)], [mm(50, 20), mm(50, 80)]] {
         shell
-            .run("schematic.wire.add", json!({"document": sheet, "points": points}))
+            .run(
+                "schematic.wire.add",
+                json!({"document": sheet, "points": points}),
+            )
             .unwrap();
     }
     let count = |shell: &Shell, color: SchematicColor| {

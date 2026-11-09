@@ -39,7 +39,11 @@ fn label(engine: &mut TestEngine, name: &str, x: i64) -> Uuid {
         "schematic.net_label.add",
         json!({"document": SHEET, "name": name, "at": at(x, 1000)}),
     );
-    out["result"]["net_label"].as_str().unwrap().parse().unwrap()
+    out["result"]["net_label"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap()
 }
 
 #[test]
@@ -60,7 +64,10 @@ fn a_backslash_after_a_character_draws_an_overbar_over_it() {
     let reset_bars = bars(&scene, reset, SchematicColor::NetLabel);
     assert_eq!(reset_bars.len(), 1, "{reset_bars:?}");
     let (a, b, y) = reset_bars[0];
-    assert!(a <= lo.x.0 + 100_000 && b >= hi.x.0 - 100_000, "{reset_bars:?} {lo:?} {hi:?}");
+    assert!(
+        a <= lo.x.0 + 100_000 && b >= hi.x.0 - 100_000,
+        "{reset_bars:?} {lo:?} {hi:?}"
+    );
     assert!(y > hi.y.0, "the bar is above the capitals");
 
     // Only over the N of CSN: the right third of the text.
@@ -69,7 +76,10 @@ fn a_backslash_after_a_character_draws_an_overbar_over_it() {
     assert_eq!(csn_bars.len(), 1, "{csn_bars:?}");
     let (a, b, _) = csn_bars[0];
     let width = hi.x.0 - lo.x.0;
-    assert!(a > lo.x.0 + width / 2 && b >= hi.x.0 - 100_000, "{csn_bars:?} {lo:?} {hi:?}");
+    assert!(
+        a > lo.x.0 + width / 2 && b >= hi.x.0 - 100_000,
+        "{csn_bars:?} {lo:?} {hi:?}"
+    );
 
     assert!(bars(&scene, plain, SchematicColor::NetLabel).is_empty());
 }

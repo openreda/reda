@@ -41,7 +41,11 @@ fn a_not_fitted_component_is_crossed_out_in_red_over_a_masked_body_by_default() 
     assert!(count(&colors, SchematicColor::MaskedBody) > 0, "{colors:?}");
     // Two Pins and their two numbers.
     assert_eq!(count(&colors, SchematicColor::MaskedPin), 4, "{colors:?}");
-    assert_eq!(count(&colors, SchematicColor::NotFittedCross), 2, "{colors:?}");
+    assert_eq!(
+        count(&colors, SchematicColor::NotFittedCross),
+        2,
+        "{colors:?}"
+    );
     // The cross spans the body from corner to corner.
     let body = body_box(&scene, &unit);
     for item in scene.items_of(unit.parse().unwrap()) {
@@ -102,7 +106,15 @@ fn the_mesh_display_draws_a_grey_meshed_box_over_the_masked_body() {
     assert!(mesh.len() > 4, "a box and its mesh: {mesh:?}");
     let boxes = mesh
         .iter()
-        .filter(|i| matches!(i.primitive, Primitive::Rect { stroke: Some(_), .. }))
+        .filter(|i| {
+            matches!(
+                i.primitive,
+                Primitive::Rect {
+                    stroke: Some(_),
+                    ..
+                }
+            )
+        })
         .count();
     assert_eq!(boxes, 1);
     for item in &mesh {

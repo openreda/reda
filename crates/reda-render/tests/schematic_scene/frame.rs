@@ -34,14 +34,25 @@ fn border_zones_number_the_columns_and_letter_the_rows_on_every_side() {
     // A4 landscape, 297 x 210 mm: six columns of 49.5 mm and four rows of 52.5 mm.
     let zones = texts(&scene, SchematicColor::Zone);
     let named = |name: &str| -> Vec<Point> {
-        zones.iter().filter(|(t, _)| t == name).map(|(_, p)| *p).collect()
+        zones
+            .iter()
+            .filter(|(t, _)| t == name)
+            .map(|(_, p)| *p)
+            .collect()
     };
     for (i, column) in ["1", "2", "3", "4", "5", "6"].into_iter().enumerate() {
         let at = named(column);
-        assert_eq!(at.len(), 2, "column {column} at the top and the bottom: {at:?}");
+        assert_eq!(
+            at.len(),
+            2,
+            "column {column} at the top and the bottom: {at:?}"
+        );
         let centre = 49.5 * i as f64 + 24.75;
         for p in &at {
-            assert!((mm_f(p.x) - centre).abs() < 0.01, "column {column} at {p:?}");
+            assert!(
+                (mm_f(p.x) - centre).abs() < 0.01,
+                "column {column} at {p:?}"
+            );
         }
         assert!(at.iter().any(|p| mm_f(p.y) < 10.0) && at.iter().any(|p| mm_f(p.y) > 200.0));
     }
@@ -116,7 +127,10 @@ fn the_title_block_shows_the_drawing_number_and_the_sheets_revision_or_the_proje
     );
     let (all, inherited) = shown(&engine, &canvas());
     assert!(all.contains(&"Revision: C".to_owned()), "{all:?}");
-    assert!(all.contains(&"Drawing number: DWG-0042".to_owned()), "{all:?}");
+    assert!(
+        all.contains(&"Drawing number: DWG-0042".to_owned()),
+        "{all:?}"
+    );
     assert!(inherited.is_empty());
 }
 
