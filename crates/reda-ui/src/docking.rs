@@ -119,6 +119,7 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
         PanelId::Navigator => tr!("panel-navigator"),
+        PanelId::Find => tr!("panel-find"),
     }
 }
 
@@ -1049,6 +1050,7 @@ impl Cx<'_, '_> {
                     self.push_call(id, params);
                 }
             }
+            TabKey::Panel(PanelId::Find) => panels::find::show(ui, self.shell),
             TabKey::Panel(PanelId::Navigator) => {
                 let commands = panels::navigator::show(ui, self.shell);
                 self.frame.commands.extend(commands);

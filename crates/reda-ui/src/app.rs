@@ -466,10 +466,7 @@ impl App {
             || self.settings.has_keys()
             || self.palette.is_some()
             || self.params_dialog.is_some()
-            || matches!(
-                self.schematic_dialog,
-                Some(ref d) if !matches!(d, SchematicDialog::Find(_))
-            )
+            || self.schematic_dialog.is_some()
     }
 
     /// Runs what the Keymap binds to the keys pressed this frame. Text fields and dialogs

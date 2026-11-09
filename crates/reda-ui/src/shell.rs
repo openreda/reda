@@ -289,6 +289,9 @@ impl Shell {
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
+        engine
+            .view_mut()
+            .set(crate::panels::find::FindPanel::default());
         engine.view_mut().set(tools::BreakWireTool::default());
         engine.view_mut().set(tools::ToolStack::default());
         engine
@@ -2176,6 +2179,9 @@ impl Shell {
             "tool.move_board_shape" => self.pcb_move_board_shape(false),
             "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
+            "schematic.find.step" => {
+                crate::panels::find::step(self, out["direction"] == "next");
+            }
             "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self

@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 reda-command = { path = "../reda-command" }
 reda-model = { path = "../reda-model" }
+regex-lite.workspace = true
 schemars.workspace = true
 serde.workspace = true
 

@@ -363,6 +363,7 @@ fn every_panel_has_a_show_preset() {
             "panel.show:layers",
             "panel.show:journal",
             "panel.show:navigator",
+            "panel.show:find",
         ]
     );
 }

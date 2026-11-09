@@ -1,5 +1,4 @@
-//! The schematic's dialogs as models on a Shell, without a window: Find (selects the match,
-//! opens its sheet and zooms to it), Select Similar, Re-annotate with its old → new
+//! The schematic's dialogs as models on a Shell, without a window: Select Similar, Re-annotate with its old → new
 //! preview, Update from Library with its preview, and Export PDF.
 
 use std::path::{Path, PathBuf};
@@ -10,7 +9,7 @@ use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::geom::Nm;
 use reda_ui::schematic_dialogs::{
-    FindDialog, ReannotateDialog, ReannotateScope, SimilarDialog, UpdateDialog, export_pdf,
+    ReannotateDialog, ReannotateScope, SimilarDialog, UpdateDialog, export_pdf,
 };
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
@@ -81,71 +80,6 @@ fn designator(shell: &Shell, unit: Uuid) -> String {
         .unwrap()
         .designator
         .clone()
-}
-
-#[test]
-fn find_selects_the_match_opens_its_sheet_and_zooms_to_it() {
-    let dir = TempDir::new("find");
-    let mut shell = shell(&dir);
-    place(&mut shell, sheet(), R_10K, 0, 0);
-    let second = add_sheet(&mut shell);
-    let (r2, _) = place(&mut shell, second, R_10K, 2000, 1000);
-    shell
-        .run("document.open", json!({"document": SHEET}))
-        .unwrap();
-
-    let mut find = FindDialog::default();
-    find.text = "r2".to_owned();
-    find.search(&mut shell);
-    let results = find.results();
-    assert_eq!(results.len(), 1);
-    assert!(results[0].label.contains("R2"), "{}", results[0].label);
-    // The first match is shown at once: its sheet, selected and zoomed to.
-    assert_eq!(shell.active_document().unwrap().document, second);
-    assert_eq!(shell.selection().objects, [r2]);
-    let (lo, hi) = shell.document_tab(second).unwrap().zoom_to.unwrap();
-    let x = Nm(2000 * 25_400);
-    assert!(lo.x <= x && x <= hi.x, "{lo:?}..{hi:?}");
-
-    // By value: both Resistors; going to the first goes back to the first sheet.
-    find.text = "10k".to_owned();
-    find.search(&mut shell);
-    assert_eq!(find.results().len(), 2);
-    assert_eq!(shell.active_document().unwrap().document, sheet());
-    find.go(&mut shell, 1);
-    assert_eq!(shell.active_document().unwrap().document, second);
-
-    // Nothing found leaves the selection alone and says so.
-    find.text = "nothing like it".to_owned();
-    find.search(&mut shell);
-    assert!(find.results().is_empty());
-    assert!(find.searched());
-    assert_eq!(shell.selection().objects, [r2]);
-}
-
-#[test]
-fn find_by_net_name_selects_the_objects_on_the_net() {
-    let dir = TempDir::new("find-net");
-    let mut shell = shell(&dir);
-    let wire = shell
-        .run(
-            "schematic.wire.add",
-            json!({"document": SHEET, "points": [
-                {"x": "0mil", "y": "0mil"}, {"x": "500mil", "y": "0mil"}]}),
-        )
-        .unwrap();
-    let wire = uuid(&wire["result"]["wires"][0]);
-    shell
-        .run(
-            "schematic.net_label.add",
-            json!({"document": SHEET, "name": "SDA", "at": {"x": "0mil", "y": "0mil"}}),
-        )
-        .unwrap();
-    let mut find = FindDialog::default();
-    find.text = "sda".to_owned();
-    find.search(&mut shell);
-    assert_eq!(find.results().len(), 1);
-    assert!(shell.selection().objects.contains(&wire));
 }
 
 #[test]

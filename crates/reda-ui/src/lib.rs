@@ -71,6 +71,7 @@ pub mod zone_refill;
 
 pub use app::{App, install_canvas, run};
 pub use docking::windows;
+pub use panels::find;
 /// The control port, re-exported for tests that act as agents.
 pub use reda_control as control;
 /// The engine, re-exported so the app depends only on the UI.

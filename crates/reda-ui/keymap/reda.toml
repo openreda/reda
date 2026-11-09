@@ -54,6 +54,16 @@ command = "view.messages.step:next"
 key = "Shift+F4"
 command = "view.messages.step:previous"
 
+# F3 and Shift+F3 step through the Find Panel's matches.
+
+[[bind]]
+key = "F3"
+command = "schematic.find.step:next"
+
+[[bind]]
+key = "Shift+F3"
+command = "schematic.find.step:previous"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]
@@ -342,7 +352,7 @@ context = "tool:break_wire"
 key = "Tab"
 command = "tool.edit_properties"
 
-# Find (Mod+F) searches every sheet by Designator, value or Net name.
+# Find (Mod+F) shows the Find Panel with its text field focused.
 
 [[bind]]
 context = "schematic"
