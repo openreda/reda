@@ -35,7 +35,8 @@ pub use commands::{
     rect_outline, register_all, register_all_with_user, track_drag_plan,
 };
 pub use copper::{
-    ClearanceHit, Connections, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility,
+    ClearanceHit, Connections, Copper, Item, Proposal, RatsnestEnds, RatsnestLine,
+    RatsnestVisibility,
 };
 pub use text::{
     FOOTPRINT_TEXT_PEN, Fill, LINE_PITCH, PlacedText, Stroke, board_layer, element_texts,

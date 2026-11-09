@@ -26,7 +26,7 @@ pub mod sync;
 pub mod user_dirs;
 
 pub use detached::{Detached, Finished};
-pub use engine::{Engine, EngineBuilder, document_scene, registry};
+pub use engine::{Engine, EngineBuilder, board_scene, document_scene, registry};
 pub use footprint_scene::{FootprintScene, footprint_scene};
 pub use journal::{JournalEntry, Source};
 

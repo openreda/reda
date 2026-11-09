@@ -2,7 +2,8 @@
 //!
 //! Each Layer is drawn opaque into a target of its own, then blended over what is below at
 //! its opacity ([`Composite`]). Layers go bottom to top in physical order, the active Layer
-//! last; the view from the bottom reverses the physical order (and mirrors the view). The
+//! last; the view from the bottom swaps the draw order in pairs, each Layer trading places
+//! with its twin on the other side (and mirrors the view). The
 //! Layers that are not physical (Board Outline, Mechanical, Documentation) follow, then the
 //! drilled holes, then the Ratsnest while it is visible.
 
@@ -42,6 +43,9 @@ pub struct LayerView {
     pub from_bottom: bool,
     /// Whether the Ratsnest is drawn.
     pub ratsnest: bool,
+    /// Pinned Layers: still drawn, at [`NORMAL_OPACITY`], in single-Layer mode
+    /// ([`InactiveLayers::Hidden`]), such as the Board Outline.
+    pub pinned: Vec<Uuid>,
 }
 
 /// One Layer to draw, opaque into its own target, then blended at `opacity`.
@@ -68,8 +72,20 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
     let physical = |l: &&Layer| l.side.is_some() || l.kind == LayerKind::Copper;
     // Top to bottom; drawing goes the other way.
     let mut physical: Vec<&Layer> = layers.iter().filter(physical).collect();
-    if !view.from_bottom {
-        physical.reverse();
+    physical.reverse();
+    if view.from_bottom {
+        // Each Layer with a twin on the other side takes the twin's place: top and bottom
+        // copper, top and bottom silkscreen, and so on. A Layer with no twin stays.
+        let twin = |l: &Layer| {
+            let other = match l.side? {
+                reda_model::Side::Top => reda_model::Side::Bottom,
+                reda_model::Side::Bottom => reda_model::Side::Top,
+            };
+            layers
+                .iter()
+                .find(|t| t.kind == l.kind && t.side == Some(other))
+        };
+        physical = physical.iter().map(|l| twin(l).unwrap_or(l)).collect();
     }
     let others = layers.iter().filter(|l| !physical.contains(l));
     let mut order: Vec<&Layer> = physical
@@ -92,6 +108,8 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
         .filter_map(|l| {
             let opacity = if Some(l.uuid) == view.active {
                 1.0
+            } else if view.inactive == InactiveLayers::Hidden && view.pinned.contains(&l.uuid) {
+                NORMAL_OPACITY
             } else {
                 inactive?
             };
@@ -102,6 +120,7 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
         })
         .collect();
     out.push(Composite::opaque(SceneLayer::Drill));
+    out.push(Composite::opaque(SceneLayer::Annotation));
     if view.ratsnest {
         out.push(Composite::opaque(SceneLayer::Ratsnest));
     }
@@ -139,6 +158,7 @@ mod tests {
                 let name = match c.layer {
                     SceneLayer::Board(u) => (u.as_u128()).to_string(),
                     SceneLayer::Drill => "drill".into(),
+                    SceneLayer::Annotation => "annotation".into(),
                     SceneLayer::Ratsnest => "ratsnest".into(),
                     SceneLayer::Schematic => "sch".into(),
                 };
@@ -158,7 +178,10 @@ mod tests {
             ratsnest: true,
             ..LayerView::default()
         };
-        assert_eq!(names(&view), ["4", "2", "1", "5", "3", "drill", "ratsnest"]);
+        assert_eq!(
+            names(&view),
+            ["4", "2", "1", "5", "3", "drill", "annotation", "ratsnest"]
+        );
         let opacities: Vec<f32> = plan(&view).into_iter().map(|(_, o)| o).collect();
         assert_eq!(
             opacities,
@@ -167,6 +190,7 @@ mod tests {
                 NORMAL_OPACITY,
                 NORMAL_OPACITY,
                 NORMAL_OPACITY,
+                1.0,
                 1.0,
                 1.0,
                 1.0
@@ -180,7 +204,38 @@ mod tests {
             from_bottom: true,
             ..LayerView::default()
         };
-        assert_eq!(names(&view), ["1", "2", "3", "4", "5", "drill"]);
+        assert_eq!(
+            names(&view),
+            ["1", "2", "3", "4", "5", "drill", "annotation"]
+        );
+    }
+
+    #[test]
+    fn flipping_swaps_the_draw_order_in_pairs() {
+        // Top paste with no bottom twin, and the silkscreen pair not mirrored about the
+        // copper in the list: a pair swap, not a reversal.
+        let layers = vec![
+            layer(1, LayerKind::Silkscreen, Some(Side::Top)),
+            layer(6, LayerKind::Paste, Some(Side::Top)),
+            layer(2, LayerKind::Copper, Some(Side::Top)),
+            layer(4, LayerKind::Silkscreen, Some(Side::Bottom)),
+            layer(3, LayerKind::Copper, Some(Side::Bottom)),
+        ];
+        let order = |from_bottom| -> Vec<u128> {
+            let view = LayerView {
+                from_bottom,
+                ..LayerView::default()
+            };
+            board_composites(&layers, &view)
+                .into_iter()
+                .filter_map(|c| match c.layer {
+                    SceneLayer::Board(u) => Some(u.as_u128()),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(order(false), [3, 4, 2, 6, 1]);
+        assert_eq!(order(true), [2, 1, 3, 6, 4]);
     }
 
     #[test]
@@ -192,7 +247,13 @@ mod tests {
         };
         assert_eq!(plan(&view)[0], ("4".to_owned(), DIMMED_OPACITY));
         view.inactive = InactiveLayers::Hidden;
-        assert_eq!(names(&view), ["2", "drill"]);
+        assert_eq!(names(&view), ["2", "drill", "annotation"]);
+        // A pinned Layer stays in single-Layer mode.
+        view.pinned = vec![Uuid::from_u128(5)];
+        assert_eq!(
+            plan(&view)[..2],
+            [("5".to_owned(), NORMAL_OPACITY), ("2".to_owned(), 1.0)]
+        );
     }
 
     #[test]
@@ -201,6 +262,6 @@ mod tests {
             visible: Some(vec![Uuid::from_u128(2), Uuid::from_u128(5)]),
             ..LayerView::default()
         };
-        assert_eq!(names(&view), ["2", "5", "drill"]);
+        assert_eq!(names(&view), ["2", "5", "drill", "annotation"]);
     }
 }

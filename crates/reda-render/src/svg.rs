@@ -113,6 +113,16 @@ fn write_item(out: &mut String, item: &Item, palette: &Palette, highlight: &[Uui
                     mm(width.0)
                 );
             }
+            Primitive::Hairline { a, b } => {
+                let _ = write!(
+                    out,
+                    "path d=\"M{} {}L{} {}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"",
+                    mm(a.x.0),
+                    mm(-a.y.0),
+                    mm(b.x.0),
+                    mm(-b.y.0)
+                );
+            }
             Primitive::Rect {
                 center,
                 size,

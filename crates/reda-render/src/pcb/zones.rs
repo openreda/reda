@@ -35,12 +35,16 @@ pub(super) fn build(
             ZoneFillState::Stale => BoardColor::stale_fill(layer.side),
             ZoneFillState::Unfilled => continue,
         };
+        let first = b.scene.items.len();
         for shape in shapes.into_iter().flatten() {
             let mesh = triangulate_with_holes(&shape.outer, &shape.holes);
             if !mesh.is_empty() {
                 let layer = SceneLayer::Board(zone.layer);
                 b.push(zone.uuid, layer, color, Primitive::Triangles(mesh));
             }
+        }
+        if state == ZoneFillState::Filled {
+            b.net_overlay(zone.net, first);
         }
     }
     for zone in pcb.active_zones() {

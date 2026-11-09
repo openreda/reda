@@ -3,16 +3,18 @@
 use reda_model::geom::{Nm, Point};
 use reda_model::{GraphicShape, LayerKind, Shape, Uuid};
 
-use super::{BoardGraphic, BoardText, Builder, RatsnestLine, capsule};
+use super::{BoardGraphic, BoardText, Builder, RatsnestLine, SheetLabel, capsule};
 use crate::arc;
-use crate::color::BoardColor;
+use crate::color::{BoardColor, ColorKey};
 use crate::polygon::triangulate;
+use crate::scene::{Align, HAlign, VAlign};
 use crate::scene::{GlyphRun, Primitive, SceneLayer};
+use crate::text::{TextStyle, glyph_run};
 
 /// The width of the Board Outline and cutouts.
 pub(super) const OUTLINE_WIDTH: Nm = Nm(150_000);
-/// The width of a Ratsnest line.
-pub(super) const RATSNEST_WIDTH: Nm = Nm(100_000);
+/// The capital height of a sheet-name label over a Footprint cluster.
+pub(super) const SHEET_LABEL_HEIGHT: Nm = Nm(2_000_000);
 
 /// Footprint drawing, then free lines, arcs and rectangles.
 pub(super) fn graphics(b: &mut Builder, graphics: &[BoardGraphic]) {
@@ -165,14 +167,45 @@ fn output_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
     }
 }
 
-/// The Ratsnest: one line per connection still to be made, tagged with its Net.
+/// The Ratsnest: one screen-width line per connection still to be made, tagged with its
+/// Net and drawn in the Net's colour when it has one. Lines of a Footprint whose Ratsnest
+/// is hidden are left out.
 pub(super) fn ratsnest(b: &mut Builder, lines: &[RatsnestLine]) {
+    let hidden = &b.style.hidden_ratsnest_footprints;
     for line in lines {
-        b.push(
+        if line.footprints.iter().flatten().any(|f| hidden.contains(f)) {
+            continue;
+        }
+        let color = match b.net_color(Some(line.net)) {
+            Some(rgb) => ColorKey::Net(rgb),
+            None => ColorKey::Board(BoardColor::Ratsnest),
+        };
+        b.scene.push(
             line.net,
             SceneLayer::Ratsnest,
-            BoardColor::Ratsnest,
-            capsule(line.from, line.to, RATSNEST_WIDTH),
+            color,
+            Primitive::Hairline {
+                a: line.from,
+                b: line.to,
+            },
+        );
+    }
+}
+
+/// The derived sheet-name labels, tagged with the sheet.
+pub(super) fn sheet_labels(b: &mut Builder, labels: &[SheetLabel]) {
+    for label in labels {
+        let style = TextStyle {
+            height: SHEET_LABEL_HEIGHT,
+            rotation: reda_model::geom::Millideg(0),
+            align: Align::new(HAlign::Left, VAlign::Baseline),
+            view_label: true,
+        };
+        b.push(
+            label.sheet,
+            SceneLayer::Annotation,
+            BoardColor::SheetLabel,
+            Primitive::Glyphs(glyph_run(&label.name, label.at, style)),
         );
     }
 }
