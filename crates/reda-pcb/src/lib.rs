@@ -34,9 +34,9 @@ pub use board::{
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
-    AreaParam, DrcRunParams, DrcRunResult, MechanicalSet, MechanicalSetParams, Placed, PlacementOp,
-    SyncCheck, SyncState, drc_run, glob_match, placement_anchor, placement_preview, rect_outline,
-    register_all, register_all_with_user,
+    AreaParam, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
+    PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, drc_run, glob_match, placement_anchor,
+    placement_preview, rect_outline, register_all, register_all_with_user, zone_listing,
 };
 pub use copper::{
     ClearanceHit, Connections, Copper, Item, Proposal, RatsnestEnds, RatsnestLine,

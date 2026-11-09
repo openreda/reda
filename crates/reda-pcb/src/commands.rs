@@ -27,6 +27,7 @@ mod track;
 mod track_edit;
 mod via;
 mod zone;
+pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
 
 pub use drc::{AreaParam, DrcRunParams, DrcRunResult, SyncCheck, SyncState, run as drc_run};
