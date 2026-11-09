@@ -202,3 +202,55 @@ pub fn save_user(dirs: &UserDirs, preset: &FabPreset) -> Result<PathBuf, Command
     write_user(&path, preset)?;
     Ok(path)
 }
+
+/// `preset` with `values` laid over it: each section in `values` (such as `gerber`)
+/// replaces only the keys it names, each of them whole (`rules.paste_expansion`,
+/// `bom.columns`), and a value outside a section (`zip_assembly`) replaces it. The name
+/// is not a value: a copy's name links it to its source, and a user preset is renamed
+/// with its file. Refusals point into `values` (at `/values`).
+pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPreset, CommandError> {
+    use serde_json::Value;
+    let Value::Object(values) = values else {
+        return Err(CommandError::invalid_params(
+            "/values",
+            "values must be an object of preset keys",
+        ));
+    };
+    if values.contains_key("name") {
+        return Err(CommandError::invalid_params(
+            "/values/name",
+            "the name is not edited here; rename a user preset with fab_preset.rename_user",
+        ));
+    }
+    let mut merged = serde_json::to_value(preset).expect("presets serialise");
+    let Value::Object(target) = &mut merged else {
+        unreachable!("a preset serialises as an object");
+    };
+    for (key, value) in values {
+        match (target.get_mut(key), value) {
+            (Some(Value::Object(section)), Value::Object(keys)) => {
+                for (k, v) in keys {
+                    section.insert(k.clone(), v.clone());
+                }
+            }
+            _ => {
+                target.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    serde_json::from_value(merged)
+        .map_err(|e| CommandError::invalid_params("/values", format!("not a preset value: {e}")))
+}
+
+/// Lays `values` over the user preset `name` ([`edited`]) and writes its file; returns
+/// the file.
+pub fn edit_user(
+    dirs: &UserDirs,
+    name: &str,
+    values: &serde_json::Value,
+) -> Result<PathBuf, CommandError> {
+    let (preset, path) = user_preset(dirs, name)?;
+    let preset = edited(&preset, values)?;
+    write_user(&path, &preset)?;
+    Ok(path)
+}
