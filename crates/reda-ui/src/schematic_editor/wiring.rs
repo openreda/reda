@@ -16,8 +16,7 @@ use reda_engine::schematic::connectivity::placed_pins;
 use reda_engine::schematic::default_power_port_style;
 use serde_json::{Value, json};
 
-use super::{Cx, Interaction, P, snap_targets};
-use crate::canvas::interact::SnapTargets;
+use super::{Cx, Interaction, P};
 use crate::tools::{PowerPortName, Tool};
 
 /// Which way a Wire run turns its corner on the way to the pointer.
@@ -204,15 +203,13 @@ fn next_name(project: Option<&Project>, tool: Tool, name: Option<&str>) -> Strin
 }
 
 impl Cx<'_> {
-    /// Everything on the sheet the pointer snaps onto.
-    fn all_targets(&self) -> SnapTargets {
-        self.sheet()
-            .map(|s| snap_targets(s, &Default::default()))
-            .unwrap_or_default()
-    }
-
+    /// The pointer at `at` snapped onto the sheet's Hotspots, else its grid.
     pub(super) fn snap(&self, at: P) -> Point {
-        self.all_targets().snap(at, self.grid(), self.scale.snap).at
+        let targets = self
+            .sheet()
+            .map(crate::snap::hotspots::sheet)
+            .unwrap_or_default();
+        crate::snap::snap_at(self.shell, self.document, at, &targets).at
     }
 
     /// The state a wiring Tool starts in with the pointer at `at`.

@@ -36,18 +36,18 @@ use crate::layout::{self, Layout, SettingsWindow, TabKey, WindowRect, saved};
 use crate::messages::{
     self, CheckKind, CheckRun, Entry, LineKey, Marker, MessageGroup, Messages, Note,
 };
-use crate::pcb::snap::SnapKind;
 use crate::pcb::{self, BoardView};
 use crate::recovery::{self, Recorder};
 use crate::schematic_editor::{Interaction, Turn};
 use crate::selection::{self, Selection};
+use crate::snap::Snapped;
 pub use crate::tool_preview::ToolPreview;
 use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
 
-use crate::working_state::{self, SelectionFilter, SnapOptions, WorkingState};
+use crate::working_state::{self, SelectionFilter, WorkingState};
 
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
 
@@ -284,8 +284,12 @@ impl Shell {
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
-        engine.view_mut().set(WorkingState::default());
+        let working = WorkingState::following(&preferences::current(engine.user_dirs()));
+        engine.view_mut().set(working);
         engine.view_mut().set(CrossProbe::default());
+        engine
+            .view_mut()
+            .set(crate::snap::PaletteRequests::default());
         engine.view_mut().set(messages::ShowWaived::default());
         engine.view_mut().set(messages::ChecksCleared::default());
         engine
@@ -483,13 +487,17 @@ impl Shell {
             .map_or_else(Point::default, |pcb| self.grid_origin(pcb.uuid))
     }
 
-    /// A Document point on its current grid, including the board's Output Origin.
+    /// A Document point on its grid level, including the board's Output Origin; left
+    /// where it is when Gridless, or with the grid suspended.
     pub fn snap_to_grid(&self, document: Uuid, at: (f64, f64)) -> Point {
-        crate::canvas::interact::snap_to_grid_from(
-            at,
-            self.grid(document),
-            self.grid_origin(document),
-        )
+        crate::snap::to_grid(self, document, at)
+    }
+
+    /// Feeds this frame's keys over `document`'s canvas to the snap suspend keys
+    /// ([`crate::snap::Suspend`]): `Mod` and Shift held, and the primary button down.
+    pub fn hold_snap_keys(&mut self, document: Uuid, modifiers: egui::Modifiers, pressed: bool) {
+        let keys = crate::snap::held(self, document, modifiers, pressed);
+        self.engine.view_mut().set(keys);
     }
 
     /// `document`'s Selection Filter; it changes through `selection.filter.set`.
@@ -712,7 +720,7 @@ impl Shell {
     }
 
     /// The cursor is at `at` with no button down: where it snaps.
-    pub fn pcb_hover(&mut self, at: Point) -> (Point, SnapKind) {
+    pub fn pcb_hover(&mut self, at: Point) -> Snapped {
         if self.drawing() {
             let mut draw = std::mem::take(&mut self.pcb_draw);
             let snapped = draw.hover(self, at);
@@ -736,7 +744,7 @@ impl Shell {
     }
 
     /// Where the cursor last snapped.
-    pub fn pcb_snap(&self) -> Option<(Point, SnapKind)> {
+    pub fn pcb_snap(&self) -> Option<Snapped> {
         if self.drawing() {
             return self.pcb_draw.snap();
         }
@@ -757,12 +765,6 @@ impl Shell {
     /// The PCB drawing Tools' state: the preview, a measurement, text waiting for words.
     pub fn pcb_draw(&self) -> &pcb::draw::Draw {
         &self.pcb_draw
-    }
-
-    /// Sets how far electrical points catch the cursor for every PCB Tool.
-    pub fn set_pcb_snap_radius(&mut self, radius: Nm) {
-        self.pcb_tool.set_snap_radius(radius);
-        self.pcb_draw.set_snap_radius(radius);
     }
 
     /// Places the text the text Tool was clicked for, with these words (one Command).
@@ -1208,7 +1210,7 @@ impl Shell {
         let working = self.engine.view().get::<WorkingState>();
         for entry in project.documents() {
             let grid = grids.and_then(|g| g.picked.get(&entry.uuid).copied());
-            let snap = working.and_then(|w| w.snap.get(&entry.uuid).copied());
+            let snap = working.and_then(|w| w.snap.get(&entry.uuid).cloned());
             let filter = working.map(|w| w.filter(entry.uuid)).unwrap_or_default();
             let view = documents.get_mut(&entry.uuid);
             let unchanged = grid.is_none() && snap.is_none() && filter.off.is_empty();
@@ -1218,8 +1220,13 @@ impl Shell {
                 None => documents.entry(entry.uuid).or_default(),
             };
             view.grid = grid;
-            view.snap_mode = snap.map(|s| s.mode);
-            view.gridless = snap.is_some_and(|s| s.gridless);
+            view.snap_mode = snap.as_ref().map(|s| s.mode);
+            view.gridless = snap.as_ref().is_some_and(|s| s.gridless);
+            view.hotspots_off = snap.as_ref().map(|s| {
+                (s.hotspots_off.iter())
+                    .map(|k| crate::snap::hotspot_name(*k).to_owned())
+                    .collect()
+            });
             view.selection_filter_off = filter.off.iter().map(|k| k.name().to_owned()).collect();
         }
         if let Some(pcb) = project.pcb() {
@@ -1467,6 +1474,9 @@ impl Shell {
         let prefs = preferences::current(self.engine.user_dirs());
         if let Some(grids) = self.engine.view_mut().get_mut::<Grids>() {
             grids.follow(&prefs);
+        }
+        if let Some(working) = self.engine.view_mut().get_mut::<WorkingState>() {
+            working.follow(&prefs);
         }
     }
 
@@ -2043,7 +2053,7 @@ impl Shell {
             .project()
             .map(|p| p.documents().map(|d| (d.uuid, d.kind)).collect())
             .unwrap_or_default();
-        let mut working = WorkingState::default();
+        let mut working = WorkingState::following(&preferences::current(self.engine.user_dirs()));
         let mut picked = BTreeMap::new();
         for (document, view) in &views {
             let Some(kind) = kinds.get(document).copied() else {
@@ -2056,10 +2066,17 @@ impl Shell {
             let mode = view
                 .snap_mode
                 .filter(|m| working_state::SnapMode::offered(ty).contains(m));
-            if mode.is_some() || view.gridless {
-                let mut snap = SnapOptions::default_for(ty);
+            if mode.is_some() || view.gridless || view.hotspots_off.is_some() {
+                let mut snap = working.default_snap(ty);
                 snap.mode = mode.unwrap_or(snap.mode);
                 snap.gridless = view.gridless;
+                if let Some(off) = &view.hotspots_off {
+                    let offered = crate::snap::offered(ty);
+                    snap.hotspots_off = (offered.iter())
+                        .filter(|k| off.contains(crate::snap::hotspot_name(**k)))
+                        .copied()
+                        .collect();
+                }
                 working.snap.insert(*document, snap);
             }
             let list = working_state::filter_kinds(ty);

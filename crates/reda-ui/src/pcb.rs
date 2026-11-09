@@ -5,7 +5,7 @@
 //! - `commands`: the view Commands the Layers panel and the view keys run;
 //!   [`view_commands`] adds Layer sets, pinned Layers, per-kind display, Net colours on
 //!   copper and the Net label toggles.
-//! - [`snap`]: electrical and grid snap.
+//! - Snapping is the shared [`crate::snap`] model.
 //! - [`canvas`]: the board canvas in the window: pointer and keys, overlays, the
 //!   "No Board Outline" hint.
 //! - [`tool`]: the select-and-place [`Tool`]: click, rubber band, drag to move, Space and
@@ -24,7 +24,6 @@ pub mod route;
 mod route_commands;
 mod select_commands;
 pub mod silkscreen;
-pub mod snap;
 pub mod tool;
 pub mod view;
 pub mod view_commands;

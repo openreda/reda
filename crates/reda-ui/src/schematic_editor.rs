@@ -23,9 +23,10 @@ use reda_engine::schematic::connectivity::{net_at, placed_pins};
 use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Pointer, SnapTargets};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::{Shell, ToolPreview};
+use crate::snap::{self, Target};
 use crate::tools::Tool;
 use crate::tr;
 
@@ -40,8 +41,6 @@ type P = (f64, f64);
 
 /// How close, in points on screen, the pointer must be to pick an object.
 const PICK_POINTS: f64 = 5.0;
-/// How close, in points on screen, the pointer must be to snap onto a Pin or Wire.
-const SNAP_POINTS: f64 = 10.0;
 
 /// What a schematic canvas has in flight.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -94,8 +93,12 @@ pub struct Flight {
     pub by_tool: bool,
     /// The snapped point picked up; the selection moves by the snapped pointer minus it.
     pub anchor: Point,
+    /// From the pointer to the anchor where it was picked up (nm): the anchor follows
+    /// the pointer at this distance and snaps there, so a grab beside a Pin end moves the
+    /// Pin end onto the grid without a jump.
+    pub lead: (f64, f64),
     /// What the pointer snaps to while moving: everything on the sheet not moving.
-    pub targets: SnapTargets,
+    pub targets: Vec<Target>,
     pub offset: Point,
     pub preview: ShiftPreview,
     /// Space, X and Y pressed in flight, applied in order about the anchor before the
@@ -137,11 +140,11 @@ impl Flight {
     }
 }
 
-/// How far on the Document the pick and snap distances reach at the canvas's zoom.
+/// How far on the Document the pick distance reaches at the canvas's zoom. Snapping
+/// captures within the grid preset's Electrical Range instead ([`crate::snap`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Scale {
     pub pick: f64,
-    pub snap: f64,
 }
 
 impl Scale {
@@ -149,7 +152,6 @@ impl Scale {
     pub fn at(nm_per_point: f64) -> Scale {
         Scale {
             pick: PICK_POINTS * nm_per_point,
-            snap: SNAP_POINTS * nm_per_point,
         }
     }
 }
@@ -565,10 +567,6 @@ impl Cx<'_> {
             .schematic_sheet(self.document)
     }
 
-    fn grid(&self) -> Nm {
-        self.shell.grid(self.document)
-    }
-
     /// The selected objects on this sheet.
     fn selected(&self) -> Vec<Uuid> {
         let on_sheet = self.sheet().map(selectable).unwrap_or_default();
@@ -639,17 +637,15 @@ impl Cx<'_> {
         let Some(sheet) = self.sheet() else {
             return Interaction::Idle;
         };
-        let (grid, snap) = (self.grid(), self.scale.snap);
-        let anchor = snap_targets(sheet, &BTreeSet::new())
-            .snap(from, grid, snap)
-            .at;
-        let moving: BTreeSet<Uuid> = objects.iter().copied().collect();
+        let all = snap::hotspots::sheet(sheet);
+        let anchor = snap::snap_at(self.shell, self.document, from, &all).at;
         let flight = Flight {
-            targets: snap_targets(sheet, &moving),
+            targets: snap::hotspots::without(all, &objects),
             objects,
             keep_connections,
             by_tool,
             anchor,
+            lead: (anchor.x.0 as f64 - from.0, anchor.y.0 as f64 - from.1),
             offset: Point::default(),
             preview: ShiftPreview::default(),
             turns: Vec::new(),
@@ -663,7 +659,8 @@ impl Cx<'_> {
 
     /// Moves `flight` to the pointer at `at`.
     fn fly(&self, mut flight: Flight, at: P, force: bool) -> Flight {
-        let target = flight.targets.snap(at, self.grid(), self.scale.snap).at;
+        let at = (at.0 + flight.lead.0, at.1 + flight.lead.1);
+        let target = snap::snap_at(self.shell, self.document, at, &flight.targets).at;
         let offset = target - flight.anchor;
         if !flight.turns.is_empty() {
             // Turned: drawn from a preview Scene (see `preview_scene`), not marks.
@@ -889,20 +886,4 @@ pub fn selectable(sheet: &SchematicSheet) -> BTreeSet<Uuid> {
     out.extend(sheet.texts().map(|o| o.uuid));
     out.extend(sheet.graphics().map(|o| o.uuid));
     out
-}
-
-/// The Pins, Wire ends and Wires on `sheet` the pointer can snap onto, leaving out those
-/// of the `moving` objects.
-fn snap_targets(sheet: &SchematicSheet, moving: &BTreeSet<Uuid>) -> SnapTargets {
-    let mut targets = SnapTargets::default();
-    for (unit, _, at) in placed_pins(sheet) {
-        if !moving.contains(&unit.uuid) {
-            targets.points.push(at);
-        }
-    }
-    for wire in sheet.wires().filter(|w| !moving.contains(&w.uuid)) {
-        targets.points.extend(wire.vertices.iter().copied());
-        targets.segments.extend(wire.segments());
-    }
-    targets
 }

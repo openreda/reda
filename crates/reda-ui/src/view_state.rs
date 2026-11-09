@@ -120,6 +120,9 @@ pub struct DocumentView {
     /// The grid level of snapping is off.
     #[serde(skip_serializing_if = "is_default")]
     pub gridless: bool,
+    /// The Hotspot kinds turned off in the snap checklist; unset follows the Preference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hotspots_off: Option<BTreeSet<String>>,
     /// The kinds the Selection Filter turns off.
     #[serde(skip_serializing_if = "BTreeSet::is_empty")]
     pub selection_filter_off: BTreeSet<String>,

@@ -1095,3 +1095,53 @@ fn only_deletes_of_the_selection_are_refused_for_text_alone() {
         "a delete that doesn't act on the selection is left alone"
     );
 }
+
+/// The snap palette's working state for the sheet.
+fn snap_options(h: &mut Harness<'_, App>) -> Value {
+    run(h, "view.snap.set", json!({"document": SHEET}))
+}
+
+#[test]
+fn mod_e_opens_the_snap_palette_in_flight_and_the_active_bar_button_opens_it_too() {
+    let dir = TempDir::new("canvas-snap-palette");
+    let mut h = harness(&dir);
+    resistor_and_wire(&mut h);
+    // A Wire run in flight.
+    h.hover_at(screen(&h, 1000.0, 1000.0));
+    h.run();
+    h.key_press(Key::W);
+    h.run();
+    let start = screen(&h, 1000.0, 1000.0);
+    h.drag_at(start);
+    h.drop_at(start);
+    h.run();
+    assert!(h.query_by_label("Hotspots").is_none());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::E);
+    h.run();
+    assert!(
+        h.query_by_label("Hotspots").is_some(),
+        "Mod+E opens the palette"
+    );
+    assert_eq!(
+        h.state().shell().tool(),
+        reda_ui::tools::Tool::Wire,
+        "the Tool stays in flight"
+    );
+    // The palette holds the grid toggle, the mode and the Hotspot checklist.
+    h.get_by_label("Pin end").click();
+    h.run();
+    assert_eq!(snap_options(&mut h)["hotspots_off"], json!(["pin_end"]));
+    h.get_by_label("Snap to grid").click();
+    h.run();
+    assert_eq!(snap_options(&mut h)["gridless"], json!(true));
+    h.get_by_label("Off").click();
+    h.run();
+    assert_eq!(snap_options(&mut h)["mode"], json!("off"));
+    // Mod+E again closes it; the Active Bar button opens the same palette.
+    h.key_press_modifiers(Modifiers::COMMAND, Key::E);
+    h.run();
+    assert!(h.query_by_label("Hotspots").is_none());
+    h.get_by_label("Snap Options").click();
+    h.run();
+    assert!(h.query_by_label("Hotspots").is_some());
+}

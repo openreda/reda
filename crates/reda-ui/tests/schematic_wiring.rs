@@ -648,3 +648,75 @@ fn the_app_passes_the_wiring_preferences_and_the_sheet_grid_to_edit_commands() {
     assert_eq!(entry.params["wiring"]["break_wires_at_autojunctions"], true);
     assert_eq!(entry.params["wiring"]["snap_grid"], 50 * 25_400);
 }
+
+#[test]
+fn a_sheet_captures_within_the_presets_electrical_range_on_both_axes() {
+    let dir = TempDir::new("wiring-range");
+    let mut shell = shell(&dir);
+    wire(&mut shell, &[(1013, 0), (1013, 1007)]);
+    press(&mut shell, "W");
+    let cursor = |shell: &Shell| shell.document_tab(sheet()).unwrap().overlay.cursor;
+    // 50 mil grid: 40 mil range. 35 mil off on both axes (49 mil in a straight line)
+    // still catches the Wire end; 45 mil off on one axis does not.
+    hover(&mut shell, at(1048.0, 1042.0));
+    assert_eq!(cursor(&shell), Some(pt(1013, 1007)));
+    hover(&mut shell, at(1058.0, 1100.0));
+    assert_eq!(cursor(&shell), Some(pt(1050, 1100)));
+    // 10 mil grid: 8 mil range. 9 mil off is out of it.
+    shell
+        .run(
+            "view.grid.set",
+            json!({"document": sheet(), "grid": "10mil"}),
+        )
+        .unwrap();
+    hover(&mut shell, at(1022.0, 1007.0));
+    assert_eq!(cursor(&shell), Some(pt(1020, 1010)));
+    hover(&mut shell, at(1020.0, 1001.0));
+    assert_eq!(cursor(&shell), Some(pt(1013, 1007)));
+}
+
+#[test]
+fn a_sheet_offers_every_kind_on_its_checklist() {
+    use reda_ui::snap::{self, Hotspot};
+    let dir = TempDir::new("wiring-hotspots");
+    let mut shell = shell(&dir);
+    place(&mut shell, 0, 0);
+    wire(&mut shell, &[(1013, 0), (1013, 1007), (2013, 1007)]);
+    for (id, x) in [
+        ("schematic.port.add", 3013),
+        ("schematic.net_label.add", 4013),
+    ] {
+        shell
+            .run(
+                id,
+                json!({"document": SHEET, "name": "A",
+                       "at": {"x": format!("{x}mil"), "y": "13mil"}}),
+            )
+            .unwrap();
+    }
+    let kind = |shell: &Shell, x: f64, y: f64| {
+        let project = shell.engine().project().unwrap();
+        let targets = snap::hotspots::sheet(project.schematic_sheet(sheet()).unwrap());
+        snap::snap_at(shell, sheet(), at(x, y), &targets)
+            .hit
+            .hotspot()
+    };
+    assert_eq!(kind(&shell, 6.0, -144.0), Some(Hotspot::PinEnd));
+    assert_eq!(kind(&shell, 1020.0, 10.0), Some(Hotspot::WireEnd));
+    assert_eq!(kind(&shell, 1020.0, 1000.0), Some(Hotspot::WireVertex));
+    assert_eq!(kind(&shell, 1500.0, 1020.0), Some(Hotspot::Wire));
+    assert_eq!(kind(&shell, 3020.0, 20.0), Some(Hotspot::PortAnchor));
+    assert_eq!(kind(&shell, 4020.0, 20.0), Some(Hotspot::LabelAnchor));
+    // The checklist turns a kind off; object snap Off turns them all off.
+    shell
+        .run(
+            "view.snap.set",
+            json!({"document": SHEET, "hotspots": {"pin_end": false}}),
+        )
+        .unwrap();
+    assert_eq!(kind(&shell, 6.0, -144.0), None);
+    shell
+        .run("view.snap.set", json!({"document": SHEET, "mode": "off"}))
+        .unwrap();
+    assert_eq!(kind(&shell, 4020.0, 20.0), None);
+}

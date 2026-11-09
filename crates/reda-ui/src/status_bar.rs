@@ -45,7 +45,7 @@ pub fn readout(shell: &Shell) -> Readout {
             Tool::Route | Tool::Via => shell.router().snap(),
             _ => shell.pcb_snap(),
         };
-        snapped.map(|(at, _)| {
+        snapped.map(|crate::snap::Snapped { at, .. }| {
             let at = shell.pcb_cursor_from_origin(at);
             (at.x.0 as f64, at.y.0 as f64, shell.board_view().units)
         })
