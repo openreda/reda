@@ -570,3 +570,63 @@ fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap(
         journal(&h)
     );
 }
+
+/// The filled rects painted this frame, as `(rect, fill)`.
+fn filled_rects(h: &Harness<'_, App>) -> Vec<(egui::Rect, egui::Color32)> {
+    h.output()
+        .shapes
+        .iter()
+        .filter_map(|c| match &c.shape {
+            egui::Shape::Rect(r) => Some((r.rect, r.fill)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn the_active_tab_has_white_at_15_percent_and_a_2px_white_underline() {
+    let mut h = harness();
+    h.run();
+    let tab = h.get_by_role_and_label(Role::Tab, "Start").rect();
+    let rects = filled_rects(&h);
+    let near = |a: egui::Rect, b: egui::Rect| {
+        (a.min - b.min).length() < 0.6 && (a.max - b.max).length() < 0.6
+    };
+    // White at 15 %: 38 of 255, premultiplied.
+    assert_eq!(
+        reda_ui::theme::ACTIVE_TAB_FILL,
+        egui::Color32::from_white_alpha(38)
+    );
+    assert!(
+        rects
+            .iter()
+            .any(|(r, fill)| near(*r, tab) && *fill == egui::Color32::from_white_alpha(38)),
+        "a 15 % white fill behind the active tab"
+    );
+    let underline = egui::Rect::from_min_max(egui::pos2(tab.left(), tab.bottom() - 2.0), tab.max);
+    assert!(
+        rects
+            .iter()
+            .any(|(r, fill)| near(*r, underline) && *fill == egui::Color32::WHITE),
+        "a 2 px white underline across the active tab"
+    );
+}
+
+#[test]
+fn a_middle_click_closes_any_tab() {
+    let mut h = harness();
+    h.state_mut()
+        .shell_mut()
+        .run("panel.show:journal", json!({}))
+        .unwrap();
+    h.run();
+    // Messages is not the active tab of its group: Journal is.
+    h.get_by_role_and_label(Role::Tab, "Messages")
+        .click_button(egui::PointerButton::Middle);
+    h.run();
+    assert_eq!(
+        journal(&h).last().unwrap(),
+        &("layout.tab.close".to_owned(), json!({"tab": "messages"}))
+    );
+    assert!(place(&h, PanelId::Messages).is_none());
+}

@@ -123,6 +123,12 @@ pub fn tab_text(active_tab: bool) -> Color32 {
     }
 }
 
+/// What lies behind the active tab on its [`tab_bar`]: white at 15 % (premultiplied).
+pub const ACTIVE_TAB_FILL: Color32 = Color32::from_rgba_premultiplied(38, 38, 38, 38);
+
+/// The height of the white underline across the active tab.
+pub const ACTIVE_TAB_UNDERLINE: f32 = 2.0;
+
 /// The colour of the gaps between tab groups and Docks.
 pub fn gap(theme: Theme) -> Color32 {
     colors(theme).gap

@@ -134,15 +134,13 @@ fn the_ui_scale_switches_live() {
     let home = TempDir::new("pref-dialog-scale");
     let mut h = harness(home.path());
     open_preferences(&mut h);
-    h.get_by_role_and_label(Role::TextInput, "UI scale").click();
+    // A list of the steps, 75 to 200 %.
+    h.get_by_role_and_label(Role::ComboBox, "UI scale").click();
     h.run();
-    // Select all and replace: Mod+A, then type.
-    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
-    h.run();
-    h.get_by_role_and_label(Role::TextInput, "UI scale")
-        .type_text("1.25");
-    h.run();
-    h.key_press(Key::Enter);
+    for step in ["75 %", "85 %", "100 %", "115 %", "150 %", "200 %"] {
+        h.get_by_label(step);
+    }
+    h.get_by_label("125 %").click();
     h.run();
     h.run();
     assert_eq!(h.state().shell().preferences().general.ui_scale, 1.25);

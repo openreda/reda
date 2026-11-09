@@ -8,7 +8,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::preferences::Theme;
-use reda_ui::preferences_dialog::{PageId, PreferencesDialog};
+use reda_ui::preferences_dialog::{Kind, PageId, PreferencesDialog};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -304,13 +304,25 @@ fn typed_values_apply_when_valid_and_are_flagged_when_not() {
     assert_eq!(dialog.problem("general.undo_depth"), None);
     assert_eq!(shell.engine().history().depth(), None);
 
-    // UI scale: a number from 0.5 to 3.
-    dialog.commit_text(&mut shell, "general.ui_scale", "1.5");
+    // UI scale: one of the steps 75 to 200 %, picked from a list.
+    let Kind::Choice(steps) = reda_ui::preferences_dialog::setting("general.ui_scale").kind else {
+        panic!("the UI scale is a choice of steps")
+    };
+    let labels: Vec<&str> = steps.iter().map(|c| c.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        ["75 %", "85 %", "100 %", "115 %", "125 %", "150 %", "200 %"]
+    );
+    dialog
+        .set(&mut shell, "general.ui_scale", serde_json::json!(1.5))
+        .unwrap();
     assert_eq!(shell.preferences().general.ui_scale, 1.5);
-    dialog.commit_text(&mut shell, "general.ui_scale", "9");
-    assert!(dialog.problem("general.ui_scale").is_some());
-    dialog.commit_text(&mut shell, "general.ui_scale", "big");
-    assert!(dialog.problem("general.ui_scale").is_some());
+    assert!(
+        dialog
+            .set(&mut shell, "general.ui_scale", serde_json::json!(1.1))
+            .is_err(),
+        "a value between steps is refused"
+    );
     assert_eq!(shell.preferences().general.ui_scale, 1.5);
 }
 

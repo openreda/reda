@@ -29,6 +29,75 @@ pub struct Highlight {
 pub fn register_all(registry: &mut Registry) {
     registry.add(SetHighlight);
     registry.add(ClearHighlight);
+    registry.add(HighlightNetOf);
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NetOfParams {
+    /// Objects whose Net to highlight: the first one on a Net picks it.
+    objects: Vec<Uuid>,
+    /// Where on a Unit: the Net of its Pin nearest this point (nm), on a sheet.
+    #[serde(default)]
+    at: Option<reda_engine::model::geom::Point>,
+}
+
+/// `view.highlight.net_of`: highlights the Net an object is on, as Alt+click on a sheet
+/// and Mod+click on a board do.
+struct HighlightNetOf;
+
+impl Command for HighlightNetOf {
+    const META: Meta = Meta {
+        id: "view.highlight.net_of",
+        title: "Highlight Net",
+        description: "Highlights the Net of the first given object that is on one: on a \
+                      sheet the schematic Net (for a Unit, its Pin's nearest `at`), on the \
+                      board the PCB Net's copper and Footprints. View state only.",
+        category: "view",
+        icon: "net",
+        kind: Kind::View,
+    };
+    type Params = NetOfParams;
+    type Output = HighlightResult;
+
+    fn run(&self, cx: &mut Context<'_>, p: NetOfParams) -> Result<HighlightResult, CommandError> {
+        use reda_engine::model::DocumentKind;
+        let project = cx.project()?;
+        let at = p.at.unwrap_or_default();
+        let found = p.objects.iter().find_map(|object| {
+            if let Some(pcb) = project.pcb() {
+                let net = pcb
+                    .track(*object)
+                    .and_then(|t| t.net)
+                    .or_else(|| pcb.via(*object).and_then(|v| v.net))
+                    .or_else(|| pcb.zone(*object).and_then(|z| z.net))
+                    .or_else(|| pcb.free_pad(*object).and_then(|f| f.net));
+                if let Some(net) = net {
+                    let name = pcb.net(net).map(|n| n.name.clone());
+                    return Some((crate::cross_probe::pcb_objects_of(pcb, net), name));
+                }
+            }
+            project
+                .documents()
+                .filter(|d| d.kind == DocumentKind::Schematic)
+                .find_map(|d| {
+                    reda_engine::schematic::connectivity::net_at(project, d.uuid, *object, at)
+                })
+                .map(|net| (net.objects, net.name))
+        });
+        let Some((mut objects, net)) = found else {
+            return Err(CommandError::rejected("none of the objects is on a Net"));
+        };
+        objects.sort();
+        objects.dedup();
+        let count = objects.len();
+        *cx.view::<Highlight>()? = Highlight {
+            objects,
+            net,
+            mask: false,
+        };
+        Ok(HighlightResult { count })
+    }
 }
 
 #[derive(Deserialize, JsonSchema)]

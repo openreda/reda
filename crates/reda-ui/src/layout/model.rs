@@ -463,6 +463,21 @@ pub struct Layout {
     /// The Document last activated: menus and toolbars follow it.
     last_document: Option<Uuid>,
     next_id: u64,
+    /// The tabs in the order they were last activated, the latest last: closing a group's
+    /// active tab activates the group's last active one.
+    #[serde(skip)]
+    recent: Vec<TabKey>,
+    /// Where each closed Panel was, so it reopens there.
+    #[serde(skip)]
+    closed_at: Vec<(PanelId, ClosedAt)>,
+}
+
+/// Where a Panel was when it was closed: its group and position, and the Dock it was in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ClosedAt {
+    group: GroupId,
+    index: usize,
+    dock: Option<DockSide>,
 }
 
 /// [`Layout`] as read, before it is checked.
@@ -523,6 +538,8 @@ impl Layout {
             flyout: None,
             last_document: None,
             next_id: 5,
+            recent: Vec::new(),
+            closed_at: Vec::new(),
         };
         if let Some(first) = layout
             .group(GroupId(1))
@@ -553,6 +570,8 @@ impl Layout {
             flyout: None,
             last_document,
             next_id: 0,
+            recent: Vec::new(),
+            closed_at: Vec::new(),
         };
         // Tidying needs a centre with a group in it.
         let mut centre = Vec::new();
@@ -867,12 +886,49 @@ impl Layout {
         })
     }
 
-    /// Closes `tab`.
+    /// Closes `tab`. When it was its group's active tab, the group's last active tab
+    /// shows instead, as in the leading suite. A Panel remembers where it was.
     pub fn close(&mut self, tab: &TabKey) -> Result<(), CommandError> {
         self.apply(|l| {
-            l.find(tab)?;
-            l.take(tab)
+            let place = l.find(tab)?;
+            let was_active = l
+                .group(place.group)
+                .is_some_and(|g| g.active == place.index);
+            l.remember_panel(tab, place);
+            l.take(tab)?;
+            l.recent.retain(|t| t != tab);
+            if was_active
+                && let Some(next) = l
+                    .recent
+                    .iter()
+                    .rev()
+                    .find(|t| l.place(t).is_some_and(|p| p.group == place.group))
+                    .cloned()
+            {
+                let index = l.place(&next).expect("found above").index;
+                l.group_mut(place.group).expect("placed").active = index;
+            }
+            Ok(())
         })
+    }
+
+    /// Notes where the Panel `tab` is, at `place`, before it closes.
+    fn remember_panel(&mut self, tab: &TabKey, place: Place) {
+        if let TabKey::Panel(panel) = tab {
+            let dock = match place.area {
+                Area::Dock(side) => Some(side),
+                _ => None,
+            };
+            self.closed_at.retain(|(p, _)| p != panel);
+            self.closed_at.push((
+                *panel,
+                ClosedAt {
+                    group: place.group,
+                    index: place.index,
+                    dock,
+                },
+            ));
+        }
     }
 
     /// Closes the window `window` with every tab in it, as when its OS window is closed.
@@ -891,6 +947,15 @@ impl Layout {
 
     pub fn close_window(&mut self, window: WindowId) -> Result<(), CommandError> {
         self.apply(|l| {
+            for tab in l
+                .tabs_in_window(window)
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                let place = l.place(&tab).expect("in the window");
+                l.remember_panel(&tab, place);
+            }
             let before = l.windows.len();
             l.windows.retain(|w| w.id != window);
             if l.windows.len() == before {
@@ -915,12 +980,33 @@ impl Layout {
         })
     }
 
-    /// Shows and focuses `panel`, reopening it in its home Dock when it is closed.
+    /// Shows and focuses `panel`. A closed Panel reopens where it was: in its group, at
+    /// its position, while the group still exists, else in the Dock it was in, else in its
+    /// home Dock.
     pub fn show_panel(&mut self, panel: PanelId) -> Result<GroupId, CommandError> {
         let tab = TabKey::Panel(panel);
         self.apply(|l| {
             if l.place(&tab).is_none() {
-                l.put_in_dock(tab.clone(), panel.home());
+                let was = l
+                    .closed_at
+                    .iter()
+                    .find(|(p, _)| *p == panel)
+                    .map(|(_, at)| *at);
+                match was {
+                    Some(at) if l.group(at.group).is_some() => {
+                        let g = l.group_mut(at.group).expect("checked above");
+                        let index = at.index.min(g.tabs.len());
+                        g.tabs.insert(index, tab.clone());
+                        if g.active >= index && g.tabs.len() > 1 {
+                            g.active += 1;
+                        }
+                    }
+                    Some(ClosedAt {
+                        dock: Some(side), ..
+                    }) => l.put_in_dock(tab.clone(), side),
+                    _ => l.put_in_dock(tab.clone(), panel.home()),
+                }
+                l.closed_at.retain(|(p, _)| *p != panel);
             }
             Ok(l.activate_in_place(&tab))
         })
@@ -1049,6 +1135,8 @@ impl Layout {
         let place = self.place(tab).expect("activating an open tab");
         self.group_mut(place.group).expect("placed").active = place.index;
         self.focus = Some(tab.clone());
+        self.recent.retain(|t| t != tab);
+        self.recent.push(tab.clone());
         if let TabKey::Document(uuid) = tab {
             self.last_document = Some(*uuid);
         }
