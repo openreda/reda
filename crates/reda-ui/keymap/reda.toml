@@ -38,6 +38,22 @@ command = "view.ui_scale.step:down"
 key = "Mod+0"
 command = "view.ui_scale.set:100"
 
+# The HUD: Shift+H toggles it, Shift+D its delta line, and Insert resets the delta (the
+# Wire Tool's Insert still adds a vertex: the Tool context wins).
+
+[[bind]]
+key = "Shift+H"
+command = "view.hud.toggle"
+
+[[bind]]
+key = "Shift+D"
+command = "view.hud.delta"
+
+[[bind]]
+key = "Insert"
+command = "view.hud.reset_delta"
+params = { document = "$active_document" }
+
 # Keys in Tool: Shift+F1 toggles the card of the active Tool's keys.
 
 [[bind]]
@@ -231,6 +247,24 @@ params = { objects = "$selectable" }
 context = "schematic"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 # Move (detach) and Drag pick the selection up; Esc puts back what is in flight and returns
@@ -442,6 +476,24 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "pcb"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Alt+G"
+command = "view.grid.show"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
 key = "Space"
 command = "tool.rotate"
 
@@ -642,6 +694,24 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "footprint"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Alt+G"
+command = "view.grid.show"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
 key = "P"
 command = "tool.activate:pad"
 
@@ -698,6 +768,24 @@ params = { objects = "$selectable" }
 context = "symbol"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 [[bind]]

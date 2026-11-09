@@ -13,6 +13,7 @@
 
 mod checks;
 mod file;
+mod grid;
 pub mod pages;
 
 use std::collections::BTreeSet;
@@ -26,6 +27,7 @@ use serde_json::Value;
 
 pub use checks::{CheckDisplay, CheckDisplays, OVERLAY_BY_DEFAULT, OverlayStyle, OverlayZoomedOut};
 pub use file::{Loaded, load, parse, reset, set, value_of};
+pub use grid::{DisplayPrecision, GridPreferences, GridRow, GridStyle, GridTables, HudPreferences};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
 /// and the next write of that key replaces the old spelling.
@@ -36,7 +38,7 @@ pub const ALIASES: &[(&str, &str)] = &[];
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub general: General,
-    /// Selection behavior shared by every canvas.
+    /// Editing shared by every canvas: selection, grids, the HUD and display precision.
     pub editing: SelectionEditing,
     pub user: User,
     /// Editing in Schematic Sheets.
@@ -77,7 +79,7 @@ pub(crate) fn waiver_author(dirs: Option<&UserDirs>) -> String {
     }
 }
 
-/// Selection preferences apply equally to Documents and Library editors.
+/// Editing preferences that apply equally to Documents and Library editors.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SelectionEditing {
@@ -87,6 +89,12 @@ pub struct SelectionEditing {
     pub directional_rectangle: bool,
     /// Click and rectangle skip locked objects. Explicit picks can still select them.
     pub protect_locked_objects: bool,
+    /// Grid presets per Document type and the visible grid.
+    pub grid: GridPreferences,
+    /// The HUD by the cursor.
+    pub hud: HudPreferences,
+    /// How many decimals coordinates and lengths show with.
+    pub display_precision: DisplayPrecision,
 }
 
 impl Default for SelectionEditing {
@@ -95,6 +103,9 @@ impl Default for SelectionEditing {
             click_clears_selection: true,
             directional_rectangle: true,
             protect_locked_objects: true,
+            grid: GridPreferences::default(),
+            hud: HudPreferences::default(),
+            display_precision: DisplayPrecision::default(),
         }
     }
 }
@@ -1027,6 +1038,7 @@ impl Preferences {
                 "the Fixed Length must be positive".to_owned(),
             ));
         }
+        grid::check(&self.editing.grid, &self.editing.display_precision)?;
         let themes = &self.display.layer_colors;
         for (theme, colors) in [("dark", &themes.dark), ("light", &themes.light)] {
             for (_, color) in colors.overrides() {

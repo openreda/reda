@@ -354,6 +354,8 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
     let spec = GridSpec {
         origin: (0.0, 0.0),
         pitch: 10.0 * 1_000_000.0,
+        coarse: 1,
+        lines: false,
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: None,
@@ -376,6 +378,62 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
         .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
         .unwrap();
     assert_eq!(pixel(&img, 20, 70), paper);
+}
+
+#[test]
+fn the_grid_draws_bigger_coarse_dots_or_faint_fine_and_strong_coarse_lines() {
+    let Some(gpu) = headless() else { return };
+    // Paper only: 100 mm square filling a 100 px image, so 1 px = 1 mm.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = view_of(&scene, 100);
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let mut spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: 10.0 * 1_000_000.0,
+        coarse: 5,
+        lines: false,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+        paper: None,
+    };
+    let mut draw = |spec: &GridSpec| {
+        grid.set(gpu.queue(), &view, Some(spec));
+        gpu.render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+            .unwrap()
+    };
+    // Dots: (50 mm, 50 mm) is a coarse point, pixel (50, 50); (20 mm, 30 mm) a fine one,
+    // pixel (20, 70). About 2.5 px out, only the coarse dot still covers.
+    let img = draw(&spec);
+    assert_eq!(pixel(&img, 50, 50), [0, 0, 0, 255]);
+    assert_eq!(pixel(&img, 20, 70), [0, 0, 0, 255]);
+    assert_ne!(pixel(&img, 52, 50), paper, "the coarse dot is bigger");
+    assert_eq!(pixel(&img, 22, 70), paper);
+    assert_eq!(pixel(&img, 25, 65), paper, "between dots");
+
+    // Lines: a fine line at x = 20 mm is drawn faint all along; the coarse one at 50 mm
+    // is drawn at full strength; between lines stays paper.
+    spec.lines = true;
+    let img = draw(&spec);
+    let fine = pixel(&img, 20, 63);
+    let coarse = pixel(&img, 50, 63);
+    assert_ne!(fine, paper, "a fine line runs between grid points");
+    assert!(
+        distance(coarse, paper) > distance(fine, paper),
+        "coarse {coarse:?} is stronger than fine {fine:?}"
+    );
+    assert_eq!(pixel(&img, 25, 65), paper, "between lines");
 }
 
 fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Primitive) {
@@ -568,6 +626,8 @@ fn the_grid_stops_at_the_papers_edge() {
     let spec = GridSpec {
         origin: (0.0, 0.0),
         pitch: 10.0 * 1_000_000.0,
+        coarse: 1,
+        lines: false,
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
         paper: Some(((0.0, 0.0), (100_000_000.0, 100_000_000.0))),

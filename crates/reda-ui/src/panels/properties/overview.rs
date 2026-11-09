@@ -8,6 +8,7 @@ use std::time::SystemTime;
 
 use egui::{Color32, ComboBox, Grid, Id, Role, Sense, Ui, Vec2, WidgetInfo};
 use reda_engine::model::{DocumentKind, Severity, Uuid};
+use reda_engine::preferences::GridStyle;
 use reda_engine::preferences::Units;
 use serde_json::json;
 
@@ -71,7 +72,7 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                         format_length(distance, units),
                     )
                 } else {
-                    let range = crate::grid::electrical_range(shell.grid(document));
+                    let range = shell.electrical_range(document);
                     (
                         tr!("properties-electrical-range"),
                         format_length(range, units),
@@ -315,16 +316,17 @@ fn sheet_figures(ui: &mut Ui, project: &reda_engine::model::Project, document: U
 /// The current grid with the preset picker.
 fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<Out>) {
     let current = shell.grid(document);
-    let presets: &[reda_engine::model::geom::Nm] = if board {
-        crate::grid::pcb_presets(shell.board_view().units)
-    } else {
-        crate::grid::presets(DocumentKind::Schematic)
-    };
+    let rows = shell.grids().rows(shell.engine().elements(), document);
+    let presets: Vec<_> = (rows.iter().map(|r| r.snap.0))
+        .filter(|g| {
+            !board || crate::grid::is_imperial(*g) == (shell.board_view().units == Units::Mil)
+        })
+        .collect();
     let mut picked = current;
     let response = ComboBox::from_id_salt("properties-grid")
         .selected_text(crate::grid::label(current))
         .show_ui(ui, |ui| {
-            for g in presets {
+            for g in &presets {
                 ui.selectable_value(&mut picked, *g, crate::grid::label(*g));
             }
         })
@@ -335,6 +337,39 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
         out.push(Out::Run(
             "view.grid.set",
             json!({"document": document, "grid": picked}),
+        ));
+    }
+    // The visible grid: on or off for this Document, and its style (a Preference).
+    let visible = shell.grids().visible(shell.engine().elements(), document);
+    let mut shown = visible.shown;
+    if ui
+        .checkbox(&mut shown, tr!("properties-grid-visible"))
+        .changed()
+    {
+        out.push(Out::Run(
+            "view.grid.show",
+            json!({"document": document, "visible": shown}),
+        ));
+    }
+    let mut style = visible.style;
+    let title = |s: GridStyle| match s {
+        GridStyle::Dots => tr!("properties-grid-dots"),
+        GridStyle::Lines => tr!("properties-grid-lines"),
+    };
+    let response = ComboBox::from_id_salt("properties-grid-style")
+        .selected_text(title(style))
+        .show_ui(ui, |ui| {
+            for s in [GridStyle::Dots, GridStyle::Lines] {
+                ui.selectable_value(&mut style, s, title(s));
+            }
+        })
+        .response;
+    let name = tr!("properties-grid-style");
+    response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, name.clone()));
+    if style != visible.style {
+        out.push(Out::Run(
+            "app.preferences.set",
+            json!({"key": "editing.grid.style", "value": style}),
         ));
     }
 }

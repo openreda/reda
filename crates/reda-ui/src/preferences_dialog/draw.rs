@@ -256,6 +256,10 @@ impl PreferencesDialog {
                 if page == PageId::CHECKS {
                     rows.retain(|s| !s.key.starts_with(super::check_grid::CHECK_DISPLAY));
                 }
+                let grid_page = page == PageId::GRID;
+                if grid_page {
+                    rows.retain(|s| !super::grid_tables::is_table(&s.key));
+                }
                 if rows.is_empty() {
                     ui.weak(tr!("pref-none-modified"));
                 }
@@ -272,6 +276,9 @@ impl PreferencesDialog {
                 }
                 if page == PageId::CHECKS && !self.searching() {
                     super::check_grid::show(self, ui, cx.shell);
+                }
+                if grid_page && !self.searching() {
+                    super::grid_tables::show(self, ui, cx.shell);
                 }
             }
         }

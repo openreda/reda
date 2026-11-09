@@ -146,6 +146,40 @@ fn swatch(
         });
 }
 
+/// The active Layer's name on the board, for the status bar and the HUD.
+pub fn active_layer_name(shell: &Shell) -> Option<String> {
+    let project = shell.engine().project()?;
+    let pcb = project.pcb()?;
+    let active = shell.board_view().active_layer(project)?;
+    pcb.layers().layer(active).map(|l| layer_name(pcb, l))
+}
+
+/// The status bar's swatch: the active Layer's chip, whose menu lists the Layers.
+pub fn status_swatch(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
+    let Some(project) = shell.engine().project() else {
+        return;
+    };
+    let Some(pcb) = project.pcb() else {
+        return;
+    };
+    let active = shell.board_view().active_layer(project);
+    let Some(active) = active.and_then(|a| pcb.layers().layer(a)) else {
+        return;
+    };
+    let name = layer_name(pcb, active);
+    let label = tr!("layer-control-active", layer = name.as_str());
+    let face = chip(ui, shell, active, &name, label, false);
+    egui::Popup::menu(&face).show(|ui| {
+        ui.set_min_width(160.0);
+        for layer in ordered(pcb) {
+            let name = layer_name(pcb, layer);
+            let label = tr!("layer-chip", layer = name.as_str());
+            let r = chip(ui, shell, layer, &name, label, layer.uuid == active.uuid);
+            chip_clicked(ui, &r, layer.uuid, out);
+        }
+    });
+}
+
 /// The strip: a row along the canvas bottom with the Layer sets button and a chip per
 /// shown Layer.
 fn strip(

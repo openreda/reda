@@ -29,7 +29,10 @@ pub fn rules_on(shell: &Shell, document: Uuid, pitch: Nm) -> Rules {
     let suspend = suspend(shell);
     let capture = match ty {
         DocumentType::Pcb | DocumentType::Footprint => shell.preferences().pcb.snap_distance.nm(),
-        DocumentType::Schematic | DocumentType::Symbol => crate::grid::electrical_range(pitch),
+        DocumentType::Schematic | DocumentType::Symbol if pitch == shell.grid(document) => {
+            shell.electrical_range(document)
+        }
+        DocumentType::Schematic | DocumentType::Symbol => crate::grid::default_range(pitch),
     };
     let grid = (!options.gridless && !suspend.grid()).then(|| Grid {
         pitch,

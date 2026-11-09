@@ -247,16 +247,3 @@ fn mod_held_at_the_start_means_detach_until_pressed_again() {
     s.update(true, true, false);
     assert!(s.objects(), "released and pressed again: suspends");
 }
-
-#[test]
-fn each_sheet_preset_has_its_electrical_range() {
-    use crate::grid::electrical_range;
-    let mm = 1_000_000;
-    for (step, range) in [(10, 8), (25, 20), (50, 40), (100, 80)] {
-        assert_eq!(electrical_range(Nm(step * MIL)), Nm(range * MIL));
-    }
-    assert_eq!(electrical_range(Nm(mm / 4)), Nm(200_000));
-    assert_eq!(electrical_range(Nm(5 * mm / 2)), Nm(2 * mm));
-    // A custom step: 0.8 of it.
-    assert_eq!(electrical_range(Nm(30 * MIL)), Nm(24 * MIL));
-}

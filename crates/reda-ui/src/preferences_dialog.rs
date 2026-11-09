@@ -23,6 +23,7 @@ use crate::tr;
 mod check_grid;
 mod draw;
 mod fab_preset_pages;
+mod grid_tables;
 mod schema;
 pub mod shortcuts;
 mod user_keymap;
@@ -45,6 +46,8 @@ impl PageId {
     pub const KEYBOARD_SHORTCUTS: PageId = PageId("keyboard_shortcuts");
     /// How check results show on the canvas, with the per-check display grid.
     pub const CHECKS: PageId = PageId("checks");
+    /// Grid presets and the visible grid, with the editable preset tables.
+    pub const GRID: PageId = PageId("editing.grid");
     /// The last page, generated from the schema: every key with its value, default and
     /// description.
     pub const ALL_SETTINGS: PageId = PageId("all");
