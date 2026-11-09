@@ -760,8 +760,8 @@ fn fixed_label(ui: &mut Ui, width: f32, text: RichText) -> egui::Response {
 }
 
 impl PreferencesDialog {
-    /// The user's Fab Presets, each renamed in its name field (Enter) or deleted, with the
-    /// folder they live in.
+    /// The user's Fab Presets, each renamed in its name field (Enter), deleted, or opened
+    /// on its Fab Preset pages, with the folder they live in.
     fn fab_presets(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
         ui.label(tr!("pref-fab-presets-intro"));
         ui.add_space(4.0);
@@ -793,7 +793,21 @@ impl PreferencesDialog {
                 if button.clicked() {
                     self.delete_fab_preset(cx.shell, &name);
                 }
+                let open = self.preset_pages().is_some_and(|p| p.name == name);
+                let edit = ui.add_enabled(
+                    !open,
+                    egui::Button::new(tr!("pref-fab-preset-edit")).small(),
+                );
+                let label = tr!("pref-fab-preset-edit-named", name = name.as_str());
+                edit.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
+                if edit.clicked() {
+                    self.edit_fab_preset(cx.shell, &name);
+                }
             });
+        }
+        if self.preset_pages().is_some() {
+            ui.add_space(6.0);
+            self.draw_preset_pages(ui, cx.shell);
         }
         for warning in warnings {
             ui.colored_label(ui.visuals().error_fg_color, warning);

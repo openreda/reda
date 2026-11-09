@@ -238,7 +238,7 @@ impl SettingsDialog {
             ui.strong(page.title());
             if page.has_defaults() {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    reset = ui.button(tr!("settings-reset-defaults")).clicked();
+                    reset = ui.button(page.reset_label()).clicked();
                 });
             }
         });

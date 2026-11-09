@@ -24,6 +24,7 @@ use crate::shell::Shell;
 pub mod board_setup;
 pub mod change_list;
 mod draw;
+pub mod fab_preset;
 pub mod output_job;
 pub mod project;
 pub mod windows;
@@ -113,6 +114,11 @@ pub trait Page: Any {
 
     /// Puts the defaults in the drafts, as pending edits until Apply.
     fn reset_to_defaults(&mut self, _shell: &mut Shell) {}
+
+    /// The label of the button that runs [`Page::reset_to_defaults`].
+    fn reset_label(&self) -> String {
+        crate::tr!("settings-reset-defaults")
+    }
 
     /// Notes the drafts as they are now, for [`Page::step_back`] (Board Setup's pages).
     fn checkpoint(&mut self) {}
@@ -268,6 +274,25 @@ impl SettingsDialog {
         if index < self.pages.len() {
             self.selected = index;
         }
+    }
+
+    /// Every page, in tree order.
+    pub fn pages(&self) -> &[Box<dyn Page>] {
+        &self.pages
+    }
+
+    /// The reset button's label on the shown page, if it has one.
+    pub fn reset_label(&self) -> Option<String> {
+        let page = self.pages.get(self.selected)?;
+        page.has_defaults().then(|| page.reset_label())
+    }
+
+    /// The first page of type `T` that `pick` accepts.
+    pub fn page_where_mut<T: Page>(&mut self, pick: impl Fn(&T) -> bool) -> Option<&mut T> {
+        self.pages
+            .iter_mut()
+            .filter_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
+            .find(|p| pick(p))
     }
 
     /// The page of type `T`.

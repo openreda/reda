@@ -1,5 +1,6 @@
 //! Fab Presets: listing the presets there are, the Project's copies of them ("Update from
-//! source", "Save as user preset"), and adding and deleting copies.
+//! source", "Save as user preset"), adding and deleting copies, and editing a copy or a
+//! user preset key by key (the Fab Preset pages).
 
 use std::path::PathBuf;
 
@@ -21,6 +22,8 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(PresetDeleteUser);
     registry.add(PresetSourceDiff);
     registry.add(PresetUpdateFromSource);
+    registry.add(PresetSet);
+    registry.add(PresetSetUser);
 }
 
 /// Names one of the Project's Fab Preset copies.
@@ -421,5 +424,79 @@ impl Command for PresetUpdateFromSource {
             origin: source.origin,
             changes,
         })
+    }
+}
+
+pub struct PresetSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetSetParams {
+    /// The Project copy's UUID.
+    pub preset: Uuid,
+    /// Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,
+    /// `gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each
+    /// whole, such as `{"gerber": {"slot_command": "g85"}}`; `zip_assembly` is set as it
+    /// is. The name cannot be set.
+    pub values: Value,
+}
+
+impl Command for PresetSet {
+    const META: Meta = Meta {
+        id: "fab_preset.set",
+        title: "Edit Fab Preset Copy",
+        description: "Changes keys of one of the Project's Fab Preset copies, as its pages \
+                      in Project Settings do. Sections change only the keys they name. \
+                      The source preset is not touched.",
+        category: "output",
+        icon: "fab_preset",
+        kind: Kind::Edit,
+    };
+    type Params = PresetSetParams;
+    type Output = ();
+
+    fn run(&self, cx: &mut Context<'_>, p: PresetSetParams) -> Result<(), CommandError> {
+        let copy = copy(cx.project()?, p.preset)?;
+        let edited = fab_presets::edited(&copy.preset(), &p.values)?;
+        if edited != copy.preset() {
+            cx.tx()?
+                .replace(Object::FabPreset(ProjectFabPreset::new(copy.uuid, edited)))?;
+        }
+        Ok(())
+    }
+}
+
+pub struct PresetSetUser;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetSetUserParams {
+    /// The user preset's name (case does not matter).
+    pub name: String,
+    /// Preset keys to change, as `fab_preset.set` takes them.
+    pub values: Value,
+}
+
+impl Command for PresetSetUser {
+    const META: Meta = Meta {
+        id: "fab_preset.set_user",
+        title: "Edit User Fab Preset",
+        description: "Changes keys of one of the user's Fab Presets and writes its \
+                      `.redafab` file, as its pages in Preferences do. Project copies of it \
+                      change only with Update from Source.",
+        category: "output",
+        icon: "fab_preset",
+        kind: Kind::File,
+    };
+    type Params = PresetSetUserParams;
+    type Output = PresetSaveUserResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: PresetSetUserParams,
+    ) -> Result<PresetSaveUserResult, CommandError> {
+        let path = fab_presets::edit_user(user_dirs(cx)?, &p.name, &p.values)?;
+        Ok(PresetSaveUserResult { path })
     }
 }
