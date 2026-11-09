@@ -725,3 +725,83 @@ fn custom_output_conventions_survive_user_and_project_file_roundtrips() {
     );
     assert_eq!(only_preset(&reopened), copy);
 }
+
+#[test]
+fn a_project_copy_is_edited_key_by_key_and_undone_as_one_step() {
+    let dir = TempDir::new("fab-set");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({"fab_preset": "JLCPCB"}));
+    let before = only_preset(&engine);
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset": before.uuid, "values": {
+            "gerber": {"slot_command": "g85", "merge_drill": true},
+            "stackup_suggestions": {"finish": ["ENIG", "Purple dip"]},
+            "zip_assembly": true
+        }}),
+    );
+    let after = only_preset(&engine);
+    assert_eq!(
+        after.gerber.slot_command,
+        reda_engine::model::SlotCommand::G85
+    );
+    assert!(after.gerber.merge_drill && after.zip_assembly);
+    assert_eq!(after.gerber.naming, before.gerber.naming, "other keys stay");
+    assert_eq!(after.stackup_suggestions.finish, ["ENIG", "Purple dip"]);
+    assert_eq!(
+        after.stackup_suggestions.mask_color,
+        before.stackup_suggestions.mask_color
+    );
+
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    assert_eq!(only_preset(&engine), before);
+
+    for (values, pointer) in [
+        (json!({"name": "Other"}), "/values/name"),
+        (json!({"gerber": {"slot_command": "drill"}}), "/values"),
+        (json!({"nope": 1}), "/values"),
+    ] {
+        let err = engine.run_err(
+            "fab_preset.set",
+            json!({"preset": before.uuid, "values": values}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{values}");
+        let at = err.details.as_ref().and_then(|d| d["pointer"].as_str());
+        assert!(at.unwrap_or("").starts_with(pointer), "{err:?}");
+    }
+    assert_eq!(
+        only_preset(&engine),
+        before,
+        "a refused edit changes nothing"
+    );
+}
+
+#[test]
+fn a_user_preset_file_is_edited_key_by_key() {
+    let (home, dir) = (TempDir::new("fab-setu-home"), TempDir::new("fab-setu"));
+    let mut engine = with_user_preset(&home, &dir);
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name": "my jlc", "values": {"gerber": {"file_origin": "relative"}}}),
+    );
+    let list = engine.run_ok("fab_preset.list", json!({}));
+    let mine = list["presets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["preset"]["name"] == "My JLC")
+        .unwrap();
+    assert_eq!(mine["preset"]["gerber"]["file_origin"], "relative");
+    assert_eq!(mine["preset"]["bom"], json!(only_preset(&engine).bom));
+    assert!(!engine.is_dirty(), "the Project is left alone");
+
+    let err = engine.run_err(
+        "fab_preset.set_user",
+        json!({"name": "JLCPCB", "values": {"zip_assembly": true}}),
+    );
+    assert_eq!(
+        err.code,
+        ErrorCode::NotFound,
+        "a shipped preset is not edited"
+    );
+}
