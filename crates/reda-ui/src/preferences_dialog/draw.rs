@@ -11,8 +11,8 @@ use serde_json::json;
 
 use super::shortcuts::Row;
 use super::{
-    Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, LIBRARY_STARTER_ACTIVE, PageId, PreferencesDialog,
-    Setting, schema,
+    Choice, Kind, LIBRARY_PATHS, LIBRARY_SEVERITIES, LIBRARY_STARTER_ACTIVE, PageId,
+    PreferencesDialog, Setting, schema,
 };
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
@@ -361,11 +361,15 @@ impl PreferencesDialog {
                 }
             }
             Kind::Choice(choices) => {
-                let current = value.as_str().unwrap_or_default();
-                let shown = choices
-                    .iter()
-                    .find(|c| c.value == current)
-                    .map_or(current.to_owned(), |c| c.label.clone());
+                let current = &value;
+                let same = |c: &Choice| match (c.value.as_f64(), current.as_f64()) {
+                    (Some(a), Some(b)) => (a - b).abs() < 1e-9,
+                    _ => c.value == *current,
+                };
+                let shown = choices.iter().find(|c| same(c)).map_or_else(
+                    || current.as_str().map_or(current.to_string(), str::to_owned),
+                    |c| c.label.clone(),
+                );
                 let mut picked = None;
                 let response = ComboBox::from_id_salt(("pref", key))
                     .selected_text(shown)
@@ -373,7 +377,7 @@ impl PreferencesDialog {
                     .show_ui(ui, |ui| {
                         for choice in choices {
                             if ui
-                                .selectable_label(choice.value == current, choice.label.as_str())
+                                .selectable_label(same(choice), choice.label.as_str())
                                 .clicked()
                             {
                                 picked = Some(choice.value.clone());
@@ -384,7 +388,7 @@ impl PreferencesDialog {
                 let label = setting.label.clone();
                 response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
                 if let Some(picked) = picked.filter(|p| p != current) {
-                    let _ = self.set(cx.shell, key, json!(picked));
+                    let _ = self.set(cx.shell, key, picked);
                 }
             }
             Kind::Number | Kind::Count | Kind::Text => {

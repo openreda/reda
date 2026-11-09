@@ -209,6 +209,18 @@ fn a_route_with_a_via_commits_as_one_batch() {
     assert_eq!(pcb.vias().count(), 1);
 }
 
+/// Whether the board's context menu shows (its "Document properties" entry, maybe with
+/// a shortcut after it).
+fn menu_open(w: &Window) -> bool {
+    w.h.query_all_by(|n: &_| {
+        let n: &egui_kittest::kittest::AccessKitNode<'_> = n;
+        n.label()
+            .is_some_and(|l| l.starts_with("Document properties"))
+    })
+    .next()
+    .is_some()
+}
+
 #[test]
 fn right_click_ends_the_route_instead_of_opening_the_menu() {
     let mut w = window();
@@ -224,11 +236,37 @@ fn right_click_ends_the_route_instead_of_opening_the_menu() {
     w.h.run();
     assert_eq!(last_command(&w), "pcb.track.add", "the route ended, kept");
     assert_eq!(tracks(&w), [(mm(0.0, 0.0), mm(0.0, 4.0))]);
-    assert!(
-        w.h.query_by_label("Rotate").is_none(),
-        "no context menu while routing"
-    );
+    assert!(!menu_open(&w), "no context menu while routing");
     assert_eq!(shell(&w).tool(), reda_ui::tools::Tool::Route);
+
+    // With no route in flight a right-click ends the Tool, as a second Esc does; in
+    // Select the menu opens again.
+    w.h.get_by_role(Role::Canvas).click_secondary();
+    w.h.run();
+    w.h.run();
+    assert_eq!(shell(&w).tool(), reda_ui::tools::Tool::Select);
+    assert!(!menu_open(&w));
+    w.h.get_by_role(Role::Canvas).click_secondary();
+    w.h.run();
+    w.h.run();
+    assert!(menu_open(&w), "the menu in Select");
+}
+
+#[test]
+fn the_routing_bars_keys_button_lists_the_track_tools_keys() {
+    let mut w = window();
+    route_with_keys(&mut w);
+    let card = reda_ui::keys_card::card(shell(&w), false);
+    assert!(w.h.query_by_label(&card.title).is_none());
+    w.h.get_by_label("Keys in Tool").click();
+    w.h.run();
+    w.h.run();
+    assert_eq!(last_command(&w), "view.keys_card.toggle");
+    w.h.get_by_role_and_label(Role::Label, &card.title);
+    let keys: Vec<&str> = card.rows.iter().map(|(k, _)| k.as_str()).collect();
+    for key in ["1", "3", "C", "E", "Shift+W", "Shift+V", "Shift+L"] {
+        assert!(keys.contains(&key), "{key} in {keys:?}");
+    }
 }
 
 #[test]

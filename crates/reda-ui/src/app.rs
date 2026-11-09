@@ -211,6 +211,9 @@ impl App {
         if !self.theme_installed {
             theme::install(&ctx, theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
+            // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
+            // Preference, not egui's own zoom.
+            ctx.options_mut(|o| o.zoom_with_keyboard = false);
             self.theme_installed = true;
         }
         self.apply_preferences(&ctx);
@@ -840,8 +843,11 @@ impl App {
     /// the item clicked, if any.
     fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
-        let mut checked =
-            BTreeMap::from([("view.theme.set", json!({ "theme": theme_value(ui.ctx()) }))]);
+        let scale = preferences::nearest_ui_scale(f64::from(ui.ctx().zoom_factor()));
+        let mut checked = BTreeMap::from([
+            ("view.theme.set", json!({ "theme": theme_value(ui.ctx()) })),
+            ("view.ui_scale.set", json!({ "scale": scale })),
+        ]);
         // The cross-probe switches show checked while on.
         let probe = self.shell.cross_probe_switches();
         if probe.selection {
@@ -894,6 +900,7 @@ impl App {
                     preferences::Theme::Dark => ThemePreference::Dark,
                     preferences::Theme::Light => ThemePreference::Light,
                 }),
+                Request::UiScale(scale) => ctx.set_zoom_factor(scale as f32),
                 Request::About => self.help.open_about(),
                 Request::Schematic(DialogKind::ExportPdf) => {
                     let name = schematic_dialogs::pdf_file_name(&self.shell);

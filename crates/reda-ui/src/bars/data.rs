@@ -129,7 +129,7 @@ fn menu(map: &Map<String, Value>) -> Result<Menu, String> {
     })
 }
 
-fn items(value: &Value, what: &str) -> Result<Vec<Item>, String> {
+pub(crate) fn items(value: &Value, what: &str) -> Result<Vec<Item>, String> {
     array(value, what)?.iter().map(item).collect()
 }
 
@@ -191,7 +191,7 @@ fn string(map: &Map<String, Value>, key: &str, what: &str) -> Result<String, Str
 }
 
 /// Refuses fields other than `allowed`.
-fn only(map: &Map<String, Value>, allowed: &[&str], what: &str) -> Result<(), String> {
+pub(crate) fn only(map: &Map<String, Value>, allowed: &[&str], what: &str) -> Result<(), String> {
     match map.keys().find(|k| !allowed.contains(&k.as_str())) {
         Some(k) => Err(format!("{what}: unknown field {k:?}")),
         None => Ok(()),

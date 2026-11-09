@@ -1,7 +1,7 @@
 //! The PCB canvas in a window. The shared canvas widget lays it out and turns the pointer
 //! into [`Pointer`] events ([`crate::canvas::canvas_input`]); [`pointer`] feeds them to the
 //! [`Tool`](super::Tool), and [`decorate`] draws what the board adds over the painted
-//! canvas: the snap marker, the cursor position, the context menu and the "No Board
+//! canvas: the snap marker, the cursor position and the "No Board
 //! Outline" hint. Its keys are Keymap bindings in the `pcb` context (`keymap/reda.toml`).
 
 use egui::{Align2, Color32, FontId, Id, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
@@ -111,7 +111,7 @@ fn live_hover_net(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64)
 }
 
 /// Draws what the board adds over its painted canvas: the snap marker and cursor
-/// position, the context menu, the "No Board Outline" hint and the Layer control, whose
+/// position, the "No Board Outline" hint and the Layer control, whose
 /// clicks it returns for the window to run.
 pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String, Value)> {
     super::route::draw(ui, shell, input);
@@ -119,13 +119,10 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     drawing(ui, shell, input);
     overlay(ui, shell, input);
     let mut out = Vec::new();
-    if super::route::takes_right_click(shell) {
-        // A right-click ends the route instead of opening the menu.
-        if input.response.secondary_clicked() {
-            out.push(("pcb.route.end".to_owned(), json!({})));
-        }
-    } else {
-        context_menu(shell, input);
+    // A right-click ends the route instead of opening the menu (the window leaves the
+    // canvas menu out while routing, see `context_menu::canvas`).
+    if super::route::takes_right_click(shell) && input.response.secondary_clicked() {
+        out.push(("pcb.route.end".to_owned(), json!({})));
     }
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
@@ -288,92 +285,6 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         info.current_text_value = Some(text.clone());
         info
     });
-}
-
-/// What the board's context menu offers for the selection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MenuAction {
-    Rotate,
-    Flip,
-    Lock,
-    Unlock,
-    Outline,
-}
-
-/// Right-click without dragging: Rotate, Flip Side, Lock, Unlock and Board Outline from
-/// Selection for the selection, each through its Command.
-fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
-    let selected = !shell.selection().objects.is_empty();
-    let mut clicked: Option<MenuAction> = None;
-    shown.response.context_menu(|ui| {
-        for (title, action) in [
-            (tr!("pcb-rotate"), MenuAction::Rotate),
-            (tr!("pcb-flip"), MenuAction::Flip),
-            (tr!("pcb-lock"), MenuAction::Lock),
-            (tr!("pcb-unlock"), MenuAction::Unlock),
-            (tr!("pcb-outline-from-selection"), MenuAction::Outline),
-        ] {
-            if ui.add_enabled(selected, egui::Button::new(title)).clicked() {
-                clicked = Some(action);
-                ui.close();
-            }
-        }
-    });
-    let Some(action) = clicked else {
-        return;
-    };
-    match action {
-        MenuAction::Rotate => {
-            let _ = shell.run_reporting("tool.rotate", json!({}));
-        }
-        MenuAction::Flip => {
-            let _ = shell.run_reporting("tool.flip", json!({}));
-        }
-        MenuAction::Outline => {
-            let graphics = selected_graphics(shell);
-            if !graphics.is_empty() {
-                let _ = shell.run_reporting(
-                    "pcb.board_outline.add_from_graphics",
-                    json!({ "graphics": graphics }),
-                );
-            }
-        }
-        MenuAction::Lock | MenuAction::Unlock => {
-            let objects = selected_lockable(shell);
-            if !objects.is_empty() {
-                let locked = action == MenuAction::Lock;
-                let _ =
-                    shell.run_reporting("pcb.lock", json!({"objects": objects, "locked": locked}));
-            }
-        }
-    }
-}
-
-/// The selected objects that can be locked: every placed kind.
-fn selected_lockable(shell: &Shell) -> Vec<Uuid> {
-    let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
-        return Vec::new();
-    };
-    shell
-        .selection()
-        .objects
-        .iter()
-        .copied()
-        .filter(|o| reda_engine::pcb::lock::lock_of(pcb, *o).is_some())
-        .collect()
-}
-
-fn selected_graphics(shell: &Shell) -> Vec<Uuid> {
-    let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
-        return Vec::new();
-    };
-    shell
-        .selection()
-        .objects
-        .iter()
-        .copied()
-        .filter(|o| pcb.graphic(*o).is_some())
-        .collect()
 }
 
 /// The form "Create rectangle…" opens: width and height as typed.

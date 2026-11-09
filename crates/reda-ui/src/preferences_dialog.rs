@@ -26,7 +26,7 @@ pub mod shortcuts;
 mod user_keymap;
 
 pub use draw::Outcome;
-pub use schema::{Choice, Kind, Setting, preference_keys, search};
+pub use schema::{Choice, Kind, Setting, preference_keys, search, setting};
 pub use shortcuts::Shortcuts;
 
 /// A page of the window: a page of the Preferences tree

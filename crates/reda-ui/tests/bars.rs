@@ -890,6 +890,7 @@ fn the_routing_bar_is_data_bound_to_the_track_tools_commands() {
             "pcb.route.mode:auto_terminate",
             "pcb.route.mode:loop_removal",
             "pcb.route.mode:clearance_display",
+            "view.keys_card.toggle",
         ]
     );
     assert!(

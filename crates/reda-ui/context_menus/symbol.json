@@ -1,0 +1,51 @@
+{
+  "sections": [
+    {
+      "id": "object",
+      "items": [
+        { "id": "context.object.rotate", "command": "tool.rotate" },
+        { "id": "context.object.properties", "command": "panel.show:properties", "title": "context-properties" }
+      ]
+    },
+    {
+      "id": "document",
+      "items": [
+        { "id": "context.document_properties", "command": "panel.show:properties", "title": "context-document-properties" }
+      ]
+    },
+    {
+      "id": "edit",
+      "items": [
+        { "id": "context.delete", "command": "library.symbol.delete", "params": { "symbol": "$active_document", "objects": "$selection" }, "title": "menu-edit-delete" }
+      ]
+    },
+    {
+      "id": "select",
+      "title": "context-select",
+      "items": [
+        { "id": "context.select.similar", "command": "selection.similar", "params": { "objects": "$selection" }, "title": "context-select-similar" },
+        { "id": "context.select.all", "command": "selection.set", "params": { "objects": "$selectable" }, "title": "context-select-all" }
+      ]
+    },
+    {
+      "id": "place",
+      "title": "context-place",
+      "items": [
+        { "id": "context.place.pin", "command": "tool.activate:pin" },
+        "separator",
+        { "id": "context.place.line", "command": "tool.activate:line" },
+        { "id": "context.place.rect", "command": "tool.activate:rect" },
+        { "id": "context.place.arc", "command": "tool.activate:arc" },
+        { "id": "context.place.circle", "command": "tool.activate:circle" },
+        { "id": "context.place.polygon", "command": "tool.activate:polygon" },
+        { "id": "context.place.text", "command": "tool.activate:text" }
+      ]
+    },
+    {
+      "id": "properties",
+      "items": [
+        { "id": "context.properties", "command": "panel.show:properties", "title": "context-properties" }
+      ]
+    }
+  ]
+}

@@ -89,6 +89,73 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(SelectionSet);
     registry.add(picking::Cycle);
     registry.add(Delete);
+    registry.add(SelectSimilar);
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectSimilarParams {
+    /// The selected objects; the first is the template.
+    objects: Vec<Uuid>,
+}
+
+/// `selection.similar`: selects everything of the same kind as the first object, where it
+/// lives (its sheet, the board or its Library element), through `objects.find_similar`.
+struct SelectSimilar;
+
+impl Command for SelectSimilar {
+    const META: Meta = Meta {
+        id: "selection.similar",
+        title: "Select Similar",
+        description: "Selects every object of the same kind as the first one given, on its \
+                      sheet, on the board or in its Library element.",
+        category: "selection",
+        icon: "select_similar",
+        kind: Kind::View,
+    };
+    type Params = SelectSimilarParams;
+    type Output = SelectionSetResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: SelectSimilarParams,
+    ) -> Result<SelectionSetResult, CommandError> {
+        use reda_engine::commands::similar::{
+            FindSimilarParams, SimilarScope, Template, find_similar,
+        };
+        let template = *p
+            .objects
+            .first()
+            .ok_or_else(|| CommandError::invalid_params("/objects", "give an object"))?;
+        let project = cx.project()?;
+        let found = [
+            SimilarScope::Sheet,
+            SimilarScope::Board,
+            SimilarScope::Element,
+        ]
+        .into_iter()
+        .find_map(|scope| {
+            find_similar(
+                project,
+                &FindSimilarParams {
+                    template: Template::Object(template),
+                    rules: Default::default(),
+                    scope,
+                },
+            )
+            .ok()
+        })
+        .ok_or_else(|| CommandError::not_found(format!("no object {template}")))?;
+        let selection = Selection {
+            objects: found.objects,
+            pads: found.pads,
+            ..Selection::default()
+        };
+        let count = selection.len();
+        *cx.view::<Selection>()? = selection;
+        Ok(SelectionSetResult { count })
+    }
 }
 
 /// Standalone field text is moved or hidden through its own Properties; Delete refuses
