@@ -225,6 +225,7 @@ impl Command for FootprintAdd {
             rotation: p.rotation.map_or(Millideg::ZERO, |r| r.millideg()),
             side: p.side.unwrap_or(Side::Top),
             locked: false,
+            graphics_unlocked: false,
             designator: p.designator.unwrap_or_else(|| "TP".into()),
             fields: Fields::default(),
             component_type,
