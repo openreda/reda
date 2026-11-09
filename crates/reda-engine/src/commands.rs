@@ -30,6 +30,7 @@ pub mod silkscreen;
 pub mod similar;
 pub mod symbol_wizard;
 pub mod sync;
+pub mod waiver_reason;
 pub mod where_used;
 pub mod write_through;
 pub mod zone_fill;
@@ -72,6 +73,7 @@ pub fn register_all(registry: &mut Registry) {
     sync::register_all(registry);
     zone_fill::register_all(registry);
     write_through::register_all(registry);
+    waiver_reason::register_all(registry);
 }
 
 /// A param naming one file of the Project: `"project"` for the Project file, or a
