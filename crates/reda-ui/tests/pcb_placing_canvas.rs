@@ -138,7 +138,7 @@ fn the_placement_bar_is_a_data_file_bound_to_the_placement_commands_with_its_ico
             "pcb.place.mode:alignment_guides",
             "pcb.place.mode:ratsnest_mode",
             "tool.rotate",
-            "tool.flip",
+            "tool.flip_side",
             "pcb.place.skip",
             "view.keys_card.toggle",
         ]

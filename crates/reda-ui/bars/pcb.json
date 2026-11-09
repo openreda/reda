@@ -108,7 +108,7 @@
       { "id": "place_bar.ratsnest_mode", "command": "pcb.place.mode:ratsnest_mode" },
       "separator",
       { "id": "place_bar.rotate", "command": "tool.rotate" },
-      { "id": "place_bar.flip", "command": "tool.flip" },
+      { "id": "place_bar.flip", "command": "tool.flip_side" },
       { "id": "place_bar.queue", "command": "pcb.place.skip" },
       "separator",
       { "id": "place_bar.keys", "command": "view.keys_card.toggle" }
