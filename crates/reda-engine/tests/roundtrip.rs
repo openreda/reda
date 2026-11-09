@@ -379,6 +379,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 180_000 } else { 0 }),
             side: if flag { Side::Bottom } else { Side::Top },
             locked: flag,
+            graphics_unlocked: false,
             designator,
             fields: Default::default(),
             component_type: if flag {

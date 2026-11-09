@@ -23812,6 +23812,10 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "graphics_unlocked": {
+                "description": "Its Footprint's graphics can be edited on the board, each edit making a Locally\nEdited Footprint (ADR-0013).",
+                "type": "boolean"
+              },
               "in_bom": {
                 "description": "Whether it goes into the BOM.",
                 "type": "boolean"
@@ -31309,6 +31313,10 @@
                 "description": "The PCB Document's Footprint copy it is placed from.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "graphics_unlocked": {
+                "description": "Its Footprint's graphics can be edited on the board, each edit making a Locally\nEdited Footprint (ADR-0013).",
+                "type": "boolean"
               },
               "in_bom": {
                 "description": "Whether it goes into the BOM.",
@@ -42748,6 +42756,334 @@
     },
     {
       "category": "pcb",
+      "description": "Deletes graphics of one placed Footprint whose graphics are unlocked, in one step. The instance gets a Locally Edited Footprint, as `pcb.pad.edit` makes, with the same compare, revert and Sync rules.",
+      "icon": "delete",
+      "id": "pcb.footprint.graphic.delete",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "graphics": {
+            "description": "The graphics, by their UUIDs in the Footprint.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Deletes from a Footprint whose graphics aren't unlocked too, as the GUI does with\nProtect Locked Primitives In Component off.",
+            "type": "boolean"
+          },
+          "instance": {
+            "description": "The placed Footprint instance.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "graphics"
+        ],
+        "title": "GraphicDeleteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Delete Placed Footprint Graphics"
+    },
+    {
+      "category": "pcb",
+      "description": "Changes one graphic of one placed Footprint whose graphics are unlocked: its Layer, shape (which also moves it), stroke width or fill, as `library.footprint.graphic.edit` does. The instance gets a Locally Edited Footprint, as `pcb.pad.edit` makes, with the same compare, revert and Sync rules.",
+      "icon": "footprint_edit",
+      "id": "pcb.footprint.graphic.edit",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Angle": {
+            "description": "An angle, counter-clockwise: integer millidegrees, or degrees such as \"45deg\".",
+            "oneOf": [
+              {
+                "description": "Millidegrees.",
+                "type": "integer"
+              },
+              {
+                "description": "A number of degrees followed by deg.",
+                "format": "angle",
+                "type": "string"
+              }
+            ]
+          },
+          "FootprintLayer": {
+            "description": "The Layers a Footprint draws on besides copper.",
+            "enum": [
+              "silkscreen_top",
+              "silkscreen_bottom",
+              "courtyard_top",
+              "courtyard_bottom",
+              "assembly_top",
+              "assembly_bottom"
+            ],
+            "type": "string"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param: each coordinate an integer in nanometres or a length string.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "ShapeParam": {
+            "description": "A shape param, tagged by `kind`. Coordinates are relative to the element's origin.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle between two opposite corners.",
+                "properties": {
+                  "end": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "start",
+                  "end"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The arc from `start` around `center`, sweeping `sweep` counter-clockwise (negative\nis clockwise).",
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "start": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "sweep": {
+                    "$ref": "#/$defs/Angle"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "start",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "center": {
+                    "$ref": "#/$defs/PointParam"
+                  },
+                  "kind": {
+                    "const": "circle",
+                    "type": "string"
+                  },
+                  "radius": {
+                    "$ref": "#/$defs/Length"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "center",
+                  "radius"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A closed polygon through at least three corners.",
+                "properties": {
+                  "kind": {
+                    "const": "polygon",
+                    "type": "string"
+                  },
+                  "points": {
+                    "items": {
+                      "$ref": "#/$defs/PointParam"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "points"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "$ref": "#/$defs/PointParam",
+                    "description": "The text's anchor."
+                  },
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "rotation": {
+                    "$ref": "#/$defs/Angle",
+                    "default": 0
+                  },
+                  "size": {
+                    "$ref": "#/$defs/Length",
+                    "description": "The text height."
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "at",
+                  "text",
+                  "size"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "fill": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "graphic": {
+            "description": "The graphic, by its UUID in the Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Edits a Footprint whose graphics aren't unlocked too, as the GUI does with Protect\nLocked Primitives In Component off.",
+            "type": "boolean"
+          },
+          "instance": {
+            "description": "The placed Footprint instance.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FootprintLayer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shape": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ShapeParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the whole shape, in the Footprint's own frame: moving a graphic is a new\nshape."
+          },
+          "width": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "instance",
+          "graphic"
+        ],
+        "title": "GraphicEditParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Edit Placed Footprint Graphic"
+    },
+    {
+      "category": "pcb",
       "description": "Returns Locally Edited Footprints to the copy their `edited_from` names, not to the Library: the board then matches the schematic's copy again. Instances without local edits are left alone. Entries no instance uses any more leave the part table.",
       "icon": "undo",
       "id": "pcb.footprint.revert_local_edits",
@@ -43187,6 +43523,57 @@
         "type": "object"
       },
       "title": "Set Footprint Text"
+    },
+    {
+      "category": "pcb",
+      "description": "Unlocks the graphics of placed Footprints, so `pcb.footprint.graphic.edit` and `pcb.footprint.graphic.delete` can change them, or locks them again. Unlocking changes nothing else: locking again keeps the edits made, which `pcb.footprint.revert_local_edits` removes.",
+      "icon": "lock",
+      "id": "pcb.footprint.unlock_graphics",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "instances": {
+            "description": "The placed Footprint instances.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unlocked": {
+            "description": "True lets their graphics be edited on the board; false locks them again.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "instances",
+          "unlocked"
+        ],
+        "title": "UnlockGraphicsParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "instances": {
+            "description": "The instances whose setting changed, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "instances"
+        ],
+        "title": "UnlockGraphicsResult",
+        "type": "object"
+      },
+      "title": "Unlock Footprint Graphics"
     },
     {
       "category": "pcb",
