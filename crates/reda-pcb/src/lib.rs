@@ -28,7 +28,7 @@ pub use board::{
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     AreaParam, DrcRunParams, DrcRunResult, MechanicalSet, MechanicalSetParams, Placed, PlacementOp,
-    SyncCheck, SyncState, TrackDragPlan, drc_run, placement_anchor, placement_preview,
+    SyncCheck, SyncState, TrackDragPlan, drc_run, glob_match, placement_anchor, placement_preview,
     rect_outline, register_all, register_all_with_user, track_drag_plan,
 };
 pub use copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine, RatsnestVisibility};

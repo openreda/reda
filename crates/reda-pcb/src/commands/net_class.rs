@@ -19,6 +19,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(NetClassAdd);
     registry.add(NetClassRename);
     registry.add(NetClassDelete);
+    registry.add(NetClassReorder);
     registry.add(NetAddToClass);
     registry.add(NetRemoveFromClass);
 }
@@ -249,6 +250,78 @@ impl Command for NetClassDelete {
             tx.remove(record)?;
         }
         tx.remove(class.uuid)?;
+        Ok(())
+    }
+}
+
+pub struct NetClassReorder;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NetClassReorderParams {
+    /// Every Net Class exactly once, highest rank first: each by UUID or by name (ignoring
+    /// case).
+    pub classes: Vec<String>,
+}
+
+impl Command for NetClassReorder {
+    const META: Meta = Meta {
+        id: "pcb.net_class.reorder",
+        title: "Reorder Net Classes",
+        description: "Sets the Net Classes' ranks: `classes` lists every Net Class once, by \
+                      UUID or name, highest rank first (rank 1). The Default Net Class \
+                      always ranks lowest and is not listed.",
+        category: "pcb",
+        icon: "reorder",
+        kind: Kind::Edit,
+    };
+    type Params = NetClassReorderParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: NetClassReorderParams) -> Result<(), CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let mut order: Vec<NetClass> = Vec::new();
+        for (i, entry) in p.classes.iter().enumerate() {
+            let found = entry
+                .parse::<Uuid>()
+                .ok()
+                .and_then(|u| pcb.net_class(u))
+                .or_else(|| pcb.net_class_named(entry.trim()))
+                .ok_or_else(|| {
+                    CommandError::not_found(format!("no Net Class is {entry:?} (`classes[{i}]`)"))
+                })?;
+            if order.iter().any(|c| c.uuid == found.uuid) {
+                return Err(CommandError::invalid_params(
+                    &format!("/classes/{i}"),
+                    format!("{:?} is listed twice", found.name),
+                ));
+            }
+            order.push(found.clone());
+        }
+        if let Some(missing) = pcb
+            .net_classes()
+            .find(|c| !order.iter().any(|o| o.uuid == c.uuid))
+        {
+            return Err(CommandError::invalid_params(
+                "/classes",
+                format!("{:?} is not listed; list every Net Class", missing.name),
+            ));
+        }
+        let changed: Vec<NetClass> = order
+            .into_iter()
+            .zip(1..)
+            .filter(|(c, rank)| c.rank != *rank)
+            .map(|(c, rank)| NetClass { rank, ..c })
+            .collect();
+        let tx = cx.tx()?;
+        for class in changed {
+            tx.replace(Object::NetClass(InDocument::new(document, class)))?;
+        }
         Ok(())
     }
 }
