@@ -24,6 +24,26 @@ params = { document = "$active_document" }
 key = "Shift+C"
 command = "view.highlight.clear"
 
+# UI scale: Mod+= and Mod+- step it, Mod+0 returns to 100 %.
+
+[[bind]]
+key = "Mod+="
+command = "view.ui_scale.step:up"
+
+[[bind]]
+key = "Mod+-"
+command = "view.ui_scale.step:down"
+
+[[bind]]
+key = "Mod+0"
+command = "view.ui_scale.set:100"
+
+# Keys in Tool: Shift+F1 toggles the card of the active Tool's keys.
+
+[[bind]]
+key = "Shift+F1"
+command = "view.keys_card.toggle"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]
@@ -710,3 +730,17 @@ context = "pcb"
 key = "Mod+A"
 command = "selection.set"
 params = { objects = "$selectable" }
+
+# Cross-probe: Mod+Shift+C finds the selection on the other side.
+
+[[bind]]
+key = "Mod+Shift+C"
+context = "schematic"
+command = "view.cross_probe"
+params = { objects = "$selection" }
+
+[[bind]]
+key = "Mod+Shift+C"
+context = "pcb"
+command = "view.cross_probe"
+params = { objects = "$selection" }

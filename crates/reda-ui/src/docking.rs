@@ -750,7 +750,22 @@ impl Cx<'_, '_> {
             close
         });
         if ui.is_rect_visible(rect) {
-            if pointed {
+            if active {
+                // White at 15 % behind the active tab, rounded at the top, and a 2 px
+                // white underline across its width.
+                let top = egui::CornerRadius {
+                    nw: 3,
+                    ne: 3,
+                    sw: 0,
+                    se: 0,
+                };
+                ui.painter().rect_filled(rect, top, theme::ACTIVE_TAB_FILL);
+                let line = Rect::from_min_max(
+                    egui::pos2(rect.left(), rect.bottom() - theme::ACTIVE_TAB_UNDERLINE),
+                    rect.max,
+                );
+                ui.painter().rect_filled(line, 0.0, Color32::WHITE);
+            } else if pointed {
                 let hover = Color32::from_white_alpha(20);
                 ui.painter().rect_filled(rect, 3.0, hover);
             }
@@ -787,7 +802,8 @@ impl Cx<'_, '_> {
                 );
             }
         }
-        if close.as_ref().is_some_and(Response::clicked) {
+        // A middle-click on any tab closes it.
+        if close.as_ref().is_some_and(Response::clicked) || response.middle_clicked() {
             self.run("layout.tab.close", json!({"tab": tab.to_string()}));
         }
         let shortcut = tab_shortcut(&response.ctx, self.shell, tab);
@@ -956,6 +972,12 @@ impl Cx<'_, '_> {
                 for (id, params) in edits {
                     self.push_call(id, params);
                 }
+                // In the Wire Tool a right-click is Esc (see `edit`), not the menu.
+                let wiring = kind == bars::DocumentType::Schematic
+                    && self.shell.tool() == crate::tools::Tool::Wire;
+                if !view_only && !wiring {
+                    crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
+                }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
                 };
@@ -990,6 +1012,9 @@ impl Cx<'_, '_> {
                 crate::selection::picking::show(ui, self.shell, *uuid);
                 let options = schematic_editor::auto_wire_options(ui, self.shell, *uuid, rect);
                 self.frame.commands.extend(options);
+                if self.shell.active_document().map(|d| d.document) == Some(*uuid) {
+                    crate::keys_card::show(ui, self.shell, rect);
+                }
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

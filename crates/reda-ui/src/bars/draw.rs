@@ -170,7 +170,12 @@ fn submenu(ui: &mut Ui, cx: &Cx<'_>, menu: &Menu, clicked: &mut Option<Invocatio
     });
 }
 
-fn menu_items(ui: &mut Ui, cx: &Cx<'_>, items: &[Item], clicked: &mut Option<Invocation>) {
+pub(crate) fn menu_items(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    items: &[Item],
+    clicked: &mut Option<Invocation>,
+) {
     let theme = ui.ctx().theme();
     for item in items {
         match item {

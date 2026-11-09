@@ -76,8 +76,19 @@ fn right_click(h: &mut Harness<'_, App>, x: f64, y: f64) {
             pressed,
             modifiers: Modifiers::NONE,
         });
+        h.run();
     }
-    h.run();
+}
+
+/// Whether a canvas context menu is open: it always offers the sheet's Properties.
+fn menu_open(h: &Harness<'_, App>) -> bool {
+    h.query_all_by(|n: &_| {
+        let n: &egui_kittest::kittest::AccessKitNode<'_> = n;
+        n.label()
+            .is_some_and(|l| l.starts_with("Document properties"))
+    })
+    .next()
+    .is_some()
 }
 
 fn key(h: &mut Harness<'_, App>, modifiers: Modifiers, key: Key) {
@@ -148,9 +159,13 @@ fn the_wire_tool_runs_its_commands_from_real_keys_and_clicks() {
     // A right-click ends the run with its fixed corners; the Tool stays.
     right_click(&mut h, 1500.0, 500.0);
     assert_eq!(h.state().shell().tool(), Tool::Wire);
+    assert!(!menu_open(&h), "no context menu opens in the Wire Tool");
     // With no run, a right-click leaves the Tool.
     right_click(&mut h, 1500.0, 500.0);
     assert_eq!(h.state().shell().tool(), Tool::Select);
+    // In Select, a right-click opens the context menu again.
+    right_click(&mut h, 1500.0, 500.0);
+    assert!(menu_open(&h));
 
     let journal = journal_since(&h, before);
     assert_eq!(

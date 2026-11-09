@@ -36,6 +36,22 @@
             { "id": "view.theme.dark", "command": "view.theme.set:dark" },
             { "id": "view.theme.light", "command": "view.theme.set:light" }
           ]
+        },
+        {
+          "id": "view.ui_scale",
+          "title": "menu-view-ui-scale",
+          "items": [
+            { "id": "view.ui_scale.seventy_five", "command": "view.ui_scale.set:75" },
+            { "id": "view.ui_scale.eighty_five", "command": "view.ui_scale.set:85" },
+            { "id": "view.ui_scale.hundred", "command": "view.ui_scale.set:100" },
+            { "id": "view.ui_scale.hundred_fifteen", "command": "view.ui_scale.set:115" },
+            { "id": "view.ui_scale.hundred_twenty_five", "command": "view.ui_scale.set:125" },
+            { "id": "view.ui_scale.hundred_fifty", "command": "view.ui_scale.set:150" },
+            { "id": "view.ui_scale.two_hundred", "command": "view.ui_scale.set:200" },
+            "separator",
+            { "id": "view.ui_scale.up", "command": "view.ui_scale.step:up" },
+            { "id": "view.ui_scale.down", "command": "view.ui_scale.step:down" }
+          ]
         }
       ]
     },

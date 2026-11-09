@@ -1,0 +1,100 @@
+{
+  "sections": [
+    {
+      "id": "violation",
+      "items": [
+        { "id": "context.waive", "command": "erc.waive", "params": { "violations": ["$violation"] }, "title": "context-waive" },
+        {
+          "id": "context.set_severity",
+          "title": "context-set-severity",
+          "items": [
+            { "id": "context.severity.error", "command": "erc.set_severity", "params": { "check": "$check", "severity": "error" }, "title": "severity-error" },
+            { "id": "context.severity.warning", "command": "erc.set_severity", "params": { "check": "$check", "severity": "warning" }, "title": "severity-warning" },
+            { "id": "context.severity.off", "command": "erc.set_severity", "params": { "check": "$check", "severity": "off" }, "title": "severity-off" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "object",
+      "items": [
+        { "id": "context.object.rotate", "command": "schematic.rotate", "params": { "objects": "$selection" } },
+        { "id": "context.object.mirror_x", "command": "schematic.mirror", "params": { "objects": "$selection", "axis": "x" } },
+        { "id": "context.object.mirror_y", "command": "schematic.mirror", "params": { "objects": "$selection", "axis": "y" } }
+      ],
+      "kinds": {
+        "unit": [
+          { "id": "context.object.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } }
+        ]
+      }
+    },
+    {
+      "id": "document",
+      "items": [
+        { "id": "context.document_properties", "command": "panel.show:properties", "title": "context-document-properties" }
+      ]
+    },
+    {
+      "id": "edit",
+      "items": [
+        { "id": "context.cut", "command": "schematic.cut", "params": { "objects": "$selection" }, "title": "menu-edit-cut" },
+        { "id": "context.copy", "command": "schematic.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "context.paste", "command": "schematic.paste", "params": { "document": "$active_document", "clipboard": "$clipboard", "at": "$cursor" }, "title": "menu-edit-paste" },
+        { "id": "context.duplicate", "command": "schematic.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
+        { "id": "context.delete", "command": "schematic.delete", "params": { "objects": "$selection" }, "title": "menu-edit-delete" }
+      ]
+    },
+    {
+      "id": "select",
+      "title": "context-select",
+      "items": [
+        { "id": "context.select.similar", "command": "schematic.dialog.open:select_similar", "title": "context-select-similar" },
+        { "id": "context.select.all", "command": "selection.set", "params": { "objects": "$selectable" }, "title": "context-select-all" }
+      ]
+    },
+    {
+      "id": "align",
+      "title": "context-align",
+      "items": [
+        { "id": "context.align.left", "command": "schematic.align", "params": { "objects": "$selection", "to": "left" } },
+        { "id": "context.align.right", "command": "schematic.align", "params": { "objects": "$selection", "to": "right" } },
+        { "id": "context.align.top", "command": "schematic.align", "params": { "objects": "$selection", "to": "top" } },
+        { "id": "context.align.bottom", "command": "schematic.align", "params": { "objects": "$selection", "to": "bottom" } },
+        { "id": "context.align.center_x", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_x" } },
+        { "id": "context.align.center_y", "command": "schematic.align", "params": { "objects": "$selection", "to": "center_y" } },
+        "separator",
+        { "id": "context.distribute.horizontal", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "horizontal" } },
+        { "id": "context.distribute.vertical", "command": "schematic.distribute", "params": { "objects": "$selection", "direction": "vertical" } }
+      ]
+    },
+    {
+      "id": "net",
+      "items": [
+        { "id": "context.highlight_net", "command": "view.highlight.net_of", "params": { "objects": "$selection", "at": "$cursor" }, "title": "context-highlight-net" },
+        { "id": "context.clear_highlight", "command": "view.highlight.clear" },
+        { "id": "context.cross_probe", "command": "view.cross_probe", "params": { "objects": "$selection" }, "title": "context-cross-probe" }
+      ]
+    },
+    {
+      "id": "place",
+      "title": "context-place",
+      "items": [
+        { "id": "context.place.wire", "command": "tool.activate:wire" },
+        { "id": "context.place.net_label", "command": "tool.activate:net_label" },
+        { "id": "context.place.port", "command": "tool.activate:port" },
+        { "id": "context.place.power_port", "command": "tool.activate:power_port" },
+        { "id": "context.place.no_connect", "command": "tool.activate:no_connect" },
+        "separator",
+        { "id": "context.place.text", "command": "tool.activate:text" },
+        { "id": "context.place.line", "command": "tool.activate:line" },
+        { "id": "context.place.rect", "command": "tool.activate:rect" }
+      ]
+    },
+    {
+      "id": "properties",
+      "items": [
+        { "id": "context.properties", "command": "panel.show:properties", "title": "context-properties" }
+      ]
+    }
+  ]
+}

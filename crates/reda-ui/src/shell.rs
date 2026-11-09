@@ -273,6 +273,9 @@ impl Shell {
         if engine.registry().get("view.messages.show_waived").is_none() {
             engine.register(messages::register_all);
         }
+        if engine.registry().get("view.keys_card.toggle").is_none() {
+            engine.register(crate::keys_card::register_all);
+        }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
         engine.view_mut().set(Selection::default());
@@ -280,6 +283,7 @@ impl Shell {
             .view_mut()
             .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
+        engine.view_mut().set(crate::keys_card::KeysCard::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
@@ -1433,7 +1437,11 @@ impl Shell {
         // First, so the Scenes the refresh below rebuilds are drawn with them.
         if matches!(
             base,
-            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
+            "app.preferences.set"
+                | "app.preferences.reset"
+                | "view.theme.set"
+                | "view.ui_scale.set"
+                | "view.ui_scale.step"
         ) {
             self.reload_preferences();
         }
@@ -1874,6 +1882,7 @@ impl Shell {
                         severity: e.violation.severity,
                         waived: e.violation.waiver.is_some(),
                         current: current == Some(key),
+                        key,
                     })
                 })
                 .collect();
@@ -1971,6 +1980,7 @@ impl Shell {
             return false;
         };
         let now = self.preferences.values().clone();
+        self.sync_ui_scale();
         if now.general.undo_depth != reloaded.before.general.undo_depth {
             (self.engine).set_undo_depth(now.general.undo_depth.map(|d| d.get() as usize));
         }
@@ -1990,9 +2000,19 @@ impl Shell {
     fn load_preference_warnings(&mut self) {
         let (watched, warnings) = Watched::load(self.engine.user_dirs());
         self.preferences = watched;
+        self.sync_ui_scale();
         if self.engine.user_dirs().is_some() {
             self.set_preference_warnings(warnings);
         }
+    }
+
+    /// Keeps the UI scale view state, which `view.ui_scale.step` steps from, equal to the
+    /// Preference.
+    fn sync_ui_scale(&mut self) {
+        let scale = self.preferences.values().general.ui_scale;
+        self.engine
+            .view_mut()
+            .set(crate::bars::commands::UiScale(scale));
     }
 
     fn set_preference_warnings(&mut self, warnings: Vec<String>) {

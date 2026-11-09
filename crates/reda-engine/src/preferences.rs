@@ -103,7 +103,8 @@ impl Default for SelectionEditing {
 pub struct General {
     /// The colour theme.
     pub theme: Theme,
-    /// Scales the whole user interface, from 0.5 to 3.
+    /// Scales the whole user interface: one of the steps in [`UI_SCALES`].
+    #[schemars(schema_with = "ui_scale_schema")]
     pub ui_scale: f64,
     /// Reopen the last Project when REDA starts.
     pub reopen_last_project: bool,
@@ -111,6 +112,39 @@ pub struct General {
     pub undo_depth: Option<NonZeroU32>,
     /// The Saved Layout new Projects start from. Unset means REDA's Default Layout.
     pub default_layout: Option<String>,
+}
+
+/// The UI scale steps, 75 to 200 %: the only values `general.ui_scale` takes.
+pub const UI_SCALES: [f64; 7] = [0.75, 0.85, 1.0, 1.15, 1.25, 1.5, 2.0];
+
+/// The step of [`UI_SCALES`] nearest `scale`.
+pub fn nearest_ui_scale(scale: f64) -> f64 {
+    UI_SCALES
+        .into_iter()
+        .min_by(|a, b| (a - scale).abs().total_cmp(&(b - scale).abs()))
+        .expect("there are steps")
+}
+
+/// The next UI scale step up (`up`) or down from `scale`, staying at the ends.
+pub fn step_ui_scale(scale: f64, up: bool) -> f64 {
+    let at = UI_SCALES
+        .iter()
+        .position(|s| *s == nearest_ui_scale(scale))
+        .expect("a step");
+    let next = if up {
+        (at + 1).min(UI_SCALES.len() - 1)
+    } else {
+        at.saturating_sub(1)
+    };
+    UI_SCALES[next]
+}
+
+fn ui_scale_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({
+        "type": "number",
+        "enum": UI_SCALES,
+        "description": "Scales the whole user interface: 75, 85, 100, 115, 125, 150 or 200 %.",
+    })
 }
 
 impl Default for General {
@@ -771,8 +805,11 @@ impl Preferences {
     /// Range rules serde cannot express. Returns the offending key and why.
     fn check(&self) -> Result<(), (&'static str, String)> {
         let scale = self.general.ui_scale;
-        if !(0.5..=3.0).contains(&scale) {
-            return Err(("general.ui_scale", format!("{scale} is outside 0.5 to 3")));
+        if !UI_SCALES.iter().any(|s| (s - scale).abs() < 1e-9) {
+            return Err((
+                "general.ui_scale",
+                format!("{scale} is not a UI scale step (0.75, 0.85, 1, 1.15, 1.25, 1.5 or 2)"),
+            ));
         }
         let themes = &self.display.layer_colors;
         for (theme, colors) in [("dark", &themes.dark), ("light", &themes.light)] {

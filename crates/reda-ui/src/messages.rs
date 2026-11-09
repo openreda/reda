@@ -189,6 +189,8 @@ pub struct Marker {
     pub waived: bool,
     /// The Violation last gone to from the panel.
     pub current: bool,
+    /// Its line in Messages: a right-click on the marker waives it or sets its severity.
+    pub key: LineKey,
 }
 
 /// Everything the Messages panel lists.

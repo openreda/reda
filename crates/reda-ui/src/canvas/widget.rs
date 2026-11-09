@@ -291,7 +291,7 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
 }
 
 /// The marker's radius in points.
-const MARKER_RADIUS: f32 = 7.0;
+pub(crate) const MARKER_RADIUS: f32 = 7.0;
 
 /// Draws a ring with an exclamation mark at each Violation, over the canvas: red for
 /// errors, amber for warnings, faded when waived, thicker for the one last gone to.
