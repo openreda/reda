@@ -8,9 +8,7 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
-use reda_ui::schematic_dialogs::{
-    ReannotateDialog, ReannotateScope, SimilarDialog, export_pdf,
-};
+use reda_ui::schematic_dialogs::{ReannotateDialog, ReannotateScope, SimilarDialog, export_pdf};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
