@@ -12,11 +12,13 @@
 //! the dialog; the others only draw it and flag their own fields.
 
 use std::cell::{RefCell, RefMut};
+use std::path::Path;
 use std::rc::Rc;
 
 use reda_engine::model::{ConnectionTarget, ConnectionValue, DrcCheck, Project, Scope};
 
-use super::{Page, PageCx, Problem, SettingsDialog, Step};
+use super::{FileRequest, Page, PageCx, Problem, SettingsDialog, Step};
+use crate::shell::Shell;
 use crate::tr;
 
 mod draw;
@@ -25,7 +27,7 @@ mod model;
 
 pub use model::{
     ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS, NetRow,
-    PasteMode, RuleChange, Band, CrossBand, StackupDraft, StackupRow, RuleField, SPOKES, STYLES, ValueKind, class_field, kind_name,
+    ImportPreview, PasteMode, RuleChange, Band, CrossBand, StackupDraft, StackupRow, RuleField, SPOKES, STYLES, ValueKind, class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -229,6 +231,12 @@ impl View {
     fn step_back(&self) -> bool {
         self.owner && self.board.borrow_mut().step_back()
     }
+
+    fn picked_file(&self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        if self.owner {
+            self.board.borrow_mut().picked_file(shell, request, path);
+        }
+    }
 }
 
 /// One rule's page.
@@ -273,6 +281,10 @@ impl Page for RulePage {
         self.view.step_back()
     }
 
+    fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        self.view.picked_file(shell, request, path);
+    }
+
     fn problems(&self) -> Vec<Problem> {
         let problems = self.view.board.borrow().problems();
         problems.into_iter().filter(|p| self.rule.owns(p)).collect()
@@ -313,6 +325,10 @@ impl Page for NetClassesPage {
 
     fn step_back(&mut self) -> bool {
         self.view.step_back()
+    }
+
+    fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        self.view.picked_file(shell, request, path);
     }
 
     fn problems(&self) -> Vec<Problem> {
@@ -364,6 +380,10 @@ impl Page for StackupPage {
         self.view.step_back()
     }
 
+    fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        self.view.picked_file(shell, request, path);
+    }
+
     fn problems(&self) -> Vec<Problem> {
         let problems = self.view.board.borrow().problems();
         let ours = |p: &Problem| p.field.starts_with("stackup/");
@@ -412,6 +432,10 @@ impl Page for DrcPage {
 
     fn step_back(&mut self) -> bool {
         self.view.step_back()
+    }
+
+    fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        self.view.picked_file(shell, request, path);
     }
 
     fn problems(&self) -> Vec<Problem> {

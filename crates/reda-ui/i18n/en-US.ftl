@@ -1237,6 +1237,28 @@ board-setup-unset = Not set
 board-setup-typed = { $what }, typed
 board-setup-fab-notes = Fab Notes text
 board-setup-fab-notes-note = Free text copied into the Fab Notes, such as impedance or panelisation requests.
+board-setup-import-class-record = { $rule } of Net Class { $class }
+board-setup-import-board-record = Board-wide { $rule }
+board-setup-import-new-class = New Net Class { $class }
+board-setup-import-severity = Severity of { $check }: { $before } to { $after }
+board-setup-exported = Exported { $count } rules to { $path }.
+board-setup-imported = Imported the rules from { $path }.
+board-setup-saved-preset = Saved the board's rules as the Fab Preset { $preset }.
+rules-export-title = Export Rules
+rules-import-title = Import Rules
+rules-filter = REDA rules
+board-setup-reset-page = Reset Page to Fab Preset
+board-setup-apply-first = These act on the rules as applied: apply or cancel the pending changes first.
+board-setup-save-preset = Save Rules as Fab Preset…
+board-setup-export = Export Rules…
+board-setup-import = Import Rules…
+board-setup-take-row = Take { $rule }
+board-setup-preset-name = Fab Preset name
+board-setup-save = Save Preset
+board-setup-save-preset-note = The new Fab Preset holds the board-wide rules; Net Class values stay on the board.
+board-setup-import-preview = Importing { $path } changes:
+board-setup-import-nothing = Nothing: the board already has these rules.
+board-setup-import-confirm = Import
 
 ## Output Job dialog and job runs
 
@@ -1486,3 +1508,11 @@ selection-pick-length = { $length } mm
 selection-pick-size = { $width } × { $height } mm
 selection-pick-entry = { $kind } · { $detail }
 selection-pick-pad = { $kind } { $number } · { $designator }
+show-on-board-count = { $count ->
+    [one] 1 object affected
+   *[other] { $count } objects affected
+} (view only)
+show-on-board-back = Back to Board Setup
+board-setup-show = Show on Board
+board-setup-show-of = Show { $what } on board
+board-setup-board-wide-kind = board-wide { $kind }

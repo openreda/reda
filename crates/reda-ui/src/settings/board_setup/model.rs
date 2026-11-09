@@ -16,7 +16,9 @@ use serde_json::{Map, Value, json};
 
 
 mod field;
+mod actions;
 mod grid;
+pub use actions::ImportPreview;
 mod stackup;
 pub use stackup::{Band, CrossBand, StackupDraft, StackupRow};
 pub use field::{
@@ -24,6 +26,8 @@ pub use field::{
     kind_name, style_name, target_name,
 };
 use field::{by_kind, values_param};
+use super::Rule;
+use crate::show_on_board::Shown;
 use crate::settings::{Draft, Problem, Step};
 use crate::tr;
 
@@ -156,6 +160,10 @@ pub struct RuleChange {
     pub board: String,
     /// The preset's value, as the dialog shows it.
     pub preset: String,
+    /// Whether the row is taken when the preview is accepted. Limits start ticked; a
+    /// preferred value only when the dialog's falls outside the range the ticked limits
+    /// make.
+    pub ticked: bool,
 }
 
 /// What applying a Fab Preset's rules would change.
@@ -164,6 +172,8 @@ pub struct FabPreview {
     pub preset: Uuid,
     pub name: String,
     pub changes: Vec<RuleChange>,
+    /// The page it is filtered to, for Reset page to Fab Preset.
+    pub page: Option<Rule>,
 }
 
 /// The drafts of a PCB Document's Board Setup.
@@ -196,6 +206,8 @@ pub struct BoardSetupDraft {
     /// [`BoardSetupDraft::type_cell`]).
     follow: BTreeSet<(ClassKey, RuleField)>,
     presets: Vec<(Uuid, String, FabRules)>,
+    /// The Fab Preset of the first Output Job for this board.
+    job_preset: Option<Uuid>,
     /// The Fab Presets of the Output Jobs for this board.
     job_presets: Vec<PresetRules>,
     preview: Option<FabPreview>,
@@ -204,6 +216,14 @@ pub struct BoardSetupDraft {
     /// How Zones with no typed name are named.
     zone_scheme: Draft<ZoneNameScheme>,
     stackup: StackupDraft,
+    /// The board's rule records, by Net Class (`None` board-wide) and kind.
+    records: BTreeMap<(Option<Uuid>, RuleKind), Uuid>,
+    /// What the last rule action reported.
+    notice: Option<String>,
+    /// An import waiting for its preview to be confirmed.
+    import: Option<ImportPreview>,
+    /// "Save rules as Fab Preset…" while open: the name as typed.
+    pub save_form: Option<String>,
     /// The edits `Mod+Z` steps back to, oldest first.
     history: Vec<Edits>,
     /// The edits as last checked, the next step back's target once they change.
@@ -267,6 +287,10 @@ impl BoardSetupDraft {
             .fab_presets()
             .map(|p| (p.uuid, p.name.clone(), p.rules))
             .collect();
+        self.job_preset = project
+            .pcb()
+            .and_then(|pcb| project.output_jobs().find(|j| j.pcb == pcb.uuid))
+            .map(|j| j.fab_preset);
         self.job_presets = match project.pcb() {
             Some(pcb) => job_presets(project, pcb),
             None => Vec::new(),
@@ -291,6 +315,17 @@ impl BoardSetupDraft {
             self.follow.clear();
         }
         let setup = pcb.setup();
+        self.records = pcb
+            .rules()
+            .filter_map(|r| {
+                let class = match r.scope.net_class {
+                    None if r.scope.is_board_wide() => None,
+                    None => return None,
+                    class => class,
+                };
+                Some(((class, r.kind), r.uuid))
+            })
+            .collect();
         for field in RuleField::ALL {
             let draft = self.rules.entry(field).or_default();
             load_text(field, draft, field.board_text(pcb), reset);
@@ -371,6 +406,33 @@ impl BoardSetupDraft {
         self.restore(before.clone());
         self.settled = Some(before);
         true
+    }
+
+    /// What Show on board shows for `kind` on the row of `class`: the board-wide record,
+    /// the class's record, or (with none of that kind) the class's records. Nothing for a
+    /// class not applied yet.
+    pub fn shown(&self, kind: RuleKind, class: ClassKey) -> Option<Shown> {
+        match class {
+            ClassKey::Default => self.records.get(&(None, kind)).copied().map(Shown::Rule),
+            ClassKey::Existing(uuid) => Some(
+                (self.records.get(&(Some(uuid), kind)).copied())
+                    .map_or(Shown::NetClass(uuid), Shown::Rule),
+            ),
+            ClassKey::New(_) => None,
+        }
+    }
+
+    /// What Show on board shows for a grid row: the board-wide records of the grid's
+    /// kinds on the Default row, a class's records on its own.
+    pub fn shown_row(&self, class: ClassKey) -> Vec<Shown> {
+        match class {
+            ClassKey::Default => GRID_KINDS
+                .iter()
+                .filter_map(|k| self.shown(*k, class))
+                .collect(),
+            ClassKey::Existing(uuid) => vec![Shown::NetClass(uuid)],
+            ClassKey::New(_) => Vec::new(),
+        }
     }
 
     /// The Stackup page's drafts.
@@ -694,11 +756,44 @@ impl BoardSetupDraft {
 
     /// Previews what applying `preset`'s rules would change in the rules as drafted.
     pub fn preview_fab_preset(&mut self, preset: Uuid) {
+        self.preview_for(preset, None);
+    }
+
+    /// The Fab Preset Reset page to Fab Preset uses: the one of the first Output Job for
+    /// this board, else the Project's first.
+    pub fn page_preset(&self) -> Option<Uuid> {
+        self.job_preset
+            .filter(|p| self.presets.iter().any(|(u, ..)| u == p))
+            .or_else(|| self.presets.first().map(|(u, ..)| *u))
+    }
+
+    /// Reset page to Fab Preset: the preview of [`BoardSetupDraft::page_preset`]'s rules,
+    /// filtered to `page`'s values.
+    pub fn reset_page(&mut self, page: Rule) {
+        if let Some(preset) = self.page_preset() {
+            self.preview_for(preset, Some(page));
+        }
+    }
+
+    /// Ticks or unticks row `row` of the preview.
+    pub fn set_preview_ticked(&mut self, row: usize, ticked: bool) {
+        if let Some(change) = self
+            .preview
+            .as_mut()
+            .and_then(|p| p.changes.get_mut(row))
+        {
+            change.ticked = ticked;
+        }
+    }
+
+    fn preview_for(&mut self, preset: Uuid, page: Option<Rule>) {
         let Some((_, name, rules)) = self.presets.iter().find(|(u, ..)| *u == preset) else {
             return;
         };
-        let changes = RuleField::ALL
+        let on_page = |rule: RuleField| page.is_none_or(|p| p.fields().any(|f| f == rule));
+        let mut changes: Vec<RuleChange> = RuleField::ALL
             .iter()
+            .filter(|&&rule| on_page(rule))
             .filter_map(|&rule| {
                 let to = rule.seed_text(rules)?;
                 let typed = self.rule(rule);
@@ -707,15 +802,51 @@ impl BoardSetupDraft {
                         rule,
                         board: typed.to_owned(),
                         preset: to,
+                        ticked: !rule.rule().1.is_preferred(),
                     }
                 })
             })
             .collect();
+        // A preferred row is ticked when the dialog's value would fall outside the range
+        // the ticked limits make.
+        let outside: Vec<bool> = changes
+            .iter()
+            .map(|c| c.rule.rule().1.is_preferred() && self.outside_new_range(c.rule, &changes))
+            .collect();
+        for (change, outside) in changes.iter_mut().zip(outside) {
+            change.ticked |= outside;
+        }
         self.preview = Some(FabPreview {
             preset,
             name: name.clone(),
             changes,
+            page,
         });
+    }
+
+    /// Whether the preferred value `rule` as drafted falls outside its range once the
+    /// ticked rows of `changes` are taken.
+    fn outside_new_range(&self, rule: RuleField, changes: &[RuleChange]) -> bool {
+        let value = |f: RuleField| {
+            let text = changes
+                .iter()
+                .find(|c| c.rule == f && c.ticked)
+                .map_or(self.rule(f), |c| c.preset.as_str());
+            super::length::optional(text).ok().flatten()
+        };
+        let Some(preferred) = super::length::optional(self.rule(rule)).ok().flatten() else {
+            return false;
+        };
+        rule.range().iter().any(|&f| {
+            let Some(limit) = (f != rule).then(|| value(f)).flatten() else {
+                return false;
+            };
+            if f.is_max() {
+                preferred > limit
+            } else {
+                preferred < limit
+            }
+        })
     }
 
     pub fn fab_preview(&self) -> Option<&FabPreview> {
@@ -725,7 +856,7 @@ impl BoardSetupDraft {
     /// Takes the previewed preset's rules into the drafts; Apply commits them.
     pub fn accept_fab_preview(&mut self) {
         if let Some(preview) = self.preview.take() {
-            for change in preview.changes {
+            for change in preview.changes.into_iter().filter(|c| c.ticked) {
                 // The paste opening is sized one way or the other.
                 match change.rule {
                     RuleField::PasteExpansion => self.set_rule(RuleField::PastePercent, ""),

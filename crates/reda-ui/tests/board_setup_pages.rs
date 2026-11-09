@@ -392,3 +392,171 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
     d.apply(&mut shell).unwrap();
     assert!(!d.step_back(), "after Apply the edits are one undo entry");
 }
+
+fn preset(shell: &Shell) -> Uuid {
+    shell
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid
+}
+
+#[test]
+fn the_fab_preset_preview_ticks_limits_and_applies_only_the_ticked_rows() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
+        )
+        .unwrap();
+    let preset = preset(&shell);
+    let d = dialog(&shell);
+    let mut board = d.page::<DrcPage>().unwrap().board();
+    board.set_rule(RuleField::Clearance, "0.3");
+    board.set_rule(RuleField::MaskTop, "0.1");
+    board.preview_fab_preset(preset);
+    let rows: Vec<(RuleField, String, bool)> = board
+        .fab_preview()
+        .unwrap()
+        .changes
+        .iter()
+        .map(|c| (c.rule, c.preset.clone(), c.ticked))
+        .collect();
+    // The preferred hole stays inside the new range, so its row starts unticked.
+    assert_eq!(
+        rows,
+        [
+            (RuleField::Clearance, "0.16".to_owned(), true),
+            (RuleField::ViaHole, "0.3".to_owned(), true),
+            (RuleField::ViaHolePreferred, "0.3".to_owned(), false),
+            (RuleField::MaskTop, "0.05".to_owned(), true),
+            (RuleField::MaskBottom, "0.05".to_owned(), true),
+        ]
+    );
+    board.set_preview_ticked(0, false);
+    board.set_preview_ticked(2, true);
+    board.accept_fab_preview();
+    assert_eq!(board.rule(RuleField::Clearance), "0.3", "unticked");
+    assert_eq!(board.rule(RuleField::ViaHole), "0.3");
+    assert_eq!(board.rule(RuleField::ViaHolePreferred), "0.3");
+    assert_eq!(board.rule(RuleField::MaskTop), "0.05");
+}
+
+#[test]
+fn reset_page_to_fab_preset_previews_only_that_pages_values() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let shell = shell_with_board(&home, &work);
+    let d = dialog(&shell);
+    let mut board = d.page::<DrcPage>().unwrap().board();
+    let seeded = board.rule(RuleField::TrackWidth).to_owned();
+    board.set_rule(RuleField::Clearance, "0.3");
+    board.set_rule(RuleField::TrackWidth, "0.4");
+    assert_eq!(board.page_preset(), Some(preset(&shell)));
+    board.reset_page(Rule::TrackWidth);
+    let preview = board.fab_preview().unwrap();
+    assert_eq!(preview.page, Some(Rule::TrackWidth));
+    let rules: Vec<RuleField> = preview.changes.iter().map(|c| c.rule).collect();
+    assert_eq!(rules, [RuleField::TrackWidth]);
+    board.accept_fab_preview();
+    assert_eq!(board.rule(RuleField::TrackWidth), seeded);
+    assert_eq!(board.rule(RuleField::Clearance), "0.3", "another page's value");
+}
+
+#[test]
+fn rules_export_to_a_file_and_import_after_a_preview() {
+    use reda_ui::settings::FileRequest;
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+        )
+        .unwrap();
+    let file = work.path().join("house.redarules");
+    let mut d = dialog(&shell);
+    d.picked_file(&mut shell, FileRequest::ExportRules, &file);
+    assert!(file.exists());
+    let notice = d
+        .page::<DrcPage>()
+        .unwrap()
+        .board()
+        .notice()
+        .unwrap()
+        .to_owned();
+    assert!(
+        notice.contains("house.redarules") && !notice.starts_with("Exported 0 "),
+        "the dialog says what it wrote where: {notice}"
+    );
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "clearance", "values": {"value": "0.2mm"}}),
+        )
+        .unwrap();
+    d.sync(shell.engine().project().unwrap());
+    d.picked_file(&mut shell, FileRequest::ImportRules, &file);
+    {
+        let board = d.page::<DrcPage>().unwrap().board();
+        let preview = board.import_preview().unwrap();
+        assert!(
+            preview.rows.iter().any(|r| r.contains("Clearance")),
+            "{:?}",
+            preview.rows
+        );
+    }
+    assert_eq!(
+        RuleField::Clearance.get(pcb(&shell)).unwrap().0,
+        200_000,
+        "a preview changes nothing"
+    );
+    let journal = shell.engine().journal().len();
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .confirm_import(&mut shell);
+    assert_eq!(shell.engine().journal().len(), journal + 1);
+    assert_eq!(RuleField::Clearance.get(pcb(&shell)).unwrap().0, 300_000);
+    d.sync(shell.engine().project().unwrap());
+    let board = d.page::<DrcPage>().unwrap().board();
+    assert!(board.import_preview().is_none());
+    assert_eq!(board.rule(RuleField::Clearance), "0.3", "the field follows");
+}
+
+#[test]
+fn rules_save_as_a_fab_preset_copy_the_dialog_then_offers() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let mut d = dialog(&shell);
+    d.page::<DrcPage>()
+        .unwrap()
+        .board()
+        .save_as_preset(&mut shell, "House rules")
+        .unwrap();
+    d.sync(shell.engine().project().unwrap());
+    let board = d.page::<DrcPage>().unwrap().board();
+    let names: Vec<&str> = board.presets().map(|(_, n)| n).collect();
+    assert!(names.contains(&"House rules"), "{names:?}");
+}
+
+#[test]
+fn show_on_board_counts_what_a_row_affects() {
+    use reda_ui::show_on_board::Shown;
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "width": "0.25mm",
+                   "points": [{"x": "10mm", "y": "10mm"}, {"x": "15mm", "y": "10mm"}]}),
+        )
+        .unwrap();
+    let rule = pcb(&shell).board_rule(RuleKind::Clearance).uuid;
+    shell.show_on_board(&[Shown::Rule(rule)]);
+    assert_eq!(shell.shown_on_board(), Some(1));
+}

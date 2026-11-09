@@ -3,7 +3,7 @@
 
 use egui::{Button, RichText, Role, Stroke, TextEdit, Ui, WidgetInfo};
 
-use super::{Buttons, Problem, SettingsDialog};
+use super::{Buttons, FileRequest, Problem, SettingsDialog};
 use crate::shell::Shell;
 use crate::tr;
 
@@ -19,6 +19,8 @@ pub enum Outcome {
     Closed,
     /// A page wants a folder picked; the answer goes to [`SettingsDialog::picked_folder`].
     PickFolder,
+    /// A page wants a file picked; the answer goes to [`SettingsDialog::picked_file`].
+    PickFile(FileRequest),
 }
 
 /// What a page may use while it draws.
@@ -28,6 +30,7 @@ pub struct PageCx<'a> {
     pub shell: &'a mut Shell,
     problems: Vec<Problem>,
     pick_folder: bool,
+    pick_file: Option<FileRequest>,
 }
 
 impl PageCx<'_> {
@@ -39,6 +42,11 @@ impl PageCx<'_> {
     /// Asks the window for a folder picker.
     pub fn pick_folder(&mut self) {
         self.pick_folder = true;
+    }
+
+    /// Asks the window for a file picker.
+    pub fn pick_file(&mut self, request: FileRequest) {
+        self.pick_file = Some(request);
     }
 }
 
@@ -223,6 +231,7 @@ impl SettingsDialog {
             shell,
             problems: page.problems(),
             pick_folder: false,
+            pick_file: None,
         };
         let mut reset = false;
         ui.horizontal(|ui| {
@@ -235,10 +244,10 @@ impl SettingsDialog {
         });
         ui.add_space(6.0);
         page.show(ui, &mut cx);
-        let outcome = if cx.pick_folder {
-            Outcome::PickFolder
-        } else {
-            Outcome::Open
+        let outcome = match (cx.pick_folder, cx.pick_file) {
+            (true, _) => Outcome::PickFolder,
+            (false, Some(request)) => Outcome::PickFile(request),
+            (false, None) => Outcome::Open,
         };
         (outcome, reset)
     }

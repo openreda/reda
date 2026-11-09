@@ -30,6 +30,15 @@ pub mod windows;
 
 pub use draw::{Outcome, PageCx, field, problem_label, tree_row};
 
+/// A file a page asked the window to pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileRequest {
+    /// Where Board Setup's Export rules… writes a `.redarules` file.
+    ExportRules,
+    /// The `.redarules` file Board Setup's Import rules… reads.
+    ImportRules,
+}
+
 /// One Command a page wants run when the dialog applies.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Step {
@@ -93,6 +102,9 @@ pub trait Page: Any {
     /// A folder the user picked after the page asked for one (relative to the Project
     /// folder when it can be).
     fn picked_folder(&mut self, _path: &Path) {}
+
+    /// A file the user picked after the page asked for one.
+    fn picked_file(&mut self, _shell: &mut Shell, _request: FileRequest, _path: &Path) {}
 
     /// Whether the page offers Reset to defaults.
     fn has_defaults(&self) -> bool {
@@ -332,6 +344,13 @@ impl SettingsDialog {
     pub fn picked_folder(&mut self, path: &Path) {
         for page in &mut self.pages {
             page.picked_folder(path);
+        }
+    }
+
+    /// Hands a picked file to the pages.
+    pub fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        for page in &mut self.pages {
+            page.picked_file(shell, request, path);
         }
     }
 

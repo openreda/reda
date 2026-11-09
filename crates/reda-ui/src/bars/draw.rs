@@ -337,9 +337,9 @@ fn icon_button_for(
 }
 
 /// How far below the canvas top the Active Bar floats.
-const ACTIVE_BAR_TOP: f32 = 12.0;
+pub(crate) const ACTIVE_BAR_TOP: f32 = 12.0;
 /// The Active Bar's frame: its inner margin and window stroke, on each side.
-const ACTIVE_BAR_MARGIN: i8 = 3;
+pub(crate) const ACTIVE_BAR_MARGIN: i8 = 3;
 /// What the frame adds to the row's width: margin and stroke on both sides.
 const ACTIVE_BAR_FRAME: f32 = 2.0 * (ACTIVE_BAR_MARGIN as f32 + 1.0);
 /// How close the Active Bar comes to the canvas's sides.

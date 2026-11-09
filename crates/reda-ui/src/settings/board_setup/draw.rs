@@ -2,17 +2,19 @@
 //! [`grid`].
 
 use egui::{Button, ComboBox, Role, Ui, WidgetInfo};
-use reda_engine::model::{DrcCheck, Limit, Severity, SilkMaskMode, Uuid, ZoneNameScheme};
+use reda_engine::model::{DrcCheck, Limit, Severity, SilkMaskMode, ZoneNameScheme};
 
 use super::length::mm;
 use super::model::{
     ANGLES, BoardSetupDraft, ClassKey, PasteMode, RuleField, SPOKES, STYLES, ValueKind,
-    class_field, connection_value_name, style_name, target_name,
+    class_field, connection_value_name, kind_name, style_name, target_name,
 };
 use super::{DrcPage, Rule, Section};
 use crate::settings::{PageCx, Problem, field};
+use crate::show_on_board::Shown;
 use crate::tr;
 
+mod actions;
 mod grid;
 mod stackup;
 
@@ -115,17 +117,17 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
     if no_pcb(ui, board) {
         return;
     }
-    fab_preset(ui, board);
+    actions::rule_actions(ui, cx, board, Some(rule));
+    if rule == Rule::ZoneConnections {
+        ui.add_space(8.0);
+        zone_scheme(ui, board);
+    }
     for (i, section) in rule.sections().iter().enumerate() {
         ui.add_space(if i == 0 { 6.0 } else { 14.0 });
         if let Some(heading) = section_heading(rule, i, section) {
             ui.heading(heading);
         }
         section_ui(ui, cx, section, board);
-    }
-    if rule == Rule::ZoneConnections {
-        ui.add_space(14.0);
-        zone_scheme(ui, board);
     }
     ui.add_space(8.0);
     ui.weak(tr!("board-setup-units"));
@@ -183,6 +185,9 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
                 ui.end_row();
             }
         });
+    let kind = section.fields[0].rule().0;
+    let what = tr!("board-setup-board-wide-kind", kind = kind_name(kind));
+    show_button(ui, cx, &what, board.shown(kind, ClassKey::Default).into_iter().collect());
     ui.add_space(6.0);
     let overrides = section.fields;
     let classes: Vec<(ClassKey, String)> = board
@@ -194,17 +199,24 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
         ui.weak(tr!("board-setup-no-classes"));
     } else {
         egui::Grid::new(("board-setup-overrides", salt))
-            .num_columns(1 + overrides.len())
+            .num_columns(2 + overrides.len())
             .striped(true)
             .spacing([12.0, 6.0])
             .show(ui, |ui| {
                 ui.strong(tr!("board-setup-net-class"));
+                ui.label("");
                 for f in overrides {
                     ui.strong(column_name(*f));
                 }
                 ui.end_row();
                 for (key, name) in classes {
                     ui.label(&name);
+                    let what = tr!(
+                        "board-setup-override",
+                        class = name.as_str(),
+                        rule = kind_name(kind)
+                    );
+                    show_button(ui, cx, &what, board.shown(kind, key).into_iter().collect());
                     for &f in overrides {
                         let label = tr!(
                             "board-setup-override",
@@ -227,6 +239,18 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
             ui.label(tr!("board-setup-severity", check = check_name(check)));
             severity_choice(ui, board, check);
         });
+    }
+}
+
+/// Show on board for one row, announced as "Show <what> on board"; disabled for a
+/// class not applied yet.
+pub fn show_button(ui: &mut Ui, cx: &mut PageCx<'_>, what: &str, shown: Vec<Shown>) {
+    let label = tr!("board-setup-show-of", what = what);
+    let on = !shown.is_empty();
+    let button = ui.add_enabled(on, Button::new(tr!("board-setup-show")));
+    button.widget_info(|| WidgetInfo::labeled(Role::Button, on, &label));
+    if button.clicked() {
+        cx.shell.show_on_board(&shown);
     }
 }
 
@@ -396,71 +420,6 @@ fn silk_mode(ui: &mut Ui, board: &mut BoardSetupDraft) {
         .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
     if mode != board.silk_mode() {
         board.set_silk_mode(mode);
-    }
-}
-
-/// "Apply Fab Preset Rules…": one button per Project preset copy, then the preview.
-fn fab_preset(ui: &mut Ui, board: &mut BoardSetupDraft) {
-    let presets: Vec<(Uuid, String)> = board.presets().map(|(u, n)| (u, n.to_owned())).collect();
-    ui.horizontal_wrapped(|ui| {
-        ui.label(tr!("board-setup-fab-preset"));
-        if presets.is_empty() {
-            ui.weak(tr!("settings-preset-none"));
-        }
-        for (uuid, name) in presets {
-            let label = tr!("board-setup-apply-preset", preset = name.as_str());
-            if ui.button(label).clicked() {
-                board.preview_fab_preset(uuid);
-            }
-        }
-    });
-    let Some(preview) = board.fab_preview().cloned() else {
-        return;
-    };
-    let mut accept = false;
-    let mut cancel = false;
-    egui::Frame::group(ui.style()).show(ui, |ui| {
-        if preview.changes.is_empty() {
-            ui.label(tr!(
-                "board-setup-preset-same",
-                preset = preview.name.as_str()
-            ));
-        } else {
-            ui.label(tr!(
-                "board-setup-preset-preview",
-                preset = preview.name.as_str()
-            ));
-            egui::Grid::new("board-setup-preset-diff")
-                .num_columns(3)
-                .striped(true)
-                .spacing([12.0, 4.0])
-                .show(ui, |ui| {
-                    ui.strong(tr!("board-setup-rule"));
-                    ui.strong(tr!("board-setup-now"));
-                    ui.strong(tr!("board-setup-preset"));
-                    ui.end_row();
-                    for c in &preview.changes {
-                        ui.label(c.rule.name());
-                        ui.monospace(&c.board);
-                        ui.monospace(&c.preset);
-                        ui.end_row();
-                    }
-                });
-        }
-        ui.horizontal(|ui| {
-            accept = ui
-                .add_enabled(
-                    !preview.changes.is_empty(),
-                    Button::new(tr!("board-setup-use-preset")),
-                )
-                .clicked();
-            cancel = ui.button(tr!("dialog-cancel")).clicked();
-        });
-    });
-    if accept {
-        board.accept_fab_preview();
-    } else if cancel {
-        board.cancel_fab_preview();
     }
 }
 

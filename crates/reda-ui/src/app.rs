@@ -301,6 +301,14 @@ impl App {
             Some(ProjectsAction::Package) => self.call("project.package", json!({})),
             None => {}
         }
+        if self.shell.take_raise_main() {
+            let root = egui::ViewportId::ROOT;
+            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd_to(root, egui::ViewportCommand::Focus);
+        }
+        if self.shell.take_back_to_board_setup() {
+            self.raise = Some(SettingsWindow::BoardSetup);
+        }
         self.settings_requests(&ctx);
         if let Some(dialog) = self.settings.dialog_mut(SettingsWindow::OutputJob) {
             self.jobs.run_from_dialog(&ctx, &mut self.shell, dialog);
@@ -482,9 +490,23 @@ impl App {
     /// it did, so the undo stack is left alone.
     fn undo_in_settings(&mut self, id: &str) -> bool {
         let window = SettingsWindow::BoardSetup;
+        if self.blocked_while_shown(id) {
+            return true;
+        }
         id == "edit.undo"
             && self.shell.layout().focus == Some(TabKey::Settings(window))
             && self.settings.step_back(window)
+    }
+
+    /// While the board is shown for Board Setup the canvas is view-only: keys that edit
+    /// or pick a Tool do nothing.
+    fn blocked_while_shown(&self, id: &str) -> bool {
+        if self.shell.shown_on_board().is_none() {
+            return false;
+        }
+        let edits = (self.shell.engine().registry().get(id))
+            .is_some_and(|m| m.kind == reda_engine::command::Kind::Edit);
+        edits || id.starts_with("tool.")
     }
 
     /// The open settings windows.
@@ -551,6 +573,13 @@ impl App {
                 SettingsRequest::Close(window) => self.shell.close_settings(window),
                 SettingsRequest::PickFolder(window) => {
                     self.files.start(ctx, Pick::SettingsFolder(window));
+                }
+                SettingsRequest::PickFile(window, request) => {
+                    let name = (self.shell.engine().project())
+                        .map(|p| format!("{}.redarules", p.props().name))
+                        .unwrap_or_default();
+                    self.files
+                        .start_save(ctx, Pick::SettingsFile(window, request), name);
                 }
                 SettingsRequest::ShowFolder(folder) => {
                     let _ = std::fs::create_dir_all(&folder);
@@ -785,6 +814,9 @@ impl App {
             }
             Some((Pick::SettingsFolder(window), path)) => {
                 self.settings.picked_folder(&mut self.shell, window, &path);
+            }
+            Some((Pick::SettingsFile(window, request), path)) => {
+                (self.settings).picked_file(&mut self.shell, window, request, &path);
             }
             Some((Pick::Relink(document, _), path)) => self.relink(document, &path),
             // The Import part dialog runs its own pickers.

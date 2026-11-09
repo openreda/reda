@@ -14,7 +14,9 @@ use std::path::PathBuf;
 use reda_engine::model::{Project, Uuid};
 use reda_engine::state::{self, WindowPlace};
 
-use super::{Outcome, SettingsDialog, board_setup, change_list, output_job, project};
+use super::{
+    FileRequest, Outcome, SettingsDialog, board_setup, change_list, output_job, project,
+};
 use crate::bridge::Bridge;
 use crate::layout::{Layout, SettingsWindow, TabKey, WindowRect};
 use crate::preferences_dialog::{Outcome as PreferencesOutcome, PageId, PreferencesDialog};
@@ -33,6 +35,8 @@ pub enum Request {
     Close(SettingsWindow),
     /// A page wants a folder picked.
     PickFolder(SettingsWindow),
+    /// A page wants a file picked.
+    PickFile(SettingsWindow, FileRequest),
     /// Preferences wants a folder shown in the file manager.
     ShowFolder(PathBuf),
 }
@@ -198,6 +202,9 @@ impl SettingsWindows {
             Outcome::Open => {}
             Outcome::Closed => self.requests.push(Request::Close(window)),
             Outcome::PickFolder => self.requests.push(Request::PickFolder(window)),
+            Outcome::PickFile(request) => {
+                self.requests.push(Request::PickFile(window, request));
+            }
         }
     }
 
@@ -226,6 +233,19 @@ impl SettingsWindows {
                     dialog.picked_folder(&crate::os::relative_path(folder, path));
                 }
             }
+        }
+    }
+
+    /// A file the user picked for `window`'s page.
+    pub fn picked_file(
+        &mut self,
+        shell: &mut Shell,
+        window: SettingsWindow,
+        request: FileRequest,
+        path: &std::path::Path,
+    ) {
+        if let Some(dialog) = self.dialogs.get_mut(&window) {
+            dialog.picked_file(shell, request, path);
         }
     }
 

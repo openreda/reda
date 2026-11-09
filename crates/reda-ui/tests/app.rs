@@ -963,6 +963,42 @@ fn snapshot_of_board_setup_net_classes_grid() {
     board_setup_snapshot("Net Classes", "board_setup_net_classes_dark");
 }
 
+#[test]
+fn snapshot_of_board_setup_mask_and_paste() {
+    board_setup_snapshot("Mask & Paste", "board_setup_mask_paste_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_zone_connections() {
+    board_setup_snapshot("Zone Connections", "board_setup_zone_connections_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_stackup_with_its_cross_section() {
+    board_setup_snapshot("Stackup", "board_setup_stackup_dark");
+}
+
+#[test]
+fn snapshot_of_the_board_shown_for_board_setup_with_its_banner() {
+    let home = TempDir::new("app-home");
+    let name = "board_setup_show_on_board_dark";
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.state_mut().shell_mut().open_project(&file).unwrap();
+    h.state_mut().open_board_setup();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Show board-wide Clearance on board")
+        .click();
+    h.run();
+    h.get_by_label("Back to Board Setup");
+    h.snapshot(name);
+}
+
 /// A harness on a Project with no Board Outline, so its job's run is blocked.
 fn output_job_harness(name: &str) -> Option<(TempDir, Harness<'static, App>)> {
     let home = TempDir::new("app-home");
