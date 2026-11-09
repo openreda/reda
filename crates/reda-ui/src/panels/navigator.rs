@@ -424,7 +424,7 @@ fn footprints(
 }
 
 /// An area in square millimetres or square mils.
-fn format_area(area: i64, units: Units) -> String {
+pub(crate) fn format_area(area: i64, units: Units) -> String {
     let (value, unit) = match units {
         Units::Mm => (area as f64 / 1e12, "mm²"),
         Units::Mil => (area as f64 / (25_400.0 * 25_400.0), "mil²"),

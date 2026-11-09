@@ -42,6 +42,7 @@ use reda_engine::pcb::{
 use reda_engine::render::{BoardColor, ColorKey, Primitive, SceneLayer};
 use serde_json::{Value, json};
 
+use super::polygon_edit::{self, Grab, PolygonEdit};
 use crate::shell::{Shell, ToolPreview};
 use crate::snap::{self, Guide, Hit, Snapped, Target};
 use crate::tools::Tool;
@@ -85,6 +86,8 @@ enum State {
     },
     Moving(Move),
     TrackDrag(TrackDrag),
+    /// A press on the selected polygon's handles or edges (see [`super::polygon_edit`]).
+    Polygon(PolygonPress),
     /// The press can do nothing more until release (a refused move, a cancel).
     Spent,
 }
@@ -108,6 +111,8 @@ struct Move {
     carried: bool,
     /// The press that picked a carried move up is still down: its release keeps it.
     fresh: bool,
+    /// Move Board: the click moves the whole board (`pcb.board.move`).
+    whole_board: bool,
     /// The Footprints among `objects`, which guides, `avoid`, the live overlap and the
     /// Ratsnest mode work on.
     footprints: Vec<Uuid>,
@@ -135,6 +140,16 @@ impl Move {
         self.ops = self.all_ops();
         self.base = self.current;
     }
+}
+
+/// A press on the selected polygon: a reshape once it drags.
+#[derive(Debug)]
+struct PolygonPress {
+    edit: PolygonEdit,
+    at: Point,
+    /// `Mod` on an edge: a click inserts a vertex.
+    insert: bool,
+    dragged: bool,
 }
 
 /// A Track segment being dragged.
@@ -337,6 +352,7 @@ impl SelectTool {
             targets,
             carried: true,
             fresh,
+            whole_board: false,
             footprints: vec![footprint],
             guides: Vec::new(),
             overlaps: Vec::new(),
@@ -352,8 +368,15 @@ impl SelectTool {
     /// Move Board Shape: picks up the Board Outline (with the selected Board Cutouts) by
     /// the middle of the outline's box, which then follows the pointer until a click puts
     /// it down.
-    pub fn carry_board_shape(&mut self, shell: &mut Shell) {
-        let objects = board_shape(shell);
+    ///
+    /// With `whole` (Move Board) every Board Cutout comes too, turns are left out, and
+    /// the click runs `pcb.board.move`, which moves everything on the board.
+    pub fn carry_board_shape(&mut self, shell: &mut Shell, whole: bool) {
+        let mut objects = board_shape(shell);
+        if whole && let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) {
+            objects.truncate(1);
+            objects.extend(pcb.cutouts().map(|c| c.uuid));
+        }
         let Some((project, document)) = board(shell) else {
             return;
         };
@@ -378,6 +401,7 @@ impl SelectTool {
             targets,
             carried: true,
             fresh: false,
+            whole_board: whole,
             footprints: Vec::new(),
             guides: Vec::new(),
             overlaps: Vec::new(),
@@ -419,6 +443,21 @@ impl SelectTool {
         self.tolerance = tolerance;
         self.dragged = false;
         self.cursor = Some(at);
+        if shell.tool() == Tool::Select
+            && let Some((object, vertices)) = polygon_edit::selected(shell)
+            && let Some(grab) = polygon_edit::grab_at(&vertices, at, tolerance)
+            && let Some((_, document)) = board(shell)
+        {
+            let insert = modifiers.command && !matches!(grab, Grab::Corner(_));
+            let edit = polygon_edit::start(shell, document, object, vertices, grab, at);
+            self.state = State::Polygon(PolygonPress {
+                edit,
+                at,
+                insert,
+                dragged: false,
+            });
+            return;
+        }
         let hit = board(shell).and_then(|(_, pcb)| {
             crate::selection::picking::hit(shell, pcb, xy(at), tolerance.0 as f64)
         });
@@ -468,6 +507,13 @@ impl SelectTool {
                 follow(shell, &mut d, to);
                 self.state = State::TrackDrag(d);
             }
+            State::Polygon(mut p) => {
+                p.dragged = true;
+                p.edit.follow(shell, to);
+                self.guide_lines = p.edit.guide_lines().to_vec();
+                self.snap = p.edit.snap().or(self.snap);
+                self.state = State::Polygon(p);
+            }
             State::Band { from, .. } => self.state = State::Band { from, to },
             State::Moving(mut m) => {
                 self.track(shell, &mut m, to, false);
@@ -505,16 +551,11 @@ impl SelectTool {
                     if let Some((id, params)) = select {
                         let _ = shell.run_reporting(&id, params);
                     }
-                } else if let Some((id, params)) = crate::selection::picking::click(
-                    shell,
-                    document,
-                    xy(at),
-                    self.tolerance.0 as f64,
-                    self.modifiers,
-                ) {
-                    let _ = shell.run_reporting(&id, params);
+                } else {
+                    self.click(shell, document, at);
                 }
             }
+            State::Polygon(p) => self.release_polygon(shell, p),
             State::Band { from, to } => {
                 let Some((_, document)) = board(shell) else {
                     return;
@@ -532,6 +573,15 @@ impl SelectTool {
             State::Moving(mut m) if m.fresh => {
                 m.fresh = false;
                 self.state = State::Moving(m);
+            }
+            State::Moving(m) if m.whole_board => {
+                self.snap = None;
+                let by = m.current - m.base;
+                let params = json!({"dx": by.x.0, "dy": by.y.0});
+                if by == Point::default() || shell.run_reporting("pcb.board.move", params).is_err()
+                {
+                    shell.redraw(m.document);
+                }
             }
             State::Moving(m) => {
                 self.snap = None;
@@ -573,10 +623,90 @@ impl SelectTool {
         }
     }
 
+    /// A click at `at` on `document`: picks from the stack there.
+    fn click(&mut self, shell: &mut Shell, document: Uuid, at: Point) {
+        if let Some((id, params)) = crate::selection::picking::click(
+            shell,
+            document,
+            xy(at),
+            self.tolerance.0 as f64,
+            self.modifiers,
+        ) {
+            let _ = shell.run_reporting(&id, params);
+        }
+    }
+
+    /// The release ending press `p` on the selected polygon: a click picks (or with `Mod`
+    /// on an edge inserts a vertex); a drag runs its one Command, or puts back a shape
+    /// that crosses itself.
+    fn release_polygon(&mut self, shell: &mut Shell, p: PolygonPress) {
+        let document = p.edit.document;
+        self.guide_lines.clear();
+        if !p.dragged {
+            if p.insert
+                && let Grab::Edge(i) | Grab::Midpoint(i) = p.edit.grab()
+            {
+                let (id, params) =
+                    polygon_edit::insert(p.edit.object(), p.edit.vertices(), i, p.at);
+                let _ = shell.run_reporting(id, params);
+            } else {
+                self.click(shell, document, p.at);
+            }
+            return;
+        }
+        match p.edit.command() {
+            Some((id, params)) => {
+                if shell.run_reporting(id, params).is_err() {
+                    shell.redraw(document);
+                }
+            }
+            None => {
+                shell.redraw(document);
+                if !p.edit.valid() {
+                    shell.report(crate::tr!("pcb-polygon-reverted"));
+                }
+            }
+        }
+    }
+
+    /// The polygon reshape in flight, once the press has dragged.
+    pub fn polygon_edit(&self) -> Option<&PolygonEdit> {
+        match &self.state {
+            State::Polygon(p) if p.dragged => Some(&p.edit),
+            _ => None,
+        }
+    }
+
+    /// Del while holding a polygon's vertex: removes it (one Command) and ends the drag.
+    /// Returns whether a vertex was held.
+    pub fn delete_held_vertex(&mut self, shell: &mut Shell) -> bool {
+        let State::Polygon(p) = &self.state else {
+            return false;
+        };
+        if !p.edit.holds_vertex() {
+            return false;
+        }
+        let State::Polygon(p) = std::mem::replace(&mut self.state, State::Spent) else {
+            unreachable!("checked above");
+        };
+        self.guide_lines.clear();
+        shell.redraw(p.edit.document);
+        match p.edit.without_held() {
+            Some((id, params)) => {
+                let _ = shell.run_reporting(id, params);
+            }
+            None => shell.report(crate::tr!("pcb-polygon-too-few")),
+        }
+        true
+    }
+
     /// Esc: drops a move or rubber band in flight, leaving the board as it was.
     pub fn cancel(&mut self, shell: &mut Shell) {
         if let State::Moving(m) = &self.state {
             shell.redraw(m.document);
+        }
+        if let State::Polygon(p) = &self.state {
+            shell.redraw(p.edit.document);
         }
         if let State::TrackDrag(d) = &self.state {
             shell.end_tool();
@@ -592,6 +722,14 @@ impl SelectTool {
 
     /// Space: turns the move in flight by 90°, or else the selection (`pcb.rotate`).
     pub fn rotate(&mut self, shell: &mut Shell) {
+        if let State::Polygon(p) = &mut self.state {
+            // Space while reshaping a polygon cycles the handle's modes.
+            if p.dragged {
+                p.edit.cycle(shell);
+                self.guide_lines = p.edit.guide_lines().to_vec();
+            }
+            return;
+        }
         self.turn(shell, |at| PlacementOp::Rotate(at, Millideg::from_deg(90)));
     }
 
@@ -604,6 +742,8 @@ impl SelectTool {
     /// the selection about its anchor.
     fn turn(&mut self, shell: &mut Shell, op: impl Fn(Point) -> PlacementOp) {
         match &mut self.state {
+            // `pcb.board.move` only translates.
+            State::Moving(m) if m.whole_board => {}
             State::Moving(m) => {
                 m.settle();
                 m.ops.push(op(m.current));
@@ -699,6 +839,7 @@ impl SelectTool {
             targets: others,
             carried: false,
             fresh: false,
+            whole_board: false,
             footprints,
             guides: Vec::new(),
             overlaps: Vec::new(),

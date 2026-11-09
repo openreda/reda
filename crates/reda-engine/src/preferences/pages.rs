@@ -86,7 +86,7 @@ pub fn page_of(key: &str) -> &'static str {
             | "cross_reference_location_style",
         ) => "schematic.names_units",
         ("schematic", _) => "schematic",
-        ("pcb", name) if name.starts_with("zone.") => "pcb.zones",
+        ("pcb", name) if name.starts_with("zone.") || name.starts_with("keepout.") => "pcb.zones",
         ("pcb", name) if name.starts_with("route.") || name.starts_with("drag.") => "pcb.routing",
         ("pcb", name) if name.starts_with("place.") => "pcb.placement",
         ("pcb", name) if name.starts_with("view.") || name.starts_with("ratsnest.") => "pcb.view",

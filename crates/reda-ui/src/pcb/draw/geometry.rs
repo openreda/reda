@@ -65,3 +65,21 @@ pub(super) fn arc_points(from: Point, to: Point, through: Point) -> Option<Vec<P
     points.push(to);
     Some(points)
 }
+
+/// Points around the circle about `centre` through `edge`, 5° apart.
+pub(super) fn circle_points(centre: Point, edge: Point) -> Vec<Point> {
+    let (dx, dy) = (
+        (edge.x.0 - centre.x.0) as f64,
+        (edge.y.0 - centre.y.0) as f64,
+    );
+    let (r, start) = (dx.hypot(dy), dy.atan2(dx));
+    (0..72)
+        .map(|i| {
+            let t = start + TAU * i as f64 / 72.0;
+            Point::new(
+                Nm((centre.x.0 as f64 + r * t.cos()).round() as i64),
+                Nm((centre.y.0 as f64 + r * t.sin()).round() as i64),
+            )
+        })
+        .collect()
+}

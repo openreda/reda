@@ -17,6 +17,7 @@
 //! - [`draw`]: the drawing Tools (outline, cutouts, Zones, Keepouts, text and graphics,
 //!   Free Pads, origins, Mechanical Parts, measure), previewed until one Command commits.
 
+pub mod board_shapes;
 pub mod canvas;
 mod commands;
 pub mod draw;
@@ -24,6 +25,7 @@ pub mod layer_control;
 pub mod live_hover;
 pub mod placement_bar;
 pub mod placing;
+pub mod polygon_edit;
 pub mod route;
 pub mod route_commands;
 pub mod routing_bar;
