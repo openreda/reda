@@ -89,6 +89,8 @@ pub enum Edit {
     Field(String, String),
     /// Shows (`true`) or hides a field on the sheet.
     Visible(String, bool),
+    /// Locks (`true`) or unlocks a field: Update from Library leaves a Locked Field alone.
+    Locked(String, bool),
     /// Chooses the Footprint among the Part's alternates.
     Footprint(Uuid),
     InBom(bool),
@@ -198,6 +200,9 @@ pub struct ComponentProperties {
     pub in_bom: Shared<bool>,
     pub in_cpl: Shared<bool>,
     pub not_fitted: Shared<bool>,
+    /// The Library Part the Components were placed from, by UUID with its name; `None`
+    /// when the edit comes from the board.
+    pub part: Option<Shared<(Uuid, String)>>,
 }
 
 /// One Component field.
@@ -207,6 +212,8 @@ pub struct FieldRow {
     pub value: Shared<String>,
     /// Shown on the sheet.
     pub visible: Shared<bool>,
+    /// On the Components' Locked Fields; always unlocked from the board.
+    pub locked: Shared<bool>,
     /// The Designator can be set on one Component at a time only.
     pub editable: bool,
 }
@@ -361,6 +368,9 @@ impl Properties {
             Edit::Visible(name, shown) => {
                 set.insert("visible".into(), json!({ name: shown }));
             }
+            Edit::Locked(name, locked) => {
+                set.insert("locked".into(), json!({ name: locked }));
+            }
             Edit::Footprint(footprint) => {
                 if !component
                     .alternates
@@ -446,11 +456,14 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
                 .expect("units is not empty");
             let visible = Shared::of(units.iter().map(|(_, u)| u.visible_fields.contains(&name)))
                 .expect("units is not empty");
+            let locked = Shared::of(units.iter().map(|(_, u)| u.locked_fields.contains(&name)))
+                .expect("units is not empty");
             FieldRow {
                 editable: single || name != UnitInstance::DESIGNATOR,
                 name,
                 value,
                 visible,
+                locked,
             }
         })
         .collect();
@@ -463,6 +476,10 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
         in_bom: Shared::of(units.iter().map(|(_, u)| u.in_bom)).expect("not empty"),
         in_cpl: Shared::of(units.iter().map(|(_, u)| u.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(units.iter().map(|(_, u)| u.not_fitted)).expect("not empty"),
+        part: Shared::of(units.iter().filter_map(|(sheet, u)| {
+            let entry = project.schematic_sheet(*sheet)?.part(u.part)?;
+            Some((entry.part.uuid, entry.part.name.clone()))
+        })),
     })
 }
 
@@ -507,6 +524,7 @@ fn footprint_command(
             set.insert("not_fitted".into(), json!(not_fitted));
         }
         Edit::Visible(..)
+        | Edit::Locked(..)
         | Edit::NetClass(_)
         | Edit::Vertex(..)
         | Edit::AddVertex(_)
@@ -556,6 +574,7 @@ fn footprint_properties(project: &Project, objects: &[Object]) -> Option<Compone
                 name,
                 value,
                 visible: Shared::Same(false),
+                locked: Shared::Same(false),
             }
         })
         .collect();
@@ -585,6 +604,7 @@ fn footprint_properties(project: &Project, objects: &[Object]) -> Option<Compone
         in_bom: Shared::of(footprints.iter().map(|f| f.in_bom)).expect("not empty"),
         in_cpl: Shared::of(footprints.iter().map(|f| f.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(footprints.iter().map(|f| f.not_fitted)).expect("not empty"),
+        part: None,
     })
 }
 

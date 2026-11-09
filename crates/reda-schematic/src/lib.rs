@@ -77,6 +77,7 @@ pub use update::{
     Aspect, Cell, CellAction, CellCase, CellRef, ComponentAspects, ComponentStatus,
     ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
     LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
+    ResetSettingsParams, ResetUpdateSettings, SettingsReset,
     SettingsParams, UpdateApplied, UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams,
     UpdatePreview, UpdateResult, footprint_change, library_statuses,
 };
@@ -114,6 +115,7 @@ pub fn register_all_with_user(
     registry.add(LibraryStatusQuery);
     registry.add(UpdatePreview { lost_local_edits });
     registry.add(UpdateFromLibrary { lost_local_edits });
+    registry.add(ResetUpdateSettings);
     registry.add(ReplacePreview { lost_local_edits });
     registry.add(ReplacePart { lost_local_edits });
     registry.add(LibraryElement);

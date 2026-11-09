@@ -468,8 +468,8 @@ fn each_part_row_shows_its_library_status_over_the_project() {
     assert_eq!(
         entries_since(&h, from)[0],
         (
-            "schematic.dialog.open".to_owned(),
-            json!({"dialog": "update_from_library"})
+            "schematic.update_from_library.open".to_owned(),
+            json!({"parts": [RESISTOR]})
         )
     );
 }

@@ -38,6 +38,8 @@
         { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" },
         "separator",
         { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } },
+        { "id": "edit.update_from_library", "command": "schematic.update_from_library.open", "params": { "objects": "$selection" } },
+        { "id": "edit.replace_part", "command": "schematic.component.replace.open", "params": { "objects": "$selection" } },
         "separator",
         { "id": "edit.find", "command": "schematic.dialog.open:find" },
         { "id": "edit.select_similar", "command": "schematic.dialog.open:select_similar" }

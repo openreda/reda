@@ -61,11 +61,11 @@ impl Do {
         ))
     }
 
-    /// Opens the Update from Library dialog.
-    fn update() -> Do {
+    /// Opens the Update from Library dialog on the Components of Part `part`.
+    fn update(part: Uuid) -> Do {
         Do::Out(Action::Run(
-            "schematic.dialog.open".into(),
-            json!({ "dialog": "update_from_library" }),
+            "schematic.update_from_library.open".into(),
+            json!({ "parts": [part] }),
         ))
     }
 }
@@ -441,7 +441,7 @@ fn row(
                 );
                 shown.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
                 if shown.clicked() {
-                    out.push(Do::update());
+                    out.push(Do::update(entry.uuid));
                 }
             }
             response

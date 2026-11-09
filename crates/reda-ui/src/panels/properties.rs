@@ -6,7 +6,8 @@
 //! directly.
 
 mod overview;
-mod rules;
+mod library;
+pub(crate) mod rules;
 mod zone;
 
 use std::collections::BTreeSet;
@@ -106,7 +107,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     tr!("properties-region-general"),
                     |ui| {
                         if let Some(component) = &properties.component {
-                            component_section(ui, component, &mut edits);
+                            component_section(ui, shell, component, &mut edits, &mut out);
                         }
                         if let Some(class) = &properties.net_class {
                             net_class_row(ui, class, &mut edits);
@@ -572,7 +573,14 @@ fn field_label(name: &str) -> String {
     }
 }
 
-fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec<Edit>) {
+fn component_section(
+    ui: &mut Ui,
+    shell: &Shell,
+    component: &ComponentProperties,
+    edits: &mut Vec<Edit>,
+    out: &mut Vec<Out>,
+) {
+    library::rows(ui, shell, component, out);
     Grid::new("properties-component")
         .num_columns(3)
         .show(ui, |ui| {
@@ -604,6 +612,9 @@ fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut V
             footprint_combo(ui, component, edits);
             ui.end_row();
         });
+    if component.footprints.is_empty() {
+        field_locks(ui, component, edits);
+    }
 
     flag(
         ui,
@@ -628,6 +639,29 @@ fn component_section(ui: &mut Ui, component: &ComponentProperties, edits: &mut V
     );
 
     new_field(ui, edits);
+}
+
+/// A lock per field, wrapped under the fields: a Locked Field can still be edited here,
+/// and Update from Library leaves it alone.
+fn field_locks(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec<Edit>) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(tr!("properties-locked-fields"))
+            .on_hover_text(tr!("properties-lock-field-hint"));
+        for row in component.fields.iter().filter(|r| r.name != "designator") {
+            let label = field_label(&row.name);
+            let mixed = row.locked == Shared::Mixed;
+            let mut locked = row.locked.same().copied().unwrap_or(false);
+            let response = ui.add(Checkbox::new(&mut locked, &label).indeterminate(mixed));
+            let name = tr!("properties-lock-field", field = label.clone());
+            response.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, name.clone()));
+            if response
+                .on_hover_text(tr!("properties-lock-field-hint"))
+                .clicked()
+            {
+                edits.push(Edit::Locked(row.name.clone(), locked));
+            }
+        }
+    });
 }
 
 /// A Component flag's tick box, indeterminate while the selection is mixed.

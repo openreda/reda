@@ -43,7 +43,7 @@ pub(super) fn show(
         && status.is_some_and(|s| s.placed > 0)
         && ui.button(tr!("library-menu-update")).clicked()
     {
-        picked = Some(Do::update());
+        picked = Some(Do::update(entry.uuid));
     }
     if ui.button(tr!("library-menu-check")).clicked() {
         picked = Some(Do::Check(entry.uuid));

@@ -77,6 +77,17 @@ fn header(ui: &mut Ui, shell: &mut Shell, part: &Part, locked: bool, out: &mut V
             // An error shows in the status bar; the lines go to the Messages panel.
             let _ = element_editor::check(shell, part.uuid);
         }
+        // Saves the Part first, then previews the update of its Components.
+        let in_project = shell.engine().project().is_some();
+        if ui
+            .add_enabled(in_project, egui::Button::new(tr!("menu-tools-update-in-project")))
+            .clicked()
+        {
+            out.push((
+                "schematic.update_from_library.open".to_owned(),
+                json!({ "element": part.uuid }),
+            ));
+        }
     });
 }
 
