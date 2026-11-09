@@ -163,6 +163,19 @@ pub(crate) fn library_differs(project: &Project, parts: PartsOf<'_>) -> Vec<Diff
         .collect()
 }
 
+fn statuses(parts: PartsOf<'_>, placed: Vec<Placed<'_>>) -> Vec<ComponentStatus> {
+    compared(parts, placed)
+        .iter()
+        .map(|(placed, copy)| component_status(placed, copy))
+        .collect()
+}
+
+/// Every placed Component's Library Status, as `schematic.component.library_status`
+/// gives it, for front ends that show it without running a Command.
+pub fn library_statuses(project: &Project, parts: PartsOf<'_>) -> Vec<ComponentStatus> {
+    statuses(parts, placed_components(project))
+}
+
 /// The placed Components `wanted` names, or every one; `invalid_params` at
 /// `<param>/<i>` for a UUID no placed Component has.
 fn chosen<'a>(
@@ -225,10 +238,7 @@ impl Command for LibraryStatusQuery {
         let project = cx.project()?;
         let placed = chosen(project, p.components.as_deref(), "/components")?;
         let parts = |uuids: &[Uuid]| cx.library_parts(uuids);
-        let components = compared(&parts, placed)
-            .iter()
-            .map(|(placed, copy)| component_status(placed, copy))
-            .collect();
+        let components = statuses(&parts, placed);
         Ok(LibraryStatusResult { components })
     }
 }

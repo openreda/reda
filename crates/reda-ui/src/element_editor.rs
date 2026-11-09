@@ -265,11 +265,13 @@ pub(crate) fn check_after_save(shell: &mut Shell) {
 /// in the Messages panel, replacing the last check's lines.
 pub fn check(shell: &mut Shell, element: Uuid) -> Result<(), CommandError> {
     let out = shell.run_reporting("library.check", json!({ "element": element }))?;
-    let name = shell
-        .engine()
-        .element(element)
-        .map(|e| e.name().to_owned())
-        .unwrap_or_default();
+    let name = match shell.engine().element(element) {
+        Some(e) => e.name().to_owned(),
+        // Checked from the Library panel without opening it.
+        None => (shell.library_index().element(element))
+            .map(|e| e.name().to_owned())
+            .unwrap_or_default(),
+    };
     report(shell, Some(element), &name, &out["violations"]);
     Ok(())
 }

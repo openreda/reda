@@ -790,7 +790,8 @@ fn sweep(center: Point, start: Point, end: Point) -> i64 {
 }
 
 /// Opens the Library Symbol of the placed Unit `unit` (or the Component it belongs to)
-/// in the Symbol editor: Edit in Library.
+/// in the Symbol editor: Edit in Library. On Source Missing it offers Extract to Library
+/// instead.
 pub(crate) fn edit_in_library(shell: &mut Shell, unit: Uuid) {
     let component = shell.engine().project().and_then(|p| {
         p.documents()
@@ -803,6 +804,23 @@ pub(crate) fn edit_in_library(shell: &mut Shell, unit: Uuid) {
         shell.report(tr!("error-edit-in-library-nothing"));
         return;
     };
+    // On Source Missing there is nothing to open: offer to extract it to a Library.
+    let index = shell.library_index();
+    let missing = shell.engine().project().is_some_and(|p| {
+        reda_engine::library::library_statuses(p, &index)
+            .iter()
+            .any(|s| {
+                s.component == component
+                    && s.status == reda_engine::schematic::LibraryStatus::SourceMissing
+            })
+    });
+    if missing {
+        shell.queue_call(
+            "library.extract_from_project",
+            json!({ "components": [component] }),
+        );
+        return;
+    }
     let Ok(found) = shell.run_reporting(
         "schematic.component.library_element",
         json!({ "component": component }),
