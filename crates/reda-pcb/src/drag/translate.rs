@@ -98,6 +98,10 @@ struct Joint<'a> {
     member: usize,
     at: Point,
     meets: Meets<'a>,
+    /// Which way a mitred connector from a fixed end leans along the segment: `1.0`
+    /// inward (the default), `-1.0` outward where inward would run back over copper
+    /// already at the end.
+    lean: f64,
 }
 
 /// Moves `members` (and `object`) by `m`, resolving their outer ends by the slide rules.
@@ -139,10 +143,15 @@ pub(super) fn run(
                 ([n], false) => classify(t, at, n, preserve),
                 _ => Meets::Fixed,
             };
+            let lean = match meets {
+                Meets::Fixed => lean(t, at, &others, m),
+                _ => 1.0,
+            };
             joints.push(Joint {
                 member: i,
                 at,
                 meets,
+                lean,
             });
         }
     }
@@ -301,6 +310,28 @@ fn classify<'a>(t: &Track, at: Point, n: &'a Track, preserve: bool) -> Meets<'a>
     Meets::Stretch { neighbour: n, far }
 }
 
+/// Which way a mitred connector from the fixed end `at` of `t` leans when the group
+/// moves by `m` (see [`Joint::lean`]): outward when the inward lean would run along a
+/// straight Track in `others`, such as the rest of the Track beyond a Via. The lean
+/// doesn't change as the drag is cut back, since that only shortens `m`.
+fn lean(t: &Track, at: Point, others: &[&Track], m: Point) -> f64 {
+    let (a, b) = t.geometry.ends();
+    let other = if a == at { b } else { a };
+    let u = unit(sub(vec(other), vec(at)));
+    let n = (-u.1, u.0);
+    let d = dot(vec(m), n);
+    let inward = unit(add(scale(n, d.signum()), u));
+    let retraced = others.iter().any(|o| {
+        let TrackGeometry::Line { from, to } = o.geometry else {
+            return false;
+        };
+        let beyond = if from == at { to } else { from };
+        let v = unit(sub(vec(beyond), vec(at)));
+        cross(inward, v).abs() < 1e-6 && dot(inward, v) > 0.0
+    });
+    if retraced { -1.0 } else { 1.0 }
+}
+
 /// Where the joint `j` of `t` goes when the group moves by `mv`.
 fn resolve(t: &Track, j: &Joint<'_>, mv: V, options: Options) -> V {
     let at = vec(j.at);
@@ -317,7 +348,7 @@ fn resolve(t: &Track, j: &Joint<'_>, mv: V, options: Options) -> V {
             let d = dot(mv, n);
             let side = scale(n, d);
             if options.miter {
-                add(add(at, side), scale(u, d.abs()))
+                add(add(at, side), scale(u, d.abs() * j.lean))
             } else {
                 add(at, side)
             }
