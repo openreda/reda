@@ -45985,6 +45985,86 @@
     },
     {
       "category": "pcb",
+      "description": "Deletes routed copper (Tracks and Vias): `all` of it, that of some `nets`, one `connection` (from a Track or Via up to the next Pad), or what leaves some `footprints`' Pads. Locked copper stays unless `include_locked`.",
+      "icon": "delete",
+      "id": "pcb.route.unroute",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "default": false,
+            "description": "Every Track and Via on the board.",
+            "type": "boolean"
+          },
+          "connection": {
+            "default": null,
+            "description": "A Track or Via: the Tracks and Vias joined to it up to the next Pad, Free Pad or\nZone.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footprints": {
+            "default": [],
+            "description": "The Tracks and Vias joined to these Footprints' Pads, each up to the next Pad.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Takes locked copper too; without it locked copper stays.",
+            "type": "boolean"
+          },
+          "nets": {
+            "default": [],
+            "description": "Every Track and Via of these Nets.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "title": "UnrouteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "deleted": {
+            "description": "Every deleted Track and Via, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "kept_locked": {
+            "description": "Locked copper left in place, sorted; left out when none.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "UnrouteResult",
+        "type": "object"
+      },
+      "title": "Unroute"
+    },
+    {
+      "category": "pcb",
       "description": "Lists the copper a rule record (`rule`) or a Net Class's records (`net_class`) affect: the Nets they supply a value to, their Tracks, Vias, Free Pads and Zones (`objects`) and Pads (`pads`, as `selection.set` takes them). Objects whose every value another record overrides are left out. A board-wide record also affects copper on no Net.",
       "icon": "rules",
       "id": "pcb.rules.affected",
@@ -50633,6 +50713,71 @@
         "type": "object"
       },
       "title": "Add Track"
+    },
+    {
+      "category": "pcb",
+      "description": "Deletes stacked duplicate Track segments (the same ends on the same Layer and Net, keeping the widest) and merges collinear segments of one width that meet end to end with nothing else at the joint.",
+      "icon": "clean",
+      "id": "pcb.track.cleanup",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "nets": {
+            "default": null,
+            "description": "Only these Nets' Tracks; left out, every Track.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "title": "TrackCleanupParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "duplicates": {
+            "description": "Stacked duplicates deleted, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "lengthened": {
+            "description": "Tracks lengthened to take in a merged neighbour, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "merged": {
+            "description": "Tracks merged into a collinear neighbour and deleted, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "duplicates",
+          "merged",
+          "lengthened"
+        ],
+        "title": "TrackCleanupResult",
+        "type": "object"
+      },
+      "title": "Clean Up Tracks"
     },
     {
       "category": "pcb",
