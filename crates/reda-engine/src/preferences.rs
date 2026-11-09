@@ -89,6 +89,9 @@ pub struct SelectionEditing {
     pub directional_rectangle: bool,
     /// Click and rectangle skip locked objects. Explicit picks can still select them.
     pub protect_locked_objects: bool,
+    /// Protect Locked Primitives In Component: on, a placed Footprint's graphics can be
+    /// edited on the board only once they are unlocked; off, the GUI edits them anyway.
+    pub protect_locked_primitives: bool,
     /// Grid presets per Document type and the visible grid.
     pub grid: GridPreferences,
     /// The HUD by the cursor.
@@ -103,6 +106,7 @@ impl Default for SelectionEditing {
             click_clears_selection: true,
             directional_rectangle: true,
             protect_locked_objects: true,
+            protect_locked_primitives: true,
             grid: GridPreferences::default(),
             hud: HudPreferences::default(),
             display_precision: DisplayPrecision::default(),
@@ -245,6 +249,8 @@ pub struct Editing {
     pub zone: ZonePreferences,
     /// The Keepout and Zone Cutout Tools.
     pub keepout: KeepoutPreferences,
+    /// The arc Tool.
+    pub arc: ArcPreferences,
     /// The Net block of Track Properties.
     pub net_info: NetInfoPreferences,
     /// Interactive Routing: the Track Tool's values.
@@ -351,6 +357,7 @@ impl Default for Editing {
             default_grid: None,
             zone: ZonePreferences::default(),
             keepout: KeepoutPreferences::default(),
+            arc: ArcPreferences::default(),
             net_info: NetInfoPreferences::default(),
             route: RoutePreferences::default(),
             drag: DragPreferences::default(),
@@ -570,6 +577,30 @@ impl Default for KeepoutPreferences {
     }
 }
 
+/// The arc Tool's options, as last set in Properties.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ArcPreferences {
+    /// How the arc Tool places: `edge` (both ends, then a point it passes through),
+    /// `center` (the centre, the start, then the end's direction) or `circle` (the
+    /// centre, then a point on it). All store arcs.
+    pub mode: ArcToolMode,
+}
+
+/// How the arc Tool places.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ArcToolMode {
+    /// Both ends, then a point the arc passes through.
+    #[default]
+    Edge,
+    /// The centre, the start (which sets the radius), then the end's direction,
+    /// counter-clockwise from the start.
+    Center,
+    /// The centre, then a point on the circle: a full circle, stored as two half arcs.
+    Circle,
+}
+
 /// How the Keepout Tool draws.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -765,6 +796,7 @@ impl Default for SchematicEditing {
             default_grid,
             zone: _,
             keepout: _,
+            arc: _,
             net_info: _,
             route: _,
             drag: _,

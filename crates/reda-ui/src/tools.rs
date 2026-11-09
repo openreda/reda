@@ -60,6 +60,9 @@ pub enum Tool {
     OutputOrigin,
     /// Measures between two points.
     Measure,
+    /// Places a linear Dimension on the active Layer: its two ends (each attached to the
+    /// Hotspot under the click, or free), then where the dimension line sits.
+    Dimension,
     /// Moves the selection by the offset between two picked points (Move by ΔX/ΔY).
     MoveBy,
     /// Turns the selection by `tool.rotate_about`'s angle about a picked centre.
@@ -118,6 +121,7 @@ impl Tool {
             Tool::FreePad => "free_pad",
             Tool::OutputOrigin => "output_origin",
             Tool::Measure => "measure",
+            Tool::Dimension => "dimension",
             Tool::MoveBy => "move_by",
             Tool::RotateAbout => "rotate_about",
             Tool::Swap => "swap",
@@ -152,7 +156,7 @@ impl Tool {
 }
 
 /// The PCB drawing Tools with a Preset each: (Tool, title, icon).
-const BOARD_TOOLS: [(Tool, &str, &str); 15] = [
+const BOARD_TOOLS: [(Tool, &str, &str); 16] = [
     (Tool::BoardOutline, "Board Outline", "board_outline"),
     (
         Tool::BoardOutlineRect,
@@ -167,6 +171,7 @@ const BOARD_TOOLS: [(Tool, &str, &str); 15] = [
     (Tool::Line, "Line", "line"),
     (Tool::Arc, "Arc", "arc"),
     (Tool::Rect, "Rectangle", "rectangle"),
+    (Tool::Dimension, "Dimension", "measure"),
     (Tool::FreePad, "Free Pad", "pad"),
     (Tool::OutputOrigin, "Output Origin", "origin"),
     (Tool::Measure, "Measure", "measure"),

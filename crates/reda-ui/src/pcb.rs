@@ -23,9 +23,12 @@ pub mod board_shapes;
 pub mod canvas;
 mod commands;
 pub mod copper_drag;
+pub mod delete;
+pub mod dimension_edit;
 pub mod draw;
 pub mod layer_control;
 pub mod live_hover;
+pub mod measure;
 pub mod placement_bar;
 pub mod placing;
 pub mod polygon_edit;
@@ -51,5 +54,6 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
     placing::register_all(registry);
     select_commands::register_all(registry);
     copper_drag::register_all(registry);
+    delete::register_all(registry);
 }
 pub use view::BoardView;

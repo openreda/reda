@@ -883,9 +883,10 @@ impl Router {
 }
 
 /// Whether a right-click on the board ends the route rather than opening the context
-/// menu: while the Track Tool is active (docs/spec/v0.1/pcb.md#placing-and-ending).
+/// menu: while the Track Tool is active (docs/spec/v0.1/pcb.md#placing-and-ending). The
+/// measure Tool takes it too, to end measuring (pcb.md#measuring).
 pub fn takes_right_click(shell: &Shell) -> bool {
-    shell.tool() == Tool::Route
+    matches!(shell.tool(), Tool::Route | Tool::Measure)
 }
 
 /// The status-bar text for a `propose` or `commit` note.

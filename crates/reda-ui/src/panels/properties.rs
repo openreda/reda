@@ -5,6 +5,8 @@
 //! one Command that applies to everything selected; nothing here changes the Project
 //! directly.
 
+mod annotation;
+mod arc_tool;
 mod overview;
 mod rules;
 mod track;
@@ -50,6 +52,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         return run(placing_section(ui, placing));
     }
     if let Some(commands) = zone::tool_options(ui, shell) {
+        return run(commands);
+    }
+    if let Some(commands) = arc_tool::tool_options(ui, shell) {
         return run(commands);
     }
     // A running Tool's options replace the overview.
@@ -165,6 +170,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                 );
             }
             track::show(ui, shell, project, units(shell), &mut out);
+            annotation::show(ui, shell, project, units(shell), &mut out);
             zone::zones_section(ui, shell, &mut numbers);
             if let Some(found) = &properties.rules {
                 rules::show(ui, shell, found, units(shell), &mut out);
@@ -448,6 +454,12 @@ fn number_label(name: &str) -> String {
         "length" => tr!("properties-length"),
         "diameter" => tr!("properties-diameter"),
         "hole" => tr!("properties-hole"),
+        "offset" => tr!("properties-dimension-offset"),
+        "extension_width" => tr!("properties-dimension-extension-width"),
+        "gap" => tr!("properties-dimension-gap"),
+        "text_gap" => tr!("properties-dimension-text-gap"),
+        "arrow_size" => tr!("properties-dimension-arrow-size"),
+        "arrow_length" => tr!("properties-dimension-arrow-length"),
         other => other.to_owned(),
     }
 }
