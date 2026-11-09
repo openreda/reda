@@ -17702,6 +17702,162 @@
     },
     {
       "category": "library",
+      "description": "`pcb.silkscreen.prepare` for an open Footprint, in one undoable edit: its silkscreen lines, arcs and rectangles are clipped clear of its Pads' mask openings, short leftovers go, and its silkscreen field texts move to the nearest clear place. The design rules are a new board's: 0.10 mm from exposed copper, with each Pad's own mask override.",
+      "icon": "clearance",
+      "id": "library.footprint.silkscreen.prepare",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The options of the Silkscreen Preparation dialog.",
+        "properties": {
+          "clearance": {
+            "$ref": "#/$defs/Length",
+            "default": 100000,
+            "description": "The manual Silkscreen Clearance from mask targets, without design rules."
+          },
+          "clip_locked": {
+            "default": false,
+            "description": "Clip Locked Components and Primitives: also clip locked graphics and locked\nFootprints' silkscreen, and move their text.",
+            "type": "boolean"
+          },
+          "clip_to_exposed_copper": {
+            "default": true,
+            "description": "Without design rules: measure to the exposed copper rather than the whole mask\nopening.",
+            "type": "boolean"
+          },
+          "delete_outside_board": {
+            "default": true,
+            "description": "Delete Silkscreen Outside Board Shape.",
+            "type": "boolean"
+          },
+          "footprint": {
+            "description": "The open Footprint.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "max_distance": {
+            "$ref": "#/$defs/Length",
+            "default": 2000000,
+            "description": "Max Distance a text moves."
+          },
+          "min_remaining_length": {
+            "$ref": "#/$defs/Length",
+            "default": 500000,
+            "description": "Min Remaining Length: a line or arc shorter than this, end to end, goes, whether it\nwas clipped or not."
+          },
+          "move_text": {
+            "default": true,
+            "description": "Move text and Designators that aren't clear to the nearest clear place.",
+            "type": "boolean"
+          },
+          "use_design_rules": {
+            "default": true,
+            "description": "Take the clearances from the `silk_to_mask` and `silk_to_edge` rules. Off, the\nmanual `clearance` and `clip_to_exposed_copper` apply, with no edge clearance.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "footprint"
+        ],
+        "title": "PrepareFootprintParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Unplaced": {
+            "description": "A text that found no clear place within reach and stayed.",
+            "properties": {
+              "content": {
+                "description": "What it reads.",
+                "type": "string"
+              },
+              "object": {
+                "description": "The board text, or the placed Footprint.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "text": {
+                "description": "The Footprint's field text entry, for Footprint text.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "object",
+              "content"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What Silkscreen Preparation changed.",
+        "properties": {
+          "footprints": {
+            "description": "Placed Footprints whose silkscreen was clipped: each now has a Locally Edited\nFootprint.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "graphics": {
+            "description": "Silkscreen graphics clipped or deleted (board graphics, or the Footprint's own).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moved": {
+            "description": "Texts moved: board texts, or Footprint field text entries.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unplaced": {
+            "description": "Texts that found no clear place within Max Distance and stayed.",
+            "items": {
+              "$ref": "#/$defs/Unplaced"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "graphics",
+          "footprints",
+          "moved",
+          "unplaced"
+        ],
+        "title": "PrepareResult",
+        "type": "object"
+      },
+      "title": "Silkscreen Preparation"
+    },
+    {
+      "category": "library",
       "description": "Adds a text showing a field (`Designator`, `Value` or any field name) to an open Footprint, on a Silkscreen or Assembly Layer. A Component without that field draws nothing there.",
       "icon": "footprint_edit",
       "id": "library.footprint.text.add",
@@ -53826,6 +53982,154 @@
         "type": "object"
       },
       "title": "Validate Design Rules"
+    },
+    {
+      "category": "pcb",
+      "description": "Clears the silkscreen of the solder-mask openings and the board edge in one undoable edit. Lines, arcs and rectangles are clipped (a clipped rectangle becomes lines); a line or arc under Min Remaining Length goes; silkscreen outside the board goes. Texts and Designators that aren't clear move to the nearest clear place within Max Distance (a moved Designator becomes manual); those that find none stay and are listed in `unplaced`. Clipping a Footprint's silkscreen gives it a Locally Edited Footprint. Locked objects are left alone unless `clip_locked`.",
+      "icon": "clearance",
+      "id": "pcb.silkscreen.prepare",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "The options of the Silkscreen Preparation dialog.",
+        "properties": {
+          "clearance": {
+            "$ref": "#/$defs/Length",
+            "default": 100000,
+            "description": "The manual Silkscreen Clearance from mask targets, without design rules."
+          },
+          "clip_locked": {
+            "default": false,
+            "description": "Clip Locked Components and Primitives: also clip locked graphics and locked\nFootprints' silkscreen, and move their text.",
+            "type": "boolean"
+          },
+          "clip_to_exposed_copper": {
+            "default": true,
+            "description": "Without design rules: measure to the exposed copper rather than the whole mask\nopening.",
+            "type": "boolean"
+          },
+          "delete_outside_board": {
+            "default": true,
+            "description": "Delete Silkscreen Outside Board Shape.",
+            "type": "boolean"
+          },
+          "max_distance": {
+            "$ref": "#/$defs/Length",
+            "default": 2000000,
+            "description": "Max Distance a text moves."
+          },
+          "min_remaining_length": {
+            "$ref": "#/$defs/Length",
+            "default": 500000,
+            "description": "Min Remaining Length: a line or arc shorter than this, end to end, goes, whether it\nwas clipped or not."
+          },
+          "move_text": {
+            "default": true,
+            "description": "Move text and Designators that aren't clear to the nearest clear place.",
+            "type": "boolean"
+          },
+          "use_design_rules": {
+            "default": true,
+            "description": "Take the clearances from the `silk_to_mask` and `silk_to_edge` rules. Off, the\nmanual `clearance` and `clip_to_exposed_copper` apply, with no edge clearance.",
+            "type": "boolean"
+          }
+        },
+        "title": "PrepareOptions",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Unplaced": {
+            "description": "A text that found no clear place within reach and stayed.",
+            "properties": {
+              "content": {
+                "description": "What it reads.",
+                "type": "string"
+              },
+              "object": {
+                "description": "The board text, or the placed Footprint.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "text": {
+                "description": "The Footprint's field text entry, for Footprint text.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "object",
+              "content"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What Silkscreen Preparation changed.",
+        "properties": {
+          "footprints": {
+            "description": "Placed Footprints whose silkscreen was clipped: each now has a Locally Edited\nFootprint.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "graphics": {
+            "description": "Silkscreen graphics clipped or deleted (board graphics, or the Footprint's own).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "moved": {
+            "description": "Texts moved: board texts, or Footprint field text entries.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unplaced": {
+            "description": "Texts that found no clear place within Max Distance and stayed.",
+            "items": {
+              "$ref": "#/$defs/Unplaced"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "graphics",
+          "footprints",
+          "moved",
+          "unplaced"
+        ],
+        "title": "PrepareResult",
+        "type": "object"
+      },
+      "title": "Silkscreen Preparation"
     },
     {
       "category": "pcb",

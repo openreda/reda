@@ -24,6 +24,7 @@ pub mod placed;
 pub mod route;
 pub mod rules;
 pub mod select;
+pub mod silkscreen;
 mod text;
 pub mod zone;
 

@@ -35,10 +35,10 @@ pub(super) struct Silk {
 }
 
 /// What silkscreen keeps clear of on one side: the objects that name it and its area.
-struct Target {
-    objects: Vec<Uuid>,
-    side: Side,
-    area: Area,
+pub(crate) struct Target {
+    pub objects: Vec<Uuid>,
+    pub side: Side,
+    pub area: Area,
 }
 
 pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
@@ -158,7 +158,7 @@ fn silk_to_edge(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
 
 /// What silkscreen keeps clear of in `mode`: each resolved mask opening, or the copper
 /// inside it.
-fn targets(pcb: &PcbDocument, mode: SilkMaskMode) -> Vec<Target> {
+pub(crate) fn targets(pcb: &PcbDocument, mode: SilkMaskMode) -> Vec<Target> {
     crate::openings::resolve(pcb)
         .into_iter()
         .filter(|o| o.kind == crate::openings::Kind::Mask)
@@ -324,7 +324,7 @@ fn drawing_area(shape: &Shape, width: i64, fill: bool) -> Area {
 }
 
 /// The area of laid-out text: its pen strokes and its filled glyphs.
-fn text_area(text: &PlacedText) -> Area {
+pub(crate) fn text_area(text: &PlacedText) -> Area {
     let lines: Vec<Vec<Point>> = text.strokes.iter().map(|s| vec![s.a, s.b]).collect();
     let mut shapes: Vec<Vec<Contour>> = strokes_area(&lines, text.stroke_width.0);
     for tri in text.fill.indices.chunks_exact(3) {

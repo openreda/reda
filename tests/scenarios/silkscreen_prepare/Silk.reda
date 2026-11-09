@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "project": {"uuid":"00000000-0000-4000-8000-000000000001"},
+  "documents": [
+    {"uuid":"00000000-0000-4000-8000-000000000002","path":"Silk.redasch","title":"Sheet 1"},
+    {"uuid":"00000000-0000-4000-8000-000000000003","path":"Silk.redapcb","title":"Silk"}
+  ],
+  "fab_presets": [
+    {"uuid":"00000000-0000-4000-8000-000000000027","name":"Generic","rules":{"clearance":160000,"track_width":200000,"via_diameter":700000,"via_hole":300000,"hole_min":500000,"hole_max":6300000,"annular_ring":200000,"hole_to_hole":500000,"edge_clearance":400000,"preferred":{"track_width":250000,"via_diameter":700000,"via_hole":300000},"mask_expansion":{"top":50000,"bottom":50000,"from_hole_edge":false,"tent_vias_top":true,"tent_vias_bottom":true},"paste_expansion":{"expansion":0}},"gerber":{"x2_attributes":true,"naming":"classic","file_origin":"absolute","slot_command":"route","merge_drill":false,"outline_on_every_plot":false,"file_names":[]},"stackup_suggestions":{"thickness":[400000,600000,800000,1000000,1200000,1600000,2000000],"copper":[35000,70000],"finish":["HASL (leaded)","HASL (lead-free)","ENIG","OSP"],"mask_color":["Green","Purple","Red","Yellow","Blue","White","Black"],"silk_color":[]},"zip_assembly":false,"bom":{"columns":[{"header":"Designator","source":"designator"},{"header":"Quantity","source":"quantity"},{"header":"Value","source":"value"},{"header":"Footprint","source":"footprint"},{"header":"Manufacturer","source":{"field":"Manufacturer"}},{"header":"MPN","source":{"field":"MPN"}}],"layout":"grouped","group_by":["part","footprint","fields"],"sort":["designator"],"line_numbers":{"enabled":false,"start":1,"step":1},"designator_separator":",","not_fitted":"omit","required_fields":[],"list_unplaced":true,"mount_values":{"smt":"SMT","tht":"THT"}},"cpl":{"columns":[{"header":"Designator","source":"designator"},{"header":"Mid X","source":"centre_x"},{"header":"Mid Y","source":"centre_y"},{"header":"Layer","source":"side"},{"header":"Rotation","source":"rotation"}],"side_values":{"top":"Top","bottom":"Bottom"},"units":"mm","unit_suffix":false,"bottom_rotation":"plus_180","bottom_position":"top_view","exclude_through_hole":false}}
+  ],
+  "output_jobs": [
+    {"uuid":"00000000-0000-4000-8000-000000000028","name":"Generic","pcb":"00000000-0000-4000-8000-000000000003","fab_preset":"00000000-0000-4000-8000-000000000027","outputs":{"gerber":true,"drill":true,"bom":true,"cpl":true,"fab_notes":true,"drill_report":true,"gerber_job":true,"reports":true,"schematic_pdf":true},"name_template":"${project}-${job}","not_fitted_paste":"keep","schematic_pdf_colour":"colour"}
+  ]
+}

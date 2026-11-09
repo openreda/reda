@@ -249,7 +249,7 @@ pub(crate) fn edit_symbol<T>(
     })
 }
 
-pub(crate) fn edit_footprint<T>(
+pub fn edit_footprint<T>(
     cx: &mut Context<'_>,
     uuid: Uuid,
     f: impl FnOnce(&mut Footprint) -> Result<T, CommandError>,
