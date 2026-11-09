@@ -2,17 +2,22 @@
 //! [`grid`].
 
 use egui::{Button, ComboBox, Role, Ui, WidgetInfo};
-use reda_engine::model::{DrcCheck, Limit, Severity, SilkMaskMode, Uuid};
+use reda_engine::model::{DrcCheck, Limit, Severity, SilkMaskMode, Uuid, ZoneNameScheme};
 
 use super::length::mm;
-use super::model::{BoardSetupDraft, ClassKey, RuleField, class_field};
+use super::model::{
+    ANGLES, BoardSetupDraft, ClassKey, PasteMode, RuleField, SPOKES, STYLES, ValueKind,
+    class_field, connection_value_name, style_name, target_name,
+};
 use super::{DrcPage, Rule, Section};
-use crate::settings::{PageCx, field};
+use crate::settings::{PageCx, Problem, field};
 use crate::tr;
 
 mod grid;
+mod stackup;
 
 pub use grid::net_classes_page;
+pub use stackup::stackup_page;
 
 const SEVERITIES: [Severity; 3] = [Severity::Error, Severity::Warning, Severity::Off];
 const LENGTH_WIDTH: f32 = 90.0;
@@ -113,32 +118,67 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
     fab_preset(ui, board);
     for (i, section) in rule.sections().iter().enumerate() {
         ui.add_space(if i == 0 { 6.0 } else { 14.0 });
-        if rule.sections().len() > 1 {
-            ui.heading(check_name(section.check));
+        if let Some(heading) = section_heading(rule, i, section) {
+            ui.heading(heading);
         }
         section_ui(ui, cx, section, board);
+    }
+    if rule == Rule::ZoneConnections {
+        ui.add_space(14.0);
+        zone_scheme(ui, board);
     }
     ui.add_space(8.0);
     ui.weak(tr!("board-setup-units"));
 }
 
+/// A section's heading: its check's name on a page with several, else what it is about.
+fn section_heading(rule: Rule, i: usize, section: &Section) -> Option<String> {
+    if let Some(target) = section.target {
+        return Some(target_name(target));
+    }
+    match section.check {
+        Some(check) if rule.sections().len() > 1 => Some(check_name(check)),
+        Some(_) => None,
+        None if rule == Rule::MaskPaste && i == 0 => Some(tr!("board-setup-solder-mask")),
+        None => Some(tr!("board-setup-paste-heading")),
+    }
+}
+
 fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut BoardSetupDraft) {
-    egui::Grid::new(("board-setup-rule", section.check))
+    let salt = section.fields[0];
+    egui::Grid::new(("board-setup-rule", salt))
         .num_columns(3)
         .spacing([12.0, 8.0])
         .show(ui, |ui| {
             for &f in section.fields {
+                if f == RuleField::PastePercent {
+                    continue;
+                }
+                if f == RuleField::PasteExpansion {
+                    paste(ui, cx, board);
+                    ui.end_row();
+                    continue;
+                }
                 let label = f.board_wide_label();
                 ui.label(&label);
                 let problem = cx.problem(&f.problem_field());
-                field(ui, &label, board.rule_mut(f), LENGTH_WIDTH, problem);
+                let mut text = board.rule(f).to_owned();
+                ui.horizontal(|ui| {
+                    value_field(ui, f, &label, &mut text, false, problem);
+                    if f == RuleField::MaskTop {
+                        mask_link(ui, board);
+                    }
+                });
+                if text != board.rule(f) {
+                    board.set_rule(f, text);
+                }
                 match limit_text(board, f) {
                     Some(text) => ui.weak(text),
                     None => ui.label(""),
                 };
                 ui.end_row();
             }
-            if section.check == DrcCheck::SilkToMask {
+            if section.check == Some(DrcCheck::SilkToMask) {
                 silk_mode(ui, board);
                 ui.end_row();
             }
@@ -153,14 +193,14 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
     if classes.is_empty() {
         ui.weak(tr!("board-setup-no-classes"));
     } else {
-        egui::Grid::new(("board-setup-overrides", section.check))
+        egui::Grid::new(("board-setup-overrides", salt))
             .num_columns(1 + overrides.len())
             .striped(true)
             .spacing([12.0, 6.0])
             .show(ui, |ui| {
                 ui.strong(tr!("board-setup-net-class"));
                 for f in overrides {
-                    ui.strong(f.name());
+                    ui.strong(column_name(*f));
                 }
                 ui.end_row();
                 for (key, name) in classes {
@@ -173,7 +213,7 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
                         );
                         let problem = cx.problem(&class_field(key, &f.id()));
                         if let Some(value) = board.class_override_mut(key, f) {
-                            field(ui, &label, value, LENGTH_WIDTH, problem);
+                            value_field(ui, f, &label, value, true, problem);
                         }
                     }
                     ui.end_row();
@@ -181,14 +221,157 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
             });
     }
     ui.weak(tr!("board-setup-overrides-note"));
-    ui.add_space(4.0);
+    if let Some(check) = section.check {
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            ui.label(tr!("board-setup-severity", check = check_name(check)));
+            severity_choice(ui, board, check);
+        });
+    }
+}
+
+/// A value's column in an override table: a Zone connection's value without its
+/// target, which the section heading names.
+fn column_name(f: RuleField) -> String {
+    match f {
+        RuleField::Connection(_, v) => connection_value_name(v),
+        f => f.name(),
+    }
+}
+
+/// The widget for one value, announced as `label`: a text field for lengths and
+/// percentages, a checkbox for a board-wide flag, else a drop-down. With `inherit` (a
+/// Net Class override) every drop-down also offers "Inherited", which leaves it empty.
+pub fn value_field(
+    ui: &mut Ui,
+    f: RuleField,
+    label: &str,
+    value: &mut String,
+    inherit: bool,
+    problem: Option<&Problem>,
+) {
+    let options: &[&str] = match f.kind() {
+        ValueKind::Length | ValueKind::Signed | ValueKind::Percent => {
+            field(ui, label, value, LENGTH_WIDTH, problem);
+            return;
+        }
+        ValueKind::Flag if !inherit => {
+            let mut on = value == "true";
+            let response = ui.add(egui::Checkbox::without_text(&mut on));
+            response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, label));
+            if response.changed() {
+                *value = on.to_string();
+            }
+            return;
+        }
+        ValueKind::Flag => &["true", "false"],
+        ValueKind::Style => &STYLES,
+        ValueKind::Spokes => &SPOKES,
+        ValueKind::Angle => &ANGLES,
+    };
+    let shown = |option: &str| match option {
+        "" => tr!("board-setup-inherited"),
+        "true" => tr!("board-setup-yes"),
+        "false" => tr!("board-setup-no"),
+        other if f.kind() == ValueKind::Style => style_name(other),
+        other => other.to_owned(),
+    };
+    let mut chosen = value.clone();
+    let combo = ComboBox::from_id_salt(("board-setup-value", label))
+        .selected_text(shown(value))
+        .width(LENGTH_WIDTH)
+        .show_ui(ui, |ui| {
+            if inherit {
+                ui.selectable_value(&mut chosen, String::new(), shown(""));
+            }
+            for option in options {
+                ui.selectable_value(&mut chosen, (*option).to_owned(), shown(option));
+            }
+        });
+    combo
+        .response
+        .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label));
+    if let Some(problem) = problem {
+        crate::settings::problem_label(ui, problem);
+    }
+    if chosen != *value {
+        *value = chosen;
+    }
+}
+
+/// The toggle that links the top and bottom mask expansions.
+fn mask_link(ui: &mut Ui, board: &mut BoardSetupDraft) {
+    let mut linked = board.mask_linked();
+    let label = tr!("board-setup-mask-link");
+    if ui.checkbox(&mut linked, &label).changed() {
+        board.set_mask_linked(linked);
+    }
+}
+
+/// The paste expansion: absolute or a percentage, then the value.
+fn paste(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
+    let label = tr!("board-setup-paste-mode");
+    ui.label(&label);
     ui.horizontal(|ui| {
-        ui.label(tr!(
-            "board-setup-severity",
-            check = check_name(section.check)
-        ));
-        severity_choice(ui, board, section.check);
+        let mut mode = board.paste_mode();
+        for (m, name) in [
+            (PasteMode::Absolute, tr!("board-setup-paste-absolute")),
+            (PasteMode::Percent, tr!("board-setup-paste-percent-mode")),
+        ] {
+            let chosen = mode == m;
+            let button = ui.add(Button::selectable(chosen, &name));
+            button.widget_info(|| WidgetInfo::selected(Role::RadioButton, true, chosen, &name));
+            if button.clicked() {
+                mode = m;
+            }
+        }
+        if mode != board.paste_mode() {
+            board.set_paste_mode(mode);
+        }
+        let f = match mode {
+            PasteMode::Absolute => RuleField::PasteExpansion,
+            PasteMode::Percent => RuleField::PastePercent,
+        };
+        let label = f.board_wide_label();
+        let problem = cx.problem(&f.problem_field());
+        value_field(ui, f, &label, board.rule_mut(f), false, problem);
     });
+    ui.label("");
+}
+
+/// The board's Zone naming scheme.
+fn zone_scheme(ui: &mut Ui, board: &mut BoardSetupDraft) {
+    let label = tr!("board-setup-zone-scheme");
+    ui.horizontal(|ui| {
+        ui.label(&label);
+        let mut scheme = board.zone_name_scheme();
+        let name = |s: ZoneNameScheme| {
+            serde_json::to_value(s)
+                .ok()
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_default()
+        };
+        let combo = ComboBox::from_id_salt("board-setup-zone-scheme")
+            .selected_text(name(scheme))
+            .width(220.0)
+            .show_ui(ui, |ui| {
+                for s in [
+                    ZoneNameScheme::NetLxxPxxx,
+                    ZoneNameScheme::LxxNetPxxx,
+                    ZoneNameScheme::NetLayernamePxxx,
+                    ZoneNameScheme::LayernameNetPxxx,
+                ] {
+                    ui.selectable_value(&mut scheme, s, name(s));
+                }
+            });
+        combo
+            .response
+            .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
+        if scheme != board.zone_name_scheme() {
+            board.set_zone_name_scheme(scheme);
+        }
+    });
+    ui.weak(tr!("board-setup-zone-scheme-note"));
 }
 
 /// What `silk_to_mask` measures silkscreen against.
@@ -259,7 +442,7 @@ fn fab_preset(ui: &mut Ui, board: &mut BoardSetupDraft) {
                     for c in &preview.changes {
                         ui.label(c.rule.name());
                         ui.monospace(&c.board);
-                        ui.monospace(mm(c.preset));
+                        ui.monospace(&c.preset);
                         ui.end_row();
                     }
                 });

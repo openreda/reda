@@ -14,7 +14,7 @@
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-use reda_engine::model::{DrcCheck, Project, Scope};
+use reda_engine::model::{ConnectionTarget, ConnectionValue, DrcCheck, Project, Scope};
 
 use super::{Page, PageCx, Problem, SettingsDialog, Step};
 use crate::tr;
@@ -24,8 +24,8 @@ mod length;
 mod model;
 
 pub use model::{
-    BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS, NetRow, RuleChange,
-    RuleField, class_field, kind_name,
+    ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS, NetRow,
+    PasteMode, RuleChange, Band, CrossBand, StackupDraft, StackupRow, RuleField, SPOKES, STYLES, ValueKind, class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -41,43 +41,81 @@ pub enum Rule {
     Holes,
     /// Edge clearance and silkscreen to edge.
     BoardEdge,
+    /// Mask expansion, Via tenting and paste expansion. No DRC severity.
+    MaskPaste,
     /// Silkscreen to mask.
     Silkscreen,
+    /// How fills join through-hole Pads, SMD Pads and Vias, and the Zone naming scheme.
+    /// No DRC severity.
+    ZoneConnections,
 }
 
 /// One check on a rule page: its board-wide values, a Net Class override table and its
 /// DRC severity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Section {
-    pub check: DrcCheck,
+    /// The check, for a section that has a DRC severity.
+    pub check: Option<DrcCheck>,
+    /// What the section is about, for one with no check: a Zone connection's target.
+    pub target: Option<ConnectionTarget>,
     pub fields: &'static [RuleField],
 }
 
+impl Section {
+    const fn check(check: DrcCheck, fields: &'static [RuleField]) -> Section {
+        Section {
+            check: Some(check),
+            target: None,
+            fields,
+        }
+    }
+
+    const fn plain(target: Option<ConnectionTarget>, fields: &'static [RuleField]) -> Section {
+        Section {
+            check: None,
+            target,
+            fields,
+        }
+    }
+}
+
 impl Rule {
-    pub const ALL: [Rule; 6] = [
+    pub const ALL: [Rule; 8] = [
         Rule::Clearance,
         Rule::TrackWidth,
         Rule::Vias,
         Rule::Holes,
         Rule::BoardEdge,
+        Rule::MaskPaste,
         Rule::Silkscreen,
+        Rule::ZoneConnections,
     ];
 
     /// The checks on the page, each with its values.
     pub fn sections(self) -> &'static [Section] {
+        use ConnectionTarget as T;
+        use ConnectionValue as V;
         use RuleField as F;
-        match self {
-            Rule::Clearance => &[Section {
-                check: DrcCheck::Clearance,
-                fields: &[F::Clearance],
-            }],
-            Rule::TrackWidth => &[Section {
-                check: DrcCheck::TrackWidth,
-                fields: &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
-            }],
-            Rule::Vias => &[Section {
-                check: DrcCheck::ViaSize,
-                fields: &[
+        const fn connection(t: ConnectionTarget) -> [RuleField; 5] {
+            [
+                F::Connection(t, V::Style),
+                F::Connection(t, V::Spokes),
+                F::Connection(t, V::SpokeWidth),
+                F::Connection(t, V::Gap),
+                F::Connection(t, V::Angle),
+            ]
+        }
+        const TH: [RuleField; 5] = connection(T::ThroughHole);
+        const SMD: [RuleField; 5] = connection(T::Smd);
+        const VIA: [RuleField; 5] = connection(T::Via);
+        const CLEARANCE: &[Section] = &[Section::check(DrcCheck::Clearance, &[F::Clearance])];
+        const TRACK_WIDTH: &[Section] = &[Section::check(
+                DrcCheck::TrackWidth,
+                &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
+            )];
+        const VIAS: &[Section] = &[Section::check(
+                DrcCheck::ViaSize,
+                &[
                     F::ViaDiameter,
                     F::ViaDiameterPreferred,
                     F::ViaDiameterMax,
@@ -85,35 +123,44 @@ impl Rule {
                     F::ViaHolePreferred,
                     F::ViaHoleMax,
                 ],
-            }],
-            Rule::Holes => &[
-                Section {
-                    check: DrcCheck::HoleSize,
-                    fields: &[F::HoleMin, F::HoleMax],
-                },
-                Section {
-                    check: DrcCheck::AnnularRing,
-                    fields: &[F::AnnularRing],
-                },
-                Section {
-                    check: DrcCheck::HoleToHole,
-                    fields: &[F::HoleToHole],
-                },
-            ],
-            Rule::BoardEdge => &[
-                Section {
-                    check: DrcCheck::EdgeClearance,
-                    fields: &[F::EdgeClearance],
-                },
-                Section {
-                    check: DrcCheck::SilkToEdge,
-                    fields: &[F::SilkToEdge],
-                },
-            ],
-            Rule::Silkscreen => &[Section {
-                check: DrcCheck::SilkToMask,
-                fields: &[F::SilkToMask],
-            }],
+            )];
+        const HOLES: &[Section] = &[
+                Section::check(DrcCheck::HoleSize, &[F::HoleMin, F::HoleMax]),
+                Section::check(DrcCheck::AnnularRing, &[F::AnnularRing]),
+                Section::check(DrcCheck::HoleToHole, &[F::HoleToHole]),
+            ];
+        const BOARD_EDGE: &[Section] = &[
+                Section::check(DrcCheck::EdgeClearance, &[F::EdgeClearance]),
+                Section::check(DrcCheck::SilkToEdge, &[F::SilkToEdge]),
+            ];
+        const MASK_PASTE: &[Section] = &[
+                Section::plain(
+                    None,
+                    &[
+                        F::MaskTop,
+                        F::MaskBottom,
+                        F::MaskFromHoleEdge,
+                        F::TentViasTop,
+                        F::TentViasBottom,
+                    ],
+                ),
+                Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
+            ];
+        const SILKSCREEN: &[Section] = &[Section::check(DrcCheck::SilkToMask, &[F::SilkToMask])];
+        const ZONE_CONNECTIONS: &[Section] = &[
+                Section::plain(Some(T::ThroughHole), &TH),
+                Section::plain(Some(T::Smd), &SMD),
+                Section::plain(Some(T::Via), &VIA),
+            ];
+        match self {
+            Rule::Clearance => CLEARANCE,
+            Rule::TrackWidth => TRACK_WIDTH,
+            Rule::Vias => VIAS,
+            Rule::Holes => HOLES,
+            Rule::BoardEdge => BOARD_EDGE,
+            Rule::MaskPaste => MASK_PASTE,
+            Rule::Silkscreen => SILKSCREEN,
+            Rule::ZoneConnections => ZONE_CONNECTIONS,
         }
     }
 
@@ -132,6 +179,8 @@ impl Rule {
             Rule::Holes => tr!("board-setup-page-holes"),
             Rule::BoardEdge => tr!("board-setup-page-board-edge"),
             Rule::Silkscreen => tr!("board-setup-page-silkscreen"),
+            Rule::MaskPaste => tr!("board-setup-page-mask-paste"),
+            Rule::ZoneConnections => tr!("board-setup-page-zone-connections"),
         }
     }
 
@@ -256,6 +305,42 @@ impl Page for NetClassesPage {
     }
 }
 
+/// The Stackup page: the copper and dielectric thicknesses with their totals and a
+/// cross-section, the finish and colours, and the Fab Notes text.
+pub struct StackupPage {
+    view: View,
+}
+
+impl StackupPage {
+    pub fn board(&self) -> RefMut<'_, BoardSetupDraft> {
+        self.view.board.borrow_mut()
+    }
+}
+
+impl Page for StackupPage {
+    fn title(&self) -> String {
+        tr!("board-setup-page-stackup")
+    }
+
+    fn load(&mut self, project: &Project, reset: bool) {
+        self.view.load(project, reset);
+    }
+
+    fn steps(&self) -> Vec<Step> {
+        self.view.steps()
+    }
+
+    fn problems(&self) -> Vec<Problem> {
+        let problems = self.view.board.borrow().problems();
+        let ours = |p: &Problem| p.field.starts_with("stackup/");
+        problems.into_iter().filter(ours).collect()
+    }
+
+    fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {
+        draw::stackup_page(ui, cx, &mut self.view.board.borrow_mut());
+    }
+}
+
 /// The DRC page: every check's severity.
 pub struct DrcPage {
     view: View,
@@ -315,6 +400,7 @@ pub fn dialog(project: &Project) -> SettingsDialog {
             }) as Box<dyn Page>
         })
         .collect();
+    pages.push(Box::new(StackupPage { view: view(false) }));
     pages.push(Box::new(NetClassesPage { view: view(false) }));
     pages.push(Box::new(DrcPage { view: view(false) }));
     let dialog = SettingsDialog::new(tr!("board-setup-title"), pages, project);
