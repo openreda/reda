@@ -163,6 +163,9 @@ pub struct CheckRun {
     pub design: String,
     /// The design was edited after the run.
     pub stale: bool,
+    /// When the check last ran in full, or for one check; `None` for the health checks a
+    /// board runs as it opens, which are not a DRC run.
+    pub ran_at: Option<std::time::SystemTime>,
 }
 
 /// A load error or warning, such as a Preference the file got wrong.

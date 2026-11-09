@@ -31,6 +31,7 @@ pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
 
 pub use drc::{AreaParam, DrcRunParams, DrcRunResult, SyncCheck, SyncState, run as drc_run};
+pub use board_info::{BoardInfoResult, board_info};
 pub use mechanical::{MechanicalSet, MechanicalSetParams};
 pub use net_class::glob_match;
 pub use outline::rect_outline;

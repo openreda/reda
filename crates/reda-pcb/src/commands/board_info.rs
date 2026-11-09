@@ -9,6 +9,8 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use super::{board_copper, needs_pcb, pcb};
+use crate::Copper;
+use reda_model::PcbDocument;
 use crate::zone::poly::{contour, outline_area};
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -18,7 +20,7 @@ pub(super) fn register_all(registry: &mut Registry) {
 /// Square nanometres in a square millimetre.
 const NM2_PER_MM2: f64 = 1e12;
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, JsonSchema)]
 pub struct BoardInfoResult {
     /// The Board Outline's width; left out without an outline.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,50 +68,55 @@ impl Command for BoardInfo {
     }
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<BoardInfoResult, CommandError> {
-        let pcb = pcb(cx)?;
         let copper = board_copper(cx)?;
-        let outline = pcb.outline().filter(|o| !o.vertices.is_empty());
-        let size = outline.and_then(|o| {
-            let points = contour(&o.vertices);
-            let xs = points.iter().map(|p| p.x);
-            let ys = points.iter().map(|p| p.y);
-            Some((
-                Nm(xs.clone().max()? - xs.min()?),
-                Nm(ys.clone().max()? - ys.min()?),
-            ))
-        });
-        let area = outline.map_or(0, |o| {
-            let cut: i128 = pcb.cutouts().map(|c| outline_area(&c.vertices)).sum();
-            (outline_area(&o.vertices) - cut).max(0)
-        }) as f64
-            / NM2_PER_MM2;
-        let component_area: f64 = pcb
-            .footprints()
-            .map(|f| {
-                let b = crate::placed::courtyard_bounds(pcb, f);
-                (b.max.x.0 - b.min.x.0) as f64 * (b.max.y.0 - b.min.y.0) as f64
-            })
-            .sum::<f64>()
-            / NM2_PER_MM2;
-        let pads: usize = pcb.footprints().map(|f| f.pads.len()).sum();
-        let primitives = pads
-            + pcb.free_pads().count()
-            + pcb.tracks().count()
-            + pcb.vias().count()
-            + pcb.zones().count()
-            + pcb.graphics().count()
-            + pcb.texts().count();
-        Ok(BoardInfoResult {
-            width: size.map(|s| s.0),
-            height: size.map(|s| s.1),
-            area,
-            component_area,
-            density: (area > 0.0).then(|| component_area / (2.0 * area)),
-            routed_percent: copper.all_connections().percent(),
-            components: pcb.footprints().count(),
-            layers: pcb.copper_layers().count(),
-            nets: pcb.nets().count(),
-            primitives,
+        Ok(board_info(pcb(cx)?, &copper))
+    }
+}
+
+/// The board's figures: what `pcb.board.info` returns, from `copper`, the board's copper
+/// index.
+pub fn board_info(pcb: &PcbDocument, copper: &Copper) -> BoardInfoResult {
+    let outline = pcb.outline().filter(|o| !o.vertices.is_empty());
+    let size = outline.and_then(|o| {
+        let points = contour(&o.vertices);
+        let xs = points.iter().map(|p| p.x);
+        let ys = points.iter().map(|p| p.y);
+        Some((
+            Nm(xs.clone().max()? - xs.min()?),
+            Nm(ys.clone().max()? - ys.min()?),
+        ))
+    });
+    let area = outline.map_or(0, |o| {
+        let cut: i128 = pcb.cutouts().map(|c| outline_area(&c.vertices)).sum();
+        (outline_area(&o.vertices) - cut).max(0)
+    }) as f64
+        / NM2_PER_MM2;
+    let component_area: f64 = pcb
+        .footprints()
+        .map(|f| {
+            let b = crate::placed::courtyard_bounds(pcb, f);
+            (b.max.x.0 - b.min.x.0) as f64 * (b.max.y.0 - b.min.y.0) as f64
         })
+        .sum::<f64>()
+        / NM2_PER_MM2;
+    let pads: usize = pcb.footprints().map(|f| f.pads.len()).sum();
+    let primitives = pads
+        + pcb.free_pads().count()
+        + pcb.tracks().count()
+        + pcb.vias().count()
+        + pcb.zones().count()
+        + pcb.graphics().count()
+        + pcb.texts().count();
+    BoardInfoResult {
+        width: size.map(|s| s.0),
+        height: size.map(|s| s.1),
+        area,
+        component_area,
+        density: (area > 0.0).then(|| component_area / (2.0 * area)),
+        routed_percent: copper.all_connections().percent(),
+        components: pcb.footprints().count(),
+        layers: pcb.copper_layers().count(),
+        nets: pcb.nets().count(),
+        primitives,
     }
 }

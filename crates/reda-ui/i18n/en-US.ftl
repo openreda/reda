@@ -321,6 +321,96 @@ properties-rotation = Rotation
 properties-clearance = Clearance
 properties-min-width = Minimum Width
 properties-placing = Placing { $part }: edits apply to this and later placements.
+properties-tool-running = The { $tool } Tool is running: its options show here.
+properties-x = X
+properties-y = Y
+properties-width = Width
+properties-length = Length
+properties-diameter = Diameter
+properties-hole = Hole
+properties-region-general = General
+properties-region-location = Location
+properties-region-graphical = Graphical
+properties-region-rules = Rules
+properties-region-checks = Checks
+properties-region-stored = Stored values
+properties-chips-clear = Clear
+properties-rules-none = No rule applies.
+properties-rules-board = Board
+properties-rules-won = Applies
+properties-rules-lost = Overridden
+properties-rules-disabled = Disabled
+properties-rules-open = Open { $page } in Board Setup
+properties-rules-between = Between them: { $field } = { $value }, from object { $object }
+properties-severity-error = Error
+properties-severity-warning = Warning
+properties-severity-off = Off
+properties-locally-edited = Locally edited
+properties-locally-edited-hint = This Footprint was edited on the board; Sync keeps the edits.
+properties-revert-local-edits = Revert
+properties-revert-local-edits-hint = Return to the copy it was edited from
+properties-compare = Compare
+properties-compare-pad = Pad { $number }
+properties-compare-graphic = Graphic
+properties-compare-drawing = Edited Pads over the original
+properties-ready-for-fab = Ready for fab?
+properties-fab-outline = Board Outline closed
+properties-fab-unrouted = { $count ->
+    [0] No unrouted connections
+    [one] 1 unrouted connection
+   *[other] { $count } unrouted connections
+}
+properties-fab-zones = Zone fills up to date
+properties-fab-drc = DRC run since the last edit
+properties-fab-sync = { $count ->
+    [0] In sync with the schematic
+   *[other] Out of sync: { $count } changes
+}
+properties-fab-not-fitted = { $count } Not Fitted
+properties-fab-show = Show
+properties-fab-fill = Fill
+properties-fab-run = Run
+properties-fab-sync-button = Sync
+properties-snap-distance = Snap Distance
+properties-electrical-range = Electrical Range
+properties-board = Board
+properties-board-size = Size
+properties-board-area = Area
+properties-board-component-area = Component area
+properties-board-density = Density
+properties-board-routed = Routed
+properties-board-components = Components
+properties-board-layers = Layers
+properties-board-nets = Nets
+properties-board-primitives = Primitives
+properties-sheet = Sheet
+properties-sheet-name = Name
+properties-sheet-size = Size
+properties-sheet-title = Title
+properties-sheet-revision = Revision
+properties-sheet-drawing-number = Drawing number
+properties-sheet-date = Date
+properties-sheet-author = Author
+properties-sheet-company = Company
+properties-sheet-number = Sheet
+properties-grid = Grid
+properties-other = Other
+properties-links = Links
+properties-link-board-setup = Open Board Setup…
+properties-link-project-settings = Open Project Settings…
+properties-checks-never = Not run yet
+properties-checks-stale = Out of date
+properties-checks-just-now = Last run just now
+properties-checks-minutes-ago = Last run { $count } min ago
+properties-checks-hours-ago = Last run { $count } h ago
+properties-checks-errors = { $count } Errors
+properties-checks-warnings = { $count } Warnings
+properties-checks-waived = { $count } waived
+properties-checks-run = Run { $check }
+properties-checks-health = Health checks
+properties-checks-fix = Fix
+properties-checks-fix-hint = Remove what { $check } finds, as one undo step
+properties-checks-fix-named = Fix { $check }
 
 # The Library panel.
 library-search = Search Parts

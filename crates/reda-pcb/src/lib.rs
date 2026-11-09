@@ -35,9 +35,9 @@ pub use board::{
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
-    AreaParam, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
+    AreaParam, BoardInfoResult, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
     PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, drc_run, glob_match, placement_anchor,
-    placement_preview, placement_preview_including_locked, rect_outline, register_all,
+    placement_preview, placement_preview_including_locked, rect_outline, board_info, register_all,
     register_all_with_user, zone_listing,
 };
 pub use copper::{

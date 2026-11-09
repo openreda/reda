@@ -56751,6 +56751,92 @@
     },
     {
       "category": "pcb",
+      "description": "Sets the copper diameter and the hole of Vias. Values left out stay; the diameter must stay larger than the hole. Returns the Vias that changed.",
+      "icon": "via",
+      "id": "pcb.via.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "diameter": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The copper diameter."
+          },
+          "hole": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Length"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The drilled hole."
+          },
+          "vias": {
+            "description": "The Vias' UUIDs; each gets every value given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "vias"
+        ],
+        "title": "ViaSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "vias": {
+            "description": "The Vias that changed, sorted.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "vias"
+        ],
+        "title": "ViaSetResult",
+        "type": "object"
+      },
+      "title": "Set Via"
+    },
+    {
+      "category": "pcb",
       "description": "Adds a copper Zone: a solid fill on a Net inside the outline `vertices` on one copper Layer, keeping clear of other Nets' copper. A value left out takes a fixed default, never a Preference. How the fill joins Pads and Vias comes from the `zone_connection` rule. The Zone is filled by `pcb.zone.fill`.",
       "icon": "zone",
       "id": "pcb.zone.add",

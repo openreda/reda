@@ -1033,9 +1033,16 @@ impl Cx<'_, '_> {
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Properties) => {
-                let commands = panels::properties::show(ui, self.shell);
-                let commands = commands.into_iter().map(|(id, p)| (id.to_owned(), p));
-                self.frame.commands.extend(commands);
+                for out in panels::properties::show(ui, self.shell) {
+                    match out {
+                        panels::properties::Out::Run(id, p) => {
+                            self.frame.commands.push((id.to_owned(), p));
+                        }
+                        panels::properties::Out::Messages(action) => {
+                            self.frame.messages.push(action);
+                        }
+                    }
+                }
             }
             TabKey::Panel(PanelId::Journal) => {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
