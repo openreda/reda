@@ -202,6 +202,7 @@ fn pcb_text(
     mirrored: bool,
 ) -> PcbText {
     PcbText {
+        locked: false,
         uuid: object,
         layer,
         text: text.to_owned(),
@@ -222,6 +223,7 @@ fn field_to_pcb_text(pcb: &PcbDocument, text: &str, placement: &FootprintText) -
     let layer = board_layer(pcb, placement.layer)?;
     let mirrored = placement.layer.is_bottom();
     Some(PcbText {
+        locked: false,
         uuid: placement.uuid,
         layer,
         text: text.to_owned(),

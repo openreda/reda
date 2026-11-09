@@ -276,6 +276,7 @@ impl Shell {
         engine.view_mut().set(Highlight::default());
         engine.view_mut().set(ActiveTool::default());
         engine.view_mut().set(PowerPortName::default());
+        engine.view_mut().set(tools::RotateAboutAngle::default());
         engine
             .view_mut()
             .set(crate::placement::Placement::default());
@@ -868,6 +869,43 @@ impl Shell {
 
     /// Whether the active Document is the board, whose Tool `tool.rotate` and
     /// `tool.flip` turn.
+    /// Swap with a pair of Footprints already selected: swaps them at once and goes back
+    /// to Select. With no pair the Tool asks for two picks.
+    fn swap_selected_pair(&mut self) {
+        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) else {
+            return;
+        };
+        let pair: Vec<Uuid> = self
+            .selection()
+            .objects
+            .iter()
+            .copied()
+            .filter(|o| pcb.footprint(*o).is_some())
+            .collect();
+        if let [a, b] = pair[..]
+            && self.selection().objects.len() == 2
+        {
+            let _ = self.run_reporting("pcb.swap", json!({"a": a, "b": b}));
+            let _ = self.run_reporting("tool.activate", json!({"tool": "select"}));
+        }
+    }
+
+    /// X or Y on the board: refused when they would mirror a Footprint, carried by the
+    /// move in flight or else selected. The board has only sides; L flips instead.
+    fn board_mirror_refused(&self) -> bool {
+        if !self.board_is_active() {
+            return false;
+        }
+        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) else {
+            return false;
+        };
+        let objects = match self.pcb_tool.carried() {
+            Some(carried) => carried,
+            None => &self.selection().objects[..],
+        };
+        objects.iter().any(|o| pcb.footprint(*o).is_some())
+    }
+
     fn board_is_active(&self) -> bool {
         let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
         pcb.is_some() && self.active_document().map(|d| d.document) == pcb
@@ -1248,6 +1286,11 @@ impl Shell {
                 .and_then(|s| s.parse().ok())
         {
             selection::picking::prepare_cycle(self, document);
+        }
+        if base == "tool.mirror" && self.board_mirror_refused() {
+            return Err(CommandError::rejected(
+                reda_engine::pcb::place::MIRROR_REFUSED,
+            ));
         }
         let out = self.engine.run(id, params);
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
@@ -2175,10 +2218,10 @@ impl Shell {
     /// removed from the selection.
     fn after_edit(&mut self, id: &str, out: &Value) {
         match id {
-            "schematic.copy" => self.clipboard = Some(out.clone()),
+            "schematic.copy" | "pcb.copy" => self.clipboard = Some(out.clone()),
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
             // Escape (and any Tool change) puts back what the canvases have in flight.
-            "tool.activate" => {
+            "tool.activate" | "tool.rotate_about" => {
                 selection::picking::cancel(self);
                 let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
                 for document in documents {
@@ -2190,6 +2233,9 @@ impl Shell {
                 crate::placement::refresh(self);
                 let tool = self.tool();
                 self.pcb_draw.start(tool);
+                if tool == Tool::Swap {
+                    self.swap_selected_pair();
+                }
             }
             // The Symbol editor's Pin Tool turns the next Pin, and its polygon takes back
             // a corner or closes.
@@ -2266,7 +2312,7 @@ impl Shell {
             }
             "tool.flip" if self.board_is_active() => self.pcb_flip(),
             "tool.move_board_shape" => self.pcb_move_board_shape(),
-            "schematic.paste" | "schematic.duplicate" => {
+            "schematic.paste" | "schematic.duplicate" | "pcb.paste" => {
                 let objects = out["result"]["objects"].clone();
                 let _ = self
                     .engine

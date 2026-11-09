@@ -200,7 +200,7 @@ fn locked_footprints_move_with_the_board_and_stay_locked() {
     let dir = TempDir::new("board-move-locked");
     let mut engine = engine_with_board(&dir);
     let fp = footprint(&mut engine, 10, 10);
-    engine.run_ok("pcb.lock", json!({"footprints": [fp], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [fp], "locked": true}));
     engine.run_ok("pcb.board.move", json!({"dx": "5mm", "dy": "5mm"}));
     let f = pcb(&engine).footprint(fp).unwrap();
     assert_eq!(f.at, mm(15, 15));

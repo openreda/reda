@@ -411,7 +411,7 @@ fn dragging_a_footprint_preserves_the_filtered_free_pad_selection_and_position()
     run(
         &mut b.shell,
         "pcb.lock",
-        json!({"footprints":[locked],"locked":true}),
+        json!({"objects":[locked],"locked":true}),
     );
     run(
         &mut b.shell,

@@ -23555,6 +23555,10 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "mirrored": {
                 "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
                 "type": "boolean"
@@ -23601,6 +23605,10 @@
                 "description": "The Layer it is drawn on.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "shape": {
                 "$ref": "#/$defs/GraphicShape"
@@ -23690,6 +23698,10 @@
                 "description": "The Layer it is drawn on.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "offset": {
                 "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
@@ -23868,6 +23880,10 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "net": {
                 "description": "Its PCB Net; left out for copper on no Net.",
                 "format": "uuid",
@@ -23910,6 +23926,10 @@
                 "description": "The drilled hole diameter.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "mask": {
                 "anyOf": [
@@ -23966,6 +23986,10 @@
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "min_island_area": {
                 "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
@@ -24045,6 +24069,10 @@
                   "string",
                   "null"
                 ]
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "restrict": {
                 "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
@@ -24216,6 +24244,10 @@
                 "$ref": "#/$defs/PadKind",
                 "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "mask": {
                 "anyOf": [
                   {
@@ -24362,6 +24394,10 @@
           "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -24383,6 +24419,10 @@
           "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -31013,6 +31053,10 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "mirrored": {
                 "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
                 "type": "boolean"
@@ -31059,6 +31103,10 @@
                 "description": "The Layer it is drawn on.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "shape": {
                 "$ref": "#/$defs/GraphicShape"
@@ -31148,6 +31196,10 @@
                 "description": "The Layer it is drawn on.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "offset": {
                 "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
@@ -31326,6 +31378,10 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "net": {
                 "description": "Its PCB Net; left out for copper on no Net.",
                 "format": "uuid",
@@ -31368,6 +31424,10 @@
                 "description": "The drilled hole diameter.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "mask": {
                 "anyOf": [
@@ -31424,6 +31484,10 @@
                 "description": "The copper Layer it fills.",
                 "format": "uuid",
                 "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "min_island_area": {
                 "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
@@ -31503,6 +31567,10 @@
                   "string",
                   "null"
                 ]
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
               },
               "restrict": {
                 "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
@@ -31674,6 +31742,10 @@
                 "$ref": "#/$defs/PadKind",
                 "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
               },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "mask": {
                 "anyOf": [
                   {
@@ -31820,6 +31892,10 @@
           "InDocument5": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -31841,6 +31917,10 @@
           "InDocument6": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -37230,7 +37310,7 @@
     },
     {
       "category": "pcb",
-      "description": "Aligns the selected Footprints' (and Free Pads') left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. Refused when any of them is locked.",
+      "description": "Aligns the selected Footprints' (and Free Pads') left, right, top or bottom edges, or their centres, moving each as a whole. Up is +y. Refused when any of them is locked (unless `include_locked`).",
       "icon": "align",
       "id": "pcb.align",
       "kind": "edit",
@@ -37275,6 +37355,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "objects": {
             "description": "The Footprints, Free Pads and Output Origin to align, by UUID. A Footprint's\nextent is its Pads and drawing.",
             "items": {
@@ -37318,7 +37403,7 @@
     },
     {
       "category": "pcb",
-      "description": "Packs the selected Footprints into a rectangle in rows, from its top-left corner, left to right and then down, in Designator order, `spacing` (1 mm) apart. Their rotation and side are kept. Refused when they do not fit or any of them is locked.",
+      "description": "Packs the selected Footprints into a rectangle in rows, from its top-left corner, left to right and then down, in Designator order, `spacing` (1 mm) apart. Their rotation and side are kept. Refused when they do not fit or any of them is locked (unless `include_locked`).",
       "icon": "arrange",
       "id": "pcb.arrange_in_rect",
       "kind": "edit",
@@ -37362,6 +37447,11 @@
           "from": {
             "$ref": "#/$defs/PointParam",
             "description": "One corner of the rectangle."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           },
           "objects": {
             "description": "The Footprints and Free Pads to arrange, by UUID.",
@@ -37417,6 +37507,58 @@
         "type": "object"
       },
       "title": "Arrange Within Rectangle"
+    },
+    {
+      "category": "pcb",
+      "description": "Re-clusters Footprints outside the board with the Sync cluster packing, so they look freshly synced: right of the Board Outline and of every other placed Footprint, one block per Schematic Sheet (then one for Mechanical Parts), rows in natural Designator order, on the top side at rotation 0. Refused when any of them is locked, unless `include_locked`.",
+      "icon": "arrange",
+      "id": "pcb.arrange_outside_board",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "footprints": {
+            "description": "The Footprints to re-cluster, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked Footprints too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "footprints"
+        ],
+        "title": "ArrangeOutsideBoardParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Arrange Outside Board"
     },
     {
       "category": "pcb",
@@ -37763,6 +37905,11 @@
             "description": "The Board Cutout's UUID.",
             "format": "uuid",
             "type": "string"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -38144,15 +38291,21 @@
     },
     {
       "category": "pcb",
-      "description": "Deletes the Board Outline.",
+      "description": "Deletes the Board Outline. Refused when it is locked, unless `include_locked`.",
       "icon": "delete",
       "id": "pcb.board_outline.delete",
       "kind": "edit",
       "params": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
-        "title": "NoParams",
+        "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes a locked Board Outline too; without it a locked one is refused.",
+            "type": "boolean"
+          }
+        },
+        "title": "OutlineDeleteParams",
         "type": "object"
       },
       "presets": [],
@@ -38865,6 +39018,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "objects": {
             "description": "Track segments and Vias, by UUID.",
             "items": {
@@ -38988,6 +39146,1650 @@
         "type": "object"
       },
       "title": "Update Copper Nets"
+    },
+    {
+      "category": "pcb",
+      "description": "Copies Tracks, Vias, Zones, Keepouts, text, graphics, Free Pads and Dimensions from the board and returns them as a clipboard for pcb.paste, with their Nets by name. Footprints come through Sync and are refused. Changes nothing.",
+      "icon": "copy",
+      "id": "pcb.copy",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "The objects to copy, by UUID: Tracks, Vias, Zones, Keepouts, text, graphics, Free\nPads and Dimensions.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "CopyParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ArrowPosition": {
+            "description": "Where a Dimension's arrows sit.",
+            "oneOf": [
+              {
+                "const": "inside",
+                "description": "Between the extension lines, pointing out at them.",
+                "type": "string"
+              },
+              {
+                "const": "outside",
+                "description": "Outside the extension lines, pointing in at them.",
+                "type": "string"
+              }
+            ]
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
+          "Corner": {
+            "description": "A corner of a Pad, in its own frame (+y up).",
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
+          "Dimension": {
+            "additionalProperties": false,
+            "description": "A linear Dimension: the distance from `a` to `b` measured along `rotation`.\n\nThe dimension line runs along `rotation`, `offset` to the left of `a` (seen looking\nalong `rotation`). An extension line runs from `gap` off each end's point to `gap`\nbeyond the dimension line.",
+            "properties": {
+              "a": {
+                "$ref": "#/$defs/DimensionEnd",
+                "description": "The first measured end."
+              },
+              "arrow_length": {
+                "description": "With `outside` arrows, how far the dimension line runs past each extension line.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "arrow_position": {
+                "$ref": "#/$defs/ArrowPosition"
+              },
+              "arrow_size": {
+                "description": "The length of each side of an arrowhead.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "b": {
+                "$ref": "#/$defs/DimensionEnd",
+                "description": "The second measured end."
+              },
+              "extension_width": {
+                "description": "The pen width of the extension lines.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
+                "type": "string"
+              },
+              "format": {
+                "$ref": "#/$defs/DimensionFormat"
+              },
+              "gap": {
+                "description": "How far each extension line stops short of its point, and runs past the\ndimension line.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "height": {
+                "description": "Capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "offset": {
+                "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "precision": {
+                "description": "Digits after the decimal point.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "prefix": {
+                "description": "Text before the value; left out when empty.",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "The direction measured along, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "suffix": {
+                "description": "Text after the value; left out when empty.",
+                "type": "string"
+              },
+              "text_gap": {
+                "description": "The space between the dimension line and the text.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text_position": {
+                "$ref": "#/$defs/DimensionTextPosition"
+              },
+              "thickness": {
+                "description": "Stroke-font pen width; outline fonts ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "units": {
+                "$ref": "#/$defs/DimensionUnits"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width of the dimension line and arrows.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "a",
+              "b",
+              "rotation",
+              "width",
+              "extension_width",
+              "gap",
+              "offset",
+              "text_gap",
+              "arrow_size",
+              "arrow_length",
+              "arrow_position",
+              "text_position",
+              "font",
+              "height",
+              "thickness",
+              "justify",
+              "units",
+              "precision",
+              "format"
+            ],
+            "type": "object"
+          },
+          "DimensionEnd": {
+            "additionalProperties": false,
+            "description": "One measured end of a [`Dimension`].",
+            "properties": {
+              "point": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the end is. While it has a `ref`, this is kept on the Hotspot."
+              },
+              "ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HotspotRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Hotspot it follows; left out for an end in free space."
+              }
+            },
+            "required": [
+              "point"
+            ],
+            "type": "object"
+          },
+          "DimensionFormat": {
+            "description": "How a Dimension's value and unit are written.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "No value: only the prefix and suffix.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "`12.70`",
+                "type": "string"
+              },
+              {
+                "const": "value_unit",
+                "description": "`12.70mm`",
+                "type": "string"
+              },
+              {
+                "const": "value_bracketed_unit",
+                "description": "`12.70 (mm)`",
+                "type": "string"
+              }
+            ]
+          },
+          "DimensionTextPosition": {
+            "description": "Where a Dimension's text sits.",
+            "oneOf": [
+              {
+                "const": "automatic",
+                "description": "`top` when the text fits between the extension lines, else `right`.",
+                "type": "string"
+              },
+              {
+                "const": "center",
+                "description": "Centred on the dimension line.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Centred, above the dimension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Centred, below the dimension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "left",
+                "description": "On the dimension line, outside the left extension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "right",
+                "description": "On the dimension line, outside the right extension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "inside_left",
+                "description": "Above the line, inside against the left extension line.",
+                "type": "string"
+              },
+              {
+                "const": "inside_right",
+                "description": "Above the line, inside against the right extension line.",
+                "type": "string"
+              },
+              {
+                "const": "unidirectional",
+                "description": "Centred above the line and always horizontal, whatever the Dimension's angle.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "At this anchor, along the dimension line, with the style's `justify`.",
+                "properties": {
+                  "manual": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "manual"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "DimensionUnits": {
+            "description": "The units a Dimension's value is shown in.",
+            "oneOf": [
+              {
+                "enum": [
+                  "mm",
+                  "mil",
+                  "in",
+                  "cm"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "automatic",
+                "description": "Millimetres: a board stores no display units in v0.1.",
+                "type": "string"
+              }
+            ]
+          },
+          "FreePad": {
+            "additionalProperties": false,
+            "description": "A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a\nfiducial or a test point. It has the whole Pad model, in board coordinates.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad's anchor: the hole sits there, Tracks connect there and it turns about it."
+              },
+              "chamfer_ratio": {
+                "description": "How deep the chamfers of a `chamfered_rect` are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "description": "Which corners are rounded or chamfered, in the Pad's frame. Left out, all four.",
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "zone_connection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "How Zone fills of its Net join it. Each value left out inherits."
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "GraphicShape": {
+            "description": "The shape of a [`PcbGraphic`].",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle with opposite corners `from` and `to`, outlined, or\nfilled as well when `filled`.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HoleTolerance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "HoleTolerance": {
+            "additionalProperties": false,
+            "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+            "properties": {
+              "minus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "plus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plus",
+              "minus"
+            ],
+            "type": "object"
+          },
+          "Hotspot": {
+            "description": "Which point of an object a [`HotspotRef`] names.",
+            "oneOf": [
+              {
+                "const": "origin",
+                "description": "A Footprint's origin.",
+                "type": "string"
+              },
+              {
+                "const": "center",
+                "description": "The centre of a Free Pad or Via, or of an arc Track or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "start",
+                "description": "The start of a Track or line or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "end",
+                "description": "The end of a Track or line or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "anchor",
+                "description": "A free text's anchor.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The centre of the Pad with this UUID in a Footprint's copy.",
+                "properties": {
+                  "pad": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "properties": {
+                  "vertex": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "vertex"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "HotspotRef": {
+            "additionalProperties": false,
+            "description": "A Hotspot of one object on the board.",
+            "properties": {
+              "hotspot": {
+                "$ref": "#/$defs/Hotspot"
+              },
+              "object": {
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "object",
+              "hotspot"
+            ],
+            "type": "object"
+          },
+          "Keepout": {
+            "additionalProperties": false,
+            "description": "An area on one copper Layer, or on every copper Layer, where the kinds of object it\nrestricts may not go. Copper keeps the normal clearance from it unless the board-wide\n`clearance` rule sets `zero_keepout_clearance`. It has no Net and is never plotted.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer; left out for every copper Layer.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "restrict": {
+                "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
+                "items": {
+                  "$ref": "#/$defs/Restriction"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind",
+                "description": "`polygon` or `line`."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              },
+              "width": {
+                "description": "A line's width; only for `line`.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "shape",
+              "vertices",
+              "restrict"
+            ],
+            "type": "object"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
+          "LayerSpan": {
+            "additionalProperties": false,
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
+            "properties": {
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "oneOf": [
+              {
+                "enum": [
+                  "circle",
+                  "rect",
+                  "oval"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "rounded_rect",
+                "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+                "type": "string"
+              },
+              {
+                "const": "chamfered_rect",
+                "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+                "type": "string"
+              }
+            ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PcbGraphic": {
+            "additionalProperties": false,
+            "description": "A line, arc or rectangle drawn on a PCB Layer with a round pen.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
+            ],
+            "type": "object"
+          },
+          "PcbText": {
+            "additionalProperties": false,
+            "description": "Free text on a PCB Layer.\n\n`position` is its justification anchor. Mirroring and rotation apply about it.",
+            "properties": {
+              "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
+                "type": "string"
+              },
+              "frame": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextFrame"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "description": "Capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The anchor of the text block or Text Frame."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "Stroke-font pen width; outline fonts ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "position",
+              "font",
+              "height",
+              "thickness",
+              "justify"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
+            "oneOf": [
+              {
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
+                "type": "string"
+              }
+            ]
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
+          },
+          "TextFrame": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "Track": {
+            "additionalProperties": false,
+            "description": "One copper segment on a copper Layer. A route is a chain of Tracks that share ends.",
+            "properties": {
+              "geometry": {
+                "$ref": "#/$defs/TrackGeometry"
+              },
+              "layer": {
+                "description": "The copper Layer it is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for copper on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The copper width; the ends are round.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "geometry"
+            ],
+            "type": "object"
+          },
+          "TrackGeometry": {
+            "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight segment.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Vertex": {
+            "additionalProperties": false,
+            "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
+            "properties": {
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Via": {
+            "additionalProperties": false,
+            "description": "A plated hole joining copper on the Layers of its span.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The centre."
+              },
+              "diameter": {
+                "description": "The copper pad diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "description": "The drilled hole diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Via on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "span": {
+                "$ref": "#/$defs/LayerSpan",
+                "description": "The copper Layers it joins."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "diameter",
+              "hole",
+              "span"
+            ],
+            "type": "object"
+          },
+          "Zone": {
+            "additionalProperties": false,
+            "description": "A solid copper fill on one copper Layer, inside its outline, keeping clear of other\nNets' copper. Its fill is computed on demand and cached outside the Document. How it\njoins Pads and Vias of its Net comes from the `zone_connection` rule.",
+            "properties": {
+              "clearance": {
+                "description": "The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the\nlarger of it and the rule applies.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "follows_outline": {
+                "description": "Whether the outline is the Board Outline, following its later edits; the fill\nkeeps the edge clearance from it. Left out when false.",
+                "type": "boolean"
+              },
+              "layer": {
+                "description": "The copper Layer it fills.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "min_island_area": {
+                "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "min_width": {
+                "description": "The narrowest copper the fill may leave: thinner necks are removed. Left out, the\nNet's `track_width` minimum.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "Its typed name, unique on the board. Left out, it shows a name derived from the\nboard's [`ZoneNameScheme`], which is never stored.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a fill on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pour_over": {
+                "$ref": "#/$defs/PourOver",
+                "description": "How the fill treats same-Net Zones and Tracks."
+              },
+              "priority": {
+                "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "remove_unconnected": {
+                "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
+                "type": "boolean"
+              },
+              "shelved": {
+                "description": "Whether it is shelved: kept in the file but hidden from the canvas and skipped by\nfill, DRC, connectivity and outputs. Left out when false.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "description": "The outline the fill stays inside; the last vertex joins the first. Empty while\nthe Zone [follows the Board Outline](Self::follows_outline).",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "pour_over",
+              "remove_unconnected",
+              "min_island_area",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Copied board objects, as `pcb.copy` returns them and `pcb.paste` takes them. Treat it\nas opaque.",
+        "properties": {
+          "dimensions": {
+            "items": {
+              "$ref": "#/$defs/Dimension"
+            },
+            "type": "array"
+          },
+          "free_pads": {
+            "items": {
+              "$ref": "#/$defs/FreePad"
+            },
+            "type": "array"
+          },
+          "graphics": {
+            "items": {
+              "$ref": "#/$defs/PcbGraphic"
+            },
+            "type": "array"
+          },
+          "keepouts": {
+            "items": {
+              "$ref": "#/$defs/Keepout"
+            },
+            "type": "array"
+          },
+          "nets": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The copied objects' Nets by name, for `keep_nets`.",
+            "type": "object"
+          },
+          "origin": {
+            "$ref": "#/$defs/Point",
+            "description": "The lower-left corner of the copied objects' extent; pasting puts it at `at`."
+          },
+          "texts": {
+            "items": {
+              "$ref": "#/$defs/PcbText"
+            },
+            "type": "array"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/$defs/Track"
+            },
+            "type": "array"
+          },
+          "vias": {
+            "items": {
+              "$ref": "#/$defs/Via"
+            },
+            "type": "array"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/$defs/Zone"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin"
+        ],
+        "title": "BoardClipboard",
+        "type": "object"
+      },
+      "title": "Copy"
     },
     {
       "category": "pcb",
@@ -39705,6 +41507,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Takes a locked Dimension too; without it a locked one is refused.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "The Dimension's UUID.",
             "format": "uuid",
@@ -39735,6 +41542,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Takes a locked Dimension too; without it a locked one is refused.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "The Dimension's UUID.",
             "format": "uuid",
@@ -40231,6 +42043,11 @@
             "default": null,
             "description": "How far each extension line stops short of its point and runs past the dimension\nline; 0.5 mm by default."
           },
+          "include_locked": {
+            "default": false,
+            "description": "Moves a locked Dimension too; without it `a`, `b`, `rotation` or `offset` on a locked one is refused.",
+            "type": "boolean"
+          },
           "layer": {
             "description": "A new Layer: copper, silkscreen, mechanical or documentation.",
             "type": [
@@ -40367,7 +42184,7 @@
     },
     {
       "category": "pcb",
-      "description": "Spaces the selected Footprints' centres evenly, horizontally or vertically, between the two outermost, which stay put. Refused when any of them is locked.",
+      "description": "Spaces the selected Footprints' centres evenly, horizontally or vertically, between the two outermost, which stay put. Refused when any of them is locked (unless `include_locked`).",
       "icon": "distribute",
       "id": "pcb.distribute",
       "kind": "edit",
@@ -40387,6 +42204,11 @@
         "properties": {
           "direction": {
             "$ref": "#/$defs/Direction"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           },
           "objects": {
             "description": "The Footprints, Free Pads and Output Origin to space out, by UUID.",
@@ -40678,7 +42500,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints and SMD Free Pads to the other side of the board, mirroring them left-right: their Pads and silkscreen, courtyard and assembly drawing go to the other face, mirrored. Dimensions mirror in place on their Layer, and the Board Outline and Board Cutouts mirror left-right. A lone object flips in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "description": "Moves Footprints and SMD Free Pads to the other side of the board, mirroring them left-right: their Pads and silkscreen, courtyard and assembly drawing go to the other face, mirrored. Dimensions mirror in place on their Layer, and the Board Outline and Board Cutouts mirror left-right. A lone object flips in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
       "icon": "flip",
       "id": "pcb.flip",
       "kind": "edit",
@@ -40729,6 +42551,11 @@
               }
             ],
             "description": "A point on the vertical line to mirror about: by default a lone object's own\nposition, else the middle of the selection's extent. Only its x counts."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           },
           "objects": {
             "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto flip, by UUID.",
@@ -42425,6 +44252,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "pads": {
             "description": "The Free Pads, by UUID.",
             "items": {
@@ -42832,6 +44664,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "The graphic's UUID.",
             "format": "uuid",
@@ -43160,6 +44997,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "keepouts": {
             "description": "The Keepouts' UUIDs.",
             "items": {
@@ -43302,6 +45144,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked Keepout too; without it `shape`, `vertices` or `width` on a locked Keepout is refused.",
+            "type": "boolean"
+          },
           "keepout": {
             "description": "The Keepout's UUID.",
             "format": "uuid",
@@ -43375,7 +45222,7 @@
     },
     {
       "category": "pcb",
-      "description": "Locks Footprints against moving, turning and flipping, or unlocks them. Their Designator text and data stay editable.",
+      "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
       "icon": "lock",
       "id": "pcb.lock",
       "kind": "edit",
@@ -43383,21 +45230,21 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
-          "footprints": {
-            "description": "The Footprints to lock or unlock, by UUID.",
+          "locked": {
+            "description": "True locks their geometry; false unlocks it.",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "The objects to lock or unlock, by UUID: Footprints, Tracks, Vias, Zones, Free Pads,\ntext, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts.",
             "items": {
               "format": "uuid",
               "type": "string"
             },
             "type": "array"
-          },
-          "locked": {
-            "description": "True locks them against moving, turning and flipping; false unlocks them.",
-            "type": "boolean"
           }
         },
         "required": [
-          "footprints",
+          "objects",
           "locked"
         ],
         "title": "LockParams",
@@ -43653,6 +45500,11 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -43945,7 +45797,7 @@
     },
     {
       "category": "pcb",
-      "description": "Moves Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline alone is Move Board Shape; `pcb.board.move` moves the whole board. Refused when any of them is a locked Footprint, or a Dimension without the objects it references.",
+      "description": "Moves Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts by an offset. Moving the Board Outline alone is Move Board Shape; `pcb.board.move` moves the whole board. Refused when any of them is locked (unless `include_locked`), or a Dimension without the objects it references.",
       "icon": "move",
       "id": "pcb.move",
       "kind": "edit",
@@ -43989,6 +45841,11 @@
           "by": {
             "$ref": "#/$defs/PointParam",
             "description": "How far to move them."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           },
           "objects": {
             "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto move, by UUID.",
@@ -45865,6 +47722,1715 @@
     },
     {
       "category": "pcb",
+      "description": "Pastes what pcb.copy returned as new objects, its origin at `at` (where it was copied from by default), unlocked and on no Net. Paste Special is `keep_nets` (Nets found again by name) and `layer` (every object with a Layer goes on that one).",
+      "icon": "paste",
+      "id": "pcb.paste",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "ArrowPosition": {
+            "description": "Where a Dimension's arrows sit.",
+            "oneOf": [
+              {
+                "const": "inside",
+                "description": "Between the extension lines, pointing out at them.",
+                "type": "string"
+              },
+              {
+                "const": "outside",
+                "description": "Outside the extension lines, pointing in at them.",
+                "type": "string"
+              }
+            ]
+          },
+          "BoardClipboard": {
+            "additionalProperties": false,
+            "description": "Copied board objects, as `pcb.copy` returns them and `pcb.paste` takes them. Treat it\nas opaque.",
+            "properties": {
+              "dimensions": {
+                "items": {
+                  "$ref": "#/$defs/Dimension"
+                },
+                "type": "array"
+              },
+              "free_pads": {
+                "items": {
+                  "$ref": "#/$defs/FreePad"
+                },
+                "type": "array"
+              },
+              "graphics": {
+                "items": {
+                  "$ref": "#/$defs/PcbGraphic"
+                },
+                "type": "array"
+              },
+              "keepouts": {
+                "items": {
+                  "$ref": "#/$defs/Keepout"
+                },
+                "type": "array"
+              },
+              "nets": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "The copied objects' Nets by name, for `keep_nets`.",
+                "type": "object"
+              },
+              "origin": {
+                "$ref": "#/$defs/Point",
+                "description": "The lower-left corner of the copied objects' extent; pasting puts it at `at`."
+              },
+              "texts": {
+                "items": {
+                  "$ref": "#/$defs/PcbText"
+                },
+                "type": "array"
+              },
+              "tracks": {
+                "items": {
+                  "$ref": "#/$defs/Track"
+                },
+                "type": "array"
+              },
+              "vias": {
+                "items": {
+                  "$ref": "#/$defs/Via"
+                },
+                "type": "array"
+              },
+              "zones": {
+                "items": {
+                  "$ref": "#/$defs/Zone"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "origin"
+            ],
+            "type": "object"
+          },
+          "ConnectionStyle": {
+            "description": "How a fill meets a Pad or Via.",
+            "oneOf": [
+              {
+                "const": "relief",
+                "description": "Through spokes across a clear ring, so the Pad solders easily.",
+                "type": "string"
+              },
+              {
+                "const": "solid",
+                "description": "The fill runs straight into it.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "The fill keeps the gap clear and doesn't connect.",
+                "type": "string"
+              }
+            ]
+          },
+          "Corner": {
+            "description": "A corner of a Pad, in its own frame (+y up).",
+            "enum": [
+              "top_left",
+              "top_right",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "type": "string"
+          },
+          "Dimension": {
+            "additionalProperties": false,
+            "description": "A linear Dimension: the distance from `a` to `b` measured along `rotation`.\n\nThe dimension line runs along `rotation`, `offset` to the left of `a` (seen looking\nalong `rotation`). An extension line runs from `gap` off each end's point to `gap`\nbeyond the dimension line.",
+            "properties": {
+              "a": {
+                "$ref": "#/$defs/DimensionEnd",
+                "description": "The first measured end."
+              },
+              "arrow_length": {
+                "description": "With `outside` arrows, how far the dimension line runs past each extension line.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "arrow_position": {
+                "$ref": "#/$defs/ArrowPosition"
+              },
+              "arrow_size": {
+                "description": "The length of each side of an arrowhead.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "b": {
+                "$ref": "#/$defs/DimensionEnd",
+                "description": "The second measured end."
+              },
+              "extension_width": {
+                "description": "The pen width of the extension lines.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
+                "type": "string"
+              },
+              "format": {
+                "$ref": "#/$defs/DimensionFormat"
+              },
+              "gap": {
+                "description": "How far each extension line stops short of its point, and runs past the\ndimension line.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "height": {
+                "description": "Capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "offset": {
+                "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "precision": {
+                "description": "Digits after the decimal point.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "prefix": {
+                "description": "Text before the value; left out when empty.",
+                "type": "string"
+              },
+              "rotation": {
+                "description": "The direction measured along, counter-clockwise from +x.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "suffix": {
+                "description": "Text after the value; left out when empty.",
+                "type": "string"
+              },
+              "text_gap": {
+                "description": "The space between the dimension line and the text.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text_position": {
+                "$ref": "#/$defs/DimensionTextPosition"
+              },
+              "thickness": {
+                "description": "Stroke-font pen width; outline fonts ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "units": {
+                "$ref": "#/$defs/DimensionUnits"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width of the dimension line and arrows.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "a",
+              "b",
+              "rotation",
+              "width",
+              "extension_width",
+              "gap",
+              "offset",
+              "text_gap",
+              "arrow_size",
+              "arrow_length",
+              "arrow_position",
+              "text_position",
+              "font",
+              "height",
+              "thickness",
+              "units",
+              "precision",
+              "format"
+            ],
+            "type": "object"
+          },
+          "DimensionEnd": {
+            "additionalProperties": false,
+            "description": "One measured end of a [`Dimension`].",
+            "properties": {
+              "point": {
+                "$ref": "#/$defs/Point",
+                "description": "Where the end is. While it has a `ref`, this is kept on the Hotspot."
+              },
+              "ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HotspotRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The Hotspot it follows; left out for an end in free space."
+              }
+            },
+            "required": [
+              "point"
+            ],
+            "type": "object"
+          },
+          "DimensionFormat": {
+            "description": "How a Dimension's value and unit are written.",
+            "oneOf": [
+              {
+                "const": "none",
+                "description": "No value: only the prefix and suffix.",
+                "type": "string"
+              },
+              {
+                "const": "value",
+                "description": "`12.70`",
+                "type": "string"
+              },
+              {
+                "const": "value_unit",
+                "description": "`12.70mm`",
+                "type": "string"
+              },
+              {
+                "const": "value_bracketed_unit",
+                "description": "`12.70 (mm)`",
+                "type": "string"
+              }
+            ]
+          },
+          "DimensionTextPosition": {
+            "description": "Where a Dimension's text sits.",
+            "oneOf": [
+              {
+                "const": "automatic",
+                "description": "`top` when the text fits between the extension lines, else `right`.",
+                "type": "string"
+              },
+              {
+                "const": "center",
+                "description": "Centred on the dimension line.",
+                "type": "string"
+              },
+              {
+                "const": "top",
+                "description": "Centred, above the dimension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "bottom",
+                "description": "Centred, below the dimension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "left",
+                "description": "On the dimension line, outside the left extension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "right",
+                "description": "On the dimension line, outside the right extension line as the text reads.",
+                "type": "string"
+              },
+              {
+                "const": "inside_left",
+                "description": "Above the line, inside against the left extension line.",
+                "type": "string"
+              },
+              {
+                "const": "inside_right",
+                "description": "Above the line, inside against the right extension line.",
+                "type": "string"
+              },
+              {
+                "const": "unidirectional",
+                "description": "Centred above the line and always horizontal, whatever the Dimension's angle.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "At this anchor, along the dimension line, with the style's `justify`.",
+                "properties": {
+                  "manual": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "manual"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "DimensionUnits": {
+            "description": "The units a Dimension's value is shown in.",
+            "oneOf": [
+              {
+                "enum": [
+                  "mm",
+                  "mil",
+                  "in",
+                  "cm"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "automatic",
+                "description": "Millimetres: a board stores no display units in v0.1.",
+                "type": "string"
+              }
+            ]
+          },
+          "FreePad": {
+            "additionalProperties": false,
+            "description": "A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a\nfiducial or a test point. It has the whole Pad model, in board coordinates.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The Pad's anchor: the hole sits there, Tracks connect there and it turns about it."
+              },
+              "chamfer_ratio": {
+                "description": "How deep the chamfers of a `chamfered_rect` are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corner_ratio": {
+                "description": "How round the corners of a `rounded_rect`, or the uncut corners of a\n`chamfered_rect`, are.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "corners": {
+                "description": "Which corners are rounded or chamfered, in the Pad's frame. Left out, all four.",
+                "items": {
+                  "$ref": "#/$defs/Corner"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "uniqueItems": true
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Hole"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The drilled hole; SMD Pads have none, the others must."
+              },
+              "kind": {
+                "$ref": "#/$defs/PadKind",
+                "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Pad on no Net. Non-plated Pads have no copper and no\nNet.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "offset": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Where the copper sits relative to `at`, in the Pad's frame. Left out, on it."
+              },
+              "paste": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Paste"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rotation": {
+                "description": "Counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "shape": {
+                "$ref": "#/$defs/PadShape"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Side"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "zone_connection": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ZoneConnection"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "How Zone fills of its Net join it. Each value left out inherits."
+              }
+            },
+            "required": [
+              "uuid",
+              "kind",
+              "shape",
+              "at",
+              "rotation",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "GraphicShape": {
+            "description": "The shape of a [`PcbGraphic`].",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight line.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "An axis-aligned rectangle with opposite corners `from` and `to`, outlined, or\nfilled as well when `filled`.",
+                "properties": {
+                  "filled": {
+                    "type": "boolean"
+                  },
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "rect",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Hole": {
+            "additionalProperties": false,
+            "description": "A drilled hole: round when `width == height`, otherwise a slot along the longer side.\nSizes are the finished diameter.",
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "rotation": {
+                "description": "Turns a slot in the Pad's frame, counter-clockwise.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "tolerance": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HoleTolerance"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The allowed deviation from the finished size. Stored and shown; it changes no\ngeometry."
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "HoleTolerance": {
+            "additionalProperties": false,
+            "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
+            "properties": {
+              "minus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "plus": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "plus",
+              "minus"
+            ],
+            "type": "object"
+          },
+          "Hotspot": {
+            "description": "Which point of an object a [`HotspotRef`] names.",
+            "oneOf": [
+              {
+                "const": "origin",
+                "description": "A Footprint's origin.",
+                "type": "string"
+              },
+              {
+                "const": "center",
+                "description": "The centre of a Free Pad or Via, or of an arc Track or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "start",
+                "description": "The start of a Track or line or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "end",
+                "description": "The end of a Track or line or arc graphic.",
+                "type": "string"
+              },
+              {
+                "const": "anchor",
+                "description": "A free text's anchor.",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The centre of the Pad with this UUID in a Footprint's copy.",
+                "properties": {
+                  "pad": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "pad"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A vertex, counted from 0, of an outline, cutout, Zone (its outline's when it follows\nthe Board Outline), Zone Cutout, Keepout or rectangle graphic\n(corners `from`, (`to.x`, `from.y`), `to`, (`from.x`, `to.y`)).",
+                "properties": {
+                  "vertex": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "vertex"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "HotspotRef": {
+            "additionalProperties": false,
+            "description": "A Hotspot of one object on the board.",
+            "properties": {
+              "hotspot": {
+                "$ref": "#/$defs/Hotspot"
+              },
+              "object": {
+                "description": "The object: a Footprint, Free Pad, Via, Track, graphic, text, Board Outline, Board\nCutout, Zone, Zone Cutout or Keepout.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "object",
+              "hotspot"
+            ],
+            "type": "object"
+          },
+          "Keepout": {
+            "additionalProperties": false,
+            "description": "An area on one copper Layer, or on every copper Layer, where the kinds of object it\nrestricts may not go. Copper keeps the normal clearance from it unless the board-wide\n`clearance` rule sets `zero_keepout_clearance`. It has no Net and is never plotted.",
+            "properties": {
+              "layer": {
+                "description": "The copper Layer; left out for every copper Layer.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "restrict": {
+                "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
+                "items": {
+                  "$ref": "#/$defs/Restriction"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "shape": {
+                "$ref": "#/$defs/KeepoutShapeKind",
+                "description": "`polygon` or `line`."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              },
+              "width": {
+                "description": "A line's width; only for `line`.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "uuid",
+              "shape",
+              "vertices",
+              "restrict"
+            ],
+            "type": "object"
+          },
+          "KeepoutShapeKind": {
+            "description": "Which [`KeepoutShape`] a Keepout has, as the file spells it.",
+            "enum": [
+              "polygon",
+              "line"
+            ],
+            "type": "string"
+          },
+          "LayerSpan": {
+            "additionalProperties": false,
+            "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
+            "properties": {
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Mask": {
+            "additionalProperties": false,
+            "properties": {
+              "bottom": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "from_hole_edge": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "top": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MaskSide"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "MaskSide": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/Tenting"
+              }
+            ]
+          },
+          "PadKind": {
+            "enum": [
+              "smd",
+              "plated_through_hole",
+              "non_plated"
+            ],
+            "type": "string"
+          },
+          "PadShape": {
+            "oneOf": [
+              {
+                "enum": [
+                  "circle",
+                  "rect",
+                  "oval"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "rounded_rect",
+                "description": "A rectangle with rounded corners: `corner_ratio`, on `corners`.",
+                "type": "string"
+              },
+              {
+                "const": "chamfered_rect",
+                "description": "A rectangle with `corners` cut off by `chamfer_ratio`, the others rounded by\n`corner_ratio`. An octagon is one.",
+                "type": "string"
+              }
+            ]
+          },
+          "Paste": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "expansion": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "expansion"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "percent": {
+                    "format": "int32",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "percent"
+                ],
+                "type": "object"
+              },
+              {
+                "$ref": "#/$defs/PasteMode"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "windows": {
+                    "items": {
+                      "$ref": "#/$defs/PasteWindow"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "windows"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PasteMode": {
+            "enum": [
+              "none"
+            ],
+            "type": "string"
+          },
+          "PasteWindow": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "corner_ratio": {
+                "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+                "maximum": 100000,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "at",
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "PcbGraphic": {
+            "additionalProperties": false,
+            "description": "A line, arc or rectangle drawn on a PCB Layer with a round pen.",
+            "properties": {
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "shape": {
+                "$ref": "#/$defs/GraphicShape"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The pen width.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "shape"
+            ],
+            "type": "object"
+          },
+          "PcbText": {
+            "additionalProperties": false,
+            "description": "Free text on a PCB Layer.\n\n`position` is its justification anchor. Mirroring and rotation apply about it.",
+            "properties": {
+              "font": {
+                "description": "The named family. A missing family draws as bundled Noto Sans.",
+                "type": "string"
+              },
+              "frame": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextFrame"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "height": {
+                "description": "Capital height.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "justify": {
+                "$ref": "#/$defs/TextJustify",
+                "default": {
+                  "h": "left",
+                  "v": "bottom"
+                }
+              },
+              "knockout": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TextKnockout"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "description": "The Layer it is drawn on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mirrored": {
+                "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
+                "type": "boolean"
+              },
+              "position": {
+                "$ref": "#/$defs/Point",
+                "description": "The anchor of the text block or Text Frame."
+              },
+              "rotation": {
+                "description": "Counter-clockwise about `position`; left out when 0.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "text": {
+                "description": "The text; `\\n` starts a new line.",
+                "type": "string"
+              },
+              "thickness": {
+                "description": "Stroke-font pen width; outline fonts ignore it.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "text",
+              "position",
+              "font",
+              "height",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "PointParam": {
+            "additionalProperties": false,
+            "description": "A point param.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "PourOver": {
+            "description": "How a Zone's fill treats copper of its own Net.",
+            "oneOf": [
+              {
+                "const": "zones_only",
+                "description": "Same-Net Zones merge; same-Net Tracks keep clear by the clearance.",
+                "type": "string"
+              },
+              {
+                "const": "all",
+                "description": "Same-Net Zones and Tracks merge.",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "description": "Same-Net Zones and Tracks keep clear by the clearance.",
+                "type": "string"
+              }
+            ]
+          },
+          "Restriction": {
+            "description": "A kind of object a Keepout keeps out.",
+            "oneOf": [
+              {
+                "enum": [
+                  "tracks",
+                  "vias",
+                  "smd_pads"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "zones",
+                "description": "Zone fills.",
+                "type": "string"
+              },
+              {
+                "const": "tht_pads",
+                "description": "Through-hole Pads, plated or not.",
+                "type": "string"
+              },
+              {
+                "const": "footprints",
+                "description": "Footprints, by their Courtyard (or fallback box) on the Keepout's side, with no\nclearance. REDA's own addition.",
+                "type": "string"
+              }
+            ]
+          },
+          "Side": {
+            "description": "Which face of the board a sided Layer is on.",
+            "enum": [
+              "top",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "Tenting": {
+            "enum": [
+              "tent"
+            ],
+            "type": "string"
+          },
+          "TextFrame": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width",
+              "height"
+            ],
+            "type": "object"
+          },
+          "TextHJustify": {
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ],
+            "type": "string"
+          },
+          "TextJustify": {
+            "additionalProperties": false,
+            "description": "How a text block sits on its anchor. Bottom is the last line's baseline.",
+            "properties": {
+              "h": {
+                "$ref": "#/$defs/TextHJustify"
+              },
+              "v": {
+                "$ref": "#/$defs/TextVJustify"
+              }
+            },
+            "required": [
+              "h",
+              "v"
+            ],
+            "type": "object"
+          },
+          "TextKnockout": {
+            "additionalProperties": false,
+            "properties": {
+              "margin": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "margin"
+            ],
+            "type": "object"
+          },
+          "TextVJustify": {
+            "enum": [
+              "top",
+              "center",
+              "bottom"
+            ],
+            "type": "string"
+          },
+          "Track": {
+            "additionalProperties": false,
+            "description": "One copper segment on a copper Layer. A route is a chain of Tracks that share ends.",
+            "properties": {
+              "geometry": {
+                "$ref": "#/$defs/TrackGeometry"
+              },
+              "layer": {
+                "description": "The copper Layer it is on.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "net": {
+                "description": "Its PCB Net; left out for copper on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "The copper width; the ends are round.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "width",
+              "geometry"
+            ],
+            "type": "object"
+          },
+          "TrackGeometry": {
+            "description": "The centreline of a [`Track`]. v0.1 creates only lines.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "A straight segment.",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "line",
+                    "type": "string"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A circular arc from `from` to `to`, sweeping `sweep` (counter-clockwise when\npositive).",
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/Point"
+                  },
+                  "kind": {
+                    "const": "arc",
+                    "type": "string"
+                  },
+                  "sweep": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/Point"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "from",
+                  "to",
+                  "sweep"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Vertex": {
+            "additionalProperties": false,
+            "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
+            "properties": {
+              "sweep": {
+                "description": "The edge to the next vertex: left out (or 0) for a straight edge, otherwise an arc\nsweeping this angle, counter-clockwise when positive.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Via": {
+            "additionalProperties": false,
+            "description": "A plated hole joining copper on the Layers of its span.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point",
+                "description": "The centre."
+              },
+              "diameter": {
+                "description": "The copper pad diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "hole": {
+                "description": "The drilled hole diameter.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "mask": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Mask"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a Via on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "span": {
+                "$ref": "#/$defs/LayerSpan",
+                "description": "The copper Layers it joins."
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "at",
+              "diameter",
+              "hole",
+              "span"
+            ],
+            "type": "object"
+          },
+          "Zone": {
+            "additionalProperties": false,
+            "description": "A solid copper fill on one copper Layer, inside its outline, keeping clear of other\nNets' copper. Its fill is computed on demand and cached outside the Document. How it\njoins Pads and Vias of its Net comes from the `zone_connection` rule.",
+            "properties": {
+              "clearance": {
+                "description": "The gap kept to other Nets' copper. Left out, the clearance rule applies; set, the\nlarger of it and the rule applies.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "follows_outline": {
+                "description": "Whether the outline is the Board Outline, following its later edits; the fill\nkeeps the edge clearance from it. Left out when false.",
+                "type": "boolean"
+              },
+              "layer": {
+                "description": "The copper Layer it fills.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "locked": {
+                "description": "Locked against geometry changes; left out when false.",
+                "type": "boolean"
+              },
+              "min_island_area": {
+                "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "min_width": {
+                "description": "The narrowest copper the fill may leave: thinner necks are removed. Left out, the\nNet's `track_width` minimum.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "Its typed name, unique on the board. Left out, it shows a name derived from the\nboard's [`ZoneNameScheme`], which is never stored.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net": {
+                "description": "Its PCB Net; left out for a fill on no Net.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pour_over": {
+                "$ref": "#/$defs/PourOver",
+                "description": "How the fill treats same-Net Zones and Tracks."
+              },
+              "priority": {
+                "description": "Where Zones overlap, the higher priority fills first and the others keep clear\nof it.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "remove_unconnected": {
+                "description": "Whether pieces of fill that touch no copper of the Net are dropped. No effect on a\nZone with no Net.",
+                "type": "boolean"
+              },
+              "shelved": {
+                "description": "Whether it is shelved: kept in the file but hidden from the canvas and skipped by\nfill, DRC, connectivity and outputs. Left out when false.",
+                "type": "boolean"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "vertices": {
+                "description": "The outline the fill stays inside; the last vertex joins the first. Empty while\nthe Zone [follows the Board Outline](Self::follows_outline).",
+                "items": {
+                  "$ref": "#/$defs/Vertex"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "uuid",
+              "layer",
+              "pour_over",
+              "remove_unconnected",
+              "min_island_area",
+              "priority"
+            ],
+            "type": "object"
+          },
+          "ZoneConnection": {
+            "additionalProperties": false,
+            "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+            "properties": {
+              "angle": {
+                "description": "0, 45 or 90 degrees in the Pad's frame.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "gap": {
+                "description": "The clear ring around a relieved or unconnected Pad.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spoke_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "spokes": {
+                "description": "2 or 4.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectionStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PointParam"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the clipboard's origin (the lower-left corner of what was copied) goes; where\nit was copied from by default."
+          },
+          "clipboard": {
+            "$ref": "#/$defs/BoardClipboard",
+            "description": "What pcb.copy returned."
+          },
+          "keep_nets": {
+            "default": false,
+            "description": "Paste Special: copper keeps its Nets, found by name on this board (none when the\nboard has no Net of that name). Without it pasted copper is on no Net.",
+            "type": "boolean"
+          },
+          "layer": {
+            "description": "Paste Special: every object with a Layer goes on this one (Vias and Free Pads keep\ntheir own). Copper kinds need a copper Layer, text, graphics and Dimensions a\ndrawing Layer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "clipboard"
+        ],
+        "title": "PasteParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The objects a paste made.",
+        "properties": {
+          "objects": {
+            "description": "The new objects in clipboard order (Tracks, Vias, Zones, Keepouts, texts, graphics,\nFree Pads, Dimensions), ready to select.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "PasteResult",
+        "type": "object"
+      },
+      "title": "Paste"
+    },
+    {
+      "category": "pcb",
       "description": "Bevels corners of a Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout with a straight edge `distance` back along each edge: the corners at `vertices`, or every corner between straight edges when left out. Refused when an edge is too short for the distance, or the result crosses itself.",
       "icon": "board_outline",
       "id": "pcb.polygon.chamfer",
@@ -45892,6 +49458,11 @@
           "distance": {
             "$ref": "#/$defs/Length",
             "description": "How far back along each edge the bevel starts."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked object too; without it a locked one is refused.",
+            "type": "boolean"
           },
           "object": {
             "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
@@ -45971,6 +49542,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked object too; without it a locked one is refused.",
+            "type": "boolean"
+          },
           "object": {
             "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
             "format": "uuid",
@@ -46096,6 +49672,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked object too; without it a locked one is refused.",
+            "type": "boolean"
+          },
           "object": {
             "description": "The Board Outline, Board Cutout, Zone, Zone Cutout or polygon Keepout.",
             "format": "uuid",
@@ -46350,7 +49931,7 @@
     },
     {
       "category": "pcb",
-      "description": "Turns Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is a locked Footprint.",
+      "description": "Turns Footprints, Free Pads, Dimensions, the Output Origin, the Board Outline and Board Cutouts counter-clockwise (90° by default) about a point: a lone object turns in place, a selection about the middle of its extent. Refused when any of them is locked (unless `include_locked`).",
       "icon": "rotate",
       "id": "pcb.rotate",
       "kind": "edit",
@@ -46427,6 +50008,11 @@
               }
             ],
             "description": "The point to turn about: by default a lone object's own position, else the middle\nof the selection's extent."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
           },
           "objects": {
             "description": "The Footprints, Free Pads, Dimensions, Output Origin, Board Outline and Board Cutouts\nto turn, by UUID.",
@@ -50404,6 +53990,61 @@
     },
     {
       "category": "pcb",
+      "description": "Exchanges the positions of two Footprints (or Free Pads): each origin goes where the other's was. Each keeps its own rotation and side. Refused when either is locked, unless `include_locked`.",
+      "icon": "move",
+      "id": "pcb.swap",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "description": "One Footprint or Free Pad, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "b": {
+            "description": "The other.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Swaps locked objects too; without it a locked one is refused.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "title": "SwapParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a placement Command returns.",
+        "properties": {
+          "objects": {
+            "description": "The objects it moved, in the order given.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "Placed",
+        "type": "object"
+      },
+      "title": "Swap"
+    },
+    {
+      "category": "pcb",
       "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, anchored at (`x`, `y`), left/bottom by default. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
       "icon": "text",
       "id": "pcb.text.add",
@@ -50640,6 +54281,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "uuid": {
             "description": "The text object's UUID.",
             "format": "uuid",
@@ -50975,6 +54621,11 @@
             ],
             "default": null
           },
+          "include_locked": {
+            "default": false,
+            "description": "Moves a locked text too; without it `x`, `y` or `rotation` on a locked text is refused.",
+            "type": "boolean"
+          },
           "justify": {
             "anyOf": [
               {
@@ -51198,7 +54849,7 @@
     },
     {
       "category": "pcb",
-      "description": "Deletes stacked duplicate Track segments (the same ends on the same Layer and Net, keeping the widest) and merges collinear segments of one width that meet end to end with nothing else at the joint.",
+      "description": "Deletes stacked duplicate Track segments (the same ends on the same Layer and Net, keeping the widest) and merges collinear segments of one width that meet end to end with nothing else at the joint. Locked Tracks stay as they are.",
       "icon": "track",
       "id": "pcb.track.cleanup",
       "kind": "edit",
@@ -51271,6 +54922,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "tracks": {
             "description": "The Track segments' UUIDs.",
             "items": {
@@ -51364,6 +55020,11 @@
             "description": "Moves the segment alone, leaving its neighbours where they are.",
             "type": "boolean"
           },
+          "include_locked": {
+            "default": false,
+            "description": "Drags a locked Track too; without it a locked one is refused.",
+            "type": "boolean"
+          },
           "track": {
             "description": "The Track segment.",
             "format": "uuid",
@@ -51409,7 +55070,7 @@
     },
     {
       "category": "pcb",
-      "description": "Sets values of Track segments: Start and End, Length (Start stays and End moves along the line), width, copper Layer and Net (`null` for none). Values left out stay. Returns the Tracks that changed.",
+      "description": "Sets values of Track segments: Start and End, Length (Start stays and End moves along the line), width, copper Layer and Net (`null` for none). Values left out stay. Returns the Tracks that changed. Start, End and Length are refused on a locked Track unless `include_locked`.",
       "icon": "track",
       "id": "pcb.track.set",
       "kind": "edit",
@@ -51460,6 +55121,11 @@
               }
             ],
             "description": "The new end point; not with `length`."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Moves the ends of locked Tracks too; without it Start, End or Length on a locked Track is refused.",
+            "type": "boolean"
           },
           "layer": {
             "description": "A copper Layer, such as `copper_bottom`.",
@@ -51737,6 +55403,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "vias": {
             "description": "The Vias' UUIDs.",
             "items": {
@@ -52273,6 +55944,11 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "include_locked": {
+            "default": false,
+            "description": "Deletes locked objects too; without it a locked one refuses the whole Command.",
+            "type": "boolean"
+          },
           "zones": {
             "description": "The Zones' UUIDs.",
             "items": {
@@ -53100,6 +56776,11 @@
             ],
             "default": null,
             "description": "A new clearance, or `null` to leave only the rule."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Reshapes a locked Zone too; without it `vertices` on a locked Zone is refused.",
+            "type": "boolean"
           },
           "layer": {
             "description": "A new copper Layer.",

@@ -149,6 +149,7 @@ impl Command for KeepoutAdd {
     fn run(&self, cx: &mut Context<'_>, p: KeepoutAddParams) -> Result<Created, CommandError> {
         let pcb = pcb(cx)?;
         let keepout = Keepout {
+            locked: false,
             uuid: Uuid::NIL,
             layer: layer(pcb, p.layer)?,
             shape: shape(
@@ -217,6 +218,7 @@ impl Command for KeepoutAddFromGraphics {
         let vertices = from.contour(pcb)?;
         from.consume(cx)?;
         let keepout = Keepout {
+            locked: false,
             uuid: Uuid::NIL,
             layer,
             shape: KeepoutShape::Polygon { vertices },
@@ -245,6 +247,9 @@ pub struct KeepoutSetParams {
     pub width: Option<Length>,
     #[serde(default)]
     pub restrict: Option<BTreeSet<Restriction>>,
+    /// Reshapes a locked Keepout too; without it `shape`, `vertices` or `width` on a locked Keepout is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for KeepoutSet {
@@ -277,6 +282,9 @@ impl Command for KeepoutSet {
                 )
             })?
             .clone();
+        if p.shape.is_some() || p.vertices.is_some() || p.width.is_some() {
+            crate::lock::refuse(pcb, [p.keepout], p.include_locked, "reshape")?;
+        }
         if let Some(given) = p.layer {
             keepout.layer = layer(pcb, given)?;
         }
@@ -308,6 +316,9 @@ impl Command for KeepoutSet {
 pub struct KeepoutDeleteParams {
     /// The Keepouts' UUIDs.
     pub keepouts: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for KeepoutDelete {
@@ -333,6 +344,7 @@ impl Command for KeepoutDelete {
             "keepouts",
             |pcb, u| pcb.keepout(u).is_some(),
             "Keepout",
+            p.include_locked,
         )
     }
 }

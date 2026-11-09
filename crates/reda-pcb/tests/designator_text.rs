@@ -83,7 +83,7 @@ fn a_locked_footprints_designator_text_still_moves() {
     let dir = TempDir::new("designator-locked");
     let mut engine = engine(&dir);
     let [r1, _] = synced_resistors(&mut engine);
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
 
     engine.run_ok(
         "pcb.designator_text.set",

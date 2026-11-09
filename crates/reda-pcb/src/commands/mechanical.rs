@@ -320,6 +320,9 @@ impl Command for MechanicalSet {
 pub struct MechanicalDeleteParams {
     /// The Mechanical Parts' Footprint instances, by UUID.
     pub footprints: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct MechanicalDelete;
@@ -350,6 +353,7 @@ impl Command for MechanicalDelete {
         let instances = mechanical(cx.project()?, &p.footprints)?;
         let gone: BTreeSet<Uuid> = instances.iter().map(|f| f.uuid).collect();
         let pcb = pcb(cx)?;
+        crate::lock::refuse(pcb, gone.iter().copied(), p.include_locked, "delete")?;
         let still_used: BTreeSet<Uuid> = pcb
             .footprints()
             .filter(|f| !gone.contains(&f.uuid))

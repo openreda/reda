@@ -299,6 +299,7 @@ fn text(
     let mut position = d.text_position;
     if position == DimensionTextPosition::Automatic {
         let probe = PcbText {
+            locked: false,
             uuid: d.uuid,
             layer: d.layer,
             text: label.clone(),
@@ -363,6 +364,7 @@ fn text(
     };
     style.justify = j;
     Some(PcbText {
+        locked: false,
         uuid: d.uuid,
         layer: d.layer,
         text: label,

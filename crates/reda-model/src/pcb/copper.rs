@@ -11,6 +11,9 @@ use crate::Uuid;
 #[serde(deny_unknown_fields)]
 pub struct Track {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The copper Layer it is on.
     pub layer: Uuid,
     /// Its PCB Net; left out for copper on no Net.
@@ -79,6 +82,9 @@ pub struct LayerSpan {
 #[serde(deny_unknown_fields)]
 pub struct Via {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The centre.
     pub at: Point,
     /// Its PCB Net; left out for a Via on no Net.
@@ -92,4 +98,8 @@ pub struct Via {
     pub span: LayerSpan,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mask: Option<crate::Mask>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

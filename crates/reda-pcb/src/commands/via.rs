@@ -109,6 +109,7 @@ impl Command for ViaAdd {
         }
         let uuid = cx.new_id();
         let via = Via {
+            locked: false,
             uuid,
             at,
             net,
@@ -130,6 +131,9 @@ pub struct ViaDelete;
 pub struct ViaDeleteParams {
     /// The Vias' UUIDs.
     pub vias: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for ViaDelete {
@@ -158,6 +162,7 @@ impl Command for ViaDelete {
                 ));
             }
         }
+        crate::lock::refuse(pcb, p.vias.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in p.vias {
             tx.remove(uuid)?;

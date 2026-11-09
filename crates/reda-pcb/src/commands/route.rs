@@ -112,7 +112,7 @@ impl Command for Unroute {
         }
         let (locked, deleted): (Vec<Uuid>, Vec<Uuid>) = found
             .into_iter()
-            .partition(|o| !p.include_locked && is_locked(pcb, *o));
+            .partition(|o| !p.include_locked && crate::lock::is_locked(pcb, *o));
         let tx = cx.tx()?;
         for uuid in &deleted {
             tx.remove(*uuid)?;
@@ -122,12 +122,6 @@ impl Command for Unroute {
             kept_locked: locked,
         })
     }
-}
-
-/// Whether routed copper is locked. Tracks and Vias carry no lock yet (Locks on every
-/// placed kind add it), so none is.
-fn is_locked(_pcb: &PcbDocument, _object: Uuid) -> bool {
-    false
 }
 
 pub struct TrackCleanup;
@@ -156,7 +150,8 @@ impl Command for TrackCleanup {
         title: "Clean Up Tracks",
         description: "Deletes stacked duplicate Track segments (the same ends on the same \
                       Layer and Net, keeping the widest) and merges collinear segments of \
-                      one width that meet end to end with nothing else at the joint.",
+                      one width that meet end to end with nothing else at the joint. Locked \
+                      Tracks stay as they are.",
         category: "pcb",
         icon: "track",
         kind: Kind::Edit,
@@ -219,7 +214,7 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
     let mut out = Cleanup::default();
     let mut tracks: BTreeMap<Uuid, Track> = pcb
         .tracks()
-        .filter(|t| matches!(t.geometry, TrackGeometry::Line { .. }))
+        .filter(|t| matches!(t.geometry, TrackGeometry::Line { .. }) && !t.locked)
         .filter(|t| nets.is_none_or(|n| t.net.is_some_and(|net| n.contains(&net))))
         .map(|t| (t.uuid, t.clone()))
         .collect();

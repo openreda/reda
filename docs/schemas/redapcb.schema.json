@@ -19,6 +19,10 @@
       "additionalProperties": false,
       "description": "A closed shape inside the Board Outline where board material is removed.",
       "properties": {
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -41,6 +45,10 @@
       "additionalProperties": false,
       "description": "The closed shape of the board's physical edge.",
       "properties": {
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -335,6 +343,10 @@
           "description": "The Layer it is drawn on.",
           "format": "uuid",
           "type": "string"
+        },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
         },
         "offset": {
           "description": "The signed distance of the dimension line from `a`, to the left of `rotation`.",
@@ -1099,6 +1111,10 @@
           "$ref": "#/$defs/PadKind",
           "description": "SMD (plated, no hole), plated through-hole, or non-plated (a bare hole)."
         },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "mask": {
           "anyOf": [
             {
@@ -1416,6 +1432,10 @@
             "string",
             "null"
           ]
+        },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
         },
         "restrict": {
           "description": "Any of `tracks`, `vias`, `zones`, `smd_pads`, `tht_pads` and `footprints`.",
@@ -1975,6 +1995,10 @@
           "format": "uuid",
           "type": "string"
         },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "shape": {
           "$ref": "#/$defs/GraphicShape"
         },
@@ -2054,6 +2078,10 @@
           "description": "The Layer it is drawn on.",
           "format": "uuid",
           "type": "string"
+        },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
         },
         "mirrored": {
           "description": "Drawn mirrored, so it reads from below; only on bottom Layers. Left out when false.",
@@ -2929,6 +2957,10 @@
           "format": "uuid",
           "type": "string"
         },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "net": {
           "description": "Its PCB Net; left out for copper on no Net.",
           "format": "uuid",
@@ -3054,6 +3086,10 @@
           "format": "int64",
           "type": "integer"
         },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
+        },
         "mask": {
           "anyOf": [
             {
@@ -3153,6 +3189,10 @@
           "description": "The copper Layer it fills.",
           "format": "uuid",
           "type": "string"
+        },
+        "locked": {
+          "description": "Locked against geometry changes; left out when false.",
+          "type": "boolean"
         },
         "min_island_area": {
           "description": "Pieces of fill smaller than this, in square nanometres, are dropped, connected or\nnot.",

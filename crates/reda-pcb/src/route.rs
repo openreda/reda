@@ -130,6 +130,8 @@ pub enum Note {
     LoopBranch,
     /// The old path stays: it goes through a Via and `remove_loops_through_vias` is off.
     LoopThroughVias,
+    /// The old path stays: it has locked copper; unlock it or delete it by hand.
+    LoopLocked,
     /// The cursor is in a `zones_only` Zone of the route's Net: a Track ending there isn't
     /// connected; end with a Via or Enter.
     ZoneNotConnected,

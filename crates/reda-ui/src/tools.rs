@@ -6,8 +6,9 @@
 //! flight themselves; a Tool that is no longer active drops it.
 
 use reda_engine::command::{
-    Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
+    Angle, Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
 };
+use reda_engine::model::geom::Millideg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -56,6 +57,12 @@ pub enum Tool {
     OutputOrigin,
     /// Measures between two points.
     Measure,
+    /// Moves the selection by the offset between two picked points (Move by ΔX/ΔY).
+    MoveBy,
+    /// Turns the selection by `tool.rotate_about`'s angle about a picked centre.
+    RotateAbout,
+    /// Swaps the positions of two Footprints picked one after the other, until Escape.
+    Swap,
     /// Routes Tracks on the board: clicks place corners, same-Net copper ends the route (T).
     Route,
     /// Places stitching Vias on the board, one per click (V).
@@ -104,6 +111,9 @@ impl Tool {
             Tool::FreePad => "free_pad",
             Tool::OutputOrigin => "output_origin",
             Tool::Measure => "measure",
+            Tool::MoveBy => "move_by",
+            Tool::RotateAbout => "rotate_about",
+            Tool::Swap => "swap",
             Tool::Route => "route",
             Tool::Via => "via",
             Tool::Place => "place",
@@ -129,12 +139,12 @@ impl Tool {
     /// and Vias have their own Tool (`pcb::route`), Library Parts theirs
     /// (`crate::placement`), and sheet and Footprint Tools their editors'.
     pub fn draws_on_board(self) -> bool {
-        BOARD_TOOLS.iter().any(|(tool, _, _)| *tool == self)
+        self == Tool::RotateAbout || BOARD_TOOLS.iter().any(|(tool, _, _)| *tool == self)
     }
 }
 
 /// The PCB drawing Tools with a Preset each: (Tool, title, icon).
-const BOARD_TOOLS: [(Tool, &str, &str); 12] = [
+const BOARD_TOOLS: [(Tool, &str, &str); 14] = [
     (Tool::BoardOutline, "Board Outline", "board_outline"),
     (
         Tool::BoardOutlineRect,
@@ -151,7 +161,20 @@ const BOARD_TOOLS: [(Tool, &str, &str); 12] = [
     (Tool::FreePad, "Free Pad", "pad"),
     (Tool::OutputOrigin, "Output Origin", "origin"),
     (Tool::Measure, "Measure", "measure"),
+    (Tool::MoveBy, "Move by Two Points", "move"),
+    (Tool::Swap, "Swap", "move"),
 ];
+
+/// The angle the Rotate About a Point Tool turns by, from `tool.rotate_about`, in the
+/// engine's view state. 90° until set.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RotateAboutAngle(pub Millideg);
+
+impl Default for RotateAboutAngle {
+    fn default() -> RotateAboutAngle {
+        RotateAboutAngle(Millideg::from_deg(90))
+    }
+}
 
 /// The active Tool, in the engine's view state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -174,6 +197,50 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ToolUndoSegment);
     registry.add(ToolFinish);
     registry.add(ToolMoveBoardShape);
+    registry.add(ToolRotateAbout);
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ToolRotateAboutParams {
+    /// Counter-clockwise; any angle.
+    pub angle: Angle,
+}
+
+/// `tool.rotate_about`: Rotate About a Point. Keeps the typed angle and makes the Rotate
+/// About Tool active; its click picks the centre and runs `pcb.rotate` on the selection.
+struct ToolRotateAbout;
+
+impl Command for ToolRotateAbout {
+    const META: Meta = Meta {
+        id: "tool.rotate_about",
+        title: "Rotate About a Point",
+        description: "Turns the selection on the board by a typed `angle` (counter-clockwise) \
+                      about a centre picked with the next click, as one `pcb.rotate`.",
+        category: "tool",
+        icon: "rotate",
+        kind: Kind::View,
+    };
+    type Params = ToolRotateAboutParams;
+    type Output = ToolActivateResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: ToolRotateAboutParams,
+    ) -> Result<ToolActivateResult, CommandError> {
+        if cx.view::<Selection>()?.objects.is_empty() {
+            return Err(CommandError::rejected(
+                "nothing is selected: select what to turn first",
+            ));
+        }
+        cx.view::<RotateAboutAngle>()?.0 = p.angle.millideg();
+        cx.view::<ActiveTool>()?.0 = Tool::RotateAbout;
+        cx.view::<Placement>()?.placing = None;
+        Ok(ToolActivateResult {
+            tool: Tool::RotateAbout,
+        })
+    }
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -378,8 +445,9 @@ impl Command for ToolMirror {
         title: "Mirror",
         description: "Flips what the active Tool carries (a Part being placed, a move or \
                       drag, a label or Port being placed), or else the selection, left to \
-                      right (axis x) or top to bottom (axis y) on the active sheet. A board \
-                      placement turns over with Flip Side instead.",
+                      right (axis x) or top to bottom (axis y) on the active sheet. Refused \
+                      on a Footprint in flight or selected on the board: mirroring makes an \
+                      unbuildable part, so L (Flip Side) turns it over instead.",
         category: "tool",
         icon: "mirror",
         kind: Kind::View,
@@ -395,6 +463,16 @@ impl Command for ToolMirror {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: ToolMirrorParams) -> Result<Mirrored, CommandError> {
+        let on_board = cx
+            .view::<crate::placement::Placement>()?
+            .placing
+            .as_ref()
+            .is_some_and(|placing| placing.target == crate::placement::Target::Board);
+        if on_board {
+            return Err(CommandError::rejected(
+                reda_engine::pcb::place::MIRROR_REFUSED,
+            ));
+        }
         edit_placing(cx, |placing| placing.mirror(p.axis == MirrorAxis::X))?;
         Ok(Mirrored { axis: p.axis })
     }
