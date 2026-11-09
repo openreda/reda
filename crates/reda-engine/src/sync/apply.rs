@@ -127,11 +127,7 @@ impl<'c, 'e> Applier<'c, 'e> {
         for change in included() {
             match &change.change {
                 ChangeKind::AddNet { name } => {
-                    let net = Net {
-                        uuid: self.cx.new_id(),
-                        name: name.clone(),
-                        classes: Vec::new(),
-                    };
+                    let net = Net::new(self.cx.new_id(), name.clone());
                     new_nets.insert(change.id.clone(), net.uuid);
                     created.nets.push((name.clone(), net.uuid));
                     self.cx

@@ -277,11 +277,7 @@ impl Command for NetAdd {
             .ok_or_else(|| CommandError::unavailable("no PCB Document"))?;
         let document = pcb.uuid;
         let uuid = cx.new_id();
-        let net = Net {
-            uuid,
-            name: p.name,
-            classes: Vec::new(),
-        };
+        let net = Net::new(uuid, p.name);
         cx.tx()?
             .insert(Object::Net(InDocument::new(document, net)))?;
         Ok(NetAddResult { uuid })
