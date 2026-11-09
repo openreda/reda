@@ -38,12 +38,15 @@ pub use pcb::{
     NetColorPattern, NetColorStyle, NetColorZoomOut, NetLabels, RatsnestLine, SheetLabel,
     ZoneFillState, pcb_scene, pcb_scene_styled,
 };
-pub use pdf::{PdfInfo, to_pdf};
+pub use pdf::{Bookmark, PdfInfo, to_pdf};
 pub use reda_text::{Mesh, Segment};
 pub use scene::{
-    Align, Child, GlyphRun, HAlign, Item, Look, Primitive, Scene, SceneLayer, SceneSource, VAlign,
+    Align, Child, GlyphRun, HAlign, Item, Link, Look, Primitive, Scene, SceneLayer, SceneSource,
+    VAlign,
 };
-pub use schematic::{SchematicStyle, schematic_scene, schematic_scene_styled, symbol_scene};
+pub use schematic::{
+    NoteLink, SchematicStyle, schematic_scene, schematic_scene_styled, symbol_scene,
+};
 pub use svg::{to_svg, to_svg_layers};
 pub use view::View;
 pub use viewport::Viewport;

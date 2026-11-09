@@ -1,5 +1,5 @@
 //! The reference Projects under `tests/projects/`, driven end to end: ERC, DRC, the Sync
-//! preview, every Output Job and the schematic PDF, each checked against goldens in
+//! preview, every Output Job (the schematic PDF among its files), each checked against goldens in
 //! `tests/projects/goldens/<project>/`. `REDA_BLESS=1` rewrites them.
 //!
 //! **Where they come from.** Each one was first built by a scenario script in
@@ -197,12 +197,6 @@ fn every_output_matches_its_goldens() {
             relative(&mut report, work.path());
             reports.push(report);
         }
-        let mut pdf = engine.run_ok(
-            "schematic.export_pdf",
-            json!({"path": "outputs/schematic.pdf"}),
-        );
-        relative(&mut pdf, work.path());
-        reports.push(pdf);
         assert_golden(goldens(dir).join("outputs.json"), &pretty(&json!(reports)));
 
         let outputs = read_tree(&work.path().join("outputs"));

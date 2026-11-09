@@ -67,6 +67,10 @@
         "path": "Blinky-JLCPCB-CPL.csv"
       },
       {
+        "function": "schematic_pdf",
+        "path": "Blinky-JLCPCB-schematic.pdf"
+      },
+      {
         "function": "erc_report",
         "path": "reports/Blinky-erc.json"
       },
@@ -88,9 +92,5 @@
     ],
     "warnings": [],
     "zip": "outputs/JLCPCB/Blinky-JLCPCB.zip"
-  },
-  {
-    "pages": 1,
-    "path": "outputs/schematic.pdf"
   }
 ]

@@ -117,6 +117,46 @@ pub(crate) fn overbars(glyphs: &[NameGlyph], at: Point, style: TextStyle) -> Vec
     out
 }
 
+/// The box round the characters at byte range `range` of one line of `text`, laid out as
+/// [`glyph_run`] lays it out on `at`: from a quarter of a capital height below the
+/// baseline to a quarter above the capitals.
+pub(crate) fn span(
+    text: &str,
+    range: std::ops::Range<usize>,
+    at: Point,
+    style: TextStyle,
+) -> (Point, Point) {
+    let (rotation, align) = readable(style.rotation, style.align);
+    let h = style.height.0;
+    let dy = match align.v {
+        VAlign::Baseline => 0,
+        VAlign::Middle => -h / 2,
+        VAlign::Top => -h,
+    };
+    let reach = |s: &str| advance(s, style.height).0;
+    let dx = match align.h {
+        HAlign::Left => 0,
+        HAlign::Center => -reach(text) / 2,
+        HAlign::Right => -reach(text),
+    };
+    let (x0, x1) = (
+        dx + reach(&text[..range.start]),
+        dx + reach(&text[..range.end]),
+    );
+    let (y0, y1) = (dy - h / 4, dy + h + h / 4);
+    let corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)].map(|(x, y)| {
+        let (x, y) = rotate(x, y, rotation);
+        Point::new(at.x + Nm(x), at.y + Nm(y))
+    });
+    let lo = corners
+        .iter()
+        .fold(corners[0], |a, p| Point::new(a.x.min(p.x), a.y.min(p.y)));
+    let hi = corners
+        .iter()
+        .fold(corners[0], |a, p| Point::new(a.x.max(p.x), a.y.max(p.y)));
+    (lo, hi)
+}
+
 /// An overbar sits this many capital heights above the baseline.
 const OVERBAR_LIFT: (i64, i64) = (23, 20);
 

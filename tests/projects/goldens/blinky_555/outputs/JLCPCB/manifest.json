@@ -24,6 +24,7 @@
     {"path":"Blinky-JLCPCB.zip","size":14548,"sha256":"3402a8cb3cfdeb77873052327a8dbd996f535cb3a79a40fbc8c23e463dabd889","kind":"zip"},
     {"path":"Blinky-JLCPCB-BOM.csv","size":245,"sha256":"8f0caf74268bb002231e5a8101a84d2c3ab430a525dedbd204d8f55356281d81","kind":"bom"},
     {"path":"Blinky-JLCPCB-CPL.csv","size":337,"sha256":"6fbd16de0cc4451d7f46490a9bdec5d01c0b475593d79822d5442470a541a58a","kind":"cpl"},
+    {"path":"Blinky-JLCPCB-schematic.pdf","size":395526,"sha256":"3999246169d94b24586e00e5e2d9b8a5484fb1aaee5d97ab97107b3085ee17d4","kind":"schematic_pdf"},
     {"path":"reports/Blinky-erc.json","size":195,"sha256":"8a435f11150786d4295d6a303e900b09a49fadb24c82fe3f09bab6b26d8f8e93","kind":"erc_report"},
     {"path":"reports/Blinky-drc.json","size":2175,"sha256":"0599e3b23a9e9d87a94e87d7b187dad5873ff98ab8c5df5328fb4a4001950340","kind":"drc_report"},
     {"path":"reports/Blinky-change-list.json","size":179,"sha256":"e632e6a0f1364ff21c790ce8c599e4dcc77f2de4f62616ce0603eede8b28491f","kind":"change_list_report"}

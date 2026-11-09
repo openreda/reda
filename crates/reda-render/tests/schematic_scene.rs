@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use reda_model::geom::{Nm, Point};
 use reda_model::{UnitSuffix, Uuid};
 use reda_render::{
-    Primitive, SceneLayer, SchematicColor, SchematicStyle, schematic_scene, schematic_scene_styled,
+    NoteLink, Primitive, SceneLayer, SchematicColor, SchematicStyle, schematic_scene,
+    schematic_scene_styled,
 };
 use reda_testkit::{TempDir, TestEngine, assert_golden, test_engine_with_library};
 use serde_json::json;

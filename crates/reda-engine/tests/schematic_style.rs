@@ -84,4 +84,14 @@ fn port_cross_references_come_from_the_project_once_it_opts_in() {
     // A4: (10, 10) mm is in the bottom row, D, of the first column.
     assert_eq!(notes.get(&here).map(String::as_str), Some("[2:D1]"));
     assert_eq!(notes.get(&there).map(String::as_str), Some("[1:D1]"));
+
+    // Each entry leads to its partner, on its sheet.
+    let links = style(&engine, Drawn::Output).cross_reference_links;
+    let ten = reda_model::geom::Nm::from_mm(10);
+    let link = &links[&here];
+    assert_eq!(link.len(), 1);
+    assert_eq!(link[0].entry, "2:D1");
+    assert_eq!(link[0].sheet.to_string(), two);
+    assert_eq!(link[0].at, reda_model::geom::Point::new(ten, ten));
+    assert_eq!(links[&there][0].sheet.to_string(), SHEET);
 }
