@@ -72,7 +72,7 @@ fn window_with_step(step: f32) -> Window {
     let h = Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        .with_size([1000.0, 1100.0])
+        .with_size([1000.0, 1400.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
         h,
@@ -580,8 +580,6 @@ fn mod_click_on_a_layers_eye_pins_it_and_the_panel_applies_sets_and_view_toggles
     w.h.run();
     assert!(shell(&w).board_view().layers.labels.repeated_net_names);
 
-    w.h.get_by_label("Layer set").click();
-    w.h.run();
     w.h.get_by_label("Signal").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.layer_set.apply");

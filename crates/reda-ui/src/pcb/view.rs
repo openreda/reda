@@ -85,7 +85,11 @@ impl BoardView {
             ratsnest: !self.layers.ratsnest.hidden,
             pinned: self.layers.pinned.iter().copied().collect(),
         };
-        board_composites(&set.layers, &view)
+        let mut out = board_composites(&set.layers, &view);
+        if let Some(lit) = self.layers.highlighted {
+            highlight_layer(&mut out, lit);
+        }
+        out
     }
 
     /// How the board is drawn in this view with `prefs`: Smart Track Ends, `F5` Net
@@ -172,6 +176,28 @@ impl BoardView {
             }
         }
     }
+}
+
+/// How strong the other Layers stay while one Layer's content is highlighted.
+pub const HIGHLIGHT_REST_OPACITY: f32 = 0.15;
+
+/// Draws Layer `lit` on top of the other board Layers at full strength and fades them,
+/// when it is drawn at all.
+fn highlight_layer(composites: &mut Vec<Composite>, lit: Uuid) {
+    let is_board = |c: &Composite| matches!(c.layer, SceneLayer::Board(_));
+    let Some(i) = composites
+        .iter()
+        .position(|c| c.layer == SceneLayer::Board(lit))
+    else {
+        return;
+    };
+    let mut top = composites.remove(i);
+    top.opacity = 1.0;
+    for c in composites.iter_mut().filter(|c| is_board(c)) {
+        c.opacity = c.opacity.min(HIGHLIGHT_REST_OPACITY);
+    }
+    let end = composites.iter().rposition(is_board).map_or(0, |e| e + 1);
+    composites.insert(end, top);
 }
 
 /// The width of a Draft outline: 0.05 mm.

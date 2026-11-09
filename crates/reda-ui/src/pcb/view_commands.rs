@@ -34,6 +34,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(LayerSetSave);
     registry.add(LayerSetDelete);
     registry.add(LayerPin);
+    registry.add(LayerHighlight);
+    registry.add(LayerShowKind);
     registry.add(ObjectTypeSet);
     registry.add(NetColors);
     registry.add(Labels);
@@ -369,6 +371,135 @@ impl Command for LayerPin {
             layers.pinned.remove(&p.layer);
         }
         Ok(Pinned { pinned })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerHighlightParams {
+    /// The Layer, by UUID.
+    layer: Uuid,
+    /// Highlight it or stop; left out, it toggles.
+    #[serde(default)]
+    on: Option<bool>,
+}
+
+/// The Layer now highlighted, if any.
+#[derive(Serialize, JsonSchema)]
+pub struct HighlightedLayer {
+    pub layer: Option<Uuid>,
+}
+
+struct LayerHighlight;
+
+impl Command for LayerHighlight {
+    const META: Meta = Meta {
+        id: "pcb.layer.highlight",
+        title: "Highlight Layer",
+        description: "Highlights a Layer's content (`Mod`+click on a Layer chip): it is drawn \
+                      on top at full strength while every other Layer fades. A hidden Layer \
+                      is shown. With `on` left out it toggles; `view.highlight.clear` ends it. \
+                      View state, never saved.",
+        category: "pcb_view",
+        icon: "layer_active",
+        kind: Kind::View,
+    };
+    type Params = LayerHighlightParams;
+    type Output = HighlightedLayer;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: LayerHighlightParams,
+    ) -> Result<HighlightedLayer, CommandError> {
+        if layer_set(cx)?.layer(p.layer).is_none() {
+            return Err(CommandError::invalid_params(
+                "/layer",
+                format!("{} is not a Layer of the board", p.layer),
+            ));
+        }
+        let layers = &mut board_view(cx)?.layers;
+        let on = p.on.unwrap_or(layers.highlighted != Some(p.layer));
+        if on {
+            layers.highlighted = Some(p.layer);
+            layers.hidden.remove(&p.layer);
+        } else if layers.highlighted == Some(p.layer) {
+            layers.highlighted = None;
+        }
+        Ok(HighlightedLayer {
+            layer: layers.highlighted,
+        })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerShowKindParams {
+    /// The Layer kind: copper, silkscreen, solder_mask, paste, courtyard, assembly,
+    /// board_outline, mechanical or documentation.
+    kind: LayerKind,
+    /// Show or hide every Layer of the kind; left out, it shows them all unless all
+    /// are shown already, then hides them.
+    #[serde(default)]
+    visible: Option<bool>,
+}
+
+/// The Layers of the kind and whether they are now shown.
+#[derive(Serialize, JsonSchema)]
+pub struct KindShown {
+    pub layers: Vec<Uuid>,
+    pub visible: bool,
+}
+
+struct LayerShowKind;
+
+impl Command for LayerShowKind {
+    const META: Meta = Meta {
+        id: "pcb.layer.show_kind",
+        title: "Show Layer Kind",
+        description: "Shows or hides every Layer of one kind at once, such as all copper: \
+                      the Layers panel's group eye. With `visible` left out it shows them \
+                      all, or hides them when all are shown.",
+        category: "pcb_view",
+        icon: "layer_visible",
+        kind: Kind::View,
+    };
+    type Params = LayerShowKindParams;
+    type Output = KindShown;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: LayerShowKindParams) -> Result<KindShown, CommandError> {
+        let layers: Vec<Uuid> = layer_set(cx)?
+            .layers
+            .iter()
+            .filter(|l| l.kind == p.kind)
+            .map(|l| l.uuid)
+            .collect();
+        if layers.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/kind",
+                "the board has no Layer of this kind",
+            ));
+        }
+        let hidden = &mut board_view(cx)?.layers.hidden;
+        let visible = p
+            .visible
+            .unwrap_or_else(|| layers.iter().any(|l| hidden.contains(l)));
+        for l in &layers {
+            if visible {
+                hidden.remove(l);
+            } else {
+                hidden.insert(*l);
+            }
+        }
+        Ok(KindShown { layers, visible })
     }
 }
 

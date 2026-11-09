@@ -28,6 +28,14 @@ const SNAP_POINTS: f64 = 10.0;
 /// tab's [`Overlay`](crate::canvas::Overlay), drawn as the sheet's is.
 pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     let nm_per_point = input.camera.nm_per_point;
+    let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
+    if let Some(at) = input.events.iter().rev().find_map(|e| match e {
+        Pointer::Hover(at) => Some(*at),
+        _ => None,
+    }) {
+        let net = live_hover_net(shell, document, at, tolerance.0 as f64);
+        shell.set_live_hover_candidate(net);
+    }
     shell.set_pcb_snap_radius(Nm((SNAP_POINTS * nm_per_point) as i64));
     shell
         .router_mut()
@@ -48,7 +56,6 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
         }
         return;
     }
-    let tolerance = Nm((PICK_POINTS * nm_per_point) as i64);
     if shell.tool() == Tool::Select
         && let Some(commands) = crate::selection::picking::text_pointer(
             shell,
@@ -102,15 +109,26 @@ pub fn pointer(shell: &mut Shell, document: Uuid, input: &CanvasInputs) {
     }
 }
 
+/// The Net of what is under the board point `at` (nm) on `document`, for live hover.
+fn live_hover_net(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64) -> Option<Uuid> {
+    let hit = crate::selection::picking::hit(shell, document, at, tolerance)?;
+    let pcb = shell.engine().project()?.pcb()?;
+    let tab = shell.document_tab(document)?;
+    super::live_hover::net_at(pcb, &tab.scene.scene, hit)
+}
+
 /// Draws what the board adds over its painted canvas: the snap marker and cursor
-/// position, the context menu and the "No Board Outline" hint.
-pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) {
+/// position, the context menu, the "No Board Outline" hint and the Layer control, whose
+/// clicks it returns for the window to run.
+pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String, Value)> {
     super::route::draw(ui, shell, input);
+    super::live_hover::draw(ui, shell, input);
     drawing(ui, shell, input);
     overlay(ui, shell, input);
     context_menu(shell, input);
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
+    super::layer_control::show(ui, shell, input.response.id, input.rect)
 }
 
 /// What the drawing Tools show over the canvas: the shape in progress, a measurement,
@@ -253,14 +271,26 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         None => tr!("pcb-grid", grid = format_length(grid, units)),
     };
     let font = FontId::proportional(12.0);
-    let at = shown.rect.left_bottom() + vec2(8.0, -8.0);
+    let strip = super::layer_control::strip_shown(shell);
+    let at = crate::bars::draw::grid_readout_anchor(shown.rect, strip);
     let galley = painter.layout_no_wrap(text, font, ui.visuals().text_color());
     let back = Rect::from_min_size(
         at - vec2(4.0, galley.size().y + 2.0),
         galley.size() + vec2(8.0, 4.0),
     );
     painter.rect_filled(back, 3.0, Color32::from_black_alpha(140));
+    let text = galley.text().to_owned();
     painter.galley(back.min + vec2(4.0, 2.0), galley, Color32::WHITE);
+    let readout = ui.interact(
+        back,
+        shown.response.id.with("grid-readout"),
+        egui::Sense::hover(),
+    );
+    readout.widget_info(|| {
+        let mut info = WidgetInfo::labeled(Role::Group, true, tr!("pcb-grid-readout"));
+        info.current_text_value = Some(text.clone());
+        info
+    });
 }
 
 /// What the board's context menu offers for the selection.

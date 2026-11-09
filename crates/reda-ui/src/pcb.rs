@@ -18,6 +18,8 @@
 pub mod canvas;
 mod commands;
 pub mod draw;
+pub mod layer_control;
+pub mod live_hover;
 pub mod route;
 mod route_commands;
 mod select_commands;

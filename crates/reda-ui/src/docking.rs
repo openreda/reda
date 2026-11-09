@@ -896,6 +896,17 @@ impl Cx<'_, '_> {
         clicked
     }
 
+    /// Queues a Command to run after the frame; one still lacking params (text's words,
+    /// a Layer set's name) asks for them in a dialog.
+    fn push_call(&mut self, id: String, params: serde_json::Value) {
+        let registry = self.shell.engine().registry();
+        if crate::command_dialog::lacks_required(registry, &id, &params) {
+            self.frame.calls.push((id, params));
+        } else {
+            self.frame.commands.push((id, params));
+        }
+    }
+
     fn content(&mut self, ui: &mut Ui, tab: &TabKey) {
         match tab {
             TabKey::Start => {
@@ -932,12 +943,7 @@ impl Cx<'_, '_> {
                 };
                 // A Command still lacking params (text's words) asks for them in a dialog.
                 for (id, params) in edits {
-                    let registry = self.shell.engine().registry();
-                    if crate::command_dialog::lacks_required(registry, &id, &params) {
-                        self.frame.calls.push((id, params));
-                    } else {
-                        self.frame.commands.push((id, params));
-                    }
+                    self.push_call(id, params);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
@@ -950,7 +956,9 @@ impl Cx<'_, '_> {
                         .project()
                         .is_some_and(|p| p.pcb_document(*uuid).is_some())
                 {
-                    crate::pcb::canvas::decorate(ui, self.shell, &input);
+                    for (id, params) in crate::pcb::canvas::decorate(ui, self.shell, &input) {
+                        self.push_call(id, params);
+                    }
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
@@ -993,8 +1001,9 @@ impl Cx<'_, '_> {
                 }
             }
             TabKey::Panel(PanelId::Layers) => {
-                let commands = panels::layers::show(ui, self.shell);
-                self.frame.commands.extend(commands);
+                for (id, params) in panels::layers::show(ui, self.shell) {
+                    self.push_call(id, params);
+                }
             }
             TabKey::Panel(PanelId::Library) => {
                 for action in panels::library::show(ui, self.shell) {
