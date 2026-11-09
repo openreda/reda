@@ -10,6 +10,8 @@
 //!   "No Board Outline" hint.
 //! - [`tool`]: the select-and-place [`Tool`]: click, rubber band, drag to move, Space and
 //!   L, with the move drawn from a preview until release, and Track segment drags.
+//! - [`placing`]: Footprint moves' modes, the Reposition Selected queue, Choose
+//!   Component and the locked-move question; [`placement_bar`] shows and switches them.
 //! - [`route`]: the routing and Via Tools ([`Router`]); `route_commands` holds their keys
 //!   and select connected.
 //! - [`draw`]: the drawing Tools (outline, cutouts, Zones, Keepouts, text and graphics,
@@ -20,6 +22,8 @@ mod commands;
 pub mod draw;
 pub mod layer_control;
 pub mod live_hover;
+pub mod placement_bar;
+pub mod placing;
 pub mod route;
 pub mod route_commands;
 pub mod routing_bar;
@@ -38,6 +42,7 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
     commands::register_all(registry);
     view_commands::register_all(registry);
     route_commands::register_all(registry);
+    placing::register_all(registry);
     select_commands::register_all(registry);
 }
 pub use view::BoardView;

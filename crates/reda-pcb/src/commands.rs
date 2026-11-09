@@ -36,6 +36,7 @@ pub use net_class::glob_match;
 pub use outline::rect_outline;
 pub use placement::{
     Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
+    preview_including_locked as placement_preview_including_locked,
 };
 
 use reda_command::{

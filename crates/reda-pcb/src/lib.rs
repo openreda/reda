@@ -37,7 +37,8 @@ pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
     AreaParam, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
     PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, drc_run, glob_match, placement_anchor,
-    placement_preview, rect_outline, register_all, register_all_with_user, zone_listing,
+    placement_preview, placement_preview_including_locked, rect_outline, register_all,
+    register_all_with_user, zone_listing,
 };
 pub use copper::{
     ClearanceHit, Connections, Copper, Halo, Item, Proposal, RatsnestEnds, RatsnestLine,

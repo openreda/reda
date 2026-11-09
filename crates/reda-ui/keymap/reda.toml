@@ -393,6 +393,30 @@ context = "pcb"
 key = "Esc"
 command = "tool.activate:select"
 
+# Moving Footprints: M picks one up with a click (on empty space it opens Choose
+# Component); while only Footprints are selected or moving, R steps the obstacle mode and N
+# the Ratsnest shown in a move, and during Reposition Selected Tab skips one.
+
+[[bind]]
+context = "pcb"
+key = "M"
+command = "tool.activate:move"
+
+[[bind]]
+context = "pcb"
+key = "R"
+command = "pcb.place.mode:obstacle_mode"
+
+[[bind]]
+context = "pcb"
+key = "N"
+command = "pcb.place.mode:ratsnest_mode"
+
+[[bind]]
+context = "pcb"
+key = "Tab"
+command = "pcb.place.skip"
+
 # Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
 # corner mode and Space flips the posture, Backspace takes back the last corner, V drops a
 # Via and switches Layer, E drops a Via and ends the route, Enter finishes and Esc (or a

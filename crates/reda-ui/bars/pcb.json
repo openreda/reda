@@ -102,6 +102,17 @@
     { "id": "active_bar.layers", "command": "panel.show:layers" }
   ],
   "tool_bars": {
+    "place": [
+      { "id": "place_bar.obstacle_mode", "command": "pcb.place.mode:obstacle_mode" },
+      { "id": "place_bar.alignment_guides", "command": "pcb.place.mode:alignment_guides" },
+      { "id": "place_bar.ratsnest_mode", "command": "pcb.place.mode:ratsnest_mode" },
+      "separator",
+      { "id": "place_bar.rotate", "command": "tool.rotate" },
+      { "id": "place_bar.flip", "command": "tool.flip" },
+      { "id": "place_bar.queue", "command": "pcb.place.skip" },
+      "separator",
+      { "id": "place_bar.keys", "command": "view.keys_card.toggle" }
+    ],
     "route": [
       { "id": "route_bar.width", "command": "pcb.route.chooser:width" },
       { "id": "route_bar.corner", "command": "tool.cycle_corner" },
