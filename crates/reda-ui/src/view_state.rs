@@ -59,6 +59,10 @@ pub struct LayerView {
     /// The Net label toggles.
     #[serde(skip_serializing_if = "is_default")]
     pub labels: LabelView,
+    /// The Layer whose content is highlighted (`Mod`+click on a Layer chip): drawn on
+    /// top at full strength while the others fade. Session only, never saved.
+    #[serde(skip)]
+    pub highlighted: Option<Uuid>,
 }
 
 /// How one kind of board object is drawn.

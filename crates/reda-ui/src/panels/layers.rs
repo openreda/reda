@@ -12,26 +12,13 @@ use reda_engine::render::{BoardColor, ColorKey, Rgba};
 use serde_json::{Value, json};
 
 use crate::grid::pcb_presets;
+use crate::pcb::layer_control::{ordered, set_buttons};
 use crate::pcb::view::{VIEW_TYPES, color_key, format_length, to_hex};
-use crate::pcb::view_commands::LAYER_SETS;
 use crate::shell::Shell;
 use crate::{theme, tr};
 
 /// A Command for the window to run.
 pub type Invocation = (String, Value);
-
-/// A built-in Layer set's name.
-fn set_title(set: &str) -> String {
-    match set {
-        "all" => tr!("layers-set-all"),
-        "signal" => tr!("layers-set-signal"),
-        "non_signal" => tr!("layers-set-non-signal"),
-        "mechanical" => tr!("layers-set-mechanical"),
-        "top" => tr!("layers-set-top"),
-        "bottom" => tr!("layers-set-bottom"),
-        _ => tr!("layers-set-fab"),
-    }
-}
 
 /// Draws the panel into `ui`.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
@@ -44,8 +31,6 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
     let view = shell.board_view();
     let layers = &view.layers;
     let active = shell.engine().project().and_then(|p| view.active_layer(p));
-    let mut run = |id: &str, params: Value| out.push((id.to_owned(), params));
-
     ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
         ui.horizontal(|ui| {
             let mode = layers
@@ -64,7 +49,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     }
                 });
             if chosen != mode {
-                run("pcb.view.inactive_layers", json!({ "mode": chosen }));
+                out.push(("pcb.view.inactive_layers".into(), json!({ "mode": chosen })));
             }
         });
         let mut bottom = layers.from_bottom;
@@ -72,26 +57,39 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             .checkbox(&mut bottom, tr!("layers-from-bottom"))
             .changed()
         {
-            run("pcb.view.from_bottom", json!({ "from_bottom": bottom }));
+            out.push((
+                "pcb.view.from_bottom".into(),
+                json!({ "from_bottom": bottom }),
+            ));
         }
-        let mut set = None;
-        ComboBox::from_label(tr!("layers-set"))
-            .selected_text("")
-            .show_ui(ui, |ui| {
-                for name in LAYER_SETS {
-                    if ui.selectable_label(false, set_title(name)).clicked() {
-                        set = Some(name.to_owned());
-                    }
-                }
-                for saved in &shell.preferences().pcb.view.layer_sets {
-                    if ui.selectable_label(false, saved.name.as_str()).clicked() {
-                        set = Some(saved.name.clone());
-                    }
-                }
-            });
-        if let Some(set) = set {
-            run("pcb.view.layer_set.apply", json!({ "set": set }));
+        ui.label(tr!("layers-sets"));
+        ui.horizontal_wrapped(|ui| set_buttons(ui, shell, &mut out));
+        ui.separator();
+
+        // A group eye per Layer kind the board has.
+        ui.label(tr!("layers-kinds"));
+        let mut kinds: Vec<LayerKind> = Vec::new();
+        for layer in ordered(pcb) {
+            if !kinds.contains(&layer.kind) {
+                kinds.push(layer.kind);
+            }
         }
+        ui.horizontal_wrapped(|ui| {
+            for kind in kinds {
+                let of_kind = || pcb.layers().layers.iter().filter(move |l| l.kind == kind);
+                let mut all = of_kind().all(|l| !layers.hidden.contains(&l.uuid));
+                let title = kind_title(kind);
+                let check = ui.checkbox(&mut all, title.as_str());
+                let label = tr!("layers-show-kind", kind = title.as_str());
+                check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
+                if check.changed() {
+                    out.push((
+                        "pcb.layer.show_kind".into(),
+                        json!({"kind": kind, "visible": all}),
+                    ));
+                }
+            }
+        });
         ui.separator();
 
         let canvas_theme = theme::canvas_theme(ui.ctx().theme());
@@ -121,23 +119,26 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 if check.changed() {
                     // Mod+click on the eye pins the Layer instead.
                     if ui.input(|i| i.modifiers.command) {
-                        run("pcb.layer.pin", json!({ "layer": layer.uuid }));
+                        out.push(("pcb.layer.pin".into(), json!({ "layer": layer.uuid })));
                     } else {
-                        run(
-                            "pcb.layer.show",
+                        out.push((
+                            "pcb.layer.show".into(),
                             json!({"layer": layer.uuid, "visible": visible}),
-                        );
+                        ));
                     }
                 }
                 let key = ColorKey::Board(BoardColor::layer(layer.kind, layer.side));
                 if let Some(color) =
                     colour_swatch(ui, layer, &name, palette.color(key), canvas_theme)
                 {
-                    run("app.preferences.set", color);
+                    out.push(("app.preferences.set".into(), color));
                 }
                 let radio = ui.add(RadioButton::new(active == Some(layer.uuid), name.as_str()));
-                if radio.clicked() && active != Some(layer.uuid) {
-                    run("pcb.layer.activate", json!({ "layer": layer.uuid }));
+                // Mod+click on a Layer's name highlights its content, as on a chip.
+                if radio.clicked() && ui.input(|i| i.modifiers.command) {
+                    out.push(("pcb.layer.highlight".into(), json!({ "layer": layer.uuid })));
+                } else if radio.clicked() && active != Some(layer.uuid) {
+                    out.push(("pcb.layer.activate".into(), json!({ "layer": layer.uuid })));
                 }
             });
         }
@@ -147,10 +148,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         for kind in VIEW_TYPES {
             let mut visible = !layers.hidden_types.contains(&kind);
             if ui.checkbox(&mut visible, type_title(kind)).changed() {
-                run(
-                    "pcb.view.object_type.show",
+                out.push((
+                    "pcb.view.object_type.show".into(),
                     json!({"type": kind, "visible": visible}),
-                );
+                ));
             }
         }
         ui.separator();
@@ -160,7 +161,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             .checkbox(&mut net_colors, tr!("layers-net-colors"))
             .changed()
         {
-            run("pcb.view.net_colors", json!({ "on": net_colors }));
+            out.push(("pcb.view.net_colors".into(), json!({ "on": net_colors })));
         }
         let labels = layers.labels;
         for (key, value, param) in [
@@ -174,14 +175,14 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         ] {
             let mut on = value;
             if ui.checkbox(&mut on, key).changed() {
-                run("pcb.view.labels", json!({ param: on }));
+                out.push(("pcb.view.labels".into(), json!({ param: on })));
             }
         }
         ui.separator();
 
         let mut ratsnest = !layers.ratsnest.hidden;
         if ui.checkbox(&mut ratsnest, tr!("layers-ratsnest")).changed() {
-            run("pcb.ratsnest.show", json!({ "visible": ratsnest }));
+            out.push(("pcb.ratsnest.show".into(), json!({ "visible": ratsnest })));
         }
         let mut nets: Vec<(&str, Uuid)> = pcb.nets().map(|n| (n.name.as_str(), n.uuid)).collect();
         nets.sort();
@@ -192,7 +193,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     let mut shown = !layers.ratsnest.hidden_nets.contains(&net);
                     let check = ui.add_enabled(ratsnest, egui::Checkbox::new(&mut shown, name));
                     if check.changed() {
-                        run("pcb.ratsnest.show", json!({"net": net, "visible": shown}));
+                        out.push((
+                            "pcb.ratsnest.show".into(),
+                            json!({"net": net, "visible": shown}),
+                        ));
                     }
                 }
             });
@@ -203,7 +207,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             for (units, title) in [(Units::Mm, "mm"), (Units::Mil, "mil")] {
                 if ui.selectable_label(view.units == units, title).clicked() && view.units != units
                 {
-                    run("view.units.toggle", json!({}));
+                    out.push(("view.units.toggle".into(), json!({})));
                 }
             }
         });
@@ -218,10 +222,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     }
                 });
             if grid != current {
-                run(
-                    "view.grid.set",
+                out.push((
+                    "view.grid.set".into(),
                     json!({ "document": pcb.uuid, "grid": grid }),
-                );
+                ));
             }
         });
     });
@@ -292,6 +296,21 @@ pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
         Some(Side::Top) => tr!("layer-top", kind = kind.as_str()),
         Some(Side::Bottom) => tr!("layer-bottom", kind = kind.as_str()),
         None => kind,
+    }
+}
+
+/// A Layer kind's name for its group eye: "Copper", "Silkscreen"...
+fn kind_title(kind: LayerKind) -> String {
+    match kind {
+        LayerKind::Copper => tr!("layer-copper"),
+        LayerKind::Silkscreen => tr!("layer-silkscreen"),
+        LayerKind::SolderMask => tr!("layer-solder-mask"),
+        LayerKind::Paste => tr!("layer-paste"),
+        LayerKind::Courtyard => tr!("layer-courtyard"),
+        LayerKind::Assembly => tr!("layer-assembly"),
+        LayerKind::BoardOutline => tr!("layer-board-outline"),
+        LayerKind::Mechanical => tr!("layer-mechanical"),
+        LayerKind::Documentation => tr!("layer-documentation"),
     }
 }
 

@@ -177,6 +177,9 @@ pub struct Shell {
     /// What the highlight marks were last worked out from: the selection, the
     /// [`Highlight`], the edit count and the switches.
     probed: Option<(Selection, Highlight, u64, CrossProbe)>,
+    /// Live hover: the Net under the cursor on the board, and the Net whose outline the
+    /// canvas drew last frame (see [`crate::pcb::live_hover`]).
+    live_hover: (Option<Uuid>, Option<Uuid>),
     /// Counts the refreshes after edits, so the cross-probe marks know when to redo.
     edits: u64,
     keymap: Keymap,
@@ -308,6 +311,7 @@ impl Shell {
             marked: SelectionHandle::default(),
             masking: Default::default(),
             probed: None,
+            live_hover: (None, None),
             edits: 0,
             keymap: Keymap::default(),
             preferences: Watched::default(),
@@ -584,6 +588,27 @@ impl Shell {
 
     pub(crate) fn library_panel_mut(&mut self) -> &mut crate::panels::library::LibraryPanel {
         &mut self.library_panel
+    }
+
+    // ---- Live hover (see `pcb::live_hover`) ----
+
+    /// The Net under the cursor on the board, whether or not its outline shows.
+    pub fn live_hover_candidate(&self) -> Option<Uuid> {
+        self.live_hover.0
+    }
+
+    pub(crate) fn set_live_hover_candidate(&mut self, net: Option<Uuid>) {
+        self.live_hover.0 = net;
+    }
+
+    /// The Net whose live hover outline the board canvas drew in the last frame: the
+    /// Net under the cursor while the Preference (and Shift, for Shift only) lets it show.
+    pub fn live_hover_shown(&self) -> Option<Uuid> {
+        self.live_hover.1
+    }
+
+    pub(crate) fn set_live_hover_shown(&mut self, net: Option<Uuid>) {
+        self.live_hover.1 = net;
     }
 
     // ---- The PCB canvas Tool (see `pcb::tool`) ----

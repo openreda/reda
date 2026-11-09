@@ -347,6 +347,33 @@ const ACTIVE_BAR_INSET: f32 = 8.0;
 /// How far below the canvas top the Active Bar ends, for overlays that sit under it.
 pub const ACTIVE_BAR_BOTTOM: f32 = ACTIVE_BAR_TOP + ACTIVE_BAR_FRAME + chrome::BAR_BUTTON;
 
+/// How far above the canvas bottom a Tool's bar (the Routing or Placement Bar) ends,
+/// clear of the grid readout.
+pub const TOOL_BAR_BOTTOM: f32 = 36.0;
+/// The height of the Layer strip along a board canvas's bottom.
+pub const LAYER_STRIP_HEIGHT: f32 = 24.0;
+/// How far above the canvas bottom the grid readout ends.
+pub const GRID_READOUT_BOTTOM: f32 = 8.0;
+
+/// What the Layer strip takes from the canvas bottom: [`LAYER_STRIP_HEIGHT`] while it
+/// shows, else nothing. Everything anchored to the bottom moves up by this much.
+pub fn bottom_inset(strip: bool) -> f32 {
+    if strip { LAYER_STRIP_HEIGHT } else { 0.0 }
+}
+
+/// Where a Tool's bar sits on `canvas`: its bottom centre, 36 px above the canvas's
+/// bottom edge, and a further 24 px up while the Layer `strip` shows. A Tool's bar is
+/// pivoted on this point (`Align2::CENTER_BOTTOM`).
+pub fn tool_bar_anchor(canvas: Rect, strip: bool) -> egui::Pos2 {
+    canvas.center_bottom() - Vec2::new(0.0, TOOL_BAR_BOTTOM + bottom_inset(strip))
+}
+
+/// Where the grid readout sits on `canvas`: its bottom left corner, moved up while the
+/// Layer `strip` shows.
+pub fn grid_readout_anchor(canvas: Rect, strip: bool) -> egui::Pos2 {
+    canvas.left_bottom() + Vec2::new(8.0, -(GRID_READOUT_BOTTOM + bottom_inset(strip)))
+}
+
 /// The width of a row of bar items.
 fn row_width(items: &[Item]) -> f32 {
     let widths: f32 = items
