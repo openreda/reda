@@ -37,10 +37,11 @@
     {
       "id": "edit",
       "items": [
-        { "id": "context.cut", "command": "schematic.cut", "params": { "objects": "$selection" }, "title": "menu-edit-cut" },
-        { "id": "context.copy", "command": "schematic.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
-        { "id": "context.paste", "command": "schematic.paste", "params": { "document": "$active_document", "clipboard": "$clipboard", "at": "$cursor" }, "title": "menu-edit-paste" },
-        { "id": "context.duplicate", "command": "schematic.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
+        { "id": "context.cut", "command": "tool.copy", "params": { "objects": "$selection", "cut": true }, "title": "menu-edit-cut" },
+        { "id": "context.copy", "command": "tool.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "context.copy_as_text", "command": "schematic.copy_as_text", "params": { "objects": "$selection" }, "title": "menu-edit-copy-as-text" },
+        { "id": "context.paste", "command": "tool.paste", "params": { "document": "$active_document", "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
+        { "id": "context.duplicate", "command": "tool.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
         { "id": "context.delete", "command": "schematic.delete", "params": { "objects": "$selection" }, "title": "menu-edit-delete" }
       ]
     },

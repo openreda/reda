@@ -713,7 +713,8 @@ impl Command for ToolCycleCorner {
                       run between horizontal-then-vertical and vertical-then-horizontal, a \
                       45° one between straight-then-45° and 45°-then-straight; a route \
                       between straight-then-45°, 45°-then-straight, horizontal-then-vertical \
-                      and vertical-then-horizontal.",
+                      and vertical-then-horizontal. During a drag (Mod+Space) it turns the \
+                      rubber-banded Wires' corners the other way.",
         category: "tool",
         icon: "line",
         kind: Kind::View,
@@ -897,7 +898,8 @@ impl Command for ToolEditProperties {
                       closed; the Break Wire Tool's options (Cutting Length, Show Cutter \
                       Box, Show Extremity Markers), which write straight back to the \
                       Preferences; for a Part being placed, the Properties Panel, whose \
-                      edits later placements keep.",
+                      edits later placements keep; for a Net Label, Port or Power Port \
+                      being placed, an in-place edit of its name (the Tool pauses).",
         category: "tool",
         icon: "properties",
         kind: Kind::View,
@@ -908,7 +910,14 @@ impl Command for ToolEditProperties {
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<EditPropertiesResult, CommandError> {
         let tool = only_in(
             cx,
-            &[Tool::Wire, Tool::BreakWire, Tool::Place],
+            &[
+                Tool::Wire,
+                Tool::BreakWire,
+                Tool::Place,
+                Tool::NetLabel,
+                Tool::Port,
+                Tool::PowerPort,
+            ],
             "Edit Tool Properties",
         )?;
         if tool == Tool::Wire {

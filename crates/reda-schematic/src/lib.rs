@@ -34,15 +34,15 @@ pub use component::{
 pub use edit::Gap as BreakGap;
 pub use edit::{
     Align, AlignParams, AlignTo, Axis, Clipboard, ConvertCross, ConvertCrossParams,
-    ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
-    DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
-    EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
-    Mirror, MirrorParams, Move, MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange,
-    Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate, RotateParams, ShiftParams,
-    ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
-    TextSetParams, WireBreak, WireBreakParams, WireBreakResult, WireSegment, WireSetVertices,
-    WireSetVerticesParams, WireSetVerticesResult, break_gap, flight_preview, selectable,
-    shift_preview,
+    ConvertCrossResult, ConvertedJunction, CopiedText, Copy, CopyAsText, CopyAsTextParams,
+    CopyParams, Cut, CutParams, Delete, DeleteParams, DeleteResult, Direction, Distribute,
+    DistributeParams, Drag, Duplicate, DuplicateParams, EditResult, FlightStep, GraphicResult,
+    GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror, MirrorParams, Move, MoveToSheet,
+    MoveToSheetParams, MoveToSheetResult, NetChange, Paste, PasteParams, PasteResult, RectAdd,
+    RectAddParams, Rotate, RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid,
+    TextAdd, TextAddParams, TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams,
+    WireBreakResult, WireSegment, WireSetVertices, WireSetVerticesParams, WireSetVerticesResult,
+    break_gap, flight_preview, selectable, shift_preview, shift_preview_flipped,
 };
 pub use fields::{FieldMove, FieldMoveParams, FieldResetParams, FieldResetPosition, FieldResult};
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
@@ -133,6 +133,7 @@ pub fn register_all_with_user(
     registry.add(SchematicNets);
     registry.add(PortAdd);
     registry.add(PortSet);
+    registry.add(crate::wiring::NetLabelSet);
     registry.add(PowerPortAdd);
     registry.add(PowerPortSet);
     registry.add(ProjectNets);
@@ -142,6 +143,7 @@ pub fn register_all_with_user(
     registry.add(Cut);
     registry.add(Paste);
     registry.add(Duplicate);
+    registry.add(CopyAsText);
     registry.add(Move);
     registry.add(MoveToSheet);
     registry.add(Drag);

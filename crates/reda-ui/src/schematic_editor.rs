@@ -16,8 +16,13 @@
 
 mod auto_wire;
 mod break_wire;
+mod clipboard;
+mod decorate;
+mod drag_check;
+mod grab;
 mod graphics;
 mod handles;
+mod in_place;
 mod wiring;
 
 use std::collections::BTreeSet;
@@ -25,7 +30,9 @@ use std::collections::BTreeSet;
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{SchematicSheet, Uuid};
 use reda_engine::schematic::connectivity::{net_at, placed_pins};
-use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
+use reda_engine::schematic::{
+    Axis, FlightStep, ShiftPreview, flight_preview, shift_preview_flipped,
+};
 use serde_json::{Value, json};
 
 use crate::canvas::interact::{BoxMode, Pointer};
@@ -37,9 +44,25 @@ use crate::tr;
 
 pub use auto_wire::options as auto_wire_options;
 pub use break_wire::{Breaking, cycle_cutting_length, options as break_wire_options};
+pub use clipboard::{Pasting, Referencing, copy, duplicate, paste};
+pub use decorate::{decorate, drag_chip, hover_tip};
+pub use drag_check::DragCheck;
+pub use grab::{DragKeys, NudgeDirection, flip_corners, grab_point, nudge};
 pub use graphics::Drawing;
 pub use handles::{Grip, Handle, HandleDrag, delete_held_vertex, insert_held_vertex};
+pub use in_place::{
+    EditTarget, InPlace, begin_edit, cancel_edit, commit as commit_edit, edit_selected, editing,
+    pause_placing, paused, set_text as set_edit_text, target_of,
+};
 pub use wiring::{Corner, Placing, Wiring};
+
+/// Adds the editor's view Commands to `registry`: `tool.copy`, `tool.paste`,
+/// `tool.duplicate`, `schematic.edit_in_place` and `schematic.nudge`. The Shell does this for its engine.
+pub fn register_all(registry: &mut reda_engine::command::Registry) {
+    clipboard::register(registry);
+    registry.add(in_place::EditInPlace);
+    registry.add(grab::Nudge);
+}
 
 /// A Command for the window to run after the frame.
 pub type Invocation = (String, Value);
@@ -73,6 +96,12 @@ pub enum Interaction {
     Handle(HandleDrag),
     /// The Break Wire Tool, with the pointer over a Wire or not.
     Breaking(Breaking),
+    /// A paste or Duplicate stamp floating on the cursor.
+    Pasting(Pasting),
+    /// Cut or copy waiting for a click on the reference point.
+    Referencing(Referencing),
+    /// An in-place edit of a name, field or text.
+    Editing(InPlace),
 }
 
 impl Interaction {
@@ -81,6 +110,7 @@ impl Interaction {
         match self {
             Interaction::Placing(p) => p.shown.is_some(),
             Interaction::Flight(f) => f.shown.is_some(),
+            Interaction::Pasting(p) => p.shown.is_some(),
             _ => false,
         }
     }
@@ -120,6 +150,10 @@ pub struct Flight {
     shown: Option<(Point, usize, u64)>,
     /// Released: its Command is queued, and it keeps showing until the Shell runs it.
     pub committing: bool,
+    /// `Mod`+Space: the rubber-banded Wires turn their corners the other way.
+    pub flip: bool,
+    /// Display When Dragging: the Junctions and Net change at the current offset.
+    pub check: Option<DragCheck>,
 }
 
 impl Flight {
@@ -528,6 +562,12 @@ fn show(
             (0.0, 0.0),
             Overlay {
                 cursor: Some(f.anchor + f.offset),
+                junctions: f
+                    .check
+                    .as_ref()
+                    .map(|c| c.junctions.clone())
+                    .unwrap_or_default()
+                    .into(),
                 ..Overlay::default()
             },
         ),
@@ -543,6 +583,12 @@ fn show(
                     .flat_map(|v| v.windows(2).map(|pair| (pair[0], pair[1])))
                     .collect(),
                 cursor: Some(f.anchor + f.offset),
+                junctions: f
+                    .check
+                    .as_ref()
+                    .map(|c| c.junctions.clone())
+                    .unwrap_or_default()
+                    .into(),
                 ..Overlay::default()
             },
         ),
@@ -571,6 +617,18 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Pasting(p) => (
+            Vec::new(),
+            Vec::new(),
+            (0.0, 0.0),
+            Overlay {
+                cursor: Some(p.at + p.hold),
+                ..Overlay::default()
+            },
+        ),
+        Interaction::Referencing(_) | Interaction::Editing(_) => {
+            (Vec::new(), Vec::new(), (0.0, 0.0), idle)
+        }
         Interaction::Drawing(d) => {
             let mut wires = d.committed.clone();
             wires.extend(d.segments());
@@ -677,6 +735,10 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
                 .map_or(generation, |t| t.scene.generation);
             f.shown = Some((f.offset, f.turns.len(), generation));
         }
+        return;
+    }
+    if let Interaction::Pasting(p) = state {
+        clipboard::preview(shell, document, p, generation);
         return;
     }
     let Interaction::Placing(p) = state else {
@@ -789,7 +851,8 @@ impl Cx<'_> {
                 .push(("tool.activate:select".to_owned(), json!({})));
             return state;
         }
-        self.start_flight(objects, keep_connections, true, at, at)
+        let grabbed = self.hit(at).filter(|h| objects.contains(h));
+        self.start_flight(objects, keep_connections, true, grabbed, at, at)
     }
 
     fn start_flight(
@@ -797,6 +860,7 @@ impl Cx<'_> {
         objects: Vec<Uuid>,
         keep_connections: bool,
         by_tool: bool,
+        grabbed: Option<Uuid>,
         from: P,
         at: P,
     ) -> Interaction {
@@ -804,19 +868,39 @@ impl Cx<'_> {
             return Interaction::Idle;
         };
         let all = snap::hotspots::sheet(sheet);
-        let anchor = snap::snap_at(self.shell, self.document, from, &all).at;
+        // The grab Preferences hold the object at its nearest connection point or its
+        // reference point; with neither, where it was clicked.
+        let grab = grabbed.and_then(|g| {
+            let g = match crate::selection::rules::child(self.shell, self.document, g) {
+                Some(child) => child.owner(),
+                None => g,
+            };
+            grab::grab_point(sheet, &self.shell.preferences().editing, g, point(from))
+        });
+        // The held point keeps its distance from the pointer (nothing jumps on the press),
+        // and it is what snaps as the drag goes.
+        let (anchor, lead) = match grab {
+            Some(held) => (held, (held.x.0 as f64 - from.0, held.y.0 as f64 - from.1)),
+            None => {
+                let anchor = snap::snap_at(self.shell, self.document, from, &all).at;
+                let lead = (anchor.x.0 as f64 - from.0, anchor.y.0 as f64 - from.1);
+                (anchor, lead)
+            }
+        };
         let flight = Flight {
             targets: snap::hotspots::without(all, &objects),
             objects,
             keep_connections,
             by_tool,
             anchor,
-            lead: (anchor.x.0 as f64 - from.0, anchor.y.0 as f64 - from.1),
+            lead,
             offset: Point::default(),
             preview: ShiftPreview::default(),
             turns: Vec::new(),
             shown: None,
             committing: false,
+            flip: false,
+            check: None,
         };
         let mut flight = self.fly(flight, from, true);
         flight = self.fly(flight, at, false);
@@ -827,25 +911,56 @@ impl Cx<'_> {
     fn fly(&self, mut flight: Flight, at: P, force: bool) -> Flight {
         let at = (at.0 + flight.lead.0, at.1 + flight.lead.1);
         let target = snap::snap_at(self.shell, self.document, at, &flight.targets).at;
-        let offset = target - flight.anchor;
+        let mut offset = target - flight.anchor;
+        // Alt held: only along the axis it has gone further on.
+        if grab::alt_held(self.shell) {
+            if offset.x.0.abs() >= offset.y.0.abs() {
+                offset.y = Nm(0);
+            } else {
+                offset.x = Nm(0);
+            }
+        }
         if !flight.turns.is_empty() {
             // Turned: drawn from a preview Scene (see `preview_scene`), not marks.
-            flight.offset = offset;
+            if offset != flight.offset || force {
+                flight.offset = offset;
+                flight.check = self.drag_check(&flight);
+            }
         } else if offset != flight.offset || force {
             flight.offset = offset;
-            flight.preview = self
-                .shell
-                .engine()
-                .project()
-                .and_then(|p| {
-                    shift_preview(p, &flight.objects, offset, flight.keep_connections).ok()
-                })
-                .unwrap_or_else(|| ShiftPreview {
-                    moved: flight.objects.clone(),
-                    ..ShiftPreview::default()
-                });
+            flight.preview = self.shift_preview(&flight);
+            flight.check = self.drag_check(&flight);
         }
         flight
+    }
+
+    /// The marks `flight` shows at its offset.
+    fn shift_preview(&self, flight: &Flight) -> ShiftPreview {
+        let (objects, keep) = (&flight.objects, flight.keep_connections);
+        self.shell
+            .engine()
+            .project()
+            .and_then(|p| shift_preview_flipped(p, objects, flight.offset, keep, flight.flip).ok())
+            .unwrap_or_else(|| ShiftPreview {
+                moved: flight.objects.clone(),
+                ..ShiftPreview::default()
+            })
+    }
+
+    /// Display When Dragging: the Junctions and Net change the drop would make.
+    fn drag_check(&self, flight: &Flight) -> Option<DragCheck> {
+        if !self.shell.preferences().schematic.display_when_dragging {
+            return None;
+        }
+        let project = self.shell.engine().project()?;
+        let after = flight_preview(
+            project,
+            &flight.objects,
+            &flight.steps(),
+            flight.keep_connections,
+        )
+        .ok()?;
+        Some(drag_check::check(project, &after, self.document))
     }
 
     /// Puts `flight` down: queues its one Command, unless it never moved.
@@ -862,10 +977,13 @@ impl Cx<'_> {
         } else {
             "schematic.move"
         };
-        let shift = json!({
+        let mut shift = json!({
             "objects": flight.objects,
             "by": {"x": flight.offset.x.0, "y": flight.offset.y.0},
         });
+        if flight.keep_connections && flight.flip {
+            shift["flip_corners"] = json!(true);
+        }
         if flight.turns.is_empty() {
             self.commands.push((id.to_owned(), shift));
         } else {
@@ -906,6 +1024,17 @@ impl Cx<'_> {
         match (state, event) {
             (Interaction::Handle(d), event) => self.handle_step(d, event),
             (Interaction::Breaking(b), event) => self.break_step(b, event),
+            (Interaction::Pasting(p), event) => self.paste_step(p, event),
+            (Interaction::Referencing(r), event) => self.reference_step(r, event),
+            // The text field has the keyboard; Enter or Esc ends the edit.
+            (Interaction::Editing(edit), _) => Interaction::Editing(edit),
+            (Interaction::Idle, Pointer::Click { at, modifiers })
+                if tool == Tool::Select
+                    && modifiers.is_none()
+                    && let Some(edit) = self.slow_second_click(at) =>
+            {
+                Interaction::Editing(edit)
+            }
             (Interaction::Idle, event) if tool == Tool::BreakWire => {
                 self.break_step(Breaking::default(), event)
             }
@@ -1023,10 +1152,36 @@ impl Cx<'_> {
                 self.commands.extend(drag.select);
                 let objects = drag.objects;
                 // Mod+drag detaches; a plain drag keeps connections.
-                self.start_flight(objects, !modifiers.command, false, from, at)
+                self.start_flight(objects, !modifiers.command, false, Some(hit), from, at)
             }
             (Interaction::Idle, Pointer::Drag(_) | Pointer::DragEnd(_)) => Interaction::Idle,
         }
+    }
+
+    /// The in-place edit a slow second click at `at` starts, if it is one.
+    fn slow_second_click(&self, at: P) -> Option<InPlace> {
+        let hit = crate::selection::picking::slow_second_click(
+            self.shell,
+            self.document,
+            at,
+            self.scale.pick,
+        )?;
+        let project = self.shell.engine().project()?;
+        let target = match crate::selection::rules::child(self.shell, self.document, hit) {
+            Some(reda_engine::render::Child::Field { unit, field }) => {
+                target_of(project, *unit, Some(field))
+            }
+            // A Unit's body is not text: a second click on it deselects it.
+            _ if matches!(
+                project.object(hit),
+                Some(reda_engine::model::Object::Unit(_))
+            ) =>
+            {
+                None
+            }
+            _ => target_of(project, hit, None),
+        }?;
+        in_place::start(self.shell, target)
     }
 
     /// Alt+click: highlights the Net under the pointer on every sheet, or clears the

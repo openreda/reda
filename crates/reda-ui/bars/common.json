@@ -84,6 +84,7 @@
         { "id": "window.panel.layers", "command": "panel.show:layers" },
         { "id": "window.panel.journal", "command": "panel.show:journal" },
         { "id": "window.panel.navigator", "command": "panel.show:navigator" },
+        { "id": "window.panel.find", "command": "panel.show:find" },
         "separator",
         { "id": "window.collapse.left", "command": "layout.dock.collapse:left" },
         { "id": "window.collapse.right", "command": "layout.dock.collapse:right" },

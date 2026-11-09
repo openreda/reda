@@ -331,16 +331,24 @@ fn keys_delete_copy_paste_duplicate_and_select_all() {
     shell
         .run("selection.set", json!({ "objects": [w] }))
         .unwrap();
-    assert_eq!(press_keys(&mut shell, "Mod+C"), ["schematic.copy"]);
+    assert_eq!(press_keys(&mut shell, "Mod+C"), ["tool.copy"]);
     assert!(shell.clipboard().is_some());
-    // Paste goes at the pointer, snapped to the grid, and selects what it made.
+    // Paste floats on the pointer, snapped to the grid, until a click; it selects what
+    // it made.
     pointer(&mut shell, &[Pointer::Hover(at(1010.0, 990.0))]);
-    assert_eq!(press_keys(&mut shell, "Mod+V"), ["schematic.paste"]);
+    assert_eq!(press_keys(&mut shell, "Mod+V"), ["tool.paste"]);
+    assert_eq!(
+        click(&mut shell, at(1010.0, 990.0), Modifiers::NONE),
+        ["schematic.paste"]
+    );
     let pasted = selected(&shell);
     assert_eq!(pasted.len(), 1);
     assert_eq!(wire_ends(&shell, pasted[0]), ((1000, 1000), (1500, 1000)));
 
-    assert_eq!(press_keys(&mut shell, "Mod+D"), ["schematic.duplicate"]);
+    // Duplicate stamps a copy per click until Esc.
+    assert_eq!(press_keys(&mut shell, "Mod+D"), ["tool.duplicate"]);
+    click(&mut shell, at(1010.0, 2000.0), Modifiers::NONE);
+    press_keys(&mut shell, "Esc");
     let copy = selected(&shell);
     assert_ne!(copy, pasted);
 
@@ -351,7 +359,7 @@ fn keys_delete_copy_paste_duplicate_and_select_all() {
     shell
         .run("selection.set", json!({ "objects": [r1] }))
         .unwrap();
-    assert_eq!(press_keys(&mut shell, "Mod+X"), ["schematic.cut"]);
+    assert_eq!(press_keys(&mut shell, "Mod+X"), ["tool.copy"]);
     assert!(shell.engine().project().unwrap().object(r1).is_none());
     assert!(
         shell.clipboard().unwrap()["units"]
@@ -381,7 +389,8 @@ fn the_grid_starts_at_50_mil_and_g_cycles_within_its_unit() {
         .run("view.grid.set", json!({"document": SHEET, "grid": "3mil"}))
         .unwrap_err();
     assert_eq!(err.details.as_ref().unwrap()["pointer"], "/grid");
-    // A drag snaps to the grid in force: 0.25 mm.
+    // A drag snaps to the grid in force: 0.25 mm. The Unit is held at its Pin (Hot Spot),
+    // 150 mil up, which lands on that grid: 60 µm lower.
     let r1 = place(&mut shell, 0, 0);
     pointer(
         &mut shell,
@@ -393,7 +402,7 @@ fn the_grid_starts_at_50_mil_and_g_cycles_within_its_unit() {
     );
     let tab = shell.document_tab(sheet()).unwrap();
     assert!(tab.live.moving.contains(&r1));
-    assert_eq!(tab.moving_offset, (250_000.0, 0.0));
+    assert_eq!(tab.moving_offset, (250_000.0, -60_000.0));
 }
 
 #[test]

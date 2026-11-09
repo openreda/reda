@@ -58,6 +58,9 @@ rfd = "0.17"
 # The UI's string catalogue.
 fluent-bundle = "0.16"
 unic-langid = "0.9"
+# Find's regular expressions (reda-schematic, reda-ui's Find Panel). The lite crate: no
+# dependencies of its own, and Find needs no Unicode classes or big-input speed.
+regex-lite = "0.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

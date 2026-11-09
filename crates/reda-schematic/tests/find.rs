@@ -275,3 +275,140 @@ fn find_matches_a_designator_with_or_without_its_unit_suffix() {
         [m("designator", "U1:1", a)]
     );
 }
+
+/// The `text` of each match, in order.
+fn texts(engine: &mut TestEngine, params: Value) -> Vec<String> {
+    find(engine, params)
+        .into_iter()
+        .map(|(_, t, _)| t)
+        .collect()
+}
+
+fn add_label(engine: &mut TestEngine, sheet: &Value, name: &str, x: i64) -> Value {
+    engine.run_ok(
+        "schematic.net_label.add",
+        json!({"document": sheet, "name": name, "at": {"x": x, "y": 5000}}),
+    )["result"]["net_label"]
+        .clone()
+}
+
+#[test]
+fn find_options_case_whole_word_wildcards_and_regular_expressions() {
+    let dir = TempDir::new("find-options");
+    let mut engine = demo(&dir);
+    let sheet = json!(SHEET);
+    for (i, name) in ["SDA", "I2C_SDA", "sda_out", "SCL"].iter().enumerate() {
+        add_label(&mut engine, &sheet, name, i as i64 * 1_000_000);
+    }
+    let note = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": sheet, "text": "Check the SDA pull-up", "at": {"x": 0, "y": -5_000_000}}),
+    )["result"]["text"]
+        .clone();
+    let text = |extra: Value| {
+        let mut p = json!({"text": "", "fields": ["text"]});
+        for (k, v) in extra.as_object().unwrap() {
+            p[k] = v.clone();
+        }
+        p
+    };
+    // "All text" finds Net Labels and free text, ignoring case by default.
+    assert_eq!(
+        texts(&mut engine, text(json!({"text": "sda"}))),
+        ["I2C_SDA", "SDA", "sda_out", "Check the SDA pull-up"]
+    );
+    // Case on.
+    assert_eq!(
+        texts(
+            &mut engine,
+            text(json!({"text": "sda", "match_case": true}))
+        ),
+        ["sda_out"]
+    );
+    // Whole word: `_` joins words, a space or a hyphen does not.
+    assert_eq!(
+        texts(
+            &mut engine,
+            text(json!({"text": "SDA", "whole_word": true}))
+        ),
+        ["SDA", "Check the SDA pull-up"]
+    );
+    // Wildcards match the whole text, always ignoring case.
+    assert_eq!(
+        texts(
+            &mut engine,
+            text(json!({"text": "s?a*", "syntax": "wildcard", "match_case": true}))
+        ),
+        ["SDA", "sda_out"]
+    );
+    // Regular expressions; the case option applies.
+    assert_eq!(
+        texts(
+            &mut engine,
+            text(json!({"text": "^s[cd]", "syntax": "regex"}))
+        ),
+        ["SCL", "SDA", "sda_out"]
+    );
+    assert_eq!(
+        texts(
+            &mut engine,
+            text(json!({"text": "^s[cd]", "syntax": "regex", "match_case": true}))
+        ),
+        ["sda_out"]
+    );
+    let bad = engine.run_err(
+        "schematic.find",
+        text(json!({"text": "(", "syntax": "regex"})),
+    );
+    assert_eq!(bad.code, ErrorCode::InvalidParams);
+    // A text match names its kind and object.
+    let out = engine.run_ok("schematic.find", text(json!({"text": "pull"})));
+    assert_eq!(out["matches"][0]["kind"], "text");
+    assert_eq!(out["matches"][0]["objects"], json!([note]));
+    // Net names ignore case unless the case option is on.
+    assert_eq!(
+        texts(
+            &mut engine,
+            json!({"text": "scl", "fields": ["net"], "exact": true})
+        ),
+        ["SCL"]
+    );
+    assert_eq!(
+        texts(
+            &mut engine,
+            json!({"text": "scl", "fields": ["net"], "exact": true, "match_case": true})
+        ),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn find_scope_is_a_sheet_the_project_or_the_selection() {
+    let dir = TempDir::new("find-scope");
+    let mut engine = demo(&dir);
+    let sheet = json!(SHEET);
+    let second = second_sheet(&mut engine);
+    let r1 = place_on(&mut engine, &sheet, R_10K, 0);
+    let r2 = place_on(&mut engine, &second, R_10K, 0);
+    let r3 = place_on(&mut engine, &sheet, R_10K, 1_000_000);
+    let designators = json!(["designator"]);
+    assert_eq!(
+        texts(&mut engine, json!({"text": "R", "fields": designators})),
+        ["R1", "R3", "R2"]
+    );
+    assert_eq!(
+        texts(
+            &mut engine,
+            json!({"text": "R", "fields": designators, "document": second})
+        ),
+        ["R2"]
+    );
+    assert_eq!(
+        texts(
+            &mut engine,
+            json!({"text": "R", "fields": designators, "objects": [r3["unit"], r2["unit"]]})
+        ),
+        ["R3", "R2"]
+    );
+    let _ = r1;
+}

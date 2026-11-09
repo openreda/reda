@@ -62772,6 +62772,39 @@
       "id": "schematic.copy",
       "kind": "query",
       "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
@@ -62782,6 +62815,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The reference point a paste puts at its `at` (Clipboard Reference); the lower-left\ncorner of the copied objects by default."
           }
         },
         "required": [
@@ -64787,12 +64831,72 @@
     },
     {
       "category": "schematic",
+      "description": "Returns the text of the given Net Labels, Ports, Power Ports, free texts and Units (their Designators), one per line in the order given, for the system clipboard. Objects with no text are skipped. Changes nothing.",
+      "icon": "copy",
+      "id": "schematic.copy_as_text",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "objects": {
+            "description": "The objects whose text to copy, by UUID.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "objects"
+        ],
+        "title": "CopyAsTextParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.copy_as_text` returns.",
+        "properties": {
+          "text": {
+            "description": "One line per object (more for multi-line text), in the order given.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "CopiedText",
+        "type": "object"
+      },
+      "title": "Copy As Text"
+    },
+    {
+      "category": "schematic",
       "description": "Copies the selected objects as schematic.copy does, then deletes them as schematic.delete does, and returns the clipboard.",
       "icon": "cut",
       "id": "schematic.cut",
       "kind": "edit",
       "params": {
         "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -64850,6 +64954,17 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/At"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The reference point a paste puts at its `at` (Clipboard Reference); the lower-left\ncorner of the cut objects by default."
           },
           "wiring": {
             "anyOf": [
@@ -67198,6 +67313,11 @@
             "$ref": "#/$defs/At",
             "description": "How far to move them."
           },
+          "flip_corners": {
+            "default": false,
+            "description": "A drag's rubber-banded Wires turn their corners the other way: the moved end keeps\nits direction, rather than the end that stayed (`Mod`+Space during a drag).",
+            "type": "boolean"
+          },
           "objects": {
             "description": "The objects to move, by UUID, all on one sheet: Units, Wires, Net Labels,\nNo-Connect Markers, Ports, Power Ports, text and graphics.",
             "items": {
@@ -67625,7 +67745,7 @@
     },
     {
       "category": "schematic",
-      "description": "Finds objects on every Schematic Sheet whose Designator, value or Net name contains the text (or equals it, with `exact`), ignoring case. A Designator also matches with its Unit suffix, as `U1A` or `U1:1`.",
+      "description": "Finds objects on every Schematic Sheet (or one, or among given objects) whose Designator, value, Net name or text contains the text (or equals it, with `exact`), ignoring case unless `match_case`. `whole_word` matches whole words; `syntax` reads the text as `*`/`?` wildcards (the whole text, ignoring case) or a regular expression. A Designator also matches with its Unit suffix, as `U1A` or `U1:1`.",
       "icon": "find",
       "id": "schematic.find",
       "kind": "query",
@@ -67645,6 +67765,31 @@
                 "const": "net",
                 "description": "The name of a Net.",
                 "type": "string"
+              },
+              {
+                "const": "text",
+                "description": "All text: Net Label, Port and Power Port names and free text.",
+                "type": "string"
+              }
+            ]
+          },
+          "FindSyntax": {
+            "description": "How a find query's text is read.",
+            "oneOf": [
+              {
+                "const": "plain",
+                "description": "The text itself.",
+                "type": "string"
+              },
+              {
+                "const": "wildcard",
+                "description": "`*` matches any run of characters and `?` any one character, over the whole\ntext, always ignoring case.",
+                "type": "string"
+              },
+              {
+                "const": "regex",
+                "description": "A regular expression, matching anywhere unless anchored.",
+                "type": "string"
               }
             ]
           }
@@ -67652,13 +67797,21 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "document": {
+            "description": "Search only this Schematic Sheet; every sheet by default.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "exact": {
             "default": false,
             "description": "Match the whole text rather than any part of it.",
             "type": "boolean"
           },
           "fields": {
-            "description": "What to search; every field by default.",
+            "description": "What to search; Designators, values and Net names by default.",
             "items": {
               "$ref": "#/$defs/FindField"
             },
@@ -67667,9 +67820,34 @@
               "null"
             ]
           },
+          "match_case": {
+            "default": false,
+            "description": "Match case; case does not matter by default (and never for wildcards).",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "Search only these objects (the selection): a Net matches when one of its objects\nis among them.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "syntax": {
+            "$ref": "#/$defs/FindSyntax",
+            "description": "How `text` is read: plain text by default."
+          },
           "text": {
-            "description": "The text to look for. Case does not matter.",
+            "description": "The text to look for.",
             "type": "string"
+          },
+          "whole_word": {
+            "default": false,
+            "description": "Match only whole words: the text with no letter, digit or `_` on either side.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -67695,6 +67873,11 @@
                 "const": "net",
                 "description": "The name of a Net.",
                 "type": "string"
+              },
+              {
+                "const": "text",
+                "description": "All text: Net Label, Port and Power Port names and free text.",
+                "type": "string"
               }
             ]
           },
@@ -67718,8 +67901,15 @@
                 "$ref": "#/$defs/FindField",
                 "description": "What matched."
               },
+              "kind": {
+                "description": "For a text match, what holds the text: `net_label`, `port`, `power_port` or\n`text`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "objects": {
-                "description": "The objects that carry the matched Net on this sheet, for Net matches.",
+                "description": "The objects that carry the matched Net on this sheet, for Net matches; the one\nobject, for text matches.",
                 "items": {
                   "format": "uuid",
                   "type": "string"
@@ -68437,6 +68627,11 @@
             "$ref": "#/$defs/At",
             "description": "How far to move them."
           },
+          "flip_corners": {
+            "default": false,
+            "description": "A drag's rubber-banded Wires turn their corners the other way: the moved end keeps\nits direction, rather than the end that stayed (`Mod`+Space during a drag).",
+            "type": "boolean"
+          },
           "objects": {
             "description": "The objects to move, by UUID, all on one sheet: Units, Wires, Net Labels,\nNo-Connect Markers, Ports, Power Ports, text and graphics.",
             "items": {
@@ -68589,6 +68784,51 @@
         "type": "object"
       },
       "title": "Add Net Label"
+    },
+    {
+      "category": "schematic",
+      "description": "Renames a Net Label, with the name checks of schematic.net_label.add (in-place edit uses it).",
+      "icon": "net_label",
+      "id": "schematic.net_label.set",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "The new Net name, checked as `schematic.net_label.add` checks it.",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "The Net Label's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "name"
+        ],
+        "title": "NetLabelSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The object a `set` Command changed.",
+        "properties": {
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "SetResult",
+        "type": "object"
+      },
+      "title": "Rename Net Label"
     },
     {
       "category": "schematic",
