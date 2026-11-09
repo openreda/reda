@@ -130,7 +130,7 @@ fn a_reference_project_script_replays_end_to_end_with_random_uuids() {
         String::from_utf8_lossy(&out.stderr)
     );
     let outputs = read_tree(&dir.path().join("Blinky/outputs/JLCPCB"));
-    assert!(outputs.contains_key("Blinky.GTL"), "{:?}", outputs.keys());
+    assert!(outputs.contains_key("Blinky.gtl"), "{:?}", outputs.keys());
     assert!(outputs.contains_key("Blinky-JLCPCB.zip"));
 }
 

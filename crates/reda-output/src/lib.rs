@@ -8,7 +8,6 @@
 
 mod archive;
 mod assembly;
-mod civil;
 mod drill;
 mod drill_report;
 mod fab_notes;

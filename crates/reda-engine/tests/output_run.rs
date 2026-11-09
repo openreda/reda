@@ -82,22 +82,22 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
     // Silkscreen and Paste and the drill files with no holes are left out and reported.
     assert_eq!(
         names[..5],
-        ["Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GKO"]
+        ["Demo.gtl", "Demo.gbl", "Demo.gts", "Demo.gbs", "Demo.gm1"]
     );
     assert!(!names.iter().any(|n| n.ends_with(".drl")), "{names:?}");
     assert_eq!(out["files"][0]["function"], "copper_top");
     assert_eq!(
         out["skipped"],
         json!([
-            {"name": "Demo.GTP", "function": "paste_top"},
-            {"name": "Demo.GBP", "function": "paste_bottom"},
-            {"name": "Demo.GTO", "function": "silkscreen_top"},
-            {"name": "Demo.GBO", "function": "silkscreen_bottom"},
+            {"name": "Demo.gtp", "function": "paste_top"},
+            {"name": "Demo.gbp", "function": "paste_bottom"},
+            {"name": "Demo.gto", "function": "silkscreen_top"},
+            {"name": "Demo.gbo", "function": "silkscreen_bottom"},
             {"name": "Demo-PTH.drl", "function": "drill_plated"},
             {"name": "Demo-NPTH.drl", "function": "drill_non_plated"},
         ])
     );
-    for name in ["Demo.GTP", "Demo.GTO", "Demo-PTH.drl", "Demo-NPTH.drl"] {
+    for name in ["Demo.gtp", "Demo.gto", "Demo-PTH.drl", "Demo-NPTH.drl"] {
         assert!(!folder.join(name).exists(), "{name} is not written");
     }
 
@@ -257,17 +257,17 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     via(&mut engine);
     run(&mut engine);
     let folder = dir.path().join("Demo/outputs/Generic");
-    std::fs::write(folder.join("Demo.GTL"), b"old").unwrap();
+    std::fs::write(folder.join("Demo.gtl"), b"old").unwrap();
     std::fs::write(folder.join("notes.txt"), b"mine").unwrap();
     run(&mut engine);
-    assert_ne!(std::fs::read(folder.join("Demo.GTL")).unwrap(), b"old");
+    assert_ne!(std::fs::read(folder.join("Demo.gtl")).unwrap(), b"old");
 
     engine.run_ok(
         "output.job.set",
         json!({"job": JOB, "outputs": {"gerber": false}}),
     );
     run(&mut engine);
-    for name in ["Demo.GTL", "Demo.GTS", "Demo.GBP", "Demo.GTO"] {
+    for name in ["Demo.gtl", "Demo.gts", "Demo.gbp", "Demo.gto"] {
         assert!(!folder.join(name).exists(), "Gerber turned off: {name}");
     }
     assert!(folder.join("Demo-PTH.drl").exists());
@@ -365,7 +365,7 @@ fn stale_zones_are_refilled_before_plotting() {
         true
     );
     run(&mut engine);
-    let gtl = std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/Demo.GTL")).unwrap();
+    let gtl = std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/Demo.gtl")).unwrap();
     assert!(gtl.contains("G36*"), "the fill is plotted as a region");
     assert_eq!(
         engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
@@ -460,7 +460,7 @@ fn a_coordinate_a_gerber_file_cannot_hold_blocks_the_run() {
     assert_eq!(err.code, ErrorCode::Rejected);
     assert_eq!(blockers(&err), ["coordinate_out_of_range"]);
     let blocker = &err.details.as_ref().unwrap()["blockers"][0];
-    assert_eq!(blocker["args"]["file"], "Demo.GTL");
+    assert_eq!(blocker["args"]["file"], "Demo.gtl");
     assert_eq!(blocker["args"]["x"], 2_147_500_000i64);
     assert!(
         !dir.path().join("Demo/outputs").exists(),
@@ -753,7 +753,7 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
             let out = engine.run_ok("output.job.run", json!({"job": job}));
             let destination = PathBuf::from(out["destination"].as_str().unwrap());
             let read = |name: &str| std::fs::read_to_string(destination.join(name)).unwrap();
-            let copper = read("Demo.GTL");
+            let copper = read("Demo.gtl");
             assert!(
                 copper.contains(&format!("X{}Y{}D02*", x * 1_000_000, y * 1_000_000)),
                 "{preset}, origin={origin}: {copper}"

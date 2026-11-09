@@ -111,11 +111,12 @@ fn with_plot<T>(
         fonts: &reda_command::Fonts::default(),
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     })
 }
 
 fn zip_names() -> Vec<String> {
-    ["Demo.GTL", "Demo-PTH.drl", "Demo-fab-notes.txt"]
+    ["Demo.gtl", "Demo-PTH.drl", "Demo-fab-notes.txt"]
         .map(String::from)
         .to_vec()
 }
@@ -437,13 +438,13 @@ fn the_job_file_is_minimal_json_in_the_job_spec_form() {
     let entries = value["FilesAttributes"].as_array().unwrap();
     assert_eq!(
         entries[0],
-        json!({"Path": "Demo.GTL", "FileFunction": "Copper,L1,Top", "FilePolarity": "Positive"})
+        json!({"Path": "Demo.gtl", "FileFunction": "Copper,L1,Top", "FilePolarity": "Positive"})
     );
     let find = |path: &str| entries.iter().find(|e| e["Path"] == path).cloned();
     assert_eq!(
-        find("Demo.GTS"),
+        find("Demo.gts"),
         Some(
-            json!({"Path": "Demo.GTS", "FileFunction": "Soldermask,Top", "FilePolarity": "Negative"})
+            json!({"Path": "Demo.gts", "FileFunction": "Soldermask,Top", "FilePolarity": "Negative"})
         )
     );
     assert_eq!(

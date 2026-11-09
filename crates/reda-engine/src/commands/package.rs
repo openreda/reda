@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
-    Timestamp, Unavailable,
+    Unavailable,
 };
 use reda_model::{Project, Scope};
 use schemars::JsonSchema;
@@ -107,7 +107,7 @@ impl Command for ProjectPackage {
             })
             .collect();
         // Zip time stamps start in 1980: every entry gets 1980-01-01, whenever it is made.
-        let bytes = reda_output::zip(&files, Timestamp(0));
+        let bytes = reda_output::zip(&files);
         write_atomic(&p.path, &bytes)
             .map_err(|e| CommandError::internal(format!("writing {}: {e}", p.path.display())))?;
         let outside_libraries = outside_libraries(project);

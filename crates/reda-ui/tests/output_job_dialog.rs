@@ -139,7 +139,7 @@ fn run_from_the_projects_panel_shows_the_report_and_offers_the_zip() {
     let mut h = harness(home.path(), work.path(), true);
     job_menu(&mut h, "Run");
     wait_for(&mut h, "Generic finished");
-    h.get_by_label_contains("Jobs.GTL");
+    h.get_by_label_contains("Jobs.gtl");
     h.get_by_label("Show Zip");
     assert_eq!(last_journal_id(&h), "output.job.run");
     h.get_by_label("Close").click();

@@ -38,7 +38,7 @@ pub struct JobRunParams {
 /// One file the run wrote, also in the zip.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct WrittenFile {
-    /// The file name, such as `Demo.GTL`.
+    /// The file name, such as `Demo.gtl`.
     pub name: String,
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,
@@ -50,7 +50,7 @@ pub struct WrittenFile {
 /// A file the run left out because it would have held nothing.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct SkippedFile {
-    /// The name it would have had, such as `Demo.GBP`.
+    /// The name it would have had, such as `Demo.gbp`.
     pub name: String,
     /// What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top`,
     /// `silkscreen_bottom`, `drill_plated`, `drill_non_plated` or `drill_mixed`. Copper,
@@ -198,6 +198,7 @@ impl Command for JobRun {
             fonts: &fonts,
             version: &version,
             part: reda_output::Part::Single,
+            not_fitted_paste: job.not_fitted_paste,
         };
         let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
             let blocker = checks::out_of_range(&out);
@@ -281,7 +282,7 @@ impl Command for JobRun {
         cx.progress(3.0, Some(STEPS), "Zipping");
         cx.check_cancelled()?;
         let zip_name = format!("{name}-{}.zip", job.name);
-        let zip = reda_output::zip(&files, created);
+        let zip = reda_output::zip(&files);
 
         cx.progress(4.0, Some(STEPS), "Writing files");
         cx.check_cancelled()?;
