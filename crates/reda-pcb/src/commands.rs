@@ -17,6 +17,7 @@ mod net_class;
 mod outline;
 pub(crate) mod placement;
 mod polygon;
+mod route;
 mod rules;
 mod stackup;
 mod text;
@@ -74,6 +75,7 @@ pub fn register_all_with_user(
     zone_fill::register_all(registry);
     placement::register_all(registry);
     polygon::register_all(registry);
+    route::register_all(registry);
     mechanical::register_all(registry);
     measure::register_all(registry);
     free_pad::register_all(registry);

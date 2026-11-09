@@ -11,7 +11,7 @@ use crate::rules::{net_rules, resolve};
 
 /// One edge of the board: the outline or a cutout, as a closed chain of corners (arcs as
 /// chords within 1 µm).
-pub(super) struct Edge {
+pub(crate) struct Edge {
     pub uuid: Uuid,
     corners: Vec<P>,
     /// Whether copper belongs inside it (the outline) or outside it (a cutout).
