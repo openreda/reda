@@ -27,6 +27,7 @@ use crate::shell::Shell;
 use crate::tr;
 
 pub use cross::ConvertCrossDialog;
+pub use reannotate::labels as reannotate_labels;
 pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
 pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;

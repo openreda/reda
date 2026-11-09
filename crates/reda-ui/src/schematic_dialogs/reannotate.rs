@@ -2,6 +2,8 @@
 //! the selection, after an old → new preview (`schematic.reannotate.preview`). The lock
 //! of each Component in the scope can be switched here (`schematic.component.set`).
 
+pub mod labels;
+
 use egui::Id;
 use reda_engine::command::CommandError;
 use reda_engine::model::{Project, Uuid};

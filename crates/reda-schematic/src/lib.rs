@@ -51,7 +51,10 @@ pub use library_element::{
 };
 pub use natural::natural_cmp;
 pub use normalise::{DEFAULT_SNAP_GRID, WIRING_COMMANDS, Wiring};
-pub use options::{OptionsSet, OptionsSetParams};
+pub use options::{
+    OptionsSet, OptionsSetParams, SavedSettings, SavedSettingsResetCommand,
+    SavedSettingsResetParams,
+};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
     POWER_PORT_PRESETS, PortAdd, PortAddParams, PortAddResult, PortSet, PortSetParams,
@@ -138,6 +141,7 @@ pub fn register_all_with_user(
     registry.add(PowerPortSet);
     registry.add(ProjectNets);
     registry.add(OptionsSet);
+    registry.add(SavedSettingsResetCommand);
     registry.add(Delete);
     registry.add(Copy);
     registry.add(Cut);

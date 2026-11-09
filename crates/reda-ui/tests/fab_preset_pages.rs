@@ -43,6 +43,7 @@ fn every_copy_has_the_seven_pages_under_its_name() {
         [
             "Properties",
             "ERC",
+            "Schematic",
             "Libraries",
             "Fab Presets",
             "Rules",
