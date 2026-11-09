@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "reda": "0.0.0-test",
+  "job": {"uuid":"00000000-0000-4000-8000-000000000017","name":"JLCPCB"},
+  "fab_preset": {"name":"JLCPCB","sha256":"1174da20591deb436afb04183e69bfb67a3900e635361f17415f9ef0657c41e6"},
+  "pcb": "00000000-0000-4000-8000-000000000003",
+  "revision": "A",
+  "date": "2026-01-01T00:00:00Z",
+  "zip": {"path":"UsbMcu-JLCPCB.zip","sha256":"86a7cbfcff61c706fcbfdb405a3a24f43034c15ea04fa7b4152b6f3cc9612067"},
+  "files": [
+    {"path":"fab/UsbMcu.gtl","size":137066,"sha256":"e2860965409764e0b558c61f61dde247a472860264c683f6e2a1b1a073e79d66","kind":"copper_top"},
+    {"path":"fab/UsbMcu.gbl","size":84050,"sha256":"706d7791ab632191d99b4c34aa165926d893721be636c3b1ad459cc71bf6684d","kind":"copper_bottom"},
+    {"path":"fab/UsbMcu.gts","size":3012,"sha256":"2ff8ca5e5549bc7cc9c29f5fe954eea94a5d289b62b9ae76fd3b435201395ca8","kind":"solder_mask_top"},
+    {"path":"fab/UsbMcu.gbs","size":1761,"sha256":"b42fd1b339ee0429eabd45352a49afb99e7e45f4e23943336a693431b87e0ad0","kind":"solder_mask_bottom"},
+    {"path":"fab/UsbMcu.gtp","size":2436,"sha256":"0605fcba66ff37d67472c7dc45517a19b26d3435092fd6c49da3fad8d8591b39","kind":"paste_top"},
+    {"path":"fab/UsbMcu.gbp","size":1185,"sha256":"58d6516442eebc859b3bc35b2614cdcbf2b913feebdef8de83089c609e207648","kind":"paste_bottom"},
+    {"path":"fab/UsbMcu.gto","size":9497,"sha256":"e7fe1bab2c2105b91e287c91ebfd87020b778108c861346e31a0dfd0c3ff018b","kind":"silkscreen_top"},
+    {"path":"fab/UsbMcu.gbo","size":4752,"sha256":"1b9b1750c21b46b313d05bc720b78d3ec85cdd394f446ec67b6e7c07820b9adb","kind":"silkscreen_bottom"},
+    {"path":"fab/UsbMcu.gm1","size":592,"sha256":"c05472a158e953bd8ef7feeef055e4540ee9d7a522d3248e10b5d6d4677aa34a","kind":"profile"},
+    {"path":"fab/UsbMcu-PTH.drl","size":985,"sha256":"d3a136c077afd6ebda5dbd63a1e580da7d52f8aebc0ca0d6b289a39118dfa33f","kind":"drill_plated"},
+    {"path":"fab/UsbMcu-NPTH.drl","size":367,"sha256":"8df9dae8ff66f9bd9a742b699529b5848ac7bc0e4f58e2370b6b1833181808d9","kind":"drill_non_plated"},
+    {"path":"fab/UsbMcu-fab-notes.txt","size":636,"sha256":"d4e3a98450163d0b220d015d64a6fa54ceb7f8b4f243b49c86310f00d642ee82","kind":"fab_notes"},
+    {"path":"fab/UsbMcu-drill-report.txt","size":601,"sha256":"24ff0041c30aa47540bc89cd63fe5051eeafb8f698bb9d4054f2ae5195278543","kind":"drill_report"},
+    {"path":"fab/UsbMcu-job.gbrjob","size":1678,"sha256":"5761b671a30e9f2ff2372b151d34fbc35505da22f2d8c07ad4d38633aec5eb1d","kind":"gerber_job"},
+    {"path":"UsbMcu-JLCPCB.zip","size":73858,"sha256":"86a7cbfcff61c706fcbfdb405a3a24f43034c15ea04fa7b4152b6f3cc9612067","kind":"zip"},
+    {"path":"UsbMcu-JLCPCB-BOM.csv","size":296,"sha256":"f4dba8121841dacab80cb2c20e57c10ab037ba80831e9f4673af582453832304","kind":"bom"},
+    {"path":"UsbMcu-JLCPCB-CPL.csv","size":449,"sha256":"f56617b0372c2061ca416d80fe6deae12d029e21e0614f826733c7a510aafbe2","kind":"cpl"},
+    {"path":"reports/UsbMcu-erc.json","size":195,"sha256":"080f7911291cffc5d4666ebfb358a87a764066049d44b74a525e03f3cadb9906","kind":"erc_report"},
+    {"path":"reports/UsbMcu-drc.json","size":3177,"sha256":"236483279cfa461ae1879415636233ed088579aebb8e3c35a69190046e7b370b","kind":"drc_report"},
+    {"path":"reports/UsbMcu-change-list.json","size":179,"sha256":"1e3e25eef6c7780727f8660d90863669d1022d89770730bd2023eb90b74165bb","kind":"change_list_report"}
+  ],
+  "warnings": [
+    {"check":"drc_errors","message":"DRC reports 2 error(s)"}
+  ]
+}

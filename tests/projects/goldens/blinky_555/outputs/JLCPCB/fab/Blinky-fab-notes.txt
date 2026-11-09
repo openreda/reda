@@ -20,18 +20,16 @@ Minimum features
   Copper to board edge: 0.2 mm
 
 Files in the zip
-  Blinky.GTL
-  Blinky.GBL
-  Blinky.GTS
-  Blinky.GBS
-  Blinky.GTP
-  Blinky.GTO
-  Blinky.GBO
-  Blinky.GKO
+  Blinky.gtl
+  Blinky.gbl
+  Blinky.gts
+  Blinky.gbs
+  Blinky.gtp
+  Blinky.gto
+  Blinky.gbo
+  Blinky.gm1
   Blinky-PTH.drl
   Blinky-NPTH.drl
   Blinky-fab-notes.txt
   Blinky-drill-report.txt
   Blinky-job.gbrjob
-  Blinky-BOM.csv
-  Blinky-CPL.csv

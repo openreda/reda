@@ -31,7 +31,7 @@ Deliberate shorts (Net Ties)
   NT1: joins AGND and GND on purpose; this short is deliberate
 
 Files in the zip
-  Demo.GTL
+  Demo.gtl
   Demo-PTH.drl
   Demo-fab-notes.txt
 

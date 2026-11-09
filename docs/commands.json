@@ -36248,7 +36248,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (top and bottom copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`) and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`), then the files for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum features, hole tolerances, Net Ties as deliberate shorts, the files in the zip and the board's `fab_notes` text), `<project>-drill-report.txt` (each drill file's tools and counts) and `<project>-job.gbrjob` (a minimal Gerber job file), each with its `outputs` toggle, and writes them with the CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) and their zip, `<project>-<job>.zip`, to the job's destination (default `outputs/<job>/`), replacing the last run's files. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`), named by the preset's `naming` (`classic`: `<project>.gtl` … `.gm1`; `descriptive`: `<project>-<Layer>.gbr`) and `file_names`, and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`), then the files for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum features, hole tolerances, Net Ties as deliberate shorts, the files in the zip and the board's `fab_notes` text), `<project>-drill-report.txt` (each drill file's tools and counts) and `<project>-job.gbrjob` (a minimal Gerber job file), each with its `outputs` toggle. They go into `<name>.zip`, every entry dated 1980-01-01 so the same design gives the same zip, with loose copies in `fab/`; `<name>` is the job's name template (default `${project}-${job}`), and files in the zip stay named from the project. The CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) sit beside the zip as `<name>-BOM.csv` and `<name>-CPL.csv`, or go into it as `<project>-BOM.csv` and `<project>-CPL.csv` with the preset's `zip_assembly`. `reports/` gets the ERC, DRC and Change List reports as `checks.report` writes them (JSON; `outputs.reports` toggle), and `manifest.json` lists every file with its size, SHA-256 and kind, the zip's SHA-256, the REDA version, job, Fab Preset and its hash, PCB Document, revision, the Clock date and the warnings. All of it goes to the job's destination (default `outputs/<job>/`; the same tokens as the name template), first removing what the last run's manifest lists. The job's `not_fitted_paste: remove` leaves Not Fitted Pads out of the Paste. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -36349,7 +36349,7 @@
                 "type": "string"
               },
               "name": {
-                "description": "The name it would have had, such as `Demo.GBP`.",
+                "description": "The name it would have had in the zip, such as `Demo.gbp`.",
                 "type": "string"
               }
             },
@@ -36491,19 +36491,19 @@
             "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
           },
           "WrittenFile": {
-            "description": "One file the run wrote, also in the zip.",
+            "description": "One file the run wrote.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`, `silkscreen_bottom`, `profile`,\n`drill_plated`, `drill_non_plated`, `drill_mixed` (with `merge_drill`), `fab_notes`,\n`drill_report`, `gerber_job`, `bom` or `cpl`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`erc_report`, `drc_report` or `change_list_report`.",
                 "type": "string"
               },
-              "name": {
-                "description": "The file name, such as `Demo.GTL`.",
+              "path": {
+                "description": "Its path in the destination, `/`-separated: `fab/Demo.gtl` for a file in the zip\n(whose entry is `Demo.gtl`), `Demo-Generic.zip`, `Demo-Generic-BOM.csv` or\n`reports/Demo-drc.json`.",
                 "type": "string"
               }
             },
             "required": [
-              "name",
+              "path",
               "function"
             ],
             "type": "object"
@@ -36517,11 +36517,15 @@
             "type": "string"
           },
           "files": {
-            "description": "Every file written, in zip order.",
+            "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, then the\nreports.",
             "items": {
               "$ref": "#/$defs/WrittenFile"
             },
             "type": "array"
+          },
+          "manifest": {
+            "description": "The Output Manifest, `manifest.json` in the destination.",
+            "type": "string"
           },
           "skipped": {
             "description": "The files left out because they would have been empty: a Silkscreen or Paste with\nnothing on it, or a drill file with no holes.",
@@ -36531,20 +36535,21 @@
             "type": "array"
           },
           "warnings": {
-            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`.",
+            "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`. The manifest lists them too.",
             "items": {
               "$ref": "#/$defs/Violation"
             },
             "type": "array"
           },
           "zip": {
-            "description": "The zip of every file, `<project>-<job>.zip` in the destination.",
+            "description": "The zip, `<name>.zip` in the destination, `<name>` being the job's resolved name\ntemplate.",
             "type": "string"
           }
         },
         "required": [
           "destination",
           "zip",
+          "manifest",
           "files",
           "skipped",
           "warnings"
@@ -36553,6 +36558,408 @@
         "type": "object"
       },
       "title": "Run Output Job"
+    },
+    {
+      "category": "output",
+      "description": "Runs every Output Job of the Project as `output.job.run` does, in Projects panel order, and gives a combined report: each job's `status` (`written` with its run report as `result`, `blocked` with its `blockers`, `failed` with an `error`, or `not_run`). With `stop_on_block` (on by default) the first blocked job stops the run and the jobs after it are `not_run`. Long-running: reports progress and can be cancelled.",
+      "icon": "output_run",
+      "id": "output.job.run_all",
+      "kind": "file",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "stop_on_block": {
+            "default": true,
+            "description": "Stop at the first job a blocking problem stops, leaving the rest `not_run`; on by\ndefault. Off runs every job anyway.",
+            "type": "boolean"
+          }
+        },
+        "title": "JobRunAllParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "JobOutcome": {
+            "description": "One job's line of the combined report.",
+            "properties": {
+              "blockers": {
+                "description": "What blocked a `blocked` job, as `output.job.run` gives them.",
+                "items": {
+                  "$ref": "#/$defs/Violation"
+                },
+                "type": "array"
+              },
+              "error": {
+                "description": "Why a `failed` job could not run.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "job": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "result": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/JobRunResult"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The run report of a `written` job."
+              },
+              "status": {
+                "$ref": "#/$defs/JobStatus"
+              }
+            },
+            "required": [
+              "job",
+              "name",
+              "status"
+            ],
+            "type": "object"
+          },
+          "JobRunResult": {
+            "description": "The run report.",
+            "properties": {
+              "destination": {
+                "description": "The folder the files went to.",
+                "type": "string"
+              },
+              "files": {
+                "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, then the\nreports.",
+                "items": {
+                  "$ref": "#/$defs/WrittenFile"
+                },
+                "type": "array"
+              },
+              "manifest": {
+                "description": "The Output Manifest, `manifest.json` in the destination.",
+                "type": "string"
+              },
+              "skipped": {
+                "description": "The files left out because they would have been empty: a Silkscreen or Paste with\nnothing on it, or a drill file with no holes.",
+                "items": {
+                  "$ref": "#/$defs/SkippedFile"
+                },
+                "type": "array"
+              },
+              "warnings": {
+                "description": "What the run noticed but did not stop for, as Violations with severity `warning`:\n`out_of_sync {changes}`, `unassigned_footprint {designator}` (a Component on a sheet\nwith no Footprint, so not on the PCB), `erc_errors {count}`, `drc_errors {count}`,\n`rule_outside_preset {rule, value, board, preset_limit, limit, preset, net_class?}`\n(as DRC reports it), `missing_font {font}`. The manifest lists them too.",
+                "items": {
+                  "$ref": "#/$defs/Violation"
+                },
+                "type": "array"
+              },
+              "zip": {
+                "description": "The zip, `<name>.zip` in the destination, `<name>` being the job's resolved name\ntemplate.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "destination",
+              "zip",
+              "manifest",
+              "files",
+              "skipped",
+              "warnings"
+            ],
+            "type": "object"
+          },
+          "JobStatus": {
+            "description": "How one job of the run went.",
+            "oneOf": [
+              {
+                "const": "written",
+                "description": "It ran and wrote its files (`result`).",
+                "type": "string"
+              },
+              {
+                "const": "blocked",
+                "description": "A blocking problem stopped it (`blockers`); it wrote nothing.",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "description": "It could not run for another reason (`error`), such as a PCB Document that is gone.",
+                "type": "string"
+              },
+              {
+                "const": "not_run",
+                "description": "An earlier job blocked and `stop_on_block` is on.",
+                "type": "string"
+              }
+            ]
+          },
+          "Limit": {
+            "description": "Which limit the measured value violates.",
+            "enum": [
+              "min",
+              "max"
+            ],
+            "type": "string"
+          },
+          "Measurement": {
+            "description": "A measured quantity, tagged by dimension. Lengths use nm; areas use square nm.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "length": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "length"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "area": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "area"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Severity": {
+            "description": "How a check's Violations are reported.",
+            "enum": [
+              "error",
+              "warning",
+              "off"
+            ],
+            "type": "string"
+          },
+          "SkippedFile": {
+            "description": "A file the run left out because it would have held nothing.",
+            "properties": {
+              "function": {
+                "description": "What it would have held: `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `drill_plated`, `drill_non_plated` or `drill_mixed`. Copper,\nSolder Mask and the Profile are always written.",
+                "type": "string"
+              },
+              "name": {
+                "description": "The name it would have had in the zip, such as `Demo.gbp`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "function"
+            ],
+            "type": "object"
+          },
+          "Violation": {
+            "additionalProperties": false,
+            "description": "One breach of a rule found by a check, naming the objects involved.",
+            "properties": {
+              "args": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/ViolationArg"
+                },
+                "description": "The values the message is built from, by name, such as `{\"number\": \"3\"}`.",
+                "type": "object"
+              },
+              "at": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Point"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The check's marker point, retained even when an object is deleted."
+              },
+              "check": {
+                "description": "Which check found it, such as `duplicate_pin_number` or `clearance`. Together with\n`args` it picks the message the UI shows.",
+                "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "layers": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "limit": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Limit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "measured": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A measured length in nm or area in square nm."
+              },
+              "objects": {
+                "description": "The UUIDs of the objects involved, the most specific last: for a Pin of a Symbol,\nthe Symbol then the Pin. The UI selects these when the Violation is clicked.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "points": {
+                "description": "The closest points on a distance check's two objects, in object order.",
+                "items": {
+                  "$ref": "#/$defs/Point"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "required": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Measurement"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rule": {
+                "description": "The record that supplied the limit, including a board-wide record.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "severity": {
+                "$ref": "#/$defs/Severity",
+                "description": "Error or Warning; never Off, because a check set to Off reports nothing."
+              },
+              "waiver": {
+                "description": "The Waiver that waives it. Only waived Violations carry one, and a run lists them\nonly when asked to.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "check",
+              "severity",
+              "objects"
+            ],
+            "type": "object"
+          },
+          "ViolationArg": {
+            "anyOf": [
+              {
+                "format": "int64",
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "One message argument: a string, or an integer (lengths in nanometres, angles in\nmillidegrees, counts)."
+          },
+          "WrittenFile": {
+            "description": "One file the run wrote.",
+            "properties": {
+              "function": {
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`erc_report`, `drc_report` or `change_list_report`.",
+                "type": "string"
+              },
+              "path": {
+                "description": "Its path in the destination, `/`-separated: `fab/Demo.gtl` for a file in the zip\n(whose entry is `Demo.gtl`), `Demo-Generic.zip`, `Demo-Generic-BOM.csv` or\n`reports/Demo-drc.json`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "function"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The combined report.",
+        "properties": {
+          "jobs": {
+            "description": "Every job, in Projects panel order.",
+            "items": {
+              "$ref": "#/$defs/JobOutcome"
+            },
+            "type": "array"
+          },
+          "stopped": {
+            "description": "Whether a block stopped the run before its last job.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobs",
+          "stopped"
+        ],
+        "title": "JobRunAllResult",
+        "type": "object"
+      },
+      "title": "Run All Output Jobs"
     },
     {
       "category": "output",

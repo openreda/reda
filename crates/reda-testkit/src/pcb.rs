@@ -101,6 +101,9 @@ struct FootprintAddParams {
     /// Defaults to Mechanical.
     #[serde(default)]
     component_type: Option<ComponentType>,
+    /// Defaults to fitted.
+    #[serde(default)]
+    not_fitted: bool,
     #[serde(default)]
     graphics: Vec<GraphicParams>,
     pads: Vec<PadParams>,
@@ -227,7 +230,7 @@ impl Command for FootprintAdd {
             component_type,
             in_bom: component_type.default_in_bom(),
             in_cpl: component_type.default_in_cpl(),
-            not_fitted: false,
+            not_fitted: p.not_fitted,
             text_overrides: Vec::new(),
             pads: nets,
         };

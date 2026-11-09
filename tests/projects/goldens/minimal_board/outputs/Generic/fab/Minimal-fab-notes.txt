@@ -20,17 +20,15 @@ Minimum features
   Copper to board edge: 0.4 mm
 
 Files in the zip
-  Minimal.GTL
-  Minimal.GBL
-  Minimal.GTS
-  Minimal.GBS
-  Minimal.GTP
-  Minimal.GTO
-  Minimal.GBO
-  Minimal.GKO
+  Minimal.gtl
+  Minimal.gbl
+  Minimal.gts
+  Minimal.gbs
+  Minimal.gtp
+  Minimal.gto
+  Minimal.gbo
+  Minimal.gm1
   Minimal-PTH.drl
   Minimal-fab-notes.txt
   Minimal-drill-report.txt
   Minimal-job.gbrjob
-  Minimal-BOM.csv
-  Minimal-CPL.csv

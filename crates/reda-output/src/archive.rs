@@ -1,35 +1,17 @@
 //! The zip a job run writes: every file at the top level, deflated, in the order given,
-//! each stamped with the run's time from the injected `Clock`, so the same board and time
-//! give the same bytes on every platform.
+//! each dated 1980-01-01 00:00 (the earliest date a zip holds), so the same files give the
+//! same bytes on every run and platform. The run's date is in the Output Manifest alone.
 
 use std::io::{Cursor, Write};
 
-use reda_command::Timestamp;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, DateTime, System, ZipWriter};
 
-use crate::civil::Civil;
 use crate::plot::OutputFile;
 
-/// The zip of `files`, stamped `created` (zip time stamps start in 1980: earlier times are
-/// stamped 1980-01-01).
-pub fn zip(files: &[OutputFile], created: Timestamp) -> Vec<u8> {
-    let c = Civil::of(created);
-    let narrow = |v: i64| u8::try_from(v).unwrap_or(0);
-    let stamp = u16::try_from(c.year)
-        .ok()
-        .and_then(|year| {
-            DateTime::from_date_and_time(
-                year,
-                narrow(c.month),
-                narrow(c.day),
-                narrow(c.hour),
-                narrow(c.minute),
-                narrow(c.second),
-            )
-            .ok()
-        })
-        .unwrap_or_default();
+/// The zip of `files`, every entry dated 1980-01-01 00:00.
+pub fn zip(files: &[OutputFile]) -> Vec<u8> {
+    let stamp = DateTime::default();
     let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .last_modified_time(stamp)
@@ -69,7 +51,7 @@ mod tests {
     fn every_entry_says_unix_rw_r_r_whatever_platform_wrote_it() {
         let files = [
             OutputFile {
-                name: "Demo.GTL".into(),
+                name: "Demo.gtl".into(),
                 function: "copper_top",
                 bytes: b"G04 top*\nM02*\n".to_vec(),
                 attributes: None,
@@ -81,7 +63,7 @@ mod tests {
                 attributes: None,
             },
         ];
-        let entries = central_entries(&zip(&files, Timestamp(0)));
+        let entries = central_entries(&zip(&files));
         assert_eq!(entries.len(), files.len());
         for (made_by, attributes) in entries {
             assert_eq!(made_by >> 8, 3, "made by Unix, not the build platform");

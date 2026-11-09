@@ -20,19 +20,17 @@ Minimum features
   Copper to board edge: 0.2 mm
 
 Files in the zip
-  UsbMcu.GTL
-  UsbMcu.GBL
-  UsbMcu.GTS
-  UsbMcu.GBS
-  UsbMcu.GTP
-  UsbMcu.GBP
-  UsbMcu.GTO
-  UsbMcu.GBO
-  UsbMcu.GKO
+  UsbMcu.gtl
+  UsbMcu.gbl
+  UsbMcu.gts
+  UsbMcu.gbs
+  UsbMcu.gtp
+  UsbMcu.gbp
+  UsbMcu.gto
+  UsbMcu.gbo
+  UsbMcu.gm1
   UsbMcu-PTH.drl
   UsbMcu-NPTH.drl
   UsbMcu-fab-notes.txt
   UsbMcu-drill-report.txt
   UsbMcu-job.gbrjob
-  UsbMcu-BOM.csv
-  UsbMcu-CPL.csv

@@ -17,7 +17,7 @@ fn project(dir: &Path) -> (TestEngine, PathBuf) {
     engine.run_ok("project.library.add", json!({"path": "lib"}));
     engine.run_ok("project.save", json!({}));
     std::fs::create_dir_all(folder.join("outputs/Generic")).unwrap();
-    std::fs::write(folder.join("outputs/Generic/Demo.GTL"), b"G04*\n").unwrap();
+    std::fs::write(folder.join("outputs/Generic/Demo.gtl"), b"G04*\n").unwrap();
     std::fs::write(folder.join(".reda/view.json"), b"{}").unwrap();
     std::fs::write(folder.join("notes.txt"), b"rev A\n").unwrap();
     (engine, folder)
@@ -73,7 +73,7 @@ fn include_outputs_adds_the_output_jobs_folders() {
         "project.package",
         json!({"path": zip, "include_outputs": true}),
     );
-    assert!(names(&zip).contains(&"outputs/Generic/Demo.GTL".to_owned()));
+    assert!(names(&zip).contains(&"outputs/Generic/Demo.gtl".to_owned()));
 }
 
 #[test]

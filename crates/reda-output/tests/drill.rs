@@ -48,6 +48,7 @@ fn plot_with(engine: &TestEngine, set: impl FnOnce(&mut GerberSettings)) -> Dril
         fonts: &reda_command::Fonts::default(),
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     })
 }
 

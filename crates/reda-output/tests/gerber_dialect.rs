@@ -7,7 +7,7 @@ mod gerber_reader;
 
 use gerber_reader::{Layer, Object, read, winding};
 use reda_command::Fonts;
-use reda_model::GerberSettings;
+use reda_model::{FileNaming, GerberSettings, LayerFileName};
 use reda_output::{CoordinateOutOfRange, Gerbers, OutputFile, Plot, gerber_files};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::{Value, json};
@@ -53,6 +53,7 @@ fn plot_with(
         fonts: &Fonts::default(),
         version: reda_testkit::TEST_VERSION,
         part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     })
 }
 
@@ -165,7 +166,7 @@ fn every_copper_object_has_a_net_attribute_empty_without_a_net() {
     let dir = TempDir::new("gerber-net-attribute");
     let engine = every_kind(&dir);
     let files = plot(&engine);
-    for name in ["Demo.GTL", "Demo.GBL"] {
+    for name in ["Demo.gtl", "Demo.gbl"] {
         let copper = layer(&files, name);
         let mut empty = 0;
         for object in &copper.objects {
@@ -178,7 +179,7 @@ fn every_copper_object_has_a_net_attribute_empty_without_a_net() {
                 .unwrap_or_else(|| panic!("{name}: no .N on {object:?}"));
             empty += usize::from(n.is_empty());
         }
-        if name == "Demo.GTL" {
+        if name == "Demo.gtl" {
             // The second Pad, the Free Pad and the copper text "v1" have no Net.
             assert!(empty >= 3, "{name}: {empty} objects with an empty .N");
         }
@@ -190,7 +191,7 @@ fn aperture_functions_follow_the_table() {
     let dir = TempDir::new("gerber-aperture-functions");
     let engine = every_kind(&dir);
     let files = plot(&engine);
-    let top = layer(&files, "Demo.GTL");
+    let top = layer(&files, "Demo.gtl");
     let at = |layer: &Layer, x: f64, y: f64| -> Option<String> {
         layer.flashes().find_map(|o| match o {
             Object::Flash { at, function, .. } if *at == (mm(x), mm(y)) => function.clone(),
@@ -219,7 +220,7 @@ fn aperture_functions_follow_the_table() {
         "copper text and graphics are never flashed"
     );
     // Mask, paste and ink are material, whatever they open over.
-    for name in ["Demo.GTS", "Demo.GBS", "Demo.GTP", "Demo.GTO"] {
+    for name in ["Demo.gts", "Demo.gbs", "Demo.gtp", "Demo.gto"] {
         let file = layer(&files, name);
         assert!(!file.objects.is_empty(), "{name}");
         for o in file.flashes().chain(file.draws()) {
@@ -229,10 +230,10 @@ fn aperture_functions_follow_the_table() {
             assert_eq!(function(o), Some("Material"), "{name}: {o:?}");
         }
     }
-    let profile = layer(&files, "Demo.GKO");
+    let profile = layer(&files, "Demo.gm1");
     assert!(profile.draws().all(|o| function(o) == Some("Profile")));
     // Zone fills are conductor; their holes clear it.
-    let bottom = layer(&files, "Demo.GBL");
+    let bottom = layer(&files, "Demo.gbl");
     assert!(bottom.regions().count() > 1);
     assert!(bottom.regions().all(|o| function(o) == Some("Conductor")));
 }
@@ -276,7 +277,7 @@ fn the_board_outline_goes_on_every_plot_only_when_asked() {
             .collect()
     };
     let off = plot(&engine);
-    let profile = outline(&layer(&off, "Demo.GKO"));
+    let profile = outline(&layer(&off, "Demo.gm1"));
     assert!(!profile.is_empty());
     for file in off.iter().filter(|f| f.function != "profile") {
         assert!(outline(&read(&file.bytes)).is_empty(), "{}", file.name);
@@ -301,7 +302,7 @@ fn copper_mask_and_profile_are_always_written_and_empty_silkscreen_and_paste_are
     let names: Vec<_> = gerbers.files.iter().map(|f| f.name.as_str()).collect();
     assert_eq!(
         names,
-        ["Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GKO"]
+        ["Demo.gtl", "Demo.gbl", "Demo.gts", "Demo.gbs", "Demo.gm1"]
     );
     let skipped: Vec<_> = gerbers
         .skipped
@@ -311,10 +312,10 @@ fn copper_mask_and_profile_are_always_written_and_empty_silkscreen_and_paste_are
     assert_eq!(
         skipped,
         [
-            ("Demo.GTP", "paste_top"),
-            ("Demo.GBP", "paste_bottom"),
-            ("Demo.GTO", "silkscreen_top"),
-            ("Demo.GBO", "silkscreen_bottom"),
+            ("Demo.gtp", "paste_top"),
+            ("Demo.gbp", "paste_bottom"),
+            ("Demo.gto", "silkscreen_top"),
+            ("Demo.gbo", "silkscreen_bottom"),
         ]
     );
     // An outline added to every plot doesn't make an empty file worth writing.
@@ -342,7 +343,7 @@ fn outline_font_glyphs_are_whole_dark_regions_with_cut_ins() {
                "height": "2mm", "font": "Noto Sans"}),
     );
     let files = plot(&engine);
-    let silk = layer(&files, "Demo.GTO");
+    let silk = layer(&files, "Demo.gto");
     let regions: Vec<_> = silk.regions().collect();
     assert_eq!(
         regions.len(),
@@ -407,7 +408,7 @@ fn a_filled_circle_is_a_region_of_two_arcs_not_a_flash() {
              "shape": {"kind": "circle", "center": pt(0.0, 0.0), "radius": 450_000}}]}),
     );
     let files = plot(&engine);
-    let silk = layer(&files, "Demo.GTO");
+    let silk = layer(&files, "Demo.gto");
     assert_eq!(silk.flashes().count(), 0);
     let regions: Vec<_> = silk.regions().collect();
     assert_eq!(regions.len(), 1);
@@ -457,13 +458,13 @@ fn short_arcs_become_draws_and_near_full_arcs_are_split() {
             .cloned()
             .collect()
     };
-    let short = pen(layer(&files, "Demo.GTO"));
+    let short = pen(layer(&files, "Demo.gto"));
     assert_eq!(short.len(), 1);
     let Object::Draw { from, arc, .. } = &short[0] else {
         unreachable!()
     };
     assert_eq!((*from, *arc), ((mm(11.0), mm(10.0)), None));
-    let full = pen(layer(&files, "Demo.GBO"));
+    let full = pen(layer(&files, "Demo.gbo"));
     assert_eq!(full.len(), 2, "one arc written as two halves");
     for draw in &full {
         let Object::Draw { from, to, arc, .. } = draw else {
@@ -499,7 +500,7 @@ fn contour_points_under_a_micrometre_apart_merge() {
                 at(0, 1_000_000), at(0, 999)]}}]}),
     );
     let files = plot(&engine);
-    let silk = layer(&files, "Demo.GTO");
+    let silk = layer(&files, "Demo.gto");
     let Some(Object::Region { points, .. }) = silk.regions().next() else {
         panic!("no region")
     };
@@ -533,9 +534,89 @@ fn a_coordinate_beyond_the_32_bit_range_is_refused() {
                "points": [{"x": 0, "y": 0}, {"x": 0, "y": 2_147_483_648i64}]}),
     );
     let err = plot_with(&engine, |_| {}).unwrap_err();
-    assert_eq!(err.file, "Demo.GBL");
+    assert_eq!(err.file, "Demo.gbl");
     assert_eq!(
         err.at,
         reda_model::geom::Point::new(reda_model::geom::Nm(0), reda_model::geom::Nm(2_147_483_648),)
     );
+}
+
+fn names(gerbers: &Gerbers) -> (Vec<&str>, Vec<&str>) {
+    (
+        gerbers.files.iter().map(|f| f.name.as_str()).collect(),
+        gerbers.skipped.iter().map(|f| f.name.as_str()).collect(),
+    )
+}
+
+#[test]
+fn classic_names_are_lowercase_with_gm1_for_the_profile() {
+    let dir = TempDir::new("gerber-classic-names");
+    let engine = board(&dir);
+    let gerbers = plot_with(&engine, |g| g.naming = FileNaming::Classic).unwrap();
+    assert_eq!(
+        names(&gerbers),
+        (
+            vec!["Demo.gtl", "Demo.gbl", "Demo.gts", "Demo.gbs", "Demo.gm1"],
+            vec!["Demo.gtp", "Demo.gbp", "Demo.gto", "Demo.gbo"],
+        )
+    );
+}
+
+#[test]
+fn descriptive_names_are_the_project_and_layer_with_underscores_for_spaces() {
+    let dir = TempDir::new("gerber-descriptive-names");
+    let engine = board(&dir);
+    let gerbers = plot_with(&engine, |g| g.naming = FileNaming::Descriptive).unwrap();
+    assert_eq!(
+        names(&gerbers),
+        (
+            vec![
+                "Demo-Top_Copper.gbr",
+                "Demo-Bottom_Copper.gbr",
+                "Demo-Top_Solder_Mask.gbr",
+                "Demo-Bottom_Solder_Mask.gbr",
+                "Demo-Board_Outline.gbr",
+            ],
+            vec![
+                "Demo-Top_Paste.gbr",
+                "Demo-Bottom_Paste.gbr",
+                "Demo-Top_Silkscreen.gbr",
+                "Demo-Bottom_Silkscreen.gbr",
+            ],
+        )
+    );
+}
+
+#[test]
+fn file_names_override_any_layers_file_in_either_naming() {
+    let dir = TempDir::new("gerber-file-names");
+    let engine = board(&dir);
+    for naming in [FileNaming::Classic, FileNaming::Descriptive] {
+        let gerbers = plot_with(&engine, |g| {
+            g.naming = naming;
+            g.file_names = vec![
+                LayerFileName {
+                    layer: "Top Copper".into(),
+                    name: "top.gbr".into(),
+                },
+                LayerFileName {
+                    layer: "Board Outline".into(),
+                    name: "Demo.GKO".into(),
+                },
+                LayerFileName {
+                    layer: "Top Paste".into(),
+                    name: "stencil.gbr".into(),
+                },
+            ];
+        })
+        .unwrap();
+        let (files, skipped) = names(&gerbers);
+        assert_eq!(files[0], "top.gbr", "{naming:?}");
+        assert_eq!(files[4], "Demo.GKO", "{naming:?}");
+        assert_eq!(skipped[0], "stencil.gbr", "{naming:?}");
+        assert!(
+            !files[1].contains("top"),
+            "{naming:?}: only the named Layer"
+        );
+    }
 }
