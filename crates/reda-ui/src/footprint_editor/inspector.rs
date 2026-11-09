@@ -128,7 +128,10 @@ fn footprint_section(
             ui.end_row();
         });
     ui.strong(tr!("footprint-texts"));
-    for text in &footprint.texts {
+    // By field, then layer: the stored order follows the texts' UUIDs.
+    let mut texts: Vec<_> = footprint.texts.iter().collect();
+    texts.sort_by_key(|t| (t.field.clone(), format!("{:?}", t.layer)));
+    for text in texts {
         ui.horizontal(|ui| {
             let label = tr!(
                 "footprint-text-row",

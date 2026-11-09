@@ -124,7 +124,6 @@ fn add_pad(h: &mut Harness<'_, App>, fp: Uuid, number: &str, x: i64) -> Uuid {
                "at": {"x": x, "y": 0}, "width": "2mm", "height": "1mm"}),
     )["result"]["pad"]
         .as_str()
-        .or_else(|| None)
         .map(|s| s.parse().unwrap())
         .unwrap_or_else(|| {
             footprint(h, fp)
