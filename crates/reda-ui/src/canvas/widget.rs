@@ -9,7 +9,6 @@
 use std::sync::Arc;
 
 use egui::{Color32, PointerButton, Rect, Role, Sense, Stroke, Ui, WidgetInfo};
-use reda_engine::model::Severity;
 use reda_engine::model::geom::Point;
 use reda_engine::render::gpu::GridSpec;
 use reda_engine::render::{ColorKey, Palette, SceneSource, SchematicColor, Theme};
@@ -223,7 +222,7 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     };
     paint(ui.painter(), rect, frame);
     overlay(ui, input, &tab.overlay, &palette);
-    markers(ui, input, tab);
+    super::markers::draw(ui, input, tab, &palette);
 }
 
 /// Draws a Tool's overlay: rubber-banded Wires, the snap cursor and a selection box (solid
@@ -287,59 +286,6 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
                 }
             }
         }
-    }
-}
-
-/// The marker's radius in points.
-pub(crate) const MARKER_RADIUS: f32 = 7.0;
-
-/// Draws a ring with an exclamation mark at each Violation, over the canvas: red for
-/// errors, amber for warnings, faded when waived, thicker for the one last gone to.
-fn markers(ui: &Ui, input: &CanvasInputs, tab: &DocumentTab) {
-    let rect = input.rect;
-    let painter = ui.painter_at(rect);
-    let visuals = ui.visuals();
-    for marker in tab.markers.iter() {
-        let at = input.screen_point((marker.at.x.0 as f64, marker.at.y.0 as f64));
-        if !rect.expand(MARKER_RADIUS).contains(at) {
-            continue;
-        }
-        let mut color = match marker.severity {
-            Severity::Error => visuals.error_fg_color,
-            _ => visuals.warn_fg_color,
-        };
-        if marker.waived {
-            color = color.gamma_multiply(0.4);
-        }
-        let (radius, width) = if marker.current {
-            (MARKER_RADIUS * 1.4, 3.0)
-        } else {
-            (MARKER_RADIUS, 2.0)
-        };
-        painter.circle(
-            at,
-            radius,
-            Color32::from_black_alpha(96),
-            Stroke::new(width, color),
-        );
-        painter.line_segment(
-            [
-                at + egui::vec2(0.0, -radius * 0.55),
-                at + egui::vec2(0.0, radius * 0.1),
-            ],
-            Stroke::new(2.0, color),
-        );
-        painter.circle_filled(at + egui::vec2(0.0, radius * 0.4), 1.2, color);
-    }
-    if tab.markers_not_shown > 0 {
-        // Above the Status Bar, clear of the Active Bar at the top.
-        painter.text(
-            rect.left_bottom() + egui::vec2(8.0, -8.0),
-            egui::Align2::LEFT_BOTTOM,
-            tr!("markers-not-shown", count = tab.markers_not_shown),
-            egui::FontId::proportional(12.0),
-            visuals.warn_fg_color,
-        );
     }
 }
 

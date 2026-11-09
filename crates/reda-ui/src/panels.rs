@@ -7,3 +7,4 @@ pub mod library;
 pub mod messages;
 pub mod navigator;
 pub mod properties;
+pub mod violation_details;

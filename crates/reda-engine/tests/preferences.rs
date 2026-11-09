@@ -535,3 +535,49 @@ fn the_board_view_preferences_default_to_smart_track_ends_and_solid_net_colours(
         assert_eq!(pages::page_of(key), "pcb.view", "{key}");
     }
 }
+
+#[test]
+fn checks_preferences_default_to_a_cross_pattern_and_the_override_colour_zoomed_out() {
+    let home = TempDir::new("prefs-checks");
+    let out = get(home.path(), "checks.overlay_style");
+    assert_eq!(out["value"], "cross_pattern");
+    let out = get(home.path(), "checks.overlay_zoomed_out");
+    assert_eq!(out["value"], "override_color_dominates");
+    assert_eq!(
+        reda_engine::preferences::pages::page_of("checks.overlay_style"),
+        "checks"
+    );
+}
+
+#[test]
+fn the_check_display_grid_has_details_on_for_all_and_overlay_on_three_checks() {
+    use reda_engine::preferences::{CheckDisplays, Preferences};
+    let grid = Preferences::default().checks.display;
+    let checks = CheckDisplays::checks();
+    assert!(checks.contains(&"dangling_wire") && checks.contains(&"clearance"));
+    for check in &checks {
+        let row = grid.get(check);
+        assert!(row.details, "{check}");
+        let on = ["clearance", "track_width", "courtyard_overlap"].contains(check);
+        assert_eq!(row.overlay, on, "{check}");
+    }
+    // Each cell is a Preference of its own, written only when it differs.
+    let home = TempDir::new("prefs-check-grid");
+    let mut engine = test_engine_in(home.path());
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "checks.display.dangling_wire.overlay", "value": true}),
+    );
+    assert!(read_prefs(home.path()).contains("overlay = true"));
+    let out = get(home.path(), "checks.display.dangling_wire.overlay");
+    assert_eq!(out["value"], true);
+    assert_eq!(
+        get(home.path(), "checks.display.clearance.overlay")["value"],
+        true
+    );
+    let err = engine.run(
+        "app.preferences.set",
+        json!({"key": "checks.display.no_such_check.overlay", "value": true}),
+    );
+    assert!(err.is_err());
+}

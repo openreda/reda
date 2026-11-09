@@ -273,7 +273,7 @@ fn a_violation_marker_starts_with_waive_and_set_severity() {
         )
         .unwrap();
     b.shell.run_check(CheckKind::Drc).unwrap();
-    let marker = b.shell.markers(b.pcb)[0];
+    let marker = b.shell.markers(b.pcb)[0].clone();
     let target = Target {
         violation: Some(marker.key),
         object: None,
@@ -435,4 +435,144 @@ fn select_similar_selects_the_same_kind_where_the_object_lives() {
     let mut both = vec![b.r1, b.r2];
     both.sort();
     assert_eq!(selected, both);
+}
+
+/// The Error item of a Violation section's Set severity submenu, resolved.
+fn set_error(shell: &Shell, document: Uuid, shown: &[Shown]) -> (String, Value) {
+    let Shown::Items(first) = &shown[0] else {
+        panic!("{shown:?}")
+    };
+    let Some(Item::Submenu(menu)) = first.get(1) else {
+        panic!("{first:?}")
+    };
+    let Some(Item::Action(error)) = menu.items.first() else {
+        panic!("{menu:?}")
+    };
+    bars::resolve_for(shell, error, Some(document)).run.unwrap()
+}
+
+/// Set severity on a Pin Matrix check's marker sets the cell of its pair of Pin types,
+/// as Messages does, not a check severity.
+#[test]
+fn set_severity_on_an_unconnected_pin_marker_sets_its_pin_matrix_cell() {
+    let home = TempDir::new("context-matrix-home");
+    let work = TempDir::new("context-matrix-work");
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(Some(reda_testkit::starter_library()))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.new_project(work.path(), "Demo").unwrap();
+    let sheet = shell.engine().project().unwrap().props().documents[0];
+    let parts = shell.run("library.search", json!({})).unwrap();
+    let resistor = (parts["parts"].as_array().unwrap().iter())
+        .find(|p| p["name"] == "Resistor")
+        .map(|p| p["uuid"].clone())
+        .unwrap();
+    shell
+        .run(
+            "schematic.component.place",
+            json!({"document": sheet, "part": resistor,
+                   "at": {"x": "2000mil", "y": "2000mil"}}),
+        )
+        .unwrap();
+    shell.run_check(CheckKind::Erc).unwrap();
+    let marker = shell
+        .markers(sheet)
+        .iter()
+        .find(|m| shell.messages().entry(m.key).unwrap().violation.check == "unconnected_pin")
+        .cloned()
+        .unwrap();
+    let target = Target {
+        violation: Some(marker.key),
+        object: None,
+    };
+    let shown = context_menu::shown(&shell, sheet, DocumentType::Schematic, &target);
+    let (id, params) = set_error(&shell, sheet, &shown);
+    assert_eq!(id, "erc.set_pin_matrix");
+    assert_eq!(
+        params,
+        json!({"cells": [{"a": "passive", "b": "unconnected", "severity": "error"}]})
+    );
+    // Any other check's Set severity stays a check severity.
+    let mut b = board();
+    b.shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "net": b.gnd, "width": "0.5mm",
+                   "points": [{"x": 0, "y": "-5mm"}, {"x": 0, "y": "5mm"}]}),
+        )
+        .unwrap();
+    b.shell.run_check(CheckKind::Drc).unwrap();
+    let marker = b.shell.markers(b.pcb)[0].clone();
+    let target = Target {
+        violation: Some(marker.key),
+        object: None,
+    };
+    let shown = context_menu::shown(&b.shell, b.pcb, DocumentType::Pcb, &target);
+    let (id, params) = set_error(&b.shell, b.pcb, &shown);
+    let check = &b
+        .shell
+        .messages()
+        .entry(marker.key)
+        .unwrap()
+        .violation
+        .check;
+    assert_eq!(id, "drc.set_severity");
+    assert_eq!(params, json!({"check": check, "severity": "error"}));
+}
+
+/// Clicking a marker on the board makes the Layer of its Violation the active one.
+#[test]
+fn clicking_a_marker_makes_its_layer_active() {
+    let mut b = board();
+    let (gnd, sig) = (b.gnd, {
+        let p = b.shell.engine().project().unwrap().pcb().unwrap();
+        p.nets().find(|n| n.name == "SIG").unwrap().uuid
+    });
+    for (net, from, to) in [(gnd, (12, 0), (12, 10)), (sig, (7, 5), (17, 5))] {
+        b.shell
+            .run(
+                "pcb.track.add",
+                json!({"layer": "copper_bottom", "net": net, "width": "0.5mm",
+                       "points": [{"x": format!("{}mm", from.0), "y": format!("{}mm", from.1)},
+                                  {"x": format!("{}mm", to.0), "y": format!("{}mm", to.1)}]}),
+            )
+            .unwrap();
+    }
+    b.shell.run_check(CheckKind::Drc).unwrap();
+    let bottom = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .layers()
+        .find(
+            reda_ui::engine::model::LayerKind::Copper,
+            Some(reda_ui::engine::model::Side::Bottom),
+        )
+        .unwrap()
+        .uuid;
+    let marker = (b.shell.markers(b.pcb).iter())
+        .find(|m| m.layers == [bottom])
+        .cloned()
+        .expect("a marker on the bottom copper");
+    let mut w = window(b);
+    let at = canvas_point(&w.h, w.pcb, (marker.at.x.0 as f64, marker.at.y.0 as f64));
+    w.h.event(Event::PointerMoved(at));
+    w.h.run();
+    for pressed in [true, false] {
+        w.h.event(Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+        w.h.run();
+    }
+    let tab = w.h.state().shell().document_tab(w.pcb).unwrap();
+    assert_eq!(tab.layers.active, Some(bottom));
 }

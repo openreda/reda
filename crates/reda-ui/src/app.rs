@@ -273,8 +273,11 @@ impl App {
         }
         self.handle_requests(&ctx);
         self.help.show(&ctx, self.shell.engine());
-        for action in frame.messages {
-            crate::panels::messages::apply(&mut self.shell, action);
+        let windows = crate::panels::violation_details::show(&ctx, &self.shell);
+        for action in frame.messages.into_iter().chain(windows) {
+            if let Some((window, page)) = crate::panels::messages::apply(&mut self.shell, action) {
+                self.open_settings_page(window, &page);
+            }
         }
         if let Some(action) = frame.start {
             self.start_action(&ctx, action);
@@ -534,6 +537,17 @@ impl App {
         let window = SettingsWindow::ProjectSettings;
         let was_open = self.settings.open(&mut self.shell, window);
         self.opened(was_open, window);
+    }
+
+    /// Opens a settings window on the page titled `page` (Show rule in Messages).
+    pub fn open_settings_page(&mut self, window: SettingsWindow, page: &str) {
+        let was_open = self.settings.open(&mut self.shell, window);
+        self.opened(was_open, window);
+        if let Some(dialog) = self.settings.dialog_mut(window)
+            && let Some(i) = dialog.page_titles().iter().position(|t| t == page)
+        {
+            dialog.select(i);
+        }
     }
 
     /// Opens the Board Setup window on the open Project's PCB Document, if there is one.
