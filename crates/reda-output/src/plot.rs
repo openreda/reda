@@ -9,7 +9,8 @@ mod openings;
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument, Project, Side, TrackGeometry, Uuid, ZoneFills,
+    FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument, Project, Side,
+    TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
@@ -179,7 +180,12 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
             "Negative",
             |board, g| openings::mask(board, side, g),
         );
-        add(FileName::sided(extension, side, "Solder Mask"), function, rendered, false)?;
+        add(
+            FileName::sided(extension, side, "Solder Mask"),
+            function,
+            rendered,
+            false,
+        )?;
     }
     for (extension, function, side) in [
         ("gtp", "paste_top", Side::Top),
@@ -191,7 +197,12 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
             "Positive",
             |board, g| openings::paste(board, side, g),
         );
-        add(FileName::sided(extension, side, "Paste"), function, rendered, true)?;
+        add(
+            FileName::sided(extension, side, "Paste"),
+            function,
+            rendered,
+            true,
+        )?;
     }
     for (extension, function, side) in [
         ("gto", "silkscreen_top", Side::Top),
@@ -207,10 +218,20 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
                 }
             },
         );
-        add(FileName::sided(extension, side, "Silkscreen"), function, rendered, true)?;
+        add(
+            FileName::sided(extension, side, "Silkscreen"),
+            function,
+            rendered,
+            true,
+        )?;
     }
     let rendered = render(plot, "Profile,NP".into(), "Positive", profile);
-    add(FileName::new("gm1", "Board Outline"), "profile", rendered, false)?;
+    add(
+        FileName::new("gm1", "Board Outline"),
+        "profile",
+        rendered,
+        false,
+    )?;
     Ok(out)
 }
 

@@ -17,6 +17,7 @@ mod job_file;
 mod jobs;
 mod plot;
 mod presets;
+mod sha256;
 
 pub use archive::zip;
 pub use assembly::{bom_file, cpl_file};
@@ -32,3 +33,4 @@ pub use plot::{
     gerber_files,
 };
 pub use presets::{GENERIC_NAME, generic, shipped, shipped_named};
+pub use sha256::sha256_hex;

@@ -202,10 +202,13 @@ fn the_jobs_not_fitted_paste_keeps_or_removes_not_fitted_pads_paste_openings() {
     let paste_flashes = |paste| {
         let files = plot_with(&engine, paste);
         let paste = layer(&files, "Demo.gtp");
-        let mut at: Vec<_> = paste.flashes().map(|f| match f {
-            Object::Flash { at, .. } => *at,
-            _ => unreachable!(),
-        }).collect();
+        let mut at: Vec<_> = paste
+            .flashes()
+            .map(|f| match f {
+                Object::Flash { at, .. } => *at,
+                _ => unreachable!(),
+            })
+            .collect();
         at.sort();
         at
     };
@@ -219,7 +222,8 @@ fn the_jobs_not_fitted_paste_keeps_or_removes_not_fitted_pads_paste_openings() {
     for name in ["Demo.gts", "Demo.gtl"] {
         let keep = plot_with(&engine, NotFittedPaste::Keep);
         let remove = plot_with(&engine, NotFittedPaste::Remove);
-        let bytes = |files: &[OutputFile]| files.iter().find(|f| f.name == name).unwrap().bytes.clone();
+        let bytes =
+            |files: &[OutputFile]| files.iter().find(|f| f.name == name).unwrap().bytes.clone();
         assert_eq!(bytes(&keep), bytes(&remove), "{name}");
     }
 }

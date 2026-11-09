@@ -72,12 +72,8 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
     let folder = dir.path().join("Demo").join("outputs").join("Generic");
     assert_eq!(out["destination"], json!(folder));
     assert_eq!(out["zip"], json!(folder.join("Demo-Generic.zip")));
-    let names: Vec<&str> = out["files"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|f| f["name"].as_str().unwrap())
-        .collect();
+    let names = names(&out, "files");
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
     // An empty board: copper, mask and Profile are always written, while the empty
     // Silkscreen and Paste and the drill files with no holes are left out and reported.
     assert_eq!(
@@ -86,6 +82,7 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
     );
     assert!(!names.iter().any(|n| n.ends_with(".drl")), "{names:?}");
     assert_eq!(out["files"][0]["function"], "copper_top");
+    assert_eq!(out["files"][0]["path"], "fab/Demo.gtl");
     assert_eq!(
         out["skipped"],
         json!([
@@ -98,14 +95,14 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
         ])
     );
     for name in ["Demo.gtp", "Demo.gto", "Demo-PTH.drl", "Demo-NPTH.drl"] {
-        assert!(!folder.join(name).exists(), "{name} is not written");
+        assert!(!folder.join("fab").join(name).exists(), "{name} is not written");
     }
 
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
     assert_eq!(archive.len(), names.len());
     for name in names {
-        let loose = std::fs::read(folder.join(name)).unwrap();
+        let loose = std::fs::read(folder.join("fab").join(name)).unwrap();
         let mut entry = archive.by_name(name).unwrap();
         let mut zipped = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut zipped).unwrap();
@@ -126,12 +123,17 @@ fn a_run_writes_the_files_and_their_zip_to_the_default_destination() {
     assert!(!engine.is_dirty(), "running a job is not an edit");
 }
 
+/// The run's zip entries (`files`, from their `fab/` copies), or its `skipped` names.
 fn names(out: &Value, key: &str) -> Vec<String> {
     out[key]
         .as_array()
         .unwrap()
         .iter()
-        .map(|f| f["name"].as_str().unwrap().to_owned())
+        .filter_map(|f| match key {
+            "files" => f["path"].as_str().unwrap().strip_prefix("fab/"),
+            _ => f["name"].as_str(),
+        })
+        .map(str::to_owned)
         .collect()
 }
 
@@ -159,7 +161,7 @@ fn a_run_writes_the_fab_notes_drill_report_and_job_file_into_the_zip_after_the_d
     assert_eq!(functions, ["fab_notes", "drill_report", "gerber_job"]);
 
     let folder = dir.path().join("Demo/outputs/Generic");
-    let notes = std::fs::read_to_string(folder.join("Demo-fab-notes.txt")).unwrap();
+    let notes = std::fs::read_to_string(folder.join("fab/Demo-fab-notes.txt")).unwrap();
     // The Fab Notes list exactly the files in the zip, themselves included.
     let zip = std::fs::read(folder.join("Demo-Generic.zip")).unwrap();
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zip)).unwrap();
@@ -186,7 +188,8 @@ Hello fab.
     );
 
     let job: Value =
-        serde_json::from_slice(&std::fs::read(folder.join("Demo-job.gbrjob")).unwrap()).unwrap();
+        serde_json::from_slice(&std::fs::read(folder.join("fab/Demo-job.gbrjob")).unwrap())
+            .unwrap();
     let paths: Vec<&str> = job["FilesAttributes"]
         .as_array()
         .unwrap()
@@ -206,7 +209,7 @@ fn the_fab_notes_drill_report_and_job_file_each_have_an_outputs_toggle() {
     let mut engine = board(&dir);
     via(&mut engine);
     run(&mut engine);
-    let folder = dir.path().join("Demo/outputs/Generic");
+    let folder = dir.path().join("Demo/outputs/Generic/fab");
     let toggles = [
         ("fab_notes", "Demo-fab-notes.txt"),
         ("drill_report", "Demo-drill-report.txt"),
@@ -257,10 +260,13 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     via(&mut engine);
     run(&mut engine);
     let folder = dir.path().join("Demo/outputs/Generic");
-    std::fs::write(folder.join("Demo.gtl"), b"old").unwrap();
+    let fab = folder.join("fab");
+    std::fs::write(fab.join("Demo.gtl"), b"old").unwrap();
+    std::fs::write(folder.join("Demo.gtl"), b"from a run before fab/").unwrap();
     std::fs::write(folder.join("notes.txt"), b"mine").unwrap();
     run(&mut engine);
-    assert_ne!(std::fs::read(folder.join("Demo.gtl")).unwrap(), b"old");
+    assert_ne!(std::fs::read(fab.join("Demo.gtl")).unwrap(), b"old");
+    assert!(!folder.join("Demo.gtl").exists(), "the old layout's loose file is gone");
 
     engine.run_ok(
         "output.job.set",
@@ -268,13 +274,13 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
     );
     run(&mut engine);
     for name in ["Demo.gtl", "Demo.gts", "Demo.gbp", "Demo.gto"] {
-        assert!(!folder.join(name).exists(), "Gerber turned off: {name}");
+        assert!(!fab.join(name).exists(), "Gerber turned off: {name}");
     }
-    assert!(folder.join("Demo-PTH.drl").exists());
-    std::fs::write(folder.join("Demo-NPTH.drl"), b"old").unwrap();
+    assert!(fab.join("Demo-PTH.drl").exists());
+    std::fs::write(fab.join("Demo-NPTH.drl"), b"old").unwrap();
     run(&mut engine);
     assert!(
-        !folder.join("Demo-NPTH.drl").exists(),
+        !fab.join("Demo-NPTH.drl").exists(),
         "a drill file with no holes drops the last run's"
     );
 
@@ -283,8 +289,8 @@ fn each_run_overwrites_the_last_and_drops_files_it_no_longer_writes() {
         json!({"job": JOB, "outputs": {"drill": false}}),
     );
     run(&mut engine);
-    assert!(!folder.join("Demo-PTH.drl").exists(), "drill turned off");
-    assert!(!folder.join("Demo-NPTH.drl").exists(), "drill turned off");
+    assert!(!fab.join("Demo-PTH.drl").exists(), "drill turned off");
+    assert!(!fab.join("Demo-NPTH.drl").exists(), "drill turned off");
     assert!(folder.join("Demo-Generic.zip").exists());
     assert_eq!(
         std::fs::read(folder.join("notes.txt")).unwrap(),
@@ -307,10 +313,11 @@ fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|f| (f["name"].as_str().unwrap(), f["function"].as_str().unwrap()))
+        .map(|f| (f["path"].as_str().unwrap(), f["function"].as_str().unwrap()))
         .collect();
-    assert!(files.contains(&("Demo-BOM.csv", "bom")), "{files:?}");
-    assert!(files.contains(&("Demo-CPL.csv", "cpl")), "{files:?}");
+    // Beside the zip, named from the name template.
+    assert!(files.contains(&("Demo-Generic-BOM.csv", "bom")), "{files:?}");
+    assert!(files.contains(&("Demo-Generic-CPL.csv", "cpl")), "{files:?}");
     assert!(
         !out["warnings"]
             .as_array()
@@ -322,12 +329,12 @@ fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
     );
     let folder = dir.path().join("Demo/outputs/Generic");
     assert_eq!(
-        std::fs::read_to_string(folder.join("Demo-CPL.csv")).unwrap(),
+        std::fs::read_to_string(folder.join("Demo-Generic-CPL.csv")).unwrap(),
         "Designator,Mid X,Mid Y,Layer,Rotation\n",
         "a Footprint with no Component is a Mechanical Part, so it is left out"
     );
     assert!(
-        std::fs::read_to_string(folder.join("Demo-BOM.csv"))
+        std::fs::read_to_string(folder.join("Demo-Generic-BOM.csv"))
             .unwrap()
             .starts_with("Designator,Quantity,Value,Footprint,Manufacturer,MPN\n")
     );
@@ -337,8 +344,8 @@ fn a_run_writes_the_bom_and_cpl_with_the_job_preset_columns() {
         json!({"job": JOB, "outputs": {"bom": false, "cpl": false}}),
     );
     run(&mut engine);
-    assert!(!folder.join("Demo-BOM.csv").exists(), "BOM turned off");
-    assert!(!folder.join("Demo-CPL.csv").exists(), "CPL turned off");
+    assert!(!folder.join("Demo-Generic-BOM.csv").exists(), "BOM turned off");
+    assert!(!folder.join("Demo-Generic-CPL.csv").exists(), "CPL turned off");
 }
 
 #[test]
@@ -365,7 +372,7 @@ fn stale_zones_are_refilled_before_plotting() {
         true
     );
     run(&mut engine);
-    let gtl = std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/Demo.gtl")).unwrap();
+    let gtl = std::fs::read_to_string(dir.path().join("Demo/outputs/Generic/fab/Demo.gtl")).unwrap();
     assert!(gtl.contains("G36*"), "the fill is plotted as a region");
     assert_eq!(
         engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
@@ -752,7 +759,11 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
             }
             let out = engine.run_ok("output.job.run", json!({"job": job}));
             let destination = PathBuf::from(out["destination"].as_str().unwrap());
-            let read = |name: &str| std::fs::read_to_string(destination.join(name)).unwrap();
+            let read = |name: &str| {
+                let fab = destination.join("fab").join(name);
+                let path = if fab.exists() { fab } else { destination.join(name) };
+                std::fs::read_to_string(path).unwrap()
+            };
             let copper = read("Demo.gtl");
             assert!(
                 copper.contains(&format!("X{}Y{}D02*", x * 1_000_000, y * 1_000_000)),
@@ -791,7 +802,16 @@ fn gerber_drill_and_cpl_share_the_presets_resolved_origin() {
                 drill.contains(&format!("X{x}.000Y{y}.000\n")),
                 "{preset}, origin={origin}: {drill}"
             );
-            let cpl = read("Demo-CPL.csv");
+            let cpl_path = out["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["function"] == "cpl")
+                .unwrap()["path"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            let cpl = read(&cpl_path);
             let mut lines = cpl.lines();
             let headers: Vec<_> = lines.next().unwrap().split(',').collect();
             let cells: Vec<_> = lines.next().unwrap().split(',').collect();
@@ -818,7 +838,7 @@ fn merge_drill_writes_one_drill_file_and_drops_the_split_ones() {
                "width": "3.2mm", "hole": {"width": "3.2mm"}}),
     );
     run(&mut engine);
-    let folder = dir.path().join("Demo/outputs/Generic");
+    let folder = dir.path().join("Demo/outputs/Generic/fab");
     assert!(folder.join("Demo-PTH.drl").exists());
     assert!(folder.join("Demo-NPTH.drl").exists());
 
@@ -838,11 +858,11 @@ fn merge_drill_writes_one_drill_file_and_drops_the_split_ones() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|f| f["name"].as_str().unwrap().ends_with(".drl"))
+        .filter(|f| f["path"].as_str().unwrap().ends_with(".drl"))
         .collect();
     assert_eq!(
         drills,
-        [&json!({"name": "Demo.drl", "function": "drill_mixed"})]
+        [&json!({"path": "fab/Demo.drl", "function": "drill_mixed"})]
     );
     let merged = std::fs::read_to_string(folder.join("Demo.drl")).unwrap();
     assert!(

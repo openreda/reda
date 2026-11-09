@@ -614,6 +614,9 @@ fn file_names_override_any_layers_file_in_either_naming() {
         assert_eq!(files[0], "top.gbr", "{naming:?}");
         assert_eq!(files[4], "Demo.GKO", "{naming:?}");
         assert_eq!(skipped[0], "stencil.gbr", "{naming:?}");
-        assert!(!files[1].contains("top"), "{naming:?}: only the named Layer");
+        assert!(
+            !files[1].contains("top"),
+            "{naming:?}: only the named Layer"
+        );
     }
 }
