@@ -171,11 +171,12 @@ fn apply_runs_sync_apply_leaving_out_the_unticked_changes() {
         before + 1,
         "one Journal entry"
     );
-    // The Net and its Pad Nets show up again; nothing else is pending.
+    // The Net and its Pad Nets show up again, still unticked: the rows left keep their
+    // ticks after Apply. Nothing else is pending.
     assert_eq!(shell.out_of_sync(), 3);
     let page = dialog.page::<ChangeListPage>().unwrap();
     assert_eq!(page.list().count, 3);
-    assert!(page.list().changes().all(|c| page.is_ticked(&c.id)));
+    assert_eq!(page.ticked_count(), 0);
 }
 
 #[test]
