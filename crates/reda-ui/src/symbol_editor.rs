@@ -12,8 +12,10 @@
 //!   counter-clockwise), Polygon a click per corner until a click on the first corner or
 //!   Enter (`tool.finish`); Backspace (`tool.undo_segment`) takes back a corner. Text
 //!   asks for its text over the canvas, then places it where it was clicked.
-//! - Below the canvas the pin table lists the shown Unit's Pins for editing and takes
-//!   pasted rows ([`parse_pin_rows`]), all of them one undo step.
+//! - The Pins Panel ([`crate::panels::pins`]) lists the Symbol's Pins for editing and
+//!   takes pasted rows through the column-mapping paste, all of them one undo step.
+//! - Origin (the Origin Tool, or Set Origin at Pin 1 or the centre) moves the origin with
+//!   `library.symbol.origin.set`; Jump to Origin centres the canvas on it.
 //!
 //! What is in flight is view state; the Symbol changes only through `library.symbol.*`
 //! Commands on its own undo stack, which the engine refuses for a read-only (starter
@@ -21,13 +23,13 @@
 //!
 //! [`element_editor`]: crate::element_editor
 
-mod pin_rows;
 pub(crate) mod view;
 
 use std::collections::BTreeMap;
 
 use reda_engine::Engine;
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
+use reda_engine::library::wizard::{Side, WizardPin};
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid, auto_increment};
 use reda_engine::render::{Scene, symbol_scene};
@@ -38,11 +40,10 @@ use serde_json::{Value, json};
 use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
+use crate::panels::pins::PinSide;
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
-
-pub use pin_rows::{PinRow, parse_pin_rows};
 
 /// A Document point in nm, y up.
 type P = (f64, f64);
@@ -242,6 +243,28 @@ pub fn pointer(
     commands
 }
 
+/// What hovering shows over the Symbol `symbol`'s canvas: the hovered Pin's number, name
+/// and description, when it has a description.
+pub fn hover_text(shell: &Shell, symbol: Uuid) -> Option<String> {
+    let hovered = shell.document_tab(symbol)?.live.hovered?;
+    let pin = (symbol_of(shell.engine(), symbol)?.pins.iter()).find(|p| p.uuid == hovered)?;
+    (!pin.description.is_empty()).then(|| {
+        tr!(
+            "symbol-pin-hover",
+            number = pin.number.as_str(),
+            name = pin.name.as_str(),
+            description = pin.description.as_str()
+        )
+    })
+}
+
+/// Shows [`hover_text`] as a tooltip over the canvas `response`.
+pub(crate) fn hover_tip(shell: &Shell, symbol: Uuid, response: &egui::Response) {
+    if let Some(text) = hover_text(shell, symbol) {
+        response.clone().on_hover_text(text);
+    }
+}
+
 fn event_at(event: Pointer) -> Option<P> {
     match event {
         Pointer::Hover(at) | Pointer::Drag(at) | Pointer::DragEnd(at) => Some(at),
@@ -401,6 +424,19 @@ impl Cx<'_> {
             }
             tool @ (Tool::Line | Tool::Rect | Tool::Circle | Tool::Arc | Tool::Polygon) => {
                 self.draw(tool, interaction, event)
+            }
+            Tool::Origin => {
+                if let Pointer::Click { at, .. } = event
+                    && !self.read_only
+                {
+                    let at = self.snap(at);
+                    self.run(
+                        "library.symbol.origin.set",
+                        json!({"symbol": self.element(), "to": {"kind": "pick", "at": json_point(at)}}),
+                    );
+                    self.run("tool.activate:select", json!({}));
+                }
+                Interaction::Idle
             }
             _ => self.select_step(interaction, event, hovered),
         };
@@ -649,40 +685,39 @@ pub(crate) fn set_text(shell: &mut Shell, symbol: Uuid, text: Option<(Point, Str
     canvas_mut(shell, symbol).text = text;
 }
 
-/// What a paste into the pin table did.
+/// What a paste into the Pins Panel did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pasted {
     pub added: usize,
     pub updated: usize,
 }
 
-/// The one `batch` that applies pasted pin rows to `symbol`: a row whose number is a Pin's
-/// updates that Pin, any other adds a Pin to the shown Unit, below the others when it has
-/// no position. `Err` says what is wrong with the text.
+/// The one `batch` that applies pasted Pin rows (from the column-mapping paste) to
+/// `symbol`: a row whose number is a Pin's updates that Pin's name and type (and its side,
+/// when the row gives one), any other adds a Pin to the shown Unit, below the others,
+/// pointing in from the row's side (the left without one). `Err` says why nothing can be
+/// pasted.
 pub fn paste_command(
     shell: &Shell,
     symbol: Uuid,
-    text: &str,
+    rows: &[WizardPin],
 ) -> Result<(Invocation, Pasted), String> {
-    let rows = parse_pin_rows(text)?;
     let s = symbol_of(shell.engine(), symbol).ok_or("the Symbol is not open")?;
     let unit = shown_unit(shell, symbol).ok_or("the Symbol has no Unit")?;
     let mut next_at = paste_start(s, unit);
     let mut pasted = Pasted::default();
     let mut steps = Vec::new();
     for row in rows {
-        let mut params = json!({"symbol": symbol, "name": row.name});
-        if let Some(t) = row.electrical_type {
-            params["electrical_type"] = json!(t);
-        }
-        if let Some(r) = row.rotation {
-            params["rotation"] = json!(r.0);
-        }
-        if let Some(l) = row.length {
-            params["length"] = json!(l.0);
-        }
-        if let Some(at) = row.at {
-            params["at"] = json_point(at);
+        let mut params = json!({"symbol": symbol, "name": row.name,
+                                "electrical_type": row.electrical_type});
+        let side = row.side.map(|side| match side {
+            Side::Left => PinSide::Left,
+            Side::Right => PinSide::Right,
+            Side::Top => PinSide::Top,
+            Side::Bottom => PinSide::Bottom,
+        });
+        if let Some(side) = side {
+            params["rotation"] = json!(side.rotation().0);
         }
         match s.pins.iter().find(|p| p.number == row.number) {
             Some(pin) => {
@@ -693,10 +728,8 @@ pub fn paste_command(
             None => {
                 params["number"] = json!(row.number);
                 params["unit"] = json!(unit);
-                if row.at.is_none() {
-                    params["at"] = json_point(next_at);
-                    next_at.y = next_at.y - PASTE_PITCH;
-                }
+                params["at"] = json_point(next_at);
+                next_at.y = next_at.y - PASTE_PITCH;
                 steps.push(json!({"id": "library.symbol.pin.add", "params": params}));
                 pasted.added += 1;
             }
@@ -708,10 +741,14 @@ pub fn paste_command(
     Ok((("batch".to_owned(), json!({ "commands": steps })), pasted))
 }
 
-/// Applies pasted pin rows to `symbol` as one undo step (see [`paste_command`]).
-pub fn paste_pins(shell: &mut Shell, symbol: Uuid, text: &str) -> Result<Pasted, CommandError> {
+/// Applies pasted Pin rows to `symbol` as one undo step (see [`paste_command`]).
+pub fn paste_pins(
+    shell: &mut Shell,
+    symbol: Uuid,
+    rows: &[WizardPin],
+) -> Result<Pasted, CommandError> {
     let ((id, params), pasted) =
-        paste_command(shell, symbol, text).map_err(|why| CommandError::invalid_params("", why))?;
+        paste_command(shell, symbol, rows).map_err(|why| CommandError::invalid_params("", why))?;
     shell.run_reporting(&id, params)?;
     Ok(pasted)
 }
