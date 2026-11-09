@@ -118,13 +118,18 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     super::live_hover::draw(ui, shell, input);
     drawing(ui, shell, input);
     super::polygon_edit::draw(ui, shell, input);
+    super::dimension_edit::draw(ui, shell, input);
     super::copper_drag::draw(ui, shell, input);
     overlay(ui, shell, input);
     let mut out = Vec::new();
     // A right-click ends the route instead of opening the menu (the window leaves the
     // canvas menu out while routing, see `context_menu::canvas`).
     if super::route::takes_right_click(shell) && input.response.secondary_clicked() {
-        out.push(("pcb.route.end".to_owned(), json!({})));
+        let end = match shell.tool() {
+            Tool::Measure => "tool.activate:select",
+            _ => "pcb.route.end",
+        };
+        out.push((end.to_owned(), json!({})));
     }
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
@@ -172,12 +177,13 @@ fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
             painter.circle_stroke(*p, 3.0, Stroke::new(1.0, accent));
         }
     }
-    if let Some(m) = draw.measurement() {
+    let units = shell.board_view().units;
+    let kept = super::measure::shown(shell);
+    for m in kept.iter().chain(draw.measurement().as_ref()) {
         let (a, b) = (screen(m.from), screen(m.to));
         painter.line_segment([a, b], stroke);
         painter.circle_stroke(a, 3.0, Stroke::new(1.0, accent));
         painter.circle_stroke(b, 3.0, Stroke::new(1.0, accent));
-        let units = shell.board_view().units;
         let label = tr!(
             "pcb-measure",
             dx = format_length(m.to.x - m.from.x, units),

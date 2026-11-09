@@ -58,6 +58,7 @@
         { "id": "place.line", "command": "tool.activate:line" },
         { "id": "place.arc", "command": "tool.activate:arc" },
         { "id": "place.rect", "command": "tool.activate:rect" },
+        { "id": "place.dimension", "command": "tool.activate:dimension" },
         "separator",
         { "id": "place.free_pad", "command": "tool.activate:free_pad" },
         { "id": "place.output_origin", "command": "tool.activate:output_origin" },
@@ -93,6 +94,7 @@
       "title": "menu-tools",
       "items": [
         { "id": "tools.measure", "command": "tool.activate:measure" },
+        { "id": "tools.measure_length", "command": "pcb.measure.length", "params": { "objects": "$selection" } },
         "separator",
         { "id": "tools.silkscreen_prepare", "command": "pcb.silkscreen.prepare" }
       ]
