@@ -3,7 +3,7 @@
 //! is broken: the PCB field is flagged until the user points it at another.
 
 use egui::{Button, ComboBox, Role, Ui, WidgetInfo};
-use reda_engine::model::{DocumentKind, Project, Uuid};
+use reda_engine::model::{DocumentKind, PdfColour, Project, Uuid};
 use reda_engine::output::job_destination;
 use serde_json::{Map, Value, json};
 
@@ -47,6 +47,9 @@ pub struct JobPage {
     pub fab_notes: Draft<bool>,
     pub drill_report: Draft<bool>,
     pub gerber_job: Draft<bool>,
+    pub reports: Draft<bool>,
+    pub schematic_pdf: Draft<bool>,
+    pub schematic_pdf_colour: Draft<PdfColour>,
     /// The destination folder as typed; empty for the default.
     pub destination: Draft<String>,
     /// The job is no longer in the Project.
@@ -74,6 +77,9 @@ impl JobPage {
             fab_notes: Draft::default(),
             drill_report: Draft::default(),
             gerber_job: Draft::default(),
+            reports: Draft::default(),
+            schematic_pdf: Draft::default(),
+            schematic_pdf_colour: Draft::default(),
             destination: Draft::default(),
             gone: false,
             others: Vec::new(),
@@ -161,6 +167,10 @@ impl Page for JobPage {
         self.fab_notes.load(job.outputs.fab_notes, reset);
         self.drill_report.load(job.outputs.drill_report, reset);
         self.gerber_job.load(job.outputs.gerber_job, reset);
+        self.reports.load(job.outputs.reports, reset);
+        self.schematic_pdf.load(job.outputs.schematic_pdf, reset);
+        self.schematic_pdf_colour
+            .load(job.schematic_pdf_colour, reset);
         self.destination
             .load(job.destination.clone().unwrap_or_default(), reset);
     }
@@ -188,6 +198,8 @@ impl Page for JobPage {
             ("fab_notes", &self.fab_notes),
             ("drill_report", &self.drill_report),
             ("gerber_job", &self.gerber_job),
+            ("reports", &self.reports),
+            ("schematic_pdf", &self.schematic_pdf),
         ] {
             if draft.changed() {
                 outputs.insert(key.into(), json!(draft.value()));
@@ -195,6 +207,12 @@ impl Page for JobPage {
         }
         if !outputs.is_empty() {
             params.insert("outputs".into(), Value::Object(outputs));
+        }
+        if self.schematic_pdf_colour.changed() {
+            params.insert(
+                "schematic_pdf_colour".into(),
+                json!(self.schematic_pdf_colour.value()),
+            );
         }
         if self.destination.changed() {
             params.insert("destination".into(), json!(self.destination.value().trim()));
@@ -291,9 +309,21 @@ impl Page for JobPage {
                         (tr!("output-job-fab-notes"), &mut self.fab_notes),
                         (tr!("output-job-drill-report"), &mut self.drill_report),
                         (tr!("output-job-gerber-job"), &mut self.gerber_job),
+                        (tr!("output-job-reports"), &mut self.reports),
+                        (tr!("output-job-schematic-pdf"), &mut self.schematic_pdf),
                     ] {
                         ui.checkbox(draft.value_mut(), label);
                     }
+                    ui.horizontal(|ui| {
+                        ui.label(tr!("output-job-pdf-colour"));
+                        let colour = self.schematic_pdf_colour.value_mut();
+                        ui.radio_value(
+                            colour,
+                            PdfColour::Colour,
+                            tr!("output-job-pdf-colour-colour"),
+                        );
+                        ui.radio_value(colour, PdfColour::Mono, tr!("output-job-pdf-colour-mono"));
+                    });
                 });
                 ui.end_row();
 

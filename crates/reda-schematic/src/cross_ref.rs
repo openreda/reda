@@ -48,6 +48,18 @@ pub fn partners(project: &Project, port: Uuid) -> Option<Vec<Partner>> {
 /// partners, a hidden note or nothing to say are left out, as is everything when
 /// `styles` is `None` (the Project shows no cross-references).
 pub fn notes(project: &Project, styles: Option<CrossReferenceStyles>) -> BTreeMap<Uuid, String> {
+    note_entries_by_port(project, styles)
+        .into_iter()
+        .map(|(port, entries)| (port, join(&entries)))
+        .collect()
+}
+
+/// Every note's entries, keyed by Port UUID as [`notes`] keys the notes: where each entry
+/// leads, for links.
+pub fn note_entries_by_port(
+    project: &Project,
+    styles: Option<CrossReferenceStyles>,
+) -> BTreeMap<Uuid, Vec<NoteEntry>> {
     let Some(styles) = styles else {
         return BTreeMap::new();
     };
@@ -56,12 +68,23 @@ pub fn notes(project: &Project, styles: Option<CrossReferenceStyles>) -> BTreeMa
     for (sheet, ports) in &all {
         for port in ports.iter().filter(|p| !p.hide_cross_reference) {
             let partners = partners_in(&all, sheet.uuid, &name_key(&port.name));
-            if let Some(note) = note(&partners, styles) {
-                out.insert(port.uuid, note);
+            let entries = note_entries(&partners, styles);
+            if !entries.is_empty() {
+                out.insert(port.uuid, entries);
             }
         }
     }
     out
+}
+
+/// One entry of a note, such as `2:B3`, and the partner it names.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NoteEntry {
+    pub text: String,
+    /// The partner's sheet, by Document UUID: the first partner to give this entry.
+    pub document: Uuid,
+    /// The partner's connection point.
+    pub at: Point,
 }
 
 /// The note for `partners` in `styles`, such as `[2:B3, 3:A1]`: one entry per partner,
@@ -69,7 +92,13 @@ pub fn notes(project: &Project, styles: Option<CrossReferenceStyles>) -> BTreeMa
 /// leaves its half out, and `zone` on a sheet without Border Zones gives only the sheet.
 /// `None` when no entry says anything.
 pub fn note(partners: &[Partner], styles: CrossReferenceStyles) -> Option<String> {
-    let mut entries: Vec<String> = Vec::new();
+    let entries = note_entries(partners, styles);
+    (!entries.is_empty()).then(|| join(&entries))
+}
+
+/// [`note`]'s entries, in order.
+pub fn note_entries(partners: &[Partner], styles: CrossReferenceStyles) -> Vec<NoteEntry> {
+    let mut entries: Vec<NoteEntry> = Vec::new();
     for partner in partners {
         let sheet = match styles.sheet {
             SheetStyle::None => None,
@@ -81,16 +110,25 @@ pub fn note(partners: &[Partner], styles: CrossReferenceStyles) -> Option<String
             LocationStyle::Zone => partner.zone.clone(),
             LocationStyle::Xy => Some(format!("({},{})", mm(partner.at.x), mm(partner.at.y))),
         };
-        let entry = match (sheet, location) {
+        let text = match (sheet, location) {
             (Some(s), Some(l)) => format!("{s}:{l}"),
             (Some(one), None) | (None, Some(one)) => one,
             (None, None) => continue,
         };
-        if !entries.contains(&entry) {
-            entries.push(entry);
+        if !entries.iter().any(|e| e.text == text) {
+            entries.push(NoteEntry {
+                text,
+                document: partner.document,
+                at: partner.at,
+            });
         }
     }
-    (!entries.is_empty()).then(|| format!("[{}]", entries.join(", ")))
+    entries
+}
+
+fn join(entries: &[NoteEntry]) -> String {
+    let texts: Vec<&str> = entries.iter().map(|e| e.text.as_str()).collect();
+    format!("[{}]", texts.join(", "))
 }
 
 /// A length in millimetres, to at most two decimals with trailing zeros dropped.

@@ -36404,7 +36404,7 @@
     },
     {
       "category": "output",
-      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`), named by the preset's `naming` (`classic`: `<project>.gtl` … `.gm1`; `descriptive`: `<project>-<Layer>.gbr`) and `file_names`, and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`), then the files for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum features, hole tolerances, Net Ties as deliberate shorts, the files in the zip and the board's `fab_notes` text), `<project>-drill-report.txt` (each drill file's tools and counts) and `<project>-job.gbrjob` (a minimal Gerber job file), each with its `outputs` toggle. They go into `<name>.zip`, every entry dated 1980-01-01 so the same design gives the same zip, with loose copies in `fab/`; `<name>` is the job's name template (default `${project}-${job}`), and files in the zip stay named from the project. The CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) sit beside the zip as `<name>-BOM.csv` and `<name>-CPL.csv`, or go into it as `<project>-BOM.csv` and `<project>-CPL.csv` with the preset's `zip_assembly`. `reports/` gets the ERC, DRC and Change List reports as `checks.report` writes them (JSON; `outputs.reports` toggle), and `manifest.json` lists every file with its size, SHA-256 and kind, the zip's SHA-256, the REDA version, job, Fab Preset and its hash, PCB Document, revision, the Clock date and the warnings. All of it goes to the job's destination (default `outputs/<job>/`; the same tokens as the name template), first removing what the last run's manifest lists. The job's `not_fitted_paste: remove` leaves Not Fitted Pads out of the Paste. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
+      "description": "Runs an Output Job: refills stale Zones, plots the Gerber X2 files (copper, Solder Mask, Paste and Silkscreen, the Board Outline as the Profile; an empty Silkscreen or Paste is left out and listed in `skipped`), named by the preset's `naming` (`classic`: `<project>.gtl` … `.gm1`; `descriptive`: `<project>-<Layer>.gbr`) and `file_names`, and the Excellon drill files (plated and non-plated, or one file with the preset's `merge_drill`; a drill file with no holes is left out and listed in `skipped`), then the files for the fab: `<project>-fab-notes.txt` (board, Stackup, minimum features, hole tolerances, Net Ties as deliberate shorts, the files in the zip and the board's `fab_notes` text), `<project>-drill-report.txt` (each drill file's tools and counts) and `<project>-job.gbrjob` (a minimal Gerber job file), each with its `outputs` toggle. They go into `<name>.zip`, every entry dated 1980-01-01 so the same design gives the same zip, with loose copies in `fab/`; `<name>` is the job's name template (default `${project}-${job}`), and files in the zip stay named from the project. The CSV BOM and CPL (columns from the job's Fab Preset; Not Fitted and Mechanical Parts left out) sit beside the zip as `<name>-BOM.csv` and `<name>-CPL.csv`, or go into it as `<project>-BOM.csv` and `<project>-CPL.csv` with the preset's `zip_assembly`. `<name>-schematic.pdf`, beside the zip and never in it, holds every Schematic Sheet as `schematic.export_pdf` writes them, in the job's `schematic_pdf_colour` (`outputs.schematic_pdf` toggle). `reports/` gets the ERC, DRC and Change List reports as `checks.report` writes them (JSON; `outputs.reports` toggle), and `manifest.json` lists every file with its size, SHA-256 and kind, the zip's SHA-256, the REDA version, job, Fab Preset and its hash, PCB Document, revision, the Clock date and the warnings. All of it goes to the job's destination (default `outputs/<job>/`; the same tokens as the name template), first removing what the last run's manifest lists. The job's `not_fitted_paste: remove` leaves Not Fitted Pads out of the Paste. Gerber, drill and CPL share one origin: the board's own zero for an `absolute` preset, and for a `relative` one the Output Origin, or the lower-left of the Board Outline while none is placed. The checks that block read only the job's PCB: duplicate Designators, an open Board Outline, a Footprint the PCB cannot resolve and a coordinate beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run (`rejected`, `details.blockers`). Other problems, such as an out-of-sync PCB or a Component without a Footprint, are listed as `warnings`. Long-running: reports progress and can be cancelled.",
       "icon": "output_run",
       "id": "output.job.run",
       "kind": "file",
@@ -36650,7 +36650,7 @@
             "description": "One file the run wrote.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`erc_report`, `drc_report` or `change_list_report`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
                 "type": "string"
               },
               "path": {
@@ -36673,7 +36673,7 @@
             "type": "string"
           },
           "files": {
-            "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, then the\nreports.",
+            "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, the\nschematic PDF, then the reports.",
             "items": {
               "$ref": "#/$defs/WrittenFile"
             },
@@ -36791,7 +36791,7 @@
                 "type": "string"
               },
               "files": {
-                "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, then the\nreports.",
+                "description": "Every file written but the manifest, in a fixed order by kind: the zip's files\n(as their `fab/` copies, in zip order), the zip, the BOM and CPL beside it, the\nschematic PDF, then the reports.",
                 "items": {
                   "$ref": "#/$defs/WrittenFile"
                 },
@@ -37078,7 +37078,7 @@
             "description": "One file the run wrote.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`erc_report`, `drc_report` or `change_list_report`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
                 "type": "string"
               },
               "path": {
@@ -66658,30 +66658,67 @@
     },
     {
       "category": "schematic",
-      "description": "Writes every Schematic Sheet, in Document order, as one vector PDF: one page per sheet at its paper size. Glyphs are filled outlines and no fonts are embedded, so the text is not searchable.",
+      "description": "Writes the Schematic Sheets (every one, in Document order, or with `sheets: current` only `document`) as one vector PDF: one page per sheet at its paper size, in paper colours, `colour` or `mono`. Glyphs are filled outlines and no fonts are embedded, so the text is not searchable. The outline holds the Project title, a bookmark per sheet and, under it, one per Component in natural sort; each Port Cross-Reference entry links to its page. The file holds no date.",
       "icon": "export_pdf",
       "id": "schematic.export_pdf",
       "kind": "file",
       "params": {
         "$defs": {
-          "RenderTheme": {
-            "enum": [
-              "dark",
-              "light"
-            ],
-            "type": "string"
+          "PdfColour": {
+            "description": "The schematic PDF's paper colour mode.",
+            "oneOf": [
+              {
+                "const": "colour",
+                "description": "In colour.",
+                "type": "string"
+              },
+              {
+                "const": "mono",
+                "description": "In black.",
+                "type": "string"
+              }
+            ]
+          },
+          "SheetChoice": {
+            "description": "Which sheets a PDF holds.",
+            "oneOf": [
+              {
+                "const": "all",
+                "description": "Every Schematic Sheet, in Document order.",
+                "type": "string"
+              },
+              {
+                "const": "current",
+                "description": "Only the sheet named by `document`.",
+                "type": "string"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "colour": {
+            "$ref": "#/$defs/PdfColour",
+            "default": "colour",
+            "description": "`colour` (the default) or `mono`, black on white without masking. A PDF always\nuses paper colours."
+          },
+          "document": {
+            "default": null,
+            "description": "The sheet to write with `sheets: current`: the one in view.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "path": {
             "description": "Where to write the PDF. A relative path is taken from the Project folder.",
             "type": "string"
           },
-          "theme": {
-            "$ref": "#/$defs/RenderTheme",
-            "description": "The colour scheme; light by default, for paper."
+          "sheets": {
+            "$ref": "#/$defs/SheetChoice",
+            "description": "Every sheet (the default), or only `document`."
           }
         },
         "required": [

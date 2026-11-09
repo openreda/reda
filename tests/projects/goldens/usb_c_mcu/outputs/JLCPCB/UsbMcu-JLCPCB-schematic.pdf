@@ -1,12 +1,12 @@
 %PDF-1.4
 1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
+<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R /PageMode /UseOutlines >>
 endobj
 2 0 obj
 << /Type /Pages /Kids [4 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Title (USB-C MCU board) /Producer (REDA) /CreationDate (D:20260101000000Z) >>
+<< /Title (USB-C MCU board) /Producer (REDA) >>
 endobj
 4 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.276] /Contents 5 0 R >>
@@ -39978,16 +39978,76 @@ f
 
 endstream
 endobj
+6 0 obj
+<< /Type /Outlines /First 7 0 R /Last 7 0 R /Count 14 >>
+endobj
+7 0 obj
+<< /Title (USB-C MCU board) /Parent 6 0 R /Dest [4 0 R /Fit] /First 8 0 R /Last 8 0 R /Count 13 >>
+endobj
+8 0 obj
+<< /Title (1 Sheet 1) /Parent 7 0 R /Dest [4 0 R /Fit] /First 9 0 R /Last 20 0 R /Count 12 >>
+endobj
+9 0 obj
+<< /Title (C1 10u) /Parent 8 0 R /Dest [4 0 R /XYZ 216 432 null] /Next 10 0 R >>
+endobj
+10 0 obj
+<< /Title (C2 10u) /Parent 8 0 R /Dest [4 0 R /XYZ 360 432 null] /Prev 9 0 R /Next 11 0 R >>
+endobj
+11 0 obj
+<< /Title (C3 100n) /Parent 8 0 R /Dest [4 0 R /XYZ 396 432 null] /Prev 10 0 R /Next 12 0 R >>
+endobj
+12 0 obj
+<< /Title (C4 100n) /Parent 8 0 R /Dest [4 0 R /XYZ 432 432 null] /Prev 11 0 R /Next 13 0 R >>
+endobj
+13 0 obj
+<< /Title (D1 LED) /Parent 8 0 R /Dest [4 0 R /XYZ 612 180 null] /Prev 12 0 R /Next 14 0 R >>
+endobj
+14 0 obj
+<< /Title (J1 USB-C) /Parent 8 0 R /Dest [4 0 R /XYZ 144 360 null] /Prev 13 0 R /Next 15 0 R >>
+endobj
+15 0 obj
+<< /Title (J2 Header 1x5) /Parent 8 0 R /Dest [4 0 R /XYZ 648 288 null] /Prev 14 0 R /Next 16 0 R >>
+endobj
+16 0 obj
+<< /Title (R1 5.1k) /Parent 8 0 R /Dest [4 0 R /XYZ 216 288 null] /Prev 15 0 R /Next 17 0 R >>
+endobj
+17 0 obj
+<< /Title (R2 5.1k) /Parent 8 0 R /Dest [4 0 R /XYZ 259.2 288 null] /Prev 16 0 R /Next 18 0 R >>
+endobj
+18 0 obj
+<< /Title (R3 1k) /Parent 8 0 R /Dest [4 0 R /XYZ 576 180 null] /Prev 17 0 R /Next 19 0 R >>
+endobj
+19 0 obj
+<< /Title (U1 STM32F042F6P6) /Parent 8 0 R /Dest [4 0 R /XYZ 468 288 null] /Prev 18 0 R /Next 20 0 R >>
+endobj
+20 0 obj
+<< /Title (U2 3.3V) /Parent 8 0 R /Dest [4 0 R /XYZ 288 432 null] /Prev 19 0 R >>
+endobj
 xref
-0 6
+0 21
 0000000000 65535 f 
 0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000212 00000 n 
-0000000306 00000 n 
+0000000097 00000 n 
+0000000154 00000 n 
+0000000217 00000 n 
+0000000311 00000 n 
+0000880011 00000 n 
+0000880083 00000 n 
+0000880197 00000 n 
+0000880306 00000 n 
+0000880402 00000 n 
+0000880511 00000 n 
+0000880622 00000 n 
+0000880733 00000 n 
+0000880843 00000 n 
+0000880955 00000 n 
+0000881072 00000 n 
+0000881183 00000 n 
+0000881296 00000 n 
+0000881405 00000 n 
+0000881525 00000 n 
 trailer
-<< /Size 6 /Root 1 0 R /Info 3 0 R >>
+<< /Size 21 /Root 1 0 R /Info 3 0 R >>
 startxref
-880006
+881623
 %%EOF

@@ -11,7 +11,7 @@ mod slow;
 
 pub use engine::{
     FolderTrash, TestEngine, starter_library, test_engine, test_engine_in,
-    test_engine_with_library, test_engine_with_trash,
+    test_engine_with_library, test_engine_with_library_in, test_engine_with_trash,
 };
 pub use files::{TempDir, read_tree};
 pub use probe::{probe_commands, probe_engine};
