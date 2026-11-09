@@ -388,7 +388,7 @@ pub fn resolve_in(
     }
 }
 
-/// The selected objects on `document`, in selection order.
+/// The selected objects on `document`, cross-selected ones too, in pick order.
 fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     if crate::element_editor::is_element(shell.engine(), document) {
         return crate::element_editor::selected_on(shell, document);
@@ -396,11 +396,10 @@ fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
-    shell
-        .selection()
-        .objects
-        .iter()
-        .copied()
+    // Cross-select's mirrored objects count: board Commands act on what was picked on a
+    // sheet, and the filter keeps edits on the active Document.
+    crate::cross_probe::in_pick_order(project, shell.selection())
+        .into_iter()
         .filter(|o| {
             project
                 .object(*o)

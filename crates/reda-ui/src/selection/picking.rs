@@ -358,12 +358,37 @@ pub fn box_selection(
         rules::box_mode(shell, document, from, to),
         |i| rank(shell, document, i).is_some(),
     );
+    let picked = in_designator_order(shell, picked);
     let ids = combine(
         &shell.selection().canvas_ids(),
         &picked,
         Combine::of(modifiers),
     );
     Some(set_command(&selected(shell, document, &ids)))
+}
+
+/// A box has no pick order: Units and Footprints in it go in natural Designator order
+/// (R1, R2, R10), ahead of the rest, which keep their order. Cross-select and the place
+/// queue read this order.
+fn in_designator_order(shell: &Shell, mut picked: Vec<Uuid>) -> Vec<Uuid> {
+    use reda_engine::model::Object;
+    let Some(project) = shell.engine().project() else {
+        return picked;
+    };
+    let designator = |o: &Uuid| match project.object(*o) {
+        Some(Object::Unit(u)) => Some(u.object.designator.clone()),
+        Some(Object::FootprintInstance(f)) => Some(f.object.designator.clone()),
+        _ => None,
+    };
+    let mut keyed: Vec<(Option<String>, Uuid)> =
+        picked.drain(..).map(|o| (designator(&o), o)).collect();
+    keyed.sort_by(|(a, _), (b, _)| match (a, b) {
+        (Some(a), Some(b)) => reda_engine::schematic::natural_cmp(a, b),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    });
+    keyed.into_iter().map(|(_, o)| o).collect()
 }
 
 /// What a drag picks up: the object under the pointer, or the selected parent of the
