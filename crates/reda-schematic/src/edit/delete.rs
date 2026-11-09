@@ -117,9 +117,8 @@ fn delete_segments(
             unreachable!("checked above")
         };
         let document = wire.document;
-        if !sheets.contains_key(&document) {
-            let sheet = crate::sheet(cx.project()?, document)?.clone();
-            sheets.insert(document, sheet);
+        if let std::collections::btree_map::Entry::Vacant(entry) = sheets.entry(document) {
+            entry.insert(crate::sheet(cx.project()?, document)?.clone());
         }
         let junctions = crate::connectivity::derive(&sheets[&document]).junctions;
         let mut pieces = (without_segments(&wire.object, &indices, &junctions).into_iter())
