@@ -31,6 +31,7 @@ pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
 };
+pub use edit::Gap as BreakGap;
 pub use edit::{
     Align, AlignParams, AlignTo, Axis, Clipboard, ConvertCross, ConvertCrossParams,
     ConvertCrossResult, ConvertedJunction, Copy, CopyParams, Cut, CutParams, Delete, DeleteParams,
@@ -39,7 +40,8 @@ pub use edit::{
     Mirror, MirrorParams, Move, MoveToSheet, MoveToSheetParams, MoveToSheetResult, NetChange,
     Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate, RotateParams, ShiftParams,
     ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams, TextResult, TextSet,
-    TextSetParams, WireBreak, WireBreakParams, WireBreakResult, flight_preview, selectable,
+    TextSetParams, WireBreak, WireBreakParams, WireBreakResult, WireSegment, WireSetVertices,
+    WireSetVerticesParams, WireSetVerticesResult, break_gap, flight_preview, selectable,
     shift_preview,
 };
 pub use fields::{FieldMove, FieldMoveParams, FieldResetParams, FieldResetPosition, FieldResult};
@@ -120,6 +122,7 @@ pub fn register_all_with_user(
     registry.add(WireAdd);
     registry.add(WireRoute);
     registry.add(WireBreak);
+    registry.add(WireSetVertices);
     registry.add(ConvertCross);
     registry.add(NetLabelAdd);
     registry.add(UnitMove);

@@ -1,5 +1,6 @@
-//! `schematic.wire.break` (cutting a gap out of a Wire) and
-//! `schematic.junctions.convert_cross` (turning 4-ways into two 3-ways).
+//! `schematic.wire.break` (cutting a gap out of a Wire), `schematic.wire.set_vertices`
+//! (editing a placed Wire's vertices) and `schematic.junctions.convert_cross` (turning
+//! 4-ways into two 3-ways).
 
 use std::collections::BTreeSet;
 
@@ -113,10 +114,20 @@ impl Command for WireBreak {
     }
 }
 
-/// `wire` with a gap of `length` (the whole segment when `None`) cut out of the segment
-/// nearest to `at`, centred on its point nearest to `at`: the vertices before the gap
-/// and after it. Either may be left with no length.
-fn cut(wire: &Wire, at: Point, length: Option<Nm>) -> (Vec<Point>, Vec<Point>) {
+/// The gap `schematic.wire.break` cuts out of a Wire: on segment `segment` (from vertex
+/// `segment` to the next), from `from` to `to` along it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Gap {
+    pub segment: usize,
+    pub from: Point,
+    pub to: Point,
+}
+
+/// The gap of `length` (the whole segment when `None`) Break Wire cuts out of `wire` at
+/// `at`: on the segment nearest to `at`, centred on its point nearest to `at`, shrunk to
+/// a shorter segment and slid along it to fit near an end. What the Break Wire Tool
+/// previews.
+pub fn break_gap(wire: &Wire, at: Point, length: Option<Nm>) -> Gap {
     let v = &wire.vertices;
     let distance = |a: Point, b: Point| {
         let (t, length) = along(a, b, at);
@@ -137,16 +148,93 @@ fn cut(wire: &Wire, at: Point, length: Option<Nm>) -> (Vec<Point>, Vec<Point>) {
             (start, start + gap)
         }
     };
-    let first = v[..=i]
-        .iter()
-        .copied()
-        .chain([point_at(a, b, from, segment)])
-        .collect();
-    let second = [point_at(a, b, to, segment)]
+    Gap {
+        segment: i,
+        from: point_at(a, b, from, segment),
+        to: point_at(a, b, to, segment),
+    }
+}
+
+/// `wire` with [`break_gap`] cut out: the vertices before the gap and after it. Either
+/// may be left with no length.
+fn cut(wire: &Wire, at: Point, length: Option<Nm>) -> (Vec<Point>, Vec<Point>) {
+    let v = &wire.vertices;
+    let Gap { segment, from, to } = break_gap(wire, at, length);
+    let first = v[..=segment].iter().copied().chain([from]).collect();
+    let second = [to]
         .into_iter()
-        .chain(v[i + 1..].iter().copied())
+        .chain(v[segment + 1..].iter().copied())
         .collect();
     (first, second)
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WireSetVerticesParams {
+    /// The Wire to change, by UUID.
+    pub wire: Uuid,
+    /// Its new vertices in order, at least two distinct. Repeated points (zero-length
+    /// segments) are dropped.
+    pub vertices: Vec<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
+}
+
+/// What `schematic.wire.set_vertices` left of the Wire.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct WireSetVerticesResult {
+    /// The Wires it became after normalisation: itself unless it merged or split.
+    pub wires: Vec<Uuid>,
+}
+
+pub struct WireSetVertices;
+
+impl Command for WireSetVertices {
+    const META: Meta = Meta {
+        id: "schematic.wire.set_vertices",
+        title: "Set Wire Vertices",
+        description: "Replaces a placed Wire's vertices: what dragging its endpoint, vertex \
+                      or segment handles commits, and the vertex list in Properties (Index, \
+                      X and Y, Add and Remove). The other Wires are left where they are; the \
+                      Wires it touches are normalised as `wiring` says.",
+        category: "schematic",
+        icon: "wire",
+        kind: Kind::Edit,
+    };
+    type Params = WireSetVerticesParams;
+    type Output = WireSetVerticesResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: WireSetVerticesParams,
+    ) -> Result<WireSetVerticesResult, CommandError> {
+        let project = cx.project()?;
+        let [object] = &resolve(project, &[p.wire], "/wire")?[..] else {
+            unreachable!("one UUID resolves to one object")
+        };
+        let Object::Wire(wire) = object else {
+            return Err(CommandError::invalid_params(
+                "/wire",
+                format!("{} is not a Wire", p.wire),
+            ));
+        };
+        let vertices = p.vertices.iter().map(|a| a.point()).collect();
+        let Some(changed) = Wire::through(p.wire, vertices) else {
+            return Err(CommandError::invalid_params(
+                "/vertices",
+                "a Wire needs at least two distinct vertices",
+            ));
+        };
+        let document = wire.document;
+        let before = crate::sheet(project, document)?.clone();
+        cx.tx()?
+            .replace(Object::Wire(InDocument::new(document, changed)))?;
+        let lineage = normalise(cx, document, &before, &p.wiring.unwrap_or_default())?;
+        Ok(WireSetVerticesResult {
+            wires: lineage.trace_all(&[p.wire]),
+        })
+    }
 }
 
 /// How far along the segment from `a` to `b` the point nearest to `p` is, and the

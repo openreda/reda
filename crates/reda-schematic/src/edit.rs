@@ -21,7 +21,7 @@ pub use clipboard::{
     Clipboard, Copy, CopyParams, Cut, CutParams, Duplicate, DuplicateParams, Paste, PasteParams,
     PasteResult,
 };
-pub use delete::{Delete, DeleteParams, DeleteResult};
+pub use delete::{Delete, DeleteParams, DeleteResult, WireSegment};
 pub use graphics::{
     GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams, RectAdd, RectAddParams,
     TextAdd, TextAddParams, TextResult, TextSet, TextSetParams,
@@ -34,6 +34,7 @@ pub use selection::selectable;
 pub use transform::Axis;
 pub use turn::{Mirror, MirrorParams, Rotate, RotateParams};
 pub use wires::{
-    ConvertCross, ConvertCrossParams, ConvertCrossResult, ConvertedJunction, WireBreak,
-    WireBreakParams, WireBreakResult,
+    ConvertCross, ConvertCrossParams, ConvertCrossResult, ConvertedJunction, Gap, WireBreak,
+    WireBreakParams, WireBreakResult, WireSetVertices, WireSetVerticesParams,
+    WireSetVerticesResult, break_gap,
 };

@@ -18,6 +18,8 @@
 //! - One or two selected copper objects give the design rules that apply ([`Rules`]).
 //! - A selected Pad or Footprint whose Footprint was edited on the board gives its local
 //!   edits ([`LocalEdits`]), with the compare and the Revert Command.
+//! - One selected Wire, or segments of only one Wire, give its vertex list (Index, X and
+//!   Y, plus Add and Remove), edited with `schematic.wire.set_vertices`.
 //! - Any one selected object shows its stored properties, read-only.
 
 pub mod commands;
@@ -28,6 +30,7 @@ pub mod rules;
 use std::collections::BTreeSet;
 use std::fmt;
 
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
     DocumentKind, Fields, FootprintInstance, Object, Project, UnitInstance, Uuid,
 };
@@ -93,6 +96,48 @@ pub enum Edit {
     NotFitted(bool),
     /// Adds the selection's Nets to a Net Class, or takes them out when all are in it.
     NetClass(Uuid),
+    /// Moves the listed Wire's vertex at this index to the point.
+    Vertex(usize, Point),
+    /// Adds a vertex to the listed Wire: a new end one snap grid (this long) on from its
+    /// last vertex, square to the last segment.
+    AddVertex(Nm),
+    /// Removes the listed Wire's vertex at this index.
+    RemoveVertex(usize),
+}
+
+/// The vertex list of the one Wire selected.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WireVertices {
+    pub wire: Uuid,
+    /// In order, from the first; the list's Index is the position here.
+    pub vertices: Vec<Point>,
+}
+
+impl WireVertices {
+    /// The vertices after `edit`, or `None` when it doesn't apply or would leave fewer
+    /// than two.
+    fn edited(&self, edit: &Edit) -> Option<Vec<Point>> {
+        let mut v = self.vertices.clone();
+        match *edit {
+            Edit::Vertex(i, to) => *v.get_mut(i)? = to,
+            Edit::RemoveVertex(i) if i < v.len() && v.len() > 2 => {
+                v.remove(i);
+            }
+            Edit::AddVertex(grid) => {
+                let (a, b) = (v[v.len() - 2], v[v.len() - 1]);
+                let (dx, dy) = ((b.x - a.x).0, (b.y - a.y).0);
+                // Square to the last segment: across a horizontal-ish one, up; else right.
+                let step = if dx.abs() >= dy.abs() {
+                    Point::new(Nm(0), grid)
+                } else {
+                    Point::new(grid, Nm(0))
+                };
+                v.push(b + step);
+            }
+            _ => return None,
+        }
+        Some(v)
+    }
 }
 
 /// The Properties panel's content for one selection.
@@ -118,6 +163,8 @@ pub struct Properties {
     pub local_edits: Option<LocalEdits>,
     /// The selected objects of each kind, in the order of `kinds`.
     by_kind: Vec<Vec<Uuid>>,
+    /// With one Wire selected (whole or by segments), its vertex list.
+    pub vertices: Option<WireVertices>,
 }
 
 /// The selected Footprint instances that were edited on the board.
@@ -208,12 +255,33 @@ impl Properties {
                 }
             }
         }
+        if !selection.segments.is_empty() {
+            kinds.push(("wire_segment".to_owned(), selection.segments.len()));
+            by_kind.push(Vec::new());
+        }
         let details = match objects.as_slice() {
             [one] => details(one),
             _ => Vec::new(),
         };
+        let mut wires: Vec<Uuid> = objects.iter().map(Object::uuid).collect();
+        wires.extend(selection.segments.iter().map(|s| s.wire));
+        wires.sort();
+        wires.dedup();
+        let vertices = match (
+            wires.as_slice(),
+            wires.first().and_then(|w| project.object(*w)),
+        ) {
+            ([wire], Some(Object::Wire(w))) => Some(WireVertices {
+                wire: *wire,
+                vertices: w.object.vertices.clone(),
+            }),
+            _ => None,
+        };
         Properties {
-            count: objects.len() + selection.pads.len() + selection.nets.len(),
+            count: objects.len()
+                + selection.segments.len()
+                + selection.pads.len()
+                + selection.nets.len(),
             kinds,
             component: component_properties(project, &objects)
                 .or_else(|| footprint_properties(project, &objects)),
@@ -223,6 +291,7 @@ impl Properties {
             rules: Rules::of(project, selection),
             local_edits: local_edits(project, &objects, selection),
             by_kind,
+            vertices,
         }
     }
 
@@ -230,7 +299,8 @@ impl Properties {
     /// kind chip's click); `None` for a kind not selected.
     pub fn narrow(&self, kind: &str) -> Option<(&'static str, Value)> {
         let i = self.kinds.iter().position(|(k, _)| k == kind)?;
-        Some(("selection.set", json!({"objects": self.by_kind[i]})))
+        let objects = self.by_kind.get(i).filter(|o| !o.is_empty())?;
+        Some(("selection.set", json!({ "objects": objects })))
     }
 
     /// The Command that returns the locally edited Footprints to the copies they were
@@ -246,6 +316,19 @@ impl Properties {
     /// The Command that makes `edit` to everything selected, as `(id, params)`; `None`
     /// when the selection has nothing it applies to.
     pub fn command(&self, edit: &Edit) -> Option<(&'static str, Value)> {
+        if matches!(
+            edit,
+            Edit::Vertex(..) | Edit::AddVertex(_) | Edit::RemoveVertex(_)
+        ) {
+            let list = self.vertices.as_ref()?;
+            let vertices: Vec<Value> = (list.edited(edit)?.iter())
+                .map(|p| json!({"x": p.x.0, "y": p.y.0}))
+                .collect();
+            return Some((
+                "schematic.wire.set_vertices",
+                json!({"wire": list.wire, "vertices": vertices}),
+            ));
+        }
         if let Edit::NetClass(class) = edit {
             let property = self.net_class.as_ref()?;
             let all_in = property.class.same().is_some_and(|c| c.contains(class));
@@ -297,7 +380,9 @@ impl Properties {
             Edit::NotFitted(not_fitted) => {
                 set.insert("not_fitted".into(), json!(not_fitted));
             }
-            Edit::NetClass(_) => unreachable!("handled above"),
+            Edit::NetClass(_) | Edit::Vertex(..) | Edit::AddVertex(_) | Edit::RemoveVertex(_) => {
+                unreachable!("handled above")
+            }
         }
         Some(("schematic.component.set", params))
     }
@@ -421,7 +506,11 @@ fn footprint_command(
         Edit::NotFitted(not_fitted) => {
             set.insert("not_fitted".into(), json!(not_fitted));
         }
-        Edit::Visible(..) | Edit::NetClass(_) => return None,
+        Edit::Visible(..)
+        | Edit::NetClass(_)
+        | Edit::Vertex(..)
+        | Edit::AddVertex(_)
+        | Edit::RemoveVertex(_) => return None,
     }
     Some(("pcb.footprint.set", params))
 }

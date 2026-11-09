@@ -15,7 +15,9 @@
 //! functions; this module only says what on a sheet can be picked and snapped to.
 
 mod auto_wire;
+mod break_wire;
 mod graphics;
+mod handles;
 mod wiring;
 
 use std::collections::BTreeSet;
@@ -34,7 +36,9 @@ use crate::tools::Tool;
 use crate::tr;
 
 pub use auto_wire::options as auto_wire_options;
+pub use break_wire::{Breaking, cycle_cutting_length, options as break_wire_options};
 pub use graphics::Drawing;
+pub use handles::{Grip, Handle, HandleDrag, delete_held_vertex, insert_held_vertex};
 pub use wiring::{Corner, Placing, Wiring};
 
 /// A Command for the window to run after the frame.
@@ -65,6 +69,10 @@ pub enum Interaction {
     Placing(Placing),
     /// The Line or Rect Tool, with or without a shape in flight.
     Drawing(Drawing),
+    /// A selected Wire's handle is being dragged.
+    Handle(HandleDrag),
+    /// The Break Wire Tool, with the pointer over a Wire or not.
+    Breaking(Breaking),
 }
 
 impl Interaction {
@@ -470,11 +478,37 @@ fn show(
         }
         _ => BoxMode::Enclose,
     };
+    let idle = idle_overlay(shell, document);
+    let breaking = match &state {
+        Interaction::Breaking(b) => Some(break_wire::overlay(shell, document, b)),
+        _ => None,
+    };
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
     let (moving, hidden, offset, overlay) = match &state {
-        Interaction::Idle => (Vec::new(), Vec::new(), (0.0, 0.0), Overlay::default()),
+        Interaction::Idle => (Vec::new(), Vec::new(), (0.0, 0.0), idle),
+        Interaction::Breaking(_) => (
+            Vec::new(),
+            Vec::new(),
+            (0.0, 0.0),
+            breaking.unwrap_or_default(),
+        ),
+        Interaction::Handle(d) => {
+            let mut found = Vec::new();
+            handles::wire_handles_of(d, &mut found);
+            let handles: Vec<(Point, bool)> = found.iter().map(|h| (h.at, h.red)).collect();
+            (
+                Vec::new(),
+                vec![d.wire],
+                (0.0, 0.0),
+                Overlay {
+                    wires: d.vertices.windows(2).map(|p| (p[0], p[1])).collect(),
+                    handles: handles.into(),
+                    ..Overlay::default()
+                },
+            )
+        }
         Interaction::Boxing { from, to, .. } => (
             Vec::new(),
             Vec::new(),
@@ -559,6 +593,32 @@ fn show(
     tab.overlay = overlay;
     tab.interaction = state;
     tab.cursor = cursor;
+}
+
+/// What the canvas shows with nothing in flight: the selected Wires' handles and
+/// segments with the Select Tool.
+fn idle_overlay(shell: &Shell, document: Uuid) -> Overlay {
+    let Some(sheet) = shell
+        .engine()
+        .project()
+        .and_then(|p| p.schematic_sheet(document))
+    else {
+        return Overlay::default();
+    };
+    match shell.tool() {
+        Tool::Select => {
+            let selection = shell.selection();
+            let handles: Vec<(Point, bool)> = (handles::handles(sheet, selection).iter())
+                .map(|h| (h.at, h.red))
+                .collect();
+            Overlay {
+                handles: handles.into(),
+                segments: handles::selected_segments(sheet, selection).into(),
+                ..Overlay::default()
+            }
+        }
+        _ => Overlay::default(),
+    }
 }
 
 /// Starts the Shell's Tool preview when a Wire run begins, depending on the Wires and
@@ -698,6 +758,7 @@ impl Cx<'_> {
             Interaction::Wiring(_) if self.shell.tool() != Tool::Wire => Interaction::Idle,
             Interaction::Placing(p) if self.shell.tool() != p.tool => Interaction::Idle,
             Interaction::Drawing(d) if self.shell.tool() != d.tool => Interaction::Idle,
+            Interaction::Breaking(_) if self.shell.tool() != Tool::BreakWire => Interaction::Idle,
             Interaction::Flight(f) if f.by_tool && !f.committing => {
                 let wanted = if f.keep_connections {
                     Tool::Drag
@@ -841,7 +902,24 @@ impl Cx<'_> {
         event: Pointer,
         hovered: &mut Option<Uuid>,
     ) -> Interaction {
+        let tool = self.shell.tool();
         match (state, event) {
+            (Interaction::Handle(d), event) => self.handle_step(d, event),
+            (Interaction::Breaking(b), event) => self.break_step(b, event),
+            (Interaction::Idle, event) if tool == Tool::BreakWire => {
+                self.break_step(Breaking::default(), event)
+            }
+            (Interaction::Idle, Pointer::Click { at, modifiers })
+                if tool == Tool::Select && !modifiers.alt && self.segment_click(at, modifiers) =>
+            {
+                Interaction::Idle
+            }
+            (Interaction::Idle, Pointer::DragStart { from, at, .. })
+                if tool == Tool::Select && self.grab_handle(from, at).is_some() =>
+            {
+                *hovered = None;
+                self.grab_handle(from, at).expect("checked")
+            }
             (Interaction::Wiring(w), event) => Interaction::Wiring(self.wire_step(w, event)),
             (Interaction::Placing(p), event) => Interaction::Placing(self.place_step(p, event)),
             (Interaction::Drawing(d), event) => Interaction::Drawing(self.draw_step(d, event)),

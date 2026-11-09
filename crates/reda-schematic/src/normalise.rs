@@ -79,6 +79,7 @@ impl Default for Wiring {
 pub const WIRING_COMMANDS: &[&str] = &[
     "schematic.wire.add",
     "schematic.wire.break",
+    "schematic.wire.set_vertices",
     "schematic.junctions.convert_cross",
     "schematic.component.place",
     "schematic.unit.place",

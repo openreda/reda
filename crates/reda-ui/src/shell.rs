@@ -295,6 +295,7 @@ impl Shell {
         engine.view_mut().set(PowerPortName::default());
         engine.view_mut().set(tools::RotateAboutAngle::default());
         engine.view_mut().set(tools::WireTool::default());
+        engine.view_mut().set(tools::BreakWireTool::default());
         engine.view_mut().set(tools::ToolStack::default());
         engine
             .view_mut()
@@ -1361,6 +1362,17 @@ impl Shell {
                 stack.run = run;
             }
         }
+        // Delete while a Wire vertex's handle is held removes that vertex instead.
+        if base == "schematic.delete"
+            && let Some(sheet) = self.active_sheet()
+            && let Some(commands) = crate::schematic_editor::delete_held_vertex(self, sheet)
+        {
+            let mut out = json!({});
+            for (id, params) in commands {
+                out = self.run(&id, params)?;
+            }
+            return Ok(out);
+        }
         if matches!(base, "tool.mirror_x" | "tool.mirror_y") && self.board_mirror_refused() {
             return Err(CommandError::rejected(
                 reda_engine::pcb::place::MIRROR_REFUSED,
@@ -2093,6 +2105,15 @@ impl Shell {
                     let _ = self.run_reporting(&id, params);
                 }
             }
+            "tool.cycle_cutting_length" => {
+                let (id, params) = crate::schematic_editor::cycle_cutting_length(self);
+                let _ = self.run_reporting(&id, params);
+            }
+            "tool.insert_vertex" if self.tool() == Tool::Select => {
+                if let Some(sheet) = self.active_sheet() {
+                    crate::schematic_editor::insert_held_vertex(self, sheet);
+                }
+            }
             "tool.edit_properties" if self.tool() == Tool::Place => {
                 let _ = self.run_reporting("panel.show:properties", json!({}));
             }
@@ -2181,10 +2202,27 @@ impl Shell {
                 project.object(*o).is_none() && !crate::element_editor::has_part(&self.engine, *o)
             })
             .collect();
+        // A deleted segment, or one its Wire no longer has, is no longer selected.
+        let segments: Vec<_> = (self.selection().segments.iter().copied())
+            .filter(|s| {
+                id != "schematic.delete"
+                    && project.object(s.wire).is_some_and(|o| match o {
+                        reda_engine::model::Object::Wire(w) => {
+                            s.index + 1 < w.object.vertices.len()
+                        }
+                        _ => false,
+                    })
+            })
+            .collect();
         if !gone.is_empty()
             && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
         {
             selection.objects.retain(|o| !gone.contains(o));
+        }
+        if segments != self.selection().segments
+            && let Some(selection) = self.engine.view_mut().get_mut::<Selection>()
+        {
+            selection.segments = segments;
         }
         let unlit: Vec<Uuid> = match self.engine.project() {
             Some(project) => self
@@ -2221,7 +2259,7 @@ impl Shell {
     }
 
     /// The active Document when it is a Schematic Sheet.
-    fn active_sheet(&self) -> Option<Uuid> {
+    pub fn active_sheet(&self) -> Option<Uuid> {
         let document = self.active_document()?.document;
         self.engine.project()?.schematic_sheet(document)?;
         Some(document)

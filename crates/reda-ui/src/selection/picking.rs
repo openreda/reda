@@ -176,6 +176,7 @@ pub fn click(
         return None;
     }
     let before = shell.selection().clone();
+    let kept_segments = before.segments.clone();
     let current = before.canvas_ids();
     let targets: BTreeMap<_, _> = objects
         .iter()
@@ -218,7 +219,14 @@ pub fn click(
         },
     );
     let selected = click_selection(&current, &picked, how);
-    Some(set_command(&self::selected(shell, document, &selected)))
+    let mut selection = self::selected(shell, document, &selected);
+    // Shift keeps the Wire segments selected, but those of a Wire now selected whole.
+    if how != Combine::Replace {
+        selection.segments = (kept_segments.into_iter())
+            .filter(|s| !selection.objects.contains(&s.wire))
+            .collect();
+    }
+    Some(set_command(&selection))
 }
 
 #[derive(Deserialize, JsonSchema)]

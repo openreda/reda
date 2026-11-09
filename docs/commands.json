@@ -66795,6 +66795,28 @@
               }
             ]
           },
+          "WireSegment": {
+            "additionalProperties": false,
+            "description": "One segment of a Wire: from vertex `index` to the next.",
+            "properties": {
+              "index": {
+                "description": "The segment's first vertex, from 0.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "wire": {
+                "description": "The Wire, by UUID.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "wire",
+              "index"
+            ],
+            "type": "object"
+          },
           "Wiring": {
             "additionalProperties": false,
             "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
@@ -66836,6 +66858,14 @@
             "items": {
               "format": "uuid",
               "type": "string"
+            },
+            "type": "array"
+          },
+          "segments": {
+            "default": [],
+            "description": "Single Wire segments to delete, from a segment selection. A deletion stops at a\nJunction on the segment: only the stretch between the Junctions either side of its\nmidpoint goes. The Wire splits around the gap, and its first piece keeps the UUID.",
+            "items": {
+              "$ref": "#/$defs/WireSegment"
             },
             "type": "array"
           },
@@ -74993,6 +75023,134 @@
         "type": "object"
       },
       "title": "Route Wire"
+    },
+    {
+      "category": "schematic",
+      "description": "Replaces a placed Wire's vertices: what dragging its endpoint, vertex or segment handles commits, and the vertex list in Properties (Index, X and Y, Add and Remove). The other Wires are left where they are; the Wires it touches are normalised as `wiring` says.",
+      "icon": "wire",
+      "id": "schematic.wire.set_vertices",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "At": {
+            "additionalProperties": false,
+            "description": "A point on the sheet.",
+            "properties": {
+              "x": {
+                "$ref": "#/$defs/Length"
+              },
+              "y": {
+                "$ref": "#/$defs/Length"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "Length": {
+            "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
+            "oneOf": [
+              {
+                "description": "Nanometres.",
+                "type": "integer"
+              },
+              {
+                "description": "A number and a unit: nm, um, mm, mil or in.",
+                "format": "length",
+                "type": "string"
+              }
+            ]
+          },
+          "Wiring": {
+            "additionalProperties": false,
+            "description": "How edits normalise the Wires they touch: the four wiring Preferences, and the snap\ngrid that converting a cross-junction offsets by. A Command given no `wiring` uses\nthese defaults, not the user's Preferences, so its result is the same on every\nmachine; the app passes the Preferences. A field left out takes its default.",
+            "properties": {
+              "break_wires_at_autojunctions": {
+                "default": true,
+                "description": "Break Wires At Autojunctions (on): a Wire splits at each Junction on its interior.\nOff, it stays one Wire through the Junction.",
+                "type": "boolean"
+              },
+              "components_cut_wires": {
+                "default": true,
+                "description": "Components Cut Wires (on; needs Optimize Wires): when two or more Pins of a\nplaced, moved or pasted Unit land on one straight stretch of a Wire, the pieces\nbetween them are removed unless something else connects there. Off, the Pins\nconnect and the part may be shorted.",
+                "type": "boolean"
+              },
+              "convert_cross_junctions": {
+                "default": true,
+                "description": "Convert Cross-Junctions (on): a Wire that would make a 4-way is offset into two\nadjacent 3-ways, one snap grid apart. Off, the 4-way stays as drawn.",
+                "type": "boolean"
+              },
+              "optimize_wires": {
+                "default": true,
+                "description": "Optimize Wires (on): overlapping collinear Wires merge, and so do collinear Wires\nmeeting end to end with nothing else at that point; collinear vertices inside a\nWire are removed. Off, Wires stay as drawn.",
+                "type": "boolean"
+              },
+              "snap_grid": {
+                "$ref": "#/$defs/Length",
+                "default": 1270000,
+                "description": "The snap grid a converted cross-junction is offset by; 50 mil by default."
+              }
+            },
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "vertices": {
+            "description": "Its new vertices in order, at least two distinct. Repeated points (zero-length\nsegments) are dropped.",
+            "items": {
+              "$ref": "#/$defs/At"
+            },
+            "type": "array"
+          },
+          "wire": {
+            "description": "The Wire to change, by UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "wiring": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Wiring"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the Wires this edit touches are normalised; the fixed defaults when left out."
+          }
+        },
+        "required": [
+          "wire",
+          "vertices"
+        ],
+        "title": "WireSetVerticesParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What `schematic.wire.set_vertices` left of the Wire.",
+        "properties": {
+          "wires": {
+            "description": "The Wires it became after normalisation: itself unless it merged or split.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "wires"
+        ],
+        "title": "WireSetVerticesResult",
+        "type": "object"
+      },
+      "title": "Set Wire Vertices"
     },
     {
       "category": "sync",
