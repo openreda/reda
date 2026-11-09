@@ -18,6 +18,7 @@ mod commands;
 pub mod draw;
 pub mod route;
 mod route_commands;
+mod select_commands;
 pub mod snap;
 pub mod tool;
 pub mod view;
@@ -30,5 +31,6 @@ pub use tool::SelectTool;
 pub fn register_all(registry: &mut reda_engine::command::Registry) {
     commands::register_all(registry);
     route_commands::register_all(registry);
+    select_commands::register_all(registry);
 }
 pub use view::BoardView;

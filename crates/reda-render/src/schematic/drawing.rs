@@ -5,7 +5,7 @@ use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::text::display;
 use reda_model::{JustifyAxis, SchematicSheet, SheetShape};
 
-use super::Builder;
+use super::{Builder, cross_over};
 use crate::color::SchematicColor as C;
 use crate::scene::{Align, HAlign, Primitive, VAlign};
 use crate::text::{LINE_PITCH, TextStyle, reading_direction};
@@ -21,18 +21,35 @@ const LABEL_GAP: i64 = 254_000;
 /// Half the size of a No-Connect Marker's cross.
 const NO_CONNECT_HALF: i64 = 635_000;
 
-pub(super) fn wires(b: &mut Builder, sheet: &SchematicSheet) {
+/// Each Wire segment as one stroke; with `cross_overs`, a segment hops over each Wire it
+/// crosses without connecting (see [`cross_over`]).
+pub(super) fn wires(
+    b: &mut Builder,
+    sheet: &SchematicSheet,
+    junctions: &[Point],
+    cross_overs: bool,
+) {
+    let hops = match cross_overs {
+        true => cross_over::hops(sheet, junctions),
+        false => Default::default(),
+    };
     for wire in sheet.wires() {
-        for (a, z) in wire.segments() {
-            b.push(
-                wire.uuid,
-                C::Wire,
-                Primitive::Capsule {
-                    a,
-                    b: z,
-                    width: WIRE_WIDTH,
-                },
-            );
+        for (i, (a, z)) in wire.segments().enumerate() {
+            let path = match hops.get(&(wire.uuid, i)) {
+                Some(at) => cross_over::bridged(a, z, at),
+                None => vec![a, z],
+            };
+            for pair in path.windows(2) {
+                b.push(
+                    wire.uuid,
+                    C::Wire,
+                    Primitive::Capsule {
+                        a: pair[0],
+                        b: pair[1],
+                        width: WIRE_WIDTH,
+                    },
+                );
+            }
         }
     }
 }
@@ -57,7 +74,7 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
     }
 }
 
-pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
     for label in sheet.net_labels() {
         // Above the Wire as read, extending the way the label points.
         let reading = reading_direction(label.rotation);
@@ -67,10 +84,11 @@ pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
             HAlign::Right
         };
         let (dx, dy) = rotate(0, LABEL_GAP, reading);
-        b.text(
+        b.name(
             label.uuid,
             C::NetLabel,
             &label.name,
+            single_negation,
             Point::new(label.at.x + Nm(dx), label.at.y + Nm(dy)),
             TextStyle {
                 height: LABEL_TEXT,

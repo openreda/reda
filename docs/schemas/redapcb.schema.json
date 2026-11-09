@@ -1613,6 +1613,17 @@
           },
           "type": "array"
         },
+        "color": {
+          "description": "Its colour as `#rrggbb`, for its Ratsnest lines (and its copper with Net colours\non); left out when unset. No manufacturing output reads it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "loop_removal": {
+          "description": "Whether a route that closes a loop on this Net removes the old path; left out when\non. Off for power and ground Nets that need loops.",
+          "type": "boolean"
+        },
         "name": {
           "type": "string"
         },

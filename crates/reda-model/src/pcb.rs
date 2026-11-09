@@ -253,6 +253,35 @@ pub struct Net {
     /// left out when there are none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub classes: Vec<Uuid>,
+    /// Its colour as `#rrggbb`, for its Ratsnest lines (and its copper with Net colours
+    /// on); left out when unset. No manufacturing output reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Whether a route that closes a loop on this Net removes the old path; left out when
+    /// on. Off for power and ground Nets that need loops.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub loop_removal: bool,
+}
+
+impl Net {
+    /// A Net with this name in no Net Class, with no colour and loop removal on.
+    pub fn new(uuid: Uuid, name: impl Into<String>) -> Net {
+        Net {
+            uuid,
+            name: name.into(),
+            classes: Vec::new(),
+            color: None,
+            loop_removal: true,
+        }
+    }
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
 }
 
 /// An object stored in a Document, with the Document it lives in. The Document is not

@@ -342,6 +342,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             Net {
                 uuid,
                 name,
+                color: (!classes.is_empty()).then(|| "#ff8800".to_string()),
+                loop_removal: classes.is_empty(),
                 classes,
             },
         )));

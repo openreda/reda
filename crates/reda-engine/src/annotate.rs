@@ -16,7 +16,7 @@ use reda_command::CommandError;
 use reda_model::annotate::{Location, Mode, ReannotateSettings, Sides, Source, Walk};
 use reda_model::geom::{Bounds, Nm, Point};
 use reda_model::{InDocument, Object, Project, Side, Transaction, UnitInstance, Uuid};
-use reda_render::{ColorKey, SchematicColor};
+use reda_render::ColorKey;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -347,12 +347,7 @@ fn unit_points(
         .iter()
         .flat_map(|c| c.units.iter().map(|p| p.sheet))
         .collect();
-    let body = |c: &ColorKey| {
-        matches!(
-            c,
-            ColorKey::Schematic(SchematicColor::Body | SchematicColor::BodyFill)
-        )
-    };
+    let body = |c: &ColorKey| matches!(c, ColorKey::Schematic(c) if c.is_unit_body());
     let mut out = BTreeMap::new();
     for sheet in sheets {
         let Some(scene) = reda_render::schematic_scene(project, sheet, &[]) else {

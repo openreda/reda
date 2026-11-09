@@ -133,7 +133,7 @@ pub enum Theme {
 }
 
 /// Editing settings for one Document type.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Editing {
     /// The units new values are shown and typed in.
@@ -149,6 +149,8 @@ pub struct Editing {
     pub default_grid: Option<Length>,
     /// Zone settings.
     pub zone: ZonePreferences,
+    /// The Net block of Track Properties.
+    pub net_info: NetInfoPreferences,
 }
 
 impl Default for Editing {
@@ -160,6 +162,24 @@ impl Default for Editing {
             auto_pan: true,
             default_grid: None,
             zone: ZonePreferences::default(),
+            net_info: NetInfoPreferences::default(),
+        }
+    }
+}
+
+/// The Net block of Track Properties.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct NetInfoPreferences {
+    /// The temperature rise in °C the estimated maximum current of a Track allows
+    /// (IPC-2221). REDA's own default is 10 °C.
+    pub delta_t: f64,
+}
+
+impl Default for NetInfoPreferences {
+    fn default() -> NetInfoPreferences {
+        NetInfoPreferences {
+            delta_t: reda_pcb::net_info::DEFAULT_DELTA_T,
         }
     }
 }
@@ -204,6 +224,9 @@ pub struct SchematicEditing {
     /// Port or Power Port name, as in `\RESET`. Off, a leading backslash has no effect and
     /// isn't drawn. Only how names are drawn changes, never the names.
     pub single_negation: bool,
+    /// Display Cross-Overs: a Wire hops over each Wire it crosses without connecting, in
+    /// a small bridge. Canvas only: it never reaches the PDF.
+    pub display_cross_overs: bool,
     /// Port Cross References Sheet Style (`none`, `name` or `number`), used by Projects
     /// that follow the Preferences for cross-references.
     pub cross_reference_sheet_style: SheetStyle,
@@ -261,6 +284,7 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             zone: _,
+            net_info: _,
         } = Editing::default();
         SchematicEditing {
             default_units,
@@ -269,6 +293,7 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             single_negation: false,
+            display_cross_overs: false,
             cross_reference_sheet_style: CrossReferenceStyles::DEFAULT.sheet,
             cross_reference_location_style: CrossReferenceStyles::DEFAULT.location,
             optimize_wires: true,

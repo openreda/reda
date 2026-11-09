@@ -3,6 +3,7 @@
 use std::sync::OnceLock;
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::net_name::NameGlyph;
 use reda_text::{Font, Mesh, OutlineFont, Segment, layout};
 
 use crate::scene::{Align, GlyphRun, HAlign, VAlign};
@@ -77,6 +78,47 @@ pub(crate) fn glyph_run(text: &str, at: Point, style: TextStyle) -> GlyphRun {
         fill,
     }
 }
+
+/// The overbars of one line of text laid out as [`glyph_run`] lays out `glyphs`' characters
+/// on `at`: one segment over each run of negated characters, a little above the capitals.
+pub(crate) fn overbars(glyphs: &[NameGlyph], at: Point, style: TextStyle) -> Vec<(Point, Point)> {
+    let (rotation, align) = readable(style.rotation, style.align);
+    let h = style.height.0;
+    let dy = match align.v {
+        VAlign::Baseline => 0,
+        VAlign::Middle => -h / 2,
+        VAlign::Top => -h,
+    };
+    let chars: Vec<char> = glyphs.iter().map(|g| g.ch).collect();
+    let reach = |n: usize| advance(&chars[..n].iter().collect::<String>(), style.height).0;
+    let dx = match align.h {
+        HAlign::Left => 0,
+        HAlign::Center => -reach(chars.len()) / 2,
+        HAlign::Right => -reach(chars.len()),
+    };
+    let y = dy + h * OVERBAR_LIFT.0 / OVERBAR_LIFT.1;
+    let place = |x: i64| {
+        let (x, y) = rotate(x + dx, y, rotation);
+        Point::new(at.x + Nm(x), at.y + Nm(y))
+    };
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < glyphs.len() {
+        if !glyphs[i].overbar {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < glyphs.len() && glyphs[i].overbar {
+            i += 1;
+        }
+        out.push((place(reach(start)), place(reach(i))));
+    }
+    out
+}
+
+/// An overbar sits this many capital heights above the baseline.
+const OVERBAR_LIFT: (i64, i64) = (23, 20);
 
 /// How far the longest line of `text` reaches at capital height `height`.
 pub(crate) fn advance(text: &str, height: Nm) -> Nm {

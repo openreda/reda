@@ -1293,6 +1293,13 @@ impl Shell {
     /// Refreshes what a successful run of `id` may have changed.
     fn after_run(&mut self, id: &str) {
         let base = id.split(':').next().unwrap_or(id);
+        // First, so the Scenes the refresh below rebuilds are drawn with them.
+        if matches!(
+            base,
+            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
+        ) {
+            self.reload_preferences();
+        }
         match base {
             "project.open" | "project.new" => {
                 self.show_project();
@@ -1325,12 +1332,6 @@ impl Shell {
             || matches!(base, "app.preferences.set" | "app.preferences.reset")
         {
             self.library_generation += 1;
-        }
-        if matches!(
-            base,
-            "app.preferences.set" | "app.preferences.reset" | "view.theme.set"
-        ) {
-            self.reload_preferences();
         }
         self.sync_selection();
         self.sync_show_waived();
@@ -2424,9 +2425,11 @@ impl Shell {
     /// The Scene of `document` in `project`, filtered and composited as the board view
     /// asks for a PCB. Its generation is left for the caller to set.
     fn build_scene(&self, project: &Project, document: Uuid) -> SceneHandle {
-        let style = reda_engine::render::SchematicStyle {
-            unit_suffix: self.preferences.values().schematic.unit_suffix,
-        };
+        let style = reda_engine::schematic_style::schematic_style(
+            project,
+            self.preferences.values(),
+            reda_engine::schematic_style::Drawn::Canvas,
+        );
         let mut scene = reda_engine::document_scene(project, document, self.engine.fonts(), &style)
             .unwrap_or_default();
         let board = self.board_view();

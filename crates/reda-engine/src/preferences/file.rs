@@ -371,6 +371,14 @@ mod tests {
     }
 
     #[test]
+    fn display_cross_overs_is_a_schematic_preference_that_starts_off() {
+        assert!(!parse_with("", &[]).values.schematic.display_cross_overs);
+        let loaded = parse_with("[schematic]\ndisplay_cross_overs = true\n", &[]);
+        assert!(loaded.values.schematic.display_cross_overs);
+        assert_eq!(loaded.warnings, Vec::<String>::new());
+    }
+
+    #[test]
     fn single_negation_is_a_schematic_preference_that_starts_off() {
         assert!(!parse_with("", &[]).values.schematic.single_negation);
         let loaded = parse_with("[schematic]\nsingle_negation = true\n", &[]);

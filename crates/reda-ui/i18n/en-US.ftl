@@ -798,6 +798,7 @@ pref-schematic-default-grid = Default grid
 pref-schematic-single-negation = Single '\' Negation
 pref-schematic-cross-reference-sheet-style = Port Cross References Sheet Style
 pref-schematic-cross-reference-location-style = Port Cross References Location Style
+pref-schematic-display-cross-overs = Display Cross-Overs
 pref-schematic-optimize-wires = Optimize Wires
 pref-schematic-components-cut-wires = Components Cut Wires
 pref-schematic-break-wires-at-autojunctions = Break Wires At Autojunctions
