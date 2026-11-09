@@ -1,6 +1,7 @@
 //! The PCB Commands. Each one edits the Project's PCB Document and is unavailable while
 //! the Project has none.
 
+mod board_info;
 mod copper;
 mod dimension;
 mod drc;
@@ -8,8 +9,10 @@ mod find;
 mod free_pad;
 pub mod from_graphics;
 mod graphic;
-mod layer;
+pub(crate) mod layer;
+mod measure;
 mod mechanical;
+mod net;
 mod net_class;
 mod outline;
 pub(crate) mod placement;
@@ -55,6 +58,7 @@ pub fn register_all_with_user(
     rules::register_all(registry);
     stackup::register_all(registry);
     net_class::register_all(registry);
+    net::register_all(registry);
     text::register_all(registry);
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
@@ -63,11 +67,13 @@ pub fn register_all_with_user(
     track_edit::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
+    board_info::register_all(registry);
     drc::register_all(registry, sync, user_name);
     zone::register_all(registry);
     zone_fill::register_all(registry);
     placement::register_all(registry);
     mechanical::register_all(registry);
+    measure::register_all(registry);
     free_pad::register_all(registry);
     registry.add(find::PcbFind);
 }

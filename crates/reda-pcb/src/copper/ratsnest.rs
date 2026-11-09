@@ -86,6 +86,65 @@ impl Copper {
     }
 }
 
+/// How many of a Net's connections copper makes: a Net with `n` Pads (Footprint Pads and
+/// Free Pads) needs `n - 1`, and each island of its copper holding a Pad beyond the first
+/// is one not made yet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct Connections {
+    /// The connections the Net needs.
+    pub total: usize,
+    /// Those copper makes.
+    pub made: usize,
+}
+
+impl Connections {
+    /// The share made, in percent: 100 when there is nothing to make.
+    pub fn percent(&self) -> f64 {
+        if self.total == 0 {
+            100.0
+        } else {
+            self.made as f64 * 100.0 / self.total as f64
+        }
+    }
+}
+
+impl std::ops::Add for Connections {
+    type Output = Connections;
+    fn add(self, other: Connections) -> Connections {
+        Connections {
+            total: self.total + other.total,
+            made: self.made + other.made,
+        }
+    }
+}
+
+impl Copper {
+    /// How many of `net`'s connections copper makes.
+    pub fn connections(&self, net: Uuid) -> Connections {
+        let is_pad = |item: &Item| matches!(item, Item::Pad { .. } | Item::FreePad { .. });
+        let mut pads = 0;
+        let mut islands = 0;
+        for island in self.islands(net) {
+            let n = island.iter().filter(|i| is_pad(i)).count();
+            pads += n;
+            islands += usize::from(n > 0);
+        }
+        let total = pads.saturating_sub(1);
+        Connections {
+            total,
+            made: total - islands.saturating_sub(1),
+        }
+    }
+
+    /// How many connections copper makes over every Net.
+    pub fn all_connections(&self) -> Connections {
+        self.nets()
+            .into_iter()
+            .map(|net| self.connections(net))
+            .fold(Connections::default(), |a, b| a + b)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct Link {
     distance: i128,
