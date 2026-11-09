@@ -25,7 +25,10 @@ fn via_set_changes_the_diameter_and_hole_of_every_via_given() {
     assert_eq!(out["result"]["vias"], json!(both));
     for via in [a, b] {
         let via = pcb(&engine).via(via).unwrap();
-        assert_eq!((via.diameter, via.hole), (Nm::from_um(800), Nm::from_um(400)));
+        assert_eq!(
+            (via.diameter, via.hole),
+            (Nm::from_um(800), Nm::from_um(400))
+        );
     }
 }
 

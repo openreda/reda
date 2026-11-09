@@ -232,6 +232,8 @@ pub struct Editing {
     pub default_grid: Option<Length>,
     /// Zone settings.
     pub zone: ZonePreferences,
+    /// The Keepout and Zone Cutout Tools.
+    pub keepout: KeepoutPreferences,
     /// The Net block of Track Properties.
     pub net_info: NetInfoPreferences,
     /// Interactive Routing: the Track Tool's values.
@@ -337,6 +339,7 @@ impl Default for Editing {
             auto_pan: true,
             default_grid: None,
             zone: ZonePreferences::default(),
+            keepout: KeepoutPreferences::default(),
             net_info: NetInfoPreferences::default(),
             route: RoutePreferences::default(),
             drag: DragPreferences::default(),
@@ -497,6 +500,76 @@ pub struct ZonePreferences {
     /// background, the edited Zones and those depending on them) or `off` (only on
     /// Refill). Outputs and DRC refill stale Zones first either way.
     pub auto_refill: AutoRefill,
+    /// The Zone Tool's values for the next Zone it draws, as last set in its options in
+    /// Properties. `pcb.zone.add` itself never reads them.
+    pub tool: ZoneToolPreferences,
+}
+
+/// The values the Zone Tool gives a new Zone (docs/spec/v0.1/pcb.md#creating-zones).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct ZoneToolPreferences {
+    /// The gap to other Nets' copper, where it is larger than the clearance rule's;
+    /// unset, the rule alone.
+    pub clearance: Option<Length>,
+    /// The narrowest copper the fill may leave; unset, the Net's `track_width` minimum.
+    pub min_width: Option<Length>,
+    /// How the fill treats copper of its own Net: `zones_only`, `all` or `none`.
+    pub pour_over: reda_model::PourOver,
+    /// Remove fill pieces that touch no copper of the Zone's Net.
+    pub remove_unconnected: bool,
+    /// Fill pieces smaller than this area are dropped, such as `0.5mm2`.
+    pub min_island_area: reda_command::AreaValue,
+}
+
+impl Default for ZoneToolPreferences {
+    fn default() -> ZoneToolPreferences {
+        ZoneToolPreferences {
+            clearance: None,
+            min_width: None,
+            pour_over: reda_model::PourOver::default(),
+            remove_unconnected: true,
+            min_island_area: reda_command::AreaValue(0),
+        }
+    }
+}
+
+/// The Keepout Tool's options, as last set in Properties.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct KeepoutPreferences {
+    /// How the Keepout Tool draws: `polygon` (a click per corner), `rectangle` (two
+    /// corners) or `circle` (centre, then a point on the edge). All store polygons.
+    pub shape: KeepoutToolShape,
+    /// Keep out on every copper Layer, including any added later; off, only the active
+    /// copper Layer.
+    pub all_layers: bool,
+    /// What a new Keepout keeps out: any of `tracks`, `vias`, `zones`, `smd_pads`,
+    /// `tht_pads` and `footprints`.
+    pub restrict: BTreeSet<reda_model::Restriction>,
+}
+
+impl Default for KeepoutPreferences {
+    fn default() -> KeepoutPreferences {
+        KeepoutPreferences {
+            shape: KeepoutToolShape::default(),
+            all_layers: true,
+            restrict: reda_model::Restriction::defaults(),
+        }
+    }
+}
+
+/// How the Keepout Tool draws.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum KeepoutToolShape {
+    /// A click per corner; a click on the first, or Enter, closes it.
+    #[default]
+    Polygon,
+    /// Two corners.
+    Rectangle,
+    /// The centre, then a point on the edge.
+    Circle,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -596,6 +669,7 @@ impl Default for SchematicEditing {
             auto_pan,
             default_grid,
             zone: _,
+            keepout: _,
             net_info: _,
             route: _,
             drag: _,

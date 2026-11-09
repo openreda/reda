@@ -7,6 +7,7 @@
 
 mod overview;
 mod rules;
+mod zone;
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -45,6 +46,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     };
     if let Some(placing) = crate::placement::placing(shell) {
         return run(placing_section(ui, placing));
+    }
+    if let Some(commands) = zone::tool_options(ui, shell) {
+        return run(commands);
     }
     // A running Tool's options replace the overview.
     let tool = shell.tool();
@@ -144,6 +148,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     });
                 }
             }
+            zone::zones_section(ui, shell, &mut numbers);
             if let Some(found) = &properties.rules {
                 rules::show(ui, shell, found, units(shell), &mut out);
             }

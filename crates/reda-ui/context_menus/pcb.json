@@ -25,7 +25,11 @@
       ],
       "kinds": {
         "pcb_graphic": [
-          { "id": "context.object.outline_from_selection", "command": "pcb.board_outline.add_from_graphics", "params": { "graphics": "$selection" }, "title": "pcb-outline-from-selection" }
+          { "id": "context.object.outline_from_selection", "command": "pcb.board_outline.add_from_graphics", "params": { "graphics": "$selection" }, "title": "pcb-outline-from-selection" },
+          { "id": "context.object.board_cutout_from_selection", "command": "pcb.board_cutout.add_from_graphics", "params": { "graphics": "$selection" } },
+          { "id": "context.object.zone_from_selection", "command": "pcb.zone.add_from_graphics", "params": { "graphics": "$selection", "layer": "$active_layer", "net": "$highlighted_net" } },
+          { "id": "context.object.zone_cutout_from_selection", "command": "pcb.zone_cutout.add_from_graphics", "params": { "graphics": "$selection", "layer": "$active_layer" } },
+          { "id": "context.object.keepout_from_selection", "command": "pcb.keepout.add_from_graphics", "params": { "graphics": "$selection" } }
         ]
       }
     },

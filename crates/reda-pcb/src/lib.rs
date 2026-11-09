@@ -35,10 +35,11 @@ pub use board::{
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;
 pub use commands::{
-    AreaParam, BoardInfoResult, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet, MechanicalSetParams, Placed,
-    PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow, drc_run, glob_match, placement_anchor,
-    placement_preview, placement_preview_including_locked, rect_outline, board_info, register_all,
-    register_all_with_user, zone_listing,
+    AreaParam, BoardInfoResult, DrcRunParams, DrcRunResult, LayerZones, MechanicalSet,
+    MechanicalSetParams, Placed, PlacementOp, SyncCheck, SyncState, ZoneListing, ZoneRow,
+    board_info, drc_run, glob_match, placement_anchor, placement_preview,
+    placement_preview_including_locked, rect_outline, register_all, register_all_with_user,
+    zone_listing,
 };
 pub use copper::{
     ClearanceHit, Connections, Copper, Halo, Item, Proposal, RatsnestEnds, RatsnestLine,

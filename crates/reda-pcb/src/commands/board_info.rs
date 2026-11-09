@@ -10,8 +10,8 @@ use serde::Serialize;
 
 use super::{board_copper, needs_pcb, pcb};
 use crate::Copper;
-use reda_model::PcbDocument;
 use crate::zone::poly::{contour, outline_area};
+use reda_model::PcbDocument;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(BoardInfo);

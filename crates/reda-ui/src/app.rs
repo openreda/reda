@@ -334,6 +334,7 @@ impl App {
         if let Some((id, params)) = crate::pcb::placement_bar::dialogs(&ctx, &mut self.shell) {
             let _ = self.shell.run_reporting(&id, params);
         }
+        crate::pcb::board_shapes::retry_dialog(&ctx, &mut self.shell);
         self.show_notice(&ctx);
         if let Some(dialog) = &mut self.schematic_dialog
             && !dialog.show(&ctx, &mut self.shell)

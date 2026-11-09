@@ -7,7 +7,7 @@
 use egui::Key;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
-use egui_kittest::kittest::{NodeT, Queryable};
+use egui_kittest::kittest::Queryable;
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;

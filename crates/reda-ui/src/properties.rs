@@ -47,7 +47,7 @@ pub enum Shared<T> {
 
 impl<T: PartialEq> Shared<T> {
     /// What `values` share; `None` when there are none.
-    fn of(values: impl IntoIterator<Item = T>) -> Option<Shared<T>> {
+    pub(crate) fn of(values: impl IntoIterator<Item = T>) -> Option<Shared<T>> {
         let mut values = values.into_iter();
         let first = values.next()?;
         Some(if values.all(|v| v == first) {

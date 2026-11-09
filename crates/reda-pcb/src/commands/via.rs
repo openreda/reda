@@ -214,10 +214,7 @@ impl Command for ViaSet {
     fn run(&self, cx: &mut Context<'_>, p: ViaSetParams) -> Result<ViaSetResult, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
-        let diameter = p
-            .diameter
-            .map(|d| positive("/diameter", d))
-            .transpose()?;
+        let diameter = p.diameter.map(|d| positive("/diameter", d)).transpose()?;
         let hole = p.hole.map(|h| positive("/hole", h)).transpose()?;
         let mut changed: Vec<Via> = Vec::new();
         for (i, uuid) in p.vias.iter().enumerate() {
