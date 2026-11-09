@@ -80,9 +80,11 @@ enum Shape {
 fn shape(tool: Tool) -> Shape {
     match tool {
         Tool::BoardOutline | Tool::BoardCutout | Tool::Zone | Tool::Keepout => Shape::Polygon,
-        Tool::BoardOutlineRect | Tool::Line | Tool::Rect => Shape::TwoPoints,
+        Tool::BoardOutlineRect | Tool::Line | Tool::Rect | Tool::MoveBy | Tool::Swap => {
+            Shape::TwoPoints
+        }
         Tool::Arc => Shape::Arc,
-        Tool::Text | Tool::FreePad | Tool::OutputOrigin => Shape::Point,
+        Tool::Text | Tool::FreePad | Tool::OutputOrigin | Tool::RotateAbout => Shape::Point,
         Tool::Measure => Shape::Measure,
         // Not a board drawing Tool (see `Tool::draws_on_board`).
         _ => Shape::None,
@@ -169,7 +171,7 @@ impl Draw {
             Shape::TwoPoints => {
                 let (&a, b) = (self.points.first()?, cursor?);
                 Some(match self.tool {
-                    Tool::Line => Preview {
+                    Tool::Line | Tool::MoveBy | Tool::Swap => Preview {
                         points: vec![a, b],
                         closed: false,
                     },
@@ -328,13 +330,13 @@ impl Draw {
                 if closes {
                     let points = std::mem::take(&mut self.points);
                     self.commit(shell, &points);
-                } else if self.points.last() != Some(&p) && (!first || self.can_start(shell)) {
+                } else if self.points.last() != Some(&p) && (!first || self.can_start(shell, p)) {
                     self.points.push(p);
                 }
             }
             Shape::TwoPoints => {
                 if first {
-                    if self.can_start(shell) {
+                    if self.can_start(shell, p) {
                         self.points.push(p);
                     }
                 } else if self.points[0] != p {
@@ -344,7 +346,7 @@ impl Draw {
                 }
             }
             Shape::Arc => {
-                if (first && !self.can_start(shell)) || self.points.contains(&p) {
+                if (first && !self.can_start(shell, p)) || self.points.contains(&p) {
                     return;
                 }
                 self.points.push(p);
@@ -355,7 +357,7 @@ impl Draw {
             }
             Shape::Point => {
                 if self.tool == Tool::Text {
-                    if self.can_start(shell) {
+                    if self.can_start(shell, p) {
                         self.text_at = Some(p);
                     }
                 } else {
@@ -376,7 +378,7 @@ impl Draw {
     }
 
     /// Whether the active Layer suits the Tool; reports why not.
-    fn can_start(&self, shell: &mut Shell) -> bool {
+    fn can_start(&self, shell: &mut Shell, p: Point) -> bool {
         let problem = match self.tool {
             Tool::Zone => {
                 let copper = active_layer(shell).is_some_and(|(kind, _)| kind == LayerKind::Copper);
@@ -385,6 +387,14 @@ impl Draw {
             Tool::Text | Tool::Line | Tool::Arc | Tool::Rect => graphics_layer(shell)
                 .is_none()
                 .then(|| tr!("pcb-draw-needs-graphics-layer")),
+            Tool::MoveBy | Tool::RotateAbout => shell
+                .selection()
+                .objects
+                .is_empty()
+                .then(|| tr!("pcb-draw-needs-selection")),
+            Tool::Swap => footprint_at(shell, Some(p))
+                .is_none()
+                .then(|| tr!("pcb-swap-pick-footprint")),
             _ => None,
         };
         match problem {
@@ -450,6 +460,34 @@ impl Draw {
                        "width": FREE_PAD_WIDTH, "hole": {"width": FREE_PAD_HOLE}}),
             ),
             Tool::OutputOrigin => ("pcb.output_origin.set", json!({"at": xy(points[0])})),
+            Tool::MoveBy => {
+                let by = points[1] - points[0];
+                (
+                    "pcb.move",
+                    json!({"objects": shell.selection().objects, "by": xy(by)}),
+                )
+            }
+            Tool::RotateAbout => {
+                let angle = shell
+                    .engine()
+                    .view()
+                    .get::<crate::tools::RotateAboutAngle>()
+                    .copied()
+                    .unwrap_or_default();
+                (
+                    "pcb.rotate",
+                    json!({"objects": shell.selection().objects, "center": xy(points[0]),
+                           "angle": angle.0.0}),
+                )
+            }
+            Tool::Swap => {
+                let a = footprint_at(shell, Some(points[0]))?;
+                let Some(b) = footprint_at(shell, Some(points[1])).filter(|b| *b != a) else {
+                    shell.report(tr!("pcb-swap-pick-footprint"));
+                    return None;
+                };
+                ("pcb.swap", json!({"a": a, "b": b}))
+            }
             // Text and Measure commit elsewhere; the rest are not board drawing Tools.
             _ => return None,
         })
@@ -501,4 +539,15 @@ fn zone_layer_and_net(
     }
     let net = Copper::of(project)?.net_at(layer, first);
     Some((layer, net))
+}
+
+/// The Footprint under `at`: the smallest whose placed box holds it.
+fn footprint_at(shell: &Shell, at: Option<Point>) -> Option<Uuid> {
+    let at = at?;
+    let pcb = shell.engine().project()?.pcb()?;
+    pcb.footprints()
+        .map(|f| (f.uuid, reda_engine::pcb::placed::footprint_bounds(pcb, f)))
+        .filter(|(_, b)| b.min.x <= at.x && at.x <= b.max.x && b.min.y <= at.y && at.y <= b.max.y)
+        .min_by_key(|(_, b)| i128::from(b.width().0) * i128::from(b.height().0))
+        .map(|(uuid, _)| uuid)
 }

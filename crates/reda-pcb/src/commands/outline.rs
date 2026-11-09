@@ -1,8 +1,8 @@
 //! The Board Outline and Board Cutouts.
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta,
-    Registry, Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
+    Unavailable,
 };
 use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
 use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
@@ -74,7 +74,11 @@ fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, C
     if let Some(old) = old {
         tx.remove(old)?;
     }
-    let outline = BoardOutline { locked: false, uuid, vertices };
+    let outline = BoardOutline {
+        locked: false,
+        uuid,
+        vertices,
+    };
     tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
     Ok(Created { uuid })
 }
@@ -372,7 +376,11 @@ impl Command for CutoutAdd {
 fn add_cutout(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
     let document = pcb(cx)?.uuid;
     let uuid = cx.new_id();
-    let cutout = BoardCutout { locked: false, uuid, vertices };
+    let cutout = BoardCutout {
+        locked: false,
+        uuid,
+        vertices,
+    };
     cx.tx()?
         .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
     Ok(Created { uuid })

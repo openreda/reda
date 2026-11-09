@@ -309,6 +309,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::BoardOutline(InDocument::new(
             doc,
             BoardOutline {
+                locked: false,
                 uuid: id(),
                 vertices,
             },
@@ -318,6 +319,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::BoardCutout(InDocument::new(
             doc,
             BoardCutout {
+                locked: false,
                 uuid: id(),
                 vertices,
             },
@@ -402,6 +404,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
         // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
+            locked: false,
             mask: None,
             paste: None,
             uuid: id(),
@@ -435,6 +438,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::PcbText(InDocument::new(
             doc,
             PcbText {
+                locked: false,
                 uuid: id(),
                 layer: layer_ids[t.layer % layer_ids.len()],
                 text: t.text,
@@ -470,6 +474,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Track(InDocument::new(
             doc,
             Track {
+                locked: false,
                 uuid: id(),
                 layer,
                 net,
@@ -480,6 +485,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Via(InDocument::new(
             doc,
             Via {
+                locked: false,
                 mask: None,
                 uuid: id(),
                 at: from,
@@ -502,6 +508,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             objects.push(Object::Zone(InDocument::new(
                 doc,
                 Zone {
+                    locked: false,
                     uuid: id(),
                     name: bottom.then(|| format!("Pour {}", width.0)),
                     layer,
@@ -532,6 +539,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             objects.push(Object::Keepout(InDocument::new(
                 doc,
                 Keepout {
+                    locked: false,
                     uuid: id(),
                     layer: (!bottom).then_some(layer),
                     shape: if bottom {
@@ -572,6 +580,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::PcbGraphic(InDocument::new(
             doc,
             PcbGraphic {
+                locked: false,
                 uuid: id(),
                 layer: layer_ids[layer % layer_ids.len()],
                 width,

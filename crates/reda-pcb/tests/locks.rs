@@ -178,7 +178,11 @@ fn every_placed_kind_locks_and_the_file_leaves_out_false() {
     let mut b = Board::new(&dir);
     let all = b.all();
     for o in &all {
-        assert_eq!(stored_lock(pcb(&b.engine), *o), None, "{o}: false is left out");
+        assert_eq!(
+            stored_lock(pcb(&b.engine), *o),
+            None,
+            "{o}: false is left out"
+        );
     }
 
     b.lock(&all, true);
@@ -222,10 +226,17 @@ fn pcb_lock_takes_only_placed_objects() {
         json!({"objects": [b.track, zone_cutout], "locked": true}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
-    assert_eq!(err.details.as_ref().unwrap()["pointer"], "/objects/1", "{err:?}");
+    assert_eq!(
+        err.details.as_ref().unwrap()["pointer"],
+        "/objects/1",
+        "{err:?}"
+    );
     assert!(!reda_pcb::lock::is_locked(pcb(&b.engine), b.track));
 
-    let err = b.engine.run_err("pcb.lock", json!({"footprints": [b.footprint], "locked": true}));
+    let err = b.engine.run_err(
+        "pcb.lock",
+        json!({"footprints": [b.footprint], "locked": true}),
+    );
     assert_eq!(err.code, ErrorCode::InvalidParams, "`footprints` is gone");
 }
 
@@ -270,14 +281,23 @@ fn blocked(b: &Board) -> Vec<(&'static str, Value)> {
             "pcb.track.set",
             json!({"tracks": [b.track], "end": {"x": "45mm", "y": "40mm"}}),
         ),
-        ("pcb.track.set", json!({"tracks": [b.track], "length": "5mm"})),
-        ("pcb.track.drag", json!({"track": b.track, "by": {"x": 0, "y": "1mm"}})),
+        (
+            "pcb.track.set",
+            json!({"tracks": [b.track], "length": "5mm"}),
+        ),
+        (
+            "pcb.track.drag",
+            json!({"track": b.track, "by": {"x": 0, "y": "1mm"}}),
+        ),
         ("pcb.zone.set", json!({"zone": b.zone, "vertices": square})),
         (
             "pcb.keepout.set",
             json!({"keepout": b.keepout, "vertices": poly(&[(5, 30), (11, 30), (11, 35), (5, 35)])}),
         ),
-        ("pcb.text.set", json!({"uuid": b.text, "x": "3mm", "y": "2mm"})),
+        (
+            "pcb.text.set",
+            json!({"uuid": b.text, "x": "3mm", "y": "2mm"}),
+        ),
         ("pcb.text.set", json!({"uuid": b.text, "rotation": "90deg"})),
         (
             "pcb.dimension.set",
@@ -287,8 +307,14 @@ fn blocked(b: &Board) -> Vec<(&'static str, Value)> {
             "pcb.polygon.set_vertices",
             json!({"object": b.zone, "vertices": poly(&[(30, 5), (42, 5), (42, 15), (30, 15)])}),
         ),
-        ("pcb.polygon.fillet", json!({"object": b.outline, "radius": "1mm"})),
-        ("pcb.polygon.chamfer", json!({"object": b.cutout, "distance": "1mm"})),
+        (
+            "pcb.polygon.fillet",
+            json!({"object": b.outline, "radius": "1mm"}),
+        ),
+        (
+            "pcb.polygon.chamfer",
+            json!({"object": b.cutout, "distance": "1mm"}),
+        ),
     ]
 }
 
@@ -334,13 +360,31 @@ fn a_lock_still_allows_other_values() {
     b.lock(&all, true);
     let net = created(&b.engine.run_ok("test.net.add", json!({"name": "GND"})));
     for (id, params) in [
-        ("pcb.track.set", json!({"tracks": [b.track], "width": "0.5mm", "net": net})),
-        ("pcb.zone.set", json!({"zone": b.zone, "net": net, "name": "GND_TOP"})),
+        (
+            "pcb.track.set",
+            json!({"tracks": [b.track], "width": "0.5mm", "net": net}),
+        ),
+        (
+            "pcb.zone.set",
+            json!({"zone": b.zone, "net": net, "name": "GND_TOP"}),
+        ),
         ("pcb.zone.fill", json!({})),
-        ("pcb.keepout.set", json!({"keepout": b.keepout, "restrict": ["vias"]})),
-        ("pcb.text.set", json!({"uuid": b.text, "text": "REV B", "height": "2mm"})),
-        ("pcb.free_pad.set_net", json!({"pads": [b.free_pad], "net": net})),
-        ("pcb.dimension.set", json!({"uuid": b.dimension, "precision": 1})),
+        (
+            "pcb.keepout.set",
+            json!({"keepout": b.keepout, "restrict": ["vias"]}),
+        ),
+        (
+            "pcb.text.set",
+            json!({"uuid": b.text, "text": "REV B", "height": "2mm"}),
+        ),
+        (
+            "pcb.free_pad.set_net",
+            json!({"pads": [b.free_pad], "net": net}),
+        ),
+        (
+            "pcb.dimension.set",
+            json!({"uuid": b.dimension, "precision": 1}),
+        ),
         (
             "pcb.designator_text.set",
             json!({"footprint": b.footprint, "at": {"x": "12mm", "y": "12mm"}}),

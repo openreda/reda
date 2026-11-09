@@ -4,8 +4,8 @@
 //! Test Footprints have one 1 × 1 mm Pad and no Courtyard, so each one's fallback box is
 //! that Pad: 1 mm wide about its origin.
 
-use reda_model::geom::{Nm, Point};
 use reda_model::Uuid;
+use reda_model::geom::{Nm, Point};
 use reda_pcb::place::{Overlap, avoid, overlaps};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::{Value, json};
@@ -22,7 +22,11 @@ fn footprint(engine: &mut TestEngine, x: &str) -> Uuid {
         json!({"at": {"x": x, "y": 0}, "pads": [
             {"at": {"x": 0, "y": 0}, "width": "1mm", "height": "1mm"}]}),
     );
-    out["result"]["footprint"].as_str().unwrap().parse().unwrap()
+    out["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap()
 }
 
 fn clearance(engine: &mut TestEngine, value: Value) {

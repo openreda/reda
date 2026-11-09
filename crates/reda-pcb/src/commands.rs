@@ -2,6 +2,7 @@
 //! the Project has none.
 
 mod board_info;
+mod clipboard;
 mod copper;
 mod dimension;
 mod drc;
@@ -71,6 +72,7 @@ pub fn register_all_with_user(
     via::register_all(registry);
     copper::register_all(registry);
     board_info::register_all(registry);
+    clipboard::register_all(registry);
     drc::register_all(registry, sync, user_name);
     zone::register_all(registry);
     zone_fill::register_all(registry);

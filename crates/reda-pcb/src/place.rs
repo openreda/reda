@@ -16,6 +16,10 @@ use serde::{Deserialize, Serialize};
 use crate::drc::placement::{courtyard_clearance, courtyards_or_box, too_close};
 use crate::zone::poly::Area;
 
+/// Why X and Y (same-side mirroring) are refused on a Footprint: the model holds only a
+/// side, and a mirrored part can't be built.
+pub const MIRROR_REFUSED: &str = "Mirroring makes an unbuildable part: L flips to the other side";
+
 /// What a Footprint move does at other Footprints (`R`): kept in `pcb.place.obstacle_mode`.
 /// `push` is reserved for v0.4.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -112,7 +116,12 @@ pub fn overlaps(pcb: &PcbDocument, moving: &[Uuid], by: Point) -> Vec<Overlap> {
 pub fn avoid(pcb: &PcbDocument, moving: &[Uuid], by: Point) -> Point {
     let required = courtyard_clearance(pcb);
     let standing = standing(pcb, moving);
-    let at_start = overlaps_among(pcb, &moved(pcb, moving, Point::default()), &standing, required);
+    let at_start = overlaps_among(
+        pcb,
+        &moved(pcb, moving, Point::default()),
+        &standing,
+        required,
+    );
     let blocked = |t: f64| {
         let step = Point::new(
             Nm((by.x.0 as f64 * t).round() as i64),

@@ -406,7 +406,10 @@ impl Command for DimensionSet {
     fn run(&self, cx: &mut Context<'_>, p: DimensionSetParams) -> Result<(), CommandError> {
         let pcb = pcb(cx)?;
         let mut d = find(pcb, p.uuid)?.clone();
-        if p.a.is_some() || p.b.is_some() || p.fields.rotation.is_some() || p.fields.offset.is_some()
+        if p.a.is_some()
+            || p.b.is_some()
+            || p.fields.rotation.is_some()
+            || p.fields.offset.is_some()
         {
             crate::lock::refuse(pcb, [p.uuid], p.include_locked, "move")?;
         }

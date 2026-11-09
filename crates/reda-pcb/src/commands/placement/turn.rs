@@ -3,8 +3,8 @@
 use reda_command::{
     Angle, AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::geom::Millideg;
 use reda_model::Uuid;
+use reda_model::geom::Millideg;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -59,7 +59,12 @@ impl Command for Move {
         let items = resolve(pcb(cx)?, &p.objects)?;
         let by = p.by.point();
         let n = items.len();
-        place(cx, items, std::iter::repeat_n(Op::Translate(by), n), p.include_locked)
+        place(
+            cx,
+            items,
+            std::iter::repeat_n(Op::Translate(by), n),
+            p.include_locked,
+        )
     }
 }
 
@@ -167,7 +172,12 @@ impl Command for Flip {
             .map_or_else(|| default_center(pcb, &items), PointParam::point)
             .x;
         let n = items.len();
-        place(cx, items, std::iter::repeat_n(Op::Flip(x), n), p.include_locked)
+        place(
+            cx,
+            items,
+            std::iter::repeat_n(Op::Flip(x), n),
+            p.include_locked,
+        )
     }
 }
 

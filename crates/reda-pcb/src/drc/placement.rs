@@ -336,7 +336,6 @@ pub(crate) fn too_close(a: &BTreeMap<Side, Area>, b: &BTreeMap<Side, Area>, requ
         if !poly::boxes_within(ba, bb, required.0) {
             return false;
         }
-        poly::gap(area, other)
-            .is_some_and(|(gap, _, overlaps)| overlaps || gap < required.0 as f64)
+        poly::gap(area, other).is_some_and(|(gap, _, overlaps)| overlaps || gap < required.0 as f64)
     })
 }

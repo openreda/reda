@@ -102,7 +102,9 @@ impl Command for ArrangeOutsideBoard {
             by_block.entry(rank).or_default().push(f);
         }
         for block in by_block.values_mut() {
-            block.sort_by(|a, b| natural_cmp(&a.designator, &b.designator).then(a.uuid.cmp(&b.uuid)));
+            block.sort_by(|a, b| {
+                natural_cmp(&a.designator, &b.designator).then(a.uuid.cmp(&b.uuid))
+            });
         }
         let blocks: Vec<Vec<&FootprintInstance>> = by_block.into_values().collect();
         let copies: Vec<Vec<&reda_model::Footprint>> = blocks

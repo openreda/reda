@@ -315,10 +315,8 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
             let objects = selected_lockable(shell);
             if !objects.is_empty() {
                 let locked = action == MenuAction::Lock;
-                let _ = shell.run_reporting(
-                    "pcb.lock",
-                    json!({"objects": objects, "locked": locked}),
-                );
+                let _ =
+                    shell.run_reporting("pcb.lock", json!({"objects": objects, "locked": locked}));
             }
         }
     }

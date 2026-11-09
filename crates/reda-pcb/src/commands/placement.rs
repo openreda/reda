@@ -284,7 +284,11 @@ fn refuse_lone_dimensions(items: &[Item]) -> Result<(), CommandError> {
 }
 
 /// `rejected` when any of `items` is locked, unless `include_locked`.
-fn refuse_locked(pcb: &PcbDocument, items: &[Item], include_locked: bool) -> Result<(), CommandError> {
+fn refuse_locked(
+    pcb: &PcbDocument,
+    items: &[Item],
+    include_locked: bool,
+) -> Result<(), CommandError> {
     crate::lock::refuse(pcb, items.iter().map(Item::uuid), include_locked, "move")
 }
 

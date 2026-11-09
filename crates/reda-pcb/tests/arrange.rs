@@ -6,9 +6,9 @@
 mod common;
 
 use common::{at, engine, footprint, synced};
+use reda_command::ErrorCode;
 use reda_model::Side;
 use reda_model::geom::Millideg;
-use reda_command::ErrorCode;
 use reda_model::geom::{Nm, Point};
 use reda_testkit::TempDir;
 use serde_json::json;
@@ -193,7 +193,11 @@ fn arrange_outside_board_keeps_clear_of_footprints_left_in_place() {
     engine.run_ok("pcb.arrange_outside_board", json!({"footprints": [r[0]]}));
     // R2 stays and R1 goes to its right: courtyards 3 mm wide, with the cluster gap.
     assert_eq!(at(&engine, r[1]), r2);
-    assert!(at(&engine, r[0]).x > r2.x + Nm::from_mm(3), "{:?}", at(&engine, r[0]));
+    assert!(
+        at(&engine, r[0]).x > r2.x + Nm::from_mm(3),
+        "{:?}",
+        at(&engine, r[0])
+    );
 }
 
 #[test]
@@ -207,7 +211,10 @@ fn swap_exchanges_positions_and_each_keeps_its_turn_and_side() {
     );
     engine.run_ok("pcb.rotate", json!({"objects": [r[0]], "angle": "90deg"}));
     engine.run_ok("pcb.flip", json!({"objects": [r[1]]}));
-    let (a, b) = (footprint(&engine, r[0]).clone(), footprint(&engine, r[1]).clone());
+    let (a, b) = (
+        footprint(&engine, r[0]).clone(),
+        footprint(&engine, r[1]).clone(),
+    );
 
     engine.run_ok("pcb.swap", json!({"a": r[0], "b": r[1]}));
 
