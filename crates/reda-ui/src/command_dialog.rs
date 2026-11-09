@@ -7,7 +7,7 @@
 //! each frame and runs the params it gives back.
 
 mod draw;
-mod form;
+pub(crate) mod form;
 
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -17,7 +17,6 @@ use serde_json::Value;
 
 use crate::shell::Shell;
 
-pub(crate) use draw::row as form_row;
 pub use form::{Field, Input, ParamForm};
 
 /// A dialog that collects a Command's params.
@@ -97,6 +96,11 @@ impl Dialogs {
     ) {
         self.register(command, make);
         self.always.insert(command.to_owned());
+    }
+
+    /// Whether `command`'s dialog opens on every GUI call ([`Dialogs::register_always`]).
+    pub fn asks_always(&self, command: &str) -> bool {
+        self.always.contains(command)
     }
 
     /// Calls `id` from the GUI: runs it when no required param is missing (or when it

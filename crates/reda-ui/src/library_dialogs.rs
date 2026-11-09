@@ -14,7 +14,10 @@ use reda_engine::model::Uuid;
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 
-pub use generate::GenerateDialog;
+pub use generate::{
+    Axis, Callout, GenerateDialog, Generated, GeneratorForm, Preview, Row, Section, Shown, Side,
+    callouts,
+};
 pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
 
@@ -26,6 +29,19 @@ pub fn dialogs() -> Dialogs {
     });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))
+    });
+    // Regenerate… asks first even with the Footprint given: the form shows its stored
+    // params and what regenerating loses.
+    dialogs.register_always(generate::REGENERATE, |shell, params| {
+        let footprint = params["footprint"].as_str().and_then(|f| f.parse().ok());
+        match footprint.and_then(|f| GenerateDialog::regenerate(shell, f)) {
+            Some(dialog) => Box::new(dialog),
+            None => Box::new(crate::command_dialog::ParamForm::new(
+                shell.engine().registry(),
+                generate::REGENERATE,
+                &params,
+            )),
+        }
     });
     for id in reda_engine::library::GENERATORS {
         dialogs.register(id, move |shell, params| {
