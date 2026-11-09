@@ -5,4 +5,5 @@
 pub mod layers;
 pub mod library;
 pub mod messages;
+pub mod navigator;
 pub mod properties;

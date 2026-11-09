@@ -118,6 +118,7 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Library => tr!("panel-library"),
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
+        PanelId::Navigator => tr!("panel-navigator"),
     }
 }
 
@@ -994,6 +995,10 @@ impl Cx<'_, '_> {
             }
             TabKey::Panel(PanelId::Layers) => {
                 let commands = panels::layers::show(ui, self.shell);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Navigator) => {
+                let commands = panels::navigator::show(ui, self.shell);
                 self.frame.commands.extend(commands);
             }
             TabKey::Panel(PanelId::Library) => {

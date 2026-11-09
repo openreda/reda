@@ -21,17 +21,20 @@ pub enum PanelId {
     Library,
     Layers,
     Journal,
+    /// The Board navigator: the board's Nets, Footprints and Zones.
+    Navigator,
 }
 
 impl PanelId {
     /// Every Panel, in the order the Panels button lists them.
-    pub const ALL: [PanelId; 6] = [
+    pub const ALL: [PanelId; 7] = [
         PanelId::Projects,
         PanelId::Properties,
         PanelId::Messages,
         PanelId::Library,
         PanelId::Layers,
         PanelId::Journal,
+        PanelId::Navigator,
     ];
 
     /// The id in Commands and Presets, such as `properties` in `panel.show:properties`.
@@ -43,13 +46,14 @@ impl PanelId {
             PanelId::Library => "library",
             PanelId::Layers => "layers",
             PanelId::Journal => "journal",
+            PanelId::Navigator => "navigator",
         }
     }
 
     /// The Dock a Panel reopens in once closed.
     pub fn home(self) -> DockSide {
         match self {
-            PanelId::Projects | PanelId::Library => DockSide::Left,
+            PanelId::Projects | PanelId::Library | PanelId::Navigator => DockSide::Left,
             PanelId::Properties | PanelId::Layers => DockSide::Right,
             PanelId::Messages | PanelId::Journal => DockSide::Bottom,
         }

@@ -361,6 +361,7 @@ fn every_panel_has_a_show_preset() {
             "panel.show:library",
             "panel.show:layers",
             "panel.show:journal",
+            "panel.show:navigator",
         ]
     );
 }
