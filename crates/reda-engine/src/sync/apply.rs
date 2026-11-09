@@ -345,6 +345,7 @@ impl<'c, 'e> Applier<'c, 'e> {
             rotation: Millideg::ZERO,
             side: Side::Top,
             locked: false,
+            graphics_unlocked: false,
             designator: c.designator.clone(),
             fields: c.fields.clone(),
             component_type: c.component_type,

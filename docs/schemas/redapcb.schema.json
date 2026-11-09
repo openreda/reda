@@ -916,6 +916,10 @@
           "format": "uuid",
           "type": "string"
         },
+        "graphics_unlocked": {
+          "description": "Its Footprint's graphics can be edited on the board, each edit making a Locally\nEdited Footprint (ADR-0013).",
+          "type": "boolean"
+        },
         "in_bom": {
           "description": "Whether it goes into the BOM.",
           "type": "boolean"
