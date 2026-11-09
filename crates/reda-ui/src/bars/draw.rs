@@ -518,7 +518,10 @@ pub fn tool_bar(
     note: Option<&str>,
     state: &dyn Fn(&Action) -> ToolBarItem,
 ) -> Option<Invocation> {
+    // No fade-in: the Placement Bar comes and goes with the selection, and a fade keeps
+    // repainting while the clock stands still (tests with a fixed input time).
     let shown = egui::Area::new(id.with("tool-bar"))
+        .fade_in(false)
         .order(Order::Middle)
         .fixed_pos(anchor)
         .pivot(Align2::CENTER_BOTTOM)
