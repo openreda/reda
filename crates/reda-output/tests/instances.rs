@@ -176,12 +176,7 @@ fn every_writer_applies_each_board_instances_rigid_transform() {
     assert_eq!(plated.hits.len(), 2);
     assert_eq!(plated.hits[1].at, (4_000_000, 24_600_000));
     assert_eq!(plated.hits[1].to, Some((4_000_000, 25_400_000)));
-    let cpl = cpl_file(
-        project,
-        &instances,
-        &preset.cpl.columns,
-        &preset.bom.mount_values,
-    );
+    let cpl = cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
     assert_eq!(
         String::from_utf8(cpl.bytes).unwrap(),
         "Designator,Mid X,Mid Y,Layer,Rotation\nTP,3.000000,4.000000,Top,0.000\nTP,6.000000,23.000000,Top,90.000\n"
