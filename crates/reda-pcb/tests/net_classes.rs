@@ -292,3 +292,40 @@ fn pattern_assignment_ignores_case_as_connectivity_does() {
     assert!(classes(&engine, dm).is_empty());
     assert_eq!(classes(&engine, dp), vec![usb]);
 }
+
+#[test]
+fn reorder_sets_the_ranks_in_the_order_given_by_uuid_or_name() {
+    let dir = TempDir::new("class-reorder");
+    let mut engine = engine_with_pcb(&dir);
+    let power = add_class(&mut engine, json!({"name": "Power"}));
+    let signal = add_class(&mut engine, json!({"name": "Signal"}));
+    let usb = add_class(&mut engine, json!({"name": "USB"}));
+    engine.run_ok(
+        "pcb.net_class.reorder",
+        json!({"classes": ["usb", power, signal]}),
+    );
+    let rank = |engine: &TestEngine, c| pcb(engine).net_class(c).unwrap().rank;
+    assert_eq!(
+        (
+            rank(&engine, usb),
+            rank(&engine, power),
+            rank(&engine, signal)
+        ),
+        (1, 2, 3)
+    );
+    // Every class exactly once.
+    for bad in [
+        json!([usb, power]),
+        json!([usb, power, signal, "Power"]),
+        json!(["Nope", power, signal]),
+    ] {
+        let err = engine.run_err("pcb.net_class.reorder", json!({"classes": bad}));
+        assert!(
+            matches!(err.code, ErrorCode::InvalidParams | ErrorCode::NotFound),
+            "{err:?}"
+        );
+    }
+    let document = pcb(&engine).uuid;
+    engine.run_ok("edit.undo", json!({"document": document}));
+    assert_eq!(rank(&engine, power), 1);
+}

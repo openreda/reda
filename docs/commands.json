@@ -44656,6 +44656,38 @@
     },
     {
       "category": "pcb",
+      "description": "Sets the Net Classes' ranks: `classes` lists every Net Class once, by UUID or name, highest rank first (rank 1). The Default Net Class always ranks lowest and is not listed.",
+      "icon": "reorder",
+      "id": "pcb.net_class.reorder",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "classes": {
+            "description": "Every Net Class exactly once, highest rank first: each by UUID or by name (ignoring\ncase).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "classes"
+        ],
+        "title": "NetClassReorderParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Reorder Net Classes"
+    },
+    {
+      "category": "pcb",
       "description": "Removes the Output Origin. The editor then measures from design zero, and relative manufacturing outputs from the lower-left of the Board Outline's bounding box.",
       "icon": "delete",
       "id": "pcb.output_origin.delete",

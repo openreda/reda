@@ -937,7 +937,12 @@ fn board_setup_snapshot(page: &str, name: &str) {
     h.get_by_label("Apply Generic Rules…").click();
     h.run();
     if page != "Clearance" {
-        h.get_by_role_and_label(Role::TreeItem, page).click();
+        // A page showing the invalid override is flagged in the tree.
+        let flagged = format!("{page} (has invalid values)");
+        match h.query_by_role_and_label(Role::TreeItem, &flagged) {
+            Some(item) => item.click(),
+            None => h.get_by_role_and_label(Role::TreeItem, page).click(),
+        }
     }
     h.run();
     h.snapshot(name);
@@ -951,6 +956,11 @@ fn snapshot_of_board_setup_clearance_with_a_fab_preset_preview() {
 #[test]
 fn snapshot_of_board_setup_drc_severities() {
     board_setup_snapshot("DRC", "board_setup_drc_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_net_classes_grid() {
+    board_setup_snapshot("Net Classes", "board_setup_net_classes_dark");
 }
 
 /// A harness on a Project with no Board Outline, so its job's run is blocked.
