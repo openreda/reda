@@ -44,7 +44,9 @@
       "id": "design",
       "title": "menu-design",
       "items": [
-        { "id": "design.drc", "command": "drc.run" }
+        { "id": "design.drc", "command": "drc.run" },
+        "separator",
+        { "id": "design.move_board_shape", "command": "tool.move_board_shape" }
       ]
     },
     {

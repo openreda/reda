@@ -81,6 +81,9 @@ struct Move {
     ops: Vec<PlacementOp>,
     /// What the reference point can snap to: everything but the moved objects.
     targets: Vec<Target>,
+    /// Picked up without a button held (Move Board Shape): the pointer carries it until a
+    /// click puts it down.
+    carried: bool,
 }
 
 impl Move {
@@ -124,6 +127,27 @@ fn movable(kind: ObjectType) -> bool {
     )
 }
 
+/// The objects Move Board Shape picks up: the Board Outline and the selected Board
+/// Cutouts.
+fn board_shape(shell: &Shell) -> Vec<Uuid> {
+    let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
+        return Vec::new();
+    };
+    let Some(outline) = pcb.outline() else {
+        return Vec::new();
+    };
+    let mut objects = vec![outline.uuid];
+    objects.extend(
+        shell
+            .selection()
+            .objects
+            .iter()
+            .copied()
+            .filter(|o| pcb.cutout(*o).is_some()),
+    );
+    objects
+}
+
 /// The PCB Document and the board's project, when one is open.
 fn board(shell: &Shell) -> Option<(&Project, Uuid)> {
     let project = shell.engine().project()?;
@@ -158,6 +182,57 @@ impl SelectTool {
         matches!(self.state, State::Moving(_))
     }
 
+    /// Move Board Shape: picks up the Board Outline (with the selected Board Cutouts) by
+    /// the middle of the outline's box, which then follows the pointer until a click puts
+    /// it down.
+    pub fn carry_board_shape(&mut self, shell: &mut Shell) {
+        let objects = board_shape(shell);
+        let Some((project, document)) = board(shell) else {
+            return;
+        };
+        let Some(pcb) = project.pcb() else {
+            return;
+        };
+        if objects.is_empty() {
+            return;
+        }
+        let Ok(middle) = placement_anchor(pcb, &objects[..1]) else {
+            return;
+        };
+        let at = middle;
+        let targets = if electrical_snap(shell) {
+            snap::targets(pcb)
+        } else {
+            Vec::new()
+        };
+        self.state = State::Moving(Move {
+            document,
+            objects,
+            offset: Point::default(),
+            base: at,
+            current: at,
+            ops: Vec::new(),
+            targets,
+            carried: true,
+        });
+        let State::Moving(m) = &self.state else {
+            unreachable!("just set");
+        };
+        let (document, objects) = (m.document, m.objects.clone());
+        preview(shell, document, &objects, &[]);
+    }
+
+    /// The cursor is at `at` with no button down: snaps it for the marker, and moves what
+    /// it carries.
+    pub fn hover_mut(&mut self, shell: &mut Shell, at: Point) -> (Point, SnapKind) {
+        if let State::Moving(mut m) = std::mem::take(&mut self.state) {
+            self.track(shell, &mut m, at);
+            self.state = State::Moving(m);
+            return self.snap.expect("tracking snaps");
+        }
+        self.hover(shell, at)
+    }
+
     /// The cursor is at `at` with no button down: snaps it for the marker.
     pub fn hover(&mut self, shell: &Shell, at: Point) -> (Point, SnapKind) {
         let grid = board_grid(shell);
@@ -173,6 +248,10 @@ impl SelectTool {
 
     /// A button went down at `at`; `tolerance` is how near counts as on an object.
     pub fn press(&mut self, shell: &Shell, at: Point, modifiers: egui::Modifiers, tolerance: Nm) {
+        if matches!(&self.state, State::Moving(m) if m.carried) {
+            // The click that puts a carried move down: release places it.
+            return;
+        }
         self.modifiers = modifiers;
         self.tolerance = tolerance;
         self.dragged = false;
@@ -411,6 +490,7 @@ impl SelectTool {
             } else {
                 Vec::new()
             },
+            carried: false,
         };
         self.track(shell, &mut m, to);
         self.state = State::Moving(m);

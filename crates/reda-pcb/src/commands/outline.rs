@@ -49,7 +49,8 @@ pub struct VertexParam {
     pub sweep: Option<Angle>,
 }
 
-/// Contour params as stored vertices, checked to be one closed contour.
+/// Contour params as stored vertices, checked to be one closed contour that does not cross
+/// itself.
 pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
     let vertices: Vec<Vertex> = vertices
         .iter()
@@ -60,6 +61,7 @@ pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandEr
         .collect();
     geom::check_contour(&vertices)
         .map_err(|e| CommandError::invalid_params("/vertices", e.to_string()))?;
+    super::polygon::refuse_crossing(&vertices)?;
     Ok(vertices)
 }
 

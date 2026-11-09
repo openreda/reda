@@ -1,18 +1,20 @@
-//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions and the
-//! Output Origin.
+//! Arranging what is placed on the board: Footprints, Free Pads, Dimensions, the Output
+//! Origin, and the Board Outline and Board Cutouts (Move Board Shape).
 //!
 //! Every Command here resolves its `objects` to [`Item`]s, works out one [`Op`] per item
 //! and writes the results back in one transaction. Locked Footprints refuse every Op.
 
 pub(crate) mod arrange;
+mod board;
 mod designator;
 mod turn;
 
 use reda_command::{CommandError, Context, Registry};
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Vertex, contour_bounds};
 use reda_model::{
-    Corners, Dimension, DimensionTextPosition, FootprintInstance, FreePad, InDocument, Object,
-    OutputOrigin, PcbDocument, Side, Uuid,
+    BoardCutout, BoardOutline, Corners, Dimension, DimensionTextPosition, FootprintInstance,
+    FreePad, InDocument, Object, OutputOrigin, PcbDocument, Side, Uuid,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -24,6 +26,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     turn::register_all(registry);
     arrange::register_all(registry);
     designator::register_all(registry);
+    board::register_all(registry);
 }
 
 /// What a placement Command returns.
@@ -40,6 +43,9 @@ pub(super) enum Item {
     FreePad(Box<FreePad>),
     Origin(OutputOrigin),
     Dimension(Box<Dimension>),
+    /// The Board Outline, moved alone by Move Board Shape.
+    Outline(BoardOutline),
+    Cutout(BoardCutout),
 }
 
 /// A change of position applied to placed objects: what `pcb.move`, `pcb.rotate` and
@@ -60,6 +66,8 @@ impl Item {
             Item::FreePad(p) => p.uuid,
             Item::Origin(o) => o.uuid,
             Item::Dimension(d) => d.uuid,
+            Item::Outline(o) => o.uuid,
+            Item::Cutout(c) => c.uuid,
         }
     }
 
@@ -69,7 +77,18 @@ impl Item {
             Item::FreePad(p) => p.at,
             Item::Origin(o) => o.at,
             Item::Dimension(d) => d.a.point,
+            Item::Outline(_) | Item::Cutout(_) => self.contour_bounds().center(),
         }
+    }
+
+    /// A contour's box: the Board Outline's or a Board Cutout's.
+    fn contour_bounds(&self) -> Bounds {
+        let vertices = match self {
+            Item::Outline(o) => &o.vertices,
+            Item::Cutout(c) => &c.vertices,
+            _ => unreachable!("only contours"),
+        };
+        contour_bounds(vertices).expect("a contour has vertices")
     }
 
     fn bounds(&self, pcb: &PcbDocument) -> Bounds {
@@ -78,12 +97,16 @@ impl Item {
             Item::FreePad(p) => free_pad_bounds(p),
             Item::Origin(o) => Bounds::of_point(o.at),
             Item::Dimension(d) => Bounds::of_point(d.a.point).union(Bounds::of_point(d.b.point)),
+            Item::Outline(_) | Item::Cutout(_) => self.contour_bounds(),
         }
     }
 
     fn apply(&mut self, op: Op) {
-        if let Item::Dimension(d) = self {
-            return move_dimension(d, op);
+        match self {
+            Item::Dimension(d) => return move_dimension(d, op),
+            Item::Outline(BoardOutline { vertices, .. })
+            | Item::Cutout(BoardCutout { vertices, .. }) => return move_contour(vertices, op),
+            _ => {}
         }
         let (at, rotation, side) = match self {
             Item::Footprint(f) => (&mut f.at, Some(&mut f.rotation), Some(&mut f.side)),
@@ -94,7 +117,9 @@ impl Item {
                 (&mut p.at, Some(&mut p.rotation), None)
             }
             Item::Origin(o) => (&mut o.at, None, None),
-            Item::Dimension(_) => unreachable!("moved above"),
+            Item::Dimension(_) | Item::Outline(_) | Item::Cutout(_) => {
+                unreachable!("moved above")
+            }
         };
         match op {
             Op::Translate(by) => *at = *at + by,
@@ -125,7 +150,24 @@ impl Item {
             Item::FreePad(p) => Object::FreePad(InDocument::new(document, *p)),
             Item::Origin(o) => Object::OutputOrigin(InDocument::new(document, o)),
             Item::Dimension(d) => Object::Dimension(InDocument::new(document, *d)),
+            Item::Outline(o) => Object::BoardOutline(InDocument::new(document, o)),
+            Item::Cutout(c) => Object::BoardCutout(InDocument::new(document, c)),
         }
+    }
+}
+
+/// Moves, turns or mirrors a closed contour. Mirroring reverses each arc's direction.
+fn move_contour(vertices: &mut [Vertex], op: Op) {
+    for v in vertices {
+        let p = match op {
+            Op::Translate(by) => v.point() + by,
+            Op::Rotate(about, angle) => rotate(v.point(), about, angle),
+            Op::Flip(x) => {
+                v.sweep = -v.sweep;
+                Point::new(x * 2 - v.x, v.y)
+            }
+        };
+        (v.x, v.y) = (p.x, p.y);
     }
 }
 
@@ -195,12 +237,16 @@ pub(super) fn resolve(pcb: &PcbDocument, uuids: &[Uuid]) -> Result<Vec<Item>, Co
             Item::Origin(o.clone())
         } else if let Some(d) = pcb.dimension(uuid) {
             Item::Dimension(Box::new(d.clone()))
+        } else if let Some(o) = pcb.outline().filter(|o| o.uuid == uuid) {
+            Item::Outline(o.clone())
+        } else if let Some(c) = pcb.cutout(uuid) {
+            Item::Cutout(c.clone())
         } else {
             return Err(CommandError::invalid_params(
                 &format!("/objects/{i}"),
                 format!(
-                    "{uuid} is not a Footprint, Free Pad, Dimension or Output Origin on the \
-                     board"
+                    "{uuid} is not a Footprint, Free Pad, Dimension, Output Origin, Board \
+                     Outline or Board Cutout on the board"
                 ),
             ));
         };

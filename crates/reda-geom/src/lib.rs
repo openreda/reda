@@ -10,6 +10,7 @@ mod corner_rect;
 pub mod expr;
 pub mod grown;
 mod length;
+mod polygon;
 mod units;
 
 pub use angle::{Millideg, rotate};
@@ -20,4 +21,5 @@ pub use contour::{
 };
 pub use corner_rect::{CornerCut, CornerRect};
 pub use length::{Nm, Point};
+pub use polygon::{CornerError, chamfer, crossing, fillet};
 pub use units::{NM_PER_OZ, UnitError};
