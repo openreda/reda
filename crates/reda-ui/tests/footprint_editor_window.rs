@@ -250,3 +250,109 @@ fn free_pad_properties_hold_the_same_pad_fields() {
             .is_none()
     );
 }
+
+#[test]
+fn height_and_texts_are_edited_in_the_inspector() {
+    let home = TempDir::new("fp-window-texts");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Chip");
+    let mut h = harness(shell);
+
+    type_into(&mut h, "Part height", "1.2");
+    assert_eq!(footprint(&h, fp).height.map(|n| n.0), Some(1_200_000));
+    let (id, _) = last_entry(&h);
+    assert_eq!(id, "library.footprint.edit");
+
+    // A second Designator, on the Assembly Layer: Silkscreen and Assembly both hold one.
+    let before = footprint(&h, fp).texts.len();
+    h.get_by_role_and_label(Role::ComboBox, "Layer").click();
+    h.run();
+    click(&mut h, "Assembly top");
+    type_into(&mut h, "New text field", "Designator");
+    click(&mut h, "Add Text");
+    let texts = footprint(&h, fp).texts;
+    assert_eq!(texts.len(), before + 1);
+    let added = texts.last().unwrap().clone();
+    assert_eq!(added.field, "Designator");
+    assert_eq!(
+        added.layer,
+        reda_ui::engine::model::FootprintLayer::AssemblyTop
+    );
+
+    // Selecting it opens its rows: every style property but the frame.
+    click(&mut h, "Designator · Assembly top");
+    type_into(&mut h, "Field", "MPN");
+    type_into(&mut h, "X", "1.5");
+    type_into(&mut h, "Pen width", "0.2");
+    pick(&mut h, "Horizontal", "Left");
+    type_into(&mut h, "Knockout margin", "0.3");
+    let t = footprint(&h, fp)
+        .texts
+        .into_iter()
+        .find(|t| t.uuid == added.uuid)
+        .unwrap();
+    assert_eq!(t.field, "MPN");
+    assert_eq!(t.at.x.0, 1_500_000);
+    assert_eq!(t.style.thickness.0, 200_000);
+    assert_eq!(
+        t.style.justify.h,
+        reda_ui::engine::model::TextHJustify::Left
+    );
+    assert_eq!(t.style.knockout.unwrap().margin.0, 300_000);
+
+    click(&mut h, "Remove MPN · Assembly top");
+    assert!(footprint(&h, fp).texts.iter().all(|t| t.uuid != added.uuid));
+    let (id, _) = last_entry(&h);
+    assert_eq!(id, "library.footprint.text.remove");
+}
+
+#[test]
+fn paste_array_repeats_the_selected_pads_as_one_undo_step() {
+    let home = TempDir::new("fp-window-array");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Header");
+    let mut h = harness(shell);
+    let pad = add_pad(&mut h, fp, "01", 0);
+    run(&mut h, "selection.set", json!({"objects": [pad]}));
+    click(&mut h, "Edit");
+    click(&mut h, "Paste Array…");
+    h.get_by_label("Paste Array");
+    type_into(&mut h, "Count", "3");
+    type_into(&mut h, "Number step", "2");
+    type_into(&mut h, "Step X", "2.54mm");
+    type_into(&mut h, "Step Y", "0");
+    h.get_by_role_and_label(Role::CheckBox, "Remove leading zeroes")
+        .click();
+    h.run();
+    h.get_all_by_role_and_label(Role::Button, "Paste")
+        .last()
+        .unwrap()
+        .click();
+    h.run_steps(8);
+    let (id, params) = last_entry(&h);
+    assert_eq!(id, "batch");
+    assert_eq!(params["commands"].as_array().unwrap().len(), 3);
+    let f = footprint(&h, fp);
+    let placed: Vec<(String, i64)> = f
+        .pads
+        .iter()
+        .map(|p| (p.number.clone(), p.at.x.0))
+        .collect();
+    assert_eq!(
+        placed,
+        [
+            ("01".into(), 0),
+            ("3".into(), 2_540_000),
+            ("5".into(), 5_080_000),
+            ("7".into(), 7_620_000)
+        ]
+    );
+    // The copies keep every field of the original.
+    assert!(
+        f.pads
+            .iter()
+            .all(|p| p.shape == f.pads[0].shape && p.width == f.pads[0].width)
+    );
+    run(&mut h, "edit.undo", json!({"document": fp}));
+    assert_eq!(footprint(&h, fp).pads.len(), 1, "one undo step");
+}

@@ -282,6 +282,9 @@ impl Shell {
         if engine.registry().get("view.footprint_tool.set").is_none() {
             engine.register(crate::footprint_editor::register_all);
         }
+        if engine.registry().get("library.paste_array").is_none() {
+            engine.register(crate::library_dialogs::paste_array::register_all);
+        }
         if engine.registry().get("view.messages.show_waived").is_none() {
             engine.register(messages::register_all);
         }

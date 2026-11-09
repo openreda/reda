@@ -6,8 +6,8 @@
 use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
-    DESIGNATOR_FIELD, Footprint, FootprintLayer, FootprintText, LibraryElement, PadKind, Uuid,
-    VALUE_FIELD,
+    DESIGNATOR_FIELD, Footprint, FootprintLayer, FootprintText, LibraryElement, PadKind,
+    TextHJustify, TextVJustify, Uuid, VALUE_FIELD,
 };
 use serde_json::{Value, json};
 
@@ -76,6 +76,10 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
             }
         });
         ui.separator();
+        if !read_only {
+            footprint_section(ui, id, &footprint, &tool_settings(shell), &mut out);
+            ui.separator();
+        }
         let before = tool_settings(shell);
         let mut settings = before.clone();
         tool_settings_ui(ui, id, &mut settings);
@@ -94,6 +98,85 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         }
     });
     out
+}
+
+/// The Footprint's own rows: its `height`, and its `texts` as a list to select, add to
+/// and remove from.
+fn footprint_section(
+    ui: &mut Ui,
+    id: Id,
+    footprint: &Footprint,
+    settings: &ToolSettings,
+    out: &mut Vec<Invocation>,
+) {
+    let fp = footprint.uuid;
+    Grid::new(id.with("footprint"))
+        .num_columns(2)
+        .show(ui, |ui| {
+            if let Some(height) = length(
+                ui,
+                id.with("height"),
+                &tr!("footprint-height"),
+                footprint.height,
+                true,
+            ) {
+                out.push(cmd(
+                    "library.footprint.edit",
+                    json!({"footprint": fp, "height": height.map(|h| h.0)}),
+                ));
+            }
+            ui.end_row();
+        });
+    ui.strong(tr!("footprint-texts"));
+    for text in &footprint.texts {
+        ui.horizontal(|ui| {
+            let label = tr!(
+                "footprint-text-row",
+                field = text.field.as_str(),
+                layer = layer_name(text.layer)
+            );
+            let row = ui.selectable_label(false, &label);
+            if row.clicked() {
+                out.push(cmd("selection.set", json!({"objects": [text.uuid]})));
+            }
+            let remove = ui.small_button(tr!("footprint-text-remove"));
+            let what = tr!("footprint-text-remove-of", text = label.as_str());
+            remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
+            if remove.clicked() {
+                out.push(cmd(
+                    "library.footprint.text.remove",
+                    json!({"footprint": fp, "text": text.uuid}),
+                ));
+            }
+        });
+    }
+    ui.horizontal(|ui| {
+        let field_id = id.with("new-text-field");
+        let mut field: String = ui
+            .data(|d| d.get_temp(field_id))
+            .unwrap_or_else(|| reda_engine::model::DESIGNATOR_FIELD.to_owned());
+        let hint = tr!("footprint-text-new-field");
+        ui.add(egui::TextEdit::singleline(&mut field).desired_width(110.0))
+            .widget_info(|| WidgetInfo::labeled(Role::TextInput, true, hint.clone()));
+        ui.data_mut(|d| d.insert_temp(field_id, field.clone()));
+        if ui.button(tr!("footprint-text-add")).clicked() && !field.trim().is_empty() {
+            out.push(cmd(
+                "library.footprint.text.add",
+                json!({"footprint": fp, "field": field.trim(), "at": {"x": 0, "y": 0},
+                       "layer": text_layer(settings.layer)}),
+            ));
+        }
+    });
+}
+
+/// The Layer a new text goes on: the drawing Layer when it can hold text, else the
+/// Silkscreen on the same side.
+pub fn text_layer(drawing: FootprintLayer) -> FootprintLayer {
+    match drawing {
+        FootprintLayer::CourtyardTop => FootprintLayer::SilkscreenTop,
+        FootprintLayer::CourtyardBottom => FootprintLayer::SilkscreenBottom,
+        other => other,
+    }
 }
 
 /// Which generator made the Footprint, and Regenerate…, which opens the generator form
@@ -314,6 +397,82 @@ fn text_properties(ui: &mut Ui, id: Id, fp: Uuid, text: &FootprintText, out: &mu
         p[field] = value;
         cmd("library.footprint.text.edit", p)
     };
+    let label = tr!("footprint-text-field");
+    ui.label(&label);
+    if let Some(field) = text_field(ui, id.with("field"), &label, &text.field)
+        && !field.is_empty()
+    {
+        out.push(set("field", json!(field)));
+    }
+    ui.end_row();
+    for (key, label, value) in [
+        ("x", tr!("footprint-text-x"), text.at.x),
+        ("y", tr!("footprint-text-y"), text.at.y),
+    ] {
+        if let Some(Some(v)) = length(ui, id.with(key), &label, Some(value), false) {
+            let at = if key == "x" {
+                json!({"x": v.0, "y": text.at.y.0})
+            } else {
+                json!({"x": text.at.x.0, "y": v.0})
+            };
+            out.push(set("at", at));
+        }
+        ui.end_row();
+    }
+    if let Some(Some(v)) = length(
+        ui,
+        id.with("thickness"),
+        &tr!("footprint-text-thickness"),
+        Some(text.style.thickness),
+        false,
+    ) {
+        out.push(set("thickness", json!(v.0)));
+    }
+    ui.end_row();
+    let mut h = text.style.justify.h;
+    combo(
+        ui,
+        id.with("justify-h"),
+        &tr!("footprint-text-justify-h"),
+        &mut h,
+        &[
+            TextHJustify::Left,
+            TextHJustify::Center,
+            TextHJustify::Right,
+        ],
+        h_name,
+    );
+    ui.end_row();
+    let mut v = text.style.justify.v;
+    combo(
+        ui,
+        id.with("justify-v"),
+        &tr!("footprint-text-justify-v"),
+        &mut v,
+        &[
+            TextVJustify::Top,
+            TextVJustify::Center,
+            TextVJustify::Bottom,
+        ],
+        v_name,
+    );
+    ui.end_row();
+    if (h, v) != (text.style.justify.h, text.style.justify.v) {
+        out.push(set("justify", json!({"h": h, "v": v})));
+    }
+    if let Some(margin) = length(
+        ui,
+        id.with("knockout"),
+        &tr!("footprint-text-knockout"),
+        text.style.knockout.map(|k| k.margin),
+        true,
+    ) {
+        out.push(match margin {
+            Some(m) => set("knockout", json!({"margin": m.0})),
+            None => set("clear_knockout", json!(true)),
+        });
+    }
+    ui.end_row();
     if let Some(Some(v)) = length(
         ui,
         id.with("size"),
@@ -354,6 +513,22 @@ fn text_properties(ui: &mut Ui, id: Id, fp: Uuid, text: &FootprintText, out: &mu
         out.push(set("visible", json!(visible)));
     }
     ui.end_row();
+}
+
+fn h_name(h: TextHJustify) -> String {
+    match h {
+        TextHJustify::Left => tr!("footprint-justify-left"),
+        TextHJustify::Center => tr!("footprint-justify-center"),
+        TextHJustify::Right => tr!("footprint-justify-right"),
+    }
+}
+
+fn v_name(v: TextVJustify) -> String {
+    match v {
+        TextVJustify::Top => tr!("footprint-justify-top"),
+        TextVJustify::Center => tr!("footprint-justify-middle"),
+        TextVJustify::Bottom => tr!("footprint-justify-bottom"),
+    }
 }
 
 fn combo<T: Copy + PartialEq>(

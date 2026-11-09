@@ -10,6 +10,14 @@
       ]
     },
     {
+      "id": "edit",
+      "title": "menu-edit",
+      "items": [
+        { "id": "edit.select_all", "command": "selection.set", "params": { "objects": "$selectable" } },
+        { "id": "edit.paste_array", "command": "library.paste_array", "params": { "element": "$active_document", "objects": "$selection" }, "title": "menu-edit-paste-array" }
+      ]
+    },
+    {
       "id": "tools",
       "title": "menu-tools",
       "items": [

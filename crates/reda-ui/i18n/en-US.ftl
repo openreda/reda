@@ -2614,3 +2614,42 @@ pad-zone-spokes = Spokes
 pad-zone-spoke-width = Spoke width
 pad-zone-gap = Relief gap
 pad-zone-angle = Spoke angle
+
+## Footprint editor: height and texts
+footprint-height = Part height
+footprint-texts = Texts
+footprint-text-row = { $field } · { $layer }
+footprint-text-remove = Remove
+footprint-text-remove-of = Remove { $text }
+footprint-text-new-field = New text field
+footprint-text-add = Add Text
+footprint-text-field = Field
+footprint-text-x = X
+footprint-text-y = Y
+footprint-text-thickness = Pen width
+footprint-text-justify-h = Horizontal
+footprint-text-justify-v = Vertical
+footprint-text-knockout = Knockout margin
+footprint-justify-left = Left
+footprint-justify-center = Centre
+footprint-justify-right = Right
+footprint-justify-top = Top
+footprint-justify-middle = Middle
+footprint-justify-bottom = Bottom
+
+## Paste Array
+menu-edit-paste-array = Paste Array…
+paste-array-title = Paste Array
+paste-array-intro = Repeats the { $count } selected Pins or Pads.
+paste-array-count = Count
+paste-array-number-step = Number step
+paste-array-name-step = Name step
+paste-array-dx = Step X
+paste-array-dy = Step Y
+paste-array-remove-leading-zeroes = Remove leading zeroes
+paste-array-run = Paste
+paste-array-not-here = Paste Array works in the Symbol and Footprint editors.
+paste-array-nothing = Select the Pins or Pads to repeat first.
+paste-array-bad-number = The steps are whole numbers.
+paste-array-bad-length = Type a length, such as 1.27mm.
+paste-array-bad-count = The count is between 1 and 1000.
