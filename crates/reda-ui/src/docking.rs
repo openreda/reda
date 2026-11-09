@@ -570,6 +570,13 @@ impl Cx<'_, '_> {
             return Vec::new();
         }
         match kind {
+            // A right-click in the Wire Tool is Esc: it ends the run, or leaves the Tool.
+            Some(DocumentKind::Schematic)
+                if self.shell.tool() == crate::tools::Tool::Wire
+                    && input.response.secondary_clicked() =>
+            {
+                vec![("tool.activate:select".to_owned(), json!({}))]
+            }
             Some(DocumentKind::Schematic) => {
                 let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
                 schematic_editor::pointer(self.shell, document, &input.events, scale)
@@ -981,6 +988,8 @@ impl Cx<'_, '_> {
                     }
                 }
                 crate::selection::picking::show(ui, self.shell, *uuid);
+                let options = schematic_editor::auto_wire_options(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(options);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

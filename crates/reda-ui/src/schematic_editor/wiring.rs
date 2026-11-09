@@ -1,10 +1,17 @@
-//! The wiring Tools on a sheet: the Wire Tool's orthogonal runs, and the Net Label, Port,
-//! Power Port and No-Connect Tools, which place one object per click.
+//! The wiring Tools on a sheet: the Wire Tool's runs, and the Net Label, Port, Power Port
+//! and No-Connect Tools, which place one object per click.
 //!
-//! A run in flight touches neither the Project nor the Journal: each click fixes a corner,
-//! and the run ends, as ONE `schematic.wire.add`, when a click lands on a Pin or a Wire (or
-//! on the run's last corner again, as a double-click does). `/` turns the corner the other
-//! way and Backspace takes the last segment off (`tool.cycle_corner`, `tool.undo_segment`).
+//! A run in flight touches neither the Project nor the Journal: each click (or Enter,
+//! `tool.finish`) fixes a corner, and the run ends, as ONE `schematic.wire.add`, when a
+//! click lands on a Pin or a Wire, or on the same point twice (as a double-click does).
+//! The Wire Tool's mode ([`WireMode`], Shift+Space `tool.cycle_wire_mode`) shapes the way
+//! to the pointer: 90° and 45° turn one corner there, and the segment on the pointer is a
+//! look-ahead that a click leaves unfixed; Any Angle goes straight; Auto Wire routes each
+//! click around placed objects (`schematic.wire.route`) and draws the route dotted. Space
+//! or `/` turns the corner the other way, Insert adds a vertex at the pointer and Backspace
+//! or Delete takes the last segment off (`tool.cycle_corner`, `tool.insert_vertex`,
+//! `tool.undo_segment`). Esc ends a run with its fixed corners (`tool.activate` with
+//! Select: see [`crate::tools::ToolStack`]).
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::{Millideg, Point};
@@ -17,15 +24,17 @@ use reda_engine::schematic::default_power_port_style;
 use serde_json::{Value, json};
 
 use super::{Cx, Interaction, P};
+pub use crate::tools::WireMode;
 use crate::tools::{PowerPortName, Tool};
 
-/// Which way a Wire run turns its corner on the way to the pointer.
+/// Which way a Wire run turns its corner on the way to the pointer: the start and end
+/// corner modes Space toggles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Corner {
-    /// Along x first, then along y.
+    /// 90°: along x first, then along y. 45°: straight first, then the 45° stretch.
     #[default]
     HorizontalFirst,
-    /// Along y first, then along x.
+    /// 90°: along y first, then along x. 45°: the 45° stretch first, then straight.
     VerticalFirst,
 }
 
@@ -37,6 +46,12 @@ pub struct Wiring {
     /// Where the pointer snapped.
     pub at: Point,
     pub corner: Corner,
+    /// The Tool's mode, as the session keeps it ([`crate::tools::WireTool`]).
+    pub mode: WireMode,
+    /// The fixed segments Auto Wire routed, drawn dotted.
+    pub routed: Vec<(Point, Point)>,
+    /// Where the last click fixed the run: a second click there ends it.
+    pub(super) last_click: Option<Point>,
     /// A finished run's segments, still drawn until the Shell has run its Command.
     pub committed: Vec<(Point, Point)>,
     /// The run has started the Shell's Tool preview (so a bridged edit can cancel it).
@@ -54,6 +69,43 @@ impl Wiring {
         path.windows(2).map(|w| (w[0], w[1])).collect()
     }
 
+    /// The run as the canvas draws it: (solid, dotted) segments. Auto Wire's routes, and
+    /// in Auto Wire the line on to the pointer, are dotted.
+    pub fn drawn(&self) -> (Vec<(Point, Point)>, Vec<(Point, Point)>) {
+        let (mut solid, mut dotted): (Vec<_>, Vec<_>) = self
+            .segments()
+            .into_iter()
+            .partition(|s| !self.routed.contains(s));
+        if self.mode == WireMode::Auto
+            && let Some(&last) = self.points.last()
+            && last != self.at
+        {
+            solid.retain(|s| *s != (last, self.at));
+            dotted.push((last, self.at));
+        }
+        (solid, dotted)
+    }
+
+    /// The corner the run turns on the way from `last` to `to`, in its mode.
+    fn elbow(&self, last: Point, to: Point) -> Option<Point> {
+        let (dx, dy) = ((to.x - last.x).0, (to.y - last.y).0);
+        match self.mode {
+            WireMode::Ortho if dx != 0 && dy != 0 => Some(match self.corner {
+                Corner::HorizontalFirst => Point::new(to.x, last.y),
+                Corner::VerticalFirst => Point::new(last.x, to.y),
+            }),
+            WireMode::Diagonal if dx != 0 && dy != 0 && dx.abs() != dy.abs() => {
+                let d = dx.abs().min(dy.abs());
+                let (ddx, ddy) = (Nm(d * dx.signum()), Nm(d * dy.signum()));
+                Some(match self.corner {
+                    Corner::HorizontalFirst => Point::new(to.x - ddx, to.y - ddy),
+                    Corner::VerticalFirst => Point::new(last.x + ddx, last.y + ddy),
+                })
+            }
+            _ => None,
+        }
+    }
+
     /// The run's corners when it goes on to `to`: straight stretches merged, no empty
     /// segments.
     fn path_to(&self, to: Point) -> Vec<Point> {
@@ -61,15 +113,20 @@ impl Wiring {
         let Some(&last) = path.last() else {
             return vec![to];
         };
-        if last.x != to.x && last.y != to.y {
-            let elbow = match self.corner {
-                Corner::HorizontalFirst => Point::new(to.x, last.y),
-                Corner::VerticalFirst => Point::new(last.x, to.y),
-            };
+        if let Some(elbow) = self.elbow(last, to) {
             push(&mut path, elbow);
         }
         push(&mut path, to);
         path
+    }
+
+    /// Takes the last fixed segment off; with only the start left, the run ends.
+    pub(super) fn remove_last(&mut self) {
+        self.points.pop();
+        let points = &self.points;
+        self.routed
+            .retain(|s| points.windows(2).any(|w| (w[0], w[1]) == *s));
+        self.last_click = None;
     }
 }
 
@@ -80,10 +137,9 @@ fn push(path: &mut Vec<Point>, p: Point) {
         return;
     }
     if let [.., a, b] = path[..] {
-        let straight_on =
-            (a.x == b.x && b.x == p.x && (b.y - a.y).0.signum() == (p.y - b.y).0.signum())
-                || (a.y == b.y && b.y == p.y && (b.x - a.x).0.signum() == (p.x - b.x).0.signum());
-        if straight_on {
+        let (ux, uy) = ((b.x - a.x).0 as i128, (b.y - a.y).0 as i128);
+        let (vx, vy) = ((p.x - b.x).0 as i128, (p.y - b.y).0 as i128);
+        if ux * vy == uy * vx && ux * vx + uy * vy > 0 {
             path.pop();
         }
     }
@@ -272,18 +328,94 @@ impl Cx<'_> {
     }
 
     /// Fixes the run's next corner where the pointer snapped: starts a run, extends it, or
-    /// ends it on a Pin or Wire (or on its own last corner).
-    fn fix(&mut self, mut w: Wiring) -> Wiring {
+    /// ends it on a Pin or Wire (or on the same point twice). In 90° and 45° the segment on
+    /// the pointer stays a look-ahead: the click fixes the run up to its corner.
+    pub(super) fn fix(&mut self, mut w: Wiring) -> Wiring {
         let p = w.at;
-        if w.points.is_empty() {
+        let Some(&last) = w.points.last() else {
             w.points.push(p);
             w.committed.clear();
+            w.routed.clear();
+            w.last_click = Some(p);
+            return w;
+        };
+        if w.last_click == Some(p) || last == p {
+            w.points = w.path_to(p);
+            if w.points.len() >= 2 {
+                self.commit_run(&mut w);
+            }
             return w;
         }
-        let again = w.points.last() == Some(&p);
-        w.points = w.path_to(p);
-        if (again || self.connects(p)) && w.points.len() >= 2 {
+        let lands = self.connects(p);
+        if w.mode == WireMode::Auto {
+            self.route(&mut w, last, p);
+        } else if lands {
+            w.points = w.path_to(p);
+        } else {
+            let corner = w.elbow(last, p).unwrap_or(p);
+            push(&mut w.points, corner);
+        }
+        w.last_click = Some(p);
+        if lands && w.points.last() == Some(&p) && w.points.len() >= 2 {
             self.commit_run(&mut w);
+        }
+        w
+    }
+
+    /// Auto Wire: asks `schematic.wire.route` for a way from `from` to `to` and adds it to
+    /// the run. A route not found leaves the run as it was, and the status bar says why.
+    fn route(&mut self, w: &mut Wiring, from: Point, to: Point) {
+        let options = self
+            .shell
+            .engine()
+            .view()
+            .get::<crate::tools::WireTool>()
+            .copied()
+            .unwrap_or_default();
+        let grid = self.shell.grid(self.document);
+        let params = json!({
+            "document": self.document,
+            "from": {"x": from.x.0, "y": from.y.0},
+            "to": {"x": to.x.0, "y": to.y.0},
+            "grid": grid.0,
+            "avoid_cutting_wires": options.avoid,
+            "timeout_ms": options.timeout_ms,
+        });
+        let Ok(out) = self.shell.run_reporting("schematic.wire.route", params) else {
+            return;
+        };
+        let result = out.get("result").unwrap_or(&out);
+        let route: Vec<Point> =
+            serde_json::from_value(result["points"].clone()).unwrap_or_default();
+        let start = w.points.len() - 1;
+        for &q in route.iter().skip(1) {
+            push(&mut w.points, q);
+        }
+        let start = start.min(w.points.len().saturating_sub(1));
+        let added: Vec<_> = w.points[start..].windows(2).map(|s| (s[0], s[1])).collect();
+        w.routed.extend(added);
+    }
+
+    /// Insert: adds a vertex where the pointer snapped, with the corner on the way there,
+    /// or starts a run there.
+    pub(super) fn insert_vertex(&mut self, mut w: Wiring) -> Wiring {
+        if w.points.is_empty() {
+            return self.fix(w);
+        }
+        w.points = w.path_to(w.at);
+        w.last_click = None;
+        w
+    }
+
+    /// Esc during a run: commits its fixed corners, drops the look-ahead, and stays in
+    /// the Tool.
+    pub(super) fn end_run(&mut self, mut w: Wiring) -> Wiring {
+        if w.points.len() >= 2 {
+            self.commit_run(&mut w);
+        } else {
+            w.points.clear();
+            w.routed.clear();
+            w.last_click = None;
         }
         w
     }
@@ -301,6 +433,8 @@ impl Cx<'_> {
         ));
         w.committed = w.points.windows(2).map(|s| (s[0], s[1])).collect();
         w.points.clear();
+        w.routed.clear();
+        w.last_click = None;
     }
 
     /// A placing Tool on one pointer event: follows the pointer, places on a click.

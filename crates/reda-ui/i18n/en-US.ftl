@@ -35,6 +35,18 @@ floating-window-title = REDA
 floating-window-title-tab = { $tab } – REDA
 status-tool-cancelled = { $tool } was cancelled: an { $source } edit changed what it was using.
 tool-wire = Wire
+status-wire-mode = Wire: { $mode }
+wire-mode-ortho = 90°
+wire-mode-diagonal = 45°
+wire-mode-any-angle = Any Angle
+wire-mode-auto = Auto Wire
+auto-wire-title = Auto Wire
+auto-wire-timeout = Time Out After
+auto-wire-avoid = Avoid cutting wires
+auto-wire-avoid-low = Low
+auto-wire-avoid-medium = Medium
+auto-wire-avoid-high = High
+auto-wire-close = Close
 
 ## The bridge: agents connecting through the control port
 

@@ -307,7 +307,7 @@ fn context_menu(shell: &mut Shell, shown: &CanvasInputs) {
             let _ = shell.run_reporting("tool.rotate", json!({}));
         }
         MenuAction::Flip => {
-            let _ = shell.run_reporting("tool.flip", json!({}));
+            let _ = shell.run_reporting("tool.flip_side", json!({}));
         }
         MenuAction::Outline => {
             let graphics = selected_graphics(shell);
