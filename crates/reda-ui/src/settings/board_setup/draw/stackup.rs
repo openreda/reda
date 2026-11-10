@@ -157,7 +157,7 @@ fn cross_section(ui: &mut Ui, board: &BoardSetupDraft) {
         painter.rect_stroke(
             band,
             0.0,
-            Stroke::new(0.5, ui.visuals().weak_text_color()),
+            Stroke::new(1.0, ui.visuals().weak_text_color()),
             egui::StrokeKind::Inside,
         );
         if matches!(b.band, Band::Copper | Band::Dielectric) {
