@@ -193,3 +193,29 @@ fn open_folder_points_at_the_config_folder() {
         Some(UserDirs::under(home.path()).config)
     );
 }
+
+#[test]
+fn the_modifiers_section_writes_the_gesture_roles_to_keymap_toml() {
+    use reda_ui::keymap::{Held, Role};
+    let home = TempDir::new("shortcuts-modifiers");
+    let mut shell = shell_in(home.path());
+    let roles = Shortcuts::modifiers(&shell);
+    assert_eq!(roles.len(), 5);
+    assert!(roles.contains(&(Role::NetHighlightSheet, Held::Alt, false)));
+    let mut page = Shortcuts::default();
+    page.set_modifier(&mut shell, Role::NetHighlightSheet, Held::Ctrl)
+        .unwrap();
+    assert!(
+        user_file(home.path()).contains("[modifiers]\nnet_highlight_sheet = \"Ctrl\""),
+        "{}",
+        user_file(home.path())
+    );
+    // It applies at once and shows as changed.
+    assert_eq!(shell.modifier_roles().net_highlight_sheet, Held::Ctrl);
+    assert!(Shortcuts::modifiers(&shell).contains(&(Role::NetHighlightSheet, Held::Ctrl, true)));
+    // Back to the base modifier takes the line out.
+    page.set_modifier(&mut shell, Role::NetHighlightSheet, Held::Alt)
+        .unwrap();
+    assert!(!user_file(home.path()).contains("net_highlight_sheet"));
+    assert_eq!(shell.modifier_roles().net_highlight_sheet, Held::Alt);
+}

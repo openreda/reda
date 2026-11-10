@@ -31,7 +31,7 @@
 //! canvas and the tests drive it the same way.
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{Object, ObjectType, Project, TrackGeometry, Uuid};
+use reda_engine::model::{Object, ObjectType, Project, Uuid};
 use reda_engine::pcb::place::{self, ObstacleMode, Overlap, RatsnestMode};
 use reda_engine::pcb::{
     Copper, Item, PlacementOp, placement_anchor, placement_preview,
@@ -567,7 +567,9 @@ impl SelectTool {
                     if let Some((id, params)) = select {
                         let _ = shell.run_reporting(&id, params);
                     }
-                } else if !self.break_at(shell, at, hit) {
+                } else if (shell.modifier_roles().net_highlight_board).held(&self.modifiers) {
+                    self.highlight_net(shell, document, hit);
+                } else {
                     self.click(shell, document, at);
                 }
             }
@@ -1036,21 +1038,25 @@ impl SelectTool {
         self.state = State::CopperDrag(d);
     }
 
-    /// A `Mod`+Shift click on a straight Track segment: breaks it there.
-    fn break_at(&self, shell: &mut Shell, at: Point, hit: Option<Uuid>) -> bool {
-        if !(self.modifiers.command && self.modifiers.shift) {
-            return false;
-        }
-        let Some(track) = hit.and_then(|h| board(shell)?.0.pcb()?.track(h).cloned()) else {
-            return false;
+    /// A `Mod`+click (the `net_highlight_board` role) without movement: highlights the
+    /// Net of what is under the pointer, or with Shift adds it; on empty space it clears
+    /// the highlight. A `Mod`+drag still detaches, and `Mod`+Shift+drag breaks a Track.
+    fn highlight_net(&self, shell: &mut Shell, document: Uuid, hit: Option<Uuid>) {
+        let add = self.modifiers.shift;
+        let Some(hit) = hit else {
+            if !add {
+                let _ = shell.run_reporting("view.highlight.clear", json!({}));
+            }
+            return;
         };
-        let TrackGeometry::Line { from, to } = track.geometry else {
-            return false;
+        let params = match crate::selection::rules::child(shell, document, hit) {
+            Some(reda_engine::render::Child::Pad { footprint, pad }) => {
+                json!({"objects": [], "pads": [{"footprint": footprint, "pad": pad}], "add": add})
+            }
+            _ => json!({"objects": [hit], "add": add}),
         };
-        let p = copper_drag::on_segment(from, to, at);
-        let params = json!({"track": track.uuid, "at": {"x": p.x, "y": p.y}});
-        let _ = shell.run_reporting("pcb.track.break", params);
-        true
+        // An object on no Net (a Footprint's body, the outline) highlights nothing.
+        let _ = shell.run("view.highlight.net_of", params);
     }
 }
 

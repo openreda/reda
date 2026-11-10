@@ -114,9 +114,42 @@ pub struct DocumentTab {
     pub cursor: Option<(f64, f64)>,
     /// The colour overrides the canvas draws with.
     pub palette: PaletteHandle,
+    /// Earlier views, latest last: Alt+← (`view.previous`) goes back through them.
+    pub history: Vec<Camera>,
+    /// A wheel zoom or pan was under way last frame.
+    pub navigating: bool,
+    /// Auto-pan's state while an operation is in flight.
+    pub auto_pan: crate::canvas::auto_pan::AutoPan,
 }
 
+/// How many earlier views a canvas keeps for Alt+←.
+const VIEW_HISTORY: usize = 50;
+
 impl DocumentTab {
+    /// Keeps the current view so Alt+← can come back to it, before the view jumps.
+    pub fn remember_view(&mut self) {
+        let Some(camera) = self.camera else {
+            return;
+        };
+        if self.history.last() != Some(&camera) {
+            self.history.push(camera);
+            if self.history.len() > VIEW_HISTORY {
+                self.history.remove(0);
+            }
+        }
+    }
+
+    /// Goes back to the last remembered view; false when there is none.
+    pub fn previous_view(&mut self) -> bool {
+        let Some(camera) = self.history.pop() else {
+            return false;
+        };
+        self.camera = Some(camera);
+        self.zoom_to = None;
+        self.center_on = None;
+        true
+    }
+
     /// The canvas shows a board from below, so Document x runs right to left on screen.
     pub fn mirrored(&self) -> bool {
         self.layers.from_bottom && self.scene.layers.is_some()
@@ -144,6 +177,9 @@ impl DocumentTab {
             overlay: Overlay::default(),
             cursor: None,
             palette: PaletteHandle::default(),
+            history: Vec::new(),
+            navigating: false,
+            auto_pan: Default::default(),
         }
     }
 }
@@ -255,6 +291,7 @@ impl Shell {
         }
         if engine.registry().get("view.highlight").is_none() {
             engine.register(crate::highlight::register_all);
+            engine.register(crate::similar::register_all);
         }
         if engine.registry().get("schematic.dialog.open").is_none() {
             engine.register(crate::schematic_dialogs::register_all);
@@ -312,6 +349,18 @@ impl Shell {
             .view_mut()
             .set(selection::picking::Picking::default());
         engine.view_mut().set(Highlight::default());
+        engine
+            .view_mut()
+            .set(crate::similar::SimilarState::default());
+        engine
+            .view_mut()
+            .set(crate::navigation::SelectionStep::default());
+        engine
+            .view_mut()
+            .set(crate::highlight::SessionStrengths::default());
+        engine
+            .view_mut()
+            .set(reda_engine::preferences::HighlightPreferences::default());
         engine.view_mut().set(pcb::measure::Measurements::default());
         engine.view_mut().set(pcb::delete::DeletePrompt::default());
         engine
@@ -595,7 +644,7 @@ impl Shell {
     pub fn hold_snap_keys(&mut self, document: Uuid, modifiers: egui::Modifiers, pressed: bool) {
         let keys = crate::snap::held(self, document, modifiers, pressed);
         self.engine.view_mut().set(keys);
-        let alt = modifiers.alt;
+        let alt = self.modifier_roles().constrain.held(&modifiers);
         (self.engine.view_mut()).set(crate::schematic_editor::DragKeys { alt });
     }
 
@@ -608,12 +657,34 @@ impl Shell {
             .unwrap_or_default()
     }
 
+    /// Centres `document`'s canvas on where the pointer last was over it (`view.recenter`,
+    /// Home), keeping the zoom; nothing while the pointer has not been over it.
+    pub fn recenter(&mut self, document: Uuid) {
+        let Some(tab) = self.document_tab_mut(document) else {
+            return;
+        };
+        if let Some(at) = tab.cursor {
+            self.jump(
+                document,
+                crate::navigation::Jump::To(Point::new(Nm(at.0 as i64), Nm(at.1 as i64))),
+            );
+        }
+    }
+
+    /// Puts `document`'s canvas back to its previous view (`view.previous`, Alt+←);
+    /// false when it has none.
+    pub fn previous_view(&mut self, document: Uuid) -> bool {
+        self.document_tab_mut(document)
+            .is_some_and(|tab| tab.previous_view())
+    }
+
     /// Moves `document`'s canvas as `view.jump_to` asked, keeping the zoom.
     pub fn jump(&mut self, document: Uuid, jump: crate::navigation::Jump) {
         use crate::navigation::Jump;
         let Some(tab) = self.document_tab_mut(document) else {
             return;
         };
+        tab.remember_view();
         let pending = tab.center_on.take();
         let center = match (tab.camera.as_ref(), pending) {
             (_, Some(p)) => (p.x.0 as f64, p.y.0 as f64),
@@ -1498,6 +1569,8 @@ impl Shell {
         let silkscreen = crate::pcb::silkscreen::COMMANDS
             .contains(&base)
             .then(|| params.clone());
+        let shown = self.preferences().editing.highlight.clone();
+        self.engine.view_mut().set(shown);
         let out = self.engine.run(id, params.clone());
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -1521,6 +1594,9 @@ impl Shell {
         }
         crate::pcb::measure::after_run(self, base, &out);
         self.after_cross_select_run(base);
+        if let Some(why) = crate::similar::after_run(self) {
+            return Err(CommandError::rejected(why));
+        }
         Ok(out)
     }
 
@@ -1787,6 +1863,21 @@ impl Shell {
             .map(|text| (Severity::Error, text))
             .collect();
         self.set_load_messages(KEYMAP, problems);
+    }
+
+    /// The held modifier of each mouse gesture role: the Keymap's `[modifiers]` tables.
+    pub fn modifier_roles(&self) -> keymap::ModifierRoles {
+        *self.keymap.modifiers()
+    }
+
+    /// How strongly dimmed and masked objects fade, each 0..1: this session's `[` / `]`
+    /// strengths, else the shared highlight Preference's.
+    pub fn highlight_strengths(&self) -> (f64, f64) {
+        let session = (self.engine.view())
+            .get::<crate::highlight::SessionStrengths>()
+            .copied()
+            .unwrap_or_default();
+        session.over(&self.preferences().editing.highlight)
     }
 
     /// The Preferences as last read: after this window's own changes at once, and after
@@ -2498,6 +2589,8 @@ impl Shell {
         self.mirror_selection();
         let switches = self.cross_probe_switches();
         let dim = self.preferences().cross_select.dim;
+        let (dim_strength, mask_strength) = self.highlight_strengths();
+        let strengths = (dim_strength as f32, mask_strength as f32);
         let key = (
             self.selection().clone(),
             self.highlight().clone(),
@@ -2523,9 +2616,15 @@ impl Shell {
                     objects: Arc::from(objects),
                     highlighted: Arc::from(highlighted),
                     mask: key.1.mask,
+                    strengths,
                 };
             }
             self.probed = Some(key);
+        }
+        if self.marked.strengths != strengths {
+            self.generation += 1;
+            self.marked.generation = self.generation;
+            self.marked.strengths = strengths;
         }
         let grids = self
             .engine

@@ -786,3 +786,54 @@ fn net_colours_checker_and_transparency_draw_as_the_look_says() {
         .unwrap();
     assert_eq!(pixel(&img, 50, 50), rgb(orange));
 }
+
+#[test]
+fn dim_and_mask_strengths_set_how_far_the_rest_fades() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let corner = Point::new(mm(10), mm(10));
+    push(
+        &mut scene,
+        id(3),
+        SchematicColor::Pin,
+        filled_rect(corner, 10, 10),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let background = palette.background();
+    let view = view_of(&scene, 100);
+    let mut gs = GpuScene::new(gpu.device(), &scene);
+    gs.set_highlight(
+        gpu.queue(),
+        Highlight::new().mark(id(2), Flags::HIGHLIGHTED),
+    );
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let distance = |img: &Image| {
+        let [r, g, b, _] = pixel(img, 10, 90);
+        r.abs_diff(background.0[0]) as u32
+            + g.abs_diff(background.0[1]) as u32
+            + b.abs_diff(background.0[2]) as u32
+    };
+    cv.set_strengths(0.2, 0.75);
+    let faint = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    cv.set_strengths(0.9, 0.75);
+    let strong = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert!(
+        distance(&strong) < distance(&faint),
+        "a stronger dim is nearer the background"
+    );
+    cv.set_strengths(1.0, 0.75);
+    assert_eq!(
+        distance(&gpu.render_frame(&gs, &mut cv, &view).unwrap()),
+        0,
+        "full strength is gone"
+    );
+    let mut masking = Highlight::new().mark(id(2), Flags::HIGHLIGHTED).clone();
+    masking.mask_rest();
+    gs.set_highlight(gpu.queue(), &masking);
+    cv.set_strengths(0.6, 0.3);
+    let light_mask = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    cv.set_strengths(0.6, 0.95);
+    let heavy_mask = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert!(distance(&heavy_mask) < distance(&light_mask));
+}

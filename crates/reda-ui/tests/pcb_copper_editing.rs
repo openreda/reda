@@ -313,23 +313,16 @@ fn mod_shift_press_breaks_a_segment_at_the_point() {
     let mut b = board();
     add_route(&mut b, &[(0.0, 0.0), (10.0, 0.0)]);
     let both = Modifiers::COMMAND | Modifiers::SHIFT;
-    // A click breaks it there.
+    // A click without movement adds the Net to the highlight instead
+    // (docs/spec/v0.1/editing.md#net-highlight), so it breaks nothing.
+    let before = journal_len(&b);
     b.shell
         .pcb_press_with_modifiers(mm(3.0, 0.05), both, TOLERANCE);
     b.shell.pcb_release();
-    let (id, params) = last_entry(&b);
-    assert_eq!(id, "pcb.track.break");
-    assert_eq!(params["at"], json!({"x": 3_000_000, "y": 0}));
-    assert_eq!(
-        b.shell
-            .engine()
-            .project()
-            .unwrap()
-            .pcb()
-            .unwrap()
-            .tracks()
-            .count(),
-        2
+    assert!(
+        b.shell.engine().journal()[before..]
+            .iter()
+            .all(|e| e.id != "pcb.track.break")
     );
     // A drag breaks and drags the new vertex.
     drag(&mut b, mm(7.0, 0.0), mm(7.0, -2.0), both);
@@ -475,6 +468,13 @@ fn window() -> Window {
         &mut shell,
         "layout.tab.activate",
         json!({"tab": pcb.to_string()}),
+    );
+    // The routes sit within the canvas's edge band at this size; auto-pan would move the
+    // view under a drag (tests/navigation.rs covers it).
+    run(
+        &mut shell,
+        "app.preferences.set",
+        json!({"key": "editing.auto_pan.style", "value": "off"}),
     );
     let h = Harness::builder()
         .with_size([1000.0, 900.0])

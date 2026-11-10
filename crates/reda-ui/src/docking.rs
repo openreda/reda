@@ -982,10 +982,17 @@ impl Cx<'_, '_> {
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 let kind = bars::document_type(self.shell, *uuid);
                 let kind = kind.unwrap_or(bars::DocumentType::Schematic);
+                // Auto-pan while an operation is in flight: a drag, a move, a Tool's run.
+                let busy = ui
+                    .input(|i| i.pointer.primary_down() && i.pointer.is_decidedly_dragging())
+                    || self.shell.pcb_tool().moving()
+                    || self.shell.router().routing();
+                let auto_pan = self.shell.preferences().editing.auto_pan.clone();
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
-                let input = canvas_input(ui, doc, kind);
+                let busy = busy || doc.interaction != crate::schematic_editor::Interaction::Idle;
+                let input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan));
                 // Shown on the board for a settings window, the canvas only pans and zooms.
                 let view_only = self.shell.view_only(*uuid);
                 let edits = if view_only {

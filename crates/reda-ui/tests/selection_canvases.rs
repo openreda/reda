@@ -56,6 +56,14 @@ fn canvas_with(kind: &str, builder: egui_kittest::HarnessBuilder<App>) -> Canvas
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
+    // The drags here reach the canvas's edge band; auto-pan would move the view under
+    // them (tests/navigation.rs covers it).
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.auto_pan.style", "value": "off"}),
+        )
+        .unwrap();
     shell
         .run(
             "app.preferences.set",

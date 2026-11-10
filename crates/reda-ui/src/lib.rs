@@ -59,6 +59,7 @@ pub mod settings;
 pub mod shared_element;
 pub mod shell;
 pub mod show_on_board;
+pub mod similar;
 pub mod snap;
 mod start_page;
 pub mod status_bar;

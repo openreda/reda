@@ -204,3 +204,75 @@ fn deleting_highlighted_objects_drops_them_from_the_highlight() {
     assert!(!shell.highlight().objects.contains(&f.a));
     assert!(shell.highlight().objects.contains(&f.b));
 }
+
+#[test]
+fn shift_alt_click_adds_a_net_and_shift_alt_on_nothing_keeps_the_highlight() {
+    let dir = TempDir::new("net-highlight-add");
+    let mut shell = shell(&dir);
+    let f = fixture(&mut shell);
+    click(&mut shell, 0.0, 200.0, Modifiers::ALT);
+    assert!(!shell.highlight().objects.contains(&f.other));
+
+    let ran = click(&mut shell, 2200.0, 0.0, Modifiers::ALT | Modifiers::SHIFT);
+    assert_eq!(ran, ["view.highlight"]);
+    for object in [f.a, f.b, f.other] {
+        assert!(shell.highlight().objects.contains(&object), "{object}");
+    }
+    // Shift+Alt on nothing adds nothing and clears nothing.
+    assert!(
+        click(
+            &mut shell,
+            5000.0,
+            5000.0,
+            Modifiers::ALT | Modifiers::SHIFT
+        )
+        .is_empty()
+    );
+    assert!(shell.highlight().objects.contains(&f.other));
+    // A plain Alt+click replaces the highlight with one Net again.
+    click(&mut shell, 2200.0, 0.0, Modifiers::ALT);
+    assert!(!shell.highlight().objects.contains(&f.a));
+    assert!(shell.highlight().objects.contains(&f.other));
+}
+
+/// A Shell whose user `keymap.toml` is `keymap`.
+fn shell_with_keymap(dir: &TempDir, home: &TempDir, keymap: &str) -> Shell {
+    let dirs = reda_ui::engine::command::UserDirs::under(home.path());
+    std::fs::create_dir_all(&dirs.config).unwrap();
+    std::fs::write(dirs.config.join("keymap.toml"), keymap).unwrap();
+    let engine = Engine::builder()
+        .ids(SeededIds::new(0))
+        .clock(FixedClock::EPOCH)
+        .user_dirs(Some(dirs))
+        .starter_library(Some(library()))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.reload_keymap();
+    shell.new_project(dir.path(), "Demo").unwrap();
+    shell
+}
+
+#[test]
+fn the_keymap_modifiers_table_moves_net_highlight_off_alt() {
+    let dir = TempDir::new("net-highlight-role");
+    let home = TempDir::new("net-highlight-role-home");
+    // Where the window manager takes Alt+click.
+    let mut shell = shell_with_keymap(&dir, &home, "[modifiers]\nnet_highlight_sheet = \"Ctrl\"\n");
+    assert_eq!(
+        shell.modifier_roles().net_highlight_sheet,
+        reda_ui::keymap::Held::Ctrl
+    );
+    let f = fixture(&mut shell);
+    // Alt+click is a plain pick now.
+    assert_eq!(
+        click(&mut shell, 0.0, 200.0, Modifiers::ALT),
+        ["selection.set"]
+    );
+    assert!(shell.highlight().objects.is_empty());
+    assert_eq!(
+        click(&mut shell, 0.0, 200.0, Modifiers::CTRL),
+        ["view.highlight"]
+    );
+    assert!(shell.highlight().objects.contains(&f.b));
+}

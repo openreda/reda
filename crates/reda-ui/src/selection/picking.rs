@@ -169,6 +169,10 @@ pub fn click(
     modifiers: egui::Modifiers,
 ) -> Option<(String, Value)> {
     let objects = stack(shell, document, at, tolerance);
+    // Shift+F waits for this click to pick Select Similar's template.
+    if crate::similar::take_pick(shell, document, &objects) {
+        return None;
+    }
     let how = Combine::of(modifiers);
     if objects.is_empty()
         && (how != Combine::Replace || !shell.preferences().editing.click_clears_selection)

@@ -43,6 +43,7 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         (1, "Snap"),
         (1, "Grid"),
         (1, "Auto-pan"),
+        (1, "Highlight"),
         (1, "HUD"),
         (0, "Schematic"),
         (1, "Wires"),
@@ -143,24 +144,24 @@ fn all_settings_follows_the_search_by_key_and_modified_only() {
     let mut shell = shell_in(home.path());
     let mut dialog = PreferencesDialog::on(PageId::ALL_SETTINGS);
     dialog
-        .set(&mut shell, "pcb.auto_pan", json!(false))
+        .set(&mut shell, "editing.auto_pan.style", json!("off"))
         .unwrap();
-    dialog.query = "pcb.auto".into();
+    dialog.query = "auto_pan.st".into();
     let keys = |d: &PreferencesDialog, s: &Shell| -> Vec<String> {
         d.all_settings(s)
             .into_iter()
             .map(|r| r.setting.key)
             .collect()
     };
-    assert_eq!(keys(&dialog, &shell), ["pcb.auto_pan"]);
+    assert_eq!(keys(&dialog, &shell), ["editing.auto_pan.style"]);
     let row = &dialog.all_settings(&shell)[0];
     assert_eq!(
         (row.value.as_str(), row.default.as_str()),
-        ("false", "true")
+        ("off", "ballistic")
     );
     dialog.query.clear();
     dialog.modified_only = true;
-    assert_eq!(keys(&dialog, &shell), ["pcb.auto_pan"]);
+    assert_eq!(keys(&dialog, &shell), ["editing.auto_pan.style"]);
 }
 
 #[test]
@@ -279,14 +280,17 @@ fn reset_puts_a_setting_back_to_its_default() {
     let mut shell = shell_in(home.path());
     let mut dialog = PreferencesDialog::new();
     dialog
-        .set(&mut shell, "pcb.auto_pan", json!(false))
+        .set(&mut shell, "editing.auto_pan.style", json!("off"))
         .unwrap();
-    assert!(dialog.can_reset(&shell, "pcb.auto_pan"));
+    assert!(dialog.can_reset(&shell, "editing.auto_pan.style"));
     assert!(!dialog.can_reset(&shell, "pcb.electrical_snap"));
-    dialog.reset(&mut shell, "pcb.auto_pan").unwrap();
-    assert!(shell.preferences().pcb.auto_pan);
-    assert!(!prefs_text(home.path()).contains("auto_pan"));
-    assert!(!dialog.can_reset(&shell, "pcb.auto_pan"));
+    dialog.reset(&mut shell, "editing.auto_pan.style").unwrap();
+    assert!(
+        shell.preferences().editing.auto_pan.style
+            == reda_ui::engine::preferences::AutoPanStyle::Ballistic
+    );
+    assert!(!prefs_text(home.path()).contains("style ="));
+    assert!(!dialog.can_reset(&shell, "editing.auto_pan.style"));
 }
 
 #[test]
@@ -346,7 +350,7 @@ fn search_finds_settings_on_every_page_by_name_and_description() {
     );
     assert_eq!(found("COLOUR theme"), ["general.theme"]);
     // By description: "Pan the view when the cursor reaches the canvas edge…".
-    assert!(found("canvas edge").contains(&"pcb.auto_pan".to_owned()));
+    assert!(found("canvas edge").contains(&"editing.auto_pan.style".to_owned()));
     assert!(found("").is_empty());
     assert!(found("no such setting").is_empty());
 }
