@@ -138,6 +138,55 @@ pub fn job_destination(value: String) -> Result<Option<String>, CommandError> {
     Ok(Some(value))
 }
 
+/// The value of each name template token for a run of `job` on `date` (`YYYY-MM-DD`),
+/// with the Fab Preset copy named `preset`.
+pub fn name_values<'a>(
+    project: &'a Project,
+    job: &'a OutputJob,
+    preset: &'a str,
+    date: &'a str,
+) -> impl Fn(&str) -> Option<String> + 'a {
+    move |token: &str| {
+        Some(match token {
+            "project" => project.props().name.clone(),
+            "job" => job.name.clone(),
+            "revision" => project.props().properties.revision.clone(),
+            "date" => date.to_owned(),
+            "preset" => preset.to_owned(),
+            _ => return None,
+        })
+    }
+}
+
+/// The job's destination relative to the Project folder, `/`-separated, with the name
+/// template's tokens resolved by `values`. An empty part (an unset revision) is dropped;
+/// a value that would leave the Project folder is refused, with why.
+pub fn resolve_destination(
+    job: &OutputJob,
+    values: impl Fn(&str) -> Option<String>,
+) -> Result<String, String> {
+    let raw = job.destination();
+    let resolved = match &job.destination {
+        Some(raw) => {
+            reda_model::text::resolve(raw, values).map_err(|e| format!("the destination: {e}"))?
+        }
+        None => raw,
+    };
+    let parts: Vec<&str> = resolved.split('/').filter(|p| !p.is_empty()).collect();
+    let escapes = parts.is_empty()
+        || resolved.contains('\\')
+        || resolved.contains(':')
+        || parts.iter().any(|p| *p == ".." || *p == ".");
+    if escapes {
+        return Err(format!(
+            "Output Job \"{}\": the destination \"{resolved}\" is not a folder inside the \
+             Project folder",
+            job.name
+        ));
+    }
+    Ok(parts.join("/"))
+}
+
 /// The settings `output.job.add` and `output.job.set` share; each one left out keeps the
 /// job's value.
 struct JobSettings {

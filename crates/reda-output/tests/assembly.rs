@@ -1179,3 +1179,44 @@ fn footprintless_mechanical_components_follow_list_unplaced_and_never_free_pads(
         assert_eq!(screw, preset.bom.list_unplaced, "{}: {bom}", preset.name);
     }
 }
+
+#[test]
+fn the_bom_and_cpl_tables_are_the_rows_the_files_are_written_from() {
+    let dir = TempDir::new("assembly-tables");
+    let mut engine = engine(&dir);
+    place(&mut engine, RESISTOR, Some(RESC1608), 3);
+    set(&mut engine, &["R3"], json!({"value": "1k"}));
+    sync(&mut engine);
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let preset = project.fab_presets().next().unwrap().preset();
+    let bom = bom_file(project, pcb, &preset.bom);
+    let headers: Vec<&str> = preset
+        .bom
+        .columns
+        .iter()
+        .map(|c| c.header.as_str())
+        .collect();
+    assert_eq!(bom.table.header, headers);
+    let first: Vec<&str> = bom.table.rows.iter().map(|r| r[0].as_str()).collect();
+    assert_eq!(first, ["R1,R2", "R3"]);
+    let written = text(bom.file.clone());
+    let lines: Vec<&str> = written.lines().skip(1).collect();
+    assert_eq!(lines[1], bom.table.rows[1].join(","));
+    let fills = Default::default();
+    let instances = [reda_output::BoardInstance::single(
+        pcb,
+        &fills,
+        reda_model::FileOrigin::Absolute,
+    )];
+    let cpl = reda_output::cpl_table(project, &instances, &preset.cpl, &preset.bom.mount_values);
+    let file = reda_output::cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
+    let written = text(file);
+    let mut lines = written.lines();
+    assert_eq!(lines.next().unwrap(), cpl.header.join(","));
+    let designators: Vec<&str> = cpl.rows.iter().map(|r| r[0].as_str()).collect();
+    assert_eq!(designators, ["R1", "R2", "R3"]);
+    for (line, row) in lines.zip(&cpl.rows) {
+        assert_eq!(line, row.join(","));
+    }
+}

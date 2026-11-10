@@ -208,6 +208,8 @@ pub struct SettingsDialog {
     buttons: Buttons,
     /// Whether the page tree shows.
     tree: bool,
+    /// The Output Job window's Run button: `None` without one, `Some(true)` once pressed.
+    run: Option<bool>,
 }
 
 impl SettingsDialog {
@@ -224,6 +226,35 @@ impl SettingsDialog {
             undo_scope: Scope::Project,
             buttons: Buttons::OkCancelApply,
             tree: true,
+            run: None,
+        }
+    }
+
+    /// The same dialog with a Run button beside OK, Cancel and Apply (the Output Job
+    /// window's): it is enabled while every value is valid, and pressing it is taken with
+    /// [`SettingsDialog::take_run`].
+    pub fn with_run(mut self) -> Self {
+        self.run = Some(false);
+        self
+    }
+
+    /// Whether the dialog has a Run button.
+    pub fn has_run(&self) -> bool {
+        self.run.is_some()
+    }
+
+    /// Presses Run, as the button does.
+    pub fn request_run(&mut self) {
+        if self.run.is_some() {
+            self.run = Some(true);
+        }
+    }
+
+    /// Whether Run was pressed since this was last called.
+    pub fn take_run(&mut self) -> bool {
+        match &mut self.run {
+            Some(pressed) => std::mem::take(pressed),
+            None => false,
         }
     }
 
@@ -300,6 +331,19 @@ impl SettingsDialog {
             .iter_mut()
             .filter_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
             .find(|p| pick(p))
+    }
+
+    /// Shows the first page of type `T` that `pick` accepts; false when there is none.
+    pub fn select_where<T: Page>(&mut self, pick: impl Fn(&T) -> bool) -> bool {
+        let found = self.pages.iter().position(|p| {
+            (p.as_ref() as &dyn Any)
+                .downcast_ref::<T>()
+                .is_some_and(&pick)
+        });
+        if let Some(i) = found {
+            self.selected = i;
+        }
+        found.is_some()
     }
 
     /// The page of type `T`.
