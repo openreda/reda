@@ -26,7 +26,6 @@ Files in the zip
   Minimal.gbs
   Minimal.gtp
   Minimal.gto
-  Minimal.gbo
   Minimal.gm1
   Minimal-PTH.drl
   Minimal-fab-notes.txt

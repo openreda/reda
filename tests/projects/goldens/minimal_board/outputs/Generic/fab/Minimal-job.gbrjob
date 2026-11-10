@@ -51,11 +51,6 @@
       "FilePolarity": "Positive"
     },
     {
-      "Path": "Minimal.gbo",
-      "FileFunction": "Legend,Bot",
-      "FilePolarity": "Positive"
-    },
-    {
       "Path": "Minimal.gm1",
       "FileFunction": "Profile,NP",
       "FilePolarity": "Positive"

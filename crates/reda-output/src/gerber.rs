@@ -219,7 +219,8 @@ pub(crate) struct Gerber {
     dark: bool,
     /// The object attributes in force, as last set.
     object_attributes: Vec<(String, String)>,
-    /// How many objects (flashes, draws, regions) the file holds.
+    /// How many dark objects (flashes, draws, regions) the file holds: clear objects put
+    /// no ink down, so a file of only clear objects is empty.
     objects: usize,
     /// The first point written that the format can't hold, in output coordinates.
     out_of_range: Option<Point>,
@@ -257,7 +258,7 @@ impl Gerber {
         self.transform = transform;
     }
 
-    /// Whether nothing has been plotted yet.
+    /// Whether no dark object has been plotted yet.
     pub(crate) fn is_empty(&self) -> bool {
         self.objects == 0
     }
@@ -360,7 +361,6 @@ impl Gerber {
         self.select(template.rotated(self.transform.rotation), NO_FUNCTION);
         self.attributes(&[]);
         self.at(self.transform.point(at), 3);
-        self.objects += 1;
     }
 
     /// Draws a straight line (`sweep` zero) or an arc with a round pen of `width`.
@@ -543,7 +543,9 @@ impl Gerber {
         if function != NO_FUNCTION {
             attribute(&mut self.body, self.x2, "TD.AperFunction");
         }
-        self.objects += 1;
+        if self.dark {
+            self.objects += 1;
+        }
     }
 
     /// The finished file: `file_attributes` (`(".FileFunction", "Copper,L1,Top")`, …,

@@ -27,10 +27,6 @@
         "path": "fab/Minimal.gto"
       },
       {
-        "function": "silkscreen_bottom",
-        "path": "fab/Minimal.gbo"
-      },
-      {
         "function": "profile",
         "path": "fab/Minimal.gm1"
       },
@@ -84,6 +80,10 @@
       {
         "function": "paste_bottom",
         "name": "Minimal.gbp"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "Minimal.gbo"
       },
       {
         "function": "drill_non_plated",
