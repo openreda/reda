@@ -296,6 +296,26 @@ fn icon_button_toggled(
     icon: f32,
     toggled: Option<bool>,
 ) -> Option<Invocation> {
+    icon_button_with(ui, cx, action, side, icon, toggled).0
+}
+
+/// An Active Bar button for `action`, with its response (a group's button adds its menu).
+pub(super) fn icon_button_response(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    action: &Action,
+) -> (Option<Invocation>, egui::Response) {
+    icon_button_with(ui, cx, action, chrome::BAR_BUTTON, icons::TOOLBAR, None)
+}
+
+fn icon_button_with(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    action: &Action,
+    side: f32,
+    icon: f32,
+    toggled: Option<bool>,
+) -> (Option<Invocation>, egui::Response) {
     let theme = ui.ctx().theme();
     let mut clicked = None;
     let item = resolve_for(cx.shell, action, cx.document);
@@ -351,7 +371,7 @@ fn icon_button_toggled(
         selected,
         shortcut.as_deref(),
     );
-    clicked
+    (clicked, response)
 }
 
 /// How far below the canvas top the Active Bar floats.
@@ -427,6 +447,17 @@ pub fn active_bar_fit(items: &[Item], width: f32) -> usize {
         .unwrap_or(0)
 }
 
+/// How many of the Active Bar's `items` show on a canvas `width` points wide, when
+/// `popups` pop-up buttons (the Selection Filter and the snap palette) follow them; the
+/// rest go in the More Tools menu. `None` when the canvas is too narrow for even the More
+/// Tools button and the pop-ups, so the bar hides instead of being clipped.
+pub fn active_bar_layout(items: &[Item], width: f32, popups: usize) -> Option<usize> {
+    let tail = popups as f32 * (chrome::BAR_SPACING + chrome::BAR_BUTTON);
+    let shown = active_bar_fit(items, width - tail);
+    let minimal = chrome::BAR_BUTTON + tail + 2.0 * ACTIVE_BAR_INSET + ACTIVE_BAR_FRAME;
+    (shown > 0 || width >= minimal).then_some(shown)
+}
+
 /// The Active Bar of the canvas `id`, floating at the top centre of its rect `canvas`.
 /// What does not fit on a narrow canvas goes in a menu at the end of the row.
 pub fn active_bar(
@@ -436,23 +467,45 @@ pub fn active_bar(
     id: Id,
     canvas: Rect,
 ) -> Option<Invocation> {
-    let items = &bars.active_bar;
+    // Grouped by Preference, where the Document type lists groups.
+    let grouped = cx
+        .document
+        .and_then(|d| super::document_type(cx.shell, d))
+        .filter(|_| cx.shell.preferences().display.group_active_bar_tools)
+        .filter(|_| !bars.active_bar_groups.is_empty());
+    let items = match grouped {
+        Some(_) => &bars.active_bar_groups,
+        None => &bars.active_bar,
+    };
     if items.is_empty() {
         return None;
     }
-    let shown = active_bar_fit(
-        items,
-        canvas.width() - chrome::BAR_BUTTON - chrome::BAR_SPACING,
-    );
+    let popups = if cx.document.is_some() { 2 } else { 0 };
+    let Some(shown) = active_bar_layout(items, canvas.width(), popups) else {
+        // Too narrow for even More Tools and the pop-ups: hidden rather than clipped.
+        return None;
+    };
     let (row, rest) = items.split_at(shown);
     let rest = &rest[rest
         .iter()
         .take_while(|i| matches!(i, Item::Separator))
         .count()..];
+    let width = row_width(row)
+        + ACTIVE_BAR_FRAME
+        + (popups + usize::from(!rest.is_empty())) as f32
+            * (chrome::BAR_SPACING + chrome::BAR_BUTTON)
+        - if row.is_empty() {
+            chrome::BAR_SPACING
+        } else {
+            0.0
+        };
     egui::Area::new(id.with("active-bar"))
         .order(Order::Middle)
-        .fixed_pos(canvas.center_top() + Vec2::new(0.0, ACTIVE_BAR_TOP))
-        .pivot(Align2::CENTER_TOP)
+        // Placed by its own width, which is known, rather than pivoted on its centre:
+        // a pivot uses the last frame's size, so a bar that changed (the Preference
+        // grouping it) would sit off centre, and away from its buttons, for a frame.
+        .fixed_pos(canvas.center_top() + Vec2::new(-0.5 * width, ACTIVE_BAR_TOP))
+        .pivot(Align2::LEFT_TOP)
         .constrain_to(canvas.shrink2(Vec2::new(ACTIVE_BAR_INSET, 0.0)))
         .show(ui.ctx(), |ui| {
             egui::Frame::window(ui.style())
@@ -460,7 +513,10 @@ pub fn active_bar(
                 .corner_radius(egui::CornerRadius::same(5))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let mut clicked = icon_row(ui, cx, row);
+                        let mut clicked = match grouped {
+                            Some(ty) => grouped_row(ui, cx, ty, row),
+                            None => icon_row(ui, cx, row),
+                        };
                         if !rest.is_empty() {
                             clicked = clicked.or(more_tools(ui, cx, rest));
                         }
@@ -476,6 +532,25 @@ pub fn active_bar(
                 .inner
         })
         .inner
+}
+
+/// A grouped Active Bar's row: a group's button for each group, else the item's own.
+fn grouped_row(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    ty: super::DocumentType,
+    items: &[Item],
+) -> Option<Invocation> {
+    let mut clicked = None;
+    ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
+    for item in items {
+        let run = match item {
+            Item::Submenu(group) => super::groups::button(ui, cx, ty, group),
+            other => icon_row(ui, cx, std::slice::from_ref(other)),
+        };
+        clicked = clicked.or(run);
+    }
+    clicked
 }
 
 /// The Active Bar's "More Tools" button, whose menu holds the items that did not fit.
