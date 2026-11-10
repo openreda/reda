@@ -2573,6 +2573,7 @@ change-list-group-rename-nets = Rename Nets
 change-list-group-remove-nets = Remove Nets
 change-list-group-pad-nets = Pad Nets
 change-list-blocked = Apply is blocked: { $message }
+change-list-stale = The design changed since this list was made, so nothing was applied. The list is refreshed: check it and Apply again.
 change-list-note = Note: { $message }
 change-list-problem = Can't apply: { $message }
 change-add-component = Add { $designator } ({ $footprint })

@@ -24,6 +24,9 @@ enum MenuAction {
 
 impl ChangeListPage {
     pub(super) fn draw(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
+        if self.stale {
+            ui.colored_label(ui.visuals().warn_fg_color, tr!("change-list-stale"));
+        }
         if let Some(block) = &self.list.duplicate_nets {
             ui.colored_label(
                 ui.visuals().error_fg_color,

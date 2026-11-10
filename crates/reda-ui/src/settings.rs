@@ -99,6 +99,13 @@ pub trait Page: Any {
     /// The page's invalid values.
     fn problems(&self) -> Vec<Problem>;
 
+    /// Apply was refused with `conflict` because the page's data went stale. A page that
+    /// can refresh from `project` and say so itself returns true, and the dialog shows no
+    /// error of its own.
+    fn conflict(&mut self, _project: &Project) -> bool {
+        false
+    }
+
     /// Draws the page's content.
     fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>);
 
@@ -457,7 +464,15 @@ impl SettingsDialog {
                 Ok(())
             }
             Err(e) => {
-                self.error = Some(e.message.clone());
+                let handled = e.code == reda_engine::command::ErrorCode::Conflict
+                    && shell.engine().project().is_some_and(|project| {
+                        let mut handled = false;
+                        for page in &mut self.pages {
+                            handled |= page.conflict(project);
+                        }
+                        handled
+                    });
+                self.error = (!handled).then(|| e.message.clone());
                 Err(e)
             }
         }
