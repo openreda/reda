@@ -625,7 +625,7 @@ impl Cx<'_> {
 
 /// How many clicks `tool` takes for one shape; `None` for a polygon, which closes on its
 /// first corner or Enter.
-fn corners(tool: Tool) -> Option<usize> {
+pub(crate) fn corners(tool: Tool) -> Option<usize> {
     match tool {
         Tool::Line | Tool::Rect | Tool::Circle => Some(2),
         Tool::Arc => Some(3),
@@ -635,7 +635,7 @@ fn corners(tool: Tool) -> Option<usize> {
 
 /// The shape `tool` draws through `points`, or `None` when they make none (a circle of
 /// no size, an arc of no sweep).
-fn shape_of(tool: Tool, points: &[Point]) -> Option<Value> {
+pub(crate) fn shape_of(tool: Tool, points: &[Point]) -> Option<Value> {
     let p = |i: usize| json_point(points[i]);
     Some(match tool {
         Tool::Line => json!({"kind": "line", "start": p(0), "end": p(1)}),
@@ -882,7 +882,12 @@ pub struct UnitShowParams {
     /// The open Symbol.
     symbol: Uuid,
     /// One of its Units.
-    unit: Uuid,
+    #[serde(default)]
+    unit: Option<Uuid>,
+    /// Instead of `unit`: the Unit this many places after the shown one (negative
+    /// before), wrapping round (the Active Bar's Previous Unit and Next Unit).
+    #[serde(default)]
+    step: Option<i64>,
 }
 
 /// The Symbol and the Unit it now shows.
@@ -897,7 +902,9 @@ impl Command for UnitShow {
         id: "library.symbol.unit.show",
         title: "Show Unit",
         description: "Shows one Unit of an open Symbol in its editor, as clicking its Unit \
-                      tab does. The editor's Tools then draw on that Unit.",
+                      tab does, or with `step` the next (1) or previous (-1) Unit, as the \
+                      Active Bar's Unit buttons do. The editor's Tools then draw on that \
+                      Unit.",
         category: "library",
         icon: "symbol_edit",
         kind: Kind::View,
@@ -916,10 +923,33 @@ impl Command for UnitShow {
                 )));
             }
         };
-        if !symbol.units.iter().any(|u| u.uuid == p.unit) {
+        let unit = match (p.unit, p.step) {
+            (Some(unit), _) => unit,
+            (None, Some(step)) => {
+                let shown = cx
+                    .view::<SymbolEditorState>()?
+                    .canvases
+                    .get(&p.symbol)
+                    .and_then(|c| c.unit);
+                let at = shown
+                    .and_then(|u| symbol.units.iter().position(|x| x.uuid == u))
+                    .unwrap_or(0) as i64;
+                let n = symbol.units.len() as i64;
+                if n == 0 {
+                    return Err(CommandError::rejected("the Symbol has no Unit"));
+                }
+                symbol.units[(at + step).rem_euclid(n) as usize].uuid
+            }
+            (None, None) => {
+                return Err(CommandError::invalid_params(
+                    "/unit",
+                    "name the Unit, or a `step` from the shown one",
+                ));
+            }
+        };
+        if !symbol.units.iter().any(|u| u.uuid == unit) {
             return Err(CommandError::not_found(format!(
-                "the Symbol has no Unit {}",
-                p.unit
+                "the Symbol has no Unit {unit}"
             )));
         }
         let canvas = cx
@@ -927,12 +957,12 @@ impl Command for UnitShow {
             .canvases
             .entry(p.symbol)
             .or_default();
-        canvas.unit = Some(p.unit);
+        canvas.unit = Some(unit);
         canvas.interaction = Interaction::Idle;
         canvas.text = None;
         Ok(UnitShown {
             symbol: p.symbol,
-            unit: p.unit,
+            unit,
         })
     }
 }

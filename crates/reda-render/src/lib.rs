@@ -34,7 +34,7 @@ pub use layers::{
     Composite, DIMMED_OPACITY, InactiveLayers, LayerView, NORMAL_OPACITY, board_composites,
 };
 pub use pcb::{
-    BoardGeometry, BoardGraphic, BoardPad, BoardStyle, BoardText, NET_COLOR_ZOOM_OUT,
+    BoardGeometry, BoardGraphic, BoardOpening, BoardPad, BoardStyle, BoardText, NET_COLOR_ZOOM_OUT,
     NetColorPattern, NetColorStyle, NetColorZoomOut, NetLabels, RatsnestLine, SheetLabel,
     ZoneFillState, pcb_scene, pcb_scene_styled,
 };

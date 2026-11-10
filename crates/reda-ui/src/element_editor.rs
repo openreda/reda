@@ -247,6 +247,16 @@ pub(crate) fn active_symbol(shell: &Shell) -> Option<Uuid> {
     .then_some(active)
 }
 
+/// The active Document, when it is an open Footprint.
+pub(crate) fn active_footprint(shell: &Shell) -> Option<Uuid> {
+    let active = shell.layout().active_document()?;
+    matches!(
+        shell.engine().element(active),
+        Some(LibraryElement::Footprint(_))
+    )
+    .then_some(active)
+}
+
 /// Runs the Library check on the active element, if the active Document is one, after a
 /// save: Save writes the file and the check's findings show in Messages.
 pub(crate) fn check_after_save(shell: &mut Shell) {
@@ -315,6 +325,17 @@ pub(crate) fn text_field(
     current: &str,
     width: f32,
 ) -> Option<String> {
+    text_field_with(ui, id, label, current, width).0
+}
+
+/// [`text_field`], also giving back the field's response (to mark or hover it).
+pub(crate) fn text_field_with(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    label: &str,
+    current: &str,
+    width: f32,
+) -> (Option<String>, egui::Response) {
     let mut draft = ui
         .data(|d| d.get_temp::<String>(id))
         .unwrap_or_else(|| current.to_owned());
@@ -329,8 +350,9 @@ pub(crate) fn text_field(
         || (response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
     if response.has_focus() && !committed {
         ui.data_mut(|d| d.insert_temp(id, draft));
-        return None;
+        return (None, response);
     }
     ui.data_mut(|d| d.remove::<String>(id));
-    (committed && draft.trim() != current).then(|| draft.trim().to_owned())
+    let typed = (committed && draft.trim() != current).then(|| draft.trim().to_owned());
+    (typed, response)
 }

@@ -171,6 +171,16 @@ fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke,
 
 /// Draws one Unit of `symbol` (the first when `unit` is none): its graphics and Pins.
 pub fn symbol(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>) {
+    symbol_drawn(ui, symbol, unit, &[]);
+}
+
+/// [`symbol`]'s first Unit with the Pins numbered in `lit` marked: the Part editor's
+/// side of the Pins Panel cross-probe.
+pub fn symbol_probed(ui: &mut Ui, symbol: &Symbol, lit: &[String]) {
+    symbol_drawn(ui, symbol, None, lit);
+}
+
+fn symbol_drawn(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>, lit: &[String]) {
     let Some(unit) = unit.or_else(|| symbol.units.first().map(|u| u.uuid)) else {
         return;
     };
@@ -197,12 +207,57 @@ pub fn symbol(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>) {
         draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
     }
     let pin_colour = ui.visuals().weak_text_color();
+    let lit_colour = ui.visuals().selection.stroke.color;
     for pin in &pins {
+        let on = lit.contains(&pin.number);
+        let (width, colour) = if on {
+            (3.0, lit_colour)
+        } else {
+            (1.0, pin_colour)
+        };
         painter.line_segment(
             [fit.pos(pin.at), fit.pos(pin_end(pin))],
-            Stroke::new(1.0, pin_colour),
+            Stroke::new(width, colour),
         );
+        if on {
+            painter.circle_stroke(fit.pos(pin.at), 4.0, Stroke::new(1.5, lit_colour));
+        }
     }
+}
+
+/// [`footprint`] with the Pads numbered in `lit` ringed, giving back the number of the
+/// Pad under the pointer: the Part editor's side of the Pins Panel cross-probe.
+pub fn footprint_probed(ui: &mut Ui, footprint: &Footprint, lit: &[String]) -> Option<String> {
+    let (painter, fit) = footprint_fitted(ui, footprint, HEIGHT, MARGIN)?;
+    let pointer = ui
+        .ctx()
+        .pointer_hover_pos()
+        .filter(|p| painter.clip_rect().contains(*p));
+    let ring = ui.visuals().selection.stroke.color;
+    let mut hovered = None;
+    for pad in &footprint.pads {
+        let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
+        let (w, h) = if quarter {
+            (pad.height, pad.width)
+        } else {
+            (pad.width, pad.height)
+        };
+        let centre = pad.outline().center + pad.at;
+        let c = fit.pos(centre.rotated_about(pad.at, pad.rotation));
+        let r = Rect::from_center_size(c, Vec2::new(fit.len(w), fit.len(h)).max(Vec2::splat(4.0)));
+        if lit.contains(&pad.number) {
+            painter.rect_stroke(
+                r.expand(2.0),
+                2.0,
+                Stroke::new(2.0, ring),
+                egui::StrokeKind::Outside,
+            );
+        }
+        if pointer.is_some_and(|p| r.contains(p)) && !pad.number.is_empty() {
+            hovered = Some(pad.number.clone());
+        }
+    }
+    hovered
 }
 
 fn layer_colour(ui: &Ui, layer: FootprintLayer) -> Color32 {

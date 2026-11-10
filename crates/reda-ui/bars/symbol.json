@@ -24,6 +24,7 @@
       "items": [
         { "id": "edit.delete", "command": "library.symbol.delete", "params": { "symbol": "$active_document", "objects": "$selection" }, "title": "menu-edit-delete" },
         { "id": "edit.select_all", "command": "selection.set", "params": { "objects": "$selectable" } },
+        { "id": "edit.paste_array", "command": "library.paste_array", "params": { "element": "$active_document", "objects": "$selection" }, "title": "menu-edit-paste-array" },
         "separator",
         { "id": "edit.add_unit", "command": "library.symbol.unit.add", "params": { "symbol": "$active_document" } }
       ]
@@ -71,6 +72,11 @@
     { "id": "active_bar.pin", "command": "tool.activate:pin" },
     { "id": "active_bar.line", "command": "tool.activate:line" },
     { "id": "active_bar.rect", "command": "tool.activate:rect" },
-    { "id": "active_bar.text", "command": "tool.activate:text" }
+    { "id": "active_bar.arc", "command": "tool.activate:arc" },
+    { "id": "active_bar.polygon", "command": "tool.activate:polygon" },
+    { "id": "active_bar.text", "command": "tool.activate:text" },
+    "separator",
+    { "id": "active_bar.unit_previous", "command": "library.symbol.unit.show", "params": { "symbol": "$active_document", "step": -1 }, "title": "active-bar-unit-previous", "icon": "tab" },
+    { "id": "active_bar.unit_next", "command": "library.symbol.unit.show", "params": { "symbol": "$active_document", "step": 1 }, "title": "active-bar-unit-next", "icon": "tab_move" }
   ]
 }

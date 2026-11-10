@@ -349,6 +349,14 @@ pub struct ToolActivateParams {
     /// For the Power Port Tool: the Net name it places, such as `3V3` (a Power Port
     /// Preset). GND when left out.
     name: Option<String>,
+    /// Footprint editor: the kind of Pad the Pad Tool places from now on (the SMD Pad
+    /// and through-hole Pad Presets).
+    #[serde(default)]
+    pad_kind: Option<reda_engine::model::PadKind>,
+    /// Footprint editor: the Layer the drawing Tools draw on from now on (the Courtyard
+    /// Preset).
+    #[serde(default)]
+    layer: Option<reda_engine::model::FootprintLayer>,
 }
 
 /// The Tool now active.
@@ -385,8 +393,10 @@ impl Command for ToolActivate {
                       suspended by another Tool and comes back when that Tool finishes with \
                       Select (Escape), one level deep; Select during the run itself ends \
                       the run and keeps the Wire Tool. On a Footprint, Pad \
-                      places Pads, Line, Rect and Circle draw on the drawing Layer and \
-                      Origin moves the origin. On a Symbol, Pin places Pins and Line, Rect, \
+                      places Pads (`pad_kind` sets SMD or through-hole), Line, Rect, Circle, \
+                      Arc and Polygon draw on the drawing Layer (`layer` sets it: the \
+                      Courtyard Preset draws a courtyard polygon), Text places a field text, \
+                      Measure measures between two clicks and Origin moves the origin. On a Symbol, Pin places Pins and Line, Rect, \
                       Arc, Circle, Polygon and Text draw on the shown Unit.",
         category: "tool",
         icon: "select",
@@ -429,6 +439,24 @@ impl Command for ToolActivate {
                 json!({"tool": "no_connect"}),
             ),
             Preset::new("pad", "Place Pad", "pad", json!({"tool": "pad"})),
+            Preset::new(
+                "smd_pad",
+                "SMD Pad",
+                "pad",
+                json!({"tool": "pad", "pad_kind": "smd"}),
+            ),
+            Preset::new(
+                "th_pad",
+                "Through-Hole Pad",
+                "via",
+                json!({"tool": "pad", "pad_kind": "plated_through_hole"}),
+            ),
+            Preset::new(
+                "courtyard",
+                "Courtyard",
+                "polygon",
+                json!({"tool": "polygon", "layer": "courtyard_top"}),
+            ),
             Preset::new("circle", "Draw Circle", "circle", json!({"tool": "circle"})),
             Preset::new("origin", "Set Origin", "origin", json!({"tool": "origin"})),
             Preset::new("pin", "Place Pin", "pin", json!({"tool": "pin"})),
@@ -500,6 +528,17 @@ impl Command for ToolActivate {
             return Ok(ToolActivateResult { tool, run });
         }
         cx.view::<ActiveTool>()?.0 = tool;
+        if p.pad_kind.is_some() || p.layer.is_some() {
+            let settings = &mut cx
+                .view::<crate::footprint_editor::FootprintEditorState>()?
+                .settings;
+            if let Some(kind) = p.pad_kind {
+                settings.pad.kind = kind;
+            }
+            if let Some(layer) = p.layer {
+                settings.layer = layer;
+            }
+        }
         cx.view::<PowerPortName>()?.0 = match tool {
             Tool::PowerPort => p.name,
             _ => None,

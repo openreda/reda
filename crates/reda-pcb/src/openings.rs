@@ -66,6 +66,31 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
     out
 }
 
+/// The openings of a Library Footprint's Pads, unplaced at its own origin (top side up),
+/// from `pcb`'s rules: the Footprint editor's mask and paste preview.
+pub fn element_openings(pcb: &PcbDocument, footprint: &reda_model::Footprint) -> Vec<Opening> {
+    let mut out = Vec::new();
+    for pad in &footprint.pads {
+        let placed = PlacedPad {
+            pad: pad.uuid,
+            number: pad.number.clone(),
+            kind: pad.kind,
+            shape: pad.shape,
+            at: pad.at,
+            rotation: pad.rotation,
+            outline: pad.outline(),
+            hole: pad.hole,
+            side: pad.copper_side(),
+            net: None,
+            mask: pad.mask,
+            paste: pad.paste.clone(),
+            zone_connection: pad.zone_connection,
+        };
+        pad_openings(pcb, &placed, vec![pad.uuid], false, &mut out);
+    }
+    out
+}
+
 fn flag(pcb: &PcbDocument, net: Option<Uuid>, field: RuleField) -> bool {
     rule_value(pcb, net, RuleKind::MaskExpansion, field)
         .and_then(|r| r.value.flag())

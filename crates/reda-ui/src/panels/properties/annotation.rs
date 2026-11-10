@@ -71,6 +71,24 @@ pub(super) fn show(
             }
         });
     }
+    if let Some(free) = one_free_pad(project, selection) {
+        region(
+            ui,
+            shell,
+            "free-pad",
+            tr!("properties-region-free-pad"),
+            |ui| {
+                let pad = crate::pad_form::from_free(&free);
+                let id = egui::Id::NULL.with(("properties-free-pad", free.uuid));
+                let enabled = !free.locked;
+                for edit in crate::pad_form::draw::rows(ui, id, &pad, false, enabled, units) {
+                    if let Some((id, params)) = crate::pad_form::free_pad_command(&free, &edit) {
+                        out.push(Out::Run(id, params));
+                    }
+                }
+            },
+        );
+    }
     let protect = shell.preferences().editing.protect_locked_primitives;
     if let Some(rows) = FootprintGraphics::of(project, selection, protect) {
         region(
@@ -87,6 +105,20 @@ pub(super) fn show(
             },
         );
     }
+}
+
+/// The one Free Pad selected, alone.
+fn one_free_pad(
+    project: &Project,
+    selection: &crate::selection::Selection,
+) -> Option<reda_engine::model::FreePad> {
+    let [one] = selection.objects[..] else {
+        return None;
+    };
+    if !selection.pads.is_empty() {
+        return None;
+    }
+    project.pcb()?.free_pad(one).cloned()
 }
 
 /// A labelled drop-down of `options`, with `<mixed>` when the selection differs; returns

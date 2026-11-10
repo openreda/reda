@@ -132,8 +132,11 @@ impl PadTemplate {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToolSettings {
     pub pad: PadTemplate,
-    /// The Layer Line, Rect and Circle draw on.
+    /// The Layer Line, Rect, Circle, Arc and Polygon draw on, and Text places on (on the
+    /// Silkscreen of the same side for a Courtyard Layer).
     pub layer: FootprintLayer,
+    /// The field the Text Tool's text shows: `Designator`, `Value` or any field name.
+    pub text_field: String,
 }
 
 impl Default for ToolSettings {
@@ -141,6 +144,7 @@ impl Default for ToolSettings {
         ToolSettings {
             pad: PadTemplate::default(),
             layer: FootprintLayer::SilkscreenTop,
+            text_field: reda_engine::model::DESIGNATOR_FIELD.to_owned(),
         }
     }
 }
@@ -164,6 +168,16 @@ pub enum Interaction {
     },
     /// A line, rectangle or circle being dragged out, snapped.
     Drawing { tool: Tool, from: Point, to: Point },
+    /// An arc (centre, start, end) or polygon being clicked out, corner by corner; `at`
+    /// is the pointer.
+    Drafting {
+        tool: Tool,
+        points: Vec<Point>,
+        at: Point,
+    },
+    /// Measure: from the first click to the pointer, or to the second click once
+    /// `done`.
+    Measuring { from: Point, to: Point, done: bool },
 }
 
 /// The Footprint editor's view state: the Tools' settings and each canvas's interaction.
@@ -219,9 +233,12 @@ pub struct ToolSetParams {
     /// What the Pad Tool places.
     #[serde(default)]
     pub pad: Option<PadTemplate>,
-    /// The Layer Line, Rect and Circle draw on.
+    /// The Layer Line, Rect, Circle, Arc and Polygon draw on.
     #[serde(default)]
     pub layer: Option<FootprintLayer>,
+    /// The field the Text Tool places.
+    #[serde(default)]
+    pub text_field: Option<String>,
 }
 
 struct ToolSet;
@@ -248,7 +265,11 @@ impl Command for ToolSet {
         if let Some(layer) = p.layer {
             settings.layer = layer;
         }
-        Ok(json!({ "pad": settings.pad, "layer": settings.layer }))
+        if let Some(field) = p.text_field.filter(|f| !f.trim().is_empty()) {
+            settings.text_field = field.trim().to_owned();
+        }
+        Ok(json!({ "pad": settings.pad, "layer": settings.layer,
+                   "text_field": settings.text_field }))
     }
 }
 
@@ -327,6 +348,46 @@ pub fn pointer(
     }
     show(shell, element, state, hovered, cursor);
     commands
+}
+
+/// Closes the polygon being clicked out on the Footprint canvas `element` (Enter): the
+/// Command that adds it, if it has three corners.
+pub fn finish(shell: &mut Shell, element: Uuid) -> Option<Invocation> {
+    let Interaction::Drafting {
+        tool: Tool::Polygon,
+        points,
+        ..
+    } = state(shell).canvases.get(&element).cloned()?
+    else {
+        return None;
+    };
+    let shape =
+        (points.len() >= 3).then(|| crate::symbol_editor::shape_of(Tool::Polygon, &points))??;
+    let cursor = shell.document_tab(element).and_then(|t| t.cursor);
+    show(shell, element, Interaction::Idle, None, cursor);
+    Some(graphic_add(shell, element, shape))
+}
+
+/// The `library.footprint.graphic.add` of `shape` on the drawing Layer.
+fn graphic_add(shell: &Shell, element: Uuid, shape: Value) -> Invocation {
+    let layer = tool_settings(shell).layer;
+    (
+        "library.footprint.graphic.add".to_owned(),
+        json!({"footprint": element, "layer": layer, "shape": shape}),
+    )
+}
+
+/// The distance Measure shows from `from` to `to`, for the status bar.
+pub fn measure_note(from: Point, to: Point) -> String {
+    let mm = |n: i64| crate::pcb::view::format_length(Nm(n), reda_engine::preferences::Units::Mm);
+    let (dx, dy) = (to.x.0 - from.x.0, to.y.0 - from.y.0);
+    let d = (dx as f64).hypot(dy as f64).round() as i64;
+    crate::tr!(
+        "footprint-measure-note",
+        distance = mm(d),
+        dx = mm(dx.abs()),
+        dy = mm(dy.abs())
+    )
 }
 
 /// Drops whatever is in flight on the Footprint canvas `element` (Escape).
@@ -435,6 +496,32 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Drafting { points, at, .. } => {
+            let mut corners = points.clone();
+            corners.push(*at);
+            (
+                Vec::new(),
+                (0.0, 0.0),
+                Overlay {
+                    wires: corners
+                        .windows(2)
+                        .map(|w| (w[0], w[1]))
+                        .collect::<Vec<_>>()
+                        .into(),
+                    cursor: Some(*at),
+                    ..Overlay::default()
+                },
+            )
+        }
+        Interaction::Measuring { from, to, .. } => (
+            Vec::new(),
+            (0.0, 0.0),
+            Overlay {
+                wires: vec![(*from, *to)].into(),
+                cursor: Some(*to),
+                ..Overlay::default()
+            },
+        ),
     };
     if !tab.live.shows(hovered, &moving, &[]) {
         tab.live = LiveHandle::new(hovered, &moving, &[]);
@@ -480,7 +567,14 @@ impl Cx<'_> {
     /// Drops a drawing whose Tool is no longer active.
     fn sync_tool(&self, state: Interaction) -> Interaction {
         match state {
-            Interaction::Drawing { tool, .. } if tool != self.shell.tool() => Interaction::Idle,
+            Interaction::Drawing { tool, .. } | Interaction::Drafting { tool, .. }
+                if tool != self.shell.tool() =>
+            {
+                Interaction::Idle
+            }
+            Interaction::Measuring { .. } if self.shell.tool() != Tool::Measure => {
+                Interaction::Idle
+            }
             Interaction::Moving { .. } | Interaction::Boxing { .. }
                 if self.shell.tool() != Tool::Select =>
             {
@@ -497,13 +591,15 @@ impl Cx<'_> {
         hovered: &mut Option<Uuid>,
     ) -> Interaction {
         match self.shell.tool() {
-            Tool::Pad | Tool::Origin => {
+            Tool::Pad | Tool::Origin | Tool::Text => {
                 if let Pointer::Click { at, .. } = event {
                     self.click_tool(at);
                 }
                 Interaction::Idle
             }
             tool @ (Tool::Line | Tool::Rect | Tool::Circle) => self.draw(tool, state, event),
+            tool @ (Tool::Arc | Tool::Polygon) => self.draft(tool, state, event),
+            Tool::Measure => self.measure(state, event),
             _ => self.select_step(state, event, hovered),
         }
     }
@@ -525,6 +621,15 @@ impl Cx<'_> {
                     .pad
                     .params(self.element, &number, at);
                 self.run("library.footprint.pad.add", params);
+            }
+            Tool::Text => {
+                let settings = tool_settings(self.shell);
+                self.run(
+                    "library.footprint.text.add",
+                    json!({"footprint": self.element, "field": settings.text_field,
+                           "at": {"x": at.x.0, "y": at.y.0},
+                           "layer": inspector::text_layer(settings.layer)}),
+                );
             }
             Tool::Origin => {
                 self.run(
@@ -556,6 +661,91 @@ impl Cx<'_> {
                 let to = self.snap(at);
                 self.add_graphic(tool, from, to);
                 Interaction::Idle
+            }
+            (state, _) => state,
+        }
+    }
+
+    /// Arc and Polygon: each click adds a corner; an arc is done after three (centre,
+    /// start, end), a polygon on a click on its first corner or Enter ([`finish`]).
+    fn draft(&mut self, tool: Tool, state: Interaction, event: Pointer) -> Interaction {
+        if self.read_only {
+            return Interaction::Idle;
+        }
+        let mut points = match state {
+            Interaction::Drafting {
+                tool: t, points, ..
+            } if t == tool => points,
+            _ => Vec::new(),
+        };
+        let at = match event {
+            Pointer::Click { at, .. } => self.snap(at),
+            Pointer::Hover(at) | Pointer::Drag(at) => {
+                if points.is_empty() {
+                    return Interaction::Idle;
+                }
+                let at = self.snap(at);
+                return Interaction::Drafting { tool, points, at };
+            }
+            _ if points.is_empty() => return Interaction::Idle,
+            _ => {
+                let at = *points.last().expect("not empty");
+                return Interaction::Drafting { tool, points, at };
+            }
+        };
+        if points.last() == Some(&at) {
+            return Interaction::Drafting { tool, points, at };
+        }
+        let closes = tool == Tool::Polygon && points.len() >= 3 && points[0] == at;
+        if !closes {
+            points.push(at);
+        }
+        let needed = crate::symbol_editor::corners(tool);
+        if !closes && needed.is_none_or(|n| points.len() < n) {
+            return Interaction::Drafting { tool, points, at };
+        }
+        if let Some(shape) = crate::symbol_editor::shape_of(tool, &points) {
+            let (id, params) = graphic_add(self.shell, self.element, shape);
+            self.run(&id, params);
+        }
+        Interaction::Idle
+    }
+
+    /// Measure: a click starts, the second click ends and shows the distance; a third
+    /// click starts again.
+    fn measure(&mut self, state: Interaction, event: Pointer) -> Interaction {
+        match (state, event) {
+            (
+                Interaction::Measuring {
+                    from, done: false, ..
+                },
+                Pointer::Hover(at),
+            ) => Interaction::Measuring {
+                from,
+                to: self.snap(at),
+                done: false,
+            },
+            (
+                Interaction::Measuring {
+                    from, done: false, ..
+                },
+                Pointer::Click { at, .. },
+            ) => {
+                let to = self.snap(at);
+                self.shell.set_note(measure_note(from, to));
+                Interaction::Measuring {
+                    from,
+                    to,
+                    done: true,
+                }
+            }
+            (_, Pointer::Click { at, .. }) => {
+                let from = self.snap(at);
+                Interaction::Measuring {
+                    from,
+                    to: from,
+                    done: false,
+                }
             }
             (state, _) => state,
         }

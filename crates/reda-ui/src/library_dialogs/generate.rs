@@ -38,6 +38,9 @@ pub struct GenerateDialog {
     /// The Library the call gave, until the first frame picks the starting one.
     given_library: Option<Value>,
     error: Option<String>,
+    /// From a Part editor's Footprints ▸ Add ▸ Generate: that Part and its Footprints, to
+    /// which the new Footprint is added.
+    part: Option<(Uuid, Vec<Uuid>)>,
 }
 
 /// What the preview shows for the params so far.
@@ -79,12 +82,24 @@ pub struct Shown {
 impl GenerateDialog {
     /// The dialog for generator `id`, filled in with what the call gave.
     pub fn new(shell: &Shell, id: &str, given: &Value) -> GenerateDialog {
+        let part = given["part"].as_str().and_then(|p| p.parse::<Uuid>().ok());
+        let part = part.and_then(|p| match shell.engine().element(p) {
+            Some(reda_engine::model::LibraryElement::Part(part)) => {
+                Some((p, part.footprints.clone()))
+            }
+            _ => None,
+        });
+        let mut given = given.clone();
+        if let Some(map) = given.as_object_mut() {
+            map.remove("part");
+        }
         GenerateDialog {
-            form: GeneratorForm::new(shell.engine().registry(), id, given),
+            form: GeneratorForm::new(shell.engine().registry(), id, &given),
             regenerating: None,
             library: None,
             given_library: Some(given["library"].clone()),
             error: None,
+            part,
         }
     }
 
@@ -104,6 +119,7 @@ impl GenerateDialog {
             regenerating: Some(Box::new(old.clone())),
             given_library: None,
             error: None,
+            part: None,
         })
     }
 
@@ -270,6 +286,16 @@ impl ParamsDialog for GenerateDialog {
 
     fn failed(&mut self, error: &CommandError) {
         self.error = Some(error.message.clone());
+    }
+
+    fn then(&mut self, result: &Value) -> Option<(String, Value)> {
+        let (part, mut footprints) = self.part.clone()?;
+        let made: Uuid = result["footprint"].as_str()?.parse().ok()?;
+        footprints.push(made);
+        Some((
+            "library.part.footprints.set".to_owned(),
+            json!({"part": part, "footprints": footprints}),
+        ))
     }
 
     fn as_any(&self) -> &dyn Any {
