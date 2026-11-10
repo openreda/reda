@@ -15,6 +15,7 @@
 pub mod commands;
 pub(crate) mod data;
 pub mod draw;
+mod groups;
 
 use std::sync::OnceLock;
 
@@ -119,6 +120,10 @@ pub struct Bars {
     pub menus: Vec<Menu>,
     pub toolbar: Vec<Item>,
     pub active_bar: Vec<Item>,
+    /// The Active Bar as groups, shown instead of [`Bars::active_bar`] while the
+    /// Preference `display.group_active_bar_tools` is on: each submenu is a group whose
+    /// button shows the last-used Tool in it. Empty where the bar stays flat.
+    pub active_bar_groups: Vec<Item>,
     /// A Tool's bar at the canvas's bottom while that Tool is active, by Tool id: the
     /// Routing Bar is `route` (docs/spec/v0.1/app.md#routing-bar).
     pub tool_bars: std::collections::BTreeMap<String, Vec<Item>>,

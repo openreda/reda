@@ -91,6 +91,7 @@ fn actions(bars: &Bars) -> Vec<&bars::Action> {
     }
     walk(&bars.toolbar, &mut out);
     walk(&bars.active_bar, &mut out);
+    walk(&bars.active_bar_groups, &mut out);
     for items in bars.tool_bars.values() {
         walk(items, &mut out);
     }
@@ -118,6 +119,7 @@ fn title_keys(bars: &Bars) -> Vec<String> {
     }
     walk(&bars.toolbar, &mut out);
     walk(&bars.active_bar, &mut out);
+    walk(&bars.active_bar_groups, &mut out);
     out
 }
 
@@ -450,7 +452,7 @@ fn the_active_document_picks_the_bars() {
 fn the_active_bar_holds_only_the_most_used_tools() {
     for (kind, most) in [
         (DocumentType::Schematic, 6),
-        (DocumentType::Pcb, 5),
+        (DocumentType::Pcb, 6),
         // The Library editors list their bars in library.md: Select, then Pin, Line,
         // Rectangle, Arc, Polygon and Text plus Previous and Next Unit; SMD Pad,
         // through-hole Pad, Line, Arc, Polygon, Courtyard, Text, Origin and Measure.

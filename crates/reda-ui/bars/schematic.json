@@ -132,5 +132,55 @@
         { "id": "active_bar.power_port.vcc", "command": "tool.activate:power_port_vcc" }
       ]
     }
+  ],
+  "active_bar_groups": [
+    { "id": "active_bar_group.select", "command": "tool.activate:select" },
+    {
+      "id": "active_bar_group.move",
+      "title": "active-bar-group-move",
+      "items": [
+        { "id": "active_bar_group.move.move", "command": "tool.activate:move" },
+        { "id": "active_bar_group.move.drag", "command": "tool.activate:drag" }
+      ]
+    },
+    "separator",
+    {
+      "id": "active_bar_group.wire",
+      "title": "active-bar-group-wire",
+      "items": [
+        { "id": "active_bar_group.wire.wire", "command": "tool.activate:wire" },
+        { "id": "active_bar_group.wire.break_wire", "command": "tool.activate:break_wire" }
+      ]
+    },
+    {
+      "id": "active_bar_group.net_label",
+      "title": "active-bar-group-net-label",
+      "items": [
+        { "id": "active_bar_group.net_label.net_label", "command": "tool.activate:net_label" },
+        { "id": "active_bar_group.net_label.port", "command": "tool.activate:port" }
+      ]
+    },
+    {
+      "id": "active_bar_group.power_port",
+      "title": "active-bar-power-port",
+      "items": [
+        { "id": "active_bar_group.power_port.tool", "command": "tool.activate:power_port" },
+        { "id": "active_bar_group.power_port.gnd", "command": "tool.activate:power_port_gnd" },
+        { "id": "active_bar_group.power_port.three_v_three", "command": "tool.activate:power_port_3v3" },
+        { "id": "active_bar_group.power_port.five_v", "command": "tool.activate:power_port_5v" },
+        { "id": "active_bar_group.power_port.vcc", "command": "tool.activate:power_port_vcc" }
+      ]
+    },
+    { "id": "active_bar_group.no_connect", "command": "tool.activate:no_connect" },
+    "separator",
+    { "id": "active_bar_group.text", "command": "tool.activate:text" },
+    {
+      "id": "active_bar_group.graphics",
+      "title": "active-bar-group-graphics",
+      "items": [
+        { "id": "active_bar_group.graphics.line", "command": "tool.activate:line" },
+        { "id": "active_bar_group.graphics.rect", "command": "tool.activate:rect" }
+      ]
+    }
   ]
 }
