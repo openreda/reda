@@ -3,6 +3,10 @@
 //! double-click (docs/spec/v0.1/app.md#window-shell). eframe turns winit's default features
 //! off, so reda-app turns this one back on.
 
+// `cargo tree --offline` for the Linux target needs the Linux-only crates already fetched,
+// which only a Linux checkout has, so this runs on Linux (the Linux CI job) only.
+#![cfg(target_os = "linux")]
+
 use std::path::Path;
 use std::process::Command;
 
