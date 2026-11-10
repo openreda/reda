@@ -26,6 +26,7 @@ use crate::placement::Placing;
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::preferences::Units;
 
+use crate::keymap::Chord;
 use crate::panels::messages::Action;
 use crate::properties::{
     ComponentProperties, Edit, Kind, MIXED, NetClassProperty, Numbers, Properties, Region, Shared,
@@ -52,7 +53,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         == Some(crate::layout::TabKey::Panel(
             crate::layout::PanelId::Properties,
         ));
-    let toggle = focused && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, Key::Q));
+    let toggle = focused && ui.input_mut(take_units_toggle);
     let mut out = content(ui, shell);
     if toggle {
         out.push(Out::Units(match units(shell) {
@@ -61,6 +62,17 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         }));
     }
     out
+}
+
+/// Takes the units toggle, Ctrl+Q as the `pcb` keymap writes it (Mod+Q off macOS, but Ctrl
+/// on macOS, where Cmd+Q quits): whether it was pressed.
+fn take_units_toggle(input: &mut egui::InputState) -> bool {
+    let toggle = Chord::parse("Ctrl+Q").expect("a valid chord");
+    let before = input.events.len();
+    input
+        .events
+        .retain(|event| !Chord::from_event(event).contains(&toggle));
+    input.events.len() != before
 }
 
 fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
