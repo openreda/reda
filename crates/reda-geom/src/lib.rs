@@ -20,6 +20,6 @@ pub use contour::{
     rounded_rect,
 };
 pub use corner_rect::{CornerCut, CornerRect};
-pub use length::{Nm, Point};
+pub use length::{Nm, Point, exact_decimal};
 pub use polygon::{CornerError, chamfer, crossing, fillet};
 pub use units::{NM_PER_OZ, UnitError};

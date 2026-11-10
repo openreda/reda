@@ -137,8 +137,7 @@ fn centerline(strokes: &[Stroke]) -> Result<Vec<Vertex>, CommandError> {
 }
 
 fn mm(nm: i64) -> String {
-    let text = format!("{:.6}", nm as f64 / 1e6);
-    text.trim_end_matches('0').trim_end_matches('.').to_owned()
+    Nm(nm).mm_exact()
 }
 
 /// The outside of the strokes' union, which must enclose an area (have a hole).

@@ -603,7 +603,7 @@ pub fn parse_length(text: &str) -> Option<Nm> {
 
 /// `nm` in mm without trailing zeros: `1.5`, `0.25`.
 pub fn format_mm(nm: Nm) -> String {
-    format_number(nm.0 as f64 / 1_000_000.0)
+    nm.mm_exact()
 }
 
 fn format_number(v: f64) -> String {

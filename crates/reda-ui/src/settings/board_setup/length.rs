@@ -6,14 +6,7 @@ use crate::tr;
 
 /// `nm` in mm, with no trailing zeros (`160000` → `0.16`).
 pub fn mm(nm: Nm) -> String {
-    let sign = if nm.0 < 0 { "-" } else { "" };
-    let abs = nm.0.unsigned_abs();
-    let (whole, frac) = (abs / 1_000_000, abs % 1_000_000);
-    if frac == 0 {
-        return format!("{sign}{whole}");
-    }
-    let frac = format!("{frac:06}");
-    format!("{sign}{whole}.{}", frac.trim_end_matches('0'))
+    nm.mm_exact()
 }
 
 /// A typed length that may be left empty (`Ok(None)`) or negative: mm unless it names a
