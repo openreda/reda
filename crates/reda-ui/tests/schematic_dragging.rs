@@ -313,7 +313,9 @@ fn mod_space_during_a_drag_turns_the_rubber_banded_corners_the_other_way() {
         start_drag(&mut shell, at(0.0, 120.0), at(300.0, 120.0));
         let shown = shell.document_tab(sheet()).unwrap().overlay.wires.clone();
         if flip {
-            assert_eq!(press(&mut shell, "Mod+Space"), ["tool.cycle_corner"]);
+            // The keymap writes it Ctrl+Space: Mod+Space elsewhere, but Ctrl on macOS,
+            // where Cmd+Space opens Spotlight.
+            assert_eq!(press(&mut shell, "Ctrl+Space"), ["tool.cycle_corner"]);
             let flipped = shell.document_tab(sheet()).unwrap().overlay.wires.clone();
             assert_ne!(shown, flipped, "the preview turns too");
         }

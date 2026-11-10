@@ -273,7 +273,7 @@ fn ctrl_q_with_the_panel_focused_toggles_its_units_only() {
 
     run(&mut h, "layout.tab.activate", json!({"tab": "properties"}));
     h.run();
-    h.key_press_modifiers(egui::Modifiers::COMMAND, Key::Q);
+    h.key_press_modifiers(egui::Modifiers::CTRL, Key::Q);
     h.run();
     h.run();
     assert_eq!(height(&h), "1 mm");
@@ -295,7 +295,7 @@ fn ctrl_q_with_the_panel_focused_toggles_its_units_only() {
         )
     );
 
-    h.key_press_modifiers(egui::Modifiers::COMMAND, Key::Q);
+    h.key_press_modifiers(egui::Modifiers::CTRL, Key::Q);
     h.run();
     h.run();
     assert_eq!(height(&h), "50 mil");
