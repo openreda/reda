@@ -81,9 +81,11 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
             continue;
         }
         for (layer, pa) in copper.item_pieces(a) {
-            for (_, pb) in copper.item_pieces(b).into_iter().filter(|(l, pb)| {
-                *l == layer && pa.touches(pb)
-            }) {
+            for (_, pb) in copper
+                .item_pieces(b)
+                .into_iter()
+                .filter(|(l, pb)| *l == layer && pa.touches(pb))
+            {
                 let key = (na.min(nb), na.max(nb), layer);
                 let short = match shorts.iter_mut().position(|s| s.key() == key) {
                     Some(i) => &mut shorts[i],
