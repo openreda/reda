@@ -255,23 +255,19 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     let bom = reda_output::bom_file(project, &pcb, &preset.bom).file;
     let cpl = reda_output::cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
     let drills = reda_output::drill_files(&plot);
-    let values = |token: &str| {
-        Some(match token {
-            "project" => name.clone(),
-            "job" => job.name.clone(),
-            "revision" => project.props().properties.revision.clone(),
-            "date" => manifest::iso_date(created),
-            "preset" => preset.name.clone(),
-            _ => return None,
-        })
+    let date = manifest::iso_date(created);
+    let (stem, destination) = {
+        let values = reda_output::name_values(project, &job, &preset.name, &date);
+        let stem = job.name_template.resolve(&values).map_err(|e| {
+            CommandError::rejected(format!(
+                "Output Job \"{}\": the name template can't be used: {e}",
+                job.name
+            ))
+        })?;
+        let destination =
+            reda_output::resolve_destination(&job, &values).map_err(CommandError::rejected)?;
+        (stem, destination)
     };
-    let stem = job.name_template.resolve(values).map_err(|e| {
-        CommandError::rejected(format!(
-            "Output Job \"{}\": the name template can't be used: {e}",
-            job.name
-        ))
-    })?;
-    let destination = resolve_destination(&job, values)?;
     let revision = project.props().properties.revision.clone();
 
     let mut skipped = Vec::new();
@@ -440,34 +436,6 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
 const FAB: &str = "fab";
 /// The folder in the destination that holds the check reports.
 const REPORTS: &str = "reports";
-
-/// The job's destination relative to the Project folder, `/`-separated, with the name
-/// template's tokens resolved. An empty part (an unset revision) is dropped; a value that
-/// would leave the Project folder refuses the run.
-fn resolve_destination(
-    job: &reda_model::OutputJob,
-    values: impl Fn(&str) -> Option<String>,
-) -> Result<String, CommandError> {
-    let raw = job.destination();
-    let resolved = match &job.destination {
-        Some(raw) => reda_model::text::resolve(raw, values)
-            .map_err(|e| CommandError::rejected(format!("the destination: {e}")))?,
-        None => raw,
-    };
-    let parts: Vec<&str> = resolved.split('/').filter(|p| !p.is_empty()).collect();
-    let escapes = parts.is_empty()
-        || resolved.contains('\\')
-        || resolved.contains(':')
-        || parts.iter().any(|p| *p == ".." || *p == ".");
-    if escapes {
-        return Err(CommandError::rejected(format!(
-            "Output Job \"{}\": the destination \"{resolved}\" is not a folder inside the \
-             Project folder",
-            job.name
-        )));
-    }
-    Ok(parts.join("/"))
-}
 
 /// The paths the last run's manifest in `destination` lists, the zip among them; only
 /// plain relative paths, so a hand-edited manifest can't reach outside the folder.

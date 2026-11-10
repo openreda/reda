@@ -20,14 +20,14 @@ mod presets;
 mod sha256;
 
 pub use archive::zip;
-pub use assembly::{Bom, MissingField, bom_file, cpl_file};
+pub use assembly::{Bom, MissingField, Table, bom_file, cpl_file, cpl_table};
 pub use drill::{Drills, drill_file_names, drill_files};
 pub use drill_report::{drill_report_file, drill_report_name};
 pub use fab_notes::{fab_notes_file, fab_notes_name};
 pub use gerber::MAX_COORDINATE;
 pub use instance::{BoardInstance, InstanceTransform, resolve_origin};
 pub use job_file::{gerber_job_file, gerber_job_name};
-pub use jobs::{job_destination, new_job, register_all};
+pub use jobs::{job_destination, name_values, new_job, register_all, resolve_destination};
 pub use plot::{
     CoordinateOutOfRange, FileAttributes, Gerbers, OutputFile, Part, Plot, SkippedFile,
     gerber_files,

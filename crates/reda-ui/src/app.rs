@@ -301,6 +301,7 @@ impl App {
             Some(ProjectsAction::BoardSetup) => self.open_board_setup(),
             Some(ProjectsAction::EditJob(job)) => self.open_output_job(job),
             Some(ProjectsAction::RunJob(job)) => self.jobs.start(&ctx, &mut self.shell, job),
+            Some(ProjectsAction::RunAllJobs) => self.jobs.start_all(&ctx, &mut self.shell),
             Some(ProjectsAction::Relink(document)) => {
                 let entry = (self.shell.engine().project())
                     .and_then(|p| p.missing_document(document))
@@ -636,6 +637,13 @@ impl App {
                 SettingsRequest::ShowFolder(folder) => {
                     let _ = std::fs::create_dir_all(&folder);
                     self.show_in_folder(&folder);
+                }
+                SettingsRequest::EditPreset(preset, page) => {
+                    let window = SettingsWindow::ProjectSettings;
+                    let was_open = self
+                        .settings
+                        .open_preset_page(&mut self.shell, preset, page);
+                    self.opened(was_open, window);
                 }
             }
         }

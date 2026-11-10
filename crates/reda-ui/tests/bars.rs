@@ -451,8 +451,11 @@ fn the_active_bar_holds_only_the_most_used_tools() {
     for (kind, most) in [
         (DocumentType::Schematic, 6),
         (DocumentType::Pcb, 5),
-        (DocumentType::Symbol, 5),
-        (DocumentType::Footprint, 5),
+        // The Library editors list their bars in library.md: Select, then Pin, Line,
+        // Rectangle, Arc, Polygon and Text plus Previous and Next Unit; SMD Pad,
+        // through-hole Pad, Line, Arc, Polygon, Courtyard, Text, Origin and Measure.
+        (DocumentType::Symbol, 9),
+        (DocumentType::Footprint, 10),
     ] {
         let bar = &bars::for_document(Some(kind)).active_bar;
         let buttons = bar.iter().filter(|i| matches!(i, Item::Action(_))).count();
