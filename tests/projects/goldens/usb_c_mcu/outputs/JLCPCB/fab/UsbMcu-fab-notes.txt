@@ -19,6 +19,9 @@ Minimum features
   Hole to hole: 0.45 mm
   Copper to board edge: 0.2 mm
 
+Deliberate shorts (Net Ties)
+  NT1: joins GND and SHIELD on purpose; this short is deliberate
+
 Files in the zip
   UsbMcu.gtl
   UsbMcu.gbl

@@ -67,7 +67,7 @@
     },
     {
       "Path": "Blinky-NPTH.drl",
-      "FileFunction": "NonPlated,1,2,NPTH,Drill",
+      "FileFunction": "NonPlated,1,2,NPTH,Mixed",
       "FilePolarity": "Positive"
     }
   ]

@@ -7,7 +7,7 @@ M48
 FMAT,2
 METRIC
 ; #@! TA.AperFunction,ViaDrill
-T1C0.150
+T1C0.300
 ; #@! TA.AperFunction,ComponentDrill
 T2C1.150
 %
