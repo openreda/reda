@@ -677,6 +677,20 @@ impl Layout {
         })
     }
 
+    /// Whether `tab` is on screen: the tab its group shows, outside a collapsed Dock
+    /// (unless it is that Dock's flyout).
+    pub fn is_shown(&self, tab: &TabKey) -> bool {
+        self.groups().into_iter().any(|(area, g)| {
+            g.tabs.get(g.active) == Some(tab)
+                && match area {
+                    Area::Dock(side) => {
+                        !self.dock(side).collapsed || self.flyout.as_ref() == Some(tab)
+                    }
+                    _ => true,
+                }
+        })
+    }
+
     /// The Panels not open anywhere, in [`PanelId::ALL`] order: what the Panels button
     /// offers to reopen.
     pub fn closed_panels(&self) -> Vec<PanelId> {
