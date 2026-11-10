@@ -41,10 +41,29 @@ pub enum Out {
     Run(&'static str, Value),
     /// What a Messages click would ask for: a check run, or a settings page.
     Messages(Action),
+    /// Shows the panel's lengths in these units: `Ctrl+Q` with the panel focused, which
+    /// leaves the canvas's units alone.
+    Units(Units),
 }
 
 /// Draws the panel for the Shell's selection; returns what its clicks and edits ask for.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
+    let focused = shell.layout().focus
+        == Some(crate::layout::TabKey::Panel(
+            crate::layout::PanelId::Properties,
+        ));
+    let toggle = focused && ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, Key::Q));
+    let mut out = content(ui, shell);
+    if toggle {
+        out.push(Out::Units(match units(shell) {
+            Units::Mm => Units::Mil,
+            Units::Mil => Units::Mm,
+        }));
+    }
+    out
+}
+
+fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     let run = |commands: Vec<(&'static str, Value)>| {
         commands
             .into_iter()
@@ -431,9 +450,13 @@ fn parse_length(text: &str, units: Units) -> Option<Nm> {
     }
 }
 
-/// The units a bare number typed into a length field is read in: the board's units on a
-/// PCB, else those of the sheet's grid.
+/// The units the panel shows lengths in, and reads a bare number typed into a length field
+/// in: its own after `Ctrl+Q` there, else the board's units on a PCB, else those of the
+/// sheet's grid.
 fn units(shell: &Shell) -> Units {
+    if let Some(units) = shell.properties_units() {
+        return units;
+    }
     let Some(tab) = shell.active_document() else {
         return Units::Mm;
     };

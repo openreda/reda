@@ -168,11 +168,12 @@ pub(crate) fn plan(
             .map(|a| a.aspects.as_slice())
             .or(p.aspects.as_deref())
             .unwrap_or(&Aspect::ALL);
-        if let Some(plan) = first_pass(project, &placed, copy, asked, &settings, lost_local_edits) {
+        if let Some(plan) = first_pass(project, &placed, copy, asked, &settings, lost_local_edits)?
+        {
             plans.push(plan);
         }
     }
-    add_changes(project, &mut plans);
+    add_changes(project, &mut plans)?;
     Ok(Planned {
         plans,
         settings,
@@ -181,7 +182,8 @@ pub(crate) fn plan(
 }
 
 /// Everything but the Fields name change, Symbol and Footprints changes, which need every
-/// plan: `None` for an Up to Date Component.
+/// plan: `None` for an Up to Date Component. A part entry naming a Footprint copy its sheet
+/// lacks is an error, not a panic (the model's checks keep such a Project from opening).
 fn first_pass(
     project: &Project,
     placed: &Placed<'_>,
@@ -189,7 +191,7 @@ fn first_pass(
     asked: &[Aspect],
     settings: &LibraryUpdateSettings,
     lost_local_edits: LostLocalEdits,
-) -> Option<Plan> {
+) -> Result<Option<Plan>, CommandError> {
     let units: Vec<(Uuid, UnitInstance)> = (placed.units.iter())
         .map(|(s, u)| (*s, (*u).clone()))
         .collect();
@@ -213,19 +215,19 @@ fn first_pass(
         Err(e) => {
             report.status = LibraryStatus::SourceMissing;
             report.reason = Some(e.message);
-            return Some(Plan {
+            return Ok(Some(Plan {
                 report,
                 units,
                 content: None,
                 footprint: None,
                 unit_match: UnitMatch::Uuid,
                 unit_map: vec![],
-            });
+            }));
         }
     };
     report.differs = differs(placed, &copy);
     if report.differs.is_empty() {
-        return None;
+        return Ok(None);
     }
     report.aspects = (report.differs.iter())
         .copied()
@@ -241,10 +243,15 @@ fn first_pass(
     let mut symbol = old.symbol.clone();
     let old_copies: Vec<(String, Footprint)> = (old.footprints.iter())
         .map(|c| {
-            let c = home.footprint(*c).expect("an entry's copies exist");
-            (c.hash.clone(), c.footprint.clone())
+            let c = home.footprint(*c).ok_or_else(|| {
+                corrupt(format!(
+                    "part entry {} names Footprint copy {c}, which its sheet does not hold",
+                    old.uuid
+                ))
+            })?;
+            Ok((c.hash.clone(), c.footprint.clone()))
         })
-        .collect();
+        .collect::<Result<_, CommandError>>()?;
     let mut footprints = old_copies.clone();
     if taken(Aspect::Fields) {
         let new = &copy.part;
@@ -373,7 +380,7 @@ fn first_pass(
         placed.component,
         chosen_after.and_then(|f| Some((f, hash_of(f)?))),
     );
-    Some(Plan {
+    Ok(Some(Plan {
         report,
         units,
         content: Some(EntryContent {
@@ -385,7 +392,12 @@ fn first_pass(
         footprint,
         unit_match: UnitMatch::Uuid,
         unit_map: vec![],
-    })
+    }))
+}
+
+/// The error for Project data the model's checks should have kept out.
+fn corrupt(message: String) -> CommandError {
+    CommandError::internal(format!("the Project is inconsistent: {message}"))
 }
 
 /// A Symbol, its pin map and the Footprint chosen, before or after.
@@ -440,7 +452,7 @@ impl PinNets for Nets {
 
 /// Adds each plan's changes: the Part's name, then the Symbol's (with Nets, worked out
 /// on a copy of the Project with every plan applied), then the Footprints'.
-pub(crate) fn add_changes(project: &Project, plans: &mut [Plan]) {
+pub(crate) fn add_changes(project: &Project, plans: &mut [Plan]) -> Result<(), CommandError> {
     let symbols = plans
         .iter()
         .any(|p| p.report.aspects.contains(&Aspect::Symbol) && p.content.is_some());
@@ -455,8 +467,13 @@ pub(crate) fn add_changes(project: &Project, plans: &mut [Plan]) {
         let (sheet, first) = &plan.units[0];
         let home = project
             .schematic_sheet(*sheet)
-            .expect("the Unit's sheet exists");
-        let old = home.part(first.part).expect("a Unit's part entry exists");
+            .ok_or_else(|| corrupt(format!("Unit {} is on missing sheet {sheet}", first.uuid)))?;
+        let old = home.part(first.part).ok_or_else(|| {
+            corrupt(format!(
+                "Unit {} names part entry {}, which its sheet does not hold",
+                first.uuid, first.part
+            ))
+        })?;
         let taken = |a: Aspect| plan.report.aspects.contains(&a);
         let mut changes = vec![];
         if taken(Aspect::Fields) && old.part.name != content.part.name {
@@ -495,6 +512,7 @@ pub(crate) fn add_changes(project: &Project, plans: &mut [Plan]) {
         }
         plan.report.changes = changes;
     }
+    Ok(())
 }
 
 /// The connectivity of a copy of `project` with every unblocked plan's Units pointing at

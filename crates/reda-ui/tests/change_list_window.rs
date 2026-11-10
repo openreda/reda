@@ -311,3 +311,37 @@ fn show_raises_the_canvas_view_only_with_back_and_a_board_sheet_switch() {
     assert!(!h.state().shell().view_only(sheet));
     h.get_by_label("Update PCB from Schematic");
 }
+
+#[test]
+fn a_stale_list_shows_one_conflict_banner_and_refreshes() {
+    let work = TempDir::new("clw-stale");
+    let mut h = window(work.path());
+    h.get_by_label("Add Components (2)");
+    // The schematic changes after the window last drew its list, so Apply sends a stale
+    // hash.
+    let w = h.state_mut();
+    w.shell
+        .run(
+            "schematic.component.place",
+            json!({"document": SHEET, "part": R_10K, "at": {"x": "20mm", "y": 0}}),
+        )
+        .unwrap();
+    let err = w.dialog.apply(&mut w.shell).unwrap_err();
+    assert_eq!(err.code, reda_ui::engine::command::ErrorCode::Conflict);
+    h.run();
+    h.get_by_label(
+        "The design changed since this list was made, so nothing was applied. \
+         The list is refreshed: check it and Apply again.",
+    );
+    // One banner: the dialog's own error line stays quiet.
+    assert_eq!(h.state().dialog.error(), None);
+    h.get_by_label("Add Components (3)");
+    // Nothing was applied, so no row is marked Applied.
+    assert!(h.query_by_label_contains("Applied").is_none());
+
+    // Apply again works on the refreshed list, and the banner goes.
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    h.get_by_label("Add Components (0)");
+    assert!(h.query_by_label_contains("nothing was applied").is_none());
+}

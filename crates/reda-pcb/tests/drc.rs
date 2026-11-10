@@ -146,6 +146,64 @@ fn touching_copper_of_different_nets_is_a_short_not_a_clearance_breach() {
     assert!(shorts[0].get("rule").is_none());
 }
 
+/// A 0.2 mm Track on `layer` through `points`, in mm.
+fn track_on(engine: &mut TestEngine, layer: &str, net: Uuid, points: Value) -> Uuid {
+    uuid(
+        &engine.run_ok(
+            "pcb.track.add",
+            json!({"layer": layer, "width": "0.2mm", "net": net, "points": points}),
+        )["result"]["tracks"][0],
+    )
+}
+
+#[test]
+fn a_short_is_one_violation_per_net_pair_and_layer_listing_every_object() {
+    let dir = TempDir::new("drc-short-pair");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    // One Track of A crossing three Tracks of B on the top copper.
+    let ta = track_on(
+        &mut engine,
+        "copper_top",
+        a,
+        json!([{"x": "2mm", "y": "-1mm"}, {"x": "2mm", "y": "5mm"}]),
+    );
+    let tb: Vec<Uuid> = ["0mm", "2mm", "4mm"]
+        .into_iter()
+        .map(|y| track(&mut engine, Some(b), y, "0mm", "5mm"))
+        .collect();
+    let run = drc(&mut engine);
+    let shorts = of(&run, "short_circuit");
+    assert_eq!(shorts.len(), 1, "{run:#}");
+    let mut found = objects(&shorts[0]);
+    found.sort();
+    let mut expected = [vec![ta], tb.clone()].concat();
+    expected.sort();
+    assert_eq!(found, expected);
+    assert_eq!(shorts[0]["layers"].as_array().unwrap().len(), 1);
+
+    // The same two Nets touching on the bottom copper too: a second Violation.
+    let ba = track_on(
+        &mut engine,
+        "copper_bottom",
+        a,
+        json!([{"x": "10mm", "y": "0mm"}, {"x": "15mm", "y": "0mm"}]),
+    );
+    let bb = track_on(
+        &mut engine,
+        "copper_bottom",
+        b,
+        json!([{"x": "12mm", "y": "-1mm"}, {"x": "12mm", "y": "1mm"}]),
+    );
+    let run = drc(&mut engine);
+    let shorts = of(&run, "short_circuit");
+    assert_eq!(shorts.len(), 2, "{run:#}");
+    let layers: Vec<_> = shorts.iter().map(|v| v["layers"].clone()).collect();
+    assert_ne!(layers[0], layers[1]);
+    assert!(shorts.iter().any(|v| objects(v) == [ba, bb]), "{run:#}");
+}
+
 #[test]
 fn a_track_narrower_than_its_net_class_allows_is_reported() {
     let dir = TempDir::new("drc-track-width");

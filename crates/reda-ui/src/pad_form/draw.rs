@@ -89,8 +89,7 @@ fn read_angle(text: &str) -> Option<Millideg> {
 }
 
 fn show_angle(a: Millideg) -> String {
-    let s = format!("{:.3}", a.0 as f64 / 1000.0);
-    s.trim_end_matches('0').trim_end_matches('.').to_owned()
+    reda_engine::model::geom::exact_decimal(a.0, 1000)
 }
 
 /// The Pad rows for `pad`; `numbered` adds the number row (a Footprint's Pad), `enabled`

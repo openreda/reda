@@ -1150,3 +1150,31 @@ fn an_update_matches_units_by_uuid() {
     );
     assert_eq!(f.status()[0]["status"], "up_to_date");
 }
+
+#[test]
+fn a_project_whose_part_entry_lost_its_footprint_copies_is_refused_not_planned() {
+    let mut f = fixture("update-corrupt");
+    f.place(R_10K, "0mm");
+    f.edit_library("parts/R_10k.redapart", "C25804", "C99999");
+    f.engine.run_ok("project.save", json!({}));
+    let folder = f.project.join("Demo");
+    let sheet = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().is_some_and(|e| e == "redasch"))
+        .unwrap();
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&sheet).unwrap()).unwrap();
+    assert!(!file["footprints"].as_array().unwrap().is_empty());
+    file["footprints"] = json!([]);
+    std::fs::write(&sheet, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+
+    // The hand-edited Project never reaches the planner: opening it is refused.
+    let mut other = reda_testkit::test_engine_with_library(&f.library);
+    let err = other
+        .run("project.open", json!({"path": folder}))
+        .expect_err("a part entry without its Footprint copies is refused");
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert!(err.message.contains("Footprint copy"), "{}", err.message);
+    let err = other.run_err("schematic.component.update_preview", json!({}));
+    assert_ne!(err.code, ErrorCode::Internal, "{}", err.message);
+}

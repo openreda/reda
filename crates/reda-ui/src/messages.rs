@@ -554,14 +554,7 @@ pub fn check_title(check: &str) -> String {
 
 /// `n` nm as exact millimetres with REDA's suffix: `5.08mm`, `-0.2mm`, `0mm`.
 pub fn mm(n: i64) -> String {
-    let sign = if n < 0 { "-" } else { "" };
-    let n = n.unsigned_abs();
-    let (whole, frac) = (n / 1_000_000, n % 1_000_000);
-    if frac == 0 {
-        return format!("{sign}{whole}mm");
-    }
-    let frac = format!("{frac:06}");
-    format!("{sign}{whole}.{}mm", frac.trim_end_matches('0'))
+    format!("{}mm", reda_engine::model::geom::Nm(n).mm_exact())
 }
 
 /// The check a line belongs to.

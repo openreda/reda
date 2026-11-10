@@ -286,26 +286,22 @@ pub(crate) fn tools(holes: &[DrillHole]) -> BTreeMap<Tool, Vec<&DrillHole>> {
     tools
 }
 
-/// One drill file holding `holes`, which is not empty.
+/// One drill file holding `holes`, which is not empty. Its attributes are always written:
+/// they are `; #@! ` comments already, so the Gerber `x2_attributes` switch leaves them in.
 fn write(plot: &Plot<'_>, function: &str, holes: &[DrillHole]) -> Vec<u8> {
-    let x2 = plot.gerber.x2_attributes;
     let tools = tools(holes);
 
     let mut out = String::from("M48\n");
-    if x2 {
-        let mut attributes = file_attributes(plot, function.to_owned());
-        attributes.push((".FilePolarity", "Positive".into()));
-        for (name, value) in attributes {
-            let _ = writeln!(out, "; #@! TF{name},{}", ascii(&value));
-        }
+    let mut attributes = file_attributes(plot, function.to_owned());
+    attributes.push((".FilePolarity", "Positive".into()));
+    for (name, value) in attributes {
+        let _ = writeln!(out, "; #@! TF{name},{}", ascii(&value));
     }
     out.push_str("FMAT,2\nMETRIC\n");
     for (n, tool) in tools.keys().enumerate() {
-        if x2 {
-            let _ = writeln!(out, "; #@! TA.AperFunction,{}", tool.function);
-            if let Some((plus, minus)) = tool.tolerance {
-                let _ = writeln!(out, "; #@! TA.DrillTolerance,{},{}", mm(plus), mm(minus));
-            }
+        let _ = writeln!(out, "; #@! TA.AperFunction,{}", tool.function);
+        if let Some((plus, minus)) = tool.tolerance {
+            let _ = writeln!(out, "; #@! TA.DrillTolerance,{},{}", mm(plus), mm(minus));
         }
         let _ = writeln!(out, "T{}C{}", n + 1, mm(tool.diameter));
     }

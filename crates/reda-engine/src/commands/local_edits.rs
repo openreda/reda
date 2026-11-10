@@ -105,6 +105,9 @@ pub(crate) fn place_edited(
     let target = match same {
         Some((uuid, _)) if uuid == from.uuid => uuid,
         Some((uuid, Some(edited_from))) if edited_from == from.uuid => uuid,
+        // Another version's copy (or an edit of one) already has this content. The table
+        // is keyed by Footprint UUID + hash, so this edit can't have an entry of its own,
+        // and sharing that one would drop the `edited_from` Sync and revert rely on.
         Some(_) => {
             return Err(CommandError::conflict(
                 "the edit makes this Footprint the same as another copy of it on the board; \

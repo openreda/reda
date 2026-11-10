@@ -159,7 +159,7 @@ fn plan(
     let mut plans: Vec<Plan> = (placed.iter())
         .map(|c| plan_one(project, c, &copy, p, lost_local_edits))
         .collect();
-    add_changes(project, &mut plans);
+    add_changes(project, &mut plans)?;
     let rows = plans
         .iter()
         .zip(&placed)

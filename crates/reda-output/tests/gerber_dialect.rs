@@ -323,6 +323,30 @@ fn copper_mask_and_profile_are_always_written_and_empty_silkscreen_and_paste_are
     assert_eq!(on.skipped, gerbers.skipped);
 }
 
+#[test]
+fn silkscreen_cleared_over_pads_but_holding_no_ink_is_still_skipped() {
+    let dir = TempDir::new("gerber-skipped-pads");
+    let mut engine = board(&dir);
+    // A through-hole Pad opens the mask on both sides, so both Silkscreen files clear ink
+    // over it; it puts no paste down, and only the top carries ink (its Designator).
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(8.0, 10.0), "designator": "J1", "pads": [
+            {"at": pt(0.0, 0.0), "width": "1.6mm", "height": "1.6mm", "kind": "plated_through_hole",
+             "hole": {"width": 800_000, "height": 800_000}}]}),
+    );
+    let gerbers = plot_with(&engine, |_| {}).unwrap();
+    let skipped: Vec<_> = gerbers.skipped.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(skipped, ["Demo.gtp", "Demo.gbp", "Demo.gbo"]);
+    // With ink on it, the clearing over the Pad comes with the file.
+    let silk = layer(&gerbers.files, "Demo.gto");
+    assert!(
+        silk.objects
+            .iter()
+            .any(|o| matches!(o, Object::Flash { dark: false, .. }))
+    );
+}
+
 /// Twice the area a contour fills; cut-in pairs cancel.
 fn twice_area(points: &[(i64, i64)]) -> i128 {
     (0..points.len())

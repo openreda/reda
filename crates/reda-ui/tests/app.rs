@@ -226,13 +226,16 @@ fn set_theme(home: &Path, theme: &str) {
     preferences::set(&UserDirs::under(home), "general.theme", json!(theme)).unwrap();
 }
 
-/// A fixed folder for Projects that snapshots show, so their paths are the same on every
-/// machine (the snapshots run on Linux only). It holds an exclusive lock on
-/// `<name>.lock` beside it until dropped, so test runs in other checkouts that want the
-/// same folder wait instead of deleting it under this one.
+/// A folder for the Projects a snapshot test makes. When snapshots are compared it is a
+/// fixed folder, because the images show its paths (the snapshots run on Linux only), and
+/// it holds an exclusive lock on `<name>.lock` beside it until dropped, so test runs in
+/// other checkouts that want the same folder wait instead of deleting it under this one.
+/// When they are skipped it is a folder of this run's own under the temp directory, removed
+/// on drop.
 struct SnapshotFolder {
     dir: PathBuf,
-    _lock: std::fs::File,
+    /// The lock on a fixed folder; `None` for a folder of this run's own.
+    lock: Option<std::fs::File>,
 }
 
 impl std::ops::Deref for SnapshotFolder {
@@ -243,7 +246,28 @@ impl std::ops::Deref for SnapshotFolder {
     }
 }
 
+impl Drop for SnapshotFolder {
+    fn drop(&mut self) {
+        if self.lock.is_none()
+            && let Some(run) = self.dir.parent()
+        {
+            let _ = std::fs::remove_dir_all(run);
+        }
+    }
+}
+
 fn snapshot_folder(name: &str) -> SnapshotFolder {
+    if snapshot_skip_reason().is_some() {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "reda-ui-snapshots-{}-{n}/{name}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        return SnapshotFolder { dir, lock: None };
+    }
     // Local runs can keep their files under the configured scratch directory while
     // CI retains the fixed paths already shown in the reference images.
     let root = std::env::var_os("REDA_SNAPSHOT_ROOT")
@@ -260,7 +284,10 @@ fn snapshot_folder(name: &str) -> SnapshotFolder {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    SnapshotFolder { dir, _lock: lock }
+    SnapshotFolder {
+        dir,
+        lock: Some(lock),
+    }
 }
 
 fn start_page_snapshot(theme: &str) {

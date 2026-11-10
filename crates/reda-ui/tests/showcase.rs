@@ -83,11 +83,46 @@ const SCENES: &[Scene] = &[
     },
 ];
 
-/// The folder the scenes' Projects and per-user state are staged in.
+/// The folder the scenes' Projects and per-user state are staged in: `REDA_SHOWCASE_ROOT`
+/// when set; for the website's images (`REDA_SHOWCASE_OUT`), a fixed path, so the paths the
+/// window shows are the same on every machine; otherwise a folder of this run's own under
+/// the temp directory, so runs from two checkouts never share one.
 fn stage_root() -> PathBuf {
-    std::env::var_os("REDA_SHOWCASE_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/reda-showcase"))
+    static ROOT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    ROOT.get_or_init(|| {
+        if let Some(root) = std::env::var_os("REDA_SHOWCASE_ROOT") {
+            PathBuf::from(root)
+        } else if std::env::var_os("REDA_SHOWCASE_OUT").is_some() {
+            PathBuf::from("/tmp/reda-showcase")
+        } else {
+            std::env::temp_dir().join(format!("reda-showcase-{}", std::process::id()))
+        }
+    })
+    .clone()
+}
+
+/// An exclusive lock on `<stage root>.lock` when the stage is a fixed folder, held while
+/// the scenes are drawn, so another run staging into it waits instead of deleting it under
+/// this one. A folder of this run's own needs none.
+fn lock_stage() -> Option<std::fs::File> {
+    if std::env::var_os("REDA_SHOWCASE_ROOT").is_none()
+        && std::env::var_os("REDA_SHOWCASE_OUT").is_none()
+    {
+        return None;
+    }
+    let root = stage_root();
+    let parent = root.parent().expect("the stage root has a parent");
+    std::fs::create_dir_all(parent).unwrap();
+    let mut name = root.file_name().unwrap().to_owned();
+    name.push(".lock");
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(parent.join(name))
+        .unwrap();
+    lock.lock().unwrap();
+    Some(lock)
 }
 
 /// Where a scene's window lives: its per-user folder (holding the theme) and its Projects'
@@ -349,6 +384,7 @@ fn every_scene_renders_in_both_themes() {
     };
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out).unwrap();
+    let _stage = lock_stage();
 
     let mut entries = Vec::new();
     for scene in SCENES {

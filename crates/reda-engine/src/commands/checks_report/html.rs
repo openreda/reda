@@ -3,6 +3,7 @@
 
 use std::fmt::Write as _;
 
+use reda_model::geom::exact_decimal;
 use reda_model::{LENGTH_ARGS, Measurement, Violation, ViolationArg, Waiver};
 use serde_json::Value;
 
@@ -211,26 +212,13 @@ fn objects(objects: &[reda_model::Uuid]) -> String {
 fn measure(m: &Measurement) -> String {
     match m {
         Measurement::Length(n) => mm(n.0),
-        Measurement::Area(a) => format!("{} mm²", decimal(*a, 1_000_000_000_000)),
+        Measurement::Area(a) => format!("{} mm²", exact_decimal(*a, 1_000_000_000_000)),
     }
 }
 
 /// `n` nm in millimetres, exactly.
 fn mm(n: i64) -> String {
-    format!("{}mm", decimal(n, 1_000_000))
-}
-
-/// `n / unit` as an exact decimal with no trailing zeros.
-fn decimal(n: i64, unit: i64) -> String {
-    let sign = if n < 0 { "-" } else { "" };
-    let (n, unit) = (n.unsigned_abs(), unit.unsigned_abs());
-    let (whole, frac) = (n / unit, n % unit);
-    if frac == 0 {
-        return format!("{sign}{whole}");
-    }
-    let width = unit.to_string().len() - 1;
-    let frac = format!("{frac:0width$}");
-    format!("{sign}{whole}.{}", frac.trim_end_matches('0'))
+    format!("{}mm", exact_decimal(n, 1_000_000))
 }
 
 /// The Change List, one table per group. Each row shows the change's kind, its other

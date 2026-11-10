@@ -64,6 +64,9 @@ pub struct ChangeListPage {
     anchor: Option<String>,
     /// What the last Export said.
     notice: Option<String>,
+    /// The last Apply found the list stale (`conflict`); the banner shows until the next
+    /// Apply.
+    stale: bool,
 }
 
 impl Default for ChangeListPage {
@@ -84,6 +87,7 @@ impl Default for ChangeListPage {
             selected: BTreeSet::new(),
             anchor: None,
             notice: None,
+            stale: false,
         }
     }
 }
@@ -391,6 +395,11 @@ impl ChangeListPage {
         }
     }
 
+    /// Whether the last Apply found the list stale, which the window's banner says.
+    pub fn is_stale(&self) -> bool {
+        self.stale
+    }
+
     /// What the last Export said.
     pub fn notice(&self) -> Option<&str> {
         self.notice.as_deref()
@@ -435,6 +444,7 @@ impl Page for ChangeListPage {
         // Planning is not free, so only on opening and after Apply; edits made while the
         // window is open arrive through the Shell's list (`follow`, as it draws).
         if reset {
+            self.stale = false;
             let fresh = sync::plan(project).unwrap_or_else(|| ChangeListPage::default().list);
             // After an Apply, the ticked changes no longer pending were carried out.
             let excluded = self.excluded();
@@ -468,6 +478,15 @@ impl Page for ChangeListPage {
 
     fn problems(&self) -> Vec<Problem> {
         Vec::new()
+    }
+
+    /// Nothing was applied: the list is planned afresh, keeping the unticks of the changes
+    /// it still has, and the banner says so.
+    fn conflict(&mut self, project: &Project) -> bool {
+        let fresh = sync::plan(project).unwrap_or_else(|| ChangeListPage::default().list);
+        self.follow(Some(&fresh));
+        self.stale = true;
+        true
     }
 
     fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {

@@ -52,11 +52,6 @@
       "FilePolarity": "Positive"
     },
     {
-      "Path": "Demo.gbo",
-      "FileFunction": "Legend,Bot",
-      "FilePolarity": "Positive"
-    },
-    {
       "Path": "Demo.gm1",
       "FileFunction": "Profile,NP",
       "FilePolarity": "Positive"

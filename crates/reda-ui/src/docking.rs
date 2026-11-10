@@ -1081,6 +1081,7 @@ impl Cx<'_, '_> {
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Properties) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
                 for out in panels::properties::show(ui, self.shell) {
                     match out {
                         panels::properties::Out::Run(id, p) => {
@@ -1089,8 +1090,12 @@ impl Cx<'_, '_> {
                         panels::properties::Out::Messages(action) => {
                             self.frame.messages.push(action);
                         }
+                        panels::properties::Out::Units(units) => {
+                            self.shell.set_properties_units(Some(units));
+                        }
                     }
                 }
+                self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Journal) => {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {

@@ -205,27 +205,23 @@ fn the_files_match_their_goldens_byte_for_byte() {
 }
 
 #[test]
-fn without_x2_attributes_the_files_carry_no_attribute_comments() {
+fn x2_attributes_off_leaves_the_drill_attribute_comments_in() {
+    // Excellon attributes are always `; #@! ` comments, so the Gerber switch has nothing
+    // to turn off: the data set stays complete.
     let dir = TempDir::new("drill-x1");
     let engine = demo(&dir);
     let with = plot(&engine);
     let without = plot_with(&engine, |g| g.x2_attributes = false).files;
     assert_eq!(without.len(), with.len());
     for (x1, x2) in without.iter().zip(&with) {
-        let text = String::from_utf8(x1.bytes.clone()).unwrap();
-        assert!(!text.contains("#@!"), "{} has attributes", x1.name);
-        let (a, b) = (read(&x1.bytes), read(&x2.bytes));
-        assert!(a.file.is_empty());
-        let strip = |hits: Vec<Hit>| -> Vec<Hit> {
-            hits.into_iter()
-                .map(|h| Hit {
-                    function: None,
-                    tolerance: None,
-                    ..h
-                })
-                .collect()
-        };
-        assert_eq!(strip(a.hits), strip(b.hits), "{}", x1.name);
+        assert_eq!(
+            String::from_utf8_lossy(&x1.bytes),
+            String::from_utf8_lossy(&x2.bytes),
+            "{}",
+            x1.name
+        );
+        let file = read(&x1.bytes).file;
+        assert_eq!(file["FilePolarity"], "Positive", "{}", x1.name);
     }
 }
 

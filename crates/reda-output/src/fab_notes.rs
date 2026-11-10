@@ -5,7 +5,7 @@
 
 use std::fmt::Write;
 
-use reda_model::geom::{NM_PER_OZ, Nm, Point, contour_bounds};
+use reda_model::geom::{NM_PER_OZ, Nm, Point, contour_bounds, exact_decimal};
 use reda_model::{ComponentType, Hole, PadKind, PcbDocument, RuleKind, RuleValues};
 use reda_pcb::placed;
 
@@ -285,23 +285,10 @@ fn natural(a: &str, b: &str) -> std::cmp::Ordering {
 
 /// A length in millimetres, exact, without trailing zeros: `0.2`, `30`, `-1.25`.
 pub(crate) fn number(nm: Nm) -> String {
-    decimal(nm.0, 1_000_000)
+    nm.mm_exact()
 }
 
 /// A length in micrometres, exact, without trailing zeros: `35`, `87.5`.
 fn micrometres(nm: Nm) -> String {
-    decimal(nm.0, 1_000)
-}
-
-fn decimal(value: i64, unit: u64) -> String {
-    let sign = if value < 0 { "-" } else { "" };
-    let a = value.unsigned_abs();
-    let width = unit.ilog10() as usize;
-    let fraction = format!("{:0width$}", a % unit);
-    let fraction = fraction.trim_end_matches('0');
-    if fraction.is_empty() {
-        format!("{sign}{}", a / unit)
-    } else {
-        format!("{sign}{}.{fraction}", a / unit)
-    }
+    exact_decimal(nm.0, 1_000)
 }
