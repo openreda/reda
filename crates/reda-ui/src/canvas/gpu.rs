@@ -38,6 +38,8 @@ pub struct SelectionHandle {
     pub highlighted: Arc<[Uuid]>,
     /// Everything not highlighted is masked (greyed, not pickable) rather than dimmed.
     pub mask: bool,
+    /// How strongly (dim, mask) the rest fades, each 0..1.
+    pub strengths: (f32, f32),
 }
 
 impl Default for SelectionHandle {
@@ -47,6 +49,7 @@ impl Default for SelectionHandle {
             objects: Arc::from([]),
             highlighted: Arc::from([]),
             mask: false,
+            strengths: reda_engine::render::gpu::DEFAULT_STRENGTHS,
         }
     }
 }
@@ -298,6 +301,8 @@ impl CanvasResources {
             gpu.target = Some((target, source));
         }
         gpu.canvas.set_moving_offset(frame.moving_offset);
+        let (dim, mask) = frame.selection.strengths;
+        gpu.canvas.set_strengths(dim, mask);
         gpu.canvas.set_view(queue, &gpu.scene, &frame.view);
         gpu.grid.set(queue, &frame.view, frame.grid.as_ref());
         let (target, _) = gpu.target.as_ref().expect("made above");

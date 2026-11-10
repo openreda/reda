@@ -11,6 +11,17 @@
 #
 # The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
 
+# Held modifiers of mouse gestures, which aren't chords: Net highlight on a board (Mod+click)
+# and on a sheet (Alt+click; rebind it where the window manager takes Alt+click), constrain
+# a drag, detach (Move rather than Drag) and suspend object snap in flight.
+
+[modifiers]
+net_highlight_board = "Mod"
+net_highlight_sheet = "Alt"
+constrain = "Alt"
+detach = "Mod"
+snap_suspend = "Mod"
+
 # Snapping: Mod+E opens the active Document's snap palette, also in flight.
 
 [[bind]]
@@ -23,6 +34,22 @@ params = { document = "$active_document" }
 [[bind]]
 key = "Shift+C"
 command = "view.highlight.clear"
+
+# Shift+F then a click opens Select Similar on what is clicked.
+
+[[bind]]
+key = "Shift+F"
+command = "selection.similar.pick"
+
+# `[` and `]` make dimming and masking weaker or stronger, for this session only.
+
+[[bind]]
+key = "["
+command = "view.highlight.strength:weaker"
+
+[[bind]]
+key = "]"
+command = "view.highlight.strength:stronger"
 
 # UI scale: Mod+= and Mod+- step it, Mod+0 returns to 100 %.
 
@@ -163,7 +190,8 @@ command = "layout.tab.switch:next"
 key = "Ctrl+Shift+Tab"
 command = "layout.tab.switch:previous"
 
-# View: F zooms to fit on a canvas, and Home to the selection.
+# View: F zooms to fit on a canvas, Shift+Home to the selection, Home re-centres on the
+# cursor and Alt+← goes back to the previous view.
 
 [[bind]]
 context = "schematic"
@@ -173,8 +201,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "schematic"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -185,8 +225,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "pcb"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -197,8 +249,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "symbol"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -209,8 +273,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "footprint"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 # The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
@@ -387,12 +463,13 @@ key = "Tab"
 command = "tool.edit_properties"
 
 # During a drag, Mod+Space turns the rubber-banded Wires' corners the other way (Alt held
-# keeps the drag horizontal or vertical). Mod+arrows nudge the selection one snap grid,
+# keeps the drag horizontal or vertical). It is written Ctrl+Space, which is Mod+Space off
+# macOS and Ctrl+Space on macOS, where Cmd+Space opens Spotlight. Mod+arrows nudge the selection one snap grid,
 # Shift+Mod+arrows ten, as one drag each.
 
 [[bind]]
 context = "schematic"
-key = "Mod+Space"
+key = "Ctrl+Space"
 command = "tool.cycle_corner"
 
 [[bind]]

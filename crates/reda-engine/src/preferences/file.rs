@@ -402,7 +402,7 @@ mod tests {
         std::fs::create_dir_all(&dirs.config).unwrap();
         std::fs::write(
             dirs.preferences_file(),
-            "[schematic]\nrepeat = true\nauto_pan = false\n",
+            "[schematic]\nrepeat = true\nin_place_editing = false\n",
         )
         .unwrap();
         let out = set_with(&dirs, "schematic.repeat", Value::Bool(false), RENAMED).unwrap();
@@ -411,7 +411,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&home);
         assert_eq!(
             text,
-            "[schematic]\nauto_pan = false\nrepeat_placement = false\n"
+            "[schematic]\nin_place_editing = false\nrepeat_placement = false\n"
         );
     }
 }

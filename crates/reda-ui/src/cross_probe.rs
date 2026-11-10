@@ -442,10 +442,11 @@ impl Command for CrossProbeObjects {
         id: "view.cross_probe",
         title: "Cross-Probe",
         description: "Finds the given objects on the other side: a Unit's Footprint, a \
-                      Footprint's Units, a Net's copper or schematic objects. Always \
-                      highlights them (everything else dims, whatever the cross-select Dim \
-                      Preference) and zooms the canvas showing them; with `jump` that tab \
-                      also becomes the active one. View state only.",
+                      Footprint's Units, a Net's copper or schematic objects. As the shared \
+                      highlight Preference says (not the cross-select switches), it \
+                      highlights them so everything else dims, and zooms the canvas showing \
+                      them; with `jump` that tab also becomes the active one. View state \
+                      only.",
         category: "view",
         icon: "net",
         kind: Kind::View,
@@ -477,15 +478,24 @@ impl Command for CrossProbeObjects {
             }
             _ => None,
         };
-        *cx.view::<Highlight>()? = Highlight {
-            objects: found.clone(),
-            ..Highlight::default()
-        };
+        // The shared highlight Preference: dim and zoom.
+        let prefs = cx
+            .view::<reda_engine::preferences::HighlightPreferences>()?
+            .clone();
+        if prefs.dim {
+            *cx.view::<Highlight>()? = Highlight {
+                objects: found.clone(),
+                ..Highlight::default()
+            };
+        }
         if let Some((document, shown)) = zoom {
             if p.jump {
                 cx.view::<crate::layout::Layout>()?.open_document(document);
             }
-            crate::bars::request(cx, crate::bars::Request::ZoomTo(document, shown))?;
+            if prefs.zoom {
+                let request = crate::bars::Request::ZoomClose(document, shown, prefs.closeness);
+                crate::bars::request(cx, request)?;
+            }
         }
         Ok(CrossProbeResult { objects: found })
     }

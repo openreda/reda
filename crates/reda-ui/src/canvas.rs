@@ -8,6 +8,7 @@
 //!   theme, view, size or grid changed, and copied into the window every frame.
 //! - [`canvas`]: the widget that ties them together for a Document tab.
 
+pub mod auto_pan;
 mod camera;
 mod gpu;
 pub mod interact;

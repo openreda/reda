@@ -214,11 +214,17 @@ impl Shell {
         {
             return false;
         }
-        let _ = self.run("view.highlight", json!({ "objects": objects }));
-        if let Some(tab) = self.document_tab_mut(document)
+        // The shared highlight Preference: dim and zoom. The canvas is view-only, so the
+        // selection stays as it was.
+        let prefs = self.preferences().editing.highlight.clone();
+        if prefs.dim {
+            let _ = self.run("view.highlight", json!({ "objects": objects }));
+        }
+        if prefs.zoom
+            && let Some(tab) = self.document_tab_mut(document)
             && let Some(frame) = crate::reveal::frame(&tab.scene.scene, objects)
         {
-            tab.zoom_to = Some(frame);
+            tab.zoom_to = Some(crate::reveal::closer(frame, prefs.closeness));
         }
         let state = self.show_state();
         state.document = Some(document);

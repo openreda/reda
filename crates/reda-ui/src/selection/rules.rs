@@ -79,7 +79,7 @@ fn object_kind(shell: &Shell, document: Uuid, object: Uuid) -> Option<FilterKind
 }
 
 /// Whether `document`'s type lists `kind` and its Filter has it on.
-fn kind_allowed(shell: &Shell, document: Uuid, kind: FilterKind) -> bool {
+pub fn kind_allowed(shell: &Shell, document: Uuid, kind: FilterKind) -> bool {
     crate::bars::document_type(shell, document).is_some_and(|ty| filter_kinds(ty).contains(&kind))
         && shell.selection_filter(document).allows(kind)
 }

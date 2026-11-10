@@ -141,16 +141,22 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         SceneSource::Pcb(_) => DocumentType::Pcb,
         _ => DocumentType::Schematic,
     };
-    let input = canvas_input(ui, tab, kind);
+    let input = canvas_input(ui, tab, kind, None);
     canvas_paint(ui, &input, tab, theme);
 }
 
 /// Lays out `tab`'s canvas, a Document of type `kind`, filling the space left in `ui`;
-/// moves its camera, and returns the frame's pointer events.
+/// moves its camera, and returns the frame's pointer events. `auto_pan` is the Preference
+/// while an operation is in flight, which pans the view at the canvas edge.
 ///
 /// The canvas is one accessible element: it names the Document and describes how many of
 /// its objects are selected.
-pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> CanvasInputs {
+pub fn canvas_input(
+    ui: &mut Ui,
+    tab: &mut DocumentTab,
+    kind: DocumentType,
+    auto_pan: Option<&reda_engine::preferences::AutoPan>,
+) -> CanvasInputs {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
     let title = tab.title.as_str();
     let name = match kind {
@@ -170,6 +176,10 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
     });
 
     let mirrored = tab.mirrored();
+    if tab.zoom_to.is_some() || tab.center_on.is_some() {
+        // A jump: Alt+← comes back to where the view was.
+        tab.remember_view();
+    }
     if let Some((lo, hi)) = tab.zoom_to.take() {
         tab.camera = Some(Camera::fit(lo, hi, rect.size()));
     }
@@ -201,8 +211,49 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
             input.pan.x = -input.pan.x;
         }
     }
+    let gesture = input.pan != egui::Vec2::ZERO
+        || input.scroll != 0.0
+        || (input.zoom > 0.0 && input.zoom != 1.0);
+    if gesture && !tab.navigating {
+        // A wheel zoom or pan starts: Alt+← comes back to the view before it.
+        tab.remember_view();
+    }
+    tab.navigating = gesture;
+    let camera = tab.camera.as_mut().expect("set above");
     camera.apply(rect, &input);
-    let camera = *camera;
+    match auto_pan {
+        Some(prefs) => {
+            let (pointer, shift, dt) = ui.input(|i| {
+                (
+                    i.pointer.latest_pos(),
+                    i.modifiers.shift,
+                    i.stable_dt.min(0.1),
+                )
+            });
+            // Past the edge only while a drag that began on the canvas holds the button.
+            let pointer = pointer.filter(|p| rect.contains(*p) || response.dragged());
+            let step = pointer.map(|p| {
+                let p = mirror(rect, p, mirrored);
+                tab.auto_pan.step(prefs, rect, p, shift, dt)
+            });
+            let camera = tab.camera.as_mut().expect("set above");
+            match step {
+                Some(super::auto_pan::Pan::By(v)) => {
+                    camera.pan(-v);
+                    // The next frame keeps panning; a frame's delay (not an immediate
+                    // repaint) lets a held-still drag animate without spinning.
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(16));
+                }
+                Some(super::auto_pan::Pan::Center(p)) => {
+                    camera.center = camera.document_point(rect, p);
+                }
+                _ => {}
+            }
+        }
+        None => tab.auto_pan = super::auto_pan::AutoPan::default(),
+    }
+    let camera = tab.camera.expect("set above");
     let events = pointer(ui, &response, &camera, rect, mirrored);
     CanvasInputs {
         rect,
