@@ -731,3 +731,46 @@ fn unlocked_graphics_survive_save_and_open() {
     assert_eq!(query(&mut other, "footprint_copy"), copies);
     assert_eq!(instance(&mut other, "R1")["graphics_unlocked"], true);
 }
+
+#[test]
+fn an_edit_matching_another_version_of_the_footprint_is_refused() {
+    // The part table is keyed by Footprint UUID + content hash (architecture.md, part
+    // tables), so an edit can't get its own entry with another version's hash, and sharing
+    // that version's entry would drop the `edited_from` that Sync compares and revert
+    // returns to.
+    let lib_dir = TempDir::new("local-edit-version-lib");
+    let library = lib_dir.path().join("Starter");
+    copy_dir(&starter_library(), &library);
+    let dir = TempDir::new("local-edit-version");
+    let mut engine = test_engine_with_library(&library);
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let place = |engine: &mut TestEngine, x: &str| {
+        engine.run_ok(
+            "schematic.component.place",
+            json!({"document": SHEET, "part": RESISTOR, "at": {"x": x, "y": "0mm"}}),
+        );
+    };
+    place(&mut engine, "0mm");
+    sync(&mut engine);
+    // A later version of the Footprint, with Pad 1 2 mm wide, placed as R2.
+    edit_library(
+        &library,
+        "footprints/RESC1005X40N.redafp",
+        "\"at\":{\"x\":-455000,\"y\":0},\"rotation\":0,\"width\":590000",
+        "\"at\":{\"x\":-455000,\"y\":0},\"rotation\":0,\"width\":2000000",
+    );
+    place(&mut engine, "10mm");
+    sync(&mut engine);
+    let v1 = instance(&mut engine, "R1")["footprint"].clone();
+    let v2 = instance(&mut engine, "R2")["footprint"].clone();
+    assert_ne!(v1, v2);
+
+    let (r1, pad) = first_pad(&mut engine, "R1");
+    let err = engine.run_err(
+        "pcb.pad.edit",
+        json!({"instance": r1, "pad": pad["uuid"], "width": "2mm"}),
+    );
+    assert_eq!(err.code, ErrorCode::Conflict, "{}", err.message);
+    assert_eq!(instance(&mut engine, "R1")["footprint"], v1);
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 2);
+}
