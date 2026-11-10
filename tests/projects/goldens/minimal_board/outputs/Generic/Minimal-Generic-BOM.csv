@@ -1,4 +1,5 @@
 Designator,Quantity,Value,Footprint,Manufacturer,MPN
 D1,1,LED,LEDC1608X80N,,
-J1,1,Header 1x2,HDR254P1X2,,
+J1,1,Header 1x2,HDRV0W64P254R1L508T254H850B,,
+"MP1,MP2,MP3,MP4",4,Rubber foot,,,
 R1,1,1k,RESC1608X55N,,

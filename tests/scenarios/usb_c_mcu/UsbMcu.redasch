@@ -94,6 +94,14 @@
       {"uuid":"878e80b8-be56-4614-97e2-3e4b62f796d4","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"polygon","points":[{"x":-1270000,"y":1270000},{"x":1270000,"y":1270000},{"x":0,"y":-1270000}]},"width":254000},
       {"uuid":"a8b4eb77-3821-4730-b8a1-82a1217d18b0","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":1524000,"y":-1016000},"end":{"x":2794000,"y":-2286000}},"width":254000},
       {"uuid":"ad15be61-8d76-47ec-a1fb-ce4b40a118f1","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","shape":{"kind":"line","start":{"x":-1270000,"y":-1270000},"end":{"x":1270000,"y":-1270000}},"width":254000}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000012c","hash":"2a32c0c8351b07e602c876f77edca55f","part":{"uuid":"b2eaac57-dbf1-4017-8726-6de7fa5a5f17","name":"NetTie","component_type":"net_tie","in_bom":false,"in_cpl":false,"symbol":"5a799ef7-6993-460c-a83a-6d77dbfaa5ff"},"footprints":["12c5684d-d33c-4b0f-9976-eadf8448d148","9d14b16b-73a6-46e6-9c2f-1a1f99a7db71"],"copies":["00000000-0000-4000-8000-00000000012a","00000000-0000-4000-8000-00000000012b"],"fields":{"value":"NetTie","description":"Net Tie: a deliberate short between two Nets","keywords":"NT net tie short star ground"},"pin_map":{},"symbol":{"uuid":"5a799ef7-6993-460c-a83a-6d77dbfaa5ff","name":"NetTie_2","designator_prefix":"NT","description":"Net Tie between two Nets"},"units":[
+      {"uuid":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"A"}
+    ],"pins":[
+      {"uuid":"51b2a0fe-6678-405e-96c8-478ac44a816f","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"~","number":"1","electrical_type":"passive","at":{"x":-3810000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+      {"uuid":"824ca84e-0d77-4386-b404-40bc4ef8a578","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"~","number":"2","electrical_type":"passive","at":{"x":3810000,"y":0},"rotation":180000,"length":2540000,"name_visible":false,"number_visible":false}
+    ],"graphics":[
+      {"uuid":"245ce16b-accb-479e-935c-fd7a5fb70660","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","shape":{"kind":"rect","start":{"x":-1270000,"y":-635000},"end":{"x":1270000,"y":635000}},"width":254000,"fill":true}
     ]}
   ],
   "footprints": [
@@ -384,6 +392,28 @@
       {"uuid":"032141cd-ebdf-4466-b6fe-393be90bd26f","field":"Designator","at":{"x":0,"y":4070000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"3348bbb7-088d-486e-a760-ff5f838edd04","field":"Value","at":{"x":0,"y":-3970000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"c5ed2c0c-d9c2-4a33-8f60-639c8c81c5d3","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000012a","hash":"4912d70fe0fdb3e5a1870b0c3bcdffd4","footprint":{"uuid":"12c5684d-d33c-4b0f-9976-eadf8448d148","name":"NetTie_2_SMD_Pad0.5mm","description":"Net Tie, two touching 0.5 mm SMD Pads, tented, no paste","height":35000},"pads":[
+      {"uuid":"a50d96b0-da32-497e-a262-4be1a58b0139","number":"2","kind":"smd","shape":"rect","at":{"x":250000,"y":0},"rotation":0,"width":500000,"height":500000,"mask":{"top":"tent"},"paste":"none"},
+      {"uuid":"e8743dd2-4de3-4feb-87d5-c28801d13218","number":"1","kind":"smd","shape":"rect","at":{"x":-250000,"y":0},"rotation":0,"width":500000,"height":500000,"mask":{"top":"tent"},"paste":"none"}
+    ],"graphics":[
+      {"uuid":"44b620e5-5e97-459d-9d46-b8ce836180cc","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
+      {"uuid":"55a77829-63e4-487b-942a-dfc280185cc8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-750000,"y":-500000},"end":{"x":750000,"y":500000}},"width":50000}
+    ],"texts":[
+      {"uuid":"3ef97327-0a7b-4be8-aa79-8842b3411c3c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"47a00aa4-04c7-477b-aa70-7347f43a8f93","field":"Value","at":{"x":0,"y":-825000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"a5e4e866-4020-4c11-82ce-dd1a78e4c783","field":"Designator","at":{"x":0,"y":1300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+    ]},
+    {"uuid":"00000000-0000-4000-8000-00000000012b","hash":"7be046299b6bdd504e71ffcf475ca95e","footprint":{"uuid":"9d14b16b-73a6-46e6-9c2f-1a1f99a7db71","name":"NetTie_2_SMD_Pad2.0mm","description":"Net Tie, two touching 2 mm SMD Pads, tented, no paste","height":35000},"pads":[
+      {"uuid":"26fbbb2f-8d60-4394-9849-12f15bcaef7f","number":"1","kind":"smd","shape":"rect","at":{"x":-1000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"mask":{"top":"tent"},"paste":"none"},
+      {"uuid":"debc890b-e249-40a1-9270-a894bdb4ea53","number":"2","kind":"smd","shape":"rect","at":{"x":1000000,"y":0},"rotation":0,"width":2000000,"height":2000000,"mask":{"top":"tent"},"paste":"none"}
+    ],"graphics":[
+      {"uuid":"2c58fc4d-3216-4034-9647-f933c7279a11","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-2250000,"y":-1250000},"end":{"x":2250000,"y":1250000}},"width":50000},
+      {"uuid":"7ca8b438-f523-4344-af15-4bdc2c76a156","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2000000,"y":-1000000},"end":{"x":2000000,"y":1000000}},"width":100000}
+    ],"texts":[
+      {"uuid":"259e96b0-569d-4d66-a0dc-a8b16981d676","field":"Value","at":{"x":0,"y":-1950000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+      {"uuid":"6f4ef565-bdf2-48d6-ba3a-5d0190c0725e","field":"Designator","at":{"x":0,"y":2050000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+      {"uuid":"9244dc47-6faa-4d42-8270-f64ac3f38c94","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]}
   ],
   "units": [
@@ -398,7 +428,8 @@
     {"uuid":"00000000-0000-4000-8000-000000000050","component":{"uuid":"00000000-0000-4000-8000-00000000004f"},"part":"00000000-0000-4000-8000-00000000004c","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":127000000,"y":152400000},"rotation":0,"designator":"C2","fields":{"value":"10u","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"9f2fe3a0-4816-480e-afcc-1165dc5d603c","component_type":"standard","in_bom":true,"in_cpl":true},
     {"uuid":"00000000-0000-4000-8000-000000000052","component":{"uuid":"00000000-0000-4000-8000-000000000051"},"part":"00000000-0000-4000-8000-00000000004c","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":139700000,"y":152400000},"rotation":0,"designator":"C3","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard","in_bom":true,"in_cpl":true},
     {"uuid":"00000000-0000-4000-8000-000000000054","component":{"uuid":"00000000-0000-4000-8000-000000000053"},"part":"00000000-0000-4000-8000-00000000004c","unit":"5066b805-cd8b-4a7e-9d84-c514cbd67273","at":{"x":152400000,"y":152400000},"rotation":0,"designator":"C4","fields":{"value":"100n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"footprint":"2f30e497-fa3d-473c-89eb-c952d32ae866","component_type":"standard","in_bom":true,"in_cpl":true},
-    {"uuid":"00000000-0000-4000-8000-00000000005c","component":{"uuid":"00000000-0000-4000-8000-00000000005b"},"part":"00000000-0000-4000-8000-00000000005a","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","at":{"x":215900000,"y":63500000},"rotation":0,"designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"footprint":"dc181a05-7861-4a1b-b740-ff448eb58ad6","component_type":"standard","in_bom":true,"in_cpl":true}
+    {"uuid":"00000000-0000-4000-8000-00000000005c","component":{"uuid":"00000000-0000-4000-8000-00000000005b"},"part":"00000000-0000-4000-8000-00000000005a","unit":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","at":{"x":215900000,"y":63500000},"rotation":0,"designator":"D1","fields":{"value":"LED","description":"Light-emitting diode","keywords":"D LED light emitting diode"},"footprint":"dc181a05-7861-4a1b-b740-ff448eb58ad6","component_type":"standard","in_bom":true,"in_cpl":true},
+    {"uuid":"00000000-0000-4000-8000-00000000012e","component":{"uuid":"00000000-0000-4000-8000-00000000012d"},"part":"00000000-0000-4000-8000-00000000012c","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","at":{"x":41910000,"y":105410000},"rotation":0,"designator":"NT1","fields":{"value":"NetTie","description":"Net Tie: a deliberate short between two Nets","keywords":"NT net tie short star ground"},"footprint":"12c5684d-d33c-4b0f-9976-eadf8448d148","component_type":"net_tie","in_bom":false,"in_cpl":false}
   ],
   "wires": [
     {"uuid":"00000000-0000-4000-8000-00000000005d","vertices":[{"x":60960000,"y":133350000},{"x":63500000,"y":133350000}]},
@@ -407,7 +438,7 @@
     {"uuid":"00000000-0000-4000-8000-000000000063","vertices":[{"x":60960000,"y":125730000},{"x":63500000,"y":125730000}]},
     {"uuid":"00000000-0000-4000-8000-000000000065","vertices":[{"x":60960000,"y":123190000},{"x":63500000,"y":123190000}]},
     {"uuid":"00000000-0000-4000-8000-000000000069","vertices":[{"x":50800000,"y":113030000},{"x":50800000,"y":110490000}]},
-    {"uuid":"00000000-0000-4000-8000-00000000006b","vertices":[{"x":45720000,"y":113030000},{"x":45720000,"y":110490000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000006b","vertices":[{"x":45720000,"y":113030000},{"x":45720000,"y":105410000}]},
     {"uuid":"00000000-0000-4000-8000-00000000006d","vertices":[{"x":223520000,"y":106680000},{"x":220980000,"y":106680000}]},
     {"uuid":"00000000-0000-4000-8000-00000000006f","vertices":[{"x":223520000,"y":104140000},{"x":220980000,"y":104140000}]},
     {"uuid":"00000000-0000-4000-8000-000000000071","vertices":[{"x":223520000,"y":101600000},{"x":220980000,"y":101600000}]},
@@ -441,7 +472,8 @@
     {"uuid":"00000000-0000-4000-8000-0000000000b3","vertices":[{"x":152400000,"y":156210000},{"x":152400000,"y":158750000}]},
     {"uuid":"00000000-0000-4000-8000-0000000000b5","vertices":[{"x":152400000,"y":148590000},{"x":152400000,"y":146050000}]},
     {"uuid":"00000000-0000-4000-8000-0000000000b7","vertices":[{"x":215900000,"y":67310000},{"x":215900000,"y":69850000}]},
-    {"uuid":"00000000-0000-4000-8000-0000000000b9","vertices":[{"x":215900000,"y":59690000},{"x":215900000,"y":57150000}]}
+    {"uuid":"00000000-0000-4000-8000-0000000000b9","vertices":[{"x":215900000,"y":59690000},{"x":215900000,"y":57150000}]},
+    {"uuid":"00000000-0000-4000-8000-00000000012f","vertices":[{"x":38100000,"y":105410000},{"x":35560000,"y":105410000}]}
   ],
   "net_labels": [
     {"uuid":"00000000-0000-4000-8000-000000000060","name":"CC1","at":{"x":63500000,"y":130810000},"rotation":0},
@@ -461,7 +493,8 @@
     {"uuid":"00000000-0000-4000-8000-0000000000a0","name":"CC2","at":{"x":91440000,"y":107950000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-0000000000a4","name":"LED","at":{"x":203200000,"y":69850000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-0000000000a6","name":"LED_A","at":{"x":203200000,"y":57150000},"rotation":0},
-    {"uuid":"00000000-0000-4000-8000-0000000000b8","name":"LED_A","at":{"x":215900000,"y":69850000},"rotation":0}
+    {"uuid":"00000000-0000-4000-8000-0000000000b8","name":"LED_A","at":{"x":215900000,"y":69850000},"rotation":0},
+    {"uuid":"00000000-0000-4000-8000-000000000129","name":"SHIELD","at":{"x":45720000,"y":107950000},"rotation":0}
   ],
   "no_connects": [
     {"uuid":"00000000-0000-4000-8000-000000000067","at":{"x":60960000,"y":120650000}},
@@ -480,7 +513,6 @@
   "power_ports": [
     {"uuid":"00000000-0000-4000-8000-00000000005e","name":"VBUS","style":"bar","at":{"x":63500000,"y":133350000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-00000000006a","name":"GND","style":"ground","at":{"x":50800000,"y":110490000},"rotation":0},
-    {"uuid":"00000000-0000-4000-8000-00000000006c","name":"GND","style":"ground","at":{"x":45720000,"y":110490000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-000000000070","name":"GND","style":"ground","at":{"x":220980000,"y":104140000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-000000000076","name":"+3V3","style":"bar","at":{"x":220980000,"y":96520000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-000000000078","name":"+3V3","style":"bar","at":{"x":162560000,"y":120650000},"rotation":0},
@@ -500,6 +532,7 @@
     {"uuid":"00000000-0000-4000-8000-0000000000b2","name":"GND","style":"ground","at":{"x":139700000,"y":146050000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-0000000000b4","name":"+3V3","style":"bar","at":{"x":152400000,"y":158750000},"rotation":0},
     {"uuid":"00000000-0000-4000-8000-0000000000b6","name":"GND","style":"ground","at":{"x":152400000,"y":146050000},"rotation":0},
-    {"uuid":"00000000-0000-4000-8000-0000000000ba","name":"GND","style":"ground","at":{"x":215900000,"y":57150000},"rotation":0}
+    {"uuid":"00000000-0000-4000-8000-0000000000ba","name":"GND","style":"ground","at":{"x":215900000,"y":57150000},"rotation":0},
+    {"uuid":"00000000-0000-4000-8000-000000000130","name":"GND","style":"ground","at":{"x":35560000,"y":105410000},"rotation":0}
   ]
 }

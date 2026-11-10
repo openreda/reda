@@ -169,7 +169,7 @@
       {"pad":"1097d408-0175-4bd9-aafe-cf2ca4af0fd8","net":"00000000-0000-4000-8000-00000000008e"},
       {"pad":"7dd31955-ae9a-4c5f-8efe-77eab8376875","net":"00000000-0000-4000-8000-00000000008b"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000093","component":{"uuid":"00000000-0000-4000-8000-000000000050"},"footprint":"00000000-0000-4000-8000-000000000092","at":{"x":26500000,"y":13095000},"rotation":0,"side":"top","designator":"C2","fields":{"value":"10n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000093","component":{"uuid":"00000000-0000-4000-8000-000000000050"},"footprint":"00000000-0000-4000-8000-000000000092","at":{"x":26500000,"y":13095000},"rotation":0,"side":"top","designator":"C2","fields":{"value":"10n","description":"Unpolarised capacitor","keywords":"C capacitor ceramic"},"component_type":"standard","in_bom":true,"in_cpl":true,"not_fitted":true,"text_overrides":[{"text":"6650f912-5820-4887-8288-a5f8f074951c","at":{"x":0,"y":-1395000}}],"pads":[
       {"pad":"5eb901c0-e805-43fc-b5ac-f3b0fb87d9f3","net":"00000000-0000-4000-8000-00000000008b"},
       {"pad":"bd932504-1656-47c8-a605-c381e71de73c","net":"00000000-0000-4000-8000-000000000089"}
     ]},
@@ -207,7 +207,7 @@
       {"pad":"880f64de-ae75-40bf-b748-f23d621d70eb","net":"00000000-0000-4000-8000-00000000008a"},
       {"pad":"fc33a32b-56f3-4ac1-a9a3-17b55df9e749","net":"00000000-0000-4000-8000-00000000008f"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-0000000000a0","footprint":"00000000-0000-4000-8000-00000000009f","at":{"x":4000000,"y":26000000},"rotation":0,"side":"top","designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
+    {"uuid":"00000000-0000-4000-8000-0000000000a0","footprint":"00000000-0000-4000-8000-00000000009f","at":{"x":4000000,"y":26000000},"rotation":0,"side":"top","designator":"H1","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"text_overrides":[{"text":"bb441b10-60ec-4428-ae40-879cae13aec1","at":{"x":0,"y":-4300000}}],"pads":[
       {"pad":"4b5efa83-470e-4f52-b548-506a36d274ea"}
     ]},
     {"uuid":"00000000-0000-4000-8000-0000000000a1","footprint":"00000000-0000-4000-8000-00000000009f","at":{"x":36000000,"y":4000000},"rotation":0,"side":"top","designator":"H2","fields":{"value":"M3","description":"Mounting hole for M3, 3.2 mm, not plated","keywords":"H mounting hole screw mechanical"},"component_type":"mechanical","in_bom":false,"in_cpl":false,"pads":[
@@ -248,6 +248,9 @@
     {"uuid":"00000000-0000-4000-8000-0000000000bc","at":{"x":28900000,"y":13095000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
     {"uuid":"00000000-0000-4000-8000-0000000000be","at":{"x":36000000,"y":14365000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}},
     {"uuid":"00000000-0000-4000-8000-0000000000c0","at":{"x":11212500,"y":8600000},"net":"00000000-0000-4000-8000-00000000008b","diameter":660000,"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b"}}
+  ],
+  "free_pads": [
+    {"uuid":"00000000-0000-4000-8000-0000000000c4","kind":"non_plated","shape":"oval","at":{"x":8000000,"y":5000000},"rotation":0,"width":3000000,"height":1000000,"hole":{"width":3000000,"height":1000000}}
   ],
   "zones": [
     {"uuid":"00000000-0000-4000-8000-0000000000c1","layer":"00000000-0000-4000-8000-00000000000b","net":"00000000-0000-4000-8000-00000000008b","vertices":[
