@@ -430,3 +430,158 @@ command = "panel.show:nowhere"
             .all(|n| n.source != "keymap")
     );
 }
+
+#[test]
+fn navigation_keys_recentre_zoom_to_the_selection_and_go_back_on_every_canvas() {
+    let (keymap, _) = Keymap::load(KeymapBase::Reda, None);
+    for ty in [
+        DocumentType::Schematic,
+        DocumentType::Pcb,
+        DocumentType::Symbol,
+        DocumentType::Footprint,
+    ] {
+        let on = active(None, Some(ty));
+        assert_eq!(
+            bound(&keymap, "Home", &on).as_deref(),
+            Some("view.recenter")
+        );
+        assert_eq!(
+            bound(&keymap, "Shift+Home", &on).as_deref(),
+            Some("view.zoom_selection")
+        );
+        assert_eq!(
+            bound(&keymap, "Alt+Left", &on).as_deref(),
+            Some("view.previous")
+        );
+    }
+    // `view.selection.next` has no default key.
+    assert!(
+        keymap
+            .bindings()
+            .iter()
+            .all(|b| bound_id(&b.action.binding) != "view.selection.next")
+    );
+    // `[` and `]` set the dim and mask strength for the session.
+    let global = active(None, None);
+    assert_eq!(
+        bound(&keymap, "[", &global).as_deref(),
+        Some("view.highlight.strength:weaker")
+    );
+    assert_eq!(
+        bound(&keymap, "]", &global).as_deref(),
+        Some("view.highlight.strength:stronger")
+    );
+    assert_eq!(
+        bound(&keymap, "Shift+C", &global).as_deref(),
+        Some("view.highlight.clear")
+    );
+}
+
+fn bound_id(binding: &Binding) -> &str {
+    match binding {
+        Binding::Command(id) | Binding::Preset(id) => id,
+        Binding::Raw { command, .. } => command,
+    }
+}
+
+#[test]
+fn mod_space_in_a_drag_stays_clear_of_spotlight_on_macos() {
+    let sch = active(None, Some(DocumentType::Schematic));
+    // Elsewhere it is Mod+Space (Ctrl+Space).
+    let (other, problems) = Keymap::load_for(KeymapBase::Reda, None, false);
+    assert!(problems.is_empty(), "{problems:?}");
+    let ctrl_space = Chord::parse_for("Mod+Space", false).unwrap();
+    assert_eq!(
+        other
+            .lookup(&ctrl_space, &sch)
+            .map(|a| bound_id(&a.binding)),
+        Some("tool.cycle_corner")
+    );
+    // On macOS Cmd+Space opens Spotlight, so it is Ctrl+Space there and Cmd+Space is free.
+    let (mac, problems) = Keymap::load_for(KeymapBase::Reda, None, true);
+    assert!(problems.is_empty(), "{problems:?}");
+    let cmd_space = Chord::parse_for("Mod+Space", true).unwrap();
+    let ctrl_space = Chord::parse_for("Ctrl+Space", true).unwrap();
+    assert_ne!(cmd_space, ctrl_space);
+    assert_eq!(
+        mac.lookup(&ctrl_space, &sch).map(|a| bound_id(&a.binding)),
+        Some("tool.cycle_corner")
+    );
+    let global = active(None, None);
+    for ctx in [
+        &sch,
+        &global,
+        &active(Some("wire"), Some(DocumentType::Schematic)),
+    ] {
+        assert!(
+            mac.lookup(&cmd_space, ctx).is_none(),
+            "Cmd+Space stays the OS's"
+        );
+    }
+}
+
+#[test]
+fn backspace_stays_a_tool_key() {
+    let (keymap, _) = Keymap::load(KeymapBase::Reda, None);
+    let backspace = chord("Backspace");
+    for b in keymap.bindings().iter().filter(|b| b.chord == backspace) {
+        match &b.context {
+            // In flight it takes back the last segment, corner or point.
+            Context::Tool(_) => {}
+            // Idle, its one use: unwinding selected copper.
+            Context::Document(DocumentType::Pcb) => {
+                assert_eq!(bound_id(&b.action.binding), "pcb.copper.unwind")
+            }
+            other => panic!("Backspace bound in {other}"),
+        }
+    }
+    // Idle on a sheet, a symbol or a footprint it does nothing, and it never deletes.
+    for ty in [
+        DocumentType::Schematic,
+        DocumentType::Symbol,
+        DocumentType::Footprint,
+    ] {
+        assert_eq!(bound(&keymap, "Backspace", &active(None, Some(ty))), None);
+    }
+    assert_eq!(bound(&keymap, "Backspace", &active(None, None)), None);
+    for tool in ["wire", "route", "polygon", "zone"] {
+        let action = bound(
+            &keymap,
+            "Backspace",
+            &active(Some(tool), Some(DocumentType::Pcb)),
+        );
+        assert!(action.is_some(), "{tool}");
+        assert!(!action.unwrap().contains("delete"), "{tool}");
+    }
+}
+
+#[test]
+fn the_modifiers_table_sets_gesture_roles_and_the_user_file_overrides_them() {
+    use reda_ui::keymap::{Held, ModifierRoles};
+    let (base, problems) = Keymap::load(KeymapBase::Reda, None);
+    assert!(problems.is_empty(), "{problems:?}");
+    assert_eq!(
+        *base.modifiers(),
+        ModifierRoles {
+            net_highlight_board: Held::Mod,
+            net_highlight_sheet: Held::Alt,
+            constrain: Held::Alt,
+            detach: Held::Mod,
+            snap_suspend: Held::Mod,
+        }
+    );
+    let user = "[modifiers]\nnet_highlight_sheet = \"Ctrl\"\nconstrain = \"mod\"\n";
+    let (keymap, problems) = Keymap::load(KeymapBase::Reda, Some(user));
+    assert!(problems.is_empty(), "{problems:?}");
+    let roles = keymap.modifiers();
+    assert_eq!(roles.net_highlight_sheet, Held::Ctrl);
+    assert_eq!(roles.constrain, Held::Mod);
+    assert_eq!(roles.detach, Held::Mod, "untouched roles keep the base");
+    // Bad lines are reported and skipped.
+    let bad = "[modifiers]\nzoom = \"Alt\"\ndetach = \"Hyper\"\n";
+    let (keymap, problems) = Keymap::load(KeymapBase::Reda, Some(bad));
+    assert_eq!(problems.len(), 2, "{problems:?}");
+    assert!(problems[0].contains("zoom"), "{problems:?}");
+    assert!(problems[1].contains("detach"), "{problems:?}");
+    assert_eq!(keymap.modifiers().detach, Held::Mod);
+}

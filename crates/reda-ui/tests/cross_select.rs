@@ -386,9 +386,30 @@ fn cross_probe_always_highlights_and_zooms_and_its_jump_activates_the_other_tab(
     assert!(
         requests
             .iter()
-            .any(|r| matches!(r, bars::Request::ZoomTo(d, o) if *d == board && *o == [fp_r1]))
+            .any(|r| matches!(r, bars::Request::ZoomClose(d, o, c) if *d == board && *o == [fp_r1] && *c == 0.6)),
+        "zoomed as close as the shared highlight Preference says: {requests:?}"
     );
     assert_eq!(active(&f.shell), Some(sheet()), "no jump: the sheet stays");
+
+    // The shared highlight Preference governs Cross-probe: with Dim and Zoom off it only
+    // finds.
+    pref(&mut f.shell, "editing.highlight.dim", json!(false));
+    pref(&mut f.shell, "editing.highlight.zoom", json!(false));
+    run(&mut f.shell, "view.highlight.clear", json!({}));
+    let out = run(
+        &mut f.shell,
+        "view.cross_probe",
+        json!({"objects": [f.r1.1]}),
+    );
+    assert_eq!(out["objects"], json!([fp_r1]));
+    assert!(f.shell.highlight().objects.is_empty());
+    assert!(
+        !bars::take_requests(f.shell.engine())
+            .iter()
+            .any(|r| matches!(r, bars::Request::ZoomClose(..)))
+    );
+    pref(&mut f.shell, "editing.highlight.dim", json!(true));
+    pref(&mut f.shell, "editing.highlight.zoom", json!(true));
 
     run(
         &mut f.shell,

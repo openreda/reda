@@ -62,7 +62,7 @@ impl JsonSchema for Rule {
 }
 
 /// Where to look.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SimilarScope {
     /// The template's Schematic Sheet.
@@ -76,7 +76,7 @@ pub enum SimilarScope {
 }
 
 /// The object to compare with: a UUID, or a Pad of a Footprint instance.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Template {
     Object(Uuid),
@@ -440,4 +440,136 @@ fn part_attributes(kind: &str, part: &impl Serialize) -> Value {
     };
     map.insert("type".to_owned(), json!(kind));
     Value::Object(map)
+}
+
+/// How the Select Similar window groups an attribute's row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AttributeGroup {
+    /// What the object is: `type`.
+    Kind,
+    /// What makes this kind of object what it is: names, values, Nets, sizes of Pads.
+    ObjectSpecific,
+    /// Where and how it is drawn: position, rotation, Layer, stroke.
+    Graphical,
+}
+
+/// One attribute of a template, as the Select Similar window lists it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AttributeRow {
+    /// The attribute's name as `rules` takes it: a dotted path such as `fields.value`.
+    pub name: String,
+    /// The template's value.
+    pub value: Value,
+    pub group: AttributeGroup,
+}
+
+/// What Select Similar can ask of a template: its kind, the scopes it can search and its
+/// attributes, generated from the object schema.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TemplateInfo {
+    /// The template's `type`, such as `unit`, `track` or `pad`.
+    pub kind: String,
+    /// Where it can look, narrowest first.
+    pub scopes: Vec<SimilarScope>,
+    /// Kind first, then Object Specific, then Graphical; by name within a group.
+    pub rows: Vec<AttributeRow>,
+}
+
+/// Top-level attributes that say where and how an object is drawn.
+const GRAPHICAL: &[&str] = &[
+    "at",
+    "position",
+    "rotation",
+    "mirror",
+    "mirrored",
+    "flipped",
+    "side",
+    "layer",
+    "layers",
+    "vertices",
+    "points",
+    "geometry",
+    "from",
+    "to",
+    "center",
+    "radius",
+    "start",
+    "end",
+    "angle",
+    "stroke",
+    "fill",
+    "width",
+    "line_width",
+    "thickness",
+    "justify",
+    "font",
+    "font_size",
+    "size",
+    "hidden",
+    "visible",
+    "locked",
+    "orientation",
+    "offset",
+];
+
+/// Attributes no row is offered for: identity and bookkeeping, never alike.
+const SKIPPED: &[&str] = &["uuid", "document"];
+
+/// Describes `template` for the Select Similar window.
+pub fn describe_template(
+    project: &Project,
+    template: Template,
+) -> Result<TemplateInfo, CommandError> {
+    let found = self::template(project, template)?;
+    let scopes = match found.home {
+        Home::Sheet(_) => vec![SimilarScope::Sheet, SimilarScope::Project],
+        Home::Board => vec![SimilarScope::Board],
+        Home::Element(_) => vec![SimilarScope::Element],
+    };
+    let kind = found
+        .attributes
+        .get("type")
+        .map(text_of)
+        .unwrap_or_default();
+    let mut rows = Vec::new();
+    leaves(&found.attributes, String::new(), &mut rows);
+    rows.sort_by(|a, b| (a.group, &a.name).cmp(&(b.group, &b.name)));
+    Ok(TemplateInfo { kind, scopes, rows })
+}
+
+/// The leaf attributes under `value`: objects nest by dotted path; arrays and scalars are
+/// leaves, compared whole.
+fn leaves(value: &Value, prefix: String, out: &mut Vec<AttributeRow>) {
+    let Value::Object(map) = value else {
+        return;
+    };
+    for (key, child) in map {
+        if prefix.is_empty() && SKIPPED.contains(&key.as_str()) {
+            continue;
+        }
+        let name = if prefix.is_empty() {
+            key.clone()
+        } else {
+            format!("{prefix}.{key}")
+        };
+        match child {
+            Value::Object(inner) if !inner.is_empty() => leaves(child, name, out),
+            Value::Null => {}
+            _ => {
+                let top = name.split('.').next().unwrap_or(&name);
+                let group = if name == "type" {
+                    AttributeGroup::Kind
+                } else if GRAPHICAL.contains(&top) {
+                    AttributeGroup::Graphical
+                } else {
+                    AttributeGroup::ObjectSpecific
+                };
+                out.push(AttributeRow {
+                    name,
+                    value: child.clone(),
+                    group,
+                });
+            }
+        }
+    }
 }

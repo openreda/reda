@@ -341,7 +341,7 @@ fn modified_only_and_all_settings() {
         .shell_mut()
         .run(
             "app.preferences.set",
-            json!({"key": "pcb.auto_pan", "value": false}),
+            json!({"key": "editing.auto_pan.style", "value": "off"}),
         )
         .unwrap();
     h.run();
@@ -361,18 +361,25 @@ fn modified_only_and_all_settings() {
         .click();
     h.run();
 
+    // The tree may need scrolling to reach its last page.
+    h.get_by_role_and_label(Role::TreeItem, "All settings, 1 changed")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TreeItem, "All settings, 1 changed")
         .click();
     h.run();
     assert!(h.query_by_label("schematic.single_negation").is_some());
-    type_into(&mut h, Role::SearchInput, "Search settings", "pcb.auto");
+    type_into(&mut h, Role::SearchInput, "Search settings", "auto_pan.st");
     // The search filters the table rather than leaving the page.
     assert!(h.query_by_label("schematic.single_negation").is_none());
-    assert!(h.query_by_label("pcb.auto_pan").is_some());
+    assert!(h.query_by_label("editing.auto_pan.style").is_some());
     h.get_by_role_and_label(Role::Button, "Reset Auto-pan at the canvas edge to default")
         .click();
     h.run();
-    assert!(h.state().shell().preferences().pcb.auto_pan);
+    assert!(
+        h.state().shell().preferences().editing.auto_pan.style
+            == reda_ui::engine::preferences::AutoPanStyle::Ballistic
+    );
 }
 
 /// How far `label`'s text starts from the left edge of its page tree row, in points.

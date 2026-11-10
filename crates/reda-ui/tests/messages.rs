@@ -158,7 +158,12 @@ fn going_to_a_violation_opens_its_document_zooms_to_it_and_selects_its_objects()
         .iter()
         .map(|e| e.id.as_str())
         .collect();
-    assert!(journal.ends_with(&["document.open", "selection.set"]));
+    // The shared highlight Preference also dims everything else.
+    assert!(journal.ends_with(&["document.open", "selection.set", "view.highlight"]));
+    let lit: Vec<String> = (d.shell.highlight().objects.iter())
+        .map(|u| u.to_string())
+        .collect();
+    assert_eq!(lit, [d.wire.clone()]);
     // The canvas marks the one selection.
     let marked = &d.shell.document_tab(sheet2).unwrap().selection.objects;
     assert_eq!(marked[..], d.shell.selection().objects[..]);
@@ -595,4 +600,52 @@ fn opening_a_board_runs_the_health_checks_without_opening_messages_or_dirtying_i
     assert!(!shell.engine().is_dirty());
     // It runs no Command, so the Journal holds only the user's.
     assert!(shell.engine().journal().iter().all(|e| e.id != "drc.run"));
+}
+
+#[test]
+fn going_to_a_violation_follows_the_shared_highlight_preference() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let sheet2 = d.sheet2.parse().unwrap();
+    let (key, _) = violation_lines(&d.shell)[2].clone();
+    // Closeness 0 leaves more room around the Violation than 1.
+    let frame_at = |d: &mut Demo, closeness: f64| {
+        d.shell
+            .run(
+                "app.preferences.set",
+                json!({"key": "editing.highlight.closeness", "value": closeness}),
+            )
+            .unwrap();
+        d.shell.go_to(key);
+        let (lo, hi) = d
+            .shell
+            .document_tab_mut(sheet2)
+            .unwrap()
+            .zoom_to
+            .take()
+            .unwrap();
+        hi.x - lo.x
+    };
+    let loose = frame_at(&mut d, 0.0);
+    let tight = frame_at(&mut d, 1.0);
+    assert!(loose > tight, "{loose:?} {tight:?}");
+    for key in ["select", "zoom", "dim"] {
+        d.shell
+            .run(
+                "app.preferences.set",
+                json!({"key": format!("editing.highlight.{key}"), "value": false}),
+            )
+            .unwrap();
+    }
+    d.shell
+        .run("selection.set", json!({"objects": []}))
+        .unwrap();
+    d.shell.run("view.highlight.clear", json!({})).unwrap();
+    d.shell.go_to(key);
+    assert!(d.shell.selection().objects.is_empty(), "Select off");
+    assert!(d.shell.highlight().objects.is_empty(), "Dim off");
+    assert!(
+        d.shell.document_tab(sheet2).unwrap().zoom_to.is_none(),
+        "Zoom off"
+    );
 }

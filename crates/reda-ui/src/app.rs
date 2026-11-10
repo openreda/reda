@@ -277,6 +277,7 @@ impl App {
         }
         self.handle_requests(&ctx);
         self.help.show(&ctx, self.shell.engine());
+        crate::similar::show(&ctx, &mut self.shell);
         let windows = crate::panels::violation_details::show(&ctx, &self.shell);
         for action in frame.messages.into_iter().chain(windows) {
             if let Some((window, page)) = crate::panels::messages::apply(&mut self.shell, action) {
@@ -947,14 +948,22 @@ impl App {
                 Request::Quit => self.quit(ctx),
                 Request::ZoomFit(document) => {
                     if let Some(tab) = self.shell.document_tab_mut(document) {
+                        tab.remember_view();
                         tab.camera = None;
                     }
+                }
+                Request::Recenter(document) => self.shell.recenter(document),
+                Request::PreviousView(document) => {
+                    self.shell.previous_view(document);
                 }
                 Request::ZoomSelection(document) => {
                     self.shell.zoom_to_selection(document);
                 }
                 Request::ZoomTo(document, objects) => {
                     self.shell.zoom_to_objects(document, &objects);
+                }
+                Request::ZoomClose(document, objects, closeness) => {
+                    self.shell.zoom_closely(document, &objects, closeness);
                 }
                 Request::JumpTo(document, jump) => self.shell.jump(document, jump),
                 Request::Preferences => self.open_preferences(None),

@@ -342,8 +342,13 @@ pub struct Canvas {
     srgb: bool,
     background: Rgba,
     moving: (f64, f64),
+    strengths: (f32, f32),
     writes: Writes,
 }
+
+/// How strongly dimmed and masked objects fade into the background by default, from 0
+/// to 1: the shared highlight Preference's defaults.
+pub const DEFAULT_STRENGTHS: (f32, f32) = (0.6, 0.75);
 
 impl Canvas {
     pub fn new(device: &wgpu::Device, renderer: &Renderer) -> Canvas {
@@ -378,6 +383,7 @@ impl Canvas {
             srgb: renderer.format.is_srgb(),
             background: Rgba::rgb(0, 0, 0),
             moving: (0.0, 0.0),
+            strengths: DEFAULT_STRENGTHS,
             writes: Writes::default(),
         }
     }
@@ -397,7 +403,8 @@ impl Canvas {
         let mut bytes: Vec<u8> = floats.iter().flat_map(|f| f.to_le_bytes()).collect();
         bytes.extend_from_slice(&u32::from(self.srgb).to_le_bytes());
         bytes.extend_from_slice(&0u32.to_le_bytes());
-        for f in [self.moving.0 as f32, self.moving.1 as f32, 0.0, 0.0] {
+        let (dim, mask) = self.strengths;
+        for f in [self.moving.0 as f32, self.moving.1 as f32, dim, mask] {
             bytes.extend_from_slice(&f.to_le_bytes());
         }
         queue.write_buffer(&self.view, 0, &bytes);
@@ -409,6 +416,13 @@ impl Canvas {
     /// so moving the pointer writes nothing more than the view.
     pub fn set_moving_offset(&mut self, offset: (f64, f64)) {
         self.moving = offset;
+    }
+
+    /// Sets how strongly objects marked [`Flags::DIMMED`] and [`Flags::MASKED`] fade into
+    /// the background, each from 0 (not at all) to 1 (gone). Like the moving offset it goes
+    /// to the GPU with the next [`set_view`](Self::set_view).
+    pub fn set_strengths(&mut self, dim: f32, mask: f32) {
+        self.strengths = (dim.clamp(0.0, 1.0), mask.clamp(0.0, 1.0));
     }
 
     /// Writes the palette: on theme change or a colour override.

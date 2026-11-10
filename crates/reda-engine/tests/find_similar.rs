@@ -308,3 +308,42 @@ fn element_scope_works_without_a_project() {
         err.message
     );
 }
+
+#[test]
+fn a_template_is_described_by_its_schema_attributes_in_three_groups() {
+    use reda_engine::commands::similar::{
+        AttributeGroup, SimilarScope, Template, describe_template,
+    };
+    let dir = TempDir::new("similar-describe");
+    let mut engine = engine(&dir);
+    let r1 = place(&mut engine, SHEET, RESISTOR, 0, "10k");
+    let project = engine.project().unwrap();
+    let info = describe_template(project, Template::Object(r1.parse().unwrap())).unwrap();
+    assert_eq!(info.kind, "unit");
+    assert_eq!(info.scopes, [SimilarScope::Sheet, SimilarScope::Project]);
+    let group = |name: &str| info.rows.iter().find(|r| r.name == name).map(|r| r.group);
+    assert_eq!(info.rows[0].name, "type");
+    assert_eq!(group("type"), Some(AttributeGroup::Kind));
+    assert_eq!(group("fields.value"), Some(AttributeGroup::ObjectSpecific));
+    assert_eq!(group("at.x"), Some(AttributeGroup::Graphical));
+    assert_eq!(group("uuid"), None, "identity is never alike");
+    let value = info.rows.iter().find(|r| r.name == "fields.value").unwrap();
+    assert_eq!(value.value, json!("10k"));
+    // Kind, then Object Specific, then Graphical.
+    let groups: Vec<AttributeGroup> = info.rows.iter().map(|r| r.group).collect();
+    let mut sorted = groups.clone();
+    sorted.sort();
+    assert_eq!(groups, sorted);
+    // Every row is a name `rules` takes.
+    for row in &info.rows {
+        let out = find(
+            &mut engine,
+            json!({"template": r1, "rules": {row.name.clone(): "same"}, "scope": "sheet"}),
+        );
+        assert!(
+            out["objects"].as_array().unwrap().contains(&json!(r1)),
+            "{}",
+            row.name
+        );
+    }
+}

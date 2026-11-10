@@ -242,11 +242,11 @@ impl Shell {
                 let project = self.engine.project()?;
                 messages::locate(project, document, &tab.scene.scene, &e.violation)
             });
-            if let (Some(location), Some(tab)) = (location, self.document_tab_mut(document)) {
-                tab.zoom_to = Some(location.frame);
-            }
+            // As the shared highlight Preference says: select, zoom, dim.
+            self.show_result(document, &objects, location.map(|l| l.frame), true);
+        } else {
+            self.select_existing(objects);
         }
-        self.select_existing(objects);
         self.update_markers();
     }
 

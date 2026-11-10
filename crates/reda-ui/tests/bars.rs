@@ -722,7 +722,7 @@ fn window_commands_ask_the_window_and_are_refused_headless() {
 }
 
 #[test]
-fn home_zooms_the_canvas_to_the_selection() {
+fn shift_home_zooms_the_canvas_to_the_selection() {
     let home = TempDir::new("bars-home");
     let work = TempDir::new("bars-work");
     let file = make_project(work.path(), "Zoom");
@@ -759,11 +759,11 @@ fn home_zooms_the_canvas_to_the_selection() {
         "framed tightly: {lo:?} {hi:?}"
     );
 
-    // Home is the key on every canvas.
+    // Shift+Home is the key on every canvas.
     let keymap =
         std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("keymap/reda.toml"))
             .unwrap();
-    assert_eq!(keymap.matches("key = \"Home\"").count(), 4);
+    assert_eq!(keymap.matches("key = \"Shift+Home\"").count(), 4);
 }
 
 #[test]

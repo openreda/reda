@@ -1039,7 +1039,9 @@ impl Cx<'_> {
                 self.break_step(Breaking::default(), event)
             }
             (Interaction::Idle, Pointer::Click { at, modifiers })
-                if tool == Tool::Select && !modifiers.alt && self.segment_click(at, modifiers) =>
+                if tool == Tool::Select
+                    && !self.highlights(modifiers)
+                    && self.segment_click(at, modifiers) =>
             {
                 Interaction::Idle
             }
@@ -1104,8 +1106,8 @@ impl Cx<'_> {
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
-            (Interaction::Idle, Pointer::Click { at, modifiers }) if modifiers.alt => {
-                self.highlight_net(at);
+            (Interaction::Idle, Pointer::Click { at, modifiers }) if self.highlights(modifiers) => {
+                self.highlight_net(at, modifiers.shift);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
@@ -1152,7 +1154,8 @@ impl Cx<'_> {
                 self.commands.extend(drag.select);
                 let objects = drag.objects;
                 // Mod+drag detaches; a plain drag keeps connections.
-                self.start_flight(objects, !modifiers.command, false, Some(hit), from, at)
+                let detach = self.shell.modifier_roles().detach.held(&modifiers);
+                self.start_flight(objects, !detach, false, Some(hit), from, at)
             }
             (Interaction::Idle, Pointer::Drag(_) | Pointer::DragEnd(_)) => Interaction::Idle,
         }
@@ -1184,15 +1187,30 @@ impl Cx<'_> {
         in_place::start(self.shell, target)
     }
 
+    /// Whether a click with `modifiers` highlights a Net: the `net_highlight_sheet` role
+    /// (Alt by default) is held.
+    fn highlights(&self, modifiers: egui::Modifiers) -> bool {
+        (self.shell.modifier_roles().net_highlight_sheet).held(&modifiers)
+    }
+
     /// Alt+click: highlights the Net under the pointer on every sheet, or clears the
-    /// highlight when there is none.
-    fn highlight_net(&mut self, at: P) {
+    /// highlight when there is none. With Shift (`add`) the Net joins what is highlighted,
+    /// and a click on nothing changes nothing.
+    fn highlight_net(&mut self, at: P, add: bool) {
         let net = self.hit(at).and_then(|object| {
             let project = self.shell.engine().project()?;
             net_at(project, self.document, object, point(at))
         });
         let params = match net {
+            Some(net) if add && !self.shell.highlight().objects.is_empty() => {
+                let mut objects = self.shell.highlight().objects.clone();
+                objects.extend(net.objects);
+                objects.sort();
+                objects.dedup();
+                json!({"objects": objects})
+            }
             Some(net) => json!({"net": net.name, "objects": net.objects}),
+            None if add => return,
             None => json!({}),
         };
         self.commands.push(("view.highlight".to_owned(), params));
