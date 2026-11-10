@@ -171,7 +171,9 @@ fn a_relative_path_is_taken_from_the_project_folder_and_runs_stay_pure_queries()
         json!({"kind": "drc", "format": "html", "path": "reports/drc.html"}),
     );
     let written = dir.path().join("Demo/reports/drc.html");
-    assert_eq!(out["path"], written.to_str().unwrap());
+    // As paths: the result joins `reports/drc.html` to the folder as given, so on Windows
+    // its separators need not match this join's, while the components do.
+    assert_eq!(Path::new(out["path"].as_str().unwrap()), written);
     assert!(written.is_file());
     // Writing a report edits nothing.
     assert!(!e.0.is_dirty());

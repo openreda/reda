@@ -82,7 +82,9 @@ fn manifest(folder: &Path) -> Value {
 }
 
 fn folder(dir: &TempDir) -> PathBuf {
-    dir.path().join("Demo/outputs/Generic")
+    // One component at a time: the run normalises its destination, and the zip and
+    // manifest paths are compared as JSON strings, so the separators must be the platform's.
+    dir.path().join("Demo").join("outputs").join("Generic")
 }
 
 /// Rewrites `from` to `to` in the saved Project file and reopens it.
@@ -336,7 +338,7 @@ fn the_name_template_names_the_zip_bom_and_cpl_and_the_destination_resolves_the_
                "destination": "outputs/${job}/${revision}"}),
     );
     let out = run(&mut engine);
-    let folder = dir.path().join("Demo/outputs/Generic/C");
+    let folder = folder(&dir).join("C");
     assert_eq!(out["destination"], json!(folder));
     let stem = "Demo_C_2026-01-01_Generic";
     assert_eq!(out["zip"], json!(folder.join(format!("{stem}.zip"))));
