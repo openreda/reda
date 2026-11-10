@@ -248,3 +248,55 @@ fn a_numeric_expression_commits_one_batch_and_the_journal_records_the_results() 
         "the field says why it was refused"
     );
 }
+
+#[test]
+fn ctrl_q_with_the_panel_focused_toggles_its_units_only() {
+    let dir = TempDir::new("properties-panel-units");
+    let mut h = harness(&dir);
+    let text = run(
+        &mut h,
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0, "height": "1mm"}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects": [text]}));
+    h.run();
+    let height = |h: &Harness<'_, App>| {
+        h.get_by_role_and_label(Role::TextInput, "Height")
+            .accesskit_node()
+            .value()
+            .unwrap_or_default()
+    };
+    // The active Document is the sheet, whose grid is in mil.
+    assert_eq!(height(&h), "39.37 mil");
+    let canvas = h.state().shell().board_view().units;
+
+    run(&mut h, "layout.tab.activate", json!({"tab": "properties"}));
+    h.run();
+    h.key_press_modifiers(egui::Modifiers::COMMAND, Key::Q);
+    h.run();
+    h.run();
+    assert_eq!(height(&h), "1 mm");
+    // The canvas keeps its own units.
+    assert_eq!(h.state().shell().board_view().units, canvas);
+    // A bare number typed now is read in the panel's units.
+    h.get_by_role_and_label(Role::TextInput, "Height").focus();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Height")
+        .set_text_value_accesskit("1.27");
+    h.run();
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        last_entry(&h),
+        (
+            "pcb.text.set".to_owned(),
+            json!({"uuid": text, "height": 1_270_000})
+        )
+    );
+
+    h.key_press_modifiers(egui::Modifiers::COMMAND, Key::Q);
+    h.run();
+    h.run();
+    assert_eq!(height(&h), "50 mil");
+}

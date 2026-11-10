@@ -208,6 +208,9 @@ pub struct Shell {
     pub(crate) engine: Engine,
     /// The open Documents' tabs, wherever the Layout puts them.
     documents: Vec<DocumentTab>,
+    /// The units the Properties panel shows lengths in after `Ctrl+Q` there; `None`
+    /// follows the active Document's.
+    properties_units: Option<preferences::Units>,
     fonts: Arc<dyn InstalledFonts>,
     /// Families already asked of [`InstalledFonts`], found or not.
     asked_fonts: BTreeSet<String>,
@@ -428,6 +431,7 @@ impl Shell {
         let mut shell = Shell {
             engine,
             documents: Vec::new(),
+            properties_units: None,
             fonts: Arc::new(NoFonts),
             asked_fonts: BTreeSet::new(),
             generation: 0,
@@ -575,6 +579,17 @@ impl Shell {
             .view_mut()
             .get_mut::<BoardView>()
             .expect("the Shell installs its BoardView")
+    }
+
+    /// The units the Properties panel was switched to with `Ctrl+Q`, if it was; the panel
+    /// otherwise follows the active Document's.
+    pub fn properties_units(&self) -> Option<preferences::Units> {
+        self.properties_units
+    }
+
+    /// Sets the Properties panel's own units (`Ctrl+Q` there), leaving the canvas's.
+    pub fn set_properties_units(&mut self, units: Option<preferences::Units>) {
+        self.properties_units = units;
     }
 
     /// The Layer colour overrides the canvases draw with.
