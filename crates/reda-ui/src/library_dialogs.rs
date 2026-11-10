@@ -8,6 +8,7 @@ mod generate;
 mod import;
 mod new_library;
 mod paste;
+pub mod paste_array;
 mod to_library;
 mod wizard;
 
@@ -24,6 +25,7 @@ pub use generate::{
 pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
 pub use paste::{PasteMapping, PasteOutcome};
+pub use paste_array::{ArrayOptions, PasteArrayDialog};
 pub use to_library::ToLibraryDialog;
 pub use wizard::{SymbolWizardDialog, Target as WizardTarget};
 
@@ -36,6 +38,9 @@ pub fn dialogs() -> Dialogs {
     });
     dialogs.register_always(wizard::COMMAND, |shell, params| {
         Box::new(SymbolWizardDialog::new(shell, &params))
+    });
+    dialogs.register_always(paste_array::COMMAND, |shell, params| {
+        Box::new(PasteArrayDialog::new(shell, &params))
     });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))

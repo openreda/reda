@@ -6,13 +6,13 @@
 //! own UUID.
 
 use reda_command::Fonts;
-use reda_model::geom::Nm;
 use reda_model::{
-    DocumentEntry, DocumentKind, FabRules, Footprint, Layer, PreferredSeeds, Project, ProjectProps,
-    Shape, Uuid,
+    DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Shape, Uuid,
 };
 use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
-use reda_render::{BoardGeometry, BoardGraphic, BoardPad, BoardText, Mesh, Scene, Segment};
+use reda_render::{
+    BoardGeometry, BoardGraphic, BoardOpening, BoardPad, BoardText, Mesh, Scene, Segment,
+};
 
 use crate::builders::add_document;
 
@@ -27,8 +27,9 @@ pub struct FootprintScene {
     pub layers: Vec<Layer>,
 }
 
-/// The Scene of `footprint` at its own origin, seen from the top: its Pads (copper, mask,
-/// paste and holes, numbered), drawing and text, with the Designator as
+/// The Scene of `footprint` at its own origin, seen from the top: its Pads (copper, holes,
+/// numbered, and the mask and paste openings the Generic Fab Preset's seeds give), drawing
+/// and text, with the Designator as
 /// [`DESIGNATOR_PLACEHOLDER`] and the value as the Footprint's name.
 pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
     let (project, document) = board_for(footprint.uuid);
@@ -86,6 +87,22 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
             },
         });
     }
+    geometry.openings = Some(
+        reda_pcb::openings::element_openings(pcb, footprint)
+            .into_iter()
+            .filter_map(|o| {
+                let g = o.geometry?;
+                Some(BoardOpening {
+                    object: g.pad,
+                    side: o.side,
+                    paste: o.kind == reda_pcb::openings::Kind::Paste,
+                    at: g.at,
+                    rotation: g.rotation,
+                    outline: g.outline,
+                })
+            })
+            .collect(),
+    );
     let scene = reda_render::pcb_scene(&project, document, &geometry).unwrap_or_default();
     FootprintScene {
         scene,
@@ -114,24 +131,9 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         missing: vec![],
     });
     let document = new_id();
-    let rules = FabRules {
-        mask_expansion: Default::default(),
-        paste_expansion: Default::default(),
-        clearance: Nm(0),
-        track_width: Nm(0),
-        via_diameter: Nm(0),
-        via_hole: Nm(0),
-        hole_min: Nm(0),
-        hole_max: Nm(0),
-        annular_ring: Nm(0),
-        hole_to_hole: Nm(0),
-        edge_clearance: Nm(0),
-        preferred: PreferredSeeds {
-            track_width: Nm(0),
-            via_diameter: Nm(0),
-            via_hole: Nm(0),
-        },
-    };
+    // A Library element has no board: the preview opens mask and paste from the Generic
+    // Fab Preset's seeds (library.md#footprint-editor).
+    let rules = reda_output::generic().rules;
     let mut tx = project.transaction();
     let entry = DocumentEntry {
         uuid: document,

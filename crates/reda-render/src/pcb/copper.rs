@@ -3,7 +3,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{LayerKind, PadKind, Side, TrackGeometry};
 
-use super::{BoardPad, Builder, capsule};
+use super::{BoardOpening, BoardPad, Builder, capsule};
 use crate::arc;
 use crate::color::BoardColor;
 use crate::polygon::triangulate;
@@ -26,7 +26,9 @@ pub(super) fn tracks(b: &mut Builder) {
     }
 }
 
-pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
+/// Each Pad's copper, and its mask and paste: the `openings` given, else the copper's
+/// shape on its mask and paste Layers.
+pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardOpening]>) {
     for pad in pads {
         let shape = pad_shape(pad);
         let both = [Some(Side::Top), Some(Side::Bottom)];
@@ -55,6 +57,9 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
             }
         }
         b.net_overlay(pad.net, first);
+        if openings.is_some() {
+            continue;
+        }
         for layer in mask.into_iter().chain(paste).flatten() {
             b.on_layer(pad.object, layer, shape.clone());
             if let Some(item) = b.scene.items.last_mut() {
@@ -62,13 +67,28 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad]) {
             }
         }
     }
+    for opening in openings.unwrap_or_default() {
+        let kind = match opening.paste {
+            true => LayerKind::Paste,
+            false => LayerKind::SolderMask,
+        };
+        if let Some(layer) = b.find(kind, Some(opening.side)) {
+            let shape = outline_shape(opening.at, opening.rotation, &opening.outline);
+            b.on_layer(opening.object, layer, shape);
+        }
+    }
 }
 
 /// A Pad's copper as one primitive: a disc, a rounded rectangle, or triangles when its
 /// corners differ.
 fn pad_shape(pad: &BoardPad) -> Primitive {
-    let o = &pad.outline;
-    let center = pad.copper_center();
+    outline_shape(pad.at, pad.rotation, &pad.outline)
+}
+
+/// An outline in a Pad's frame, anchored at `at` and turned by `rotation`, as one
+/// primitive.
+fn outline_shape(at: Point, rotation: Millideg, o: &reda_model::geom::CornerRect) -> Primitive {
+    let center = (o.center + at).rotated_about(at, rotation);
     if o.is_circle() {
         return Primitive::Ring {
             center,
@@ -80,7 +100,7 @@ fn pad_shape(pad: &BoardPad) -> Primitive {
         Some(corner_radius) => Primitive::Rect {
             center,
             size: (o.width, o.height),
-            rotation: pad.rotation.normalized(),
+            rotation: rotation.normalized(),
             corner_radius,
             stroke: None,
         },
@@ -88,7 +108,7 @@ fn pad_shape(pad: &BoardPad) -> Primitive {
             let points: Vec<Point> = o
                 .polygon(PAD_ARC_TOLERANCE)
                 .into_iter()
-                .map(|p| (p + pad.at).rotated_about(pad.at, pad.rotation))
+                .map(|p| (p + at).rotated_about(at, rotation))
                 .collect();
             Primitive::Triangles(triangulate(&points))
         }

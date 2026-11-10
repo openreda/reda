@@ -399,3 +399,46 @@ fn a_generated_footprint_is_checked_into_messages() {
         Some("Library check: no problems in RESC1608X55N")
     );
 }
+
+#[test]
+fn each_footprint_column_marks_empty_unknown_and_shared_pads() {
+    use reda_ui::part_editor::CellMark;
+    let home = TempDir::new("part-map-marks");
+    let mut shell = shell(&home);
+    let uuid = opamp_part(&mut shell);
+    let symbol = part_editor::symbol(&mut shell, OPAMP.parse().unwrap());
+    let soic = part_editor::footprint(&mut shell, SOIC8.parse().unwrap()).unwrap();
+    let mut p = part(&shell, uuid);
+    // Pin 1 on no Pad (an override with none, as a file may hold), Pin 2 on Pad 9 that
+    // SOIC-8 lacks, Pins 3 and 5 both on Pad 1; Pin 4 keeps its own Pad 4.
+    p.pin_map.pins = vec![
+        PinPads {
+            pin: "1".into(),
+            pads: vec![],
+        },
+        PinPads {
+            pin: "2".into(),
+            pads: vec!["9".into()],
+        },
+        PinPads {
+            pin: "3".into(),
+            pads: vec!["1".into()],
+        },
+        PinPads {
+            pin: "5".into(),
+            pads: vec!["1".into()],
+        },
+    ];
+    let rows = part_editor::map_rows(&p, symbol.as_ref(), &[soic.clone(), soic]);
+    let marks = |n: &str| {
+        rows.iter().find(|r| r.number == n).unwrap().cells[1]
+            .marks
+            .clone()
+    };
+    assert_eq!(rows[0].cells.len(), 2, "one cell per alternate");
+    assert_eq!(marks("1"), [CellMark::Empty]);
+    assert_eq!(marks("2"), [CellMark::Unknown("9".into())]);
+    assert_eq!(marks("3"), [CellMark::Shared("1".into())]);
+    assert_eq!(marks("5"), [CellMark::Shared("1".into())]);
+    assert!(marks("4").is_empty());
+}

@@ -187,6 +187,40 @@ pub fn answer(shell: &mut Shell, answer: Answer) -> Result<Option<Uuid>, Command
     }
 }
 
+/// The Part editor's Duplicate & Edit (library.md#shared-elements): copies the Part's
+/// Symbol or Footprint `element` (a new UUID and a `_1` name) into its own Library, or
+/// the Part's when that one is read-only, points the Part at the copy and opens it,
+/// without asking. Returns the copy.
+pub fn duplicate_and_edit(
+    shell: &mut Shell,
+    part: Uuid,
+    element: Uuid,
+) -> Result<Uuid, CommandError> {
+    let library = match crate::part_editor::library_of(shell, element) {
+        Some((library, true)) => library,
+        _ => match crate::part_editor::library_of(shell, part) {
+            Some((library, true)) => library,
+            _ => crate::library_dialogs::writable_libraries(shell)
+                .first()
+                .map(|(l, _)| *l)
+                .ok_or_else(|| CommandError::rejected("no Library can be written to"))?,
+        },
+    };
+    let is_symbol = crate::part_editor::symbol(shell, element).is_some();
+    let out = shell.run_reporting(
+        "library.element.copy",
+        json!({"element": element, "library": library}),
+    )?;
+    let copy: Uuid = (out["element"].as_str())
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(|| CommandError::internal("the copy has no UUID"))?;
+    repoint(shell, part, element, copy, is_symbol)?;
+    state_mut(shell).approved.insert(copy);
+    state_mut(shell).opened_from.insert(copy, part);
+    shell.run_reporting("library.element.open", json!({"element": copy}))?;
+    Ok(copy)
+}
+
 /// Points the open Part `part` at `copy` in place of `original`.
 fn repoint(
     shell: &mut Shell,
