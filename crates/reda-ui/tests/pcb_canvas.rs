@@ -782,7 +782,7 @@ fn repeat_clicks_and_shift_tab_cycle_the_board_stack() {
 }
 
 #[test]
-fn shift_click_adds_on_the_board_and_mod_click_replaces() {
+fn shift_click_adds_on_the_board_and_mod_click_highlights_instead_of_selecting() {
     let mut w = window_with_step(0.01);
     let free = free_pad(&mut w, "5mm");
     let pad = on_screen(&w, Point::default());
@@ -801,12 +801,15 @@ fn shift_click_adds_on_the_board_and_mod_click_replaces() {
         [free],
         "and adds the Free Pad"
     );
+    // On a board Mod+click is Net highlight (docs/spec/v0.1/editing.md#net-highlight): the
+    // selection stays as it is.
     w.h.event(egui::Event::ModifiersChanged(Modifiers::COMMAND));
     click_after(&mut w, other, 1.0);
     assert_eq!(shell(&w).selection().objects, [free]);
-    assert!(
-        shell(&w).selection().pads.is_empty(),
-        "Mod+click doesn't toggle; it selects just the object"
+    assert_eq!(
+        shell(&w).selection().pads.len(),
+        1,
+        "Mod+click doesn't change the selection"
     );
 }
 

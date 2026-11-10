@@ -14,6 +14,9 @@
 //! [[unbind]]                  # the user's file only: drop a binding
 //! context = "global"
 //! key = "Mod+Y"
+//!
+//! [modifiers]                 # held modifiers of mouse gestures (see `modifiers`)
+//! net_highlight_sheet = "Ctrl"
 //! ```
 //!
 //! A bad entry is reported and skipped; the rest of the file still applies.
@@ -21,6 +24,7 @@
 use serde_json::{Map, Number, Value};
 use toml_edit::{DocumentMut, Item, Table};
 
+use super::modifiers::{Held, Role};
 use super::{Chord, Context};
 use crate::bars::{Action, Binding};
 use crate::tr;
@@ -37,11 +41,16 @@ pub(super) enum Entry {
         context: Context,
         chord: Chord,
     },
+    /// A line of the `[modifiers]` table.
+    Modifier {
+        role: Role,
+        held: Held,
+    },
 }
 
 /// Reads `text`, the file named `file` in messages. Returns the good entries in file order
 /// and a message for each bad one.
-pub(super) fn parse(file: &str, text: &str) -> (Vec<Entry>, Vec<String>) {
+pub(super) fn parse(file: &str, text: &str, mac: bool) -> (Vec<Entry>, Vec<String>) {
     let mut problems = Vec::new();
     let doc: DocumentMut = match text.parse() {
         Ok(doc) => doc,
@@ -55,6 +64,10 @@ pub(super) fn parse(file: &str, text: &str) -> (Vec<Entry>, Vec<String>) {
     };
     let mut entries = Vec::new();
     for (name, item) in doc.iter() {
+        if name == "modifiers" {
+            modifiers(file, item, &mut entries, &mut problems);
+            continue;
+        }
         let unbind = match name {
             "bind" => false,
             "unbind" => true,
@@ -68,7 +81,7 @@ pub(super) fn parse(file: &str, text: &str) -> (Vec<Entry>, Vec<String>) {
             continue;
         };
         for table in tables.iter() {
-            match entry(table, unbind) {
+            match entry(table, unbind, mac) {
                 Ok(entry) => entries.push(entry),
                 Err(error) => problems.push(tr!("keymap-bad-entry", file = file, error = error)),
             }
@@ -77,7 +90,33 @@ pub(super) fn parse(file: &str, text: &str) -> (Vec<Entry>, Vec<String>) {
     (entries, problems)
 }
 
-fn entry(table: &Table, unbind: bool) -> Result<Entry, String> {
+/// The `[modifiers]` table: one role per line.
+fn modifiers(file: &str, item: &Item, entries: &mut Vec<Entry>, problems: &mut Vec<String>) {
+    let Some(table) = item.as_table_like() else {
+        problems.push(tr!(
+            "keymap-unknown-section",
+            file = file,
+            section = "modifiers"
+        ));
+        return;
+    };
+    for (name, value) in table.iter() {
+        let Some(role) = Role::parse(name) else {
+            let error = tr!("keymap-unknown-role", role = name);
+            problems.push(tr!("keymap-bad-entry", file = file, error = error));
+            continue;
+        };
+        match value.as_str().and_then(Held::parse) {
+            Some(held) => entries.push(Entry::Modifier { role, held }),
+            None => {
+                let error = tr!("keymap-bad-modifier", role = name);
+                problems.push(tr!("keymap-bad-entry", file = file, error = error));
+            }
+        }
+    }
+}
+
+fn entry(table: &Table, unbind: bool, mac: bool) -> Result<Entry, String> {
     let allowed: &[&str] = if unbind {
         &["context", "key"]
     } else {
@@ -87,7 +126,7 @@ fn entry(table: &Table, unbind: bool) -> Result<Entry, String> {
         return Err(tr!("keymap-unknown-field", field = k));
     }
     let key = string(table, "key")?.ok_or_else(|| tr!("keymap-missing-field", field = "key"))?;
-    let chord = Chord::parse(&key)
+    let chord = Chord::parse_for(&key, mac)
         .map_err(|error| tr!("keymap-bad-key", key = key.as_str(), error = error))?;
     let context = match string(table, "context")? {
         None => Context::Global,

@@ -82,7 +82,7 @@ pub(crate) fn waiver_author(dirs: Option<&UserDirs>) -> String {
 }
 
 /// Editing preferences that apply equally to Documents and Library editors.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SelectionEditing {
     /// A click on empty canvas clears the selection.
@@ -107,6 +107,10 @@ pub struct SelectionEditing {
     pub hud: HudPreferences,
     /// How many decimals coordinates and lengths show with.
     pub display_precision: DisplayPrecision,
+    /// Auto-pan: how a canvas pans when the cursor reaches its edge during an operation.
+    pub auto_pan: AutoPan,
+    /// How a result is shown: Messages, Find, Select Similar, Show and Cross-probe.
+    pub highlight: HighlightPreferences,
 }
 
 impl Default for SelectionEditing {
@@ -121,6 +125,73 @@ impl Default for SelectionEditing {
             grid: GridPreferences::default(),
             hud: HudPreferences::default(),
             display_precision: DisplayPrecision::default(),
+            auto_pan: AutoPan::default(),
+            highlight: HighlightPreferences::default(),
+        }
+    }
+}
+
+/// How a canvas pans when the cursor reaches its edge during an operation
+/// (docs/spec/v0.1/editing.md#navigation).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct AutoPan {
+    /// Auto-pan at the canvas edge: `off`, `ballistic` (faster the further past the
+    /// edge), `fixed_size_jump` (a steady speed) or `re_center` (centres the view on the
+    /// cursor).
+    pub style: AutoPanStyle,
+    /// The pan speed in pixels per second; Shift held pans faster.
+    pub speed: f64,
+}
+
+impl Default for AutoPan {
+    fn default() -> AutoPan {
+        AutoPan {
+            style: AutoPanStyle::Ballistic,
+            speed: 1200.0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoPanStyle {
+    Off,
+    #[default]
+    Ballistic,
+    FixedSizeJump,
+    ReCenter,
+}
+
+/// The shared highlight Preference (docs/spec/v0.1/editing.md#highlighting): how
+/// Messages, Find, Select Similar, Show from a row and Cross-probe show a result.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct HighlightPreferences {
+    /// Select the result.
+    pub select: bool,
+    /// Zoom to the result.
+    pub zoom: bool,
+    /// How close the zoom comes, from 0 (fit with room around) to 1 (tight).
+    pub closeness: f64,
+    /// Dim everything else.
+    pub dim: bool,
+    /// How strongly dimmed objects fade into the background, from 0 to 1. Cross-select
+    /// uses it too.
+    pub dim_strength: f64,
+    /// How strongly masked objects fade into the background, from 0 to 1.
+    pub mask_strength: f64,
+}
+
+impl Default for HighlightPreferences {
+    fn default() -> HighlightPreferences {
+        HighlightPreferences {
+            select: true,
+            zoom: true,
+            closeness: 0.6,
+            dim: true,
+            dim_strength: 0.6,
+            mask_strength: 0.75,
         }
     }
 }
@@ -251,8 +322,6 @@ pub struct Editing {
     /// `pad_center`, `via_center`, `track_end`, `arc_end`, `arc_center`,
     /// `outline_vertex`, `footprint_origin` and `text_anchor`.
     pub hotspots_off: BTreeSet<Hotspot>,
-    /// Pan the view when the cursor reaches the canvas edge during an operation.
-    pub auto_pan: bool,
     /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
     /// not one of the Document type's presets, is the type's own default.
     pub default_grid: Option<Length>,
@@ -364,7 +433,6 @@ impl Default for Editing {
             electrical_snap: true,
             snap_distance: Length(reda_model::geom::Nm(8 * 25_400)),
             hotspots_off: BTreeSet::new(),
-            auto_pan: true,
             default_grid: None,
             zone: ZonePreferences::default(),
             keepout: KeepoutPreferences::default(),
@@ -651,8 +719,6 @@ pub struct SchematicEditing {
     /// The Hotspot kinds new views leave out of the checklist: `pin_end`, `wire_end`,
     /// `wire_vertex`, `wire` (anywhere along a Wire), `port_anchor` and `label_anchor`.
     pub hotspots_off: BTreeSet<Hotspot>,
-    /// Pan the view when the cursor reaches the canvas edge during an operation.
-    pub auto_pan: bool,
     /// The snap-grid preset new views start on, such as `50mil` or `0.5mm`; unset, or
     /// not one of the presets, is the schematic default.
     pub default_grid: Option<Length>,
@@ -812,7 +878,6 @@ impl Default for SchematicEditing {
             electrical_snap,
             snap_distance: _,
             hotspots_off: _,
-            auto_pan,
             default_grid,
             zone: _,
             keepout: _,
@@ -829,7 +894,6 @@ impl Default for SchematicEditing {
             repeat_placement,
             electrical_snap,
             hotspots_off: BTreeSet::new(),
-            auto_pan,
             default_grid,
             single_negation: false,
             display_cross_overs: false,

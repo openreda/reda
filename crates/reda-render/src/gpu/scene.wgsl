@@ -15,7 +15,9 @@ struct View {
     _pad: u32,
     // How far objects marked MOVING are drawn from where they are, in nm.
     moving: vec2<f32>,
-    _pad2: vec2<f32>,
+    // How far dimmed and masked ink is blended toward the background.
+    dim_strength: f32,
+    mask_strength: f32,
 }
 
 struct Palette {
@@ -46,8 +48,6 @@ const CHECKER: u32 = 256u;
 const OWN_COLOR: u32 = 0x80000000u;
 // The side of a checker cell, in pixels.
 const CHECKER_PX: f32 = 4.0;
-// How far masked ink is blended toward the background after greying.
-const MASK_STRENGTH: f32 = 0.75;
 
 // The selection halo's width in pixels.
 const HALO_PX: f32 = 3.0;
@@ -256,11 +256,11 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
         rgb = mix(rgb, vec3(1.0), 0.35);
     }
     if (in.flags & DIMMED) != 0u {
-        rgb = mix(rgb, palette.background.rgb, 0.7);
+        rgb = mix(rgb, palette.background.rgb, view.dim_strength);
     }
     if (in.flags & MASKED) != 0u {
         let grey = dot(rgb, vec3(0.299, 0.587, 0.114));
-        rgb = mix(vec3(grey), palette.background.rgb, MASK_STRENGTH);
+        rgb = mix(vec3(grey), palette.background.rgb, view.mask_strength);
     }
     var a = alpha * color.a * in.opacity;
 

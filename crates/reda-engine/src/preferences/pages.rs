@@ -64,6 +64,8 @@ pub fn page_of(key: &str) -> &'static str {
     match (section, name) {
         ("editing", name) if name.starts_with("grid.") => "editing.grid",
         ("editing", name) if name.starts_with("hud.") => "editing.hud",
+        ("editing", name) if name.starts_with("auto_pan.") => "editing.auto_pan",
+        ("editing", name) if name.starts_with("highlight.") => "editing.highlight",
         ("editing", _) => "editing",
         ("general", "default_layout") => "window",
         ("schematic" | "pcb", "default_units" | "repeat_placement") => "editing",
@@ -71,7 +73,6 @@ pub fn page_of(key: &str) -> &'static str {
             "editing.snap"
         }
         ("schematic" | "pcb", "default_grid") => "editing.grid",
-        ("schematic" | "pcb", "auto_pan") => "editing.auto_pan",
         (
             "schematic",
             "optimize_wires"

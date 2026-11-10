@@ -10,7 +10,6 @@ mod cross;
 mod library;
 mod reannotate;
 mod replace;
-mod similar;
 mod text;
 pub mod update;
 
@@ -35,7 +34,6 @@ pub use reannotate::{
     ReannotateDialog, ReannotateLast, Rename, RowSort, SheetRow as ReannotateSheetRow,
 };
 pub use replace::{KeepFields, Outcome, PickRow, ReplaceDialog};
-pub use similar::{Criterion, SimilarDialog};
 pub use text::TextDialog;
 pub use update::{
     ComponentRow, GridCell, Page, PartRow, Replacement, Section, SheetRow, UpdateDialog,
@@ -167,7 +165,6 @@ impl Command for OpenDialog {
 
 /// An open schematic dialog. The window keeps one and shows it every frame.
 pub enum SchematicDialog {
-    Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
     ReannotateLast(ReannotateLast),
     Update(Box<UpdateDialog>),
@@ -186,13 +183,15 @@ impl SchematicDialog {
                 crate::panels::find::open(shell);
                 return None;
             }
-            DialogKind::SelectSimilar => match SimilarDialog::new(shell) {
-                Some(dialog) => SchematicDialog::Similar(dialog),
-                None => {
-                    shell.report(tr!("similar-needs-unit"));
-                    return None;
+            DialogKind::SelectSimilar => {
+                // The non-modal window, on the first selected object.
+                let selection = shell.selection().clone();
+                let params = json!({"objects": selection.objects, "pads": selection.pads});
+                if shell.run("selection.similar.window", params).is_err() {
+                    shell.report(tr!("similar-needs-object"));
                 }
-            },
+                return None;
+            }
             DialogKind::Reannotate => SchematicDialog::Reannotate(ReannotateDialog::new(shell)),
             DialogKind::ReannotateLast => match ReannotateLast::new(shell) {
                 Ok(dialog) => SchematicDialog::ReannotateLast(dialog),
@@ -214,7 +213,6 @@ impl SchematicDialog {
     /// Draws the dialog for one frame. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         match self {
-            SchematicDialog::Similar(d) => d.show(ctx, shell),
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
             SchematicDialog::ReannotateLast(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),

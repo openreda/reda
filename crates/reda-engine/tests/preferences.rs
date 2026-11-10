@@ -79,19 +79,22 @@ fn setting_the_default_value_removes_the_key() {
     let home = TempDir::new("prefs-reset");
     write_prefs(
         home.path(),
-        "[schematic]\nrepeat_placement = false\nauto_pan = false\n",
+        "[schematic]\nrepeat_placement = false\nin_place_editing = false\n",
     );
     let mut engine = test_engine_in(home.path());
     engine.run_ok(
         "app.preferences.set",
         json!({"key": "schematic.repeat_placement", "value": true}),
     );
-    assert_eq!(read_prefs(home.path()), "[schematic]\nauto_pan = false\n");
+    assert_eq!(
+        read_prefs(home.path()),
+        "[schematic]\nin_place_editing = false\n"
+    );
     engine.run_ok(
         "app.preferences.set",
-        json!({"key": "schematic.auto_pan", "value": null}),
+        json!({"key": "schematic.in_place_editing", "value": null}),
     );
-    assert!(!read_prefs(home.path()).contains("auto_pan"));
+    assert!(!read_prefs(home.path()).contains("in_place_editing"));
 }
 
 #[test]
@@ -105,7 +108,7 @@ fn comments_and_other_keys_survive_a_set() {
 theme = \"dark\" # keep this
 
 [schematic]
-auto_pan = false   # it jumps around
+in_place_editing = false   # it jumps around
 ";
     write_prefs(home.path(), before);
     let mut engine = test_engine_in(home.path());
@@ -128,7 +131,7 @@ auto_pan = false   # it jumps around
 theme = \"light\" # keep this
 
 [schematic]
-auto_pan = false   # it jumps around
+in_place_editing = false   # it jumps around
 
 [pcb]
 default_units = \"mil\"
@@ -142,7 +145,7 @@ fn set_rereads_the_file_so_outside_edits_are_kept() {
     let mut engine = test_engine_in(home.path());
     engine.run_ok(
         "app.preferences.set",
-        json!({"key": "schematic.auto_pan", "value": false}),
+        json!({"key": "schematic.in_place_editing", "value": false}),
     );
     // Another instance (or the user) edits the file between two Commands.
     let edited = format!("{}# added by hand\n", read_prefs(home.path()));
@@ -153,7 +156,7 @@ fn set_rereads_the_file_so_outside_edits_are_kept() {
     );
     let after = read_prefs(home.path());
     assert!(after.contains("# added by hand"), "{after}");
-    assert!(after.contains("auto_pan = false"), "{after}");
+    assert!(after.contains("in_place_editing = false"), "{after}");
     assert!(after.contains("electrical_snap = false"), "{after}");
 }
 
@@ -281,18 +284,18 @@ fn preference_commands_are_journalled_and_dirty_nothing() {
     let mut engine = test_engine_in(home.path());
     engine.run_ok(
         "app.preferences.set",
-        json!({"key": "schematic.auto_pan", "value": false}),
+        json!({"key": "schematic.in_place_editing", "value": false}),
     );
     engine.run_err(
         "app.preferences.set",
-        json!({"key": "schematic.auto_pan", "value": 7}),
+        json!({"key": "schematic.in_place_editing", "value": 7}),
     );
     let journal = engine.journal();
     assert_eq!(journal.len(), 2);
     assert_eq!(journal[0].id, "app.preferences.set");
     assert_eq!(
         journal[0].params,
-        json!({"key": "schematic.auto_pan", "value": false})
+        json!({"key": "schematic.in_place_editing", "value": false})
     );
     assert!(journal[0].outcome.is_ok());
     assert_eq!(
@@ -357,15 +360,18 @@ fn reset_puts_the_given_keys_back_and_keeps_the_rest() {
     let home = TempDir::new("prefs-reset-keys");
     write_prefs(
         home.path(),
-        "# mine\n[general]\ntheme = \"dark\"\nui_scale = 1.5\n\n[pcb]\nauto_pan = false\n",
+        "# mine\n[general]\ntheme = \"dark\"\nui_scale = 1.5\n\n[pcb]\nrepeat_placement = false\n",
     );
     let mut engine = test_engine_in(home.path());
     let out = engine.run_ok(
         "app.preferences.reset",
-        json!({"keys": ["general.theme", "pcb.auto_pan", "pcb.electrical_snap"]}),
+        json!({"keys": ["general.theme", "pcb.repeat_placement", "pcb.electrical_snap"]}),
     );
     // Only the keys that were changed are reported, sorted.
-    assert_eq!(out, json!({"reset": ["general.theme", "pcb.auto_pan"]}));
+    assert_eq!(
+        out,
+        json!({"reset": ["general.theme", "pcb.repeat_placement"]})
+    );
     assert_eq!(
         read_prefs(home.path()),
         "# mine\n[general]\nui_scale = 1.5\n\n[pcb]\n"

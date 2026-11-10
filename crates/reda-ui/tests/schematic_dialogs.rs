@@ -1,4 +1,4 @@
-//! The schematic's dialogs as models on a Shell, without a window: Select Similar,
+//! The schematic's dialogs as models on a Shell, without a window: Select Similar (its window),
 //! Re-annotate with its old → new preview, and Export PDF. Update from Library has its own
 //! tests (`library_update.rs`).
 
@@ -9,7 +9,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
 use reda_ui::engine::model::annotate::ScopeKind;
-use reda_ui::schematic_dialogs::{ReannotateDialog, SimilarDialog, export_pdf};
+use reda_ui::schematic_dialogs::{ReannotateDialog, export_pdf};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -83,6 +83,8 @@ fn designator(shell: &Shell, unit: Uuid) -> String {
 
 #[test]
 fn select_similar_selects_matching_units_on_the_sheet_or_across_the_project() {
+    use reda_ui::engine::commands::similar::SimilarScope;
+    use reda_ui::similar::{self, Rule};
     let dir = TempDir::new("similar");
     let mut shell = shell(&dir);
     let (r1, _) = place(&mut shell, sheet(), R_10K, 0, 0);
@@ -91,32 +93,28 @@ fn select_similar_selects_matching_units_on_the_sheet_or_across_the_project() {
     let second = add_sheet(&mut shell);
     let (r3, _) = place(&mut shell, second, R_10K, 0, 0);
 
-    // It needs a selected Unit to compare with.
-    assert!(SimilarDialog::new(&shell).is_none());
-    shell
-        .run("selection.set", json!({"objects": [r1]}))
-        .unwrap();
-    let mut dialog = SimilarDialog::new(&shell).unwrap();
-    // The reference's free-form fields can be matched on too.
+    // It needs an object to compare with.
     assert!(
-        dialog
-            .criteria()
-            .iter()
-            .any(|c| c.param == json!({"field": "LCSC"}))
+        shell
+            .run("selection.similar.window", json!({"objects": []}))
+            .is_err()
     );
-    dialog.set(&json!("value"), true);
-    dialog.apply(&mut shell).unwrap();
+    shell
+        .run("selection.similar.window", json!({"objects": [r1]}))
+        .unwrap();
+    similar::window_mut(&mut shell)
+        .unwrap()
+        .set_rule("fields.value", Rule::Same);
+    similar::apply(&mut shell).unwrap();
     assert_eq!(shell.selection().objects, [r1, r2]);
 
-    dialog.project = true;
-    dialog.apply(&mut shell).unwrap();
-    assert_eq!(shell.selection().objects, [r1, r2, r3]);
-
-    // With nothing to match on, there is nothing to run.
-    for c in dialog.criteria().to_vec() {
-        dialog.set(&c.param, false);
-    }
-    assert!(!dialog.can_apply());
+    similar::window_mut(&mut shell).unwrap().scope = SimilarScope::Project;
+    similar::apply(&mut shell).unwrap();
+    let mut all = shell.selection().objects.clone();
+    all.sort();
+    let mut want = vec![r1, r2, r3];
+    want.sort();
+    assert_eq!(all, want);
 }
 
 #[test]

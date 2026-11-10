@@ -16,7 +16,7 @@ use super::{
 };
 use crate::bars::DocumentType;
 use crate::bridge::Bridge;
-use crate::keymap::{Chord, Context};
+use crate::keymap::{Chord, Context, Held};
 use crate::settings::{Problem, field};
 use crate::shell::Shell;
 use crate::tr;
@@ -596,6 +596,7 @@ impl PreferencesDialog {
         if let Some(error) = self.shortcuts.error() {
             ui.colored_label(ui.visuals().error_fg_color, error.to_owned());
         }
+        self.modifier_roles(ui, cx);
         self.recording(ui, cx);
         ui.add_space(4.0);
         let query = self.shortcuts.query.clone();
@@ -606,6 +607,40 @@ impl PreferencesDialog {
         for row in rows {
             self.shortcut_row(ui, cx, &row);
         }
+    }
+
+    /// The Modifiers section: the held modifier of each mouse gesture role.
+    fn modifier_roles(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
+        ui.add_space(4.0);
+        ui.strong(tr!("shortcuts-modifiers"));
+        let mut change = None;
+        for (role, held, changed) in super::Shortcuts::modifiers(cx.shell) {
+            ui.horizontal(|ui| {
+                let key = format!("shortcuts-role-{}", role.name().replace('_', "-"));
+                let name = crate::i18n::translate(&key, &[]);
+                let mut title = RichText::new(name.as_str());
+                if changed {
+                    title = title.strong();
+                }
+                fixed_label(ui, LABEL_WIDTH, title);
+                let combo = egui::ComboBox::from_id_salt(("modifier-role", role.name()))
+                    .selected_text(held.name())
+                    .show_ui(ui, |ui| {
+                        for option in Held::ALL {
+                            if ui.selectable_label(option == held, option.name()).clicked() {
+                                change = Some((role, option));
+                            }
+                        }
+                    });
+                combo
+                    .response
+                    .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, name.clone()));
+            });
+        }
+        if let Some((role, held)) = change {
+            let _ = self.shortcuts.set_modifier(cx.shell, role, held);
+        }
+        ui.add_space(4.0);
     }
 
     fn shortcut_row(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, row: &Row) {

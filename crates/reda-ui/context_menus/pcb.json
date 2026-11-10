@@ -57,7 +57,7 @@
       "id": "select",
       "title": "context-select",
       "items": [
-        { "id": "context.select.similar", "command": "selection.similar", "params": { "objects": "$selection" }, "title": "context-select-similar" },
+        { "id": "context.select.similar", "command": "selection.similar.window", "params": { "objects": "$selection" }, "title": "context-select-similar" },
         { "id": "context.select.connected", "command": "pcb.selection.connected", "title": "context-select-connected" },
         { "id": "context.select.all_on_layer", "command": "pcb.selection.on_layer", "params": { "layer": "$active_layer" }, "title": "context-select-all-on-layer" }
       ]

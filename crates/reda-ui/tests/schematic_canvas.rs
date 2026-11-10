@@ -43,6 +43,14 @@ fn harness_with_library(dir: &TempDir, step: f32, library: PathBuf) -> Harness<'
         .build();
     let mut shell = Shell::new(engine);
     shell.new_project(dir.path(), "Demo").unwrap();
+    // These tests drag rectangles out to points that can lie in the canvas's edge band at
+    // the fitted zoom; auto-pan would move the view under them (tests/navigation.rs covers it).
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.auto_pan.style", "value": "off"}),
+        )
+        .unwrap();
     Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
@@ -645,12 +653,16 @@ fn select_similar_honours_filter_changes_and_refuses_a_filtered_template() {
         "selection.filter.set",
         json!({"document":SHEET,"kinds":{"unit":false}}),
     );
-    h.get_all_by_label("Select").last().unwrap().click();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
     h.run();
     assert!(
         h.state().shell().selection().is_empty(),
         "Apply filters the results using current working state"
     );
+    // Apply leaves the window open; Cancel closes it.
+    h.get_by_label("Select Similar to R1");
+    h.get_by_role_and_label(Role::Button, "Cancel").click();
+    h.run();
     run(&mut h, "selection.set", json!({"objects":[unit]}));
     run(&mut h, "schematic.dialog.open:select_similar", json!({}));
     h.run();

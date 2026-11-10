@@ -91,7 +91,8 @@ pub fn suspend(shell: &Shell) -> Suspend {
 pub fn held(shell: &Shell, document: Uuid, modifiers: egui::Modifiers, pressed: bool) -> Suspend {
     let in_flight = pressed || shell.tool() != Tool::Select || carrying(shell, document);
     let mut keys = suspend(shell);
-    keys.update(in_flight, modifiers.command, modifiers.shift);
+    let suspend_key = shell.modifier_roles().snap_suspend.held(&modifiers);
+    keys.update(in_flight, suspend_key, modifiers.shift);
     keys
 }
 

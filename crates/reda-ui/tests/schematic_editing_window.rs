@@ -12,7 +12,7 @@ use egui_kittest::kittest::Queryable;
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;
-use reda_ui::engine::command::{FixedClock, SeededIds};
+use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::model::Uuid;
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
@@ -28,11 +28,19 @@ fn harness(dir: &TempDir) -> Harness<'static, App> {
     let engine = Engine::builder()
         .ids(SeededIds::new(0))
         .clock(FixedClock::EPOCH)
-        .user_dirs(None)
+        .user_dirs(Some(UserDirs::under(&dir.path().join("home"))))
         .starter_library(Some(library()))
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
+    // The drags here reach the canvas's edge band; auto-pan would move the view under
+    // them (tests/navigation.rs covers it).
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.auto_pan.style", "value": "off"}),
+        )
+        .unwrap();
     shell.new_project(dir.path(), "Demo").unwrap();
     Harness::builder()
         .with_size([1200.0, 800.0])

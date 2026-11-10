@@ -39,8 +39,15 @@ pub enum Request {
     ZoomSelection(Uuid),
     /// Zoom this Document's canvas to these objects (`view.zoom_to`).
     ZoomTo(Uuid, Vec<Uuid>),
+    /// Zoom this Document's canvas to these objects as close as the shared highlight
+    /// Preference's closeness (0..1) says: a result shown (Cross-probe).
+    ZoomClose(Uuid, Vec<Uuid>, f64),
     /// Move this Document's canvas (`view.jump_to`).
     JumpTo(Uuid, crate::navigation::Jump),
+    /// Centre this Document's canvas on the cursor (`view.recenter`).
+    Recenter(Uuid),
+    /// Put this Document's canvas back to its previous view (`view.previous`).
+    PreviousView(Uuid),
     /// Show the window in this theme.
     Theme(Theme),
     /// Show the About box.
@@ -95,6 +102,9 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ZoomSelection);
     registry.add(ZoomTo);
     registry.add(crate::navigation::JumpTo);
+    registry.add(crate::navigation::Recenter);
+    registry.add(crate::navigation::PreviousView);
+    registry.add(crate::navigation::NextSelected);
     registry.add(SetTheme);
     registry.add(OpenSettings);
     registry.add(SetUiScale);

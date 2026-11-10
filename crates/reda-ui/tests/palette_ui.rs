@@ -350,7 +350,11 @@ fn at_selects_and_zooms_to_a_component() {
     let ids: Vec<String> = (h.state().shell().engine().journal().iter())
         .map(|e| e.id.clone())
         .collect();
-    assert_eq!(ids.last().map(String::as_str), Some("selection.set"));
+    // Then the shared highlight Preference dims around it (editing.md#highlighting).
+    assert_eq!(
+        ids[ids.len() - 2..],
+        ["selection.set".to_owned(), "view.highlight".to_owned()]
+    );
 }
 
 #[test]
