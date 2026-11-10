@@ -4,8 +4,9 @@
 //! - `tool.place` (the Library panel's click or drag) picks the Part up and makes
 //!   [`Tool::Place`](crate::tools::Tool::Place) active. What is in flight is view state
 //!   ([`Placement`]), so the in-flight Commands change it the way keys and menus do:
-//!   `tool.rotate` (Space), `tool.mirror` (X, Y), `tool.flip` (L, the board side) and
-//!   `tool.place.set` (the Properties panel, which Tab opens).
+//!   `tool.rotate` (Space), `tool.mirror_x`/`tool.mirror_y` (X, Y), `tool.flip_side` (L,
+//!   the board side) and `tool.place.set` (the Properties panel, which Tab opens with
+//!   `tool.edit_properties`).
 //! - The pointer draws a preview: the Project as the place Command would leave it
 //!   ([`Engine::preview`](reda_engine::Engine::preview)), drawn in place of the real one.
 //!   Neither the Project nor the Journal changes until a click, which runs exactly one
@@ -25,7 +26,7 @@ use reda_engine::model::{Project, Side, Uuid};
 use serde_json::{Value, json};
 
 use crate::canvas::CanvasInputs;
-use crate::canvas::interact::{Pointer, snap_to_grid};
+use crate::canvas::interact::Pointer;
 use crate::shell::Shell;
 
 pub use commands::register_all;
@@ -60,6 +61,9 @@ pub struct Placing {
     pub designator: Option<String>,
     /// Field values over the Part's defaults, by name.
     pub fields: BTreeMap<String, String>,
+    /// A further Unit of this placed Component (Properties' **Place**), rather than a new
+    /// Component: placed once with `schematic.unit.place`.
+    pub component: Option<Uuid>,
 }
 
 impl Placing {
@@ -92,6 +96,17 @@ impl Placing {
 
     /// The Command that places the Part with its origin at `at`.
     pub fn command(&self, at: Point) -> (&'static str, Value) {
+        if let Some(component) = self.component {
+            let params = json!({
+                "document": self.document,
+                "component": component,
+                "unit": self.unit,
+                "at": {"x": at.x, "y": at.y},
+                "rotation": self.rotation.0,
+                "mirror": self.mirror,
+            });
+            return ("schematic.unit.place", params);
+        }
         let mut params = json!({
             "part": self.copy.part.uuid,
             "at": {"x": at.x, "y": at.y},
@@ -147,7 +162,7 @@ fn state(shell: &mut Shell) -> Option<&mut Placement> {
 /// `at` on `document`'s snap grid.
 fn snapped(shell: &Shell, document: Uuid, at: Point) -> Point {
     let xy = (at.x.0 as f64, at.y.0 as f64);
-    snap_to_grid(xy, shell.grid(document))
+    shell.snap_to_grid(document, xy)
 }
 
 /// Whether the Part in flight goes on `document`.
@@ -217,16 +232,18 @@ pub fn click(shell: &mut Shell, document: Uuid, at: Point) {
     if shell.run_reporting(id, params).is_err() {
         return;
     }
-    if !shell.preferences().schematic.repeat_placement {
+    let one_unit = placing(shell).is_some_and(|p| p.component.is_some());
+    if one_unit || !shell.preferences().schematic.repeat_placement {
         let _ = shell.run_reporting("tool.activate:select", json!({}));
         return;
     }
     let next = {
+        let by = shell.preferences().schematic.auto_increment.primary;
         let project = shell.engine().project();
         let designator = placing(shell).and_then(|p| p.designator.clone());
         project
             .zip(designator)
-            .and_then(|(p, d)| next_designator(p, &d))
+            .and_then(|(p, d)| next_designator(p, &d, by))
     };
     if let Some(state) = state(shell) {
         if let Some(placing) = &mut state.placing {
@@ -282,25 +299,13 @@ pub fn refresh(shell: &mut Shell) {
     }
 }
 
-/// The Designator after `designator`: its number counted up to the next one no
-/// Component or board Footprint uses. `None` when it ends in no number, so the next
-/// placement takes the next free one for its prefix.
-pub fn next_designator(project: &Project, designator: &str) -> Option<String> {
-    let digits = designator
-        .bytes()
-        .rev()
-        .take_while(u8::is_ascii_digit)
-        .count();
-    let (prefix, number) = designator.split_at(designator.len() - digits);
-    let mut n: u64 = number.parse().ok()?;
+/// The Designator after `designator`: its trailing number stepped `by` (the
+/// `schematic.auto_increment.primary` Preference), padding kept, skipping every one a
+/// Component or board Footprint uses. `None` when it ends in no number (or counting down
+/// finds no free one), so the next placement takes the next free one for its prefix.
+pub fn next_designator(project: &Project, designator: &str, by: i64) -> Option<String> {
     let used = designators(project);
-    loop {
-        n += 1;
-        let next = format!("{prefix}{n}");
-        if !used.contains(&next) {
-            return Some(next);
-        }
-    }
+    reda_engine::model::auto_increment::step_designator(designator, by, |d| !used.contains(d))
 }
 
 /// Every Designator in use on the sheets and the board.

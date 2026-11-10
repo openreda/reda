@@ -1,112 +1,194 @@
-//! The silkscreen check: silkscreen over the solder-mask openings of Pads on its side.
+//! The silkscreen checks: `silk_to_mask`, silkscreen too close to exposed copper or to
+//! the solder-mask openings on its side, and `silk_to_edge`, silkscreen too close to the
+//! Board Outline or a Board Cutout.
 //!
 //! The silkscreen is the Footprints' silkscreen drawing and Designators, and the PCB
-//! graphics and text on the silkscreen Layers. A Pad is exposed on the side its copper is
-//! on (both for a Pad with a hole), over its copper grown by its solder-mask margin (none
-//! when it sets none; a shrinking margin counts as none). Silkscreen that only touches an
-//! opening is clear.
+//! graphics and text on the silkscreen Layers. The openings are the [resolved
+//! ones](crate::openings): a Pad is open on the side its copper is on (both for a Pad with
+//! a hole), over its copper grown by its mask expansion. In `exposed_copper` mode the
+//! silkscreen keeps its distance from the copper inside each opening; in `mask_opening`
+//! mode from the opening itself.
 
 use std::collections::BTreeSet;
 
 use reda_command::Fonts;
-use reda_model::geom::Point;
+use reda_model::geom::{Nm, Point};
 use reda_model::{
-    DrcCheck, FootprintLayer, GraphicShape, LayerKind, PadKind, PcbDocument, Shape, Side, Uuid,
+    DrcCheck, FootprintLayer, GraphicShape, LayerKind, Limit, PcbDocument, RuleField, RuleKind,
+    Shape, Side, SilkMaskMode, Uuid,
 };
 
+use super::edge::Edge;
 use super::placement::{corners, polyline};
 use super::{Board, Report};
-use crate::copper::shape::{Core, P, Prim, Shape as Copper, arc_points};
-use crate::placed::{Frame, placed_graphics};
+use crate::copper::shape::{Core, Prim, Shape as Copper, arc_points};
+use crate::placed::{PlacedPad, placed_graphics};
+use crate::rules::resolve;
 use crate::text::{PlacedText, footprint_texts, text_geometry};
 use crate::zone::poly::{self, Area, Contour, ip};
 
 /// One piece of silkscreen: the objects it belongs to, its side and its area.
-struct Silk {
-    objects: Vec<Uuid>,
-    side: Side,
-    area: Area,
+pub(super) struct Silk {
+    pub objects: Vec<Uuid>,
+    pub side: Side,
+    pub area: Area,
 }
 
-/// One exposed Pad: the objects that name it, the sides it is open on and the opening.
-struct Opening {
-    objects: Vec<Uuid>,
-    sides: Vec<Side>,
-    area: Area,
+/// What silkscreen keeps clear of on one side: the objects that name it and its area.
+pub(crate) struct Target {
+    pub objects: Vec<Uuid>,
+    pub side: Side,
+    pub area: Area,
 }
 
 pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
-    if report.is_off(DrcCheck::SilkscreenOverPads) {
+    if report.is_off(DrcCheck::SilkToMask) && report.is_off(DrcCheck::SilkToEdge) {
         return;
     }
+    let silk = silkscreen(board.pcb, fonts);
+    if !report.is_off(DrcCheck::SilkToMask) {
+        silk_to_mask(board, &silk, report);
+    }
+    if !report.is_off(DrcCheck::SilkToEdge) {
+        silk_to_edge(board, &silk, report);
+    }
+}
+
+fn silk_layer(pcb: &PcbDocument, side: Side) -> Uuid {
+    pcb.layers()
+        .find(LayerKind::Silkscreen, Some(side))
+        .expect("silk is on a board Layer")
+        .uuid
+}
+
+fn silk_to_mask(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
     let pcb = board.pcb;
-    let openings = openings(pcb);
+    let Some(rule) = resolve(pcb, None, RuleKind::SilkToMask, RuleField::Value) else {
+        return;
+    };
+    let required = rule.value.length().expect("a length");
+    let mode = resolve(pcb, None, RuleKind::SilkToMask, RuleField::Mode)
+        .and_then(|m| m.value.mode())
+        .unwrap_or_default();
+    let targets = targets(pcb, mode);
     let mut seen = BTreeSet::new();
-    for silk in silkscreen(pcb, fonts) {
-        let Some(silk_box) = poly::bounds(&silk.area) else {
+    for piece in silk {
+        let Some(silk_box) = poly::bounds(&piece.area) else {
             continue;
         };
-        for opening in &openings {
-            if !opening.sides.contains(&silk.side) {
-                continue;
-            }
-            let Some(open_box) = poly::bounds(&opening.area) else {
+        for target in targets.iter().filter(|t| t.side == piece.side) {
+            let Some(target_box) = poly::bounds(&target.area) else {
                 continue;
             };
-            if !boxes_meet(silk_box, open_box) || !poly::overlaps(&silk.area, &opening.area) {
+            if !poly::boxes_within(silk_box, target_box, required.0) {
                 continue;
             }
-            let mut objects = silk.objects.clone();
-            for &o in &opening.objects {
+            let Some((gap, [a, b], overlaps)) = poly::gap(&piece.area, &target.area) else {
+                continue;
+            };
+            if !overlaps && gap >= required.0 as f64 {
+                continue;
+            }
+            let mut objects = piece.objects.clone();
+            for &o in &target.objects {
                 if !objects.contains(&o) {
                     objects.push(o);
                 }
             }
-            if seen.insert(objects.clone()) {
-                report.add(DrcCheck::SilkscreenOverPads, |v| v.objects(objects));
+            if !seen.insert(objects.clone()) {
+                continue;
             }
-        }
-    }
-}
-
-fn boxes_meet(a: (P, P), b: (P, P)) -> bool {
-    a.0[0] <= b.1[0] && b.0[0] <= a.1[0] && a.0[1] <= b.1[1] && b.0[1] <= a.1[1]
-}
-
-/// Every Pad and Free Pad, as the solder-mask opening over it.
-fn openings(pcb: &PcbDocument) -> Vec<Opening> {
-    let both = || vec![Side::Top, Side::Bottom];
-    let mut out = Vec::new();
-    for instance in pcb.footprints() {
-        let Some(copy) = pcb.footprint_copy(instance.footprint) else {
-            continue;
-        };
-        let frame = Frame::of(instance);
-        for pad in &copy.footprint.pads {
-            let sides = match pad.kind {
-                PadKind::Smd => vec![frame.side(Side::Top)],
-                _ => both(),
-            };
-            let margin = pad.mask_margin.map_or(0, |m| m.0.max(0));
-            out.push(Opening {
-                objects: vec![instance.uuid, pad.uuid],
-                sides,
-                area: poly::union(poly::grown(&Copper::pad(instance, pad), margin)),
+            let actual = Nm(gap.floor() as i64);
+            report.add(DrcCheck::SilkToMask, |v| {
+                v.length(actual, required, Limit::Min, rule.rule)
+                    .distance_points(a, b)
+                    .on_layers([silk_layer(pcb, piece.side)])
+                    .arg("required", required)
+                    .arg("actual", actual)
+                    .arg(
+                        "mode",
+                        match mode {
+                            SilkMaskMode::ExposedCopper => "exposed_copper",
+                            SilkMaskMode::MaskOpening => "mask_opening",
+                        },
+                    )
+                    .objects(objects)
             });
         }
     }
-    for pad in pcb.free_pads() {
-        let sides = match (pad.kind, pad.side) {
-            (PadKind::Smd, Some(side)) => vec![side],
-            _ => both(),
+}
+
+fn silk_to_edge(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
+    let pcb = board.pcb;
+    let Some(rule) = resolve(pcb, None, RuleKind::SilkToEdge, RuleField::Value) else {
+        return;
+    };
+    let required = rule.value.length().expect("a length");
+    let edges = Edge::all(pcb);
+    for piece in silk {
+        let Some(first) = piece.area.first().and_then(|shape| shape.first()) else {
+            continue;
         };
-        out.push(Opening {
-            objects: vec![pad.uuid],
-            sides,
-            area: poly::union(poly::grown(&Copper::free_pad(pad), 0)),
-        });
+        let Some(anchor) = first.first().map(|p| [p.x, p.y]) else {
+            continue;
+        };
+        let outline = poly::boundary(&piece.area);
+        for edge in &edges {
+            let (gap, [a, b]) = edge.gap(&outline);
+            let wrong_side = edge.contains(anchor) != edge.keeps_inside;
+            let actual = if wrong_side {
+                Nm::ZERO
+            } else if gap < required.0 as f64 {
+                Nm(gap.max(0.0).floor() as i64)
+            } else {
+                continue;
+            };
+            report.add(DrcCheck::SilkToEdge, |v| {
+                v.length(actual, required, Limit::Min, rule.rule)
+                    .distance_points(a, b)
+                    .on_layers([silk_layer(pcb, piece.side)])
+                    .arg("required", required)
+                    .arg("actual", actual)
+                    .objects(piece.objects.iter().copied())
+                    .object(edge.uuid)
+            });
+        }
     }
-    out
+}
+
+/// What silkscreen keeps clear of in `mode`: each resolved mask opening, or the copper
+/// inside it.
+pub(crate) fn targets(pcb: &PcbDocument, mode: SilkMaskMode) -> Vec<Target> {
+    crate::openings::resolve(pcb)
+        .into_iter()
+        .filter(|o| o.kind == crate::openings::Kind::Mask)
+        .filter_map(|o| {
+            let opening = pad_area(o.geometry.as_ref()?);
+            let area = match mode {
+                SilkMaskMode::MaskOpening => opening,
+                SilkMaskMode::ExposedCopper => poly::intersection(&opening, &pad_area(&o.copper)),
+            };
+            (!area.is_empty()).then_some(Target {
+                objects: o.objects,
+                side: o.side,
+                area,
+            })
+        })
+        .collect()
+}
+
+/// The area of a placed Pad's outline.
+fn pad_area(pad: &PlacedPad) -> Area {
+    let contour = pad
+        .outline
+        .polygon(Nm(1_000))
+        .into_iter()
+        .map(|p| {
+            let p = pad.point(p);
+            ip([p.x.0, p.y.0])
+        })
+        .collect();
+    poly::polygon(contour)
 }
 
 /// The board side of a Footprint drawing Layer, for the silkscreen ones.
@@ -118,9 +200,9 @@ fn silk_side(layer: FootprintLayer) -> Option<Side> {
     }
 }
 
-/// Every piece of silkscreen on the board, Footprints' first. Footprint text is laid out
+/// Every piece of silkscreen on the board, Footprints' first, Dimensions last. Footprint text is laid out
 /// by [`footprint_texts`], as the canvas and the Gerber silkscreen lay it out.
-fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
+pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
     let side_of = |layer: Uuid| {
         pcb.layers()
             .layer(layer)
@@ -188,6 +270,27 @@ fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
             area: text_area(&text_geometry(text, fonts)),
         });
     }
+    // A Dimension is checked as the lines and text it plots as.
+    for dimension in pcb.dimensions() {
+        let Some(side) = side_of(dimension.layer) else {
+            continue;
+        };
+        let drawn = crate::dimension::drawing(dimension, fonts);
+        for line in &drawn.lines {
+            out.push(Silk {
+                objects: vec![dimension.uuid],
+                side,
+                area: strokes_area(&[vec![line.from, line.to]], line.width.0),
+            });
+        }
+        if let Some(text) = &drawn.text {
+            out.push(Silk {
+                objects: vec![dimension.uuid],
+                side,
+                area: text_area(&text_geometry(text, fonts)),
+            });
+        }
+    }
     out
 }
 
@@ -221,7 +324,7 @@ fn drawing_area(shape: &Shape, width: i64, fill: bool) -> Area {
 }
 
 /// The area of laid-out text: its pen strokes and its filled glyphs.
-fn text_area(text: &PlacedText) -> Area {
+pub(crate) fn text_area(text: &PlacedText) -> Area {
     let lines: Vec<Vec<Point>> = text.strokes.iter().map(|s| vec![s.a, s.b]).collect();
     let mut shapes: Vec<Vec<Contour>> = strokes_area(&lines, text.stroke_width.0);
     for tri in text.fill.indices.chunks_exact(3) {

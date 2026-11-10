@@ -1,5 +1,6 @@
 //! Per-Project view state: `.reda/view.json` holds the layout, the open tabs, and each
-//! Document's camera and Layer state. The selection is not kept.
+//! Document's camera, Layer state and working state (grid, units, snap mode, Gridless and
+//! Selection Filter). The selection is not kept.
 //!
 //! The file is disposable. One that cannot be read, or that another version of REDA
 //! wrote, is thrown away without a word in favour of the default layout. Writing it never
@@ -9,14 +10,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use reda_engine::model::geom::Point;
+use reda_engine::model::geom::Nm;
 use reda_engine::model::{ObjectType, Uuid};
 use reda_engine::pcb::RatsnestVisibility;
-use reda_engine::preferences::InactiveLayerMode;
+use reda_engine::preferences::{InactiveLayerMode, Units};
 use serde::{Deserialize, Serialize};
 
 use crate::canvas::Camera;
 use crate::layout::Layout;
+use crate::working_state::SnapMode;
 
 /// How long the view must stay unchanged before it is saved.
 pub const VIEW_SAVE_DELAY: Duration = Duration::from_secs(1);
@@ -45,6 +47,53 @@ pub struct LayerView {
     /// Which Ratsnest lines show.
     #[serde(skip_serializing_if = "is_default")]
     pub ratsnest: RatsnestVisibility,
+    /// Pinned Layers: still shown in single-Layer mode.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub pinned: BTreeSet<Uuid>,
+    /// Per-kind display: transparency and Draft.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub kinds: BTreeMap<ObjectType, KindDisplay>,
+    /// `F5`: Net colours on copper too.
+    #[serde(skip_serializing_if = "is_default")]
+    pub net_colors: bool,
+    /// The Net label toggles.
+    #[serde(skip_serializing_if = "is_default")]
+    pub labels: LabelView,
+    /// The Layer whose content is highlighted (`Mod`+click on a Layer chip): drawn on
+    /// top at full strength while the others fade. Session only, never saved.
+    #[serde(skip)]
+    pub highlighted: Option<Uuid>,
+}
+
+/// How one kind of board object is drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct KindDisplay {
+    /// 0 (opaque) to 100 percent.
+    #[serde(skip_serializing_if = "is_default")]
+    pub transparency: u8,
+    /// Outline only.
+    #[serde(skip_serializing_if = "is_default")]
+    pub draft: bool,
+}
+
+/// The view-only Net label toggles, each hidden below the usual minimum on-screen size.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LabelView {
+    pub pad_nets: bool,
+    pub via_nets: bool,
+    pub repeated_net_names: bool,
+}
+
+impl Default for LabelView {
+    fn default() -> LabelView {
+        LabelView {
+            pad_nets: true,
+            via_nets: true,
+            repeated_net_names: false,
+        }
+    }
 }
 
 fn is_default<T: Default + PartialEq>(value: &T) -> bool {
@@ -59,9 +108,24 @@ pub struct DocumentView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camera: Option<Camera>,
     pub layers: LayerView,
-    /// The board's user origin (`pcb.view.origin.set`); unset is the board's own.
+    /// The snap grid picked; unset is the Document type's default.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_origin: Option<Point>,
+    pub grid: Option<Nm>,
+    /// The units lengths show in (the board's); unset follows the Preference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub units: Option<Units>,
+    /// The object snap mode; unset is the Document type's default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snap_mode: Option<SnapMode>,
+    /// The grid level of snapping is off.
+    #[serde(skip_serializing_if = "is_default")]
+    pub gridless: bool,
+    /// The Hotspot kinds turned off in the snap checklist; unset follows the Preference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hotspots_off: Option<BTreeSet<String>>,
+    /// The kinds the Selection Filter turns off.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    pub selection_filter_off: BTreeSet<String>,
 }
 
 /// The contents of `view.json`.

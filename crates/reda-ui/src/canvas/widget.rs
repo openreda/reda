@@ -9,7 +9,6 @@
 use std::sync::Arc;
 
 use egui::{Color32, PointerButton, Rect, Role, Sense, Stroke, Ui, WidgetInfo};
-use reda_engine::model::Severity;
 use reda_engine::model::geom::Point;
 use reda_engine::render::gpu::GridSpec;
 use reda_engine::render::{ColorKey, Palette, SceneSource, SchematicColor, Theme};
@@ -36,9 +35,38 @@ pub struct Overlay {
     pub rubber_band: Option<RubberBand>,
     /// Wires a drag in flight redraws, as (from, to).
     pub wires: Arc<[(Point, Point)]>,
+    /// Wires a Tool proposes (Auto Wire's route), drawn as a thick dotted line.
+    pub dotted: Arc<[(Point, Point)]>,
     /// Where the pointer snapped to.
     pub cursor: Option<Point>,
+    /// The selected Wires' handles: (where, red), red for a selected segment's.
+    pub handles: Arc<[(Point, bool)]>,
+    /// Selected Wire segments, drawn over in the selection colour.
+    pub segments: Arc<[(Point, Point)]>,
+    /// The Break Wire Tool's preview of the cut under the pointer.
+    pub cutter: Option<Cutter>,
+    /// The Junctions a drag in flight would make (Display When Dragging).
+    pub junctions: Arc<[Point]>,
 }
+
+/// What the Break Wire Tool shows of the cut it would make.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cutter {
+    /// The stretch of Wire that would go.
+    pub gap: (Point, Point),
+    /// The Cutter Box around it, as four corners in order (Show Cutter Box).
+    pub cutter_box: Option<[Point; 4]>,
+    /// Extremity Markers across the Wire at both ends of the gap, half as long as the
+    /// box is wide (Show Extremity Markers).
+    pub extremities: Option<[(Point, Point); 2]>,
+    /// With both displays Never: the gap itself is highlighted.
+    pub highlight: bool,
+}
+
+/// The colour of a selected segment's handles.
+pub const SEGMENT_HANDLE: Color32 = Color32::from_rgb(230, 40, 40);
+/// A handle's half size in points.
+const HANDLE_POINTS: f32 = 3.5;
 
 /// A selection box being dragged out: its corners (nm) and how it picks.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -85,7 +113,13 @@ fn selected_on_canvas(tab: &DocumentTab) -> usize {
         return 0;
     }
     let mut drawn: Vec<_> = (tab.scene.scene.items.iter())
-        .map(|item| item.object)
+        .map(|item| {
+            item.child
+                .as_ref()
+                .map(|c| c.id())
+                .filter(|id| selected.contains(id))
+                .unwrap_or(item.object)
+        })
         .filter(|object| selected.contains(object))
         .collect();
     drawn.sort_unstable();
@@ -107,16 +141,22 @@ pub fn canvas(ui: &mut Ui, tab: &mut DocumentTab, theme: Theme) {
         SceneSource::Pcb(_) => DocumentType::Pcb,
         _ => DocumentType::Schematic,
     };
-    let input = canvas_input(ui, tab, kind);
+    let input = canvas_input(ui, tab, kind, None);
     canvas_paint(ui, &input, tab, theme);
 }
 
 /// Lays out `tab`'s canvas, a Document of type `kind`, filling the space left in `ui`;
-/// moves its camera, and returns the frame's pointer events.
+/// moves its camera, and returns the frame's pointer events. `auto_pan` is the Preference
+/// while an operation is in flight, which pans the view at the canvas edge.
 ///
 /// The canvas is one accessible element: it names the Document and describes how many of
 /// its objects are selected.
-pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> CanvasInputs {
+pub fn canvas_input(
+    ui: &mut Ui,
+    tab: &mut DocumentTab,
+    kind: DocumentType,
+    auto_pan: Option<&reda_engine::preferences::AutoPan>,
+) -> CanvasInputs {
     let (rect, response) = ui.allocate_exact_size(ui.available_size(), Sense::click_and_drag());
     let title = tab.title.as_str();
     let name = match kind {
@@ -135,6 +175,11 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         node.set_description(description);
     });
 
+    let mirrored = tab.mirrored();
+    if tab.zoom_to.is_some() || tab.center_on.is_some() {
+        // A jump: Alt+← comes back to where the view was.
+        tab.remember_view();
+    }
     if let Some((lo, hi)) = tab.zoom_to.take() {
         tab.camera = Some(Camera::fit(lo, hi, rect.size()));
     }
@@ -148,8 +193,10 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
         });
         Camera::fit(lo, hi, rect.size())
     });
+    if let Some(at) = tab.center_on.take() {
+        camera.center = (at.x.0 as f64, at.y.0 as f64);
+    }
 
-    let mirrored = tab.layers.from_bottom && tab.scene.layers.is_some();
     let mut input = CanvasInput::default();
     if response.hovered() {
         input.pointer = response.hover_pos().map(|p| mirror(rect, p, mirrored));
@@ -164,8 +211,49 @@ pub fn canvas_input(ui: &mut Ui, tab: &mut DocumentTab, kind: DocumentType) -> C
             input.pan.x = -input.pan.x;
         }
     }
+    let gesture = input.pan != egui::Vec2::ZERO
+        || input.scroll != 0.0
+        || (input.zoom > 0.0 && input.zoom != 1.0);
+    if gesture && !tab.navigating {
+        // A wheel zoom or pan starts: Alt+← comes back to the view before it.
+        tab.remember_view();
+    }
+    tab.navigating = gesture;
+    let camera = tab.camera.as_mut().expect("set above");
     camera.apply(rect, &input);
-    let camera = *camera;
+    match auto_pan {
+        Some(prefs) => {
+            let (pointer, shift, dt) = ui.input(|i| {
+                (
+                    i.pointer.latest_pos(),
+                    i.modifiers.shift,
+                    i.stable_dt.min(0.1),
+                )
+            });
+            // Past the edge only while a drag that began on the canvas holds the button.
+            let pointer = pointer.filter(|p| rect.contains(*p) || response.dragged());
+            let step = pointer.map(|p| {
+                let p = mirror(rect, p, mirrored);
+                tab.auto_pan.step(prefs, rect, p, shift, dt)
+            });
+            let camera = tab.camera.as_mut().expect("set above");
+            match step {
+                Some(super::auto_pan::Pan::By(v)) => {
+                    camera.pan(-v);
+                    // The next frame keeps panning; a frame's delay (not an immediate
+                    // repaint) lets a held-still drag animate without spinning.
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(16));
+                }
+                Some(super::auto_pan::Pan::Center(p)) => {
+                    camera.center = camera.document_point(rect, p);
+                }
+                _ => {}
+            }
+        }
+        None => tab.auto_pan = super::auto_pan::AutoPan::default(),
+    }
+    let camera = tab.camera.expect("set above");
     let events = pointer(ui, &response, &camera, rect, mirrored);
     CanvasInputs {
         rect,
@@ -183,12 +271,27 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     let mut view = camera.view(rect, ppp);
     view.mirrored = input.mirrored;
     let palette = tab.palette.palette(theme);
-    let grid = grid_pitch(tab.grid.0 as f64, view.nm_per_px).map(|pitch| GridSpec {
-        origin: (0.0, 0.0),
-        pitch,
-        radius_px: GRID_DOT_RADIUS * ppp,
-        color: palette.grid(),
-    });
+    let visible = tab.grid_visible;
+    let grid = grid_pitch(visible.pitch.0 as f64, view.nm_per_px)
+        .filter(|_| visible.shown)
+        .map(|pitch| GridSpec {
+            origin: (tab.grid_origin.x.0 as f64, tab.grid_origin.y.0 as f64),
+            pitch,
+            coarse: visible.coarse,
+            lines: visible.style == reda_engine::preferences::GridStyle::Lines,
+            radius_px: GRID_DOT_RADIUS * ppp,
+            color: palette.grid(),
+            // Only a sheet has paper; a board's Scene is not searched for one every frame.
+            paper: matches!(tab.scene.scene.source, SceneSource::Schematic(_))
+                .then(|| tab.scene.scene.paper())
+                .flatten()
+                .map(|(lo, hi)| {
+                    (
+                        (lo.x.0 as f64, lo.y.0 as f64),
+                        (hi.x.0 as f64, hi.y.0 as f64),
+                    )
+                }),
+        });
     let frame = CanvasFrame {
         canvas: canvas_id(tab),
         scene: tab.scene.clone(),
@@ -202,11 +305,11 @@ pub fn canvas_paint(ui: &mut Ui, input: &CanvasInputs, tab: &DocumentTab, theme:
     };
     paint(ui.painter(), rect, frame);
     overlay(ui, input, &tab.overlay, &palette);
-    markers(ui, input, tab);
+    super::markers::draw(ui, input, tab, &palette);
 }
 
 /// Draws a Tool's overlay: rubber-banded Wires, the snap cursor and a selection box (solid
-/// when it encloses, dashed when it touches).
+/// in the accent when it encloses, dashed in green when it touches).
 fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) {
     let (rect, camera) = (input.rect, &input.camera);
     let painter = ui.painter_at(rect);
@@ -217,7 +320,53 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     for &(a, b) in overlay.wires.iter() {
         painter.line_segment([screen(a), screen(b)], Stroke::new(width, wire));
     }
+    // Dots of twice the Wire's width, as far apart again as they are wide.
+    let dot = width.max(2.0);
+    for &(a, b) in overlay.dotted.iter() {
+        let (a, b) = (screen(a), screen(b));
+        let steps = ((b - a).length() / (dot * 2.0)).floor() as usize;
+        for i in 0..=steps {
+            let t = if steps == 0 {
+                0.0
+            } else {
+                i as f32 / steps as f32
+            };
+            painter.circle_filled(a + (b - a) * t, dot, wire);
+        }
+    }
     let accent = ui.visuals().selection.stroke.color;
+    for &(a, b) in overlay.segments.iter() {
+        painter.line_segment([screen(a), screen(b)], Stroke::new(width + 2.0, accent));
+    }
+    if let Some(cutter) = overlay.cutter {
+        let (a, b) = (screen(cutter.gap.0), screen(cutter.gap.1));
+        if cutter.highlight {
+            let hot = ui.visuals().warn_fg_color;
+            painter.line_segment([a, b], Stroke::new(width + 3.0, hot));
+        }
+        if let Some(corners) = cutter.cutter_box {
+            let points: Vec<egui::Pos2> = corners.iter().map(|&p| screen(p)).collect();
+            painter.add(egui::Shape::closed_line(points, Stroke::new(1.0, accent)));
+        }
+        for (from, to) in cutter.extremities.into_iter().flatten() {
+            painter.line_segment([screen(from), screen(to)], Stroke::new(2.0, accent));
+        }
+    }
+    let dot = ((WIRE_NM * 3.0 / camera.nm_per_point) as f32).max(3.0);
+    for &at in overlay.junctions.iter() {
+        painter.circle_filled(screen(at), dot, wire);
+    }
+    for &(at, red) in overlay.handles.iter() {
+        let fill = if red { SEGMENT_HANDLE } else { accent };
+        let square = Rect::from_center_size(screen(at), egui::Vec2::splat(HANDLE_POINTS * 2.0));
+        painter.rect_filled(square, 0.0, fill);
+        painter.rect_stroke(
+            square,
+            0.0,
+            Stroke::new(1.0, Color32::WHITE),
+            egui::StrokeKind::Outside,
+        );
+    }
     if let Some(at) = overlay.cursor {
         let c = screen(at);
         let r = 6.0;
@@ -232,8 +381,9 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     }) = overlay.rubber_band
     {
         let band = Rect::from_two_pos(input.screen_point(a), input.screen_point(b));
-        painter.rect_filled(band, 0.0, accent.gamma_multiply(0.12));
-        let stroke = Stroke::new(1.0, accent);
+        let color = crate::theme::selection_box(ui.ctx().theme(), mode == BoxMode::Touch);
+        painter.rect_filled(band, 0.0, color.gamma_multiply(0.12));
+        let stroke = Stroke::new(1.0, color);
         match mode {
             BoxMode::Enclose => {
                 painter.rect_stroke(band, 0.0, stroke, egui::StrokeKind::Inside);
@@ -251,49 +401,6 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
                 }
             }
         }
-    }
-}
-
-/// The marker's radius in points.
-const MARKER_RADIUS: f32 = 7.0;
-
-/// Draws a ring with an exclamation mark at each Violation, over the canvas: red for
-/// errors, amber for warnings, faded when waived, thicker for the one last gone to.
-fn markers(ui: &Ui, input: &CanvasInputs, tab: &DocumentTab) {
-    let rect = input.rect;
-    let painter = ui.painter_at(rect);
-    let visuals = ui.visuals();
-    for marker in tab.markers.iter() {
-        let at = input.screen_point((marker.at.x.0 as f64, marker.at.y.0 as f64));
-        if !rect.expand(MARKER_RADIUS).contains(at) {
-            continue;
-        }
-        let mut color = match marker.severity {
-            Severity::Error => visuals.error_fg_color,
-            _ => visuals.warn_fg_color,
-        };
-        if marker.waived {
-            color = color.gamma_multiply(0.4);
-        }
-        let (radius, width) = if marker.current {
-            (MARKER_RADIUS * 1.4, 3.0)
-        } else {
-            (MARKER_RADIUS, 2.0)
-        };
-        painter.circle(
-            at,
-            radius,
-            Color32::from_black_alpha(96),
-            Stroke::new(width, color),
-        );
-        painter.line_segment(
-            [
-                at + egui::vec2(0.0, -radius * 0.55),
-                at + egui::vec2(0.0, radius * 0.1),
-            ],
-            Stroke::new(2.0, color),
-        );
-        painter.circle_filled(at + egui::vec2(0.0, radius * 0.4), 1.2, color);
     }
 }
 

@@ -178,7 +178,7 @@ fn menus_show_the_shortcut_of_each_item() {
     // Labelled as on the platform egui reports.
     let label = Chord::parse("Mod+S").unwrap().label(h.ctx.os().is_mac());
     assert!(
-        h.query_by_label_contains(&label).is_some(),
+        h.query_by_label(&format!("Save All {label}")).is_some(),
         "the File menu shows {label} beside Save All"
     );
 }
@@ -195,7 +195,7 @@ fn the_settings_dialog_is_a_project_dialog() {
         .shell_mut()
         .run(
             "project.properties.set",
-            serde_json::json!({"copper_weight": "2 oz"}),
+            serde_json::json!({"company": "Acme"}),
         )
         .unwrap();
     h.run();

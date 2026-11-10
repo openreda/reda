@@ -16,6 +16,7 @@
 
 mod chord;
 mod file;
+pub mod modifiers;
 
 use std::fmt;
 
@@ -29,6 +30,7 @@ use crate::shell::Shell;
 use crate::tr;
 
 pub use chord::{Chord, KeyName};
+pub use modifiers::{Held, ModifierRoles, Role};
 
 /// Where a binding applies.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,7 +114,11 @@ pub fn resolve_keys(
     dialog: Option<reda_engine::model::Scope>,
 ) -> Vec<(String, serde_json::Value)> {
     let mut active = active(shell);
-    let panel = matches!(shell.layout().focus, Some(crate::layout::TabKey::Panel(_)));
+    // Panels and settings windows take only global keys.
+    let panel = matches!(
+        shell.layout().focus,
+        Some(crate::layout::TabKey::Panel(_) | crate::layout::TabKey::Settings(_))
+    );
     if dialog.is_some() || panel {
         active = Active::default();
     }
@@ -131,8 +137,13 @@ pub fn resolve_keys(
 /// What is active in `shell`: its Tool and its active Document's type.
 pub fn active(shell: &Shell) -> Active {
     Active {
-        // One Tool is always active (Select at rest); its id names its context.
-        tool: Some(shell.tool().id().to_owned()),
+        // One Tool is always active (Select at rest); its id names its context. A copper
+        // drag in flight has the keys of `tool:drag`.
+        tool: Some(if shell.pcb_tool().copper_drag().is_some() {
+            "drag".to_owned()
+        } else {
+            shell.tool().id().to_owned()
+        }),
         document: bars::active_type(shell),
         part: shell
             .active_document()
@@ -184,6 +195,7 @@ pub struct Bound {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Keymap {
     bindings: Vec<Bound>,
+    modifiers: ModifierRoles,
 }
 
 /// The file name messages give the user's Keymap.
@@ -197,20 +209,27 @@ impl Keymap {
     /// problems found, each a message for Messages; bad entries are skipped and a clash
     /// keeps the earlier binding.
     pub fn load(base: KeymapBase, user: Option<&str>) -> (Keymap, Vec<String>) {
+        Keymap::load_for(base, user, cfg!(target_os = "macos"))
+    }
+
+    /// [`Keymap::load`] as on macOS (`mac`) or elsewhere: `Ctrl` is a key of its own on
+    /// macOS only.
+    pub fn load_for(base: KeymapBase, user: Option<&str>, mac: bool) -> (Keymap, Vec<String>) {
         let (text, base_file) = match base {
             KeymapBase::Reda => (REDA, REDA_FILE),
         };
         let mut keymap = Keymap::default();
-        let (entries, mut problems) = file::parse(base_file, text);
+        let (entries, mut problems) = file::parse(base_file, text, mac);
         keymap.apply(base_file, entries, &mut problems);
         if let Some(user) = user {
-            let (entries, user_problems) = file::parse(USER_FILE, user);
+            let (entries, user_problems) = file::parse(USER_FILE, user, mac);
             problems.extend(user_problems);
             // The user's file replaces base bindings, so clashes are within the file.
             let mut own = Keymap::default();
             own.apply(USER_FILE, entries.clone(), &mut problems);
             for entry in entries {
                 match entry {
+                    file::Entry::Modifier { role, held } => keymap.modifiers.set(role, held),
                     file::Entry::Unbind { context, chord } => keymap.remove(&context, &chord),
                     file::Entry::Bind { context, chord, .. } => {
                         let Some(bound) = own.find(&context, &chord) else {
@@ -254,6 +273,7 @@ impl Keymap {
                         file,
                     });
                 }
+                file::Entry::Modifier { role, held } => self.modifiers.set(role, held),
                 file::Entry::Unbind { .. } if file == USER_FILE => {}
                 file::Entry::Unbind { chord, .. } => problems.push(tr!(
                     "keymap-base-unbind",
@@ -273,6 +293,11 @@ impl Keymap {
     fn remove(&mut self, context: &Context, chord: &Chord) {
         self.bindings
             .retain(|b| !(&b.context == context && &b.chord == chord));
+    }
+
+    /// The held modifier of each mouse gesture role (the `[modifiers]` tables).
+    pub fn modifiers(&self) -> &ModifierRoles {
+        &self.modifiers
     }
 
     /// Every binding in force, base bindings first.

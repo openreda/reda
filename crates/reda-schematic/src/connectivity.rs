@@ -2,28 +2,36 @@
 //! drawing. Nothing here is stored; derive again after every transaction.
 //!
 //! The rules, from the spec:
-//! - A Wire connects where one of its ends touches a Pin's connection point, another
-//!   Wire's end, or anywhere along another Wire. A Pin in the middle of a Wire, or two
-//!   Wires crossing mid-segment, do not connect.
+//! - A Wire is a polyline at any angle. It connects where one of its ends touches a Pin's
+//!   connection point or any point of another Wire, and where it passes over a Pin's
+//!   connection point, a Port, a Power Port or a Net Label. Two Wires crossing mid-span do
+//!   not connect.
 //! - Pins whose connection points coincide connect.
 //! - A Net Label joins the Wires through its point (and any Pin there) to every Net Label
-//!   with the same name on the sheet.
+//!   with the same name on the sheet. Names compare ignoring case, so `abc` and `ABC` join.
 //! - A Junction sits where three or more Wire ends, Wire passes and Pins meet, at least
-//!   one of them a Wire end.
+//!   one of them a Wire end (a pass, corners included, counts twice), and where a Wire
+//!   passes over a Pin's connection point, a Port or a Power Port. A Net Label makes none.
 //! - A Port joins the Wires through its point (and any Pin there) to every Port with the
 //!   same name on any sheet; a Power Port likewise to every Power Port of its name in the
 //!   Project. Net Labels stay on their sheet.
 //! - Every Pin of every placed Unit is in exactly one Net.
-//! - A Net's name is chosen by priority: Power Port > Port > Net Label > the auto-name
-//!   `Net-(<Designator>-<Pin number>)`, each in natural order, over the whole Project-wide
-//!   Net. [`project_connectivity`] names each sheet's Nets that way; [`derive`] alone
-//!   sees only its sheet.
+//! - A Net's name is chosen by priority, then the lowest by code point, over the whole
+//!   Project-wide Net: Net Label > Power Port > Port > the auto-name
+//!   `Net-(<Designator>-<Pin number>)`. The Project's [`SchematicOptions`] can put Power
+//!   Ports first or stop Ports naming Nets. [`project_connectivity`] names each sheet's
+//!   Nets that way; [`derive`] alone sees only its sheet and uses the default options.
+//! - A Net's board name is its name, with `_<sheet number>` appended to a Local Net named
+//!   by a Net Label when the Project's Append Sheet Numbers option is on.
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::{Nm, Point};
-use reda_model::{ComponentRef, Pin, Project, SchematicSheet, UnitInstance, Uuid, Wire};
+use reda_model::net_name::{name_key, same_name};
+use reda_model::{
+    ComponentRef, Pin, Project, SchematicOptions, SchematicSheet, UnitInstance, Uuid, Wire,
+};
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -49,18 +57,18 @@ pub struct SheetConnectivity {
 /// One Net on a Schematic Sheet.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct SchematicNet {
-    /// The winning name by priority: a Power Port's name, else a Port's, else a Net
-    /// Label's, else the auto-name `Net-(<Designator>-<Pin number>)` from its lowest
-    /// Designator and Pin number in natural order; chosen over the whole Project-wide Net
-    /// when derived by [`project_connectivity`]. `null` for a Net with neither a name nor
-    /// a Pin.
+    /// The winning name by priority (by default a Net Label's name, else a Power Port's,
+    /// else a Port's, the lowest by code point within a kind), else the auto-name
+    /// `Net-(<Designator>-<Pin number>)` from its lowest Designator and Pin number in
+    /// natural order; chosen over the whole Project-wide Net when derived by
+    /// [`project_connectivity`]. `null` for a Net with neither a name nor a Pin.
     pub name: Option<String>,
-    /// Every distinct Net Label name on the Net, in natural order. More than one name of
-    /// any kind is a naming conflict for ERC to report.
+    /// Every distinct Net Label name on the Net, by code point. Names differing in more
+    /// than case are a naming conflict for ERC to report.
     pub labels: Vec<String>,
-    /// Every distinct Port name on the Net, in natural order.
+    /// Every distinct Port name on the Net, by code point.
     pub port_names: Vec<String>,
-    /// Every distinct Power Port name on the Net, in natural order.
+    /// Every distinct Power Port name on the Net, by code point.
     pub power_port_names: Vec<String>,
     /// Its Pins, by Designator then Pin number in natural order.
     pub pins: Vec<NetPin>,
@@ -109,11 +117,11 @@ impl SheetConnectivity {
         self.pin_index.get(&(unit, pin)).map(|&i| &self.nets[i])
     }
 
-    /// The Nets with this name. On one sheet that is at most one.
+    /// The Nets with this name, ignoring case. On one sheet that is at most one.
     pub fn net_named<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a SchematicNet> {
         self.nets
             .iter()
-            .filter(move |n| n.name.as_deref() == Some(name))
+            .filter(move |n| n.name.as_deref().is_some_and(|n| same_name(n, name)))
     }
 
     /// Every object in the Nets named `name`: Wires, Net Labels, No-Connect Markers and the
@@ -139,15 +147,6 @@ impl SchematicNet {
             power_ports: vec![],
             junctions: vec![],
         }
-    }
-
-    /// Every distinct name on this Net by priority: Power Port names, then Port names, then
-    /// Net Label names, each in natural order. The first is the winner.
-    pub fn names(&self) -> impl Iterator<Item = &String> {
-        self.power_port_names
-            .iter()
-            .chain(&self.port_names)
-            .chain(&self.labels)
     }
 
     /// Every object on this Net: Wires, Net Labels, Ports, Power Ports, No-Connect Markers
@@ -183,13 +182,134 @@ pub fn sheet_connectivity(project: &Project, sheet: Uuid) -> Option<SheetConnect
 pub struct ProjectNet {
     /// The winning name, chosen as for a sheet Net over every part of this Net.
     pub name: Option<String>,
-    /// Every distinct name on it by priority: Power Port names, then Port names, then Net
-    /// Label names, each in natural order. More than one is a naming conflict.
+    /// The name the board gets: the winning name, with `_<sheet number>` appended for a
+    /// Local Net named by a Net Label when Append Sheet Numbers to Local Nets is on.
+    pub board_name: Option<String>,
+    /// What gave it its name: `net_label`, `power_port`, `port` or `auto_name`; `null`
+    /// for a Net with neither a name nor a Pin.
+    pub name_source: Option<NameSource>,
+    /// Every distinct name that can name it, ignoring case, by priority and then code
+    /// point: the first is the winner. More than one is a naming conflict. Port names are
+    /// left out when Ports may not name Nets.
     pub names: Vec<String>,
     /// The sheets it is drawn on, in Document order.
     pub sheets: Vec<Uuid>,
     /// Its Pins on every sheet, by Designator then Pin number in natural order.
     pub pins: Vec<SheetPin>,
+    /// Every object on it, on every sheet (see [`SchematicNet::objects`]), sorted by UUID.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub objects: Vec<Uuid>,
+}
+
+/// The kind of identifier that names a Net.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NameSource {
+    NetLabel,
+    PowerPort,
+    Port,
+    /// `Net-(<Designator>-<Pin number>)`, from the lowest Pin.
+    AutoName,
+}
+
+impl NameSource {
+    /// Its id, as Violation arguments carry it.
+    pub fn id(self) -> &'static str {
+        match self {
+            NameSource::NetLabel => "net_label",
+            NameSource::PowerPort => "power_port",
+            NameSource::Port => "port",
+            NameSource::AutoName => "auto_name",
+        }
+    }
+
+    /// The names of this kind on a sheet Net.
+    fn names(self, net: &SchematicNet) -> &[String] {
+        match self {
+            NameSource::NetLabel => &net.labels,
+            NameSource::PowerPort => &net.power_port_names,
+            NameSource::Port => &net.port_names,
+            NameSource::AutoName => &[],
+        }
+    }
+
+    /// The objects of this kind on a sheet Net.
+    pub(crate) fn objects(self, net: &SchematicNet) -> &[Uuid] {
+        match self {
+            NameSource::NetLabel => &net.net_labels,
+            NameSource::PowerPort => &net.power_ports,
+            NameSource::Port => &net.ports,
+            NameSource::AutoName => &[],
+        }
+    }
+}
+
+/// The kinds that can name a Net under `options`, highest priority first.
+pub fn name_priority(options: &SchematicOptions) -> Vec<NameSource> {
+    let mut kinds = if options.power_port_names_priority {
+        vec![NameSource::PowerPort, NameSource::NetLabel]
+    } else {
+        vec![NameSource::NetLabel, NameSource::PowerPort]
+    };
+    if options.allow_ports_to_name_nets {
+        kinds.push(NameSource::Port);
+    }
+    kinds
+}
+
+/// How a Net is named: the winner, what gave it, and every name that competed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Naming {
+    /// The winner; `None` for a Net with neither a name nor a Pin.
+    pub(crate) name: Option<String>,
+    pub(crate) source: Option<NameSource>,
+    /// Every distinct name ignoring case, by priority then code point; each spelled as
+    /// its lowest by code point.
+    pub(crate) names: Vec<String>,
+    /// Whether the winner beat another name of its own kind, by code point, rather than
+    /// only names of lower kinds.
+    pub(crate) by_code_point: bool,
+}
+
+/// Names a Net made of `parts` by the priority of `options`.
+pub(crate) fn naming<'a>(
+    parts: impl Iterator<Item = &'a SchematicNet> + Clone,
+    options: &SchematicOptions,
+) -> Naming {
+    let mut names: Vec<String> = vec![];
+    let mut keys: BTreeSet<String> = BTreeSet::new();
+    let mut source = None;
+    let mut by_code_point = false;
+    for kind in name_priority(options) {
+        let mut of_kind: Vec<&String> = parts.clone().flat_map(|n| kind.names(n)).collect();
+        of_kind.sort();
+        let mut kind_keys = BTreeSet::new();
+        for name in of_kind {
+            let key = name_key(name);
+            kind_keys.insert(key.clone());
+            if keys.insert(key) {
+                names.push(name.clone());
+            }
+        }
+        if source.is_none() && !kind_keys.is_empty() {
+            source = Some(kind);
+            by_code_point = kind_keys.len() > 1;
+        }
+    }
+    let (name, source) = match names.first() {
+        Some(name) => (Some(name.clone()), source),
+        None => match parts.flat_map(|n| &n.pins).min_by(|a, b| pin_order(a, b)) {
+            Some(pin) => (Some(auto_name(pin)), Some(NameSource::AutoName)),
+            None => (None, None),
+        },
+    };
+    Naming {
+        name,
+        source,
+        names,
+        by_code_point,
+    }
 }
 
 /// A Pin of a Project-wide Net, with the sheet it is on.
@@ -204,37 +324,44 @@ pub struct SheetPin {
 /// Every Net of the Project, joined across sheets by Ports and Power Ports. Named Nets come
 /// first in natural order of name, then unnamed ones in sheet order.
 pub fn project_nets(project: &Project) -> Vec<ProjectNet> {
+    let options = project.props().schematic;
     let (sheets, groups) = joined(project);
     let mut nets: Vec<ProjectNet> = groups
         .into_iter()
         .map(|members| {
+            let parts = || members.iter().map(|&(s, n)| &sheets[s].nets[n]);
+            let naming = naming(parts(), &options);
             let mut net = ProjectNet {
-                name: None,
-                names: vec![],
+                board_name: naming.name.clone(),
+                name: naming.name,
+                name_source: naming.source,
+                names: naming.names,
                 sheets: vec![],
                 pins: vec![],
+                objects: vec![],
             };
-            let mut names = (vec![], vec![], vec![]);
-            for (s, n) in members {
+            let mut objects = BTreeSet::new();
+            for &(s, n) in &members {
                 let conn = &sheets[s];
                 let part = &conn.nets[n];
                 if net.sheets.last() != Some(&conn.document) {
                     net.sheets.push(conn.document);
                 }
-                net.name = part.name.clone();
-                names.0.extend(part.power_port_names.iter().cloned());
-                names.1.extend(part.port_names.iter().cloned());
-                names.2.extend(part.labels.iter().cloned());
+                objects.extend(part.objects());
                 net.pins.extend(part.pins.iter().map(|pin| SheetPin {
                     document: conn.document,
                     pin: pin.clone(),
                 }));
             }
-            for list in [&mut names.0, &mut names.1, &mut names.2] {
-                list.sort_by(|a, b| natural_cmp(a, b));
-                list.dedup();
+            let local = parts().all(|p| p.ports.is_empty() && p.power_ports.is_empty());
+            if options.append_sheet_numbers
+                && local
+                && net.name_source == Some(NameSource::NetLabel)
+                && let (Some(name), Some(&(s, _))) = (&net.name, members.first())
+            {
+                net.board_name = Some(format!("{name}_{}", s + 1));
             }
-            net.names = names.0.into_iter().chain(names.1).chain(names.2).collect();
+            net.objects = objects.into_iter().collect();
             net.pins.sort_by(|a, b| pin_order(&a.pin, &b.pin));
             net
         })
@@ -293,8 +420,8 @@ pub fn net_at(project: &Project, sheet: Uuid, object: Uuid, at: Point) -> Option
     })
 }
 
-/// Every object on the Nets named `name`, on every sheet, sorted by UUID. Nets that only
-/// share a name (Net Labels on different sheets) are all included.
+/// Every object on the Nets named `name` (ignoring case), on every sheet, sorted by UUID.
+/// Nets that only share a name (Net Labels on different sheets) are all included.
 pub fn nets_named(project: &Project, name: &str) -> Vec<Uuid> {
     let objects: BTreeSet<Uuid> = project_connectivity(project)
         .iter()
@@ -316,14 +443,12 @@ pub(crate) fn joined(project: &Project) -> (Vec<SheetConnectivity>, Vec<Vec<(usi
         items.extend((0..conn.nets.len()).map(|n| (s, n)));
     }
     let mut sets = Sets((0..items.len()).collect());
-    let mut by_name: BTreeMap<(bool, &str), usize> = BTreeMap::new();
+    let mut by_name: BTreeMap<(bool, String), usize> = BTreeMap::new();
     for (i, &(s, n)) in items.iter().enumerate() {
         let net = &sheets[s].nets[n];
-        let keys = (net
-            .power_port_names
-            .iter()
-            .map(|name| (true, name.as_str())))
-        .chain(net.port_names.iter().map(|name| (false, name.as_str())));
+        let keys = (net.power_port_names.iter())
+            .map(|name| (true, name_key(name)))
+            .chain(net.port_names.iter().map(|name| (false, name_key(name))));
         for key in keys {
             let first = *by_name.entry(key).or_insert(i);
             sets.union(first, i);
@@ -336,26 +461,14 @@ pub(crate) fn joined(project: &Project) -> (Vec<SheetConnectivity>, Vec<Vec<(usi
     let groups: Vec<Vec<(usize, usize)>> = groups.into_values().collect();
 
     // Name every part of a Project-wide Net by the winner over all of it.
+    let options = project.props().schematic;
     let mut renames: Vec<(usize, usize, Option<String>)> = vec![];
-    for members in groups.iter().filter(|m| m.len() > 1) {
-        let parts = || members.iter().map(|&(s, n)| &sheets[s].nets[n]);
-        let best = |pick: fn(&SchematicNet) -> &Vec<String>| {
-            parts()
-                .flat_map(pick)
-                .min_by(|a, b| natural_cmp(a, b))
-                .cloned()
-        };
-        let name = best(|n| &n.power_port_names)
-            .or_else(|| best(|n| &n.port_names))
-            .or_else(|| best(|n| &n.labels))
-            .or_else(|| {
-                parts()
-                    .flat_map(|n| &n.pins)
-                    .min_by(|a, b| pin_order(a, b))
-                    .map(auto_name)
-            });
+    for members in &groups {
+        let parts = members.iter().map(|&(s, n)| &sheets[s].nets[n]);
+        let name = naming(parts, &options).name;
         renames.extend(members.iter().map(|&(s, n)| (s, n, name.clone())));
     }
+    renames.retain(|(s, n, name)| sheets[*s].nets[*n].name != *name);
     if renames.is_empty() {
         return (sheets, groups);
     }
@@ -389,27 +502,6 @@ pub fn pin_position(unit: &UnitInstance, pin: &Pin) -> Point {
 
 pub(crate) use reda_model::geom::rotate;
 
-/// Whether `p` lies on the Wire strictly between its ends.
-pub fn in_interior(wire: &Wire, p: Point) -> bool {
-    on_segment(wire, p) && p != wire.from && p != wire.to
-}
-
-/// Whether `p` lies on the Wire, ends included.
-pub fn on_segment(wire: &Wire, p: Point) -> bool {
-    let (a, b) = (wire.from, wire.to);
-    if a.x == b.x {
-        p.x == a.x && between(p.y, a.y, b.y)
-    } else if a.y == b.y {
-        p.y == a.y && between(p.x, a.x, b.x)
-    } else {
-        false
-    }
-}
-
-fn between(v: Nm, a: Nm, b: Nm) -> bool {
-    a.min(b) <= v && v <= a.max(b)
-}
-
 /// Every Pin of every placed Unit on the sheet, with its connection point.
 pub fn placed_pins(sheet: &SchematicSheet) -> Vec<(&UnitInstance, &Pin, Point)> {
     sheet
@@ -424,10 +516,12 @@ pub fn placed_pins(sheet: &SchematicSheet) -> Vec<(&UnitInstance, &Pin, Point)> 
         .collect()
 }
 
-/// Wires indexed by the line they run along, for point lookups.
+/// Wire segments indexed by the line they run along, for point lookups. Horizontal and
+/// vertical segments are keyed by their line; the few at other angles are scanned.
 struct WireIndex<'a> {
-    horizontal: BTreeMap<Nm, Vec<&'a Wire>>,
-    vertical: BTreeMap<Nm, Vec<&'a Wire>>,
+    horizontal: BTreeMap<Nm, Vec<(&'a Wire, Point, Point)>>,
+    vertical: BTreeMap<Nm, Vec<(&'a Wire, Point, Point)>>,
+    oblique: Vec<(&'a Wire, Point, Point)>,
 }
 
 impl<'a> WireIndex<'a> {
@@ -435,22 +529,35 @@ impl<'a> WireIndex<'a> {
         let mut index = WireIndex {
             horizontal: BTreeMap::new(),
             vertical: BTreeMap::new(),
+            oblique: vec![],
         };
         for w in wires {
-            if w.from.y == w.to.y {
-                index.horizontal.entry(w.from.y).or_default().push(w);
-            } else {
-                index.vertical.entry(w.from.x).or_default().push(w);
+            for (a, b) in w.segments() {
+                if a.y == b.y {
+                    index.horizontal.entry(a.y).or_default().push((w, a, b));
+                } else if a.x == b.x {
+                    index.vertical.entry(a.x).or_default().push((w, a, b));
+                } else {
+                    index.oblique.push((w, a, b));
+                }
             }
         }
         index
     }
 
-    /// The Wires passing through `p`, ends included.
-    fn through(&self, p: Point) -> impl Iterator<Item = &'a Wire> + '_ {
+    /// The Wires passing through `p`, ends included, each once, sorted by UUID.
+    fn through(&self, p: Point) -> Vec<&'a Wire> {
         let h = self.horizontal.get(&p.y).into_iter().flatten();
         let v = self.vertical.get(&p.x).into_iter().flatten();
-        h.chain(v).copied().filter(move |w| on_segment(w, p))
+        let mut out: Vec<&'a Wire> = h
+            .chain(v)
+            .chain(&self.oblique)
+            .filter(|(_, a, b)| p.on_segment(*a, *b))
+            .map(|(w, _, _)| *w)
+            .collect();
+        out.sort_by_key(|w| w.uuid);
+        out.dedup_by_key(|w| w.uuid);
+        out
     }
 }
 
@@ -503,8 +610,9 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
     }
     let mut ends_at: BTreeMap<Point, Vec<usize>> = BTreeMap::new();
     for (i, w) in wires.iter().enumerate() {
-        ends_at.entry(w.from).or_default().push(i);
-        ends_at.entry(w.to).or_default().push(i);
+        for end in w.ends() {
+            ends_at.entry(end).or_default().push(i);
+        }
     }
 
     // Pins on the same point.
@@ -513,14 +621,14 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
             sets.union(pair[0], pair[1]);
         }
     }
+    // Each Junction, with an item on its Net.
+    let mut junctions: BTreeMap<Point, usize> = BTreeMap::new();
     // Wire ends join everything through their point.
-    let mut junctions = BTreeSet::new();
     for (&p, ends) in &ends_at {
         let mut passes = 0;
         for other in index.through(p) {
-            let o = wire_item[&other.uuid];
-            sets.union(ends[0], o);
-            if in_interior(other, p) {
+            sets.union(ends[0], wire_item[&other.uuid]);
+            if other.passes_over(p) {
                 passes += 1;
             }
         }
@@ -529,26 +637,40 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
             sets.union(ends[0], pin);
         }
         if ends.len() + 2 * passes + pins_here.len() >= 3 {
-            junctions.insert(p);
+            junctions.insert(p, ends[0]);
+        }
+    }
+    // A Wire passing over a Pin joins it there, with a Junction.
+    for (&p, items) in &pins_at {
+        for w in index.through(p) {
+            let item = wire_item[&w.uuid];
+            sets.union(items[0], item);
+            if w.passes_over(p) {
+                junctions.entry(p).or_insert(item);
+            }
         }
     }
     // Net Labels, Ports and Power Ports join the Wires and Pins under them, and each
-    // other by kind and name.
+    // other by kind and name. A Wire passing over a Port or Power Port makes a Junction
+    // there; a Net Label never does.
     let named = (labels.iter().enumerate())
         .map(|(i, l)| (label_base + i, 0, l.name.as_str(), l.at))
         .chain((ports.iter().enumerate()).map(|(i, p)| (port_base + i, 1, p.name.as_str(), p.at)))
         .chain(
             (powers.iter().enumerate()).map(|(i, p)| (power_base + i, 2, p.name.as_str(), p.at)),
         );
-    let mut by_name: BTreeMap<(u8, &str), usize> = BTreeMap::new();
+    let mut by_name: BTreeMap<(u8, String), usize> = BTreeMap::new();
     for (item, kind, name, at) in named {
         for w in index.through(at) {
             sets.union(item, wire_item[&w.uuid]);
+            if kind != 0 && w.passes_over(at) {
+                junctions.entry(at).or_insert(item);
+            }
         }
         for &pin in pins_at.get(&at).into_iter().flatten() {
             sets.union(item, pin);
         }
-        let first = *by_name.entry((kind, name)).or_insert(item);
+        let first = *by_name.entry((kind, name_key(name))).or_insert(item);
         sets.union(first, item);
     }
 
@@ -598,15 +720,14 @@ pub fn derive(sheet: &SchematicSheet) -> SheetConnectivity {
         net.power_ports.push(power.uuid);
         net.power_port_names.push(power.name.clone());
     }
-    for p in &junctions {
-        let first_end = ends_at[p][0];
-        group(&mut groups, &mut sets, first_end).junctions.push(*p);
+    for (&p, &item) in &junctions {
+        group(&mut groups, &mut sets, item).junctions.push(p);
     }
 
     let mut conn = SheetConnectivity {
         document: sheet.uuid,
         nets: groups.into_values().map(finish).collect(),
-        junctions: junctions.into_iter().collect(),
+        junctions: junctions.into_keys().collect(),
         index: BTreeMap::new(),
         pin_index: BTreeMap::new(),
     };
@@ -653,13 +774,12 @@ fn finish(mut net: SchematicNet) -> SchematicNet {
         &mut net.port_names,
         &mut net.power_port_names,
     ] {
-        names.sort_by(|a, b| natural_cmp(a, b));
+        names.sort();
         names.dedup();
     }
     net.pins.sort_by(pin_order);
     net.junctions.sort();
-    let name = net.names().next().cloned();
-    net.name = name.or_else(|| net.pins.first().map(auto_name));
+    net.name = naming(std::iter::once(&net), &SchematicOptions::DEFAULT).name;
     net
 }
 

@@ -4,13 +4,14 @@ use reda_command::{Command, CommandError, Context, Kind, Meta};
 use std::collections::BTreeSet;
 
 use reda_model::geom::{Millideg, Point};
-use reda_model::{InDocument, Object, Project, Uuid, Wire};
+use reda_model::{Object, Project, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::selection::{one_sheet, resolve};
-use super::transform::{Axis, Placement, place_anew, plan};
+use super::transform::{Axis, Placement, place_anew_bent, plan_bent};
 use crate::component::At;
+use crate::normalise::Wiring;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +21,12 @@ pub struct ShiftParams {
     pub objects: Vec<Uuid>,
     /// How far to move them.
     pub by: At,
+    /// A drag's rubber-banded Wires turn their corners the other way: the moved end keeps
+    /// its direction, rather than the end that stayed (`Mod`+Space during a drag).
+    #[serde(default)]
+    pub flip_corners: bool,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// The sheet an editing Command changed.
@@ -57,7 +64,7 @@ impl Command for Drag {
         title: "Drag",
         description: "Moves the selected objects by an offset and keeps their connections: \
                       the ends of unselected Wires on a moved Pin, Wire end or Net Label \
-                      follow it, turning a corner where a Wire would go diagonal, and Net \
+                      follow it, turning a corner where an orthogonal Wire would go diagonal, and Net \
                       Labels, No-Connect Markers, Ports and Power Ports on a moved Pin come \
                       along.",
         category: "schematic",
@@ -81,8 +88,8 @@ pub struct ShiftPreview {
     /// Unselected Wires a drag reshapes or folds away, drawn instead as [`wires`](Self::wires).
     /// Sorted.
     pub hidden: Vec<Uuid>,
-    /// The rubber-banded Wires as they would be, corners included, as (from, to).
-    pub wires: Vec<(Point, Point)>,
+    /// The rubber-banded Wires as they would be, corners included, as their vertices.
+    pub wires: Vec<Vec<Point>>,
 }
 
 /// Works out what `schematic.drag` (with `keep_connections`) or `schematic.move` of
@@ -94,19 +101,30 @@ pub fn shift_preview(
     by: Point,
     keep_connections: bool,
 ) -> Result<ShiftPreview, CommandError> {
+    shift_preview_flipped(project, objects, by, keep_connections, false)
+}
+
+/// [`shift_preview`] of a drag with `flip_corners`.
+pub fn shift_preview_flipped(
+    project: &Project,
+    objects: &[Uuid],
+    by: Point,
+    keep_connections: bool,
+    flip: bool,
+) -> Result<ShiftPreview, CommandError> {
     let objects = resolve(project, objects, "/objects")?;
     let document = one_sheet(&objects, "/objects")?;
     let body = crate::sheet(project, document)?;
     let how = Placement::Translate(by);
     let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
-    let plan = plan(body, &moves, keep_connections)?;
+    let plan = plan_bent(body, &moves, keep_connections, flip)?;
     let mut preview = ShiftPreview::default();
     let selected: BTreeSet<Uuid> = moves.iter().map(|(o, _)| o.uuid()).collect();
     for object in plan.replaced {
         match object {
             Object::Wire(w) if !selected.contains(&w.uuid) => {
                 preview.hidden.push(w.uuid);
-                preview.wires.push((w.from, w.to));
+                preview.wires.push(w.object.vertices);
             }
             other => preview.moved.push(other.uuid()),
         }
@@ -116,9 +134,6 @@ pub fn shift_preview(
             preview.hidden.push(uuid);
         }
     }
-    preview
-        .wires
-        .extend(plan.inserted.iter().map(|w| (w.from, w.to)));
     preview.moved.sort();
     preview.moved.dedup();
     preview.hidden.sort();
@@ -135,7 +150,14 @@ fn shift(
     let document = one_sheet(&objects, "/objects")?;
     let how = Placement::Translate(p.by.point());
     let moves: Vec<_> = objects.into_iter().map(|o| (o, how)).collect();
-    place_anew(cx, document, &moves, keep_connections)?;
+    place_anew_bent(
+        cx,
+        document,
+        &moves,
+        keep_connections,
+        p.flip_corners,
+        &p.wiring.unwrap_or_default(),
+    )?;
     Ok(EditResult { document })
 }
 
@@ -162,7 +184,6 @@ pub fn flight_preview(
     keep_connections: bool,
 ) -> Result<Project, CommandError> {
     let mut out = project.clone();
-    let mut corners = 0u128;
     for step in steps {
         let resolved = resolve(&out, objects, "/objects")?;
         let document = one_sheet(&resolved, "/objects")?;
@@ -173,7 +194,7 @@ pub fn flight_preview(
             FlightStep::Mirror { center, axis } => Placement::Mirror { center, axis },
         };
         let moves: Vec<_> = resolved.into_iter().map(|o| (o, how)).collect();
-        let plan = plan(&body, &moves, keep_connections)?;
+        let plan = plan_bent(&body, &moves, keep_connections, false)?;
         let mut tx = out.transaction();
         for uuid in plan.removed {
             tx.remove(uuid)?;
@@ -181,18 +202,7 @@ pub fn flight_preview(
         for object in plan.replaced {
             tx.replace(object)?;
         }
-        for wire in plan.inserted {
-            corners += 1;
-            let uuid = Uuid::from_u128(PREVIEW_CORNERS + corners);
-            tx.insert(Object::Wire(InDocument::new(
-                document,
-                Wire { uuid, ..wire },
-            )))?;
-        }
         tx.commit()?;
     }
     Ok(out)
 }
-
-/// Where the UUIDs of the corner Wires a preview adds start; never stored.
-const PREVIEW_CORNERS: u128 = 0x0000_0000_0000_4000_8000_7072_0000_0000;

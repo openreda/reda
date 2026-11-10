@@ -11,11 +11,12 @@
       "id": "edit",
       "title": "menu-edit",
       "items": [
-        { "id": "edit.cut", "command": "schematic.cut", "params": { "objects": "$selection" }, "title": "menu-edit-cut" },
-        { "id": "edit.copy", "command": "schematic.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
-        { "id": "edit.paste", "command": "schematic.paste", "params": { "document": "$active_document", "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
-        { "id": "edit.duplicate", "command": "schematic.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
-        { "id": "edit.delete", "command": "schematic.delete", "params": { "objects": "$selection" }, "title": "menu-edit-delete" },
+        { "id": "edit.cut", "command": "tool.copy", "params": { "objects": "$selection", "cut": true }, "title": "menu-edit-cut" },
+        { "id": "edit.copy", "command": "tool.copy", "params": { "objects": "$selection" }, "title": "menu-edit-copy" },
+        { "id": "edit.copy_as_text", "command": "schematic.copy_as_text", "params": { "objects": "$selection" }, "title": "menu-edit-copy-as-text" },
+        { "id": "edit.paste", "command": "tool.paste", "params": { "document": "$active_document", "clipboard": "$clipboard" }, "title": "menu-edit-paste" },
+        { "id": "edit.duplicate", "command": "tool.duplicate", "params": { "objects": "$selection" }, "title": "menu-edit-duplicate" },
+        { "id": "edit.delete", "command": "schematic.delete", "params": { "objects": "$selection", "segments": "$segments" }, "title": "menu-edit-delete" },
         "separator",
         { "id": "edit.rotate", "command": "schematic.rotate", "params": { "objects": "$selection" }, "title": "menu-edit-rotate" },
         { "id": "edit.mirror_x", "command": "schematic.mirror", "params": { "objects": "$selection", "axis": "x" }, "title": "menu-edit-mirror-x" },
@@ -38,6 +39,8 @@
         { "id": "edit.snap_to_grid", "command": "schematic.snap_to_grid", "params": { "objects": "$selection", "grid": "$grid" }, "title": "menu-edit-snap-to-grid" },
         "separator",
         { "id": "edit.edit_in_library", "command": "library.element.edit_in_library", "params": { "objects": "$selection" } },
+        { "id": "edit.update_from_library", "command": "schematic.update_from_library.open", "params": { "objects": "$selection" } },
+        { "id": "edit.replace_part", "command": "schematic.component.replace.open", "params": { "objects": "$selection" } },
         "separator",
         { "id": "edit.find", "command": "schematic.dialog.open:find" },
         { "id": "edit.select_similar", "command": "schematic.dialog.open:select_similar" }
@@ -78,7 +81,18 @@
         { "id": "place.net_label", "command": "tool.activate:net_label" },
         { "id": "place.port", "command": "tool.activate:port" },
         { "id": "place.power_port", "command": "tool.activate:power_port" },
+        {
+          "id": "place.power_port_presets",
+          "title": "menu-place-power-port-presets",
+          "items": [
+            { "id": "place.power_port_presets.gnd", "command": "tool.activate:power_port_gnd" },
+            { "id": "place.power_port_presets.three_v_three", "command": "tool.activate:power_port_3v3" },
+            { "id": "place.power_port_presets.five_v", "command": "tool.activate:power_port_5v" },
+            { "id": "place.power_port_presets.vcc", "command": "tool.activate:power_port_vcc" }
+          ]
+        },
         { "id": "place.no_connect", "command": "tool.activate:no_connect" },
+        { "id": "place.break_wire", "command": "tool.activate:break_wire" },
         "separator",
         { "id": "place.text", "command": "tool.activate:text" },
         { "id": "place.line", "command": "tool.activate:line" },
@@ -90,15 +104,13 @@
       "title": "menu-design",
       "items": [
         { "id": "design.erc", "command": "erc.run" },
-        { "id": "design.sync", "command": "app.dialog.open:change_list" },
         "separator",
         { "id": "design.reannotate", "command": "schematic.dialog.open:reannotate" },
+        { "id": "design.reannotate_last", "command": "schematic.dialog.open:reannotate_last" },
+        { "id": "design.convert_cross_junctions", "command": "schematic.dialog.open:convert_cross_junctions" },
         { "id": "design.update_from_library", "command": "schematic.dialog.open:update_from_library" }
       ]
     }
-  ],
-  "toolbar": [
-    { "id": "toolbar.erc", "command": "erc.run" }
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },
@@ -107,6 +119,68 @@
     "separator",
     { "id": "active_bar.wire", "command": "tool.activate:wire" },
     { "id": "active_bar.net_label", "command": "tool.activate:net_label" },
-    { "id": "active_bar.power_port", "command": "tool.activate:power_port" }
+    {
+      "id": "active_bar.power_port",
+      "title": "active-bar-power-port",
+      "icon": "power_port",
+      "items": [
+        { "id": "active_bar.power_port.tool", "command": "tool.activate:power_port" },
+        "separator",
+        { "id": "active_bar.power_port.gnd", "command": "tool.activate:power_port_gnd" },
+        { "id": "active_bar.power_port.three_v_three", "command": "tool.activate:power_port_3v3" },
+        { "id": "active_bar.power_port.five_v", "command": "tool.activate:power_port_5v" },
+        { "id": "active_bar.power_port.vcc", "command": "tool.activate:power_port_vcc" }
+      ]
+    }
+  ],
+  "active_bar_groups": [
+    { "id": "active_bar_group.select", "command": "tool.activate:select" },
+    {
+      "id": "active_bar_group.move",
+      "title": "active-bar-group-move",
+      "items": [
+        { "id": "active_bar_group.move.move", "command": "tool.activate:move" },
+        { "id": "active_bar_group.move.drag", "command": "tool.activate:drag" }
+      ]
+    },
+    "separator",
+    {
+      "id": "active_bar_group.wire",
+      "title": "active-bar-group-wire",
+      "items": [
+        { "id": "active_bar_group.wire.wire", "command": "tool.activate:wire" },
+        { "id": "active_bar_group.wire.break_wire", "command": "tool.activate:break_wire" }
+      ]
+    },
+    {
+      "id": "active_bar_group.net_label",
+      "title": "active-bar-group-net-label",
+      "items": [
+        { "id": "active_bar_group.net_label.net_label", "command": "tool.activate:net_label" },
+        { "id": "active_bar_group.net_label.port", "command": "tool.activate:port" }
+      ]
+    },
+    {
+      "id": "active_bar_group.power_port",
+      "title": "active-bar-power-port",
+      "items": [
+        { "id": "active_bar_group.power_port.tool", "command": "tool.activate:power_port" },
+        { "id": "active_bar_group.power_port.gnd", "command": "tool.activate:power_port_gnd" },
+        { "id": "active_bar_group.power_port.three_v_three", "command": "tool.activate:power_port_3v3" },
+        { "id": "active_bar_group.power_port.five_v", "command": "tool.activate:power_port_5v" },
+        { "id": "active_bar_group.power_port.vcc", "command": "tool.activate:power_port_vcc" }
+      ]
+    },
+    { "id": "active_bar_group.no_connect", "command": "tool.activate:no_connect" },
+    "separator",
+    { "id": "active_bar_group.text", "command": "tool.activate:text" },
+    {
+      "id": "active_bar_group.graphics",
+      "title": "active-bar-group-graphics",
+      "items": [
+        { "id": "active_bar_group.graphics.line", "command": "tool.activate:line" },
+        { "id": "active_bar_group.graphics.rect", "command": "tool.activate:rect" }
+      ]
+    }
   ]
 }

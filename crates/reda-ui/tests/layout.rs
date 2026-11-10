@@ -325,7 +325,10 @@ fn closing_panels_and_documents_and_reopening_panels() {
             PanelId::Messages,
             PanelId::Library,
             PanelId::Layers,
-            PanelId::Journal
+            PanelId::Journal,
+            PanelId::Navigator,
+            PanelId::Find,
+            PanelId::Pins
         ]
     );
 
@@ -361,6 +364,9 @@ fn every_panel_has_a_show_preset() {
             "panel.show:library",
             "panel.show:layers",
             "panel.show:journal",
+            "panel.show:navigator",
+            "panel.show:find",
+            "panel.show:pins",
         ]
     );
 }
@@ -480,4 +486,95 @@ fn document_open_opens_a_document_beside_the_active_one_and_focuses_it() {
         .run("document.open", json!({"document": missing}))
         .unwrap_err();
     assert_eq!(err.code, ErrorCode::NotFound);
+}
+
+#[test]
+fn closing_the_active_tab_activates_the_groups_last_active_tab() {
+    let work = TempDir::new("layout-work");
+    let mut shell = shell_with_project(&work);
+    shell.run("panel.show:journal", json!({})).unwrap();
+    let bottom = shell
+        .layout()
+        .place(&TabKey::Panel(PanelId::Messages))
+        .unwrap()
+        .group;
+    shell.run("panel.show:library", json!({})).unwrap();
+    shell
+        .run(
+            "layout.tab.move_to_group",
+            json!({"tab": "library", "group": bottom}),
+        )
+        .unwrap();
+    let group = |shell: &Shell| shell.layout().group(bottom).unwrap().clone();
+    assert_eq!(
+        group(&shell).tabs,
+        [
+            TabKey::Panel(PanelId::Messages),
+            TabKey::Panel(PanelId::Journal),
+            TabKey::Panel(PanelId::Library)
+        ]
+    );
+    // Messages, then Library: closing Library goes back to Messages, not its neighbour.
+    for tab in ["messages", "library"] {
+        shell
+            .run("layout.tab.activate", json!({"tab": tab}))
+            .unwrap();
+    }
+    shell
+        .run("layout.tab.close", json!({"tab": "library"}))
+        .unwrap();
+    assert_eq!(
+        group(&shell).active_tab(),
+        Some(&TabKey::Panel(PanelId::Messages))
+    );
+}
+
+#[test]
+fn a_closed_panel_reopens_where_it_was() {
+    let work = TempDir::new("layout-work");
+    let mut shell = shell_with_project(&work);
+    let sheet = sheet(&shell);
+    let centre = shell.layout().place(&sheet).unwrap().group;
+    shell
+        .run(
+            "layout.tab.move_to_group",
+            json!({"tab": "properties", "group": centre, "index": 0}),
+        )
+        .unwrap();
+    shell
+        .run("layout.tab.close", json!({"tab": "properties"}))
+        .unwrap();
+    shell.run("panel.show:properties", json!({})).unwrap();
+    let place = shell
+        .layout()
+        .place(&TabKey::Panel(PanelId::Properties))
+        .unwrap();
+    assert_eq!(
+        (place.area, place.group, place.index),
+        (Area::Centre, centre, 0),
+        "its group and position, not its home Dock"
+    );
+
+    // Its group is gone: it reopens in the Dock it was in, not its home Dock.
+    shell
+        .run(
+            "layout.tab.move_to_dock",
+            json!({"tab": "messages", "dock": "left"}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "layout.tab.split",
+            json!({"tab": "messages", "side": "down"}),
+        )
+        .unwrap();
+    shell
+        .run("layout.tab.close", json!({"tab": "messages"}))
+        .unwrap();
+    shell.run("panel.show:messages", json!({})).unwrap();
+    let place = shell
+        .layout()
+        .place(&TabKey::Panel(PanelId::Messages))
+        .unwrap();
+    assert_eq!(place.area, Area::Dock(DockSide::Left));
 }

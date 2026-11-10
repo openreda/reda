@@ -5,13 +5,13 @@
     {"uuid":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"A"}
   ],
   "pins": [
-    {"uuid":"5f023e11-1bd7-4b50-a234-31cabec1d6b5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":3302000,"name_visible":false,"number_visible":false},
-    {"uuid":"93dffc8b-09b8-4ad9-aeff-fa1dc426e98c","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":3302000,"name_visible":false,"number_visible":false}
+    {"uuid":"5f023e11-1bd7-4b50-a234-31cabec1d6b5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"~","number":"1","electrical_type":"passive","at":{"x":0,"y":3810000},"rotation":270000,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"93dffc8b-09b8-4ad9-aeff-fa1dc426e98c","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"~","number":"2","electrical_type":"passive","at":{"x":0,"y":-3810000},"rotation":90000,"length":2540000,"name_visible":false,"number_visible":false}
   ],
   "graphics": [
-    {"uuid":"128cd107-e4f4-49f6-937c-e80af52b17ec","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-1778000,"y":1778000},"end":{"x":-762000,"y":1778000}},"width":254000},
-    {"uuid":"4348ccfb-86dc-4c73-8ba9-cd65f15ed8a2","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-1270000,"y":1270000},"end":{"x":-1270000,"y":2286000}},"width":254000},
-    {"uuid":"60018492-9a37-4245-bcd4-9ca22b5e54a6","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-2032000,"y":508000},"end":{"x":2032000,"y":508000}},"width":254000},
-    {"uuid":"6948ae47-748f-4c5a-a862-dcc7e2bf2ef5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"rect","start":{"x":-2032000,"y":-1016000},"end":{"x":2032000,"y":-508000}},"width":254000,"fill":true}
+    {"uuid":"128cd107-e4f4-49f6-937c-e80af52b17ec","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-1778000,"y":2540000},"end":{"x":-762000,"y":2540000}},"width":254000},
+    {"uuid":"4348ccfb-86dc-4c73-8ba9-cd65f15ed8a2","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-1270000,"y":2032000},"end":{"x":-1270000,"y":3048000}},"width":254000},
+    {"uuid":"60018492-9a37-4245-bcd4-9ca22b5e54a6","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"line","start":{"x":-2032000,"y":1270000},"end":{"x":2032000,"y":1270000}},"width":254000},
+    {"uuid":"6948ae47-748f-4c5a-a862-dcc7e2bf2ef5","unit":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","shape":{"kind":"rect","start":{"x":-2032000,"y":-1270000},"end":{"x":2032000,"y":-762000}},"width":254000,"fill":true}
   ]
 }

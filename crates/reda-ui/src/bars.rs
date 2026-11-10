@@ -13,8 +13,9 @@
 //! Commands the menus need (dialogs, Quit, Zoom to Fit, Theme).
 
 pub mod commands;
-mod data;
+pub(crate) mod data;
 pub mod draw;
+mod groups;
 
 use std::sync::OnceLock;
 
@@ -26,7 +27,7 @@ use crate::{i18n, tr};
 
 pub(crate) use commands::request;
 pub use commands::{Request, install, register_all, take_requests};
-pub use data::parse;
+pub use data::{MENU_ORDER, parse};
 
 /// What a bar item binds to.
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +53,11 @@ pub const UNDO_STACK: &str = "$undo_stack";
 /// array of UUIDs. An item using it is greyed while nothing there is selected.
 pub const SELECTION: &str = "$selection";
 
+/// The raw-params placeholder for the selected Wire segments on the active sheet, as an
+/// array of `{wire, index}` (empty when none). With some selected, [`SELECTION`] in the
+/// same params may be empty, so Delete deletes segments alone.
+pub const SEGMENTS: &str = "$segments";
+
 /// The raw-params placeholder for what the last copy or cut returned (Paste). An item
 /// using it is greyed while the clipboard is empty.
 pub const CLIPBOARD: &str = "$clipboard";
@@ -68,6 +74,15 @@ pub const SELECTABLE: &str = "$selectable";
 /// holding it is left out while the pointer has not been over the canvas.
 pub const CURSOR: &str = "$cursor";
 
+/// The raw-params placeholder for the board's active Layer, by UUID (Paste Special). An
+/// item using it is greyed while no board is open.
+pub const ACTIVE_LAYER: &str = "$active_layer";
+
+/// The raw-params placeholder for the highlighted Net's board Net, by UUID (a new Zone's
+/// Net). A
+/// field holding it is left out while no Net is highlighted.
+pub const HIGHLIGHTED_NET: &str = "$highlighted_net";
+
 /// One clickable item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Action {
@@ -76,6 +91,8 @@ pub struct Action {
     pub binding: Binding,
     /// A catalogue key to show instead of the Command's title.
     pub title: Option<String>,
+    /// An icon key to show instead of the Command's icon.
+    pub icon: Option<String>,
 }
 
 /// A menu bar entry or a submenu.
@@ -84,6 +101,9 @@ pub struct Menu {
     pub id: String,
     /// The catalogue key of its title.
     pub title: String,
+    /// The icon key a submenu shows as a bar button, which opens the menu under it. With
+    /// none, a bar shows the title.
+    pub icon: Option<String>,
     pub items: Vec<Item>,
 }
 
@@ -94,12 +114,19 @@ pub enum Item {
     Action(Action),
 }
 
-/// The menus, the toolbar and the Active Bar of one context.
+/// The menus, the toolbar, the Active Bar and the Tools' bars of one context.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Bars {
     pub menus: Vec<Menu>,
     pub toolbar: Vec<Item>,
     pub active_bar: Vec<Item>,
+    /// The Active Bar as groups, shown instead of [`Bars::active_bar`] while the
+    /// Preference `display.group_active_bar_tools` is on: each submenu is a group whose
+    /// button shows the last-used Tool in it. Empty where the bar stays flat.
+    pub active_bar_groups: Vec<Item>,
+    /// A Tool's bar at the canvas's bottom while that Tool is active, by Tool id: the
+    /// Routing Bar is `route` (docs/spec/v0.1/app.md#routing-bar).
+    pub tool_bars: std::collections::BTreeMap<String, Vec<Item>>,
 }
 
 /// The Document types the bars are listed for.
@@ -219,7 +246,7 @@ pub fn resolve_in(
     dialog: Option<Scope>,
 ) -> Resolved {
     let registry = shell.engine().registry();
-    let (run_id, command, mut params) = match &action.binding {
+    let (mut run_id, mut command, mut params) = match &action.binding {
         Binding::Command(id) => (id.clone(), id.clone(), json!({})),
         Binding::Preset(id) => {
             let command = id.split(':').next().unwrap_or(id).to_owned();
@@ -227,6 +254,11 @@ pub fn resolve_in(
         }
         Binding::Raw { command, params } => (command.clone(), command.clone(), params.clone()),
     };
+    if deletes_text_alone(shell, &command, &params) {
+        run_id = "selection.delete".into();
+        command = run_id.clone();
+        params = json!({});
+    }
     let Some(meta) = registry.get(&command) else {
         return Resolved {
             title: run_id.clone(),
@@ -266,6 +298,9 @@ pub fn resolve_in(
     if let Some(key) = &action.title {
         title = i18n::translate(key, &[]);
     }
+    if let Some(key) = &action.icon {
+        icon = key.clone();
+    }
     let active = document.map(|d| d.to_string());
     let undo = shell.undo_scope(dialog).map(|scope| match scope {
         Scope::Document(uuid) => uuid.to_string(),
@@ -277,21 +312,51 @@ pub fn resolve_in(
     let selectable = document.map(|d| json!(selectable_on(shell, d)));
     let cursor = document.and_then(|d| {
         let at = shell.document_tab(d)?.cursor?;
-        let at = crate::canvas::interact::snap_to_grid(at, shell.grid(d));
+        let at = shell.snap_to_grid(d, at);
         Some(json!({ "x": at.x.0, "y": at.y.0 }))
     });
     if cursor.is_none() {
         drop_placeholder(&mut params, CURSOR);
     }
+    let highlighted = shell.highlight().net.as_deref().and_then(|name| {
+        let pcb = shell.engine().project()?.pcb()?;
+        pcb.nets().find(|n| n.name == name).map(|n| json!(n.uuid))
+    });
+    match highlighted {
+        Some(net) => {
+            let _ = fill(&mut params, HIGHLIGHTED_NET, Some(&net));
+        }
+        None => drop_placeholder(&mut params, HIGHLIGHTED_NET),
+    }
+    let active_layer = shell
+        .engine()
+        .project()
+        .and_then(|p| shell.board_view().active_layer(p))
+        .map(|l| json!(l));
+    let segments: Vec<_> = (shell.selection().segments.iter())
+        .filter(|s| {
+            document.is_some_and(|d| {
+                (shell.engine().project())
+                    .and_then(|p| p.schematic_sheet(d))
+                    .is_some_and(|sheet| sheet.wire(s.wire).is_some())
+            })
+        })
+        .copied()
+        .collect();
+    let by_segments = !segments.is_empty() && mentions(&params, SEGMENTS);
     let selected = document
         .map(|d| selected_on(shell, d))
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() || by_segments)
         .map(|s| json!(s));
+    let segments = json!(segments);
+    let select_all = command == "selection.set" && params["objects"].as_str() == Some(SELECTABLE);
     let filled = fill(&mut params, UNDO_STACK, undo.as_ref())
         .and_then(|()| fill(&mut params, ACTIVE_DOCUMENT, active.as_ref()))
         .and_then(|()| fill(&mut params, GRID, grid.as_ref()))
         .and_then(|()| fill(&mut params, SELECTABLE, selectable.as_ref()))
         .and_then(|()| fill(&mut params, CURSOR, cursor.as_ref()))
+        .and_then(|()| fill(&mut params, ACTIVE_LAYER, active_layer.as_ref()))
+        .and_then(|()| fill(&mut params, SEGMENTS, Some(&segments)))
         .map_err(|()| tr!("bars-no-active-document"))
         .and_then(|()| {
             fill(&mut params, SELECTION, selected.as_ref())
@@ -304,6 +369,10 @@ pub fn resolve_in(
     let run = match filled {
         Err(reason) => Err(reason),
         Ok(()) => {
+            if select_all && let Some(document) = document {
+                params = serde_json::to_value(crate::selection::picking::all(shell, document))
+                    .expect("selection serializes");
+            }
             // The window is never headless.
             match shell.engine().available(&run_id, false) {
                 Ok(()) => Ok((run_id, params.clone())),
@@ -324,7 +393,7 @@ pub fn resolve_in(
     }
 }
 
-/// The selected objects on `document`, in selection order.
+/// The selected objects on `document`, cross-selected ones too, in pick order.
 fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     if crate::element_editor::is_element(shell.engine(), document) {
         return crate::element_editor::selected_on(shell, document);
@@ -332,11 +401,10 @@ fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
-    shell
-        .selection()
-        .objects
-        .iter()
-        .copied()
+    // Cross-select's mirrored objects count: board Commands act on what was picked on a
+    // sheet, and the filter keeps edits on the active Document.
+    crate::cross_probe::in_pick_order(project, shell.selection())
+        .into_iter()
         .filter(|o| {
             project
                 .object(*o)
@@ -348,19 +416,60 @@ fn selected_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
 /// Everything selectable on `document`, sorted.
 fn selectable_on(shell: &Shell, document: Uuid) -> Vec<Uuid> {
     if crate::element_editor::is_element(shell.engine(), document) {
-        return crate::element_editor::parts(shell.engine(), document);
+        return crate::element_editor::parts(shell.engine(), document)
+            .into_iter()
+            .filter(|o| crate::selection::rules::allowed(shell, document, *o))
+            .collect();
     }
     let Some(project) = shell.engine().project() else {
         return Vec::new();
     };
+    if let Some(tab) = shell
+        .document_tab(document)
+        .filter(|_| project.pcb_document(document).is_some())
+    {
+        let mut out = Vec::new();
+        for item in &tab.scene.scene.items {
+            if crate::selection::rules::allowed(shell, document, item.object)
+                && !out.contains(&item.object)
+            {
+                out.push(item.object);
+            }
+        }
+        return out;
+    }
     let objects = project
         .schematic_sheet(document)
         .map(crate::schematic_editor::selectable)
         .unwrap_or_default();
-    objects.into_iter().collect()
+    objects
+        .into_iter()
+        .filter(|o| crate::selection::rules::allowed(shell, document, *o))
+        .collect()
 }
 
 /// Removes every object field whose value is `placeholder`, for an optional one.
+/// A delete of the selection (`$selection`) when only Field or Designator text is
+/// selected: that text can't be deleted alone, so `selection.delete` refuses instead. With
+/// objects selected too, the delete goes ahead on them.
+fn deletes_text_alone(shell: &Shell, command: &str, params: &Value) -> bool {
+    let selection = shell.selection();
+    command.ends_with(".delete")
+        && mentions(params, SELECTION)
+        && selection.objects.is_empty()
+        && (!selection.fields.is_empty() || !selection.texts.is_empty())
+}
+
+/// Whether `placeholder` is one of `params`' values, at any depth.
+fn mentions(params: &Value, placeholder: &str) -> bool {
+    match params {
+        Value::String(s) => s == placeholder,
+        Value::Array(items) => items.iter().any(|v| mentions(v, placeholder)),
+        Value::Object(map) => map.values().any(|v| mentions(v, placeholder)),
+        _ => false,
+    }
+}
+
 fn drop_placeholder(params: &mut Value, placeholder: &str) {
     match params {
         Value::Array(items) => items
@@ -418,10 +527,13 @@ fn summary_map(map: &Map<String, Value>, value: fn(&Value) -> String) -> String 
                     ACTIVE_DOCUMENT
                         | UNDO_STACK
                         | SELECTION
+                        | SEGMENTS
                         | CLIPBOARD
                         | GRID
                         | SELECTABLE
                         | CURSOR
+                        | ACTIVE_LAYER
+                        | HIGHLIGHTED_NET
                 )
             )
         })

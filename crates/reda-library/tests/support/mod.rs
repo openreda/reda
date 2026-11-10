@@ -128,6 +128,9 @@ pub fn symbol(n: u128, name: &str) -> Symbol {
         length: Nm::from_mil(100),
         name_visible: true,
         number_visible: true,
+        description: String::new(),
+        inside_edge: None,
+        outside_edge: None,
     };
     Symbol {
         uuid: uuid(n),
@@ -151,14 +154,19 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         number: i.to_string(),
         kind: PadKind::Smd,
         shape: PadShape::RoundedRect,
-        at: Point::new(Nm::from_um(800) * (i as i64), Nm(0)),
+        at: Point::new(Nm::from_um(1000) * (i as i64), Nm(0)),
         rotation: Millideg(0),
         width: Nm::from_um(800),
         height: Nm::from_um(900),
-        corner_radius: None,
+        corner_ratio: Some(reda_model::Ratio::percent(50)),
+        chamfer_ratio: None,
+        corners: None,
+        offset: None,
         hole: None,
-        mask_margin: None,
-        paste_margin: None,
+        side: None,
+        mask: None,
+        paste: None,
+        zone_connection: None,
     };
     Footprint {
         uuid: uuid(n),
@@ -175,8 +183,12 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
             width: Nm::from_um(50),
             fill: false,
         }],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        height: None,
+        texts: vec![
+            FootprintText::designator(uuid(n * 1000 + 997)),
+            FootprintText::value(uuid(n * 1000 + 998)),
+        ],
+        generator: None,
         provenance: None,
     }
 }
@@ -187,6 +199,8 @@ pub fn part(n: u128, name: &str, symbol: u128, footprints: &[u128]) -> Part {
         uuid: uuid(n),
         name: name.into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(uuid(symbol)),
         footprints: footprints.iter().map(|f| uuid(*f)).collect(),
         fields: Fields::default(),

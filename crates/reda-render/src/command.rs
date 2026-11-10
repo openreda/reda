@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::color::{Palette, Theme};
 use crate::layers::{Composite, InactiveLayers, LayerView, board_composites};
-use crate::pcb::{BoardGeometry, pcb_scene};
+use crate::pcb::{BoardGeometry, BoardStyle, pcb_scene_styled};
 use crate::scene::Scene;
-use crate::schematic::schematic_scene;
+use crate::schematic::{SchematicStyle, schematic_scene_styled};
 use crate::svg::to_svg_layers;
 use crate::viewport::Viewport;
 
@@ -22,7 +22,8 @@ pub type Junctions = fn(&SchematicSheet) -> Vec<Point>;
 /// Works out what a PCB Scene needs from PCB behaviour (placed Footprints, laid-out text
 /// in the given fonts, the Ratsnest, Zone fill staleness), which this crate does not
 /// depend on: the engine hands in its own when it assembles the registry.
-pub type BoardParts = fn(&Project, &PcbDocument, &Fonts) -> BoardGeometry;
+/// `style` says whether the Ratsnest uses Smart Track Ends.
+pub type BoardParts = fn(&Project, &PcbDocument, &Fonts, &BoardStyle) -> BoardGeometry;
 
 /// The derived data Scenes need and this crate does not derive itself.
 #[derive(Clone, Copy)]
@@ -36,12 +37,13 @@ pub fn register_all(registry: &mut Registry, derive: Derive) {
 }
 
 /// The Scene of any Document this crate can draw (`not_found` for an unknown Document).
-/// `fonts` are the installed fonts PCB text may name.
+/// `fonts` are the installed fonts PCB text may name; a sheet is drawn in `style`.
 pub fn document_scene(
     project: &Project,
     document: Uuid,
     derive: &Derive,
     fonts: &Fonts,
+    style: &SchematicStyle,
 ) -> Result<Scene, CommandError> {
     let entry = project
         .document(document)
@@ -51,14 +53,26 @@ pub fn document_scene(
         DocumentKind::Schematic => {
             let sheet = project.schematic_sheet(document).ok_or_else(missing)?;
             let junctions = (derive.junctions)(sheet);
-            Ok(schematic_scene(project, document, &junctions).unwrap_or_default())
+            Ok(schematic_scene_styled(project, document, &junctions, style).unwrap_or_default())
         }
-        DocumentKind::Pcb => {
-            let pcb = project.pcb_document(document).ok_or_else(missing)?;
-            let geometry = (derive.board)(project, pcb, fonts);
-            Ok(pcb_scene(project, document, &geometry).unwrap_or_default())
-        }
+        DocumentKind::Pcb => board_scene(project, document, derive, fonts, &BoardStyle::default()),
     }
+}
+
+/// The Scene of PCB Document `document` drawn in `style` (`not_found` when the Project
+/// has no such PCB).
+pub fn board_scene(
+    project: &Project,
+    document: Uuid,
+    derive: &Derive,
+    fonts: &Fonts,
+    style: &BoardStyle,
+) -> Result<Scene, CommandError> {
+    let pcb = project
+        .pcb_document(document)
+        .ok_or_else(|| CommandError::not_found(format!("no PCB Document {document}")))?;
+    let geometry = (derive.board)(project, pcb, fonts, style);
+    Ok(pcb_scene_styled(project, document, &geometry, style).unwrap_or_default())
 }
 
 pub struct DocumentRender {
@@ -197,7 +211,8 @@ impl Command for DocumentRender {
         p: DocumentRenderParams,
     ) -> Result<DocumentRenderResult, CommandError> {
         let project = cx.project()?;
-        let scene = document_scene(project, p.document, &self.derive, cx.fonts())?;
+        let style = SchematicStyle::default();
+        let scene = document_scene(project, p.document, &self.derive, cx.fonts(), &style)?;
         let composites = match project.pcb_document(p.document) {
             Some(pcb) => Some(pcb_layers(pcb, &p)?),
             None => {
@@ -314,6 +329,7 @@ fn pcb_layers(pcb: &PcbDocument, p: &DocumentRenderParams) -> Result<Vec<Composi
         inactive: p.inactive_layers.unwrap_or_default(),
         from_bottom: p.from_bottom.unwrap_or(false),
         ratsnest: p.ratsnest.unwrap_or(true),
+        pinned: Vec::new(),
     };
     Ok(board_composites(&set.layers, &view))
 }

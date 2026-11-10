@@ -1,7 +1,6 @@
 //! Write-through edits: Component data edited from the PCB side (`pcb.footprint.set`)
-//! updates every Unit and the Footprint instance together, and Re-annotate by board
-//! position numbers by Footprint position and writes through. Neither leaves a pending
-//! Sync change behind.
+//! updates every Unit and the Footprint instance together, without leaving a pending Sync
+//! change behind. Re-annotate from the board is in `reannotate_board.rs`.
 
 use std::path::{Path, PathBuf};
 
@@ -94,6 +93,39 @@ fn touched(done: &Value) -> Vec<String> {
         .keys()
         .cloned()
         .collect()
+}
+
+#[test]
+fn in_bom_and_in_cpl_edited_on_the_pcb_reach_every_unit_and_the_footprint() {
+    let dir = TempDir::new("write-through-flags");
+    let mut engine = demo(&dir);
+    let u1 = place(&mut engine, LM358, 0, 0);
+    engine.run_ok(
+        "schematic.unit.place",
+        json!({"document": SHEET, "component": u1, "at": {"x": "30mm", "y": "0mm"}}),
+    );
+    sync(&mut engine);
+    let footprint = instance_of(&mut engine, &u1)["uuid"].clone();
+
+    engine.run_ok(
+        "pcb.footprint.set",
+        json!({"footprints": [footprint], "in_bom": false, "in_cpl": false}),
+    );
+
+    let units = units_of(&mut engine, &u1);
+    assert_eq!(units.len(), 2);
+    for unit in &units {
+        assert_eq!(
+            (&unit["in_bom"], &unit["in_cpl"]),
+            (&json!(false), &json!(false))
+        );
+    }
+    let instance = instance_of(&mut engine, &u1);
+    assert_eq!(
+        (&instance["in_bom"], &instance["in_cpl"]),
+        (&json!(false), &json!(false))
+    );
+    assert_eq!(pending(&mut engine), 0);
 }
 
 #[test]
@@ -313,90 +345,4 @@ fn mechanical_parts_are_edited_on_the_pcb_alongside_synced_footprints() {
     let missing = engine.run_err("pcb.footprint.set", json!({"footprints": [SHEET]}));
     assert_eq!(missing.code, ErrorCode::InvalidParams);
     assert_eq!(missing.details.unwrap()["pointer"], "/footprints/0");
-}
-
-/// Moves a Component's Footprint so its origin is at (`x`, `y`) mm.
-fn move_to(engine: &mut TestEngine, component: &str, x: i64, y: i64) {
-    let instance = instance_of(engine, component);
-    let at = &instance["at"];
-    let by = json!({"x": x * 1_000_000 - at["x"].as_i64().unwrap(),
-                    "y": y * 1_000_000 - at["y"].as_i64().unwrap()});
-    engine.run_ok("pcb.move", json!({"objects": [instance["uuid"]], "by": by}));
-}
-
-fn designator_of(engine: &mut TestEngine, component: &str) -> String {
-    let units = units_of(engine, component);
-    units[0]["designator"].as_str().unwrap().to_owned()
-}
-
-#[test]
-fn reannotate_by_board_position_numbers_by_footprint_position_and_writes_through() {
-    let dir = TempDir::new("reannotate-board");
-    let mut engine = demo(&dir);
-    // Placed on the schematic against the board order. y grows upwards on the board.
-    let bottom_right = place(&mut engine, R_10K, 0, 0); // R1
-    let bottom_left = place(&mut engine, R_10K, 10, 0); // R2
-    let top_right = place(&mut engine, R_10K, 20, 0); // R3
-    let top_left = place(&mut engine, R_10K, 30, 0); // R4
-    let underneath = place(&mut engine, R_10K, 40, 0); // R5
-    sync(&mut engine);
-    let not_on_board = place(&mut engine, R_10K, 50, 0); // R6, not synced yet
-    let flipped = instance_of(&mut engine, &underneath)["uuid"].clone();
-    engine.run_ok("pcb.flip", json!({"objects": [flipped]}));
-    move_to(&mut engine, &top_left, 0, 10);
-    move_to(&mut engine, &top_right, 20, 11);
-    move_to(&mut engine, &bottom_left, 0, 0);
-    move_to(&mut engine, &bottom_right, 20, 0);
-    move_to(&mut engine, &underneath, 40, 20);
-    assert_eq!(pending(&mut engine), 1);
-
-    let params = json!({"order": "board_position", "scope": "project"});
-    let preview = engine.run_ok("schematic.reannotate.preview", params.clone());
-    let new: Vec<&str> = preview["designators"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|r| r["new"].as_str().unwrap())
-        .collect();
-    assert_eq!(new, ["R1", "R2", "R3", "R4", "R5", "R6"]);
-    let done = engine.run_ok("schematic.reannotate", params);
-
-    // The top side first, rows from the top, each left to right; then the bottom side;
-    // then the Components not on the board.
-    for (component, designator) in [
-        (&top_left, "R1"),
-        (&top_right, "R2"),
-        (&bottom_left, "R3"),
-        (&bottom_right, "R4"),
-        (&underneath, "R5"),
-    ] {
-        assert_eq!(designator_of(&mut engine, component), designator);
-        assert_eq!(
-            instance_of(&mut engine, component)["designator"],
-            designator
-        );
-    }
-    assert_eq!(designator_of(&mut engine, &not_on_board), "R6");
-    let mut scopes = touched(&done);
-    scopes.sort();
-    assert_eq!(scopes, [SHEET, PCB]);
-    // Only the add that was already pending is left.
-    assert_eq!(pending(&mut engine), 1);
-
-    engine.run_ok("edit.undo", json!({"document": PCB}));
-    assert_eq!(instance_of(&mut engine, &top_left)["designator"], "R4");
-    assert_eq!(designator_of(&mut engine, &top_left), "R1");
-}
-
-#[test]
-fn reannotate_by_board_position_needs_a_pcb() {
-    let dir = TempDir::new("reannotate-board-no-pcb");
-    let mut engine = demo(&dir);
-    place(&mut engine, R_10K, 0, 0);
-    engine.run_ok("document.delete", json!({"document": PCB}));
-    let err = engine.run_err(
-        "schematic.reannotate",
-        json!({"order": "board_position", "scope": "project"}),
-    );
-    assert_eq!(err.code, ErrorCode::Unavailable);
 }

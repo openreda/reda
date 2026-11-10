@@ -3,16 +3,18 @@
 use reda_model::geom::{Nm, Point};
 use reda_model::{GraphicShape, LayerKind, Shape, Uuid};
 
-use super::{BoardGraphic, BoardText, Builder, RatsnestLine, capsule};
+use super::{BoardGraphic, BoardText, Builder, RatsnestLine, SheetLabel, capsule};
 use crate::arc;
-use crate::color::BoardColor;
+use crate::color::{BoardColor, ColorKey};
 use crate::polygon::triangulate;
-use crate::scene::{Align, GlyphRun, Primitive, SceneLayer};
+use crate::scene::{Align, HAlign, VAlign};
+use crate::scene::{GlyphRun, Primitive, SceneLayer};
+use crate::text::{TextStyle, glyph_run};
 
 /// The width of the Board Outline and cutouts.
 pub(super) const OUTLINE_WIDTH: Nm = Nm(150_000);
-/// The width of a Ratsnest line.
-pub(super) const RATSNEST_WIDTH: Nm = Nm(100_000);
+/// The capital height of a sheet-name label over a Footprint cluster.
+pub(super) const SHEET_LABEL_HEIGHT: Nm = Nm(2_000_000);
 
 /// Footprint drawing, then free lines, arcs and rectangles.
 pub(super) fn graphics(b: &mut Builder, graphics: &[BoardGraphic]) {
@@ -111,13 +113,17 @@ pub(super) fn texts(b: &mut Builder, texts: &[BoardText]) {
             at: t.at,
             height: t.height,
             rotation: t.rotation,
-            align: Align::default(),
+            align: t.align,
             view_label: false,
             strokes: t.strokes.clone(),
             stroke_width: t.stroke_width,
             fill: t.fill.clone(),
         };
+        let before = b.scene.items.len();
         b.on_layer(t.object, t.layer, Primitive::Glyphs(run));
+        if let Some(item) = b.scene.items.get_mut(before) {
+            item.child = t.child.clone();
+        }
     }
 }
 
@@ -136,14 +142,14 @@ pub(super) fn outline(b: &mut Builder) {
         let points = arc::contour(vertices);
         b.polyline(object, layer, &points, OUTLINE_WIDTH, true);
     }
-    if let Some(origin) = pcb.placement_origin() {
-        placement_origin(b, layer, origin.uuid, origin.at);
+    if let Some(origin) = pcb.output_origin() {
+        output_origin(b, layer, origin.uuid, origin.at);
     }
 }
 
-/// The Placement Origin's mark, on the Board Outline Layer: a ring with a cross through
+/// The Output Origin's mark, on the Board Outline Layer: a ring with a cross through
 /// it, 2 mm across.
-fn placement_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
+fn output_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
     let r = Nm(1_000_000);
     b.on_layer(
         object,
@@ -161,14 +167,45 @@ fn placement_origin(b: &mut Builder, layer: Uuid, object: Uuid, at: Point) {
     }
 }
 
-/// The Ratsnest: one line per connection still to be made, tagged with its Net.
+/// The Ratsnest: one screen-width line per connection still to be made, tagged with its
+/// Net and drawn in the Net's colour when it has one. Lines of a Footprint whose Ratsnest
+/// is hidden are left out.
 pub(super) fn ratsnest(b: &mut Builder, lines: &[RatsnestLine]) {
+    let hidden = &b.style.hidden_ratsnest_footprints;
     for line in lines {
-        b.push(
+        if line.footprints.iter().flatten().any(|f| hidden.contains(f)) {
+            continue;
+        }
+        let color = match b.net_color(Some(line.net)) {
+            Some(rgb) => ColorKey::Net(rgb),
+            None => ColorKey::Board(BoardColor::Ratsnest),
+        };
+        b.scene.push(
             line.net,
             SceneLayer::Ratsnest,
-            BoardColor::Ratsnest,
-            capsule(line.from, line.to, RATSNEST_WIDTH),
+            color,
+            Primitive::Hairline {
+                a: line.from,
+                b: line.to,
+            },
+        );
+    }
+}
+
+/// The derived sheet-name labels, tagged with the sheet.
+pub(super) fn sheet_labels(b: &mut Builder, labels: &[SheetLabel]) {
+    for label in labels {
+        let style = TextStyle {
+            height: SHEET_LABEL_HEIGHT,
+            rotation: reda_model::geom::Millideg(0),
+            align: Align::new(HAlign::Left, VAlign::Baseline),
+            view_label: true,
+        };
+        b.push(
+            label.sheet,
+            SceneLayer::Annotation,
+            BoardColor::SheetLabel,
+            Primitive::Glyphs(glyph_run(&label.name, label.at, style)),
         );
     }
 }

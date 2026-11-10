@@ -15,6 +15,7 @@
 //!   ([`Copper::ratsnest`]),
 //! - whether proposed copper keeps its clearance ([`Copper::clearance`]).
 
+use shape::BoardShape as _;
 use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::Point;
@@ -26,9 +27,10 @@ use serde::Serialize;
 mod clearance;
 mod ratsnest;
 pub(crate) mod shape;
+pub(crate) mod ties;
 
-pub use clearance::{ClearanceHit, Proposal};
-pub use ratsnest::{RatsnestLine, RatsnestVisibility};
+pub use clearance::{ClearanceHit, Halo, Proposal};
+pub use ratsnest::{Connections, RatsnestEnds, RatsnestLine, RatsnestVisibility};
 
 use shape::{P, Shape};
 
@@ -228,7 +230,7 @@ impl Copper {
     }
 
     /// Hands the index the Zone fills to treat as copper (`None` drops them). A fill of a
-    /// Zone that no longer exists is skipped; each island takes its Zone's current Net and
+    /// Zone that no longer exists, or is shelved, is skipped; each island takes its Zone's current Net and
     /// Layer. [`Copper::apply`] keeps them in step with later changes to the Zones.
     pub fn set_zone_fills(&mut self, pcb: &PcbDocument, fills: Option<&ZoneFills>) {
         let old: Vec<Uuid> = self
@@ -394,6 +396,18 @@ impl Copper {
             .collect()
     }
 
+    /// The items whose copper on `layer` touches `shape`, sorted.
+    pub(crate) fn items_touching(&self, layer: Uuid, shape: &Shape) -> Vec<Item> {
+        let mut found: Vec<Item> = self
+            .candidates(layer, shape.envelope())
+            .filter(|piece| piece.shape.touches(shape))
+            .map(|piece| piece.item)
+            .collect();
+        found.sort();
+        found.dedup();
+        found
+    }
+
     /// Whether `item`'s copper on `layer` touches any other copper there.
     pub(crate) fn touches_on(&self, item: Item, layer: Uuid) -> bool {
         self.item_pieces(item)
@@ -426,7 +440,10 @@ impl Copper {
         };
         let mut items = Vec::new();
         for pad in &copy.footprint.pads {
-            let layers = pad_layers(pcb, pad.kind, instance.side);
+            let side = pad.copper_side().map_or(instance.side, |s| {
+                crate::placed::Frame::of(instance).side(s)
+            });
+            let layers = pad_layers(pcb, pad.kind, side);
             if layers.is_empty() {
                 continue;
             }
@@ -453,7 +470,7 @@ impl Copper {
         let Some(pad) = pcb.free_pad(uuid) else {
             return;
         };
-        let layers = pad_layers(pcb, pad.kind, pad.side.unwrap_or(Side::Top));
+        let layers = pad_layers(pcb, pad.kind, pad.form().copper_side().unwrap_or(Side::Top));
         if layers.is_empty() {
             return;
         }
@@ -491,12 +508,13 @@ impl Copper {
 
     fn add_zone(&mut self, pcb: &PcbDocument, uuid: Uuid) {
         let (Some(zone), Some(shapes)) = (
-            pcb.zone(uuid),
+            pcb.zone(uuid).filter(|z| !z.shelved),
             self.fills.as_ref().and_then(|f| f.zones.get(&uuid)),
         ) else {
             return;
         };
         let pieces: Vec<(Info, Shape)> = shapes
+            .shapes
             .iter()
             .map(|s| {
                 // Up to 32 points along the outer edge anchor the Ratsnest.

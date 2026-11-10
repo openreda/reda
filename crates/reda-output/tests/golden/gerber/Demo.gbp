@@ -1,0 +1,17 @@
+%TF.GenerationSoftware,openreda,REDA,0.0.0-test*%
+%TF.ProjectId,Demo,00000000-0000-4000-8000-000000000001,A\u002C first*%
+%TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2*%
+%TF.Part,Single*%
+%TF.FileFunction,Paste,Bot*%
+%TF.FilePolarity,Positive*%
+%FSLAX46Y46*%
+%MOMM*%
+%LPD*%
+G75*
+G01*
+%TA.AperFunction,Material*%
+%ADD10O,1.500000X0.800000*%
+%TD*%
+D10*
+X20000000Y10000000D03*
+M02*

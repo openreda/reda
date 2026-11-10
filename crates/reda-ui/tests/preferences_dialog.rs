@@ -39,7 +39,11 @@ fn harness(home: &Path) -> Harness<'static, App> {
 fn open_preferences(h: &mut Harness<'static, App>) {
     h.get_by_label("File").click();
     h.run();
-    h.get_by_label_contains("Preferences…").click();
+    // The menu item is drawn after the top row's gear of the same name.
+    h.get_all_by_label_contains("Preferences…")
+        .last()
+        .unwrap()
+        .click();
     h.run();
 }
 
@@ -67,13 +71,16 @@ fn the_dialog_opens_from_the_file_menu_and_lists_every_page() {
     open_preferences(&mut h);
     for title in [
         "General",
+        "Editing",
+        "Snap",
         "Schematic",
-        "PCB",
+        "Wires",
         "Display",
         "Libraries",
         "Fab Presets",
         "Agents",
         "Keyboard Shortcuts",
+        "All settings",
     ] {
         assert!(
             h.query_by_role_and_label(Role::TreeItem, title).is_some(),
@@ -111,6 +118,7 @@ fn the_theme_switches_live() {
         h.ctx.options(|o| o.theme_preference),
         egui::ThemePreference::Light
     );
+    assert!(h.state().preferences_dialog().is_some(), "it stays open");
 
     h.get_by_role_and_label(Role::Button, "Reset Theme to default")
         .click();
@@ -126,15 +134,13 @@ fn the_ui_scale_switches_live() {
     let home = TempDir::new("pref-dialog-scale");
     let mut h = harness(home.path());
     open_preferences(&mut h);
-    h.get_by_role_and_label(Role::TextInput, "UI scale").click();
+    // A list of the steps, 75 to 200 %.
+    h.get_by_role_and_label(Role::ComboBox, "UI scale").click();
     h.run();
-    // Select all and replace: Mod+A, then type.
-    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
-    h.run();
-    h.get_by_role_and_label(Role::TextInput, "UI scale")
-        .type_text("1.25");
-    h.run();
-    h.key_press(Key::Enter);
+    for step in ["75 %", "85 %", "100 %", "115 %", "150 %", "200 %"] {
+        h.get_by_label(step);
+    }
+    h.get_by_label("125 %").click();
     h.run();
     h.run();
     assert_eq!(h.state().shell().preferences().general.ui_scale, 1.25);
@@ -260,4 +266,306 @@ fn the_fab_presets_page_renames_and_deletes_user_presets() {
         .click();
     h.run();
     assert_eq!(last_journal_id(&h), "fab_preset.delete_user");
+}
+
+#[test]
+fn a_changed_setting_gets_a_dot_and_its_page_a_count() {
+    let home = TempDir::new("pref-dialog-dot");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Wires");
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Reset Optimize Wires to default")
+            .is_none(),
+        "an unchanged setting has no dot"
+    );
+    h.get_by_role_and_label(Role::CheckBox, "Optimize Wires")
+        .click();
+    h.run();
+    assert!(!h.state().shell().preferences().schematic.optimize_wires);
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Wires, 1 changed")
+            .is_some()
+    );
+    h.get_by_role_and_label(Role::Button, "Reset Optimize Wires to default")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert!(h.state().shell().preferences().schematic.optimize_wires);
+    assert!(h.query_by_role_and_label(Role::TreeItem, "Wires").is_some());
+}
+
+#[test]
+fn reset_page_branch_and_all_from_the_window() {
+    let home = TempDir::new("pref-dialog-reset-tree");
+    let mut h = harness(home.path());
+    {
+        let shell = h.state_mut().shell_mut();
+        for (key, value) in [
+            ("schematic.auto_increment.primary", json!(2)),
+            ("schematic.optimize_wires", json!(false)),
+            ("general.theme", json!("dark")),
+        ] {
+            shell
+                .run("app.preferences.set", json!({"key": key, "value": value}))
+                .unwrap();
+        }
+    }
+    h.run();
+    open_preferences(&mut h);
+    h.get_by_role_and_label(Role::TreeItem, "Schematic, 1 changed")
+        .click();
+    h.run();
+    h.get_by_label("Reset page").click();
+    h.run();
+    let prefs = h.state().shell().preferences().schematic.clone();
+    assert_eq!(prefs.auto_increment.primary, 1);
+    assert!(!prefs.optimize_wires, "the sub-page is left");
+    h.get_by_label("Reset branch").click();
+    h.run();
+    assert!(h.state().shell().preferences().schematic.optimize_wires);
+    h.get_by_label("Reset all").click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert_eq!(
+        h.ctx.options(|o| o.theme_preference),
+        egui::ThemePreference::System
+    );
+}
+
+#[test]
+fn modified_only_and_all_settings() {
+    let home = TempDir::new("pref-dialog-all");
+    let mut h = harness(home.path());
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.auto_pan.style", "value": "off"}),
+        )
+        .unwrap();
+    h.run();
+    open_preferences(&mut h);
+    h.get_by_role_and_label(Role::CheckBox, "Modified only")
+        .click();
+    h.run();
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Display")
+            .is_none()
+    );
+    assert!(
+        h.query_by_role_and_label(Role::TreeItem, "Auto-pan, 1 changed")
+            .is_some()
+    );
+    h.get_by_role_and_label(Role::CheckBox, "Modified only")
+        .click();
+    h.run();
+
+    // The tree may need scrolling to reach its last page.
+    h.get_by_role_and_label(Role::TreeItem, "All settings, 1 changed")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::TreeItem, "All settings, 1 changed")
+        .click();
+    h.run();
+    assert!(h.query_by_label("schematic.single_negation").is_some());
+    type_into(&mut h, Role::SearchInput, "Search settings", "auto_pan.st");
+    // The search filters the table rather than leaving the page.
+    assert!(h.query_by_label("schematic.single_negation").is_none());
+    assert!(h.query_by_label("editing.auto_pan.style").is_some());
+    h.get_by_role_and_label(Role::Button, "Reset Auto-pan at the canvas edge to default")
+        .click();
+    h.run();
+    assert!(
+        h.state().shell().preferences().editing.auto_pan.style
+            == reda_ui::engine::preferences::AutoPanStyle::Ballistic
+    );
+}
+
+/// How far `label`'s text starts from the left edge of its page tree row, in points.
+fn tree_label_indent(h: &Harness<'static, App>, label: &str) -> f32 {
+    let row = h.get_by_role_and_label(Role::TreeItem, label).rect();
+    let mut found = None;
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text)
+                    if text.galley.text() == label && row.contains(text.pos) =>
+                {
+                    found = Some(text.pos.x - row.left());
+                }
+                _ => {}
+            }
+        }
+    }
+    found.unwrap_or_else(|| panic!("no text {label:?} in its row {row:?}"))
+}
+
+#[test]
+fn page_tree_labels_are_left_aligned() {
+    let home = TempDir::new("prefs-home");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    // Short and long titles start at the row's padding, not centred in the row.
+    for title in ["General", "Keyboard Shortcuts", "Schematic"] {
+        let indent = tree_label_indent(&h, title);
+        assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
+    }
+}
+
+#[test]
+fn the_libraries_page_has_a_grid_of_library_check_severities_with_reset() {
+    let home = TempDir::new("pref-dialog-library-severities");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Libraries");
+    let severities = || reda_ui::engine::model::LibrarySeverities::DEFAULT;
+    assert_eq!(
+        h.state().shell().preferences().libraries.severities,
+        severities()
+    );
+    // One row per check, named by its title, at the spec's default.
+    for check in reda_ui::engine::model::LibraryCheck::ALL {
+        let title = reda_ui::messages::check_title(check.id());
+        assert!(
+            h.query_by_role_and_label(Role::ComboBox, &title).is_some(),
+            "no row for {title}"
+        );
+    }
+    assert!(
+        h.query_by_role_and_label(Role::Label, "Library check severities")
+            .is_some()
+    );
+
+    h.get_by_role_and_label(Role::ComboBox, "Missing Courtyard")
+        .click();
+    h.run();
+    h.get_all_by_label("Error").last().unwrap().click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    let set = h.state().shell().preferences().libraries.severities;
+    assert_eq!(
+        set.missing_courtyard,
+        reda_ui::engine::model::Severity::Error
+    );
+
+    h.get_by_role_and_label(Role::ComboBox, "Missing Pin Name")
+        .click();
+    h.run();
+    h.get_all_by_label("Warning").last().unwrap().click();
+    h.run();
+    assert_eq!(
+        h.state()
+            .shell()
+            .preferences()
+            .libraries
+            .severities
+            .missing_pin_name,
+        reda_ui::engine::model::Severity::Warning
+    );
+
+    h.get_by_role_and_label(Role::Button, "Reset severities")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Reset severities")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.reset");
+    assert_eq!(
+        h.state().shell().preferences().libraries.severities,
+        severities()
+    );
+}
+
+#[test]
+fn the_libraries_page_has_an_active_checkbox_for_each_user_library_and_the_starter() {
+    let home = TempDir::new("pref-dialog-library-active");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Libraries");
+    for path in ["/libs/a", "/libs/b"] {
+        h.get_by_role_and_label(Role::TextInput, "Library folder")
+            .click();
+        h.run();
+        h.get_by_role_and_label(Role::TextInput, "Library folder")
+            .type_text(path);
+        h.run();
+        h.get_by_role_and_label(Role::Button, "Add").click();
+        h.run();
+    }
+    let libraries = |h: &Harness<'static, App>| h.state().shell().preferences().libraries.clone();
+    assert!(libraries(&h).starter_active);
+    assert!(libraries(&h).inactive.is_empty());
+
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/b")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    assert_eq!(libraries(&h).inactive, ["/libs/b"]);
+    h.get_by_role_and_label(Role::CheckBox, "Active: Starter Library")
+        .click();
+    h.run();
+    assert!(!libraries(&h).starter_active);
+
+    // Turning it back on, and removing an inactive folder, leave no stale entry.
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/b")
+        .click();
+    h.run();
+    assert!(libraries(&h).inactive.is_empty());
+    h.get_by_role_and_label(Role::CheckBox, "Active: /libs/a")
+        .click();
+    h.run();
+    assert_eq!(libraries(&h).inactive, ["/libs/a"]);
+    h.get_by_role_and_label(Role::Button, "Remove /libs/a")
+        .click();
+    h.run();
+    assert_eq!(libraries(&h).paths, ["/libs/b"]);
+    assert!(libraries(&h).inactive.is_empty());
+}
+
+#[test]
+fn the_checks_page_sets_the_overlay_style_when_zoomed_out_and_a_per_check_grid() {
+    use reda_ui::engine::preferences::{OverlayStyle, OverlayZoomedOut};
+    let home = TempDir::new("pref-dialog-checks");
+    let mut h = harness(home.path());
+    open_preferences(&mut h);
+    page(&mut h, "Checks");
+    h.get_by_role_and_label(Role::ComboBox, "Overlay style")
+        .click();
+    h.run();
+    h.get_by_label("Warning pattern").click();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Overlay when zoomed out")
+        .click();
+    h.run();
+    h.get_by_label("Layer colour dominates").click();
+    h.run();
+    let checks = |h: &Harness<'static, App>| h.state().shell().preferences().checks.clone();
+    assert_eq!(checks(&h).overlay_style, OverlayStyle::WarningPattern);
+    assert_eq!(
+        checks(&h).overlay_zoomed_out,
+        OverlayZoomedOut::LayerColorDominates
+    );
+
+    // The grid: Details on for every check, Overlay on for clearance, Track width and
+    // courtyard overlap.
+    let ticked = |h: &Harness<'static, App>, label: &str| {
+        use egui_kittest::kittest::NodeT as _;
+        h.get_by_role_and_label(Role::CheckBox, label)
+            .accesskit_node()
+            .toggled()
+            == Some(egui::accesskit::Toggled::True)
+    };
+    assert!(ticked(&h, "Clearance: Details"));
+    assert!(ticked(&h, "Clearance: Overlay"));
+    assert!(ticked(&h, "Dangling Wire: Details"));
+    assert!(!ticked(&h, "Dangling Wire: Overlay"));
+    h.get_by_role_and_label(Role::CheckBox, "Dangling Wire: Overlay")
+        .click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "app.preferences.set");
+    assert!(checks(&h).display.get("dangling_wire").overlay);
+    assert!(ticked(&h, "Dangling Wire: Overlay"));
 }

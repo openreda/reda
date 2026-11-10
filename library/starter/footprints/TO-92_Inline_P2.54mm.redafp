@@ -1,17 +1,21 @@
 {
   "format": 1,
-  "footprint": {"uuid":"163fae4f-3930-40a9-96ae-7630ccb29298","name":"TO-92_Inline_P2.54mm","description":"TO-92, leads in a line 2.54 mm apart, flat face down. Per onsemi TO-92 case 29-11, bent lead"},
-  "text": {"designator":{"at":{"x":0,"y":3550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"163fae4f-3930-40a9-96ae-7630ccb29298","name":"TO-92_Inline_P2.54mm","description":"TO-92, leads in a line 2.54 mm apart, flat face down. Per onsemi TO-92 case 29-11, bent lead","height":5200000},
   "pads": [
-    {"uuid":"5200ca39-419a-48e1-9309-fa31eca1d9cd","number":"3","kind":"plated_through_hole","shape":"oval","at":{"x":2540000,"y":0},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
-    {"uuid":"5b4e420b-5828-474c-95b7-7f1fa3a3ac7d","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2540000,"y":0},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
-    {"uuid":"dfa62f9f-a980-474c-a698-422780ba2438","number":"2","kind":"plated_through_hole","shape":"oval","at":{"x":0,"y":0},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}}
+    {"uuid":"08cdde40-e8c7-42e9-8c97-666b4ebbd709","number":"3","kind":"plated_through_hole","shape":"oval","at":{"x":2540000,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
+    {"uuid":"5200ca39-419a-48e1-9309-fa31eca1d9cd","number":"2","kind":"plated_through_hole","shape":"oval","at":{"x":0,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}},
+    {"uuid":"dfa62f9f-a980-474c-a698-422780ba2438","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2540000,"y":-425000},"rotation":0,"width":1550000,"height":1800000,"hole":{"width":950000,"height":950000}}
   ],
   "graphics": [
-    {"uuid":"08cdde40-e8c7-42e9-8c97-666b4ebbd709","layer":"assembly_top","shape":{"kind":"arc","center":{"x":0,"y":0},"start":{"x":1788854,"y":-1600000},"sweep":263621},"width":100000},
-    {"uuid":"31cdf36c-ee38-4815-bab1-baf1e9bbaad7","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":0,"y":0},"start":{"x":1739483,"y":1739483},"sweep":90000},"width":120000},
-    {"uuid":"3c386694-8fdc-4499-b7c0-123dce0f3085","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3600000,"y":-1900000},"end":{"x":3600000,"y":2750000}},"width":50000},
-    {"uuid":"f7f8bb25-d1eb-4307-8396-d8ed44014af9","layer":"assembly_top","shape":{"kind":"line","start":{"x":-1788854,"y":-1600000},"end":{"x":1788854,"y":-1600000}},"width":100000},
-    {"uuid":"fcebc2d2-e1df-4fb8-8c3e-b876dbbe3ca5","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1788854,"y":-1660000},"end":{"x":1788854,"y":-1660000}},"width":120000}
+    {"uuid":"31cdf36c-ee38-4815-bab1-baf1e9bbaad7","layer":"assembly_top","shape":{"kind":"line","start":{"x":-1788854,"y":-2025000},"end":{"x":1788854,"y":-2025000}},"width":100000},
+    {"uuid":"3c386694-8fdc-4499-b7c0-123dce0f3085","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1788854,"y":-2085000},"end":{"x":1788854,"y":-2085000}},"width":120000},
+    {"uuid":"eee55069-cae0-4787-afe7-0d0d6a1bd49d","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3600000,"y":-2325000},"end":{"x":3600000,"y":2325000}},"width":50000},
+    {"uuid":"f7f8bb25-d1eb-4307-8396-d8ed44014af9","layer":"assembly_top","shape":{"kind":"arc","center":{"x":0,"y":-425000},"start":{"x":1788854,"y":-2025000},"sweep":263621},"width":100000},
+    {"uuid":"fcebc2d2-e1df-4fb8-8c3e-b876dbbe3ca5","layer":"silkscreen_top","shape":{"kind":"arc","center":{"x":0,"y":-425000},"start":{"x":1739483,"y":1314483},"sweep":90000},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"39bd9b7a-5edd-4ff9-b467-a2a76dcc5b04","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"5b4e420b-5828-474c-95b7-7f1fa3a3ac7d","field":"Value","at":{"x":0,"y":-3025000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"c491169d-e557-4cdb-8d1a-4172cfa69575","field":"Designator","at":{"x":0,"y":3125000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

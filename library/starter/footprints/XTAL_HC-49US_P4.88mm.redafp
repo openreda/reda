@@ -1,14 +1,18 @@
 {
   "format": 1,
-  "footprint": {"uuid":"05961479-c2ed-4f9e-9d0e-a89337f482e1","name":"XTAL_HC-49US_P4.88mm","description":"Crystal, HC-49/US low-profile can, leads 4.88 mm apart. Per Abracon ABL datasheet, Mechanical Dimensions"},
-  "text": {"designator":{"at":{"x":0,"y":3550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"05961479-c2ed-4f9e-9d0e-a89337f482e1","name":"XTAL_HC-49US_P4.88mm","description":"Crystal, HC-49/US low-profile can, leads 4.88 mm apart. Per Abracon ABL datasheet, Mechanical Dimensions","height":3500000},
   "pads": [
-    {"uuid":"58a10db1-5cc5-411e-9dd1-a8319b32223b","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":2440000,"y":0},"rotation":0,"width":1500000,"height":1500000,"hole":{"width":800000,"height":800000}},
-    {"uuid":"9fa150d5-92c8-4fdd-811b-fde05a8a69ba","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2440000,"y":0},"rotation":0,"width":1500000,"height":1500000,"hole":{"width":800000,"height":800000}}
+    {"uuid":"58a10db1-5cc5-411e-9dd1-a8319b32223b","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2440000,"y":0},"rotation":0,"width":1500000,"height":1500000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"bb60e712-e04a-4a8e-bc8d-e44fd5943b98","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":2440000,"y":0},"rotation":0,"width":1500000,"height":1500000,"hole":{"width":800000,"height":800000}}
   ],
   "graphics": [
-    {"uuid":"90f266aa-7ef4-4546-9732-679f59433143","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6000000,"y":-2750000},"end":{"x":6000000,"y":2750000}},"width":50000},
-    {"uuid":"bb60e712-e04a-4a8e-bc8d-e44fd5943b98","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-5750000,"y":-2500000},"end":{"x":5750000,"y":2500000}},"width":100000},
-    {"uuid":"d990eea6-7f2e-422f-9397-aa822fb86be4","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-5810000,"y":-2560000},"end":{"x":5810000,"y":2560000}},"width":120000}
+    {"uuid":"735bfbc6-5545-45da-91b0-447ee31c01d9","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6000000,"y":-2750000},"end":{"x":6000000,"y":2750000}},"width":50000},
+    {"uuid":"90f266aa-7ef4-4546-9732-679f59433143","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-5810000,"y":-2560000},"end":{"x":5810000,"y":2560000}},"width":120000},
+    {"uuid":"d990eea6-7f2e-422f-9397-aa822fb86be4","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-5750000,"y":-2500000},"end":{"x":5750000,"y":2500000}},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"4300e44a-542e-446e-a63b-9980d070002c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"9fa150d5-92c8-4fdd-811b-fde05a8a69ba","field":"Value","at":{"x":0,"y":-3450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"e0db06b2-a59a-4f66-843b-573692b15a59","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

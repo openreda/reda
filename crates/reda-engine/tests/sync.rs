@@ -13,6 +13,8 @@ const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
 const R_0603: &str = "a0000000-0000-4000-8000-000000000040";
 const R_SHUNT: &str = "a0000000-0000-4000-8000-000000000150";
 const R_KELVIN: &str = "a0000000-0000-4000-8000-000000000070";
+/// A Net Tie Part (In BOM and In CPL both off) on the resistor's Symbol and 0603.
+const NET_TIE: &str = "a0000000-0000-4000-8000-000000000170";
 
 fn library() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../reda-schematic/tests/library/Test")
@@ -67,7 +69,7 @@ fn a_new_component_becomes_a_footprint_instance() {
 
     let list = preview(&mut engine);
     assert_eq!(list["count"], 1);
-    assert_eq!(list["groups"][0]["group"], "components");
+    assert_eq!(list["groups"][0]["group"], "add_components");
     let add = &changes(&list)[0];
     assert_eq!(add["kind"], "add_component");
     assert_eq!(add["component"]["uuid"], r1.as_str());
@@ -112,6 +114,16 @@ fn sync(engine: &mut TestEngine) -> Value {
     engine.run_ok("sync.apply", json!({"hash": list["hash"]}))
 }
 
+/// The ids of the preview's groups, in order.
+fn group_ids(preview: &Value) -> Vec<String> {
+    preview["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["group"].as_str().unwrap().to_owned())
+        .collect()
+}
+
 fn of_kind(preview: &Value, kind: &str) -> Vec<Value> {
     changes(preview)
         .into_iter()
@@ -151,7 +163,7 @@ fn a_wired_net_becomes_a_pcb_net_in_the_default_class_and_its_pads_join_it() {
         .iter()
         .map(|g| g["group"].as_str().unwrap())
         .collect();
-    assert_eq!(groups, ["components", "nets", "pad_nets"]);
+    assert_eq!(groups, ["add_components", "add_nets", "pad_nets"]);
     let add_net = &of_kind(&list, "add_net")[0];
     assert_eq!(add_net["name"], "SIG");
     // Lone unwired Pins carry no PCB Net: only the two pin 2 Pads move.
@@ -325,7 +337,9 @@ fn a_split_net_keeps_its_uuid_on_the_larger_part() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|w| w["object"]["to"]["x"] == 20_000_000 || w["object"]["from"]["x"] == 20_000_000)
+        .find(|w| {
+            (w["object"]["vertices"].as_array().unwrap().iter()).any(|v| v["x"] == 20_000_000)
+        })
         .unwrap()["object"]["uuid"]
         .clone();
     engine.run_ok("schematic.delete", json!({"objects": [right]}));
@@ -439,7 +453,7 @@ fn field_and_not_fitted_changes_propagate() {
                "fields": {"LCSC": "C23162"}}),
     );
     let list = preview(&mut engine);
-    assert_eq!(list["groups"][0]["group"], "component_data");
+    assert_eq!(list["groups"][0]["group"], "fields");
     let fields = &of_kind(&list, "fields")[0];
     assert_eq!(fields["from"]["value"], "10k");
     assert_eq!(fields["to"]["value"], "4k7");
@@ -450,6 +464,83 @@ fn field_and_not_fitted_changes_propagate() {
     assert_eq!(instance["fields"]["value"], "4k7");
     assert_eq!(instance["fields"]["custom"][0]["value"], "C23162");
     assert_eq!(instance["not_fitted"], true);
+}
+
+#[test]
+fn component_type_in_bom_and_in_cpl_are_carried_to_the_board() {
+    let dir = TempDir::new("sync-flags");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, NET_TIE, 20, 0);
+    sync(&mut engine);
+    let by_designator = |instances: &[Value], d: &str| {
+        instances
+            .iter()
+            .find(|i| i["designator"] == d)
+            .unwrap()
+            .clone()
+    };
+    let all = instances(&mut engine);
+    let (r, nt) = (by_designator(&all, "R1"), by_designator(&all, "R2"));
+    assert_eq!(
+        (&r["component_type"], &r["in_bom"], &r["in_cpl"]),
+        (&json!("standard"), &json!(true), &json!(true))
+    );
+    assert_eq!(
+        (&nt["component_type"], &nt["in_bom"], &nt["in_cpl"]),
+        (&json!("net_tie"), &json!(false), &json!(false))
+    );
+
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r1], "in_bom": false, "in_cpl": false}),
+    );
+    let list = preview(&mut engine);
+    assert_eq!(list["count"], 2, "the board is out of sync: {list}");
+    let in_bom = &of_kind(&list, "in_bom")[0];
+    assert_eq!(
+        (&in_bom["from"], &in_bom["to"]),
+        (&json!(true), &json!(false))
+    );
+    assert_eq!(of_kind(&list, "in_cpl")[0]["to"], false);
+    // In BOM and In CPL each have a row of their own, in a group of their own.
+    assert_eq!(group_ids(&list), ["in_bom", "in_cpl"]);
+
+    sync(&mut engine);
+    let r = by_designator(&instances(&mut engine), "R1");
+    assert_eq!((&r["in_bom"], &r["in_cpl"]), (&json!(false), &json!(false)));
+    assert_eq!(preview(&mut engine)["count"], 0);
+}
+
+#[test]
+fn only_a_mechanical_part_is_placed_straight_onto_the_board() {
+    let dir = TempDir::new("sync-net-tie-board");
+    let mut engine = demo(&dir);
+    for part in [NET_TIE, R_10K] {
+        let err = engine.run_err(
+            "pcb.mechanical.place",
+            json!({"part": part, "at": {"x": "0mm", "y": "0mm"}}),
+        );
+        assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+        assert!(err.message.contains("through Sync"), "{}", err.message);
+    }
+}
+
+#[test]
+fn a_net_tie_refuses_not_fitted() {
+    let dir = TempDir::new("sync-net-tie-not-fitted");
+    let mut engine = demo(&dir);
+    let tie = place(&mut engine, NET_TIE, 0, 0);
+    let err = engine.run_err(
+        "schematic.component.set",
+        json!({"components": [tie], "not_fitted": true}),
+    );
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert!(err.message.contains("Net Tie"), "{}", err.message);
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [tie], "not_fitted": false}),
+    );
 }
 
 #[test]
@@ -585,11 +676,12 @@ fn new_footprints_cluster_outside_the_board_by_sheet_then_designator() {
         at(&mut engine, "R2"),
         at(&mut engine, "R3"),
     );
-    // Right of the 50 mm board, sheet 1 (R1, R3) in a row above sheet 2 (R2).
+    // Right of the 50 mm board, sheet 1's block (R1 then R3) above sheet 2's (R2), all
+    // from one left edge. Two small boxes make a row narrower than both, so R3 wraps.
     assert!(r1.0 > 50_000_000);
-    assert!(r3.0 > r1.0);
-    assert_eq!(r1.1, r3.1);
-    assert!(r2.1 < r1.1);
+    assert_eq!(r3.0, r1.0);
+    assert!(r3.1 < r1.1);
+    assert!(r2.1 < r3.1);
     assert_eq!(r2.0, r1.0);
 
     // The next Sync's cluster goes beside this one.
@@ -921,11 +1013,11 @@ fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
         "pcb.designator_text.set",
         json!({"footprint": r1, "at": {"x": "20mm", "y": "-3mm"}, "size": "1.5mm"}),
     );
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     let before = instances(&mut engine)[0].clone();
     assert_eq!(before["side"], "bottom");
     assert_eq!(before["locked"], true);
-    assert!(before.get("designator_text").is_some(), "{before}");
+    assert!(before.get("text_overrides").is_some(), "{before}");
 
     engine.run_ok(
         "schematic.component.set",
@@ -936,16 +1028,14 @@ fn a_footprint_swap_keeps_placement_lock_and_designator_text() {
 
     let after = instances(&mut engine)[0].clone();
     assert_ne!(after["footprint"], before["footprint"]);
-    for key in [
-        "uuid",
-        "at",
-        "rotation",
-        "side",
-        "locked",
-        "designator_text",
-    ] {
+    for key in ["uuid", "at", "rotation", "side", "locked"] {
         assert_eq!(after[key], before[key], "{key} is kept");
     }
+    let mut placement_before = before["text_overrides"][0].clone();
+    let mut placement_after = after["text_overrides"][0].clone();
+    placement_before.as_object_mut().unwrap().remove("text");
+    placement_after.as_object_mut().unwrap().remove("text");
+    assert_eq!(placement_after, placement_before);
     assert_eq!(after["pads"].as_array().unwrap().len(), 4);
 }
 
@@ -979,7 +1069,7 @@ fn copper_on_a_removed_net_with_no_merge_target_becomes_unassigned() {
         .unwrap()
         .clone()
     {
-        if object["object"]["from"]["x"].as_i64().unwrap() >= 30_000_000 {
+        if object["object"]["vertices"][0]["x"].as_i64().unwrap() >= 30_000_000 {
             engine.run_ok(
                 "schematic.delete",
                 json!({"objects": [object["object"]["uuid"]]}),
@@ -1023,4 +1113,525 @@ fn hand_edit_sheet(
     );
     reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
     reopened
+}
+
+#[test]
+fn every_kind_of_change_has_its_own_group_in_the_fixed_order() {
+    let dir = TempDir::new("sync-groups");
+    let mut engine = demo(&dir);
+    let (r1, r2) = two_wired_resistors(&mut engine);
+    let sig = label(&mut engine, "OLD", 0.0, 3.81);
+    let r3 = place(&mut engine, R_SHUNT, 30, 0);
+    label(&mut engine, "GONE", 30.0, 3.81);
+    sync(&mut engine);
+    let r3_unit = engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|u| u["object"]["component"]["uuid"] == r3.as_str())
+        .unwrap()["object"]["uuid"]
+        .clone();
+
+    // One edit of every kind: R1's data, R2's Footprint, R3 gone, a new one on FRESH, OLD renamed.
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r1], "designator": "R10", "value": "1k", "in_bom": false,
+               "in_cpl": false, "not_fitted": true}),
+    );
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r2], "footprint": "a0000000-0000-4000-8000-000000000050"}),
+    );
+    engine.run_ok("schematic.delete", json!({"objects": [r3_unit]}));
+    place(&mut engine, R_10K, 40, 0);
+    label(&mut engine, "FRESH", 40.0, 3.81);
+    rename_label(&mut engine, &sig, 0.0, 3.81, "NEW");
+
+    let list = preview(&mut engine);
+    assert_eq!(
+        group_ids(&list),
+        [
+            "add_components",
+            "remove_components",
+            "change_footprints",
+            "designators",
+            "fields",
+            "in_bom",
+            "in_cpl",
+            "not_fitted",
+            "add_nets",
+            "rename_nets",
+            "remove_nets",
+            "pad_nets",
+        ],
+        "{list}"
+    );
+    for group in list["groups"].as_array().unwrap() {
+        let kinds: std::collections::BTreeSet<&str> = group["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["kind"].as_str().unwrap())
+            .collect();
+        assert_eq!(kinds.len(), 1, "one kind per group: {group}");
+    }
+}
+
+/// Takes the Footprint choice off every Unit of the sheet file, as a hand edit would.
+fn drop_footprint_choices(text: String) -> String {
+    text.replace(&format!("\"footprint\":\"{R_0603}\","), "")
+}
+
+#[test]
+fn a_fitted_component_with_no_footprint_choice_is_a_problem_row_outside_the_count() {
+    let dir = TempDir::new("sync-no-footprint");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let mut engine = hand_edit_sheet(&mut engine, &dir, drop_footprint_choices);
+    place(&mut engine, R_10K, 10, 0);
+
+    let list = preview(&mut engine);
+    let adds = of_kind(&list, "add_component");
+    assert_eq!(adds.len(), 2, "{list}");
+    let problem = adds
+        .iter()
+        .find(|c| c["component"]["uuid"] == r1.as_str())
+        .unwrap();
+    assert_eq!(problem["status"], "problem");
+    assert!(
+        problem["message"]
+            .as_str()
+            .unwrap()
+            .contains("no Footprint choice"),
+        "{problem}"
+    );
+    assert!(problem.get("footprint").is_none(), "{problem}");
+    let ok = adds
+        .iter()
+        .find(|c| c["component"]["uuid"] != r1.as_str())
+        .unwrap();
+    assert_eq!(ok["status"], "ok");
+    assert!(ok.get("message").is_none(), "{ok}");
+    assert_eq!(list["count"], 1, "Problem rows are not counted");
+
+    let done = sync(&mut engine)["result"].clone();
+    assert_eq!(done["applied"], json!([ok["id"]]));
+    assert_eq!(done["left_out"], json!([problem["id"]]));
+    assert_eq!(instances(&mut engine).len(), 1);
+
+    // Only the Problem row is left: the board counts as in sync.
+    let again = preview(&mut engine);
+    assert_eq!(again["count"], 0);
+    assert_eq!(changes(&again).len(), 1);
+    let project = engine.project().unwrap();
+    assert_eq!(reda_engine::sync::pending_count(project), 0);
+    assert!(reda_engine::sync::out_of_sync_violation(project).is_none());
+
+    // Not Fitted, it needs no Footprint and makes no row.
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r1], "not_fitted": true}),
+    );
+    assert!(changes(&preview(&mut engine)).is_empty());
+}
+
+#[test]
+fn a_placed_component_that_loses_its_footprint_choice_keeps_its_footprint() {
+    let dir = TempDir::new("sync-lost-footprint");
+    let mut engine = demo(&dir);
+    two_wired_resistors(&mut engine);
+    sync(&mut engine);
+    let mut engine = hand_edit_sheet(&mut engine, &dir, |text| {
+        // R1 only: the first Unit's choice.
+        text.replacen(&format!("\"footprint\":\"{R_0603}\","), "", 1)
+    });
+
+    let list = preview(&mut engine);
+    let removal = &of_kind(&list, "remove_component")[0];
+    assert_eq!(removal["status"], "problem", "{list}");
+    // What waits for the removal can't apply either.
+    for change in changes(&list) {
+        if change["requires"]
+            .as_array()
+            .is_some_and(|r| r.contains(&removal["id"]))
+        {
+            assert_eq!(change["status"], "problem", "{change}");
+        }
+    }
+    let done = sync(&mut engine)["result"].clone();
+    assert!(
+        done["left_out"]
+            .as_array()
+            .unwrap()
+            .contains(&removal["id"])
+    );
+    assert_eq!(instances(&mut engine).len(), 2);
+}
+
+#[test]
+fn a_pin_on_a_net_with_no_pad_through_the_pin_pad_map_is_a_problem_row() {
+    let dir = TempDir::new("sync-unmapped-pin");
+    let mut engine = demo(&dir);
+    two_wired_resistors(&mut engine);
+    place(&mut engine, R_SHUNT, 20, 0);
+    wire(&mut engine, &[(10.0, -3.81), (20.0, -3.81)]);
+    // R_10k's pin 2 now maps to a Pad its Footprint does not have.
+    let mut engine = hand_edit_sheet(&mut engine, &dir, |text| {
+        let at = text.find("\"name\":\"R_10k\"").unwrap();
+        let (head, tail) = text.split_at(at);
+        format!(
+            "{head}{}",
+            tail.replacen(
+                "\"pin_map\":{}",
+                r#""pin_map":{"pins":[{"pin":"2","pads":["9"]}]}"#,
+                1
+            )
+        )
+    });
+
+    let list = preview(&mut engine);
+    let unmapped = of_kind(&list, "unmapped_pin");
+    let mut at: Vec<(String, String)> = unmapped
+        .iter()
+        .map(|c| {
+            assert_eq!(c["status"], "problem", "{c}");
+            assert_eq!(c["net"], "SIG", "{c}");
+            assert!(c["message"].as_str().unwrap().contains("no Pad"), "{c}");
+            (
+                c["designator"].as_str().unwrap().to_owned(),
+                c["pin"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    at.sort();
+    assert_eq!(at, [("R1".into(), "2".into()), ("R2".into(), "2".into())]);
+    let group = list["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| {
+            g["changes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|c| c["kind"] == "unmapped_pin")
+        })
+        .unwrap();
+    assert_eq!(group["group"], "pad_nets");
+    // SIG still reaches R3's Pad and a Net name, so it reaches the board.
+    assert_eq!(of_kind(&list, "add_net")[0]["name"], "SIG");
+    let counted = changes(&list)
+        .iter()
+        .filter(|c| c["status"] != "problem")
+        .count();
+    assert_eq!(list["count"], counted);
+
+    let done = sync(&mut engine)["result"].clone();
+    for row in &unmapped {
+        assert!(done["left_out"].as_array().unwrap().contains(&row["id"]));
+    }
+    assert_eq!(preview(&mut engine)["count"], 0);
+}
+
+/// R1 and R2 with their pin 1s on GND and gnd: a Net Label and a Power Port that name two
+/// Nets with one board name.
+fn two_gnd_nets(engine: &mut TestEngine) {
+    place(engine, R_10K, 0, 0);
+    place(engine, R_10K, 10, 0);
+    label(engine, "GND", 0.0, 3.81);
+    engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "gnd", "at": {"x": "10mm", "y": "3.81mm"}}),
+    );
+}
+
+/// The one PCB Net the GND pair merged into holds a Pad of each Footprint.
+fn assert_one_merged_gnd(engine: &mut TestEngine) {
+    let nets = nets(engine);
+    assert_eq!(nets.len(), 1, "{nets:?}");
+    assert!(
+        nets[0]["name"]
+            .as_str()
+            .unwrap()
+            .eq_ignore_ascii_case("gnd")
+    );
+    for instance in instances(engine) {
+        let on = instance["pads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|p| p["net"] == nets[0]["uuid"])
+            .count();
+        assert_eq!(on, 1, "{instance}");
+    }
+}
+
+#[test]
+fn a_standing_duplicate_nets_violation_blocks_apply_with_a_banner() {
+    let dir = TempDir::new("sync-duplicate-nets");
+    let mut engine = demo(&dir);
+    two_gnd_nets(&mut engine);
+
+    let list = preview(&mut engine);
+    let block = &list["duplicate_nets"];
+    assert!(
+        block["message"]
+            .as_str()
+            .unwrap()
+            .contains("duplicate_nets"),
+        "{list}"
+    );
+    assert_eq!(block["nets"].as_array().unwrap().len(), 1, "{block}");
+    assert_eq!(block["nets"][0]["name"], "GND");
+    assert_eq!(block["nets"][0]["count"], 2);
+    // The rows show the merge that turning the check Off or waiving it would give.
+    assert_eq!(of_kind(&list, "add_net").len(), 1, "{list}");
+
+    let err = engine.run_err("sync.apply", json!({"hash": list["hash"]}));
+    assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
+    assert!(err.message.contains("duplicate_nets"), "{}", err.message);
+    assert!(instances(&mut engine).is_empty());
+}
+
+#[test]
+fn with_duplicate_nets_off_same_named_nets_merge_into_one_board_net() {
+    let dir = TempDir::new("sync-duplicate-nets-off");
+    let mut engine = demo(&dir);
+    two_gnd_nets(&mut engine);
+    engine.run_ok(
+        "erc.set_severity",
+        json!({"check": "duplicate_nets", "severity": "off"}),
+    );
+    let list = preview(&mut engine);
+    assert!(list.get("duplicate_nets").is_none(), "{list}");
+    sync(&mut engine);
+    assert_one_merged_gnd(&mut engine);
+    assert_eq!(preview(&mut engine)["count"], 0);
+}
+
+#[test]
+fn a_waived_duplicate_nets_violation_lets_the_nets_merge() {
+    let dir = TempDir::new("sync-duplicate-nets-waived");
+    let mut engine = demo(&dir);
+    two_gnd_nets(&mut engine);
+    let erc = engine.run_ok("erc.run", json!({"checks": ["duplicate_nets"]}));
+    let violation = &erc["violations"][0];
+    engine.run_ok(
+        "erc.waive",
+        json!({"violations": [{"check": "duplicate_nets", "objects": violation["objects"]}],
+               "reason": "one ground"}),
+    );
+    let list = preview(&mut engine);
+    assert!(list.get("duplicate_nets").is_none(), "{list}");
+    sync(&mut engine);
+    assert_one_merged_gnd(&mut engine);
+}
+
+#[test]
+fn board_names_carry_the_sheet_suffix_and_so_are_no_duplicates() {
+    let dir = TempDir::new("sync-suffix");
+    let mut engine = demo(&dir);
+    let second = engine.run_ok("document.add", json!({"kind": "schematic"}))["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // R1 here and R2 on the second sheet, each pin 1 on a Local Net named DATA.
+    place(&mut engine, R_10K, 0, 0);
+    label(&mut engine, "DATA", 0.0, 3.81);
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": second, "part": R_10K, "at": {"x": "0mm", "y": "0mm"}}),
+    );
+    engine.run_ok(
+        "schematic.net_label.add",
+        json!({"document": second, "name": "DATA", "at": {"x": "0mm", "y": "3.81mm"}}),
+    );
+    assert!(preview(&mut engine).get("duplicate_nets").is_some());
+
+    engine.run_ok(
+        "schematic.options.set",
+        json!({"append_sheet_numbers": true}),
+    );
+    let list = preview(&mut engine);
+    assert!(list.get("duplicate_nets").is_none(), "{list}");
+    let mut names: Vec<String> = of_kind(&list, "add_net")
+        .iter()
+        .map(|n| n["name"].as_str().unwrap().to_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, ["DATA_1", "DATA_2"]);
+    let done = sync(&mut engine)["result"].clone();
+    let mut added: Vec<&str> = done["nets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["name"].as_str().unwrap())
+        .collect();
+    added.sort_unstable();
+    assert_eq!(added, ["DATA_1", "DATA_2"]);
+}
+
+/// The Unit UUID of the Component with Designator `designator`.
+fn unit_of(engine: &mut TestEngine, designator: &str) -> Value {
+    engine.run_ok("objects.query", json!({"type": "unit"}))["objects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|u| u["object"]["designator"] == designator)
+        .unwrap()["object"]["uuid"]
+        .clone()
+}
+
+#[test]
+fn a_remove_and_an_add_with_one_designator_and_footprint_each_note_move_to_sheet() {
+    let dir = TempDir::new("sync-relink");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, R_10K, 10, 0);
+    sync(&mut engine);
+    // Cut and paste gives R1 a new UUID: here a delete and a new R1.
+    let r1 = unit_of(&mut engine, "R1");
+    engine.run_ok("schematic.delete", json!({"objects": [r1]}));
+    let pasted = place(&mut engine, R_10K, 0, 20);
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [pasted], "designator": "R1"}),
+    );
+    // R2 goes too, and comes back on another Footprint: no relink.
+    let r2 = unit_of(&mut engine, "R2");
+    engine.run_ok("schematic.delete", json!({"objects": [r2]}));
+    let other = place(&mut engine, R_10K, 10, 20);
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [other], "designator": "R2",
+               "footprint": "a0000000-0000-4000-8000-000000000050"}),
+    );
+
+    let list = preview(&mut engine);
+    let rows: Vec<Value> = of_kind(&list, "remove_component")
+        .into_iter()
+        .chain(of_kind(&list, "add_component"))
+        .collect();
+    assert_eq!(rows.len(), 4, "{list}");
+    for row in rows {
+        if row["designator"] == "R1" {
+            assert_eq!(row["status"], "note", "{row}");
+            let message = row["message"].as_str().unwrap();
+            assert!(message.contains("Move to Sheet"), "{message}");
+            assert!(message.contains("placement and routing"), "{message}");
+        } else {
+            assert_eq!(row["status"], "ok", "{row}");
+        }
+    }
+    // The v0.2 relink row is not made.
+    assert!(of_kind(&list, "relink_component").is_empty());
+    // A Note applies.
+    let done = sync(&mut engine)["result"].clone();
+    assert!(done["left_out"].as_array().unwrap().is_empty(), "{done}");
+}
+
+/// R_0603's pin 2 Pad sits 0.8 mm right of the Footprint's origin.
+const PAD_2_X: i64 = 800_000;
+
+#[test]
+fn removed_nets_and_components_note_the_copper_they_leave() {
+    let dir = TempDir::new("sync-copper-notes");
+    let mut engine = demo(&dir);
+    // R1 and R2 on an unnamed Net through their pin 2s; deleting R2 leaves it one Pad.
+    place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, R_10K, 10, 0);
+    wire(&mut engine, &[(0.0, -3.81), (10.0, -3.81)]);
+    sync(&mut engine);
+    let net = nets(&mut engine)[0]["uuid"].clone();
+    let r2 = instances(&mut engine)
+        .into_iter()
+        .find(|i| i["designator"] == "R2")
+        .unwrap();
+    let (x, y) = (
+        r2["at"]["x"].as_i64().unwrap() + PAD_2_X,
+        r2["at"]["y"].as_i64().unwrap(),
+    );
+    // A Track onto R2's pin 2 Pad, and one well away from everything.
+    for from in [(x, y), (x + 5_000_000, y + 20_000_000)] {
+        engine.run_ok(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "net": net, "points": [
+                {"x": from.0, "y": from.1}, {"x": from.0, "y": from.1 + 10_000_000}]}),
+        );
+    }
+
+    let unit = unit_of(&mut engine, "R2");
+    engine.run_ok("schematic.delete", json!({"objects": [unit]}));
+    let list = preview(&mut engine);
+    let removal = &of_kind(&list, "remove_component")[0];
+    assert_eq!(removal["status"], "note", "{removal}");
+    let message = removal["message"].as_str().unwrap();
+    assert!(message.contains("1 Track"), "{message}");
+    let removed = &of_kind(&list, "remove_net")[0];
+    assert_eq!(removed["status"], "note", "{removed}");
+    let message = removed["message"].as_str().unwrap();
+    assert!(message.contains("2 copper objects"), "{message}");
+    assert!(message.contains("unassigned"), "{message}");
+}
+
+#[test]
+fn a_footprint_change_notes_the_copper_left_dangling() {
+    let dir = TempDir::new("sync-footprint-note");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    sync(&mut engine);
+    let at = instances(&mut engine)[0]["at"].clone();
+    let x = at["x"].as_i64().unwrap() + PAD_2_X;
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "points": [
+            {"x": x, "y": at["y"]}, {"x": x, "y": 50_000_000}]}),
+    );
+    let quiet = preview(&mut engine);
+    assert!(changes(&quiet).is_empty(), "{quiet}");
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [r1], "footprint": "a0000000-0000-4000-8000-000000000050"}),
+    );
+    let list = preview(&mut engine);
+    let swap = &of_kind(&list, "change_footprint")[0];
+    assert_eq!(swap["status"], "note", "{swap}");
+    let message = swap["message"].as_str().unwrap();
+    assert!(message.contains("dangling"), "{message}");
+}
+
+#[test]
+fn the_sync_report_lists_each_row_status_and_the_duplicate_nets_banner() {
+    let dir = TempDir::new("sync-report");
+    let mut engine = demo(&dir);
+    place(&mut engine, R_10K, 30, 0);
+    let mut engine = hand_edit_sheet(&mut engine, &dir, drop_footprint_choices);
+    two_gnd_nets(&mut engine);
+    let list = preview(&mut engine);
+
+    let out = engine.run_ok(
+        "checks.report",
+        json!({"kind": "sync", "format": "json", "path": "sync.json"}),
+    );
+    let text = std::fs::read_to_string(out["path"].as_str().unwrap()).unwrap();
+    let file: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(file["change_list"], list);
+    assert_eq!(out["count"], list["count"]);
+    let problem = changes(&file["change_list"])
+        .into_iter()
+        .find(|c| c["status"] == "problem")
+        .unwrap();
+    assert!(file["change_list"]["duplicate_nets"].is_object());
+
+    let out = engine.run_ok(
+        "checks.report",
+        json!({"kind": "sync", "format": "html", "path": "sync.html"}),
+    );
+    let html = std::fs::read_to_string(out["path"].as_str().unwrap()).unwrap();
+    assert!(html.contains("id=\"duplicate-nets\""), "{html}");
+    assert!(html.contains("duplicate_nets stands"), "{html}");
+    assert!(html.contains("<td class=\"problem\">problem"), "{html}");
+    assert!(html.contains("no Footprint choice"), "{html}");
+    assert!(html.contains("<td class=\"ok\">ok"), "{html}");
+    assert!(html.contains(problem["id"].as_str().unwrap()), "{html}");
 }

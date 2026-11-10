@@ -6,15 +6,17 @@
 //! from, so a cache older than the board reads as stale fills, which still draw (dimmed)
 //! until the next fill. A cache that does not decode is ignored.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
-    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, NoParams,
-    Registry, Unavailable,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
+    Unavailable,
 };
 use reda_model::{Project, Uuid};
+use reda_pcb::zone::FillState;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::fs::write_atomic;
 
@@ -49,9 +51,20 @@ pub struct FilledZone {
     pub islands: usize,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneFillParams {
+    /// Refill these Zones and those that depend on them (the lower-priority Zones on the
+    /// same Layer overlapping them), current or not. Left out, every stale or unfilled
+    /// Zone.
+    #[serde(default)]
+    pub zones: Option<Vec<Uuid>>,
+}
+
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ZoneFillResult {
-    /// Every Zone, in fill order (priority, highest first).
+    /// The Zones it filled, in fill order (priority, highest first); the others kept
+    /// their fills.
     pub zones: Vec<FilledZone>,
     /// Whether the fills were written to the `.reda/` cache (not when the Project has no
     /// folder or the write failed).
@@ -62,15 +75,17 @@ impl Command for ZoneFill {
     const META: Meta = Meta {
         id: "pcb.zone.fill",
         title: "Fill Zones",
-        description: "Fills every Zone of the PCB Document and stores the fills in the \
+        description: "Fills the Zones of the PCB Document and stores the fills in the \
                       Project's `.reda/` cache (never in the Document, so filling is not an \
-                      edit). Long-running: reports progress per Zone and can be cancelled, \
-                      which keeps the previous fills.",
+                      edit): every stale or unfilled Zone, or with `zones` those Zones and \
+                      the ones depending on them. Shelved Zones are skipped. Long-running: \
+                      reports progress per Zone and can be cancelled, which keeps the \
+                      previous fills.",
         category: "pcb",
         icon: "zone_fill",
         kind: Kind::File,
     };
-    type Params = NoParams;
+    type Params = ZoneFillParams;
     type Output = ZoneFillResult;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -84,26 +99,48 @@ impl Command for ZoneFill {
         })
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<ZoneFillResult, CommandError> {
-        let pcb = cx
-            .session()?
-            .project
-            .as_ref()
+    fn run(&self, cx: &mut Context<'_>, p: ZoneFillParams) -> Result<ZoneFillResult, CommandError> {
+        let project = cx.session()?.project.as_ref();
+        let pcb = project
             .and_then(|p| p.pcb())
             .cloned()
             .ok_or_else(|| CommandError::unavailable("the Project has no PCB Document"))?;
-        let fills = reda_pcb::zone::fill(&pcb, &mut |done, total| {
-            cx.progress(done as f64, Some(total as f64), "Filling Zones");
-            !cx.is_cancelled()
-        })
+        let stored = project.and_then(|p| p.zone_fills(pcb.uuid)).cloned();
+        if let Some(zones) = &p.zones {
+            for (i, uuid) in zones.iter().enumerate() {
+                if pcb.zone(*uuid).is_none() {
+                    return Err(CommandError::invalid_params(
+                        &format!("/zones/{i}"),
+                        format!("no Zone has UUID {uuid}"),
+                    ));
+                }
+            }
+        }
+        let refilled: BTreeSet<Uuid> = match &p.zones {
+            Some(zones) => reda_pcb::zone::dependents(&pcb, zones),
+            None => reda_pcb::zone::status(&pcb, stored.as_ref())
+                .zones
+                .into_iter()
+                .filter(|z| matches!(z.state, FillState::Stale | FillState::Unfilled))
+                .map(|z| z.zone)
+                .collect(),
+        };
+        let fills = reda_pcb::zone::refill_only(
+            &pcb,
+            stored.as_ref(),
+            p.zones.as_deref(),
+            &mut |done, total| {
+                cx.progress(done as f64, Some(total as f64), "Filling Zones");
+                !cx.is_cancelled()
+            },
+        )
         .ok_or_else(CommandError::cancelled)?;
-        let mut order: Vec<_> = pcb.zones().collect();
-        order.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.uuid.cmp(&b.uuid)));
-        let zones = order
-            .iter()
+        let zones = reda_pcb::zone::fill_order(&pcb)
+            .into_iter()
+            .filter(|z| refilled.contains(&z.uuid))
             .map(|z| FilledZone {
                 zone: z.uuid,
-                islands: fills.zones.get(&z.uuid).map_or(0, Vec::len),
+                islands: fills.zones.get(&z.uuid).map_or(0, |f| f.shapes.len()),
             })
             .collect();
         let session = cx.session()?;

@@ -10,8 +10,8 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, UserDirs};
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::model::{FootprintInstance, Side, Uuid};
-use reda_ui::pcb::snap::SnapKind;
 use reda_ui::shell::Shell;
+use reda_ui::snap::{Hit, Hotspot, Snapped};
 use serde_json::{Value, json};
 
 fn library() -> PathBuf {
@@ -102,7 +102,12 @@ fn drawn_center(b: &Board, object: Uuid) -> Point {
         Point::new(Nm(i64::MAX), Nm(i64::MAX)),
         Point::new(Nm(i64::MIN), Nm(i64::MIN)),
     );
-    for item in tab.scene.scene.items_of(object) {
+    for item in tab.scene.scene.items_of(object).filter(|item| {
+        !matches!(
+            item.child,
+            Some(reda_ui::engine::render::Child::FootprintText { .. })
+        )
+    }) {
         if let Some((a, z)) = item.primitive.bounds() {
             lo = Point::new(lo.x.min(a.x), lo.y.min(a.y));
             hi = Point::new(hi.x.max(z.x), hi.y.max(z.y));
@@ -112,23 +117,55 @@ fn drawn_center(b: &Board, object: Uuid) -> Point {
 }
 
 fn click(b: &mut Board, at: Point, toggle: bool) {
-    b.shell.pcb_press(at, toggle, TOLERANCE);
+    b.shell.pcb_press_with_modifiers(
+        at,
+        if toggle {
+            egui::Modifiers::SHIFT
+        } else {
+            egui::Modifiers::NONE
+        },
+        TOLERANCE,
+    );
     b.shell.pcb_release();
 }
 
 #[test]
-fn a_click_selects_what_is_under_it_and_mod_click_toggles() {
+fn a_click_selects_a_pad_and_shift_click_toggles() {
     let mut b = board();
     let [f1, f2] = b.footprints;
 
     click(&mut b, mm(0.2, 0.1), false);
-    assert_eq!(b.shell.selection().objects, [f1]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f1]
+    );
     assert_eq!(journal_ids(&b).last().unwrap(), "selection.set");
 
     click(&mut b, mm(10.0, 0.0), true);
-    assert_eq!(b.shell.selection().objects, [f1, f2]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f1, f2]
+    );
     click(&mut b, mm(0.0, 0.0), true);
-    assert_eq!(b.shell.selection().objects, [f2]);
+    assert_eq!(
+        b.shell
+            .selection()
+            .pads
+            .iter()
+            .map(|p| p.footprint)
+            .collect::<Vec<_>>(),
+        [f2]
+    );
 
     click(&mut b, mm(5.0, 5.0), false);
     assert!(b.shell.selection().is_empty(), "a click on nothing clears");
@@ -171,7 +208,7 @@ fn space_and_l_turn_and_flip_in_flight_and_release_is_one_undo_step() {
     b.shell.pcb_press(mm(0.0, 0.0), false, TOLERANCE);
     b.shell.pcb_drag(mm(2.0, 0.0));
     b.shell.run("tool.rotate", json!({})).unwrap();
-    b.shell.run("tool.flip", json!({})).unwrap();
+    b.shell.run("tool.flip_side", json!({})).unwrap();
     b.shell.pcb_drag(mm(4.0, 1.0));
     let entries = b.shell.engine().journal().len();
     b.shell.pcb_release();
@@ -195,12 +232,12 @@ fn space_and_l_turn_and_flip_in_flight_and_release_is_one_undo_step() {
 fn space_and_l_turn_and_flip_the_selection_when_nothing_is_in_flight() {
     let mut b = board();
     let [f1, _] = b.footprints;
-    click(&mut b, mm(0.0, 0.0), false);
+    run(&mut b.shell, "selection.set", json!({"objects":[f1]}));
 
     b.shell.run("tool.rotate", json!({})).unwrap();
     assert_eq!(journal_ids(&b).last().unwrap(), "pcb.rotate");
     assert_eq!(footprint(&b, f1).rotation, Millideg::from_deg(90));
-    b.shell.run("tool.flip", json!({})).unwrap();
+    b.shell.run("tool.flip_side", json!({})).unwrap();
     assert_eq!(journal_ids(&b).last().unwrap(), "pcb.flip");
     assert_eq!(footprint(&b, f1).side, Side::Bottom);
 }
@@ -224,10 +261,14 @@ fn escape_cancels_a_move_in_flight() {
 fn a_moved_pad_snaps_onto_another_pad() {
     let mut b = board();
     let [f1, _] = b.footprints;
-    // Grabbed by its Pad, dropped 0.3 mm off the other Footprint's Pad.
+    // Grabbed by its Pad, dropped 0.15 mm off the other Footprint's Pad: inside the
+    // 8 mil Snap Distance on both axes.
     b.shell.pcb_press(mm(0.1, 0.1), false, TOLERANCE);
-    b.shell.pcb_drag(mm(10.4, 0.2));
-    assert_eq!(b.shell.pcb_snap(), Some((mm(10.0, 0.0), SnapKind::Pad)));
+    b.shell.pcb_drag(mm(10.25, 0.2));
+    assert_eq!(
+        b.shell.pcb_snap().map(kind),
+        Some((mm(10.0, 0.0), Some(Hotspot::PadCenter)))
+    );
     b.shell.pcb_release();
     assert_eq!(footprint(&b, f1).at, mm(10.0, 0.0));
 }
@@ -251,17 +292,15 @@ fn the_cursor_snaps_to_track_ends_and_via_centres() {
     );
 
     assert_eq!(
-        b.shell.pcb_hover(mm(20.0, 5.0)),
-        (mm(20.13, 5.07), SnapKind::TrackEnd)
+        kind(b.shell.pcb_hover(mm(20.0, 5.0))),
+        (mm(20.13, 5.07), Some(Hotspot::TrackEnd))
     );
     assert_eq!(
-        b.shell.pcb_hover(mm(30.0, 1.0)),
-        (mm(30.07, 1.11), SnapKind::Via)
+        kind(b.shell.pcb_hover(mm(30.0, 1.0))),
+        (mm(30.07, 1.11), Some(Hotspot::ViaCenter))
     );
-    assert_eq!(
-        b.shell.pcb_hover(mm(40.3, 1.1)),
-        (mm(40.5, 1.0), SnapKind::Grid)
-    );
+    let grid = b.shell.pcb_hover(mm(40.3, 1.1));
+    assert_eq!((grid.at, grid.hit), (mm(40.5, 1.0), Hit::Grid));
 }
 
 #[test]
@@ -287,13 +326,18 @@ fn a_rubber_band_selects_what_lies_inside_it() {
 }
 
 #[test]
-fn a_locked_footprint_does_not_move_and_says_why() {
+fn a_protected_locked_footprint_is_skipped_by_the_canvas() {
     let mut b = board();
     let [f1, _] = b.footprints;
     run(
         &mut b.shell,
         "pcb.lock",
-        json!({"footprints": [f1], "locked": true}),
+        json!({"objects": [f1], "locked": true}),
+    );
+    run(
+        &mut b.shell,
+        "selection.filter.set",
+        json!({"document":b.pcb,"kinds":{"footprint_text":false}}),
     );
     let entries = b.shell.engine().journal().len();
 
@@ -302,6 +346,12 @@ fn a_locked_footprint_does_not_move_and_says_why() {
     b.shell.pcb_release();
 
     assert_eq!(footprint(&b, f1).at, mm(0.0, 0.0));
-    assert!(b.shell.message().unwrap().contains("locked"));
+    assert!(b.shell.message().is_none());
+    assert!(b.shell.selection().objects.is_empty());
     assert_eq!(journal_ids(&b)[entries..], ["selection.set"]);
+}
+
+/// Where a snap landed and the Hotspot kind it hit, if any.
+fn kind(s: Snapped) -> (Point, Option<Hotspot>) {
+    (s.at, s.hit.hotspot())
 }

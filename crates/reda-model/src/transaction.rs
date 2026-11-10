@@ -14,6 +14,10 @@ pub enum TxError {
     /// The object is not in the state a replayed change set expects, because something
     /// else changed it since. Undo and redo refuse such an entry.
     Stale(Uuid),
+    /// A replayed change set would restore an object whose UUID now exists in another
+    /// scope, such as a Unit moved to another sheet since: that scope's step has to be
+    /// undone (or redone) first.
+    Elsewhere { uuid: Uuid, scope: crate::Scope },
     /// The step or the resulting Project breaks a model invariant.
     Invalid(String),
 }
@@ -26,6 +30,10 @@ impl fmt::Display for TxError {
             TxError::Stale(uuid) => write!(
                 f,
                 "object {uuid} has changed since, so this change can no longer be replayed"
+            ),
+            TxError::Elsewhere { uuid, scope } => write!(
+                f,
+                "object {uuid} now exists in {scope:?}, so this change cannot restore it"
             ),
             TxError::Invalid(reason) => f.write_str(reason),
         }
@@ -71,6 +79,7 @@ impl Transaction<'_> {
             ));
         }
         self.project.check_home(&object)?;
+        crate::text::check_object(&object).map_err(TxError::Invalid)?;
         self.set(uuid, None, Some(object));
         Ok(())
     }
@@ -89,6 +98,7 @@ impl Transaction<'_> {
                 "object {uuid} cannot move to another Document"
             )));
         }
+        crate::text::check_object(&object).map_err(TxError::Invalid)?;
         self.set(uuid, Some(before), Some(object));
         Ok(())
     }
@@ -117,8 +127,23 @@ impl Transaction<'_> {
 
     /// Replays a change set, such as an undo entry inverted: every object must be in its
     /// `before` state, or the step is refused as [`TxError::Stale`] and nothing changes.
+    /// Restoring an object whose UUID now exists in another scope is refused first, as
+    /// [`TxError::Elsewhere`] naming that scope.
     pub fn apply(&mut self, changes: &crate::ChangeSet) -> Result<(), TxError> {
         let ordered = changes.in_apply_order();
+        for (uuid, change) in &ordered {
+            if change.before.is_some() || change.after.is_none() {
+                continue;
+            }
+            if let Some(now) = self.project.object(**uuid)
+                && now.scope() != change.scope
+            {
+                return Err(TxError::Elsewhere {
+                    uuid: **uuid,
+                    scope: now.scope(),
+                });
+            }
+        }
         if let Some((uuid, _)) = ordered
             .iter()
             .find(|(uuid, c)| self.project.object(**uuid) != c.before)
@@ -128,6 +153,7 @@ impl Transaction<'_> {
         for (uuid, change) in ordered {
             if let Some(after) = &change.after {
                 self.project.check_home(after)?;
+                crate::text::check_object(after).map_err(TxError::Invalid)?;
             }
             self.set(*uuid, change.before.clone(), change.after.clone());
         }

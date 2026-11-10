@@ -65,7 +65,8 @@ fn elements_reference_each_other_by_uuid_across_libraries() {
     assert_eq!(index.footprint(part.footprints[0]).unwrap().name, "SOT-23");
     assert_eq!(index.library_of(uuid(10)).unwrap().info.name, "Symbols");
     let order: Vec<_> = index.libraries().map(|l| l.info.name.as_str()).collect();
-    assert_eq!(order, ["Parts", "Symbols", "Footprints"]);
+    // Resolution order: Project, then user, then Starter.
+    assert_eq!(order, ["Parts", "Footprints", "Symbols"]);
 }
 
 #[test]
@@ -144,7 +145,45 @@ fn a_library_registered_twice_is_scanned_once() {
         &mut files,
     );
 
+    // The Project Library comes first, so the user's registration is the one reported.
     assert_eq!(index.libraries().count(), 1);
+    assert_eq!(index.libraries().next().unwrap().origin, Origin::Project);
     assert_eq!(index.problems().len(), 1);
-    assert_eq!(index.problems()[0].path, std::path::Path::new("/copy"));
+    assert_eq!(index.problems()[0].path, std::path::Path::new("/a"));
+}
+
+#[test]
+fn project_then_user_then_starter_wins_a_shared_uuid_whatever_the_registration_order() {
+    let mut files = MemFiles::default();
+    files.library("/s/s.redalib", library(1, "Starter"));
+    files.symbol("/s/symbols/R.redasym", symbol(10, "R from Starter"));
+    files.symbol("/s/symbols/C.redasym", symbol(11, "C from Starter"));
+    files.library("/u/u.redalib", library(2, "User"));
+    files.symbol("/u/symbols/R.redasym", symbol(10, "R from User"));
+    files.symbol("/u/symbols/C.redasym", symbol(11, "C from User"));
+    files.library("/p/p.redalib", library(3, "Project"));
+    files.symbol("/p/symbols/R.redasym", symbol(10, "R from Project"));
+
+    let index = scan(
+        &[
+            LibraryRoot::new("/s", Origin::Starter),
+            LibraryRoot::new("/u", Origin::User),
+            LibraryRoot::new("/p", Origin::Project),
+        ],
+        &mut files,
+    );
+
+    assert_eq!(index.symbol(uuid(10)).unwrap().name, "R from Project");
+    assert_eq!(index.symbol(uuid(11)).unwrap().name, "C from User");
+    let order: Vec<_> = index.libraries().map(|l| l.origin).collect();
+    assert_eq!(order, [Origin::Project, Origin::User, Origin::Starter]);
+    let reported: Vec<_> = index.problems().iter().map(|p| p.path.clone()).collect();
+    assert_eq!(
+        reported,
+        [
+            std::path::Path::new("/u/symbols/R.redasym"),
+            std::path::Path::new("/s/symbols/C.redasym"),
+            std::path::Path::new("/s/symbols/R.redasym"),
+        ]
+    );
 }

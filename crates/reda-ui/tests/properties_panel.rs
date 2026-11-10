@@ -78,7 +78,9 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
     let r1 = placed(&mut h, R_10K, 0);
     let r2 = placed(&mut h, R_10K, 1000);
     h.run();
-    h.get_by_label("Nothing selected");
+    // Nothing selected: the overview, with the Selection Filter region.
+    assert!(h.query_all_by_label("Selection Filter").next().is_some());
+    h.get_by_role_and_label(Role::CheckBox, "Select Component");
 
     run(
         &mut h,
@@ -179,6 +181,122 @@ fn the_net_class_is_set_for_the_selected_copper() {
     h.get_by_label("Power").click();
     h.run();
     let (id, params) = last_entry(&h);
-    assert_eq!(id, "pcb.net.set_class");
+    assert_eq!(id, "pcb.net.add_to_class");
     assert_eq!(params["nets"], json!([gnd]));
+}
+
+#[test]
+fn properties_reports_lines_omitted_by_a_text_frame() {
+    let dir = TempDir::new("properties-text-frame");
+    let mut h = harness(&dir);
+    let text=run(&mut h,"pcb.text.add",json!({"layer":"silkscreen_top","text":"A\nA","x":0,"y":0,"height":"1mm","frame":{"width":"5mm","height":"1mm"}}))["result"]["uuid"].clone();
+    run(
+        &mut h,
+        "document.open",
+        json!({"document":"00000000-0000-4000-8000-000000000003"}),
+    );
+    run(&mut h, "selection.set", json!({"objects":[text]}));
+    h.run();
+    h.get_by_label("Text Frame: 1 line omitted");
+}
+
+#[test]
+fn a_numeric_expression_commits_one_batch_and_the_journal_records_the_results() {
+    let dir = TempDir::new("properties-panel-expression");
+    let mut h = harness(&dir);
+    let text = |h: &mut Harness<'_, App>, height: &str| {
+        run(
+            h,
+            "pcb.text.add",
+            json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0, "height": height}),
+        )["result"]["uuid"]
+            .clone()
+    };
+    let (a, b) = (text(&mut h, "1mm"), text(&mut h, "1.5mm"));
+    run(&mut h, "selection.set", json!({"objects": [a, b]}));
+    h.run();
+
+    let type_into = |h: &mut Harness<'_, App>, label: &str, typed: &str| {
+        h.get_by_role_and_label(Role::TextInput, label).focus();
+        h.run();
+        h.get_by_role_and_label(Role::TextInput, label)
+            .set_text_value_accesskit(typed);
+        h.run();
+        h.key_press(Key::Enter);
+        h.run();
+    };
+    type_into(&mut h, "Height", "(! + 5mil) / 2");
+    // The Journal holds the values each text resolved to, not the expression.
+    assert_eq!(
+        last_entry(&h),
+        (
+            "batch".to_owned(),
+            json!({"commands": [
+                {"id": "pcb.text.set", "params": {"uuid": a, "height": 563_500}},
+                {"id": "pcb.text.set", "params": {"uuid": b, "height": 813_500}},
+            ]})
+        )
+    );
+
+    // A failure flags inline and commits nothing.
+    let entries = h.state().shell().engine().journal().len();
+    type_into(&mut h, "Thickness", "sqrt(!)");
+    assert_eq!(h.state().shell().engine().journal().len(), entries);
+    assert!(
+        h.query_by_label_contains("reserved function name")
+            .is_some(),
+        "the field says why it was refused"
+    );
+}
+
+#[test]
+fn ctrl_q_with_the_panel_focused_toggles_its_units_only() {
+    let dir = TempDir::new("properties-panel-units");
+    let mut h = harness(&dir);
+    let text = run(
+        &mut h,
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0, "height": "1mm"}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects": [text]}));
+    h.run();
+    let height = |h: &Harness<'_, App>| {
+        h.get_by_role_and_label(Role::TextInput, "Height")
+            .accesskit_node()
+            .value()
+            .unwrap_or_default()
+    };
+    // The active Document is the sheet, whose grid is in mil.
+    assert_eq!(height(&h), "39.37 mil");
+    let canvas = h.state().shell().board_view().units;
+
+    run(&mut h, "layout.tab.activate", json!({"tab": "properties"}));
+    h.run();
+    h.key_press_modifiers(egui::Modifiers::CTRL, Key::Q);
+    h.run();
+    h.run();
+    assert_eq!(height(&h), "1 mm");
+    // The canvas keeps its own units.
+    assert_eq!(h.state().shell().board_view().units, canvas);
+    // A bare number typed now is read in the panel's units.
+    h.get_by_role_and_label(Role::TextInput, "Height").focus();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Height")
+        .set_text_value_accesskit("1.27");
+    h.run();
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        last_entry(&h),
+        (
+            "pcb.text.set".to_owned(),
+            json!({"uuid": text, "height": 1_270_000})
+        )
+    );
+
+    h.key_press_modifiers(egui::Modifiers::CTRL, Key::Q);
+    h.run();
+    h.run();
+    assert_eq!(height(&h), "50 mil");
 }

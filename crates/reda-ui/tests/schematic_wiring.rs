@@ -128,7 +128,7 @@ fn journal_since(shell: &Shell, from: usize) -> Vec<String> {
         .collect()
 }
 
-/// The Wires on the sheet, as (from, to) in mil.
+/// The segments of the Wires on the sheet, as (from, to) in mil.
 fn wires(shell: &Shell) -> Vec<((i64, i64), (i64, i64))> {
     let mil = |p: Point| (p.x.0 / 25_400, p.y.0 / 25_400);
     let project = shell.engine().project().unwrap();
@@ -136,7 +136,8 @@ fn wires(shell: &Shell) -> Vec<((i64, i64), (i64, i64))> {
         .schematic_sheet(sheet())
         .unwrap()
         .wires()
-        .map(|w| (mil(w.from), mil(w.to)))
+        .flat_map(|w| w.segments())
+        .map(|(a, b)| (mil(a), mil(b)))
         .collect();
     out.sort();
     out
@@ -176,7 +177,8 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
     assert!(shell.engine().project().unwrap() == &project);
 
     // Clicking onto the Wire at x = 2000 ends the run: one Command for the whole run,
-    // whose straight stretch through (1500, 500) is one Wire.
+    // whose straight stretch through (1500, 500) is one Wire. The Wire it ends on splits
+    // at the new Junction.
     let ran = click(&mut shell, at(1998.0, 503.0));
     assert_eq!(ran, ["schematic.wire.add"]);
     assert_eq!(
@@ -192,7 +194,8 @@ fn a_wire_run_previews_toggles_its_corner_and_commits_once_on_reaching_a_wire() 
         [
             ((1000, 0), (1000, 500)),
             ((1000, 500), (2000, 500)),
-            ((2000, 0), (2000, 1000)),
+            ((2000, 0), (2000, 500)),
+            ((2000, 500), (2000, 1000)),
         ]
     );
     // The Tool stays, ready for the next run.
@@ -260,7 +263,7 @@ fn backspace_takes_the_last_segment_off_and_a_run_ends_on_a_pin() {
 }
 
 #[test]
-fn backspace_down_to_nothing_and_escape_end_a_run_without_drawing() {
+fn backspace_down_to_nothing_ends_a_run_and_escape_commits_the_fixed_corners() {
     let dir = TempDir::new("wiring-escape");
     let mut shell = shell(&dir);
     let project = shell.engine().project().unwrap().clone();
@@ -273,15 +276,27 @@ fn backspace_down_to_nothing_and_escape_end_a_run_without_drawing() {
     assert!(overlay(&shell).is_empty());
     assert_eq!(shell.tool(), Tool::Wire);
 
+    assert!(shell.engine().project().unwrap() == &project);
+
+    // Esc during a run commits its fixed corners, drops the look-ahead and stays in the
+    // Tool; Esc with no run leaves it.
     click(&mut shell, at(0.0, 0.0));
     click(&mut shell, at(500.0, 0.0));
     hover(&mut shell, at(500.0, 500.0));
+    let before = shell.engine().journal().len();
+    assert_eq!(press(&mut shell, "Esc"), ["tool.activate:select"]);
+    assert_eq!(
+        journal_since(&shell, before),
+        ["tool.activate:select", "schematic.wire.add"]
+    );
+    assert_eq!(wires(&shell), [((0, 0), (500, 0))]);
+    assert_eq!(shell.tool(), Tool::Wire);
+    assert!(run_points(&shell).is_empty());
     assert_eq!(press(&mut shell, "Esc"), ["tool.activate:select"]);
     assert_eq!(shell.tool(), Tool::Select);
     let tab = shell.document_tab(sheet()).unwrap();
     assert_eq!(tab.interaction, Interaction::Idle);
     assert!(tab.overlay.wires.is_empty());
-    assert!(shell.engine().project().unwrap() == &project);
 }
 
 #[test]
@@ -381,7 +396,7 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
     // Space turns the next one; the names count up.
     assert_eq!(press(&mut shell, "Space"), ["tool.rotate"]);
     click(&mut shell, at(1000.0, 0.0));
-    assert_eq!(press(&mut shell, "X"), ["tool.mirror:x"]);
+    assert_eq!(press(&mut shell, "X"), ["tool.mirror_x"]);
     click(&mut shell, at(1500.0, 0.0));
     assert_eq!(
         labels(&shell),
@@ -398,7 +413,7 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
             "schematic.net_label.add",
             "tool.rotate",
             "schematic.net_label.add",
-            "tool.mirror:x",
+            "tool.mirror_x",
             "schematic.net_label.add",
         ]
     );
@@ -409,6 +424,37 @@ fn the_net_label_tool_previews_turns_and_places_one_label_per_click() {
     pointer(&mut shell, &[]);
     assert!(previewed(&shell).is_empty());
     assert_eq!(labels(&shell).len(), 3);
+}
+
+#[test]
+fn a_power_port_preset_starts_the_power_port_tool_on_its_name() {
+    let dir = TempDir::new("wiring-power-presets");
+    let mut shell = shell(&dir);
+    shell
+        .run("tool.activate:power_port_3v3", json!({}))
+        .unwrap();
+    assert_eq!(shell.tool(), Tool::PowerPort);
+    hover(&mut shell, at(500.0, 0.0));
+    assert_eq!(
+        click(&mut shell, at(500.0, 0.0)),
+        ["schematic.power_port.add"]
+    );
+    // The plain Power Port Tool starts on GND again.
+    shell.run("tool.activate:power_port", json!({})).unwrap();
+    hover(&mut shell, at(1000.0, 0.0));
+    click(&mut shell, at(1000.0, 0.0));
+
+    let project = shell.engine().project().unwrap();
+    let body = project.schematic_sheet(sheet()).unwrap();
+    let mut power: Vec<_> = body.power_ports().map(|p| (p.at, p.name.clone())).collect();
+    power.sort_by_key(|p| p.0.x);
+    assert_eq!(
+        power,
+        [
+            (pt(500, 0), "3V3".to_owned()),
+            (pt(1000, 0), "GND".to_owned())
+        ]
+    );
 }
 
 #[test]
@@ -423,7 +469,7 @@ fn the_port_power_port_and_no_connect_tools_place_on_click() {
     assert_eq!(click(&mut shell, at(500.0, 0.0)), ["schematic.port.add"]);
     assert_eq!(press(&mut shell, "B"), ["tool.activate:power_port"]);
     hover(&mut shell, at(1000.0, 0.0));
-    assert_eq!(press(&mut shell, "Y"), ["tool.mirror:y"]);
+    assert_eq!(press(&mut shell, "Y"), ["tool.mirror_y"]);
     assert_eq!(press(&mut shell, "Space"), ["tool.rotate"]);
     click(&mut shell, at(1000.0, 0.0));
     click(&mut shell, at(1500.0, 0.0));
@@ -485,7 +531,7 @@ fn space_x_and_y_turn_a_move_in_flight_and_it_commits_as_one_batch() {
     assert_ne!(tab.scene.generation, generation);
     assert!(tab.live.moving.is_empty());
     assert!(shell.engine().project().unwrap() == &project);
-    assert_eq!(press(&mut shell, "Y"), ["tool.mirror:y"]);
+    assert_eq!(press(&mut shell, "Y"), ["tool.mirror_y"]);
 
     let ran = click(&mut shell, at(1000.0, 0.0));
     assert_eq!(ran, ["tool.activate:select", "batch"]);
@@ -508,7 +554,7 @@ fn space_x_and_y_turn_a_move_in_flight_and_it_commits_as_one_batch() {
         [
             "tool.activate:move",
             "tool.rotate",
-            "tool.mirror:y",
+            "tool.mirror_y",
             "tool.activate:select",
             "batch"
         ]
@@ -538,7 +584,7 @@ fn space_with_nothing_in_flight_turns_the_selection() {
         [
             "tool.rotate",
             "schematic.rotate",
-            "tool.mirror:x",
+            "tool.mirror_x",
             "schematic.mirror"
         ]
     );
@@ -578,4 +624,111 @@ fn an_agent_deleting_the_wire_a_run_starts_on_cancels_the_run() {
     assert!(run_points(&shell).is_empty());
     assert!(overlay(&shell).is_empty());
     assert_eq!(shell.tool(), Tool::Wire);
+}
+
+#[test]
+fn the_app_passes_the_wiring_preferences_and_the_sheet_grid_to_edit_commands() {
+    let home = TempDir::new("ui-wiring-prefs-home");
+    let dir = TempDir::new("ui-wiring-prefs");
+    let engine = Engine::builder()
+        .ids(SeededIds::new(0))
+        .clock(FixedClock::EPOCH)
+        .user_dirs(Some(reda_ui::engine::command::UserDirs::under(home.path())))
+        .starter_library(Some(library()))
+        .headless(false)
+        .build();
+    let mut shell = Shell::new(engine);
+    shell.new_project(dir.path(), "Demo").unwrap();
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "schematic.optimize_wires", "value": false}),
+        )
+        .unwrap();
+    wire(&mut shell, &[(0, 0), (500, 0)]);
+    wire(&mut shell, &[(500, 0), (1000, 0)]);
+    // Optimize Wires is off, so the two collinear Wires stay apart.
+    let out = shell
+        .run("objects.query", json!({"document": SHEET, "type": "wire"}))
+        .unwrap();
+    assert_eq!(out["objects"].as_array().unwrap().len(), 2, "{out}");
+    // The Journal keeps the wiring given, so replaying it gives the same drawing.
+    let entry = (shell.engine().journal().iter().rev())
+        .find(|e| e.id == "schematic.wire.add")
+        .unwrap();
+    assert_eq!(entry.params["wiring"]["optimize_wires"], false);
+    assert_eq!(entry.params["wiring"]["break_wires_at_autojunctions"], true);
+    assert_eq!(entry.params["wiring"]["snap_grid"], 50 * 25_400);
+}
+
+#[test]
+fn a_sheet_captures_within_the_presets_electrical_range_on_both_axes() {
+    let dir = TempDir::new("wiring-range");
+    let mut shell = shell(&dir);
+    wire(&mut shell, &[(1013, 0), (1013, 1007)]);
+    press(&mut shell, "W");
+    let cursor = |shell: &Shell| shell.document_tab(sheet()).unwrap().overlay.cursor;
+    // 50 mil grid: 40 mil range. 35 mil off on both axes (49 mil in a straight line)
+    // still catches the Wire end; 45 mil off on one axis does not.
+    hover(&mut shell, at(1048.0, 1042.0));
+    assert_eq!(cursor(&shell), Some(pt(1013, 1007)));
+    hover(&mut shell, at(1058.0, 1100.0));
+    assert_eq!(cursor(&shell), Some(pt(1050, 1100)));
+    // 10 mil grid: 8 mil range. 9 mil off is out of it.
+    shell
+        .run(
+            "view.grid.set",
+            json!({"document": sheet(), "grid": "10mil"}),
+        )
+        .unwrap();
+    hover(&mut shell, at(1022.0, 1007.0));
+    assert_eq!(cursor(&shell), Some(pt(1020, 1010)));
+    hover(&mut shell, at(1020.0, 1001.0));
+    assert_eq!(cursor(&shell), Some(pt(1013, 1007)));
+}
+
+#[test]
+fn a_sheet_offers_every_kind_on_its_checklist() {
+    use reda_ui::snap::{self, Hotspot};
+    let dir = TempDir::new("wiring-hotspots");
+    let mut shell = shell(&dir);
+    place(&mut shell, 0, 0);
+    wire(&mut shell, &[(1013, 0), (1013, 1007), (2013, 1007)]);
+    for (id, x) in [
+        ("schematic.port.add", 3013),
+        ("schematic.net_label.add", 4013),
+    ] {
+        shell
+            .run(
+                id,
+                json!({"document": SHEET, "name": "A",
+                       "at": {"x": format!("{x}mil"), "y": "13mil"}}),
+            )
+            .unwrap();
+    }
+    let kind = |shell: &Shell, x: f64, y: f64| {
+        let project = shell.engine().project().unwrap();
+        let targets = snap::hotspots::sheet(project.schematic_sheet(sheet()).unwrap());
+        snap::snap_at(shell, sheet(), at(x, y), &targets)
+            .hit
+            .hotspot()
+    };
+    assert_eq!(kind(&shell, 6.0, -144.0), Some(Hotspot::PinEnd));
+    assert_eq!(kind(&shell, 1020.0, 10.0), Some(Hotspot::WireEnd));
+    assert_eq!(kind(&shell, 1020.0, 1000.0), Some(Hotspot::WireVertex));
+    assert_eq!(kind(&shell, 1500.0, 1020.0), Some(Hotspot::Wire));
+    assert_eq!(kind(&shell, 3020.0, 20.0), Some(Hotspot::PortAnchor));
+    assert_eq!(kind(&shell, 4020.0, 20.0), Some(Hotspot::LabelAnchor));
+    // The checklist turns a kind off; object snap Off turns them all off.
+    shell
+        .run(
+            "view.snap.set",
+            json!({"document": SHEET, "hotspots": {"pin_end": false}}),
+        )
+        .unwrap();
+    assert_eq!(kind(&shell, 6.0, -144.0), None);
+    shell
+        .run("view.snap.set", json!({"document": SHEET, "mode": "off"}))
+        .unwrap();
+    assert_eq!(kind(&shell, 4020.0, 20.0), None);
 }

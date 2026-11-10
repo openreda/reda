@@ -4,62 +4,93 @@
     "files": [
       {
         "function": "copper_top",
-        "name": "Minimal.GTL"
+        "path": "fab/Minimal.gtl"
       },
       {
         "function": "copper_bottom",
-        "name": "Minimal.GBL"
+        "path": "fab/Minimal.gbl"
       },
       {
         "function": "solder_mask_top",
-        "name": "Minimal.GTS"
+        "path": "fab/Minimal.gts"
       },
       {
         "function": "solder_mask_bottom",
-        "name": "Minimal.GBS"
+        "path": "fab/Minimal.gbs"
       },
       {
         "function": "paste_top",
-        "name": "Minimal.GTP"
-      },
-      {
-        "function": "paste_bottom",
-        "name": "Minimal.GBP"
+        "path": "fab/Minimal.gtp"
       },
       {
         "function": "silkscreen_top",
-        "name": "Minimal.GTO"
-      },
-      {
-        "function": "silkscreen_bottom",
-        "name": "Minimal.GBO"
+        "path": "fab/Minimal.gto"
       },
       {
         "function": "profile",
-        "name": "Minimal.GKO"
+        "path": "fab/Minimal.gm1"
       },
       {
         "function": "drill_plated",
-        "name": "Minimal-PTH.drl"
+        "path": "fab/Minimal-PTH.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/Minimal-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/Minimal-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/Minimal-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "Minimal-Generic.zip"
+      },
+      {
+        "function": "bom",
+        "path": "Minimal-Generic-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "path": "Minimal-Generic-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "Minimal-Generic-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/Minimal-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/Minimal-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/Minimal-change-list.json"
+      }
+    ],
+    "manifest": "outputs/Generic/manifest.json",
+    "skipped": [
+      {
+        "function": "paste_bottom",
+        "name": "Minimal.gbp"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "name": "Minimal.gbo"
       },
       {
         "function": "drill_non_plated",
         "name": "Minimal-NPTH.drl"
-      },
-      {
-        "function": "bom",
-        "name": "Minimal-BOM.csv"
-      },
-      {
-        "function": "cpl",
-        "name": "Minimal-CPL.csv"
       }
     ],
     "warnings": [],
     "zip": "outputs/Generic/Minimal-Generic.zip"
-  },
-  {
-    "pages": 1,
-    "path": "outputs/schematic.pdf"
   }
 ]

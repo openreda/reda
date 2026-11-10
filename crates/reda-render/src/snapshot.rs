@@ -6,7 +6,7 @@
 
 use std::fmt::Write;
 
-use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::geom::{Millideg, Nm, Point, exact_decimal};
 
 use crate::scene::{HAlign, Primitive, Scene, SceneLayer, SceneSource, VAlign};
 
@@ -31,11 +31,13 @@ impl Scene {
                 SceneLayer::Schematic => "sch".to_owned(),
                 SceneLayer::Board(uuid) => format!("layer:{uuid}"),
                 SceneLayer::Drill => "drill".to_owned(),
+                SceneLayer::Annotation => "annotation".to_owned(),
                 SceneLayer::Ratsnest => "ratsnest".to_owned(),
             };
-            let color = item.color.name();
+            let color = item.color.label();
             let _ = write!(out, "{} {layer} {color} ", item.object);
             primitive(&mut out, &item.primitive);
+            look(&mut out, &item.look);
             out.push('\n');
         }
         out
@@ -83,6 +85,7 @@ fn primitive(out: &mut String, p: &Primitive) {
             mm(*outer),
             mm(*inner)
         ),
+        Primitive::Hairline { a, b } => write!(out, "hairline {} {} px=1", pt(*a), pt(*b)),
         Primitive::Triangles(mesh) => {
             let _ = write!(out, "triangles n={}", mesh.triangle_count());
             bounds(out, p);
@@ -127,6 +130,18 @@ fn primitive(out: &mut String, p: &Primitive) {
     };
 }
 
+fn look(out: &mut String, look: &crate::scene::Look) {
+    if look.transparency != 0 {
+        let _ = write!(out, " transparency={}%", look.transparency);
+    }
+    if look.checker {
+        out.push_str(" checker");
+    }
+    if let Some(len) = look.zoom_out {
+        let _ = write!(out, " zoom_out={}", mm(len));
+    }
+}
+
 fn bounds(out: &mut String, p: &Primitive) {
     if let Some((lo, hi)) = p.bounds() {
         let _ = write!(out, " bounds={}-{}", pt(lo), pt(hi));
@@ -139,24 +154,11 @@ fn pt(p: Point) -> String {
 
 /// nm as exact mm, without trailing zeros: `12.7`, `-0.000001`, `0`.
 pub(crate) fn mm(v: Nm) -> String {
-    exact(v.0, 1_000_000)
+    v.mm_exact()
 }
 
 fn deg(a: Millideg) -> String {
-    exact(a.0, 1000)
-}
-
-fn exact(v: i64, unit: i64) -> String {
-    let sign = if v < 0 { "-" } else { "" };
-    let v = v.unsigned_abs();
-    let unit = unit.unsigned_abs();
-    let (whole, frac) = (v / unit, v % unit);
-    if frac == 0 {
-        return format!("{sign}{whole}");
-    }
-    let digits = unit.to_string().len() - 1;
-    let frac = format!("{frac:0digits$}");
-    format!("{sign}{whole}.{}", frac.trim_end_matches('0'))
+    exact_decimal(a.0, 1000)
 }
 
 #[cfg(test)]

@@ -53,6 +53,34 @@ impl Mesh {
     }
 }
 
+/// One filled piece of an outline-font glyph, as the glyph's simplified contours: its
+/// outer ring, then the holes inside it. A writer that needs whole regions (Gerber) takes
+/// these; the canvas takes the [`Mesh`] made from them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Region {
+    pub outer: Vec<Point>,
+    pub holes: Vec<Vec<Point>>,
+}
+
+impl Region {
+    /// Every ring of the region, outer first.
+    pub fn rings(&self) -> impl Iterator<Item = &Vec<Point>> {
+        std::iter::once(&self.outer).chain(&self.holes)
+    }
+
+    /// Each point moved by `f`.
+    pub fn map(&self, f: impl Fn(Point) -> Point) -> Region {
+        Region {
+            outer: self.outer.iter().map(|&p| f(p)).collect(),
+            holes: self
+                .holes
+                .iter()
+                .map(|h| h.iter().map(|&p| f(p)).collect())
+                .collect(),
+        }
+    }
+}
+
 /// A laid-out string: y-up, in nm, with the origin at the left end of the baseline.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TextGeometry {
@@ -60,6 +88,8 @@ pub struct TextGeometry {
     pub strokes: Vec<Segment>,
     /// Outline-font glyphs (including Hershey fallbacks), filled.
     pub fill: Mesh,
+    /// The same glyphs as regions with holes, one or more per glyph.
+    pub regions: Vec<Region>,
     /// Pen advance from the origin to the end of the string.
     pub advance: Nm,
 }

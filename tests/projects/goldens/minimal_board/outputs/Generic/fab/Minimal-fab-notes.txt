@@ -1,0 +1,33 @@
+Fab Notes for Minimal
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 30 x 20 mm
+  Copper layers: 2
+  Thickness: 1.6 mm
+  Copper L1 (top): 1 oz (35 µm)
+  Copper L2 (bottom): 1 oz (35 µm)
+
+Minimum features
+  Clearance: 0.16 mm
+  Track width: 0.2 mm
+  Via diameter: 0.7 mm
+  Via hole: 0.3 mm
+  Hole size: 0.5 mm
+  Annular ring: 0.2 mm
+  Hole to hole: 0.5 mm
+  Copper to board edge: 0.4 mm
+
+Files in the zip
+  Minimal.gtl
+  Minimal.gbl
+  Minimal.gts
+  Minimal.gbs
+  Minimal.gtp
+  Minimal.gto
+  Minimal.gm1
+  Minimal-PTH.drl
+  Minimal-fab-notes.txt
+  Minimal-drill-report.txt
+  Minimal-job.gbrjob

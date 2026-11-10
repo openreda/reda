@@ -154,14 +154,7 @@ pub(crate) fn polygons(contours: &[Vec<Point>]) -> Vec<Seg> {
 
 /// `nm` as exact millimetres, without trailing zeros.
 pub(crate) fn mm(nm: i64) -> String {
-    let sign = if nm < 0 { "-" } else { "" };
-    let (whole, frac) = (nm.unsigned_abs() / 1_000_000, nm.unsigned_abs() % 1_000_000);
-    if frac == 0 {
-        format!("{sign}{whole}")
-    } else {
-        let frac = format!("{frac:06}");
-        format!("{sign}{whole}.{}", frac.trim_end_matches('0'))
-    }
+    Nm(nm).mm_exact()
 }
 
 #[cfg(test)]

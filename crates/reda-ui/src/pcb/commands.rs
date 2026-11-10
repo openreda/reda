@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::view::{BoardView, VIEW_TYPES};
-use crate::grid::{self, Grids};
+use crate::grid::Grids;
 
 /// Adds the PCB view Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
@@ -384,8 +384,8 @@ impl Command for FromBottom {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectTypeShowParams {
-    /// The kind of object: footprint_instance, track, via, zone, keepout, free_pad,
-    /// pcb_text or pcb_graphic.
+    /// The kind of object: footprint_instance, track, via, zone, keepout, zone_cutout,
+    /// free_pad, pcb_text or pcb_graphic.
     #[serde(rename = "type")]
     kind: ObjectType,
     /// Show or hide them; left out, it toggles.
@@ -433,9 +433,12 @@ impl Command for ObjectTypeShow {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RatsnestShowParams {
-    /// One Net's lines, by UUID; left out, the whole Ratsnest.
+    /// One Net's lines, by UUID; left out (with no `footprints`), the whole Ratsnest.
     #[serde(default)]
     net: Option<Uuid>,
+    /// These Footprints' lines (every line ending on one of their Pads), by UUID.
+    #[serde(default)]
+    footprints: Vec<Uuid>,
     /// Show or hide; left out, it toggles.
     #[serde(default)]
     visible: Option<bool>,
@@ -447,8 +450,9 @@ impl Command for RatsnestShow {
     const META: Meta = Meta {
         id: "pcb.ratsnest.show",
         title: "Show Ratsnest",
-        description: "Shows or hides the Ratsnest, or one Net's lines in it; with `visible` \
-                      left out it toggles.",
+        description: "Shows or hides the Ratsnest, one Net's lines in it, or the lines of \
+                      some Footprints (kept with the view); with `visible` left out it \
+                      toggles.",
         category: "pcb_view",
         icon: "ratsnest",
         kind: Kind::View,
@@ -469,6 +473,30 @@ impl Command for RatsnestShow {
                     format!("{net} is not a Net of the board"),
                 ));
             }
+        }
+        if !p.footprints.is_empty() {
+            let project = cx.project()?;
+            let pcb = project.pcb().expect("available");
+            for (i, f) in p.footprints.iter().enumerate() {
+                if pcb.footprint(*f).is_none() {
+                    return Err(CommandError::invalid_params(
+                        &format!("/footprints/{i}"),
+                        format!("{f} is not a Footprint on the board"),
+                    ));
+                }
+            }
+            let hidden = &mut board_view(cx)?.layers.ratsnest.hidden_footprints;
+            let visible = p
+                .visible
+                .unwrap_or_else(|| p.footprints.iter().any(|f| hidden.contains(f)));
+            for f in p.footprints {
+                if visible {
+                    hidden.remove(&f);
+                } else {
+                    hidden.insert(f);
+                }
+            }
+            return Ok(Shown { visible });
         }
         let ratsnest = &mut board_view(cx)?.layers.ratsnest;
         let visible = match p.net {
@@ -526,7 +554,8 @@ impl Command for UnitsToggle {
         view.units = units;
         let grids = cx.view::<Grids>()?;
         let current = grids.picked.get(&pcb).copied();
-        let grid = grid::pcb_in_units(current.unwrap_or(grids.pcb), units);
+        let grid = grids.pcb_in_units(current.unwrap_or(grids.pcb), units);
+        grids.custom.remove(&pcb);
         grids.picked.insert(pcb, grid);
         Ok(UnitsNow { units, grid })
     }

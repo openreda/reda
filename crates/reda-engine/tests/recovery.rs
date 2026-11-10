@@ -265,7 +265,7 @@ fn starter_library_elements_never_get_snapshots() {
 }
 
 #[test]
-fn a_deleted_sheet_file_opens_as_an_unsaved_empty_sheet_and_restores() {
+fn a_deleted_sheet_file_opens_missing_and_its_snapshot_restores_it() {
     let tmp = TempDir::new("recovery-deleted-sheet");
     let (mut engine, folder) = project(tmp.path());
     add_wire(&mut engine);
@@ -277,12 +277,9 @@ fn a_deleted_sheet_file_opens_as_an_unsaved_empty_sheet_and_restores() {
     let out = after.run_ok("project.open", json!({"path": folder}));
     assert_eq!(out["missing"][0]["uuid"], SHEET);
     let project = after.project().unwrap();
-    assert!(
-        project.document(sheet()).is_some(),
-        "the sheet is recreated"
-    );
-    assert_eq!(wires(&after), 0);
-    assert!(after.dirty_scopes().contains(&Scope::Document(sheet())));
+    assert!(project.document(sheet()).is_none(), "the sheet is missing");
+    assert!(project.missing_document(sheet()).is_some());
+    assert!(!after.is_dirty());
 
     let rows = found(&dir, &folder);
     assert!(rows[0].missing);

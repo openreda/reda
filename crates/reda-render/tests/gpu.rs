@@ -35,10 +35,12 @@ fn id(n: u128) -> Uuid {
 
 fn push(scene: &mut Scene, object: Uuid, color: SchematicColor, primitive: Primitive) {
     scene.items.push(reda_render::Item {
+        child: None,
         object,
         layer: SceneLayer::Schematic,
         color: ColorKey::Schematic(color),
         primitive,
+        look: Default::default(),
     });
 }
 
@@ -179,6 +181,60 @@ fn a_selected_object_is_lighter_and_haloed_without_new_geometry() {
 }
 
 #[test]
+fn selecting_a_child_marks_only_its_ink_and_selecting_the_parent_includes_it() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let child = reda_render::Child::Field {
+        unit: id(2),
+        field: "value".into(),
+    };
+    push(
+        &mut scene,
+        id(2),
+        SchematicColor::Wire,
+        filled_rect(Point::new(mm(80), mm(50)), 10, 10),
+    );
+    scene.items.last_mut().unwrap().child = Some(child.clone());
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let plain = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    let picked_child = gpu
+        .render(
+            &scene,
+            &view,
+            &palette,
+            Highlight::new().mark(child.id(), Flags::SELECTED),
+        )
+        .unwrap();
+    assert_eq!(
+        pixel(&picked_child, 50, 50),
+        pixel(&plain, 50, 50),
+        "the parent body stays unselected"
+    );
+    assert_ne!(
+        pixel(&picked_child, 80, 50),
+        pixel(&plain, 80, 50),
+        "the selected child is marked"
+    );
+    let picked_parent = gpu
+        .render(
+            &scene,
+            &view,
+            &palette,
+            Highlight::new().mark(id(2), Flags::SELECTED),
+        )
+        .unwrap();
+    assert_ne!(pixel(&picked_parent, 50, 50), pixel(&plain, 50, 50));
+    assert_ne!(
+        pixel(&picked_parent, 80, 50),
+        pixel(&plain, 80, 50),
+        "the parent includes its child's ink"
+    );
+}
+
+#[test]
 fn moving_objects_are_drawn_at_the_offset_and_hidden_ones_not_at_all() {
     let Some(gpu) = headless() else { return };
     let scene = square_on_paper();
@@ -298,8 +354,11 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
     let spec = GridSpec {
         origin: (0.0, 0.0),
         pitch: 10.0 * 1_000_000.0,
+        coarse: 1,
+        lines: false,
         radius_px: 1.5,
         color: Rgba([0, 0, 0, 255]),
+        paper: None,
     };
     grid.set(gpu.queue(), &view, Some(&spec));
     let img = gpu
@@ -321,12 +380,70 @@ fn the_grid_draws_dots_on_grid_points_over_the_scene() {
     assert_eq!(pixel(&img, 20, 70), paper);
 }
 
+#[test]
+fn the_grid_draws_bigger_coarse_dots_or_faint_fine_and_strong_coarse_lines() {
+    let Some(gpu) = headless() else { return };
+    // Paper only: 100 mm square filling a 100 px image, so 1 px = 1 mm.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = view_of(&scene, 100);
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let mut spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: 10.0 * 1_000_000.0,
+        coarse: 5,
+        lines: false,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+        paper: None,
+    };
+    let mut draw = |spec: &GridSpec| {
+        grid.set(gpu.queue(), &view, Some(spec));
+        gpu.render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+            .unwrap()
+    };
+    // Dots: (50 mm, 50 mm) is a coarse point, pixel (50, 50); (20 mm, 30 mm) a fine one,
+    // pixel (20, 70). About 2.5 px out, only the coarse dot still covers.
+    let img = draw(&spec);
+    assert_eq!(pixel(&img, 50, 50), [0, 0, 0, 255]);
+    assert_eq!(pixel(&img, 20, 70), [0, 0, 0, 255]);
+    assert_ne!(pixel(&img, 52, 50), paper, "the coarse dot is bigger");
+    assert_eq!(pixel(&img, 22, 70), paper);
+    assert_eq!(pixel(&img, 25, 65), paper, "between dots");
+
+    // Lines: a fine line at x = 20 mm is drawn faint all along; the coarse one at 50 mm
+    // is drawn at full strength; between lines stays paper.
+    spec.lines = true;
+    let img = draw(&spec);
+    let fine = pixel(&img, 20, 63);
+    let coarse = pixel(&img, 50, 63);
+    assert_ne!(fine, paper, "a fine line runs between grid points");
+    assert!(
+        distance(coarse, paper) > distance(fine, paper),
+        "coarse {coarse:?} is stronger than fine {fine:?}"
+    );
+    assert_eq!(pixel(&img, 25, 65), paper, "between lines");
+}
+
 fn push_board(scene: &mut Scene, layer: u128, color: BoardColor, primitive: Primitive) {
     scene.items.push(reda_render::Item {
+        child: None,
         object: id(100 + layer),
         layer: SceneLayer::Board(id(layer)),
         color: ColorKey::Board(color),
         primitive,
+        look: Default::default(),
     });
 }
 
@@ -479,4 +596,244 @@ fn view_only_labels_hide_below_their_minimum_size_on_screen() {
         .render(&scene, &zoomed, &palette, &Highlight::new())
         .unwrap();
     assert_eq!(pixel(&img, 50, 50), white);
+}
+
+#[test]
+fn the_grid_stops_at_the_papers_edge() {
+    let Some(gpu) = headless() else { return };
+    // A 100 mm square paper in the middle of a 200 px view at 1 px = 1 mm, so the paper
+    // covers pixels 50..150 and the canvas shows around it.
+    let mut scene = Scene::new(SceneSource::None);
+    let c = Point::new(mm(50), mm(50));
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Paper,
+        filled_rect(c, 100, 100),
+    );
+    let palette = Palette::shipped(Theme::Light);
+    let gs = GpuScene::new(gpu.device(), &scene);
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let view = View {
+        center: (50_000_000.0, 50_000_000.0),
+        nm_per_px: 1_000_000.0,
+        width: 200,
+        height: 200,
+        mirrored: false,
+    };
+    let mut grid = Grid::new(gpu.device(), gpu.renderer());
+    let spec = GridSpec {
+        origin: (0.0, 0.0),
+        pitch: 10.0 * 1_000_000.0,
+        coarse: 1,
+        lines: false,
+        radius_px: 1.5,
+        color: Rgba([0, 0, 0, 255]),
+        paper: Some(((0.0, 0.0), (100_000_000.0, 100_000_000.0))),
+    };
+    grid.set(gpu.queue(), &view, Some(&spec));
+    let img = gpu
+        .render_frame_with(&gs, &mut cv, &view, |pass| grid.draw(pass))
+        .unwrap();
+    // Document (20 mm, 30 mm), on the paper: pixel (70, 120).
+    assert_eq!(pixel(&img, 70, 120), [0, 0, 0, 255]);
+    // Document (-20 mm, 30 mm) is a grid point off the paper: pixel (30, 120) stays canvas.
+    let canvas = rgb(palette.background());
+    assert_eq!(pixel(&img, 30, 120), canvas, "grid drawn past the paper");
+    // So does one above the paper, Document (20 mm, 130 mm): pixel (70, 20).
+    assert_eq!(pixel(&img, 70, 20), canvas, "grid drawn past the paper");
+}
+
+/// The widest run of non-background pixels down column `x`.
+fn ink_rows(img: &Image, x: u32, background: [u8; 4]) -> u32 {
+    (0..img.height)
+        .filter(|y| distance(pixel(img, x, *y), background) > 40)
+        .count() as u32
+}
+
+#[test]
+fn a_hairline_is_one_pixel_wide_at_every_zoom() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = Scene::new(SceneSource::None);
+    push(
+        &mut scene,
+        id(1),
+        SchematicColor::Wire,
+        Primitive::Hairline {
+            a: Point::new(mm(0), mm(50)),
+            b: Point::new(mm(100), mm(50)),
+        },
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let background = rgb(palette.background());
+    for nm_per_px in [1_000_000.0, 100_000.0, 10_000.0] {
+        let view = View {
+            center: (50_000_000.0, 50_000_000.0),
+            nm_per_px,
+            width: 64,
+            height: 64,
+            mirrored: false,
+        };
+        let img = gpu
+            .render(&scene, &view, &palette, &Highlight::new())
+            .unwrap();
+        let rows = ink_rows(&img, 32, background);
+        assert!((1..=2).contains(&rows), "{rows} rows at {nm_per_px} nm/px");
+    }
+    // A capsule 0.1 mm wide grows with the zoom.
+    scene.items[0].primitive = Primitive::Capsule {
+        a: Point::new(mm(0), mm(50)),
+        b: Point::new(mm(100), mm(50)),
+        width: Nm(100_000),
+    };
+    let view = View {
+        center: (50_000_000.0, 50_000_000.0),
+        nm_per_px: 10_000.0,
+        width: 64,
+        height: 64,
+        mirrored: false,
+    };
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert!(ink_rows(&img, 32, background) >= 9);
+}
+
+#[test]
+fn masking_greys_the_rest_where_dimming_only_shades_it() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let corner = Point::new(mm(10), mm(10));
+    push(
+        &mut scene,
+        id(3),
+        SchematicColor::Pin,
+        filled_rect(corner, 10, 10),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let view = view_of(&scene, 100);
+    let lit = Highlight::new().mark(id(2), Flags::HIGHLIGHTED).clone();
+    let dimmed = gpu.render(&scene, &view, &palette, &lit).unwrap();
+    let mut masking = lit.clone();
+    masking.mask_rest();
+    assert_eq!(masking.rest(), Flags::MASKED);
+    assert_eq!(lit.rest(), Flags::DIMMED);
+    let masked = gpu.render(&scene, &view, &palette, &masking).unwrap();
+    assert_eq!(
+        pixel(&masked, 50, 50),
+        pixel(&dimmed, 50, 50),
+        "the highlight"
+    );
+    let [r, g, b, _] = pixel(&masked, 10, 90);
+    assert!(
+        r.abs_diff(g) <= 2 && g.abs_diff(b) <= 2,
+        "grey: {r} {g} {b}"
+    );
+    assert_ne!(pixel(&masked, 10, 90), pixel(&dimmed, 10, 90));
+}
+
+#[test]
+fn net_colours_checker_and_transparency_draw_as_the_look_says() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let palette = Palette::shipped(Theme::Light);
+    let paper = rgb(palette.color(ColorKey::Schematic(SchematicColor::Paper)));
+    let view = view_of(&scene, 100);
+    let orange = Rgba::rgb(0xff, 0x80, 0x00);
+    scene.items[1].color = ColorKey::Net(orange);
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), rgb(orange), "a Net's own colour");
+
+    scene.items[1].look.transparency = 50;
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert!(distance(pixel(&img, 50, 50), mix(paper, rgb(orange), 0.5)) <= 3);
+
+    scene.items[1].look = reda_render::Look {
+        checker: true,
+        ..Default::default()
+    };
+    let img = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    // 4 px cells: (44, 44) and (48, 44) are in neighbouring cells.
+    let cells = [pixel(&img, 45, 45), pixel(&img, 49, 45)];
+    assert!(cells.contains(&rgb(orange)), "{cells:?}");
+    assert!(cells.contains(&paper), "{cells:?}");
+
+    scene.items[1].look = reda_render::Look {
+        zoom_out: Some(mm(1)),
+        ..Default::default()
+    };
+    let far = gpu
+        .render(&scene, &view, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(
+        pixel(&far, 50, 50),
+        paper,
+        "1 mm is under 4 px here: hidden"
+    );
+    let near = View {
+        nm_per_px: 10_000.0,
+        ..view
+    };
+    let img = gpu
+        .render(&scene, &near, &palette, &Highlight::new())
+        .unwrap();
+    assert_eq!(pixel(&img, 50, 50), rgb(orange));
+}
+
+#[test]
+fn dim_and_mask_strengths_set_how_far_the_rest_fades() {
+    let Some(gpu) = headless() else { return };
+    let mut scene = square_on_paper();
+    let corner = Point::new(mm(10), mm(10));
+    push(
+        &mut scene,
+        id(3),
+        SchematicColor::Pin,
+        filled_rect(corner, 10, 10),
+    );
+    let palette = Palette::shipped(Theme::Dark);
+    let background = palette.background();
+    let view = view_of(&scene, 100);
+    let mut gs = GpuScene::new(gpu.device(), &scene);
+    gs.set_highlight(
+        gpu.queue(),
+        Highlight::new().mark(id(2), Flags::HIGHLIGHTED),
+    );
+    let mut cv = Canvas::new(gpu.device(), gpu.renderer());
+    cv.set_palette(gpu.queue(), &palette);
+    let distance = |img: &Image| {
+        let [r, g, b, _] = pixel(img, 10, 90);
+        r.abs_diff(background.0[0]) as u32
+            + g.abs_diff(background.0[1]) as u32
+            + b.abs_diff(background.0[2]) as u32
+    };
+    cv.set_strengths(0.2, 0.75);
+    let faint = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    cv.set_strengths(0.9, 0.75);
+    let strong = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert!(
+        distance(&strong) < distance(&faint),
+        "a stronger dim is nearer the background"
+    );
+    cv.set_strengths(1.0, 0.75);
+    assert_eq!(
+        distance(&gpu.render_frame(&gs, &mut cv, &view).unwrap()),
+        0,
+        "full strength is gone"
+    );
+    let mut masking = Highlight::new().mark(id(2), Flags::HIGHLIGHTED).clone();
+    masking.mask_rest();
+    gs.set_highlight(gpu.queue(), &masking);
+    cv.set_strengths(0.6, 0.3);
+    let light_mask = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    cv.set_strengths(0.6, 0.95);
+    let heavy_mask = gpu.render_frame(&gs, &mut cv, &view).unwrap();
+    assert!(distance(&heavy_mask) < distance(&light_mask));
 }

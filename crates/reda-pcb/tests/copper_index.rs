@@ -220,3 +220,104 @@ fn the_projects_index_is_built_once_and_rebuilt_after_an_edit_or_undo() {
     let undone = Copper::of(engine.project().unwrap()).unwrap();
     assert_eq!(*undone, *first);
 }
+
+#[test]
+fn a_pads_copper_follows_its_side_offset_and_cut_corners() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-pad-model");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    // A 2 × 1 mm SMD Pad on the Footprint's bottom side, anchored at the origin with its
+    // copper 1 mm to the right and its top-right corner chamfered by 0.5 mm (100%).
+    let fp = engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": 0, "y": 0}, "pads": [
+            {"at": {"x": 0, "y": 0}, "width": "2mm", "height": "1mm", "side": "bottom",
+             "shape": "chamfered_rect", "chamfer_ratio": 100_000, "corners": ["top_right"],
+             "offset": {"x": "1mm", "y": 0}}]}),
+    );
+    let fp = uuid(&fp["result"]["footprint"]);
+    let pad = fp_pads(&fp, &engine)[0];
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let copper = Copper::build(pcb);
+    let layers: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let (top, bottom) = (layers[0], *layers.last().unwrap());
+    let at = |x: i64, y: i64| Point::new(Nm::from_um(x), Nm::from_um(y));
+
+    assert!(
+        copper.items_at(top, at(1000, 0)).is_empty(),
+        "no copper on the top"
+    );
+    assert_eq!(copper.items_at(bottom, at(1000, 0)), [pad]);
+    assert_eq!(copper.items_at(bottom, at(100, 0)), [pad]);
+    assert!(
+        copper.items_at(bottom, at(-100, 0)).is_empty(),
+        "left of the copper"
+    );
+    assert!(
+        copper.items_at(bottom, at(1900, 400)).is_empty(),
+        "the chamfer"
+    );
+    assert_eq!(copper.items_at(bottom, at(1900, -400)), [pad]);
+    assert_eq!(copper.items_at(bottom, at(100, 400)), [pad]);
+
+    // Flipped, the Footprint takes the Pad to the top, mirrored: copper left of the
+    // anchor and the chamfer on the top-left.
+    engine.run_ok("pcb.flip", json!({"objects": [fp]}));
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let copper = Copper::build(pcb);
+    let x = pcb.footprint(fp).unwrap().at.x.0 / 1000;
+    assert_eq!(copper.items_at(top, at(x - 1000, 0)), [pad]);
+    assert!(copper.items_at(top, at(x - 1900, 400)).is_empty());
+    assert_eq!(copper.items_at(top, at(x + 1900 - 2000, 400)), [pad]);
+    assert!(copper.items_at(bottom, at(x - 1000, 0)).is_empty());
+}
+
+#[test]
+fn clearance_halos_grow_other_net_copper_near_the_cursor() {
+    use reda_model::geom::{Nm, Point};
+    use reda_model::{LayerKind, Side};
+    let dir = TempDir::new("halos");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let sig = uuid(&engine.run_ok("test.net.add", json!({"name": "SIG"}))["result"]["uuid"]);
+    let gnd = uuid(&engine.run_ok("test.net.add", json!({"name": "GND"}))["result"]["uuid"]);
+    let track = |engine: &mut TestEngine, net: Uuid, y: &str| {
+        uuid(
+            &engine.run_ok(
+                "pcb.track.add",
+                json!({"layer": "copper_top", "net": net, "width": "0.2mm",
+                       "points": [{"x": 0, "y": y}, {"x": "1mm", "y": y}]}),
+            )["result"]["tracks"][0],
+        )
+    };
+    let own = track(&mut engine, sig, "0mm");
+    let near = track(&mut engine, gnd, "2mm");
+    let far = track(&mut engine, gnd, "20mm");
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let top = pcb
+        .layers()
+        .find(LayerKind::Copper, Some(Side::Top))
+        .unwrap()
+        .uuid;
+    let copper = Copper::of(project).unwrap();
+    let origin = Point::new(Nm::ZERO, Nm::ZERO);
+
+    let all = copper.halos(pcb, top, Some(sig), None);
+    let items: Vec<Uuid> = all.iter().map(|h| h.item.object()).collect();
+    assert!(!items.contains(&own), "the route's own Net has no halo");
+    assert_eq!(items.len(), 2);
+    assert!(items.contains(&near) && items.contains(&far));
+    let halo = &all[0];
+    assert!(halo.clearance > Nm::ZERO);
+    assert_eq!(
+        halo.shape.prims[0].radius,
+        Nm::from_um(100).0 + halo.clearance.0,
+        "half the width plus the clearance"
+    );
+
+    let close = copper.halos(pcb, top, Some(sig), Some((origin, Nm::from_mm(5))));
+    let items: Vec<Uuid> = close.iter().map(|h| h.item.object()).collect();
+    assert_eq!(items, [near], "only copper within 5 mm");
+}

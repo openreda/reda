@@ -4,7 +4,6 @@
 mod gerber_reader;
 
 use gerber_reader::{Object, read};
-use reda_command::Timestamp;
 use reda_model::Uuid;
 use reda_output::{OutputFile, Plot, gerber_files};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
@@ -42,12 +41,19 @@ fn plot(engine: &TestEngine) -> Vec<OutputFile> {
     let preset = project.fab_presets().next().unwrap().preset();
     gerber_files(&Plot {
         project,
-        pcb,
-        fills: &fills,
-        gerber: preset.gerber,
+        instances: &[reda_output::BoardInstance::single(
+            pcb,
+            &fills,
+            reda_model::FileOrigin::Absolute,
+        )],
+        gerber: &preset.gerber,
         fonts: &reda_command::Fonts::default(),
-        created: Timestamp(1_767_225_600_000),
+        version: reda_testkit::TEST_VERSION,
+        part: reda_output::Part::Single,
+        not_fitted_paste: reda_model::NotFittedPaste::Keep,
     })
+    .unwrap()
+    .files
 }
 
 fn file<'a>(files: &'a [OutputFile], name: &str) -> &'a OutputFile {
@@ -64,23 +70,22 @@ fn names(files: &[OutputFile]) -> Vec<&str> {
 #[test]
 fn the_files_are_named_the_protel_way() {
     let dir = TempDir::new("gerber-names");
-    let engine = board(&dir);
+    let engine = demo(&dir);
     let files = plot(&engine);
     assert_eq!(
         names(&files),
         [
-            "Demo.GTL", "Demo.GBL", "Demo.GTS", "Demo.GBS", "Demo.GTP", "Demo.GBP", "Demo.GTO",
-            "Demo.GBO", "Demo.GKO"
+            "Demo.gtl", "Demo.gbl", "Demo.gts", "Demo.gbs", "Demo.gtp", "Demo.gbp", "Demo.gto",
+            "Demo.gbo", "Demo.gm1"
         ]
     );
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     assert!(top.ended);
     assert_eq!(top.file[".FileFunction"], "Copper,L1,Top");
     assert_eq!(top.file[".FilePolarity"], "Positive");
-    assert_eq!(top.file[".CreationDate"], "2026-01-01T00:00:00+00:00");
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
     assert_eq!(bottom.file[".FileFunction"], "Copper,L2,Bot");
-    let profile = read(&file(&files, "Demo.GKO").bytes);
+    let profile = read(&file(&files, "Demo.gm1").bytes);
     assert_eq!(profile.file[".FileFunction"], "Profile,NP");
 }
 
@@ -95,9 +100,9 @@ fn tracks_read_back_as_draws_with_their_width_and_net() {
                "points": [pt(2.0, 2.0), pt(10.0, 2.0), pt(12.5, 4.5)]}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     assert_eq!(top.draws().count(), 0);
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
     let mut draws: Vec<_> = bottom
         .draws()
         .map(|d| match d {
@@ -129,8 +134,8 @@ fn tracks_read_back_as_draws_with_their_width_and_net() {
 /// Probe points in a Pad's own frame (x along its width) and whether each lies on the Pad:
 /// just inside and just outside each side, and near a corner.
 fn probes(pad: &reda_pcb::placed::PlacedPad) -> Vec<((f64, f64), bool)> {
-    use reda_model::PadShape;
-    let (w, h) = (pad.width.0 as f64 / 2.0, pad.height.0 as f64 / 2.0);
+    let o = pad.outline;
+    let (w, h) = (o.width.0 as f64 / 2.0, o.height.0 as f64 / 2.0);
     let d = 2_000.0;
     let mut out = vec![
         ((0.0, 0.0), true),
@@ -144,11 +149,7 @@ fn probes(pad: &reda_pcb::placed::PlacedPad) -> Vec<((f64, f64), bool)> {
         ((0.0, -(h + d)), false),
     ];
     let corner = (w - d, h - d);
-    let r = match pad.shape {
-        PadShape::Rect => 0.0,
-        PadShape::RoundedRect => pad.corner_radius.map_or(0.0, |r| r.0 as f64),
-        PadShape::Circle | PadShape::Oval => w.min(h),
-    };
+    let r = o.uniform_radius().expect("uniform corners").0 as f64;
     // The corner is on the Pad only when the rounding leaves it.
     let (cx, cy) = (w - r, h - r);
     let in_corner = r == 0.0 || (corner.0 - cx).max(0.0).hypot((corner.1 - cy).max(0.0)) <= r;
@@ -185,7 +186,7 @@ fn pads_read_back_with_their_shape_turn_and_side() {
             "test.footprint.add",
             json!({"at": at, "rotation": rotation, "side": side, "pads": [
                 pad(0.0, "rect", 1.2, 0.6, json!({"net": gnd})),
-                pad(2.0, "rounded_rect", 1.0, 1.6, json!({"corner_radius": "0.25mm"})),
+                pad(2.0, "rounded_rect", 1.0, 1.6, json!({"corner_ratio": 50_000})),
                 pad(4.0, "oval", 1.8, 0.9, json!({"rotation": "15deg"})),
                 pad(6.0, "oval", 0.7, 1.5, json!({})),
                 pad(8.0, "circle", 0.8, 0.8, json!({})),
@@ -198,8 +199,8 @@ fn pads_read_back_with_their_shape_turn_and_side() {
                "width": "1.6mm", "hole": {"width": "0.8mm"}, "net": gnd}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
-    let bottom = read(&file(&files, "Demo.GBL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
 
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
@@ -230,14 +231,16 @@ fn pads_read_back_with_their_shape_turn_and_side() {
             else {
                 unreachable!()
             };
-            let smd = pad.kind == reda_model::PadKind::Smd;
-            assert_eq!(
-                function.as_deref(),
-                Some(if smd { "SMDPad,CuDef" } else { "ComponentPad" })
-            );
-            if pad.net.is_some() {
-                assert_eq!(attributes[".N"], "GND");
-            }
+            let free = pcb.free_pads().any(|f| f.uuid == pad.pad);
+            let expected_function = match pad.kind {
+                _ if free => "OtherPad,FreePad",
+                reda_model::PadKind::Smd => "SMDPad,CuDef",
+                _ => "ComponentPad",
+            };
+            assert_eq!(function.as_deref(), Some(expected_function));
+            // Every copper object has `.N`, empty when it has no Net.
+            let net = if pad.net.is_some() { "GND" } else { "" };
+            assert_eq!(attributes[".N"], net);
             let angle = (pad.rotation.0 as f64 / 1000.0).to_radians();
             let (s, c) = angle.sin_cos();
             for ((x, y), inside) in probes(pad) {
@@ -258,6 +261,98 @@ fn pads_read_back_with_their_shape_turn_and_side() {
 }
 
 #[test]
+fn a_pad_with_mixed_corners_and_an_offset_is_one_flash_of_its_own_macro() {
+    let dir = TempDir::new("gerber-chamfer");
+    let mut engine = board(&dir);
+    // 2 × 1 mm, its copper 0.5 mm right of its anchor; the top-right corner chamfered by
+    // 0.25 mm (50% of half the shorter side), the others rounded by 0.1 mm (20%).
+    let pad = json!({"at": pt(0.0, 0.0), "width": "2mm", "height": "1mm",
+                     "shape": "chamfered_rect", "chamfer_ratio": 50_000, "corner_ratio": 20_000,
+                     "corners": ["top_right"], "offset": pt(0.5, 0.0)});
+    let mut bottom_pad = pad.clone();
+    bottom_pad["side"] = json!("bottom");
+    for (at, rotation, side) in [
+        (pt(5.0, 5.0), "0deg", "top"),
+        (pt(15.0, 5.0), "90deg", "top"),
+        // Flipped: the chamfer lands top-left as seen from the top.
+        (pt(25.0, 5.0), "0deg", "bottom"),
+    ] {
+        engine.run_ok(
+            "test.footprint.add",
+            json!({"at": at, "rotation": rotation, "side": side, "pads": [pad]}),
+        );
+    }
+    // An SMD Pad on the Footprint's bottom: on the bottom copper of an unflipped Footprint.
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": pt(35.0, 5.0), "pads": [bottom_pad]}),
+    );
+    let files = plot(&engine);
+    let top = read(&file(&files, "Demo.gtl").bytes);
+    let bottom = read(&file(&files, "Demo.gbl").bytes);
+    let um = |v: f64| v * 1_000.0;
+    // (layer, anchor, probes seen from the top relative to the anchor: inside or not)
+    type Probes = Vec<((f64, f64), bool)>;
+    let cases: [(&gerber_reader::Layer, (i64, i64), Probes); 4] = [
+        (
+            &top,
+            (mm(5.0), mm(5.0)),
+            vec![
+                ((um(500.0), 0.0), true),
+                ((um(1440.0), um(440.0)), false), // the chamfered top-right corner
+                ((um(1300.0), um(400.0)), true),
+                ((um(-440.0), um(-440.0)), true), // a rounded corner, inside its arc
+                ((um(-495.0), um(-495.0)), false), // beyond its arc
+                ((um(-495.0), um(0.0)), true),
+                ((um(-505.0), um(0.0)), false),
+            ],
+        ),
+        (
+            &top,
+            (mm(15.0), mm(5.0)),
+            vec![
+                ((0.0, um(500.0)), true),
+                ((um(-440.0), um(1440.0)), false),
+                ((um(440.0), um(1440.0)), true),
+            ],
+        ),
+        (
+            &bottom,
+            (mm(25.0), mm(5.0)),
+            vec![
+                ((um(-500.0), 0.0), true),
+                ((um(-1440.0), um(440.0)), false),
+                ((um(1440.0), um(440.0)), false),
+                ((um(-1300.0), um(-440.0)), true),
+            ],
+        ),
+        (
+            &bottom,
+            (mm(35.0), mm(5.0)),
+            vec![((um(500.0), 0.0), true), ((um(1440.0), um(440.0)), false)],
+        ),
+    ];
+    for (layer, anchor, probes) in cases {
+        let Object::Flash { aperture, .. } = flash_at(layer, anchor) else {
+            unreachable!()
+        };
+        assert!(
+            matches!(aperture, gerber_reader::Aperture::Macro(_)),
+            "{aperture:?}"
+        );
+        for ((x, y), inside) in probes {
+            assert_eq!(
+                aperture.contains(x, y),
+                inside,
+                "{anchor:?} probe ({x}, {y})"
+            );
+        }
+    }
+    assert_eq!(top.flashes().count(), 2);
+    assert_eq!(bottom.flashes().count(), 2);
+}
+
+#[test]
 fn vias_flash_on_every_layer_they_span() {
     let dir = TempDir::new("gerber-vias");
     let mut engine = board(&dir);
@@ -267,7 +362,7 @@ fn vias_flash_on_every_layer_they_span() {
         json!({"at": pt(7.0, 8.0), "net": gnd, "diameter": "0.6mm", "hole": "0.3mm"}),
     );
     let files = plot(&engine);
-    for name in ["Demo.GTL", "Demo.GBL"] {
+    for name in ["Demo.gtl", "Demo.gbl"] {
         let layer = read(&file(&files, name).bytes);
         let Object::Flash {
             aperture,
@@ -314,7 +409,7 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
                "vertices": rect(8.0, 8.0, 12.0, 12.0)}),
     );
     let files = plot(&engine);
-    let top = read(&file(&files, "Demo.GTL").bytes);
+    let top = read(&file(&files, "Demo.gtl").bytes);
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
@@ -323,6 +418,26 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
         v.push(v[0]);
         v
     };
+    // Fill points under 1 µm apart are merged: each written ring keeps its fill ring's
+    // points in order, and every point left out lies within 1 µm of the one kept before.
+    let merged_from = |written: &[(i64, i64)], ring: &[(i64, i64)]| {
+        let mut w = written.iter().peekable();
+        let mut last = None;
+        for p in ring {
+            if w.peek() == Some(&p) {
+                last = w.next();
+            } else {
+                let Some(l) = last else {
+                    return false;
+                };
+                let d = ((p.0 - l.0) as f64).hypot((p.1 - l.1) as f64);
+                if d >= 1_000.0 {
+                    return false;
+                }
+            }
+        }
+        w.next().is_none()
+    };
     let regions: Vec<Region> = top
         .regions()
         .map(|r| match r {
@@ -330,6 +445,7 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
                 dark,
                 points,
                 attributes,
+                ..
             } => (*dark, points.clone(), attributes.get(".N").cloned()),
             _ => unreachable!(),
         })
@@ -337,17 +453,22 @@ fn zone_fills_read_back_as_regions_with_their_holes_cleared() {
     let mut expected = Vec::new();
     for zone in pcb.zones() {
         let name = pcb.net(zone.net.unwrap()).unwrap().name.clone();
-        for shape in &fills.zones[&zone.uuid] {
+        for shape in &fills.zones[&zone.uuid].shapes {
             expected.push((true, closed(&shape.outer), Some(name.clone())));
             for hole in &shape.holes {
                 expected.push((false, closed(hole), None));
             }
         }
     }
-    let mut sorted = regions.clone();
-    sorted.sort();
-    expected.sort();
-    assert_eq!(sorted, expected);
+    assert_eq!(regions.len(), expected.len());
+    for (dark, ring, net) in &expected {
+        assert!(
+            regions
+                .iter()
+                .any(|r| (&r.0, &r.2) == (dark, net) && merged_from(&r.1, ring)),
+            "no region written for the fill ring {ring:?}"
+        );
+    }
     // The SIG fill sits in a hole of the GND fill, so it is drawn after that hole is
     // cleared.
     let sig_fill = regions
@@ -368,7 +489,7 @@ fn the_profile_follows_the_board_outline_arcs_included() {
                "board": {"width": "30mm", "height": "20mm", "corner_radius": "2mm"}}),
     );
     let files = plot(&engine);
-    let profile = read(&file(&files, "Demo.GKO").bytes);
+    let profile = read(&file(&files, "Demo.gm1").bytes);
     let outline = engine
         .project()
         .unwrap()
@@ -424,7 +545,7 @@ fn demo(dir: &TempDir) -> TestEngine {
         "test.footprint.add",
         json!({"at": pt(8.0, 10.0), "rotation": "45deg", "designator": "C1", "pads": [
             {"at": pt(-1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": sig,
-             "shape": "rounded_rect", "corner_radius": "0.1mm", "mask_margin": "0.05mm",
+             "shape": "rounded_rect", "corner_ratio": 50_000, "mask_margin": "0.05mm",
              "paste_margin": "-0.025mm"},
             {"at": pt(1.0, 0.0), "width": "1mm", "height": "0.6mm", "net": gnd}],
             "graphics": [
@@ -489,57 +610,178 @@ fn the_files_match_their_goldens_byte_for_byte() {
 }
 
 #[test]
-fn without_x2_attributes_the_files_are_plain_x1() {
-    let dir = TempDir::new("gerber-x1");
-    let engine = demo(&dir);
-    let project = engine.project().unwrap();
-    let pcb = project.pcb().unwrap();
-    let fills = reda_pcb::zone::current(pcb, None);
-    let files = gerber_files(&Plot {
-        project,
-        pcb,
-        fills: &fills,
-        gerber: reda_model::GerberSettings {
-            x2_attributes: false,
-            naming: reda_model::FileNaming::Protel,
-        },
-        fonts: &reda_command::Fonts::default(),
-        created: Timestamp(0),
-    });
-    let with = plot(&engine);
-    for (x1, x2) in files.iter().zip(&with) {
-        let text = String::from_utf8(x1.bytes.clone()).unwrap();
-        for attribute in ["%TF", "%TA", "%TO", "%TD"] {
-            assert!(!text.contains(attribute), "{} has {attribute}", x1.name);
-        }
-        let (a, b) = (read(&x1.bytes), read(&x2.bytes));
-        assert!(a.file.is_empty());
-        assert_eq!(a.objects.len(), b.objects.len(), "{}", x1.name);
-    }
-}
-
-#[test]
-fn the_zip_holds_every_file_stamped_with_the_clock() {
+fn the_zip_holds_every_file_dated_1980_01_01_so_it_is_the_same_on_every_run() {
     let dir = TempDir::new("gerber-zip");
     let engine = demo(&dir);
     let files = plot(&engine);
-    let created = Timestamp(1_767_225_600_000 + 3_723_000);
-    let bytes = reda_output::zip(&files, created);
-    assert_eq!(
-        bytes,
-        reda_output::zip(&files, created),
-        "the same every time"
-    );
+    let bytes = reda_output::zip(&files);
+    assert_eq!(bytes, reda_output::zip(&files), "the same every time");
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap();
     assert_eq!(archive.len(), files.len());
     for (i, f) in files.iter().enumerate() {
         let mut entry = archive.by_index(i).unwrap();
         assert_eq!(entry.name().unwrap(), f.name);
         let stamp = entry.last_modified().unwrap();
-        assert_eq!((stamp.year(), stamp.month(), stamp.day()), (2026, 1, 1));
-        assert_eq!((stamp.hour(), stamp.minute(), stamp.second()), (1, 2, 2));
+        assert_eq!((stamp.year(), stamp.month(), stamp.day()), (1980, 1, 1));
+        assert_eq!((stamp.hour(), stamp.minute(), stamp.second()), (0, 0, 0));
         let mut content = Vec::new();
         std::io::Read::read_to_end(&mut entry, &mut content).unwrap();
         assert_eq!(content, f.bytes);
     }
+}
+
+#[test]
+fn pcbway_mask_files_record_the_specified_fifty_micrometre_expansion() {
+    // PCBWay's seed equals Generic's, so start from JLCPCB's zero expansion: the golden then
+    // only matches if applying PCBWay really replaces the board's mask rule.
+    let dir = TempDir::new("gerber-pcbway-mask");
+    let mut engine = demo(&dir);
+    let apply = |engine: &mut TestEngine, name: &str| {
+        let preset =
+            engine.run_ok("fab_preset.add", json!({"name":name}))["result"]["uuid"].clone();
+        engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    };
+    let mask_files = |engine: &TestEngine| {
+        plot(engine)
+            .into_iter()
+            .filter(|f| f.name.ends_with(".gts") || f.name.ends_with(".gbs"))
+            .collect::<Vec<_>>()
+    };
+    apply(&mut engine, "JLCPCB");
+    let zero: Vec<_> = mask_files(&engine).into_iter().map(|f| f.bytes).collect();
+    apply(&mut engine, "PCBWay");
+    let files = mask_files(&engine);
+    assert!(
+        files.iter().zip(&zero).all(|(f, z)| f.bytes != *z),
+        "applying PCBWay after JLCPCB must change every mask file"
+    );
+    for file in files {
+        reda_testkit::assert_golden(
+            format!(
+                "{}/tests/golden/gerber-pcbway/{}",
+                env!("CARGO_MANIFEST_DIR"),
+                file.name
+            ),
+            &file.bytes,
+        );
+    }
+}
+
+#[test]
+fn knockout_text_plots_dark_polygons_with_glyph_holes_without_erasing_other_silk() {
+    let dir = TempDir::new("gerber-knockout");
+    let mut engine = board(&dir);
+    engine.run_ok("pcb.graphic.add_line",json!({"layer":"silkscreen_top","width":"0.1mm","from":{"x":0,"y":0},"to":{"x":"20mm","y":0}}));
+    engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"A","x":"5mm","y":"5mm","height":"2.1mm","thickness":"0.2mm","knockout":{"margin":"0.3mm"}}));
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.gto").bytes);
+    assert_eq!(layer.draws().count(), 1, "background silk is kept");
+    let regions: Vec<_> = layer.regions().collect();
+    // The box less the "A": the piece round it, and the island in its counter.
+    assert_eq!(regions.len(), 2);
+    assert!(
+        regions
+            .iter()
+            .all(|r| matches!(r, Object::Region { dark: true, .. })),
+        "knockout never emits clear regions"
+    );
+    let covered = |x: i64, y: i64| {
+        regions.iter().any(|r| {
+            let Object::Region { points, .. } = r else {
+                unreachable!()
+            };
+            gerber_reader::winding(points, (x, y)) != 0
+        })
+    };
+    assert!(covered(5_000_000, 4_800_000), "grown box is plotted");
+    assert!(!covered(5_100_000, 5_000_000), "stroke glyph is cut out");
+}
+
+#[test]
+fn gerber_text_frames_omit_whole_lines_instead_of_clipping_glyphs() {
+    let dir = TempDir::new("gerber-text-frame");
+    let mut engine = board(&dir);
+    engine.run_ok("pcb.text.add",json!({"layer":"silkscreen_top","text":"AAA","x":"5mm","y":"5mm","height":"2.1mm","frame":{"width":"3.6mm","height":"2.1mm"}}));
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.gto").bytes);
+    assert_eq!(
+        layer.draws().count(),
+        6,
+        "two complete A glyphs fit; the wrapped third line is absent"
+    );
+    assert!(
+        layer
+            .draws()
+            .all(|o| matches!(o,Object::Draw {from,to,..} if from.1>=5_000_000 && to.1>=5_000_000))
+    );
+}
+
+#[test]
+fn outputs_leave_shelved_zones_out() {
+    let dir = TempDir::new("gerber-shelved");
+    let mut engine = board(&dir);
+    let gnd = net(&mut engine, "GND");
+    let zone = engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_top", "net": gnd, "remove_unconnected": false,
+               "vertices": rect(1.0, 1.0, 29.0, 19.0)}),
+    )["result"]["uuid"]
+        .clone();
+    let regions = |engine: &TestEngine| {
+        let files = plot(engine);
+        read(&file(&files, "Demo.gtl").bytes).regions().count()
+    };
+    assert_eq!(regions(&engine), 1);
+    // Filled, then shelved: even the fill still stored for it is left out.
+    engine.run_ok("pcb.zone.fill", json!({}));
+    engine.run_ok("pcb.zone.shelve", json!({"zones": [zone]}));
+    assert_eq!(regions(&engine), 0);
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let stored = project.zone_fills(pcb.uuid).unwrap();
+    assert!(reda_pcb::zone::layer_fills(pcb, stored).is_empty());
+    engine.run_ok("pcb.zone.restore", json!({}));
+    assert_eq!(regions(&engine), 1);
+}
+
+#[test]
+fn keepouts_and_zone_cutouts_are_never_plotted() {
+    let dir = TempDir::new("gerber-keepouts");
+    let mut engine = board(&dir);
+    let gnd = net(&mut engine, "GND");
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": gnd, "width": "0.25mm",
+               "points": [pt(2.0, 2.0), pt(10.0, 2.0)]}),
+    );
+    let before: Vec<(String, Vec<u8>)> = plot(&engine)
+        .into_iter()
+        .map(|f| (f.name, f.bytes))
+        .collect();
+    // Keepouts that restrict nothing here, of both shapes, and a Zone Cutout with no Zone.
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"vertices": rect(15.0, 5.0, 20.0, 10.0), "restrict": ["vias", "footprints"]}),
+    );
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"layer": "copper_bottom", "shape": "line", "width": "1mm",
+               "vertices": [pt(5.0, 15.0), pt(25.0, 15.0)], "restrict": ["tracks"]}),
+    );
+    engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer": "copper_top", "vertices": rect(22.0, 5.0, 25.0, 10.0)}),
+    );
+    let after: Vec<(String, Vec<u8>)> = plot(&engine)
+        .into_iter()
+        .map(|f| (f.name, f.bytes))
+        .collect();
+    assert_eq!(names_of(&after), names_of(&before));
+    for ((name, a), (_, b)) in after.iter().zip(&before) {
+        assert!(a == b, "{name} changed");
+    }
+}
+
+fn names_of(files: &[(String, Vec<u8>)]) -> Vec<&str> {
+    files.iter().map(|(n, _)| n.as_str()).collect()
 }

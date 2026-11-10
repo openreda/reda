@@ -11,6 +11,102 @@
 #
 # The user's keymap.toml uses this format too, plus [[unbind]] entries, and applies last.
 
+# Held modifiers of mouse gestures, which aren't chords: Net highlight on a board (Mod+click)
+# and on a sheet (Alt+click; rebind it where the window manager takes Alt+click), constrain
+# a drag, detach (Move rather than Drag) and suspend object snap in flight.
+
+[modifiers]
+net_highlight_board = "Mod"
+net_highlight_sheet = "Alt"
+constrain = "Alt"
+detach = "Mod"
+snap_suspend = "Mod"
+
+# Snapping: Mod+E opens the active Document's snap palette, also in flight.
+
+[[bind]]
+key = "Mod+E"
+command = "view.snap.palette"
+params = { document = "$active_document" }
+
+# Highlighting: Shift+C clears highlight, dim, mask and measurements, never the selection.
+
+[[bind]]
+key = "Shift+C"
+command = "view.highlight.clear"
+
+# Shift+F then a click opens Select Similar on what is clicked.
+
+[[bind]]
+key = "Shift+F"
+command = "selection.similar.pick"
+
+# `[` and `]` make dimming and masking weaker or stronger, for this session only.
+
+[[bind]]
+key = "["
+command = "view.highlight.strength:weaker"
+
+[[bind]]
+key = "]"
+command = "view.highlight.strength:stronger"
+
+# UI scale: Mod+= and Mod+- step it, Mod+0 returns to 100 %.
+
+[[bind]]
+key = "Mod+="
+command = "view.ui_scale.step:up"
+
+[[bind]]
+key = "Mod+-"
+command = "view.ui_scale.step:down"
+
+[[bind]]
+key = "Mod+0"
+command = "view.ui_scale.set:100"
+
+# The HUD: Shift+H toggles it, Shift+D its delta line, and Insert resets the delta (the
+# Wire Tool's Insert still adds a vertex: the Tool context wins).
+
+[[bind]]
+key = "Shift+H"
+command = "view.hud.toggle"
+
+[[bind]]
+key = "Shift+D"
+command = "view.hud.delta"
+
+[[bind]]
+key = "Insert"
+command = "view.hud.reset_delta"
+params = { document = "$active_document" }
+
+# Keys in Tool: Shift+F1 toggles the card of the active Tool's keys.
+
+[[bind]]
+key = "Shift+F1"
+command = "view.keys_card.toggle"
+
+# Checks: F4 / Shift+F4 go to the next and previous Violation in Messages.
+
+[[bind]]
+key = "F4"
+command = "view.messages.step:next"
+
+[[bind]]
+key = "Shift+F4"
+command = "view.messages.step:previous"
+
+# F3 and Shift+F3 step through the Find Panel's matches.
+
+[[bind]]
+key = "F3"
+command = "schematic.find.step:next"
+
+[[bind]]
+key = "Shift+F3"
+command = "schematic.find.step:previous"
+
 # File and edit: OS-standard shortcuts.
 
 [[bind]]
@@ -44,7 +140,11 @@ key = "Mod+Y"
 command = "edit.redo"
 params = { document = "$undo_stack" }
 
-# The Command Palette.
+# The Palette: empty, or on Commands.
+
+[[bind]]
+key = "Mod+P"
+command = "app.dialog.open:palette"
 
 [[bind]]
 key = "Mod+Shift+P"
@@ -90,7 +190,8 @@ command = "layout.tab.switch:next"
 key = "Ctrl+Shift+Tab"
 command = "layout.tab.switch:previous"
 
-# View: F zooms to fit on a canvas, and Home to the selection.
+# View: F zooms to fit on a canvas, Shift+Home to the selection, Home re-centres on the
+# cursor and Alt+← goes back to the previous view.
 
 [[bind]]
 context = "schematic"
@@ -100,8 +201,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "schematic"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -112,8 +225,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "pcb"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -124,8 +249,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "symbol"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -136,8 +273,20 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "footprint"
-key = "Home"
+key = "Shift+Home"
 command = "view.zoom_selection"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Home"
+command = "view.recenter"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Alt+Left"
+command = "view.previous"
 params = { document = "$active_document" }
 
 # The schematic canvas. "$selection" is what is selected on the sheet, "$selectable"
@@ -148,30 +297,30 @@ params = { document = "$active_document" }
 context = "schematic"
 key = "Del"
 command = "schematic.delete"
-params = { objects = "$selection" }
+params = { objects = "$selection", segments = "$segments" }
 
 [[bind]]
 context = "schematic"
 key = "Mod+X"
-command = "schematic.cut"
-params = { objects = "$selection" }
+command = "tool.copy"
+params = { objects = "$selection", cut = true }
 
 [[bind]]
 context = "schematic"
 key = "Mod+C"
-command = "schematic.copy"
+command = "tool.copy"
 params = { objects = "$selection" }
 
 [[bind]]
 context = "schematic"
 key = "Mod+V"
-command = "schematic.paste"
-params = { document = "$active_document", clipboard = "$clipboard", at = "$cursor" }
+command = "tool.paste"
+params = { document = "$active_document", clipboard = "$clipboard" }
 
 [[bind]]
 context = "schematic"
 key = "Mod+D"
-command = "schematic.duplicate"
+command = "tool.duplicate"
 params = { objects = "$selection" }
 
 [[bind]]
@@ -184,6 +333,24 @@ params = { objects = "$selectable" }
 context = "schematic"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "schematic"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 # Move (detach) and Drag pick the selection up; Esc puts back what is in flight and returns
@@ -204,9 +371,12 @@ context = "schematic"
 key = "Esc"
 command = "tool.activate:select"
 
-# The wiring Tools. A Wire run fixes a corner per click and ends on a Pin or Wire; `/`
-# turns its corner the other way and Backspace takes its last segment off. The other Tools
-# place one object per click until Esc.
+# The wiring Tools. A Wire run fixes a corner per click (or Enter) and ends on a Pin or
+# Wire; Space or `/` turns its corner the other way, Shift+Space cycles the Wire mode
+# (90°, 45°, Any Angle, Auto Wire), Insert adds a vertex, Backspace or Del takes its last
+# segment off and Tab opens the Auto Wire options. Esc ends a run and stays in the Tool;
+# another Tool started during a run returns to it on Esc. The other Tools place one object
+# per click until Esc.
 
 [[bind]]
 context = "schematic"
@@ -243,7 +413,137 @@ context = "tool:wire"
 key = "Backspace"
 command = "tool.undo_segment"
 
-# Find (Mod+F) searches every sheet by Designator, value or Net name.
+[[bind]]
+context = "tool:wire"
+key = "Space"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "tool:wire"
+key = "Shift+Space"
+command = "tool.cycle_wire_mode"
+
+[[bind]]
+context = "tool:wire"
+key = "Del"
+command = "tool.undo_segment"
+
+[[bind]]
+context = "tool:wire"
+key = "Insert"
+command = "tool.insert_vertex"
+
+[[bind]]
+context = "tool:wire"
+key = "Enter"
+command = "tool.finish"
+
+[[bind]]
+context = "tool:wire"
+key = "Tab"
+command = "tool.edit_properties"
+
+# Editing a placed Wire: Insert while holding a segment's handle adds a vertex (Del while
+# holding a vertex removes it). The Break Wire Tool cuts a gap per click; Space cycles its
+# Cutting Length and Tab opens its options, both written back to the Preferences.
+
+[[bind]]
+context = "schematic"
+key = "Insert"
+command = "tool.insert_vertex"
+
+[[bind]]
+context = "tool:break_wire"
+key = "Space"
+command = "tool.cycle_cutting_length"
+
+[[bind]]
+context = "tool:break_wire"
+key = "Tab"
+command = "tool.edit_properties"
+
+# During a drag, Mod+Space turns the rubber-banded Wires' corners the other way (Alt held
+# keeps the drag horizontal or vertical). It is written Ctrl+Space, which is Mod+Space off
+# macOS and Ctrl+Space on macOS, where Cmd+Space opens Spotlight. Mod+arrows nudge the selection one snap grid,
+# Shift+Mod+arrows ten, as one drag each.
+
+[[bind]]
+context = "schematic"
+key = "Ctrl+Space"
+command = "tool.cycle_corner"
+
+[[bind]]
+context = "schematic"
+key = "Mod+Left"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "left" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Left"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "left", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Right"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "right" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Right"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "right", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Up"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "up" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Up"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "up", steps = 10 }
+
+[[bind]]
+context = "schematic"
+key = "Mod+Down"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "down" }
+
+[[bind]]
+context = "schematic"
+key = "Shift+Mod+Down"
+command = "schematic.nudge"
+params = { objects = "$selection", direction = "down", steps = 10 }
+
+# F2 edits the selected name, Designator, value, field or text in place. Tab while
+# placing a Net Label, Port or Power Port pauses the Tool to edit the next name.
+
+[[bind]]
+context = "schematic"
+key = "F2"
+command = "schematic.edit_in_place"
+
+[[bind]]
+context = "tool:net_label"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:port"
+key = "Tab"
+command = "tool.edit_properties"
+
+[[bind]]
+context = "tool:power_port"
+key = "Tab"
+command = "tool.edit_properties"
+
+# Find (Mod+F) shows the Find Panel with its text field focused.
 
 [[bind]]
 context = "schematic"
@@ -295,12 +595,12 @@ command = "tool.rotate"
 [[bind]]
 context = "schematic"
 key = "X"
-command = "tool.mirror:x"
+command = "tool.mirror_x"
 
 [[bind]]
 context = "schematic"
 key = "Y"
-command = "tool.mirror:y"
+command = "tool.mirror_y"
 
 # The board canvas: Layers, the view, and the select-and-place Tool. Space and L turn or
 # flip what is being moved (else the selection); Esc drops it and returns to Select.
@@ -327,6 +627,11 @@ command = "pcb.view.inactive_layers"
 
 [[bind]]
 context = "pcb"
+key = "F5"
+command = "pcb.view.net_colors"
+
+[[bind]]
+context = "pcb"
 key = "Ctrl+Q"
 command = "view.units.toggle"
 
@@ -338,28 +643,82 @@ params = { document = "$active_document" }
 
 [[bind]]
 context = "pcb"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Alt+G"
+command = "view.grid.show"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
 key = "Space"
 command = "tool.rotate"
 
 [[bind]]
 context = "pcb"
 key = "L"
-command = "tool.flip"
+command = "tool.flip_side"
 
 [[bind]]
 context = "pcb"
 key = "Esc"
 command = "tool.activate:select"
 
+# Moving Footprints: M picks one up with a click (on empty space it opens Choose
+# Component); while only Footprints are selected or moving, R steps the obstacle mode and N
+# the Ratsnest shown in a move, and during Reposition Selected Tab skips one (the Shell
+# turns Tab's `pcb.selection.widen` into `pcb.place.skip` while the queue runs).
+
+[[bind]]
+context = "pcb"
+key = "M"
+command = "tool.activate:move"
+
+[[bind]]
+context = "pcb"
+key = "R"
+command = "pcb.place.mode:obstacle_mode"
+
+[[bind]]
+context = "pcb"
+key = "N"
+command = "pcb.place.mode:ratsnest_mode"
+
+[[bind]]
+context = "pcb"
+key = "Tab"
+command = "pcb.selection.widen"
+
 # Routing: T routes Tracks and V places stitching Vias. While routing, `/` cycles the
-# corner mode, Backspace takes back the last corner, V drops a Via and switches Layer,
-# W / Shift+W step the width and Enter finishes. Del deletes the selected Tracks and Vias
+# corner mode and Space flips the posture, Backspace takes back the last corner, V drops a
+# Via and switches Layer, E drops a Via and ends the route, Enter finishes and Esc (or a
+# right-click) ends the route keeping what is placed (a second Esc returns to Select).
+# 1 toggles look-ahead, 3 steps the width mode, Shift+W and Shift+V open the width and
+# Via size choosers, Shift+R the obstacle mode, Shift+A auto-terminate, Shift+L loop
+# removal and C the clearance display. Del deletes the selected Tracks and Vias
 # (Shift+Del whole Tracks) and U selects the copper connected to the selection.
 
 [[bind]]
 context = "pcb"
 key = "T"
 command = "tool.activate:route"
+
+# Measuring: Mod+M measures distances, two clicks each, until Esc or a right-click.
+
+[[bind]]
+context = "pcb"
+key = "Mod+M"
+command = "tool.activate:measure"
 
 [[bind]]
 context = "pcb"
@@ -388,13 +747,58 @@ command = "pcb.route.finish"
 
 [[bind]]
 context = "tool:route"
-key = "W"
-command = "pcb.route.width:next"
+key = "Shift+W"
+command = "pcb.route.chooser:width"
 
 [[bind]]
 context = "tool:route"
-key = "Shift+W"
-command = "pcb.route.width:previous"
+key = "Shift+V"
+command = "pcb.route.chooser:via"
+
+[[bind]]
+context = "tool:route"
+key = "E"
+command = "pcb.route.via_end"
+
+[[bind]]
+context = "tool:route"
+key = "Esc"
+command = "pcb.route.end"
+
+[[bind]]
+context = "tool:route"
+key = "Space"
+command = "pcb.route.mode:posture"
+
+[[bind]]
+context = "tool:route"
+key = "1"
+command = "pcb.route.mode:lookahead"
+
+[[bind]]
+context = "tool:route"
+key = "3"
+command = "pcb.route.mode:width_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+R"
+command = "pcb.route.mode:obstacle_mode"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+A"
+command = "pcb.route.mode:auto_terminate"
+
+[[bind]]
+context = "tool:route"
+key = "Shift+L"
+command = "pcb.route.mode:loop_removal"
+
+[[bind]]
+context = "tool:route"
+key = "C"
+command = "pcb.route.mode:clearance_display"
 
 [[bind]]
 context = "pcb"
@@ -413,6 +817,59 @@ context = "pcb"
 key = "U"
 command = "pcb.selection.connected"
 
+# Selecting and clearing copper with no Tool in flight: Tab widens a copper selection
+# (contiguous Track on its Layer, connected copper, the whole Net, back to the start),
+# Backspace unwinds one selected end Track or Via (deletes it and selects its neighbour)
+# and Mod+Del unwinds both ways.
+
+[[bind]]
+context = "pcb"
+key = "Backspace"
+command = "pcb.copper.unwind"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+Del"
+command = "pcb.copper.unwind"
+params = { objects = "$selection", both = true }
+
+# Dragging copper (the `drag` context, while a Track, Track end, Via or Free Pad drag is
+# in flight): C toggles Include Miters, R Merge Collinear, Space Deform / Scale for a
+# corner, and Shift+R steps the obstacle mode shared with routing.
+
+[[bind]]
+context = "tool:drag"
+key = "C"
+command = "pcb.drag.mode:miter"
+
+[[bind]]
+context = "tool:drag"
+key = "R"
+command = "pcb.drag.mode:merge_collinear"
+
+[[bind]]
+context = "tool:drag"
+key = "Space"
+command = "pcb.drag.mode:corner"
+
+[[bind]]
+context = "tool:drag"
+key = "Shift+R"
+command = "pcb.drag.mode:obstacle_mode"
+
+[[bind]]
+context = "pcb"
+key = "Mod+C"
+command = "pcb.copy"
+params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+V"
+command = "pcb.paste"
+params = { clipboard = "$clipboard" }
+
 # Placing a Part from the Library panel: Space, X, Y, L and Esc come from the sheet and
 # board bindings above (they turn the Part in flight first); Tab opens Properties to edit
 # it, and later placements keep the edits.
@@ -420,7 +877,7 @@ command = "pcb.selection.connected"
 [[bind]]
 context = "tool:place"
 key = "Tab"
-command = "panel.show:properties"
+command = "tool.edit_properties"
 
 # The Footprint editor. "$selection" is what is selected on the Footprint: Pads, graphics
 # and the Designator and value text (Del hides a text rather than removing it). Tools: P
@@ -449,6 +906,24 @@ params = { objects = "$selectable" }
 context = "footprint"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "footprint"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "footprint"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -509,6 +984,24 @@ params = { objects = "$selectable" }
 context = "symbol"
 key = "G"
 command = "view.grid.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Shift+G"
+command = "view.grid.cycle"
+params = { document = "$active_document", back = true }
+
+[[bind]]
+context = "symbol"
+key = "Mod+Shift+G"
+command = "view.grid.custom"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "symbol"
+key = "Alt+G"
+command = "view.grid.show"
 params = { document = "$active_document" }
 
 [[bind]]
@@ -631,3 +1124,39 @@ context = "part"
 key = "Mod+S"
 command = "library.element.save"
 params = { element = "$active_document" }
+
+# Cycle the idle canvas stack.
+[[bind]]
+key = "Shift+Tab"
+command = "selection.cycle"
+params = { document = "$active_document" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+A"
+command = "selection.set"
+params = { objects = "$selectable" }
+
+# Cross-select: Mod+Shift+X switches it, Mod+Shift+R its Reposition Preference.
+
+[[bind]]
+key = "Mod+Shift+X"
+command = "view.cross_select.toggle"
+
+[[bind]]
+key = "Mod+Shift+R"
+command = "view.cross_select.reposition.toggle"
+
+# Cross-probe: Mod+Shift+C finds the selection on the other side.
+
+[[bind]]
+key = "Mod+Shift+C"
+context = "schematic"
+command = "view.cross_probe"
+params = { objects = "$selection" }
+
+[[bind]]
+key = "Mod+Shift+C"
+context = "pcb"
+command = "view.cross_probe"
+params = { objects = "$selection" }

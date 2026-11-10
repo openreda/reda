@@ -1,19 +1,23 @@
 {
   "format": 1,
-  "footprint": {"uuid":"fc63d2e4-35d0-43e8-87a8-bd01d8595462","name":"DIO_Axial_DO-41_P10.16mm","description":"Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart. Per onsemi DO-41 case 59-10"},
-  "text": {"designator":{"at":{"x":0,"y":2400000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"fc63d2e4-35d0-43e8-87a8-bd01d8595462","name":"DIO_Axial_DO-41_P10.16mm","description":"Diode, DO-41 axial, 5.2 × 2.7 mm body, leads 10.16 mm apart. Per onsemi DO-41 case 59-10","height":2700000},
   "pads": [
-    {"uuid":"3a67c1de-871c-4e55-a73a-93d33be4bb7f","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}},
-    {"uuid":"aa152561-ec1e-4bcf-ad03-ee3be9a058cd","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}}
+    {"uuid":"3a67c1de-871c-4e55-a73a-93d33be4bb7f","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}},
+    {"uuid":"a3b6311c-70c8-403e-af1d-d6fa4f7a48b8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":2000000,"height":2000000,"hole":{"width":1100000,"height":1100000}}
   ],
   "graphics": [
-    {"uuid":"482d5d5d-3dce-4914-98f4-87c16c59dd00","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2660000,"y":0},"end":{"x":-3820000,"y":0}},"width":120000},
-    {"uuid":"75188263-d830-4dc0-b92c-1c4b6d1e7e10","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1900000,"y":-1410000},"end":{"x":-1900000,"y":1410000}},"width":120000},
-    {"uuid":"75edc450-9e58-4279-801f-b2a4f2250add","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6330000,"y":-1600000},"end":{"x":6330000,"y":1600000}},"width":50000},
-    {"uuid":"934c421b-3038-4b50-b537-662fa7e4be5b","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-2660000,"y":-1410000},"end":{"x":2660000,"y":1410000}},"width":120000},
-    {"uuid":"a3b6311c-70c8-403e-af1d-d6fa4f7a48b8","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2600000,"y":-1350000},"end":{"x":2600000,"y":1350000}},"width":100000},
-    {"uuid":"c2ddc0f2-e9b2-456f-9e4f-ddfcbebd6a8e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1750000,"y":-1410000},"end":{"x":-1750000,"y":1410000}},"width":120000},
-    {"uuid":"c4ee5277-5a12-4089-b8c1-5b86e5c4dea2","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1600000,"y":-1410000},"end":{"x":-1600000,"y":1410000}},"width":120000},
-    {"uuid":"ed13a1fc-0cbb-4488-b7fc-8dc59c208ab8","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2660000,"y":0},"end":{"x":3820000,"y":0}},"width":120000}
+    {"uuid":"482d5d5d-3dce-4914-98f4-87c16c59dd00","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-2660000,"y":-1410000},"end":{"x":2660000,"y":1410000}},"width":120000},
+    {"uuid":"75188263-d830-4dc0-b92c-1c4b6d1e7e10","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":2660000,"y":0},"end":{"x":3820000,"y":0}},"width":120000},
+    {"uuid":"75edc450-9e58-4279-801f-b2a4f2250add","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1600000,"y":-1410000},"end":{"x":-1600000,"y":1410000}},"width":120000},
+    {"uuid":"934c421b-3038-4b50-b537-662fa7e4be5b","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2600000,"y":-1350000},"end":{"x":2600000,"y":1350000}},"width":100000},
+    {"uuid":"c2ddc0f2-e9b2-456f-9e4f-ddfcbebd6a8e","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1900000,"y":-1410000},"end":{"x":-1900000,"y":1410000}},"width":120000},
+    {"uuid":"c4ee5277-5a12-4089-b8c1-5b86e5c4dea2","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-1750000,"y":-1410000},"end":{"x":-1750000,"y":1410000}},"width":120000},
+    {"uuid":"eca3c488-8d31-4073-9bf6-da13299ff017","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-6330000,"y":-1600000},"end":{"x":6330000,"y":1600000}},"width":50000},
+    {"uuid":"ed13a1fc-0cbb-4488-b7fc-8dc59c208ab8","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2660000,"y":0},"end":{"x":-3820000,"y":0}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"886f997e-f29b-453b-b3a2-4ebfb085f8ed","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"aa152561-ec1e-4bcf-ad03-ee3be9a058cd","field":"Value","at":{"x":0,"y":-2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"f50bcfb6-b963-4f3c-a228-d854e420e4b3","field":"Designator","at":{"x":0,"y":2400000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
   ]
 }

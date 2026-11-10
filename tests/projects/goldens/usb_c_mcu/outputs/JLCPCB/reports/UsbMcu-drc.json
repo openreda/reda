@@ -1,0 +1,18 @@
+{
+  "generated": 1767225600000,
+  "kind": "drc",
+  "locally_edited": [
+    {
+      "designator": "J1",
+      "instance": "00000000-0000-4000-8000-0000000000d0"
+    }
+  ],
+  "partial": false,
+  "project": "UsbMcu",
+  "refilled": false,
+  "stale_waivers": [],
+  "summary": [],
+  "unmatched_waivers": [],
+  "violations": [],
+  "waived": 0
+}

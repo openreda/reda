@@ -1,20 +1,21 @@
-//! The board-edge check: copper closer to the Board Outline or a Board Cutout than the
-//! edge clearance, or outside the board altogether.
+//! The board-edge check: copper closer to the Board Outline, a Board Cutout or the edge of
+//! a non-plated hole than the edge clearance, or outside the board altogether.
 
 use reda_model::geom::{Millideg, Nm, Vertex};
-use reda_model::{DrcCheck, Uuid};
+use reda_model::{DrcCheck, Limit, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report, item_objects};
 use crate::copper::Item;
 use crate::copper::shape::{Core, P, Prim, Shape, arc_points};
+use crate::rules::{net_rules, resolve};
 
 /// One edge of the board: the outline or a cutout, as a closed chain of corners (arcs as
 /// chords within 1 µm).
-struct Edge {
-    uuid: Uuid,
+pub(crate) struct Edge {
+    pub uuid: Uuid,
     corners: Vec<P>,
     /// Whether copper belongs inside it (the outline) or outside it (a cutout).
-    keeps_inside: bool,
+    pub keeps_inside: bool,
 }
 
 impl Edge {
@@ -48,8 +49,27 @@ impl Edge {
         })
     }
 
+    /// The Board Outline and every Board Cutout with at least three corners.
+    pub fn all(pcb: &reda_model::PcbDocument) -> Vec<Edge> {
+        (pcb.outline().map(|o| Edge::new(o.uuid, &o.vertices, true)))
+            .into_iter()
+            .chain(pcb.cutouts().map(|c| Edge::new(c.uuid, &c.vertices, false)))
+            .filter(|e| e.corners.len() >= 3)
+            .collect()
+    }
+
+    /// The gap between `shape` and the nearest segment of this edge, and the closest
+    /// points on each.
+    pub fn gap(&self, shape: &Shape) -> (f64, [reda_model::geom::Point; 2]) {
+        let nearest = self
+            .segments()
+            .min_by(|a, b| shape.distance(a).total_cmp(&shape.distance(b)))
+            .expect("edge has segments");
+        (shape.distance(&nearest), shape.closest_points(&nearest))
+    }
+
     /// Whether `p` is inside the closed chain (even-odd).
-    fn contains(&self, p: P) -> bool {
+    pub fn contains(&self, p: P) -> bool {
         let n = self.corners.len();
         let mut inside = false;
         for i in 0..n {
@@ -70,29 +90,56 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         return;
     }
     let pcb = board.pcb;
-    let required = pcb.setup().rules.edge_clearance;
-    let edges: Vec<Edge> = (pcb.outline().map(|o| Edge::new(o.uuid, &o.vertices, true)))
+    let edges = Edge::all(pcb);
+    // Non-plated holes: copper keeps the edge clearance from their edges too.
+    let bare: Vec<_> = super::holes::holes(board)
         .into_iter()
-        .chain(pcb.cutouts().map(|c| Edge::new(c.uuid, &c.vertices, false)))
-        .filter(|e| e.corners.len() >= 3)
+        .filter(|h| h.ring.is_none())
         .collect();
-    if edges.is_empty() {
-        return;
-    }
+    let rule = |item: Item| {
+        resolve(
+            pcb,
+            board.copper.net(item),
+            RuleKind::EdgeClearance,
+            RuleField::Value,
+        )
+        .expect("edge limit applies")
+        .rule
+    };
     for item in board.copper.items() {
         // A current Zone fill keeps its edge clearance by construction.
         if matches!(item, Item::Zone { .. }) {
             continue;
         }
+        let Some(required) = net_rules(pcb, board.copper.net(item)).edge_clearance else {
+            continue;
+        };
         let pieces = board.copper.item_pieces(item);
         let Some((_, shape)) = pieces.first() else {
             continue;
         };
+        for hole in &bare {
+            if hole.objects == item_objects(item) {
+                continue;
+            }
+            let gap = shape.distance(&hole.shape);
+            if gap >= required.0 as f64 {
+                continue;
+            }
+            let actual = Nm(gap.max(0.0).floor() as i64);
+            let [a, b] = shape.closest_points(&hole.shape);
+            report.add(DrcCheck::EdgeClearance, |v| {
+                v.length(actual, required, Limit::Min, rule(item))
+                    .distance_points(a, b)
+                    .on_layers(pieces.iter().map(|(l, _)| *l))
+                    .arg("required", required)
+                    .arg("actual", actual)
+                    .objects(item_objects(item))
+                    .objects(hole.objects.iter().copied())
+            });
+        }
         for edge in &edges {
-            let gap = edge
-                .segments()
-                .map(|s| shape.distance(&s))
-                .fold(f64::INFINITY, f64::min);
+            let (gap, [a, b]) = edge.gap(shape);
             let anchor = match &shape.prims[0].core {
                 Core::Seg(a, _) => *a,
                 Core::Poly(points) => points[0],
@@ -106,7 +153,10 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
                 continue;
             };
             report.add(DrcCheck::EdgeClearance, |v| {
-                v.arg("required", required)
+                v.length(actual, required, Limit::Min, rule(item))
+                    .distance_points(a, b)
+                    .on_layers(pieces.iter().map(|(l, _)| *l))
+                    .arg("required", required)
                     .arg("actual", actual)
                     .objects(item_objects(item))
                     .object(edge.uuid)

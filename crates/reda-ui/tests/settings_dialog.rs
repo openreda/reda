@@ -4,7 +4,6 @@
 
 use std::path::Path;
 
-use egui::Key;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT, Queryable};
@@ -67,7 +66,7 @@ fn project_settings_opens_from_the_projects_panel_with_its_page_tree() {
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
     h.get_by_label("Project Settings");
-    for page in ["Properties", "ERC", "Fab Presets", "Libraries"] {
+    for page in ["Properties", "ERC", "Schematic", "Fab Presets", "Libraries"] {
         h.get_by_role_and_label(Role::TreeItem, page);
     }
     // Nothing changed yet: OK closes, Apply has nothing to do.
@@ -84,13 +83,15 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
     let mut h = harness(home.path(), work.path(), "Dlg");
     open_settings(&mut h, "Dlg");
     type_into(&mut h, "Title", "Motor driver");
-    type_into(&mut h, "Board thickness (mm)", "1.6x");
-    h.get_by_label("Not a length. Give mm, such as 1.6, or a unit, such as 63mil.");
-    h.get_by_role_and_label(Role::TreeItem, "Properties (has invalid values)");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries").click();
+    h.run();
+    h.get_by_label("Add Path").click();
+    h.run();
+    h.get_by_label("Give a folder.");
+    h.get_by_role_and_label(Role::TreeItem, "Libraries (has invalid values)");
     assert!(disabled(&h, "OK") && disabled(&h, "Apply"));
 
-    h.key_press(Key::Backspace);
-    h.run();
+    type_into(&mut h, "Library folder 1", "parts");
     assert!(!disabled(&h, "OK") && !disabled(&h, "Apply"));
     let journal = h.state().shell().engine().journal().len();
     h.get_by_label("OK").click();
@@ -107,10 +108,7 @@ fn an_invalid_value_is_flagged_and_disables_ok_and_apply_until_fixed() {
         .props()
         .clone();
     assert_eq!(props.properties.title, "Motor driver");
-    assert_eq!(
-        props.properties.board_thickness.map(|t| t.0),
-        Some(1_600_000)
-    );
+    assert_eq!(props.libraries, ["parts"]);
 }
 
 #[test]
@@ -120,14 +118,168 @@ fn apply_on_the_erc_page_commits_and_keeps_the_dialog_open() {
     open_settings(&mut h, "Dlg");
     h.get_by_role_and_label(Role::TreeItem, "ERC").click();
     h.run();
-    h.get_by_label("Pin-type matrix (fixed): E is a Pin Conflict, W is Mixed Pin Types.");
+    h.get_by_label("Pin Matrix");
     h.get_by_label("Single-Pin Net: Off").click();
     h.run();
     h.get_by_label("Apply").click();
     h.run();
     assert_eq!(last_journal_id(&h), "batch");
-    let erc = h.state().shell().engine().project().unwrap().props().erc;
-    assert_eq!(erc.get(ErcCheck::SinglePinNet), Severity::Off);
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    assert_eq!(
+        erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off)
+    );
     h.get_by_label("Project Settings");
     assert!(disabled(&h, "Apply"), "nothing left to apply");
+}
+
+/// How far `label`'s text starts from the left edge of its page tree row, in points.
+fn tree_label_indent(h: &Harness<'static, App>, label: &str) -> f32 {
+    let row = h.get_by_role_and_label(Role::TreeItem, label).rect();
+    let mut found = None;
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text)
+                    if text.galley.text() == label && row.contains(text.pos) =>
+                {
+                    found = Some(text.pos.x - row.left());
+                }
+                _ => {}
+            }
+        }
+    }
+    found.unwrap_or_else(|| panic!("no text {label:?} in its row {row:?}"))
+}
+#[test]
+fn page_tree_labels_are_left_aligned() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    open_settings(&mut h, "Dlg");
+    for page in ["Properties", "ERC", "Schematic", "Fab Presets", "Libraries"] {
+        let indent = tree_label_indent(&h, page);
+        assert!(indent < 10.0, "{page:?} starts {indent} pt into its row");
+    }
+}
+
+#[test]
+fn the_schematic_page_sets_options_and_resets_the_saved_reannotate_settings() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "schematic.reannotate",
+            serde_json::json!({"order": "across_then_up"}),
+        )
+        .unwrap();
+    h.run();
+    // The run dirtied the Project.
+    open_settings(&mut h, "Dlg *");
+    h.get_by_role_and_label(Role::TreeItem, "Schematic").click();
+    h.run();
+    for group in [
+        "Nets",
+        "Cross-references",
+        "Assembly",
+        "Re-annotate",
+        "Update from Library",
+    ] {
+        h.get_by_label(group);
+    }
+    h.get_by_label("Order: Across, then up");
+    h.get_by_label("Nothing saved yet: the defaults apply.");
+    h.get_by_label("Automatic Cross References").click();
+    h.run();
+    h.get_by_label("Not Fitted display: Mesh").click();
+    h.run();
+    h.get_by_label("Reset Re-annotate Settings").click();
+    h.run();
+    h.get_by_label("Cleared on Apply.");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(last_journal_id(&h), "batch");
+    let props = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .clone();
+    assert!(props.schematic.cross_references);
+    assert_eq!(
+        props.schematic.not_fitted_display,
+        reda_ui::engine::model::NotFittedDisplay::Mesh
+    );
+    assert!(props.reannotate.is_none());
+    let none = h
+        .query_all_by_label("Nothing saved yet: the defaults apply.")
+        .count();
+    assert_eq!(none, 2, "both summaries are empty now");
+}
+
+#[test]
+fn the_erc_page_edits_the_pin_matrix_and_sets_picked_checks_together() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dlg");
+    open_settings(&mut h, "Dlg");
+    h.get_by_role_and_label(Role::TreeItem, "ERC").click();
+    h.run();
+    for group in ["Pins", "Nets", "Ports", "Components", "Drawing"] {
+        h.get_by_label(group);
+    }
+    // A click cycles a cell: Error goes to Off.
+    h.get_by_label("Output Pin connected to Output Pin: Error")
+        .click();
+    h.run();
+    h.get_by_label("Output Pin connected to Output Pin: Off");
+    // The right-click menu sets every cell.
+    h.get_by_label("Input Pin unconnected: Error")
+        .click_secondary();
+    h.run();
+    h.get_by_label("All Warning").click();
+    h.run();
+    h.get_by_label("Input Pin unconnected: Warning");
+    h.get_by_label("Output Pin connected to Output Pin: Warning");
+
+    // Pick two checks (the second with Mod held) and set both to Off.
+    h.get_by_role_and_label(Role::Row, "Undriven Power").click();
+    h.run();
+    h.get_by_role_and_label(Role::Row, "No Driving Source")
+        .click_modifiers(egui::Modifiers::COMMAND);
+    h.run();
+    h.get_by_label("Set picked checks to Off").click();
+    h.run();
+    h.get_by_label("OK").click();
+    h.run();
+    let erc = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .props()
+        .erc
+        .clone();
+    assert_eq!(
+        erc.severities.get(ErcCheck::UndrivenPower),
+        Some(Severity::Off)
+    );
+    assert_eq!(
+        erc.severities.get(ErcCheck::NoDrivingSource),
+        Some(Severity::Off)
+    );
+    let input = reda_ui::engine::model::Cell::unconnected(reda_ui::engine::model::PinType::Input);
+    assert_eq!(erc.pin_matrix_overrides.get(input), Severity::Warning);
 }

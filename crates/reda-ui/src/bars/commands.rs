@@ -9,7 +9,8 @@ use std::sync::{Arc, Mutex};
 
 use reda_engine::Engine;
 use reda_engine::command::{
-    Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, NoParams, Preset,
+    Registry, Unavailable,
 };
 use reda_engine::model::Uuid;
 use reda_engine::preferences::{self, Theme};
@@ -26,7 +27,9 @@ pub enum Request {
     NewProject,
     /// Show the OS dialog to pick a Project to open.
     OpenProject,
-    /// Show the Command Palette.
+    /// Show the Palette, empty.
+    Palette,
+    /// Show the Palette on Commands (`>` typed in).
     CommandPalette,
     /// Close the window.
     Quit,
@@ -34,6 +37,17 @@ pub enum Request {
     ZoomFit(Uuid),
     /// Zoom this Document's canvas to the selection.
     ZoomSelection(Uuid),
+    /// Zoom this Document's canvas to these objects (`view.zoom_to`).
+    ZoomTo(Uuid, Vec<Uuid>),
+    /// Zoom this Document's canvas to these objects as close as the shared highlight
+    /// Preference's closeness (0..1) says: a result shown (Cross-probe).
+    ZoomClose(Uuid, Vec<Uuid>, f64),
+    /// Move this Document's canvas (`view.jump_to`).
+    JumpTo(Uuid, crate::navigation::Jump),
+    /// Centre this Document's canvas on the cursor (`view.recenter`).
+    Recenter(Uuid),
+    /// Put this Document's canvas back to its previous view (`view.previous`).
+    PreviousView(Uuid),
     /// Show the window in this theme.
     Theme(Theme),
     /// Show the About box.
@@ -42,8 +56,29 @@ pub enum Request {
     Preferences,
     /// Show a schematic dialog (Find, Re-annotate…).
     Schematic(crate::schematic_dialogs::DialogKind),
+    /// Show a Library dialog: Update from Library, Replace Part, or the PCB's update.
+    Library(crate::schematic_dialogs::LibraryDialog),
     /// Show the Change List dialog (Update PCB from Schematic).
     ChangeList,
+    /// Show the Project Settings dialog.
+    ProjectSettings,
+    /// Show the Board Setup dialog.
+    BoardSetup,
+    /// Show Preferences on the Keyboard Shortcuts page.
+    KeyboardShortcuts,
+    /// Scale the user interface by this factor, one of the UI scale steps.
+    UiScale(f64),
+}
+
+/// The UI scale in force, in the engine's view state: the step `view.ui_scale.step`
+/// moves from. The Shell keeps it equal to the `general.ui_scale` Preference.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UiScale(pub f64);
+
+impl Default for UiScale {
+    fn default() -> UiScale {
+        UiScale(1.0)
+    }
 }
 
 /// The queue of [`Request`]s, in the engine's view state.
@@ -65,7 +100,15 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(Quit);
     registry.add(ZoomFit);
     registry.add(ZoomSelection);
+    registry.add(ZoomTo);
+    registry.add(crate::navigation::JumpTo);
+    registry.add(crate::navigation::Recenter);
+    registry.add(crate::navigation::PreviousView);
+    registry.add(crate::navigation::NextSelected);
     registry.add(SetTheme);
+    registry.add(OpenSettings);
+    registry.add(SetUiScale);
+    registry.add(StepUiScale);
 }
 
 /// Adds the Commands to `engine` and gives it a request queue. The Shell does this.
@@ -74,6 +117,7 @@ pub fn install(engine: &mut Engine) {
         engine.register(register_all);
     }
     engine.view_mut().set(Requests::default());
+    engine.view_mut().set(UiScale::default());
 }
 
 /// Takes the requests queued since the last call, oldest first.
@@ -104,12 +148,16 @@ pub enum Dialog {
     OpenProject,
     /// The Preferences dialog.
     Preferences,
-    /// The Command Palette.
+    /// The Palette, empty: go to a Document, Component or Net.
+    Palette,
+    /// The Palette on Commands.
     CommandPalette,
     /// The About box, with the third-party licences.
     About,
     /// The Change List dialog: Update PCB from Schematic.
     ChangeList,
+    /// Preferences, on the Keyboard Shortcuts page.
+    KeyboardShortcuts,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -152,6 +200,7 @@ impl Command for OpenDialog {
                 "preferences",
                 json!({"dialog": "preferences"}),
             ),
+            Preset::new("palette", "Go to…", "search", json!({"dialog": "palette"})),
             Preset::new(
                 "command_palette",
                 "Command Palette…",
@@ -165,6 +214,12 @@ impl Command for OpenDialog {
                 "sync",
                 json!({"dialog": "change_list"}),
             ),
+            Preset::new(
+                "keyboard_shortcuts",
+                "Keyboard Shortcuts…",
+                "preferences",
+                json!({"dialog": "keyboard_shortcuts"}),
+            ),
         ]
     }
 
@@ -173,9 +228,82 @@ impl Command for OpenDialog {
             Dialog::NewProject => Request::NewProject,
             Dialog::OpenProject => Request::OpenProject,
             Dialog::Preferences => Request::Preferences,
+            Dialog::Palette => Request::Palette,
             Dialog::CommandPalette => Request::CommandPalette,
             Dialog::About => Request::About,
             Dialog::ChangeList => Request::ChangeList,
+            Dialog::KeyboardShortcuts => Request::KeyboardShortcuts,
+        };
+        request(cx, r)?;
+        Ok(Done {})
+    }
+}
+
+/// A Project's settings dialog.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Settings {
+    /// Project Settings.
+    ProjectSettings,
+    /// Board Setup, for the PCB Document.
+    BoardSetup,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OpenSettingsParams {
+    settings: Settings,
+}
+
+/// Opens Project Settings or Board Setup: greyed while no Project is open.
+struct OpenSettings;
+
+impl Command for OpenSettings {
+    const META: Meta = Meta {
+        id: "app.settings.open",
+        title: "Open Project Settings",
+        description: "Opens the open Project's Project Settings or its Board Setup.",
+        category: "app",
+        icon: "properties",
+        kind: Kind::View,
+    };
+    type Params = OpenSettingsParams;
+    type Output = Done;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        match cx.project {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_PROJECT.into(),
+            }),
+        }
+    }
+
+    fn presets(&self) -> Vec<Preset> {
+        vec![
+            Preset::new(
+                "project_settings",
+                "Project Settings…",
+                "properties",
+                json!({"settings": "project_settings"}),
+            ),
+            Preset::new(
+                "board_setup",
+                "Board Setup…",
+                "rules",
+                json!({"settings": "board_setup"}),
+            ),
+        ]
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: OpenSettingsParams) -> Result<Done, CommandError> {
+        let project = cx.project()?;
+        let r = match p.settings {
+            Settings::ProjectSettings => Request::ProjectSettings,
+            Settings::BoardSetup if project.pcb().is_none() => {
+                return Err(CommandError::unavailable(reda_engine::sync::NO_PCB));
+            }
+            Settings::BoardSetup => Request::BoardSetup,
         };
         request(cx, r)?;
         Ok(Done {})
@@ -269,6 +397,49 @@ impl Command for ZoomSelection {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct ZoomToParams {
+    /// The Document whose canvas to zoom; the active Document when left out.
+    #[serde(default)]
+    document: Option<Uuid>,
+    /// The objects to frame, by UUID: Pads and texts go by their Footprint or owner.
+    objects: Vec<Uuid>,
+}
+
+struct ZoomTo;
+
+impl Command for ZoomTo {
+    const META: Meta = Meta {
+        id: "view.zoom_to",
+        title: "Zoom to Objects",
+        description: "Zooms a Document's canvas, the active Document's by default, to the given objects without selecting them.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = ZoomToParams;
+    type Output = Done;
+
+    fn run(&self, cx: &mut Context<'_>, p: ZoomToParams) -> Result<Done, CommandError> {
+        let document = match p.document {
+            Some(document) => document,
+            None => cx
+                .view::<Layout>()?
+                .active_document()
+                .ok_or_else(|| CommandError::unavailable("no Document is active"))?,
+        };
+        if p.objects.is_empty() {
+            return Err(CommandError::invalid_params(
+                "/objects",
+                "no objects to zoom to",
+            ));
+        }
+        request(cx, Request::ZoomTo(document, p.objects))?;
+        Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SetThemeParams {
     /// Follow the OS, or always dark or light.
     theme: Theme,
@@ -308,5 +479,131 @@ impl Command for SetTheme {
         }
         request(cx, Request::Theme(p.theme))?;
         Ok(Done {})
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SetUiScaleParams {
+    /// The factor: 0.75, 0.85, 1, 1.15, 1.25, 1.5 or 2.
+    scale: f64,
+}
+
+/// The result of a UI scale Command: the scale now in force.
+#[derive(Serialize, JsonSchema)]
+pub struct UiScaleResult {
+    pub scale: f64,
+}
+
+/// Puts `scale` in force: the Preference (when there is a per-user folder), the view
+/// state and the window.
+fn apply_ui_scale(cx: &mut Context<'_>, scale: f64) -> Result<UiScaleResult, CommandError> {
+    if let Some(dirs) = cx.user_dirs() {
+        preferences::set(dirs, "general.ui_scale", json!(scale))?;
+    }
+    cx.view::<UiScale>()?.0 = scale;
+    request(cx, Request::UiScale(scale))?;
+    Ok(UiScaleResult { scale })
+}
+
+struct SetUiScale;
+
+impl Command for SetUiScale {
+    const META: Meta = Meta {
+        id: "view.ui_scale.set",
+        title: "UI Scale",
+        description: "Scales the whole user interface to one of its steps, 75 to 200 %, and \
+                      keeps it as the general.ui_scale Preference.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = SetUiScaleParams;
+    type Output = UiScaleResult;
+
+    fn presets(&self) -> Vec<Preset> {
+        preferences::UI_SCALES
+            .into_iter()
+            .map(|scale| {
+                let percent = (scale * 100.0).round();
+                Preset::new(
+                    format!("{percent}"),
+                    format!("UI Scale: {percent} %"),
+                    "zoom_fit",
+                    json!({ "scale": scale }),
+                )
+            })
+            .collect()
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: SetUiScaleParams,
+    ) -> Result<UiScaleResult, CommandError> {
+        if !preferences::UI_SCALES
+            .iter()
+            .any(|s| (s - p.scale).abs() < 1e-9)
+        {
+            return Err(CommandError::invalid_params(
+                "/scale",
+                "the UI scale is one of 0.75, 0.85, 1, 1.15, 1.25, 1.5 and 2",
+            ));
+        }
+        apply_ui_scale(cx, p.scale)
+    }
+}
+
+/// Which way `view.ui_scale.step` goes.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum StepDirection {
+    /// The next step up.
+    Up,
+    /// The next step down.
+    Down,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StepUiScaleParams {
+    direction: StepDirection,
+}
+
+struct StepUiScale;
+
+impl Command for StepUiScale {
+    const META: Meta = Meta {
+        id: "view.ui_scale.step",
+        title: "Step UI Scale",
+        description: "Scales the user interface one step up or down (75 to 200 %), staying at \
+                      the ends, and keeps it as the general.ui_scale Preference.",
+        category: "view",
+        icon: "zoom_fit",
+        kind: Kind::View,
+    };
+    type Params = StepUiScaleParams;
+    type Output = UiScaleResult;
+
+    fn presets(&self) -> Vec<Preset> {
+        vec![
+            Preset::new("up", "Larger UI", "zoom_fit", json!({"direction": "up"})),
+            Preset::new(
+                "down",
+                "Smaller UI",
+                "zoom_fit",
+                json!({"direction": "down"}),
+            ),
+        ]
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: StepUiScaleParams,
+    ) -> Result<UiScaleResult, CommandError> {
+        let now = cx.view::<UiScale>()?.0;
+        let next = preferences::step_ui_scale(now, matches!(p.direction, StepDirection::Up));
+        apply_ui_scale(cx, next)
     }
 }

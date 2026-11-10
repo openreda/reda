@@ -1,8 +1,8 @@
 //! Mechanical Parts placed straight onto the PCB from a Library: `pcb.mechanical.place`,
 //! `pcb.mechanical.set` and `pcb.mechanical.delete`.
 //!
-//! They carry no Component link, so Sync ignores them, and their Designator, fields and
-//! Not Fitted are edited here on the PCB.
+//! They carry no Component link, so Sync ignores them, and their Designator, fields, In
+//! BOM, In CPL and Not Fitted are edited here on the PCB.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -95,9 +95,10 @@ impl Command for MechanicalPlace {
         let copy = cx.library_part(p.part)?;
         if copy.part.component_type != ComponentType::Mechanical {
             return Err(CommandError::rejected(format!(
-                "{} is a Standard Part: its Footprints reach the board through Sync from \
-                 the schematic",
-                copy.part.name
+                "{} is a {} Part: it needs a Symbol and a Footprint, and reaches the board \
+                 through Sync from the schematic",
+                copy.part.name,
+                copy.part.component_type.name()
             )));
         }
         let chosen = match p.footprint {
@@ -121,6 +122,7 @@ impl Command for MechanicalPlace {
                 "a field name is empty",
             ));
         }
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let mut fields = copy.part.fields.clone();
         for (name, value) in &p.fields {
             fields.set(name, value.as_deref().unwrap_or(""));
@@ -156,6 +158,7 @@ impl Command for MechanicalPlace {
                 let copy = FootprintCopy {
                     uuid,
                     hash: chosen.hash.clone(),
+                    edited_from: None,
                     footprint: chosen.footprint.clone(),
                 };
                 cx.tx()?
@@ -184,10 +187,14 @@ impl Command for MechanicalPlace {
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
             side: p.side.unwrap_or(Side::Top),
             locked: false,
+            graphics_unlocked: false,
             designator: designator.clone(),
             fields,
+            component_type: copy.part.component_type,
+            in_bom: copy.part.in_bom,
+            in_cpl: copy.part.in_cpl,
             not_fitted: false,
-            designator_text: None,
+            text_overrides: Vec::new(),
             pads,
         };
         cx.tx()?.insert(Object::FootprintInstance(InDocument::new(
@@ -216,6 +223,12 @@ pub struct MechanicalSetParams {
     /// clears a field.
     #[serde(default)]
     pub fields: BTreeMap<String, Option<String>>,
+    /// Whether they go into the BOM.
+    #[serde(default)]
+    pub in_bom: Option<bool>,
+    /// Whether they go into the CPL.
+    #[serde(default)]
+    pub in_cpl: Option<bool>,
     #[serde(default)]
     pub not_fitted: Option<bool>,
 }
@@ -226,8 +239,8 @@ impl Command for MechanicalSet {
     const META: Meta = Meta {
         id: "pcb.mechanical.set",
         title: "Edit Mechanical Part",
-        description: "Edits the Designator, value, fields or Not Fitted of Mechanical Parts \
-                      placed on the PCB. Footprints synced from the schematic are edited \
+        description: "Edits the Designator, value, fields, In BOM, In CPL or Not Fitted of \
+                      Mechanical Parts placed on the PCB. Footprints synced from the schematic are edited \
                       with `pcb.footprint.set`, which writes through to the schematic.",
         category: "pcb",
         icon: "properties",
@@ -254,6 +267,10 @@ impl Command for MechanicalSet {
                 "a field name is empty",
             ));
         }
+        if let Some(value) = &p.value {
+            CommandError::check_text("/value", value)?;
+        }
+        CommandError::check_field_texts("/fields", &p.fields)?;
         let designator = match &p.designator {
             None => None,
             Some(_) if instances.len() != 1 => {
@@ -280,6 +297,12 @@ impl Command for MechanicalSet {
             for (name, value) in &p.fields {
                 f.fields.set(name, value.as_deref().unwrap_or(""));
             }
+            if let Some(in_bom) = p.in_bom {
+                f.in_bom = in_bom;
+            }
+            if let Some(in_cpl) = p.in_cpl {
+                f.in_cpl = in_cpl;
+            }
             if let Some(nf) = p.not_fitted {
                 f.not_fitted = nf;
             }
@@ -298,6 +321,9 @@ impl Command for MechanicalSet {
 pub struct MechanicalDeleteParams {
     /// The Mechanical Parts' Footprint instances, by UUID.
     pub footprints: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct MechanicalDelete;
@@ -328,6 +354,7 @@ impl Command for MechanicalDelete {
         let instances = mechanical(cx.project()?, &p.footprints)?;
         let gone: BTreeSet<Uuid> = instances.iter().map(|f| f.uuid).collect();
         let pcb = pcb(cx)?;
+        crate::lock::refuse(pcb, gone.iter().copied(), p.include_locked, "delete")?;
         let still_used: BTreeSet<Uuid> = pcb
             .footprints()
             .filter(|f| !gone.contains(&f.uuid))

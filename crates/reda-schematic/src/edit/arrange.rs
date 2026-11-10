@@ -10,6 +10,7 @@ use super::bounds::{Bounds, bounds};
 use super::moving::EditResult;
 use super::selection::{one_sheet, resolve};
 use super::transform::{Placement, place_anew};
+use crate::normalise::Wiring;
 
 /// The default snap grid: 50 mil.
 const DEFAULT_GRID: Nm = Nm::from_mil(50);
@@ -36,13 +37,15 @@ pub enum AlignTo {
 #[serde(deny_unknown_fields)]
 pub struct AlignParams {
     /// The objects to align, by UUID, all on one sheet. Each one's extent is its Pins
-    /// and body drawing (Units), its ends (Wires, graphics) or its point (labels,
+    /// and body drawing (Units), its vertices (Wires), its ends (graphics) or its point (labels,
     /// markers, Ports, Power Ports, text).
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
     /// Keep connections as a drag does. Off by default (detached).
     #[serde(default)]
     pub keep_connections: bool,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct Align;
@@ -62,18 +65,23 @@ impl Command for Align {
 
     fn run(&self, cx: &mut Context<'_>, p: AlignParams) -> Result<EditResult, CommandError> {
         let to = p.to;
-        arrange(cx, &p.objects, p.keep_connections, |all, each| {
-            let zero = Nm::ZERO;
-            let (dx, dy) = match to {
-                AlignTo::Left => (all.min.x - each.min.x, zero),
-                AlignTo::Right => (all.max.x - each.max.x, zero),
-                AlignTo::Top => (zero, all.max.y - each.max.y),
-                AlignTo::Bottom => (zero, all.min.y - each.min.y),
-                AlignTo::CenterX => (all.center().x - each.center().x, zero),
-                AlignTo::CenterY => (zero, all.center().y - each.center().y),
-            };
-            Point::new(dx, dy)
-        })
+        arrange(
+            cx,
+            &p.objects,
+            (p.keep_connections, p.wiring),
+            |all, each| {
+                let zero = Nm::ZERO;
+                let (dx, dy) = match to {
+                    AlignTo::Left => (all.min.x - each.min.x, zero),
+                    AlignTo::Right => (all.max.x - each.max.x, zero),
+                    AlignTo::Top => (zero, all.max.y - each.max.y),
+                    AlignTo::Bottom => (zero, all.min.y - each.min.y),
+                    AlignTo::CenterX => (all.center().x - each.center().x, zero),
+                    AlignTo::CenterY => (zero, all.center().y - each.center().y),
+                };
+                Point::new(dx, dy)
+            },
+        )
     }
 }
 
@@ -94,6 +102,8 @@ pub struct DistributeParams {
     /// Keep connections as a drag does. Off by default (detached).
     #[serde(default)]
     pub keep_connections: bool,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct Distribute;
@@ -117,7 +127,7 @@ impl Command for Distribute {
             let c = b.center();
             if horizontal { c.x.0 } else { c.y.0 }
         };
-        arrange_each(cx, &p.objects, p.keep_connections, |boxes| {
+        arrange_each(cx, &p.objects, (p.keep_connections, p.wiring), |boxes| {
             let mut order: Vec<usize> = (0..boxes.len()).collect();
             order.sort_by_key(|&i| along(&boxes[i]));
             let mut out = vec![Point::default(); boxes.len()];
@@ -152,6 +162,8 @@ pub struct SnapParams {
     /// Keep connections as a drag does. Off by default (detached).
     #[serde(default)]
     pub keep_connections: bool,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct SnapToGrid;
@@ -161,7 +173,7 @@ impl Command for SnapToGrid {
         id: "schematic.snap_to_grid",
         title: "Snap to Grid",
         description: "Moves each selected object's anchor points to the nearest grid point: \
-                      a Unit's origin, a Wire's or line's ends, a rectangle's corners, a \
+                      a Unit's origin, a Wire's vertices, a line's ends, a rectangle's corners, a \
                       label's, marker's or text's point. 50 mil by default.",
         category: "schematic",
         icon: "grid",
@@ -184,7 +196,13 @@ impl Command for SnapToGrid {
             .into_iter()
             .map(|o| (o, Placement::Snap(grid)))
             .collect();
-        place_anew(cx, document, &moves, p.keep_connections)?;
+        place_anew(
+            cx,
+            document,
+            &moves,
+            p.keep_connections,
+            &p.wiring.unwrap_or_default(),
+        )?;
         Ok(EditResult { document })
     }
 }
@@ -194,10 +212,10 @@ impl Command for SnapToGrid {
 fn arrange(
     cx: &mut Context<'_>,
     uuids: &[Uuid],
-    keep_connections: bool,
+    how: (bool, Option<Wiring>),
     offset: impl Fn(Bounds, Bounds) -> Point,
 ) -> Result<EditResult, CommandError> {
-    arrange_each(cx, uuids, keep_connections, |boxes| {
+    arrange_each(cx, uuids, how, |boxes| {
         let all = boxes
             .iter()
             .copied()
@@ -211,7 +229,7 @@ fn arrange(
 fn arrange_each(
     cx: &mut Context<'_>,
     uuids: &[Uuid],
-    keep_connections: bool,
+    (keep_connections, wiring): (bool, Option<Wiring>),
     offsets: impl FnOnce(&[Bounds]) -> Vec<Point>,
 ) -> Result<EditResult, CommandError> {
     let project = cx.project()?;
@@ -225,6 +243,12 @@ fn arrange_each(
         .zip(offsets)
         .map(|(o, by)| (o, Placement::Translate(by)))
         .collect();
-    place_anew(cx, document, &moves, keep_connections)?;
+    place_anew(
+        cx,
+        document,
+        &moves,
+        keep_connections,
+        &wiring.unwrap_or_default(),
+    )?;
     Ok(EditResult { document })
 }

@@ -3,6 +3,8 @@
 use reda_model::Uuid;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_text::{Mesh, Segment};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::color::ColorKey;
 
@@ -18,6 +20,22 @@ pub struct Scene {
     /// Every primitive, in draw order: later items draw over earlier ones on the same
     /// Layer.
     pub items: Vec<Item>,
+    /// Areas that lead to another sheet, such as a Port Cross-Reference's entries: links
+    /// in a PDF.
+    pub links: Vec<Link>,
+}
+
+/// An area of a Scene that leads to a place on another sheet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Link {
+    /// The object whose drawing holds the area.
+    pub object: Uuid,
+    /// The area, as (min, max) in the Scene's coordinates.
+    pub area: (Point, Point),
+    /// The Schematic Sheet it leads to, by Document UUID.
+    pub sheet: Uuid,
+    /// Where on that sheet.
+    pub at: Point,
 }
 
 /// The Document a Scene was built from.
@@ -40,9 +58,63 @@ pub struct Item {
     /// highlighting key on. The sheet frame and title block use the sheet's frame object,
     /// or the sheet's Document UUID when it has none.
     pub object: Uuid,
+    /// Independently pickable text or Pad within its owning object.
+    pub child: Option<Child>,
     pub layer: SceneLayer,
     pub color: ColorKey,
     pub primitive: Primitive,
+    /// How the item is drawn beyond its colour: plain by default.
+    pub look: Look,
+}
+
+/// How an item is drawn beyond its shape and colour, for view modes such as per-kind
+/// transparency and the Net colour pattern. The default is plain, opaque ink.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Look {
+    /// 0 (opaque) to 100 (invisible) percent.
+    pub transparency: u8,
+    /// Drawn only in alternate screen cells, so the ink under it shows through: the
+    /// checkered Net colour pattern.
+    pub checker: bool,
+    /// Hidden while this length is under the canvas's minimum label size on screen: Net
+    /// colour that gives way to the Layer colour when zoomed out.
+    pub zoom_out: Option<Nm>,
+}
+
+impl Look {
+    pub fn is_plain(&self) -> bool {
+        *self == Look::default()
+    }
+}
+
+/// A canvas target inside a placed Component or Footprint. The owner remains the
+/// primitive's `object`, so a parent move and highlight also include its children.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Child {
+    Field { unit: Uuid, field: String },
+    Pad { footprint: Uuid, pad: Uuid },
+    FootprintText { footprint: Uuid, text: Uuid },
+}
+
+impl Child {
+    /// A stable view-only identity for GPU flags. Version 8 keeps it separate from
+    /// persisted version-4 object UUIDs. The actual public identity is the full reference.
+    pub fn id(&self) -> Uuid {
+        let mut hash = 0x6c62272e07bb014262b821756295c58du128;
+        let bytes = serde_json::to_vec(self).expect("a Child is serializable");
+        for byte in bytes {
+            hash = (hash ^ u128::from(byte)).wrapping_mul(0x1000000000000000000013b);
+        }
+        Uuid::from_u128((hash & !(0xf << 76)) | (8 << 76))
+    }
+
+    pub fn owner(&self) -> Uuid {
+        match self {
+            Self::Field { unit, .. } => *unit,
+            Self::Pad { footprint, .. } | Self::FootprintText { footprint, .. } => *footprint,
+        }
+    }
 }
 
 /// The Layer an item is composited on. Each Layer is drawn opaque, then blended at its
@@ -55,6 +127,9 @@ pub enum SceneLayer {
     Board(Uuid),
     /// Drilled holes (and the numbers of Pads with a hole), drawn over every PCB Layer.
     Drill,
+    /// View-only notes derived from the Project (the sheet-name labels over Footprint
+    /// clusters), drawn over every Layer and the holes.
+    Annotation,
     /// The Ratsnest's lines, drawn over everything while the Ratsnest is visible.
     Ratsnest,
 }
@@ -79,6 +154,9 @@ pub enum Primitive {
     /// The annulus between `inner` and `outer` radius about `center`. `inner == 0` is a
     /// filled disc (Junctions); a circle outline `w` wide is `r ± w/2` (Vias, Pads).
     Ring { center: Point, outer: Nm, inner: Nm },
+    /// A line one pixel wide at every zoom, so it can't be mistaken for copper (the
+    /// Ratsnest). Writers without a screen draw their thinnest line.
+    Hairline { a: Point, b: Point },
     /// Filled triangles (polygons, Zone fills).
     Triangles(Mesh),
     /// A run of text, already laid out in Document coordinates.
@@ -139,6 +217,22 @@ impl Align {
     }
 }
 
+impl From<reda_model::TextJustify> for Align {
+    fn from(justify: reda_model::TextJustify) -> Self {
+        let h = match justify.h {
+            reda_model::TextHJustify::Left => HAlign::Left,
+            reda_model::TextHJustify::Center => HAlign::Center,
+            reda_model::TextHJustify::Right => HAlign::Right,
+        };
+        let v = match justify.v {
+            reda_model::TextVJustify::Bottom => VAlign::Baseline,
+            reda_model::TextVJustify::Center => VAlign::Middle,
+            reda_model::TextVJustify::Top => VAlign::Top,
+        };
+        Self::new(h, v)
+    }
+}
+
 impl Primitive {
     /// The axis-aligned bounds of the primitive's ink, as (min, max).
     pub fn bounds(&self) -> Option<(Point, Point)> {
@@ -164,6 +258,10 @@ impl Primitive {
                 }
             }
             Primitive::Ring { center, outer, .. } => b.add_padded(*center, *outer),
+            Primitive::Hairline { a, b: end } => {
+                b.add(*a);
+                b.add(*end);
+            }
             Primitive::Triangles(mesh) => mesh.points.iter().for_each(|p| b.add(*p)),
             Primitive::Glyphs(run) => {
                 let r = Nm(run.stroke_width.0 / 2);
@@ -183,6 +281,7 @@ impl Scene {
         Scene {
             source,
             items: Vec::new(),
+            links: Vec::new(),
         }
     }
 
@@ -195,6 +294,16 @@ impl Scene {
             b.add(hi);
         }
         b.get()
+    }
+
+    /// The sheet's paper, as (min, max); `None` when the Scene has none (a board or a
+    /// Library element). The grid stops at its edge.
+    pub fn paper(&self) -> Option<(Point, Point)> {
+        let paper = ColorKey::Schematic(crate::color::SchematicColor::Paper);
+        self.items
+            .iter()
+            .find(|i| i.color == paper)
+            .and_then(|i| i.primitive.bounds())
     }
 
     /// Every item drawing `object`.
@@ -211,9 +320,11 @@ impl Scene {
     ) {
         self.items.push(Item {
             object,
+            child: None,
             layer,
             color,
             primitive,
+            look: Look::default(),
         });
     }
 }

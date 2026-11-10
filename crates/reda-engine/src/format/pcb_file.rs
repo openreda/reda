@@ -8,8 +8,19 @@
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
 //!     …
 //!   ]},
-//!   "board": {"uuid":"…","default_net_class":"…"},
-//!   "rules": {"clearance":160000,"track_width":200000,…},
+//!   "stackups": [
+//!     {"uuid":"…","thickness":1600000,"entries":[
+//!       {"layer":"…","thickness":35000},
+//!       {"uuid":"…"},
+//!       {"layer":"…","thickness":35000}
+//!     ],"finish":"ENIG"}
+//!   ],
+//!   "board": {"uuid":"…"},
+//!   "rules": [
+//!     {"uuid":"…","kind":"clearance","scope":{},"values":{"value":160000}},
+//!     {"uuid":"…","kind":"track_width","scope":{"net_class":"…"},"values":{"preferred":500000}},
+//!     …
+//!   ],
 //!   "severities": {"clearance":"error",…},
 //!   "board_outline": {"uuid":"…","vertices":[
 //!     {"x":0,"y":0},
@@ -17,14 +28,19 @@
 //!   ]},
 //!   "board_cutouts": [],
 //!   "net_classes": [
-//!     {"uuid":"…","name":"Default"}
+//!     {"uuid":"…","name":"Power","rank":1}
 //!   ],
-//!   "nets": [],
+//!   "nets": [
+//!     {"uuid":"…","name":"GND","classes":["…"]}
+//!   ],
 //!   "texts": [
 //!     {"uuid":"…","layer":"…","text":"Demo","font":"Hershey Roman Simplex","position":{"x":0,"y":0},"height":1000000,"thickness":150000}
 //!   ],
 //!   "graphics": [
 //!     {"uuid":"…","layer":"…","width":150000,"shape":{"kind":"line","from":{…},"to":{…}}}
+//!   ],
+//!   "dimensions": [
+//!     {"uuid":"…","layer":"…","a":{"point":{…},"ref":{"object":"…","hotspot":"center"}},"b":{"point":{…}},"rotation":0,…}
 //!   ],
 //!   "footprint_copies": [
 //!     {"uuid":"…","hash":"…","footprint":{…},"text":{…},"pads":[
@@ -45,40 +61,52 @@
 //!   "free_pads": [
 //!     {"uuid":"…","kind":"plated_through_hole","shape":"circle","at":{…},"rotation":0,"width":6000000,"height":6000000,"hole":{…},"net":"…"}
 //!   ],
-//!   "placement_origin": {"uuid":"…","at":{"x":0,"y":0}},
+//!   "output_origin": {"uuid":"…","at":{"x":0,"y":0}},
 //!   "zones": [
 //!     {"uuid":"…","layer":"…","net":"…","vertices":[
 //!       {"x":0,"y":0},
 //!       …
-//!     ],"clearance":160000,"min_width":200000,"pad_connection":"thermal",…}
+//!     ],"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,…}
 //!   ],
 //!   "keepouts": [
-//!     {"uuid":"…","layers":["…"],"vertices":[
+//!     {"uuid":"…","layer":"…","shape":"polygon","vertices":[
 //!       {"x":0,"y":0},
 //!       …
-//!     ],"copper":true,"vias":true}
+//!     ],"restrict":["tracks","vias","zones","smd_pads","tht_pads"]}
+//!   ],
+//!   "zone_cutouts": [
+//!     {"uuid":"…","layer":"…","vertices":[
+//!       {"x":0,"y":0},
+//!       …
+//!     ]}
 //!   ],
 //!   "waivers": [
-//!     {"uuid":"…","check":"clearance","objects":["…","…"],"comment":"…"}
+//!     {"uuid":"…","check":"clearance","objects":["…","…"],"author":"Ada","created":1767225600000,"reason":"…"}
 //!   ]
 //! }
 //! ```
 //!
-//! The board setup is one object in the model; the file splits it over the `board`, `rules`
-//! and `severities` lines so a rule change and a severity change touch different lines.
+//! `stackups` holds one Stackup in v0.1: copper `{layer, thickness}` and dielectric
+//! `{uuid, thickness?}` entries top to bottom, with `finish`, `mask_color` and `silk_color`
+//! left out while unset.
+//! `rules` holds the design rule records, one per line: exactly one board-wide record per
+//! kind, and the Net Class records. The Default Net Class is not stored: its values are
+//! the board-wide records, and a Net lists only its other classes.
 //! `board_outline` is left out while the board has none. `footprint_copies` (the part
 //! table, rows shaped like a sheet file's `footprints`) and `footprints` (the Footprint
 //! instances, each Pad's Net on its own line) are left out while the board has no
-//! Footprints. `tracks`, `vias`, `free_pads`, `zones`, `keepouts` and `waivers` (of DRC
-//! Violations) are left out while the board has none, `placement_origin` while it is not
-//! set. Zone fills are never stored here: they live in the `.reda/` cache.
+//! Footprints. `dimensions`, `tracks`, `vias`, `free_pads`, `zones`, `keepouts`,
+//! `zone_cutouts` and `waivers` (of DRC Violations) are left out while the board has none,
+//! `output_origin` while it is not set. A Keepout leaves out `layer` when it applies to every
+//! copper Layer; a `line` Keepout adds its `width`. Zone fills are never stored here: they
+//! live in the `.reda/` cache.
 
 use std::path::Path;
 
 use reda_model::{
-    BoardCutout, BoardOutline, BoardSetup, DrcSeverities, FootprintInstance, FreePad, InDocument,
-    Keepout, LayerSet, Net, NetClass, Object, PcbDocument, PcbGraphic, PcbText, PlacementOrigin,
-    Rules, Track, Uuid, Via, Waiver, Zone,
+    BoardCutout, BoardOutline, BoardSetup, DesignRule, Dimension, DrcSeverities, FootprintInstance,
+    FreePad, InDocument, Keepout, LayerSet, Net, NetClass, Object, OutputOrigin, PcbDocument,
+    PcbGraphic, PcbText, Stackup, Track, Uuid, Via, Waiver, Zone, ZoneCutout, ZoneNameScheme,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -100,10 +128,12 @@ pub(crate) struct PcbFile {
     pcb: PcbRow,
     /// The Layers, top to bottom. Objects name a Layer by its UUID.
     layers: LayerSet,
-    /// The board setup's identity and its Default Net Class.
+    /// The board's physical build: one Stackup in v0.1.
+    stackups: Vec<Stackup>,
+    /// The board setup's identity.
     board: BoardRow,
-    /// The board-wide design rules.
-    rules: Rules,
+    /// The design rule records: one board-wide record per kind, and Net Class records.
+    rules: Vec<DesignRule>,
     /// The severity of each DRC check.
     severities: DrcSeverities,
     /// The board's edge; left out while the board has none.
@@ -111,7 +141,7 @@ pub(crate) struct PcbFile {
     board_outline: Option<BoardOutline>,
     /// Holes in the board material.
     board_cutouts: Vec<BoardCutout>,
-    /// The Net Classes, the Default Net Class among them.
+    /// The Net Classes besides the Default Net Class, which is not stored.
     net_classes: Vec<NetClass>,
     /// The PCB Nets.
     nets: Vec<Net>,
@@ -120,6 +150,9 @@ pub(crate) struct PcbFile {
     /// Lines, arcs and rectangles on copper, silkscreen, mechanical and documentation
     /// Layers.
     graphics: Vec<PcbGraphic>,
+    /// The Dimensions; left out while the board has none. Their values are derived.
+    #[serde(default)]
+    dimensions: Vec<Dimension>,
     /// The part table: a copy of each Footprint in use, sorted by UUID.
     #[serde(default)]
     footprint_copies: Vec<FootprintCopyRow>,
@@ -135,9 +168,10 @@ pub(crate) struct PcbFile {
     /// Pads that belong to no Footprint, sorted by UUID; left out while there are none.
     #[serde(default)]
     free_pads: Vec<FreePad>,
-    /// The point the CPL measures from; left out while it is not set.
+    /// The Output Origin: the zero of a `relative` preset's Gerber, drill and CPL, and of
+    /// the editor's coordinates and grid; left out while it is not set.
     #[serde(default)]
-    placement_origin: Option<PlacementOrigin>,
+    output_origin: Option<OutputOrigin>,
     /// The copper Zones (outlines and settings, never fills); left out while the board
     /// has none.
     #[serde(default)]
@@ -145,6 +179,9 @@ pub(crate) struct PcbFile {
     /// The Keepouts; left out while the board has none.
     #[serde(default)]
     keepouts: Vec<Keepout>,
+    /// The Zone Cutouts; left out while the board has none.
+    #[serde(default)]
+    zone_cutouts: Vec<ZoneCutout>,
     /// The Waivers of DRC Violations, sorted by UUID; left out while the board has none.
     #[serde(default)]
     waivers: Vec<Waiver>,
@@ -162,9 +199,12 @@ struct PcbRow {
 struct BoardRow {
     #[schemars(schema_with = "super::schema::uuid")]
     uuid: Uuid,
-    /// The Net Class new Nets get.
-    #[schemars(schema_with = "super::schema::uuid")]
-    default_net_class: Uuid,
+    /// How Zones with no typed name are named; left out for `NET_LXX_PXXX`.
+    #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
+    zone_name_scheme: ZoneNameScheme,
+    /// Free text for the fab, copied into the Fab Notes; left out when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fab_notes: Option<String>,
 }
 
 pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalError> {
@@ -172,14 +212,16 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
+    w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
     w.field(
         "board",
         &BoardRow {
             uuid: setup.uuid,
-            default_net_class: setup.default_net_class,
+            zone_name_scheme: setup.zone_name_scheme,
+            fab_notes: setup.fab_notes.clone(),
         },
     )?;
-    w.field("rules", &setup.rules)?;
+    w.table("rules", pcb.rules(), |r| r.uuid)?;
     w.field("severities", &setup.severities)?;
     if let Some(outline) = pcb.outline() {
         w.container("board_outline", outline, "vertices")?;
@@ -189,13 +231,16 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     w.table("nets", pcb.nets(), |n| n.uuid)?;
     w.table("texts", pcb.texts(), |t| t.uuid)?;
     w.table("graphics", pcb.graphics(), |g| g.uuid)?;
+    if pcb.dimensions().next().is_some() {
+        w.table("dimensions", pcb.dimensions(), |d| d.uuid)?;
+    }
     if pcb.footprint_copies().next().is_some() || pcb.footprints().next().is_some() {
         let copies = pcb.footprint_copies().map(FootprintCopyRow::of);
         w.containers_spread(
             "footprint_copies",
             copies,
             FootprintCopyRow::uuid,
-            &["pads", "graphics"],
+            &["pads", "graphics", "texts"],
         )?;
         w.containers("footprints", pcb.footprints(), |f| f.uuid, "pads")?;
     }
@@ -208,14 +253,17 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     if pcb.free_pads().next().is_some() {
         w.table("free_pads", pcb.free_pads(), |p| p.uuid)?;
     }
-    if let Some(origin) = pcb.placement_origin() {
-        w.field("placement_origin", origin)?;
+    if let Some(origin) = pcb.output_origin() {
+        w.field("output_origin", origin)?;
     }
     if pcb.zones().next().is_some() {
         w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
     }
     if pcb.keepouts().next().is_some() {
         w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
+    }
+    if pcb.zone_cutouts().next().is_some() {
+        w.containers("zone_cutouts", pcb.zone_cutouts(), |c| c.uuid, "vertices")?;
     }
     if pcb.waivers().next().is_some() {
         w.table("waivers", pcb.waivers(), |r| r.uuid)?;
@@ -247,12 +295,22 @@ pub(crate) fn read_pcb_file(
             doc,
             BoardSetup {
                 uuid: file.board.uuid,
-                default_net_class: file.board.default_net_class,
-                rules: file.rules,
                 severities: file.severities,
+                zone_name_scheme: file.board.zone_name_scheme,
+                fab_notes: file.board.fab_notes,
             },
         )),
     ];
+    objects.extend(
+        file.stackups
+            .into_iter()
+            .map(|s| Object::Stackup(InDocument::new(doc, s))),
+    );
+    objects.extend(
+        file.rules
+            .into_iter()
+            .map(|r| Object::DesignRule(InDocument::new(doc, r))),
+    );
     objects.extend(
         file.board_outline
             .map(|o| Object::BoardOutline(InDocument::new(doc, o))),
@@ -282,6 +340,11 @@ pub(crate) fn read_pcb_file(
             .into_iter()
             .map(|g| Object::PcbGraphic(InDocument::new(doc, g))),
     );
+    objects.extend(
+        file.dimensions
+            .into_iter()
+            .map(|d| Object::Dimension(InDocument::new(doc, d))),
+    );
     for row in file.footprint_copies {
         let copy = row
             .into_copy()
@@ -309,8 +372,8 @@ pub(crate) fn read_pcb_file(
             .map(|p| Object::FreePad(InDocument::new(doc, p))),
     );
     objects.extend(
-        file.placement_origin
-            .map(|o| Object::PlacementOrigin(InDocument::new(doc, o))),
+        file.output_origin
+            .map(|o| Object::OutputOrigin(InDocument::new(doc, o))),
     );
     objects.extend(
         file.zones
@@ -323,9 +386,37 @@ pub(crate) fn read_pcb_file(
             .map(|k| Object::Keepout(InDocument::new(doc, k))),
     );
     objects.extend(
+        file.zone_cutouts
+            .into_iter()
+            .map(|c| Object::ZoneCutout(InDocument::new(doc, c))),
+    );
+    objects.extend(
         file.waivers
             .into_iter()
             .map(|w| Object::Waiver(InDocument::new(doc, w))),
     );
+    for object in &mut objects {
+        normalise_rotations(object);
+    }
+    for object in &objects {
+        reda_model::text::check_object(object)
+            .map_err(|why| LoadError::Invalid(path.to_owned(), why))?;
+    }
     Ok(objects)
+}
+
+/// Brings the board's placement rotations into `[0°, 360°)`, so a rotation stored as 360°
+/// loads as 0° and needs no check. It is not an edit: the next save writes the normal form.
+fn normalise_rotations(object: &mut Object) {
+    match object {
+        Object::FootprintInstance(f) => {
+            f.object.rotation = f.object.rotation.normalized();
+            for o in &mut f.object.text_overrides {
+                o.rotation = o.rotation.map(|r| r.normalized());
+            }
+        }
+        Object::FreePad(p) => p.object.rotation = p.object.rotation.normalized(),
+        Object::PcbText(t) => t.object.rotation = t.object.rotation.normalized(),
+        _ => {}
+    }
 }

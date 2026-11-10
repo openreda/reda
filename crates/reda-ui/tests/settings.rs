@@ -7,7 +7,6 @@ use std::path::Path;
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
-use reda_ui::engine::model::geom::Nm;
 use reda_ui::engine::model::{ErcCheck, Scope, Severity, Uuid};
 use reda_ui::settings::project::{self, ErcPage, FabPresetsPage, LibrariesPage, PropertiesPage};
 use reda_ui::shell::Shell;
@@ -38,13 +37,13 @@ fn journal_ids(shell: &Shell) -> Vec<String> {
 }
 
 #[test]
-fn project_settings_has_four_pages() {
+fn project_settings_starts_with_its_five_pages() {
     let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
     let shell = shell_with_project(&home, &work);
     let d = dialog(&shell);
     assert_eq!(
-        d.page_titles(),
-        ["Properties", "ERC", "Fab Presets", "Libraries"]
+        d.page_titles()[..5],
+        ["Properties", "ERC", "Schematic", "Libraries", "Fab Presets"]
     );
     assert!(!d.has_changes());
 }
@@ -56,8 +55,7 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     let mut d = dialog(&shell);
     let props = d.page_mut::<PropertiesPage>().unwrap();
     props.title.set("Motor driver".into());
-    props.board_thickness.set("1.6".into());
-    props.copper_weight.set("1 oz".into());
+    props.company.set("Acme".into());
     d.page_mut::<ErcPage>()
         .unwrap()
         .set(ErcCheck::SinglePinNet, Severity::Off);
@@ -70,9 +68,11 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     assert_eq!(journal[before..], ["batch"]);
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "Motor driver");
-    assert_eq!(p.properties.board_thickness, Some(Nm(1_600_000)));
-    assert_eq!(p.properties.copper_weight, "1 oz");
-    assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Off);
+    assert_eq!(p.properties.company, "Acme");
+    assert_eq!(
+        p.erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Off)
+    );
     assert_eq!(p.libraries, ["parts"]);
     assert!(!d.has_changes(), "applied changes are no longer pending");
 
@@ -80,7 +80,10 @@ fn apply_commits_every_page_as_one_batch_and_one_undo_entry() {
     shell.undo(false, Some(Scope::Project)).unwrap();
     let p = shell.engine().project().unwrap().props().clone();
     assert_eq!(p.properties.title, "");
-    assert_eq!(p.erc.get(ErcCheck::SinglePinNet), Severity::Warning);
+    assert_eq!(
+        p.erc.severities.get(ErcCheck::SinglePinNet),
+        Some(Severity::Warning)
+    );
     assert!(p.libraries.is_empty());
     assert!(
         shell.undo(false, Some(Scope::Project)).is_err(),
@@ -107,10 +110,6 @@ fn invalid_values_are_flagged_on_their_page_and_block_apply() {
     let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
     let mut shell = shell_with_project(&home, &work);
     let mut d = dialog(&shell);
-    d.page_mut::<PropertiesPage>()
-        .unwrap()
-        .board_thickness
-        .set("-2".into());
     let libraries = d.page_mut::<LibrariesPage>().unwrap();
     libraries.add("parts");
     libraries.add("parts/");
@@ -125,7 +124,6 @@ fn invalid_values_are_flagged_on_their_page_and_block_apply() {
     assert_eq!(
         problems,
         [
-            ("Properties".to_owned(), "board_thickness".to_owned()),
             ("Libraries".to_owned(), "path/1".to_owned()),
             ("Libraries".to_owned(), "path/2".to_owned()),
             ("Libraries".to_owned(), "path/3".to_owned()),
@@ -137,10 +135,6 @@ fn invalid_values_are_flagged_on_their_page_and_block_apply() {
     assert_eq!(journal_ids(&shell).len(), before, "nothing ran");
 
     // Fixing the values clears the flags.
-    d.page_mut::<PropertiesPage>()
-        .unwrap()
-        .board_thickness
-        .set("1.2mm".into());
     let libraries = d.page_mut::<LibrariesPage>().unwrap();
     libraries.remove(3);
     libraries.remove(2);
@@ -183,25 +177,6 @@ fn an_undo_under_pending_library_edits_does_not_bring_back_what_it_undid() {
     assert_eq!(d.page::<LibrariesPage>().unwrap().rows(), ["more"]);
     let ids: Vec<_> = d.steps().into_iter().map(|s| s.params).collect();
     assert_eq!(ids, [json!({"path": "more"})]);
-}
-
-#[test]
-fn a_cleared_board_thickness_is_unset() {
-    let (home, work) = (TempDir::new("set-home"), TempDir::new("set-work"));
-    let mut shell = shell_with_project(&home, &work);
-    shell
-        .run(
-            "project.properties.set",
-            json!({"board_thickness": "1.6mm"}),
-        )
-        .unwrap();
-    let mut d = dialog(&shell);
-    let page = d.page_mut::<PropertiesPage>().unwrap();
-    assert_eq!(page.board_thickness.value(), "1.6");
-    page.board_thickness.set(String::new());
-    d.apply(&mut shell).unwrap();
-    let p = shell.engine().project().unwrap().props();
-    assert_eq!(p.properties.board_thickness, None);
 }
 
 /// A Project copy of the user preset "Mine", whose source the user then edits by hand so

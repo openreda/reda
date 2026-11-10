@@ -14,6 +14,10 @@ fn empty_project() -> Project {
         libraries: vec![],
         properties: Default::default(),
         erc: Default::default(),
+        schematic: Default::default(),
+        reannotate: None,
+        library_update: None,
+        missing: vec![],
     })
 }
 

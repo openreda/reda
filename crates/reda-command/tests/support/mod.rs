@@ -238,6 +238,10 @@ impl Command for Create {
             libraries: vec![],
             properties: Default::default(),
             erc: Default::default(),
+            schematic: Default::default(),
+            reannotate: None,
+            library_update: None,
+            missing: vec![],
         }));
         Ok(uuid)
     }
@@ -364,6 +368,7 @@ impl Harness {
             clock: &self.clock,
             parts: &reda_command::NoLibraries,
             fonts: &reda_command::Fonts::default(),
+            version: "0.0.0-test",
             headless: self.headless,
         };
         self.registry.run(&mut self.session, &mut env, id, params)

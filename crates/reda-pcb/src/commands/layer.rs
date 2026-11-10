@@ -8,11 +8,14 @@ use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer};
 
 /// A Layer param: its UUID, or its kind with the side for sided kinds, such as
-/// `silkscreen_top`, `copper_bottom` or `mechanical`.
+/// `silkscreen_top`, `copper_bottom` or `mechanical`, or a copper Layer by its copper
+/// number, such as `copper_l2`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LayerRef {
     Uuid(Uuid),
     Named(LayerKind, Option<Side>),
+    /// The copper Layer with this copper number, 1 for the top copper.
+    Copper(usize),
 }
 
 const KINDS: [(&str, LayerKind); 9] = [
@@ -32,12 +35,19 @@ impl LayerRef {
         if let Ok(uuid) = text.parse() {
             return Some(LayerRef::Uuid(uuid));
         }
+        if let Some(number) = text.strip_prefix("copper_l") {
+            return number.parse().ok().filter(|n| *n > 0).map(LayerRef::Copper);
+        }
         let (kind, side) = match (text.strip_suffix("_top"), text.strip_suffix("_bottom")) {
             (Some(kind), _) => (kind, Some(Side::Top)),
             (_, Some(kind)) => (kind, Some(Side::Bottom)),
             _ => (text, None),
         };
         let kind = KINDS.iter().find(|(name, _)| *name == kind)?.1;
+        // Copper with no side is inner copper, which is named by its number instead.
+        if kind == LayerKind::Copper && side.is_none() {
+            return None;
+        }
         Some(LayerRef::Named(kind, side))
     }
 
@@ -51,6 +61,7 @@ impl LayerRef {
         let found = match self {
             LayerRef::Uuid(uuid) => layers.layer(uuid),
             LayerRef::Named(kind, side) => layers.find(kind, side),
+            LayerRef::Copper(number) => pcb.copper_layers().nth(number - 1),
         };
         found.ok_or_else(|| CommandError::invalid_params(pointer, "the board has no such Layer"))
     }
@@ -79,7 +90,7 @@ impl JsonSchema for LayerRef {
     fn json_schema(_: &mut SchemaGenerator) -> Schema {
         json_schema!({
             "type": "string",
-            "description": "A Layer: its UUID, or its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\"."
+            "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper."
         })
     }
 }

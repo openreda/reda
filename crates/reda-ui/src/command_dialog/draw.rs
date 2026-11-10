@@ -3,7 +3,7 @@
 
 use std::any::Any;
 
-use egui::{Id, Modal, Ui};
+use egui::{Id, Ui};
 use reda_engine::command::CommandError;
 use serde_json::Value;
 
@@ -21,44 +21,49 @@ impl ParamsDialog for ParamForm {
         let problems = self.problems(registry);
         let ready = self.params(registry);
         let mut outcome = Outcome::Open;
-        let modal = Modal::new(Id::NULL.with("command-form")).show(ctx, |ui| {
-            ui.set_width(420.0);
-            ui.heading(self.title().to_owned());
-            if !self.description().is_empty() {
-                ui.weak(self.description().to_owned());
-            }
-            ui.add_space(6.0);
-            egui::Grid::new("command-form-fields")
-                .num_columns(2)
-                .spacing([8.0, 4.0])
-                .show(ui, |ui| {
-                    for field in self.fields_mut() {
-                        let problem = problems
-                            .iter()
-                            .find(|(name, _)| *name == field.name)
-                            .map(|(_, m)| m.as_str());
-                        row(ui, field, problem);
+        let modal =
+            crate::modal::Dialog::new(Id::NULL.with("command-form"), self.title().to_owned())
+                .width(420.0)
+                .show(ctx, |ui| {
+                    if !self.description().is_empty() {
+                        ui.weak(self.description().to_owned());
                     }
+                    ui.add_space(6.0);
+                    egui::Grid::new("command-form-fields")
+                        .num_columns(2)
+                        .spacing([8.0, 4.0])
+                        .show(ui, |ui| {
+                            for field in self.fields_mut() {
+                                let problem = problems
+                                    .iter()
+                                    .find(|(name, _)| *name == field.name)
+                                    .map(|(_, m)| m.as_str());
+                                row(ui, field, problem);
+                            }
+                        });
+                    if let Some((_, whole)) = problems.iter().find(|(name, _)| name.is_empty()) {
+                        ui.colored_label(ui.visuals().error_fg_color, whole);
+                    }
+                    if let Some(error) = &self.error {
+                        ui.colored_label(ui.visuals().error_fg_color, error);
+                    }
+                    for note in self.notes() {
+                        ui.colored_label(ui.visuals().warn_fg_color, note);
+                    }
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        let run =
+                            ui.add_enabled(ready.is_some(), egui::Button::new(tr!("form-run")));
+                        if ready.is_none() {
+                            run.on_disabled_hover_text(tr!("form-fix-fields"));
+                        } else if run.clicked() {
+                            outcome = Outcome::Run(ready.clone().unwrap_or(Value::Null));
+                        }
+                        if ui.button(tr!("dialog-cancel")).clicked() {
+                            outcome = Outcome::Cancel;
+                        }
+                    });
                 });
-            if let Some((_, whole)) = problems.iter().find(|(name, _)| name.is_empty()) {
-                ui.colored_label(ui.visuals().error_fg_color, whole);
-            }
-            if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
-            }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                let run = ui.add_enabled(ready.is_some(), egui::Button::new(tr!("form-run")));
-                if ready.is_none() {
-                    run.on_disabled_hover_text(tr!("form-fix-fields"));
-                } else if run.clicked() {
-                    outcome = Outcome::Run(ready.clone().unwrap_or(Value::Null));
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    outcome = Outcome::Cancel;
-                }
-            });
-        });
         if modal.should_close() && outcome == Outcome::Open {
             outcome = Outcome::Cancel;
         }
@@ -75,7 +80,7 @@ impl ParamsDialog for ParamForm {
 }
 
 /// One field: its label, its input, and its problem under the input.
-pub(crate) fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
+fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
     let label = if field.required {
         field.label.clone()
     } else {

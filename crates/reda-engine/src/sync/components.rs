@@ -3,13 +3,14 @@
 
 use std::collections::BTreeMap;
 
+use reda_model::local_edit::{LocalEdit, local_edits};
 use reda_model::{
-    ComponentRef, DocumentKind, Fields, FootprintCopy, FootprintInstance, PcbDocument, PinMap,
-    Project, Uuid,
+    ComponentRef, ComponentType, DocumentKind, Fields, FootprintCopy, FootprintInstance,
+    PcbDocument, PinMap, Project, Uuid,
 };
 use reda_schematic::natural_cmp;
 
-use super::{Change, ChangeKind, FootprintRef, change_id, component_key};
+use super::{Change, ChangeKind, FootprintRef, Status, change_id, component_key};
 
 /// One schematic Component that has a Footprint, with the data its Footprint instance
 /// copies.
@@ -21,6 +22,9 @@ pub(crate) struct SchComponent {
     pub(crate) sheet_index: usize,
     pub(crate) designator: String,
     pub(crate) fields: Fields,
+    pub(crate) component_type: ComponentType,
+    pub(crate) in_bom: bool,
+    pub(crate) in_cpl: bool,
     pub(crate) not_fitted: bool,
     /// The chosen Footprint, as its sheet copied it.
     pub(crate) copy: FootprintCopy,
@@ -34,8 +38,10 @@ impl SchComponent {
     }
 
     /// Whether the PCB copy `copy` is a different Footprint (or a different copy of it).
+    /// A Locally Edited Footprint compares the copy it was edited from, so local edits
+    /// are neither out of sync nor reverted.
     pub(crate) fn footprint_differs(&self, copy: &FootprintCopy) -> bool {
-        copy.footprint.uuid != self.copy.footprint.uuid || copy.hash != self.copy.hash
+        copy.footprint.uuid != self.copy.footprint.uuid || copy.sync_hash() != self.copy.hash
     }
 }
 
@@ -47,9 +53,27 @@ pub(crate) fn footprint_ref(copy: &FootprintCopy) -> FootprintRef {
     }
 }
 
-/// Every schematic Component with a Footprint, by Component key.
+/// A fitted Standard or Net Tie Component that has no Footprint, so it can't reach the
+/// board: a Problem row.
+#[derive(Clone, Debug)]
+pub(crate) struct Missing {
+    pub(crate) key: ComponentRef,
+    pub(crate) sheet: Uuid,
+    pub(crate) sheet_index: usize,
+    pub(crate) designator: String,
+    /// Why: no Footprint chosen, or the chosen one is missing from the sheet's copies.
+    pub(crate) message: String,
+}
+
+/// What one Unit says of its Component: synced, missing its Footprint (a Problem), or
+/// needing none (Mechanical or Not Fitted without one).
+type Gathered = Result<SchComponent, Option<Missing>>;
+
+/// Every schematic Component with a Footprint, by Component key, and those that need one
+/// and have none.
 pub(crate) struct Components {
     pub(crate) by_key: BTreeMap<ComponentRef, SchComponent>,
+    pub(crate) missing: BTreeMap<ComponentRef, Missing>,
 }
 
 impl Components {
@@ -57,8 +81,7 @@ impl Components {
     /// its sheet from its first Unit (the lowest Symbol Unit, on the earliest sheet).
     pub(crate) fn gather(project: &Project) -> Components {
         // (Symbol Unit index, sheet index) of the Unit chosen so far, with its data.
-        let mut best: BTreeMap<ComponentRef, ((usize, usize), Option<SchComponent>)> =
-            BTreeMap::new();
+        let mut best: BTreeMap<ComponentRef, ((usize, usize), Gathered)> = BTreeMap::new();
         let sheets = project
             .documents()
             .filter(|d| d.kind == DocumentKind::Schematic)
@@ -89,19 +112,56 @@ impl Components {
                     sheet_index,
                     designator: unit.designator.clone(),
                     fields: unit.fields.clone(),
+                    component_type: unit.component_type,
+                    in_bom: unit.in_bom,
+                    in_cpl: unit.in_cpl,
                     not_fitted: unit.not_fitted,
                     copy: copy.clone(),
                     pin_map: entry.part.pin_map.clone(),
                 });
+                let needs = matches!(
+                    unit.component_type,
+                    ComponentType::Standard | ComponentType::NetTie
+                ) && !unit.not_fitted;
+                let component = component.ok_or_else(|| {
+                    needs.then(|| Missing {
+                        key: unit.component.clone(),
+                        sheet: sheet.uuid,
+                        sheet_index,
+                        designator: unit.designator.clone(),
+                        message: match unit.footprint {
+                            None => format!(
+                                "{} has no Footprint choice, so it can't reach the board; \
+                                 choose one, or mark it Not Fitted.",
+                                unit.designator
+                            ),
+                            Some(_) => format!(
+                                "{}'s chosen Footprint is missing from its sheet's Part \
+                                 table, so it can't reach the board.",
+                                unit.designator
+                            ),
+                        },
+                    })
+                });
                 best.insert(unit.component.clone(), (rank, component));
             }
         }
-        Components {
-            by_key: best
-                .into_iter()
-                .filter_map(|(key, (_, c))| Some((key, c?)))
-                .collect(),
+        let mut out = Components {
+            by_key: BTreeMap::new(),
+            missing: BTreeMap::new(),
+        };
+        for (key, (_, c)) in best {
+            match c {
+                Ok(c) => {
+                    out.by_key.insert(key, c);
+                }
+                Err(Some(m)) => {
+                    out.missing.insert(key, m);
+                }
+                Err(None) => {}
+            }
         }
+        out
     }
 
     pub(crate) fn get(&self, key: &ComponentRef) -> Option<&SchComponent> {
@@ -131,11 +191,13 @@ impl Components {
                 out.push(Change {
                     id: change_id("add_component", &[&key]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::AddComponent {
                         component: c.key.clone(),
                         designator: c.designator.clone(),
-                        footprint: c.copy.footprint.uuid,
-                        footprint_name: c.copy.footprint.name.clone(),
+                        footprint: Some(c.copy.footprint.uuid),
+                        footprint_name: Some(c.copy.footprint.name.clone()),
                         sheet: c.sheet,
                     },
                 });
@@ -148,12 +210,15 @@ impl Components {
                 out.push(Change {
                     id: change_id("change_footprint", &[&key]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::ChangeFootprint {
                         component: c.key.clone(),
                         instance: instance.uuid,
                         designator: c.designator.clone(),
                         from: footprint_ref(current),
                         to: c.footprint_ref(),
+                        lost_local_edits: lost_local_edits(pcb, current),
                     },
                 });
             }
@@ -161,6 +226,8 @@ impl Components {
                 data.push(Change {
                     id: change_id("designator", &[&key]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::Designator {
                         component: c.key.clone(),
                         instance: instance.uuid,
@@ -173,6 +240,8 @@ impl Components {
                 data.push(Change {
                     id: change_id("fields", &[&key]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::Fields {
                         component: c.key.clone(),
                         instance: instance.uuid,
@@ -182,10 +251,57 @@ impl Components {
                     },
                 });
             }
+            if instance.component_type != c.component_type {
+                data.push(Change {
+                    id: change_id("component_type", &[&key]),
+                    requires: vec![],
+                    status: Status::Ok,
+                    message: None,
+                    change: ChangeKind::ComponentType {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.component_type,
+                        to: c.component_type,
+                    },
+                });
+            }
+            if instance.in_bom != c.in_bom {
+                data.push(Change {
+                    id: change_id("in_bom", &[&key]),
+                    requires: vec![],
+                    status: Status::Ok,
+                    message: None,
+                    change: ChangeKind::InBom {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_bom,
+                        to: c.in_bom,
+                    },
+                });
+            }
+            if instance.in_cpl != c.in_cpl {
+                data.push(Change {
+                    id: change_id("in_cpl", &[&key]),
+                    requires: vec![],
+                    status: Status::Ok,
+                    message: None,
+                    change: ChangeKind::InCpl {
+                        component: c.key.clone(),
+                        instance: instance.uuid,
+                        designator: c.designator.clone(),
+                        from: instance.in_cpl,
+                        to: c.in_cpl,
+                    },
+                });
+            }
             if instance.not_fitted != c.not_fitted {
                 data.push(Change {
                     id: change_id("not_fitted", &[&key]),
                     requires: vec![],
+                    status: Status::Ok,
+                    message: None,
                     change: ChangeKind::NotFitted {
                         component: c.key.clone(),
                         instance: instance.uuid,
@@ -204,15 +320,47 @@ impl Components {
         gone.sort_by(|a, b| natural_cmp(&a.designator, &b.designator).then(a.uuid.cmp(&b.uuid)));
         for instance in gone {
             let component = instance.component.clone().expect("a linked instance");
-            out.push(Change {
+            let missing = self.missing.get(&component).map(|m| m.message.clone());
+            let mut change = Change {
                 id: change_id("remove_component", &[&component_key(&component)]),
                 requires: vec![],
+                status: Status::Ok,
+                message: None,
                 change: ChangeKind::RemoveComponent {
                     component,
                     instance: instance.uuid,
                     designator: instance.designator.clone(),
                 },
-            });
+            };
+            if let Some(message) = missing {
+                change.problem(message);
+            }
+            out.push(change);
+        }
+        let mut missing: Vec<&Missing> = (self.missing.values())
+            .filter(|m| !linked.contains_key(&m.key))
+            .collect();
+        missing.sort_by(|a, b| {
+            (a.sheet_index.cmp(&b.sheet_index))
+                .then_with(|| natural_cmp(&a.designator, &b.designator))
+                .then_with(|| a.key.cmp(&b.key))
+        });
+        for m in missing {
+            let mut change = Change {
+                id: change_id("add_component", &[&component_key(&m.key)]),
+                requires: vec![],
+                status: Status::Ok,
+                message: None,
+                change: ChangeKind::AddComponent {
+                    component: m.key.clone(),
+                    designator: m.designator.clone(),
+                    footprint: None,
+                    footprint_name: None,
+                    sheet: m.sheet,
+                },
+            };
+            change.problem(m.message.clone());
+            out.push(change);
         }
         out.extend(data);
         out
@@ -225,4 +373,14 @@ pub(crate) fn linked_instances(pcb: &PcbDocument) -> BTreeMap<ComponentRef, &Foo
     pcb.footprints()
         .filter_map(|i| Some((i.component.clone()?, i)))
         .collect()
+}
+
+/// The local edits a Footprint change would remove from an instance on PCB copy `copy`.
+pub(crate) fn lost_local_edits(pcb: &PcbDocument, copy: &FootprintCopy) -> Vec<LocalEdit> {
+    copy.edited_from
+        .as_ref()
+        .and_then(|from| pcb.footprint_copy(from.uuid))
+        .map_or_else(Vec::new, |origin| {
+            local_edits(&origin.footprint, &copy.footprint)
+        })
 }

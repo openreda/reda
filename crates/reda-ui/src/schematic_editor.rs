@@ -1,7 +1,9 @@
 //! Editing on a schematic canvas: the Select, Move and Drag Tools, and the wiring Tools
 //! ([`wiring`]: Wire, Net Label, Port, Power Port, No-Connect). Its keys are Keymap
 //! bindings in the `schematic` and `tool:<id>` contexts (`keymap/reda.toml`); the in-flight
-//! keys arrive as view Commands the Shell hands on ([`turn`], [`corner`], [`remove_last`]).
+//! keys arrive as view Commands the Shell hands on ([`turn`], [`corner`], [`remove_last`],
+//! [`fix_corner`], [`insert_vertex`], [`end_run`]). A Wire run another Tool interrupts
+//! waits on the tab ([`suspend`], [`resume`]).
 //!
 //! The editor turns a frame's [`Pointer`] events into Commands the window runs after the
 //! frame (`selection.set`, `schematic.drag`, `schematic.move`, `tool.activate`), and keeps
@@ -12,27 +14,55 @@
 //! Picking, box selection and snapping are the shared [`interact`](crate::canvas::interact)
 //! functions; this module only says what on a sheet can be picked and snapped to.
 
+mod auto_wire;
+mod break_wire;
+mod clipboard;
+mod decorate;
+mod drag_check;
+mod grab;
 mod graphics;
+mod handles;
+mod in_place;
 mod wiring;
 
 use std::collections::BTreeSet;
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{SchematicSheet, Uuid};
-use reda_engine::schematic::connectivity::{net_at, on_segment, placed_pins};
-use reda_engine::schematic::{Axis, FlightStep, ShiftPreview, flight_preview, shift_preview};
+use reda_engine::schematic::connectivity::{net_at, placed_pins};
+use reda_engine::schematic::{
+    Axis, FlightStep, ShiftPreview, flight_preview, shift_preview_flipped,
+};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, SnapTargets, box_select, combine, hit_test,
-};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::shell::{Shell, ToolPreview};
+use crate::snap::{self, Target};
 use crate::tools::Tool;
 use crate::tr;
 
+pub use auto_wire::options as auto_wire_options;
+pub use break_wire::{Breaking, cycle_cutting_length, options as break_wire_options};
+pub use clipboard::{Pasting, Referencing, copy, duplicate, paste};
+pub use decorate::{decorate, drag_chip, hover_tip};
+pub use drag_check::DragCheck;
+pub use grab::{DragKeys, NudgeDirection, flip_corners, grab_point, nudge};
 pub use graphics::Drawing;
+pub use handles::{Grip, Handle, HandleDrag, delete_held_vertex, insert_held_vertex};
+pub use in_place::{
+    EditTarget, InPlace, begin_edit, cancel_edit, commit as commit_edit, edit_selected, editing,
+    pause_placing, paused, set_text as set_edit_text, target_of,
+};
 pub use wiring::{Corner, Placing, Wiring};
+
+/// Adds the editor's view Commands to `registry`: `tool.copy`, `tool.paste`,
+/// `tool.duplicate`, `schematic.edit_in_place` and `schematic.nudge`. The Shell does this for its engine.
+pub fn register_all(registry: &mut reda_engine::command::Registry) {
+    clipboard::register(registry);
+    registry.add(in_place::EditInPlace);
+    registry.add(grab::Nudge);
+}
 
 /// A Command for the window to run after the frame.
 pub type Invocation = (String, Value);
@@ -42,8 +72,6 @@ type P = (f64, f64);
 
 /// How close, in points on screen, the pointer must be to pick an object.
 const PICK_POINTS: f64 = 5.0;
-/// How close, in points on screen, the pointer must be to snap onto a Pin or Wire.
-const SNAP_POINTS: f64 = 10.0;
 
 /// What a schematic canvas has in flight.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -64,6 +92,16 @@ pub enum Interaction {
     Placing(Placing),
     /// The Line or Rect Tool, with or without a shape in flight.
     Drawing(Drawing),
+    /// A selected Wire's handle is being dragged.
+    Handle(HandleDrag),
+    /// The Break Wire Tool, with the pointer over a Wire or not.
+    Breaking(Breaking),
+    /// A paste or Duplicate stamp floating on the cursor.
+    Pasting(Pasting),
+    /// Cut or copy waiting for a click on the reference point.
+    Referencing(Referencing),
+    /// An in-place edit of a name, field or text.
+    Editing(InPlace),
 }
 
 impl Interaction {
@@ -72,6 +110,7 @@ impl Interaction {
         match self {
             Interaction::Placing(p) => p.shown.is_some(),
             Interaction::Flight(f) => f.shown.is_some(),
+            Interaction::Pasting(p) => p.shown.is_some(),
             _ => false,
         }
     }
@@ -96,8 +135,12 @@ pub struct Flight {
     pub by_tool: bool,
     /// The snapped point picked up; the selection moves by the snapped pointer minus it.
     pub anchor: Point,
+    /// From the pointer to the anchor where it was picked up (nm): the anchor follows
+    /// the pointer at this distance and snaps there, so a grab beside a Pin end moves the
+    /// Pin end onto the grid without a jump.
+    pub lead: (f64, f64),
     /// What the pointer snaps to while moving: everything on the sheet not moving.
-    pub targets: SnapTargets,
+    pub targets: Vec<Target>,
     pub offset: Point,
     pub preview: ShiftPreview,
     /// Space, X and Y pressed in flight, applied in order about the anchor before the
@@ -107,6 +150,10 @@ pub struct Flight {
     shown: Option<(Point, usize, u64)>,
     /// Released: its Command is queued, and it keeps showing until the Shell runs it.
     pub committing: bool,
+    /// `Mod`+Space: the rubber-banded Wires turn their corners the other way.
+    pub flip: bool,
+    /// Display When Dragging: the Junctions and Net change at the current offset.
+    pub check: Option<DragCheck>,
 }
 
 impl Flight {
@@ -139,11 +186,11 @@ impl Flight {
     }
 }
 
-/// How far on the Document the pick and snap distances reach at the canvas's zoom.
+/// How far on the Document the pick distance reaches at the canvas's zoom. Snapping
+/// captures within the grid preset's Electrical Range instead ([`crate::snap`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Scale {
     pub pick: f64,
-    pub snap: f64,
 }
 
 impl Scale {
@@ -151,7 +198,6 @@ impl Scale {
     pub fn at(nm_per_point: f64) -> Scale {
         Scale {
             pick: PICK_POINTS * nm_per_point,
-            snap: SNAP_POINTS * nm_per_point,
         }
     }
 }
@@ -164,6 +210,11 @@ pub fn pointer(
     events: &[Pointer],
     scale: Scale,
 ) -> Vec<Invocation> {
+    if let Some(commands) =
+        crate::selection::picking::text_pointer(shell, document, events, scale.pick)
+    {
+        return commands;
+    }
     let Some(tab) = shell.document_tab_mut(document) else {
         return Vec::new();
     };
@@ -254,9 +305,98 @@ pub fn remove_last(shell: &mut Shell, document: Uuid) {
     if let Some(tab) = shell.document_tab_mut(document)
         && let Interaction::Wiring(w) = &mut tab.interaction
     {
-        w.points.pop();
+        w.remove_last();
         restate(shell, document);
     }
+}
+
+/// Whether a Wire run is in flight on `document`'s canvas.
+pub fn run_in_flight(shell: &Shell, document: Uuid) -> bool {
+    shell.document_tab(document).is_some_and(
+        |tab| matches!(&tab.interaction, Interaction::Wiring(w) if !w.points.is_empty()),
+    )
+}
+
+/// Runs `step` on the Wire Tool of `document`'s canvas, shows the result and returns the
+/// Commands it queued.
+fn wire_key(
+    shell: &mut Shell,
+    document: Uuid,
+    step: impl FnOnce(&mut Cx<'_>, Wiring) -> Wiring,
+) -> Vec<Invocation> {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return Vec::new();
+    };
+    let Interaction::Wiring(w) = std::mem::take(&mut tab.interaction) else {
+        return Vec::new();
+    };
+    let (hovered, cursor) = (tab.live.hovered, tab.cursor);
+    let mut cx = Cx {
+        shell,
+        document,
+        scale: Scale::at(1.0),
+        commands: Vec::new(),
+    };
+    let w = step(&mut cx, w);
+    let commands = cx.commands;
+    show(
+        shell,
+        document,
+        Interaction::Wiring(w),
+        hovered,
+        cursor,
+        false,
+    );
+    commands
+}
+
+/// Enter: fixes a corner of the Wire run on `document`'s canvas where the pointer is, as
+/// a click does. Returns the run's Command if that ends it.
+pub fn fix_corner(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.fix(w))
+}
+
+/// Insert: adds a vertex to the Wire run on `document`'s canvas where the pointer is.
+pub fn insert_vertex(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.insert_vertex(w))
+}
+
+/// Esc (or a right-click) during a Wire run on `document`'s canvas: the run commits its
+/// fixed corners and the Tool stays. Returns the run's Command, if it has a segment.
+pub fn end_run(shell: &mut Shell, document: Uuid) -> Vec<Invocation> {
+    wire_key(shell, document, |cx, w| cx.end_run(w))
+}
+
+/// Shows the Wire run on `document`'s canvas again after its mode changed.
+pub fn restate_wiring(shell: &mut Shell, document: Uuid) {
+    restate(shell, document);
+}
+
+/// Another Tool starts during the Wire run on `document`'s canvas: the run waits on the
+/// tab, out of the canvas, until [`resume`].
+pub fn suspend(shell: &mut Shell, document: Uuid) {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return;
+    };
+    let Interaction::Wiring(mut w) = std::mem::take(&mut tab.interaction) else {
+        return;
+    };
+    w.previewing = false;
+    tab.suspended = Some(Interaction::Wiring(w));
+    shell.end_tool();
+    restate(shell, document);
+}
+
+/// The Tool on top finished: the suspended Wire run on `document`'s canvas is back.
+pub fn resume(shell: &mut Shell, document: Uuid) {
+    let Some(tab) = shell.document_tab_mut(document) else {
+        return;
+    };
+    let Some(state) = tab.suspended.take() else {
+        return;
+    };
+    tab.interaction = state;
+    restate(shell, document);
 }
 
 /// Backspace: takes the last point back from the line or rectangle being drawn on
@@ -326,7 +466,9 @@ pub(crate) fn end_commit(tab: &mut crate::shell::DocumentTab) -> bool {
         }
         Interaction::Wiring(w) if !w.committed.is_empty() => {
             w.committed.clear();
-            tab.overlay.wires = w.segments().into();
+            let (solid, dotted) = w.drawn();
+            tab.overlay.wires = solid.into();
+            tab.overlay.dotted = dotted.into();
             true
         }
         Interaction::Drawing(d) if !d.committed.is_empty() => {
@@ -354,13 +496,53 @@ fn show(
     cursor: Option<P>,
     previewed: bool,
 ) {
+    if let Interaction::Wiring(w) = &mut state {
+        w.mode = shell
+            .engine()
+            .view()
+            .get::<crate::tools::WireTool>()
+            .map(|t| t.mode)
+            .unwrap_or_default();
+    }
     preview_run(shell, document, &mut state);
     preview_scene(shell, document, &mut state, previewed);
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, document, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
+    let idle = idle_overlay(shell, document);
+    let breaking = match &state {
+        Interaction::Breaking(b) => Some(break_wire::overlay(shell, document, b)),
+        _ => None,
+    };
     let Some(tab) = shell.document_tab_mut(document) else {
         return;
     };
     let (moving, hidden, offset, overlay) = match &state {
-        Interaction::Idle => (Vec::new(), Vec::new(), (0.0, 0.0), Overlay::default()),
+        Interaction::Idle => (Vec::new(), Vec::new(), (0.0, 0.0), idle),
+        Interaction::Breaking(_) => (
+            Vec::new(),
+            Vec::new(),
+            (0.0, 0.0),
+            breaking.unwrap_or_default(),
+        ),
+        Interaction::Handle(d) => {
+            let mut found = Vec::new();
+            handles::wire_handles_of(d, &mut found);
+            let handles: Vec<(Point, bool)> = found.iter().map(|h| (h.at, h.red)).collect();
+            (
+                Vec::new(),
+                vec![d.wire],
+                (0.0, 0.0),
+                Overlay {
+                    wires: d.vertices.windows(2).map(|p| (p[0], p[1])).collect(),
+                    handles: handles.into(),
+                    ..Overlay::default()
+                },
+            )
+        }
         Interaction::Boxing { from, to, .. } => (
             Vec::new(),
             Vec::new(),
@@ -369,7 +551,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -380,6 +562,12 @@ fn show(
             (0.0, 0.0),
             Overlay {
                 cursor: Some(f.anchor + f.offset),
+                junctions: f
+                    .check
+                    .as_ref()
+                    .map(|c| c.junctions.clone())
+                    .unwrap_or_default()
+                    .into(),
                 ..Overlay::default()
             },
         ),
@@ -388,20 +576,33 @@ fn show(
             f.preview.hidden.clone(),
             (f.offset.x.0 as f64, f.offset.y.0 as f64),
             Overlay {
-                wires: f.preview.wires.clone().into(),
+                wires: f
+                    .preview
+                    .wires
+                    .iter()
+                    .flat_map(|v| v.windows(2).map(|pair| (pair[0], pair[1])))
+                    .collect(),
                 cursor: Some(f.anchor + f.offset),
+                junctions: f
+                    .check
+                    .as_ref()
+                    .map(|c| c.junctions.clone())
+                    .unwrap_or_default()
+                    .into(),
                 ..Overlay::default()
             },
         ),
         Interaction::Wiring(w) => {
             let mut wires = w.committed.clone();
-            wires.extend(w.segments());
+            let (solid, dotted) = w.drawn();
+            wires.extend(solid);
             (
                 Vec::new(),
                 Vec::new(),
                 (0.0, 0.0),
                 Overlay {
                     wires: wires.into(),
+                    dotted: dotted.into(),
                     cursor: Some(w.at),
                     ..Overlay::default()
                 },
@@ -416,6 +617,18 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Pasting(p) => (
+            Vec::new(),
+            Vec::new(),
+            (0.0, 0.0),
+            Overlay {
+                cursor: Some(p.at + p.hold),
+                ..Overlay::default()
+            },
+        ),
+        Interaction::Referencing(_) | Interaction::Editing(_) => {
+            (Vec::new(), Vec::new(), (0.0, 0.0), idle)
+        }
         Interaction::Drawing(d) => {
             let mut wires = d.committed.clone();
             wires.extend(d.segments());
@@ -440,6 +653,32 @@ fn show(
     tab.cursor = cursor;
 }
 
+/// What the canvas shows with nothing in flight: the selected Wires' handles and
+/// segments with the Select Tool.
+fn idle_overlay(shell: &Shell, document: Uuid) -> Overlay {
+    let Some(sheet) = shell
+        .engine()
+        .project()
+        .and_then(|p| p.schematic_sheet(document))
+    else {
+        return Overlay::default();
+    };
+    match shell.tool() {
+        Tool::Select => {
+            let selection = shell.selection();
+            let handles: Vec<(Point, bool)> = (handles::handles(sheet, selection).iter())
+                .map(|h| (h.at, h.red))
+                .collect();
+            Overlay {
+                handles: handles.into(),
+                segments: handles::selected_segments(sheet, selection).into(),
+                ..Overlay::default()
+            }
+        }
+        _ => Overlay::default(),
+    }
+}
+
 /// Starts the Shell's Tool preview when a Wire run begins, depending on the Wires and
 /// Units at its start (a bridged edit to them cancels the run), and ends it with the run.
 fn preview_run(shell: &mut Shell, document: Uuid, state: &mut Interaction) {
@@ -454,12 +693,7 @@ fn preview_run(shell: &mut Shell, document: Uuid, state: &mut Interaction) {
                 .project()
                 .and_then(|p| p.schematic_sheet(document))
             {
-                objects.extend(
-                    sheet
-                        .wires()
-                        .filter(|w| on_segment(w, start))
-                        .map(|w| w.uuid),
-                );
+                objects.extend(sheet.wires().filter(|w| w.contains(start)).map(|w| w.uuid));
                 objects.extend(
                     placed_pins(sheet)
                         .into_iter()
@@ -503,6 +737,10 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
         }
         return;
     }
+    if let Interaction::Pasting(p) = state {
+        clipboard::preview(shell, document, p, generation);
+        return;
+    }
     let Interaction::Placing(p) = state else {
         if previewed {
             shell.redraw(document);
@@ -542,7 +780,7 @@ fn preview_scene(shell: &mut Shell, document: Uuid, state: &mut Interaction, pre
 const PREVIEW_UUID: u128 = 0x0000_0000_0000_4000_8000_7072_6576_6965;
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     document: Uuid,
     scale: Scale,
     commands: Vec<Invocation>,
@@ -556,10 +794,6 @@ impl Cx<'_> {
             .schematic_sheet(self.document)
     }
 
-    fn grid(&self) -> Nm {
-        self.shell.grid(self.document)
-    }
-
     /// The selected objects on this sheet.
     fn selected(&self) -> Vec<Uuid> {
         let on_sheet = self.sheet().map(selectable).unwrap_or_default();
@@ -568,23 +802,15 @@ impl Cx<'_> {
             .objects
             .iter()
             .copied()
-            .filter(|o| on_sheet.contains(o))
+            .filter(|o| {
+                on_sheet.contains(o)
+                    && crate::selection::rules::allowed(self.shell, self.document, *o)
+            })
             .collect()
     }
 
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
-    }
-
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.document)?;
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        hit_test(&tab.scene.scene, at, self.scale.pick, |o| {
-            pickable.contains(&o)
-        })
+        crate::selection::picking::hit(self.shell, self.document, at, self.scale.pick)
     }
 
     /// Ends a Tool flight once its Tool is no longer active, and a committed flight's
@@ -594,6 +820,7 @@ impl Cx<'_> {
             Interaction::Wiring(_) if self.shell.tool() != Tool::Wire => Interaction::Idle,
             Interaction::Placing(p) if self.shell.tool() != p.tool => Interaction::Idle,
             Interaction::Drawing(d) if self.shell.tool() != d.tool => Interaction::Idle,
+            Interaction::Breaking(_) if self.shell.tool() != Tool::BreakWire => Interaction::Idle,
             Interaction::Flight(f) if f.by_tool && !f.committing => {
                 let wanted = if f.keep_connections {
                     Tool::Drag
@@ -624,7 +851,8 @@ impl Cx<'_> {
                 .push(("tool.activate:select".to_owned(), json!({})));
             return state;
         }
-        self.start_flight(objects, keep_connections, true, at, at)
+        let grabbed = self.hit(at).filter(|h| objects.contains(h));
+        self.start_flight(objects, keep_connections, true, grabbed, at, at)
     }
 
     fn start_flight(
@@ -632,28 +860,47 @@ impl Cx<'_> {
         objects: Vec<Uuid>,
         keep_connections: bool,
         by_tool: bool,
+        grabbed: Option<Uuid>,
         from: P,
         at: P,
     ) -> Interaction {
         let Some(sheet) = self.sheet() else {
             return Interaction::Idle;
         };
-        let (grid, snap) = (self.grid(), self.scale.snap);
-        let anchor = snap_targets(sheet, &BTreeSet::new())
-            .snap(from, grid, snap)
-            .at;
-        let moving: BTreeSet<Uuid> = objects.iter().copied().collect();
+        let all = snap::hotspots::sheet(sheet);
+        // The grab Preferences hold the object at its nearest connection point or its
+        // reference point; with neither, where it was clicked.
+        let grab = grabbed.and_then(|g| {
+            let g = match crate::selection::rules::child(self.shell, self.document, g) {
+                Some(child) => child.owner(),
+                None => g,
+            };
+            grab::grab_point(sheet, &self.shell.preferences().editing, g, point(from))
+        });
+        // The held point keeps its distance from the pointer (nothing jumps on the press),
+        // and it is what snaps as the drag goes.
+        let (anchor, lead) = match grab {
+            Some(held) => (held, (held.x.0 as f64 - from.0, held.y.0 as f64 - from.1)),
+            None => {
+                let anchor = snap::snap_at(self.shell, self.document, from, &all).at;
+                let lead = (anchor.x.0 as f64 - from.0, anchor.y.0 as f64 - from.1);
+                (anchor, lead)
+            }
+        };
         let flight = Flight {
-            targets: snap_targets(sheet, &moving),
+            targets: snap::hotspots::without(all, &objects),
             objects,
             keep_connections,
             by_tool,
             anchor,
+            lead,
             offset: Point::default(),
             preview: ShiftPreview::default(),
             turns: Vec::new(),
             shown: None,
             committing: false,
+            flip: false,
+            check: None,
         };
         let mut flight = self.fly(flight, from, true);
         flight = self.fly(flight, at, false);
@@ -662,26 +909,58 @@ impl Cx<'_> {
 
     /// Moves `flight` to the pointer at `at`.
     fn fly(&self, mut flight: Flight, at: P, force: bool) -> Flight {
-        let target = flight.targets.snap(at, self.grid(), self.scale.snap).at;
-        let offset = target - flight.anchor;
+        let at = (at.0 + flight.lead.0, at.1 + flight.lead.1);
+        let target = snap::snap_at(self.shell, self.document, at, &flight.targets).at;
+        let mut offset = target - flight.anchor;
+        // Alt held: only along the axis it has gone further on.
+        if grab::alt_held(self.shell) {
+            if offset.x.0.abs() >= offset.y.0.abs() {
+                offset.y = Nm(0);
+            } else {
+                offset.x = Nm(0);
+            }
+        }
         if !flight.turns.is_empty() {
             // Turned: drawn from a preview Scene (see `preview_scene`), not marks.
-            flight.offset = offset;
+            if offset != flight.offset || force {
+                flight.offset = offset;
+                flight.check = self.drag_check(&flight);
+            }
         } else if offset != flight.offset || force {
             flight.offset = offset;
-            flight.preview = self
-                .shell
-                .engine()
-                .project()
-                .and_then(|p| {
-                    shift_preview(p, &flight.objects, offset, flight.keep_connections).ok()
-                })
-                .unwrap_or_else(|| ShiftPreview {
-                    moved: flight.objects.clone(),
-                    ..ShiftPreview::default()
-                });
+            flight.preview = self.shift_preview(&flight);
+            flight.check = self.drag_check(&flight);
         }
         flight
+    }
+
+    /// The marks `flight` shows at its offset.
+    fn shift_preview(&self, flight: &Flight) -> ShiftPreview {
+        let (objects, keep) = (&flight.objects, flight.keep_connections);
+        self.shell
+            .engine()
+            .project()
+            .and_then(|p| shift_preview_flipped(p, objects, flight.offset, keep, flight.flip).ok())
+            .unwrap_or_else(|| ShiftPreview {
+                moved: flight.objects.clone(),
+                ..ShiftPreview::default()
+            })
+    }
+
+    /// Display When Dragging: the Junctions and Net change the drop would make.
+    fn drag_check(&self, flight: &Flight) -> Option<DragCheck> {
+        if !self.shell.preferences().schematic.display_when_dragging {
+            return None;
+        }
+        let project = self.shell.engine().project()?;
+        let after = flight_preview(
+            project,
+            &flight.objects,
+            &flight.steps(),
+            flight.keep_connections,
+        )
+        .ok()?;
+        Some(drag_check::check(project, &after, self.document))
     }
 
     /// Puts `flight` down: queues its one Command, unless it never moved.
@@ -698,10 +977,13 @@ impl Cx<'_> {
         } else {
             "schematic.move"
         };
-        let shift = json!({
+        let mut shift = json!({
             "objects": flight.objects,
             "by": {"x": flight.offset.x.0, "y": flight.offset.y.0},
         });
+        if flight.keep_connections && flight.flip {
+            shift["flip_corners"] = json!(true);
+        }
         if flight.turns.is_empty() {
             self.commands.push((id.to_owned(), shift));
         } else {
@@ -738,7 +1020,37 @@ impl Cx<'_> {
         event: Pointer,
         hovered: &mut Option<Uuid>,
     ) -> Interaction {
+        let tool = self.shell.tool();
         match (state, event) {
+            (Interaction::Handle(d), event) => self.handle_step(d, event),
+            (Interaction::Breaking(b), event) => self.break_step(b, event),
+            (Interaction::Pasting(p), event) => self.paste_step(p, event),
+            (Interaction::Referencing(r), event) => self.reference_step(r, event),
+            // The text field has the keyboard; Enter or Esc ends the edit.
+            (Interaction::Editing(edit), _) => Interaction::Editing(edit),
+            (Interaction::Idle, Pointer::Click { at, modifiers })
+                if tool == Tool::Select
+                    && modifiers.is_none()
+                    && let Some(edit) = self.slow_second_click(at) =>
+            {
+                Interaction::Editing(edit)
+            }
+            (Interaction::Idle, event) if tool == Tool::BreakWire => {
+                self.break_step(Breaking::default(), event)
+            }
+            (Interaction::Idle, Pointer::Click { at, modifiers })
+                if tool == Tool::Select
+                    && !self.highlights(modifiers)
+                    && self.segment_click(at, modifiers) =>
+            {
+                Interaction::Idle
+            }
+            (Interaction::Idle, Pointer::DragStart { from, at, .. })
+                if tool == Tool::Select && self.grab_handle(from, at).is_some() =>
+            {
+                *hovered = None;
+                self.grab_handle(from, at).expect("checked")
+            }
             (Interaction::Wiring(w), event) => Interaction::Wiring(self.wire_step(w, event)),
             (Interaction::Placing(p), event) => Interaction::Placing(self.place_step(p, event)),
             (Interaction::Drawing(d), event) => Interaction::Drawing(self.draw_step(d, event)),
@@ -790,21 +1102,24 @@ impl Cx<'_> {
                 modifiers,
             },
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.document, at, self.scale.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
-            (Interaction::Idle, Pointer::Click { at, modifiers }) if modifiers.alt => {
-                self.highlight_net(at);
+            (Interaction::Idle, Pointer::Click { at, modifiers }) if self.highlights(modifiers) => {
+                self.highlight_net(at, modifiers.shift);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.document,
+                    at,
+                    self.scale.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -816,57 +1131,97 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.document,
+                    from,
+                    self.scale.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let on_sheet = self.sheet().map(selectable).unwrap_or_default();
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.document,
+                    hit,
+                    modifiers,
+                    |id| on_sheet.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 // Mod+drag detaches; a plain drag keeps connections.
-                self.start_flight(objects, !modifiers.command, false, from, at)
+                let detach = self.shell.modifier_roles().detach.held(&modifiers);
+                self.start_flight(objects, !detach, false, Some(hit), from, at)
             }
             (Interaction::Idle, Pointer::Drag(_) | Pointer::DragEnd(_)) => Interaction::Idle,
         }
     }
 
+    /// The in-place edit a slow second click at `at` starts, if it is one.
+    fn slow_second_click(&self, at: P) -> Option<InPlace> {
+        let hit = crate::selection::picking::slow_second_click(
+            self.shell,
+            self.document,
+            at,
+            self.scale.pick,
+        )?;
+        let project = self.shell.engine().project()?;
+        let target = match crate::selection::rules::child(self.shell, self.document, hit) {
+            Some(reda_engine::render::Child::Field { unit, field }) => {
+                target_of(project, *unit, Some(field))
+            }
+            // A Unit's body is not text: a second click on it deselects it.
+            _ if matches!(
+                project.object(hit),
+                Some(reda_engine::model::Object::Unit(_))
+            ) =>
+            {
+                None
+            }
+            _ => target_of(project, hit, None),
+        }?;
+        in_place::start(self.shell, target)
+    }
+
+    /// Whether a click with `modifiers` highlights a Net: the `net_highlight_sheet` role
+    /// (Alt by default) is held.
+    fn highlights(&self, modifiers: egui::Modifiers) -> bool {
+        (self.shell.modifier_roles().net_highlight_sheet).held(&modifiers)
+    }
+
     /// Alt+click: highlights the Net under the pointer on every sheet, or clears the
-    /// highlight when there is none.
-    fn highlight_net(&mut self, at: P) {
+    /// highlight when there is none. With Shift (`add`) the Net joins what is highlighted,
+    /// and a click on nothing changes nothing.
+    fn highlight_net(&mut self, at: P, add: bool) {
         let net = self.hit(at).and_then(|object| {
             let project = self.shell.engine().project()?;
             net_at(project, self.document, object, point(at))
         });
         let params = match net {
+            Some(net) if add && !self.shell.highlight().objects.is_empty() => {
+                let mut objects = self.shell.highlight().objects.clone();
+                objects.extend(net.objects);
+                objects.sort();
+                objects.dedup();
+                json!({"objects": objects})
+            }
             Some(net) => json!({"net": net.name, "objects": net.objects}),
+            None if add => return,
             None => json!({}),
         };
         self.commands.push(("view.highlight".to_owned(), params));
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.document) else {
-            return;
-        };
-        let pickable = self.sheet().map(selectable).unwrap_or_default();
-        let picked = box_select(
-            &tab.scene.scene,
-            from,
-            to,
-            BoxMode::of_drag(from, to),
-            |o| pickable.contains(&o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+        if let Some(command) =
+            crate::selection::picking::box_selection(self.shell, self.document, from, to, modifiers)
+        {
+            self.commands.push(command);
+        }
     }
 }
 
@@ -887,20 +1242,4 @@ pub fn selectable(sheet: &SchematicSheet) -> BTreeSet<Uuid> {
     out.extend(sheet.texts().map(|o| o.uuid));
     out.extend(sheet.graphics().map(|o| o.uuid));
     out
-}
-
-/// The Pins, Wire ends and Wires on `sheet` the pointer can snap onto, leaving out those
-/// of the `moving` objects.
-fn snap_targets(sheet: &SchematicSheet, moving: &BTreeSet<Uuid>) -> SnapTargets {
-    let mut targets = SnapTargets::default();
-    for (unit, _, at) in placed_pins(sheet) {
-        if !moving.contains(&unit.uuid) {
-            targets.points.push(at);
-        }
-    }
-    for wire in sheet.wires().filter(|w| !moving.contains(&w.uuid)) {
-        targets.points.extend([wire.from, wire.to]);
-        targets.segments.push((wire.from, wire.to));
-    }
-    targets
 }

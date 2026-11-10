@@ -30,7 +30,7 @@ toml_edit = "0.25"
 zip = { version = "9.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 directories = "6"
 # MCP: only reda-cli uses these (it is the only crate that depends on rmcp).
-rmcp = { version = "3.8", default-features = false, features = ["server", "transport-io"] }
+rmcp = { version = "3.9", default-features = false, features = ["server", "transport-io"] }
 tokio = "1.52"
 # The control-port token: 256 bits from the OS random source (reda-control).
 getrandom = "0.4"
@@ -46,6 +46,10 @@ png = "0.18.1"
 egui = "0.37"
 eframe = { version = "0.37", default-features = false, features = ["wgpu", "accesskit", "default_fonts", "wayland", "x11", "clipboard", "links"] }
 egui-wgpu = "0.37"
+# eframe turns off winit's default features, which leaves Wayland compositors that draw no
+# title bar (GNOME) with a bare frame: no title, no double-click to maximize. reda-app turns
+# winit's Adwaita title bar back on (app.md#window-shell). Same winit as eframe 0.37's.
+winit = { version = "0.30.13", default-features = false, features = ["wayland-csd-adwaita"] }
 # SVG icons, rendered by resvg through egui's image loaders.
 egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
 egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }
@@ -54,6 +58,9 @@ rfd = "0.17"
 # The UI's string catalogue.
 fluent-bundle = "0.16"
 unic-langid = "0.9"
+# Find's regular expressions (reda-schematic, reda-ui's Find Panel). The lite crate: no
+# dependencies of its own, and Find needs no Unicode classes or big-input speed.
+regex-lite = "0.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

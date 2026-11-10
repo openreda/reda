@@ -197,7 +197,7 @@ One function serves the dialog, `pcb.rules.set` and `pcb.rules.validate`.
   | Preset | Track preferred | Via preferred (diameter / hole) | Via hole min | `hole_size` |
   |---|---|---|---|---|
   | Generic | 0.25 | 0.70 / 0.30 | 0.30 | 0.50 to 6.30 |
-  | JLCPCB | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
+  | JLCPCB | 0.25 | 0.66 / 0.30 | 0.15 | 0.20 to 6.30 |
   | PCBWay | 0.25 | 0.60 / 0.30 | 0.15 | 0.20 to 6.30 |
 
 - **Which preset:** a rule is compared with every Fab Preset used by an Output Job for this PCB Document. Board Setup shows the strictest limit beside each value and names its preset. With no jobs it shows nothing.
@@ -329,7 +329,7 @@ A Net Tie needs no Waiver. DRC and the Track Tool share one rule, based on the N
 
 ## Waivers
 
-- **Waiving:** `drc.waive` and `erc.waive` take a list of Violations with one reason, as one undo step. In Messages, Waive opens a small window for the reason, covering everything selected. An unconnected test Pin is a typical case, and one connector whose silk crosses the edge is a typical batch.
+- **Waiving:** `drc.waive` and `erc.waive` take a list of Violations with one reason, as one atomic Command and one undo step per affected Document, following the [per-Document undo stacks](architecture.md#commands). In Messages, Waive opens a small window for the reason, covering everything selected. An unconnected test Pin is a typical case, and one connector whose silk crosses the edge is a typical batch.
 - **Unwaiving:** `drc.unwaive` and `erc.unwaive`, from Messages or Violation Details.
 - **Storage:**
   - A Waiver is stored in the Document that holds the objects.

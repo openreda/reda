@@ -4,7 +4,7 @@ use reda_geom::{Millideg, Nm, Point};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
+use crate::{TextFrame, TextStyle, Uuid};
 
 /// The family of the vendored Hershey stroke font, the default for PCB text.
 pub const HERSHEY_FONT: &str = "Hershey Roman Simplex";
@@ -14,26 +14,25 @@ pub const NOTO_SANS_FONT: &str = "Noto Sans";
 
 /// Free text on a PCB Layer.
 ///
-/// The text starts at `position`, the left end of its first baseline; each further line
-/// (after a `\n`) sits one line pitch below. Mirroring flips it about the vertical line
-/// through `position`, then the rotation turns it about the same point.
+/// `position` is its justification anchor. Mirroring and rotation apply about it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PcbText {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The Layer it is drawn on.
     pub layer: Uuid,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The font family, such as `Hershey Roman Simplex`, `Noto Sans` or an installed
-    /// font. A family missing on this machine draws as Noto Sans.
-    pub font: String,
-    /// The left end of the first line's baseline.
+    /// The anchor of the text block or Text Frame.
     pub position: Point,
-    /// The capital height.
-    pub height: Nm,
-    /// The pen width of stroke-font text; outline fonts are filled and ignore it.
-    pub thickness: Nm,
+    /// The same style as a Footprint field text, flattened in the file.
+    #[serde(flatten)]
+    pub style: TextStyle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<TextFrame>,
     /// Counter-clockwise about `position`; left out when 0.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub rotation: Millideg,
@@ -42,11 +41,27 @@ pub struct PcbText {
     pub mirrored: bool,
 }
 
+impl std::ops::Deref for PcbText {
+    type Target = TextStyle;
+    fn deref(&self) -> &TextStyle {
+        &self.style
+    }
+}
+
+impl std::ops::DerefMut for PcbText {
+    fn deref_mut(&mut self) -> &mut TextStyle {
+        &mut self.style
+    }
+}
+
 /// A line, arc or rectangle drawn on a PCB Layer with a round pen.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PcbGraphic {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The Layer it is drawn on.
     pub layer: Uuid,
     /// The pen width.

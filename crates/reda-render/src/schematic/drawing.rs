@@ -2,12 +2,13 @@
 //! free drawing (text, lines and rectangles).
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{SchematicSheet, SheetShape, Wire};
+use reda_model::text::display;
+use reda_model::{JustifyAxis, SchematicSheet, SheetShape};
 
-use super::Builder;
+use super::{Builder, cross_over};
 use crate::color::SchematicColor as C;
 use crate::scene::{Align, HAlign, Primitive, VAlign};
-use crate::text::{TextStyle, reading_direction};
+use crate::text::{LINE_PITCH, TextStyle, reading_direction};
 use crate::transform::rotate;
 
 const WIRE_WIDTH: Nm = Nm(152_400);
@@ -20,17 +21,36 @@ const LABEL_GAP: i64 = 254_000;
 /// Half the size of a No-Connect Marker's cross.
 const NO_CONNECT_HALF: i64 = 635_000;
 
-pub(super) fn wires(b: &mut Builder, sheet: &SchematicSheet) {
+/// Each Wire segment as one stroke; with `cross_overs`, a segment hops over each Wire it
+/// crosses without connecting (see [`cross_over`]).
+pub(super) fn wires(
+    b: &mut Builder,
+    sheet: &SchematicSheet,
+    junctions: &[Point],
+    cross_overs: bool,
+) {
+    let hops = match cross_overs {
+        true => cross_over::hops(sheet, junctions),
+        false => Default::default(),
+    };
     for wire in sheet.wires() {
-        b.push(
-            wire.uuid,
-            C::Wire,
-            Primitive::Capsule {
-                a: wire.from,
-                b: wire.to,
-                width: WIRE_WIDTH,
-            },
-        );
+        for (i, (a, z)) in wire.segments().enumerate() {
+            let path = match hops.get(&(wire.uuid, i)) {
+                Some(at) => cross_over::bridged(a, z, at),
+                None => vec![a, z],
+            };
+            for pair in path.windows(2) {
+                b.push(
+                    wire.uuid,
+                    C::Wire,
+                    Primitive::Capsule {
+                        a: pair[0],
+                        b: pair[1],
+                        width: WIRE_WIDTH,
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -40,7 +60,7 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
     for &at in junctions {
         let object = sheet
             .wires()
-            .find(|w| touches(w, at))
+            .find(|w| w.contains(at))
             .map_or(sheet.uuid, |w| w.uuid);
         b.push(
             object,
@@ -54,13 +74,7 @@ pub(super) fn junctions(b: &mut Builder, sheet: &SchematicSheet, junctions: &[Po
     }
 }
 
-fn touches(wire: &Wire, p: Point) -> bool {
-    let (a, z) = (wire.from, wire.to);
-    let within = |v: Nm, a: Nm, z: Nm| a.min(z) <= v && v <= a.max(z);
-    within(p.x, a.x, z.x) && within(p.y, a.y, z.y) && (a.x == z.x || a.y == z.y)
-}
-
-pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
+pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet, single_negation: bool) {
     for label in sheet.net_labels() {
         // Above the Wire as read, extending the way the label points.
         let reading = reading_direction(label.rotation);
@@ -70,10 +84,11 @@ pub(super) fn net_labels(b: &mut Builder, sheet: &SchematicSheet) {
             HAlign::Right
         };
         let (dx, dy) = rotate(0, LABEL_GAP, reading);
-        b.text(
+        b.name(
             label.uuid,
             C::NetLabel,
             &label.name,
+            single_negation,
             Point::new(label.at.x + Nm(dx), label.at.y + Nm(dy)),
             TextStyle {
                 height: LABEL_TEXT,
@@ -125,15 +140,38 @@ pub(super) fn graphics(b: &mut Builder, sheet: &SchematicSheet) {
 
 pub(super) fn texts(b: &mut Builder, sheet: &SchematicSheet) {
     for text in sheet.texts() {
+        // Laid out in the direction it reads, so text turned upside down is drawn the
+        // right way up with its justification point mirrored to match.
+        let reading = reading_direction(text.rotation);
+        let flipped = reading != text.rotation.normalized();
+        let turn = |axis: JustifyAxis| match (flipped, axis) {
+            (true, JustifyAxis::Start) => JustifyAxis::End,
+            (true, JustifyAxis::End) => JustifyAxis::Start,
+            (_, axis) => axis,
+        };
+        let h = match turn(text.justify.horizontal()) {
+            JustifyAxis::Start => HAlign::Left,
+            JustifyAxis::Middle => HAlign::Center,
+            JustifyAxis::End => HAlign::Right,
+        };
+        // Lines run down from the first; the block's bottom is the last line's baseline.
+        let lines = text.text.split('\n').count() as i64;
+        let below = (lines - 1) * text.height.0 * LINE_PITCH.0 / LINE_PITCH.1;
+        let (v, lift) = match turn(text.justify.vertical()) {
+            JustifyAxis::Start => (VAlign::Baseline, below),
+            JustifyAxis::Middle => (VAlign::Middle, below / 2),
+            JustifyAxis::End => (VAlign::Top, 0),
+        };
+        let (dx, dy) = rotate(0, lift, reading);
         b.text(
             text.uuid,
             C::Text,
-            &text.text,
-            text.at,
+            &display(&text.text),
+            Point::new(text.at.x + Nm(dx), text.at.y + Nm(dy)),
             TextStyle {
                 height: text.height,
-                rotation: text.rotation,
-                align: Align::new(HAlign::Left, VAlign::Baseline),
+                rotation: reading,
+                align: Align::new(h, v),
                 view_label: false,
             },
         );

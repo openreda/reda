@@ -3,7 +3,8 @@
 use serde_json::{Value, json};
 
 use crate::script::{
-    PartSpec, Pin, Script, Sym, arc, bottom, circle, left, line, mil, mm, polygon, rect, right, top,
+    Kind, PartSpec, Script, Sym, arc, bottom, circle, left, line, mil, mm, polygon, rect, right,
+    top,
 };
 
 pub fn build(s: &mut Script) {
@@ -15,26 +16,15 @@ pub fn build(s: &mut Script) {
     button(s);
 }
 
-/// A vertical two-terminal Symbol: Pin 1 at the top, Pin 2 at the bottom, each `length`
-/// mil long from ±150 mil, with names and numbers hidden.
-fn two_pin(s: &mut Script, name: &str, prefix: &str, description: &str, length: i64) -> Sym {
+/// A vertical two-terminal Symbol: Pin 1 at the top, Pin 2 at the bottom, each 100 mil
+/// long from ±`end` mil, so the body runs between ±(`end` − 100) mil; names and numbers
+/// hidden.
+fn two_pin(s: &mut Script, name: &str, prefix: &str, description: &str, end: i64) -> Sym {
     let mut sym = s.symbol(name, prefix, description);
     sym.names = false;
     sym.numbers = false;
-    s.pin(
-        &sym,
-        Pin {
-            length,
-            ..top("~", "1", "passive", 0, 150)
-        },
-    );
-    s.pin(
-        &sym,
-        Pin {
-            length,
-            ..bottom("~", "2", "passive", 0, -150)
-        },
-    );
+    s.pin(&sym, top("~", "1", "passive", 0, end));
+    s.pin(&sym, bottom("~", "2", "passive", 0, -end));
     sym
 }
 
@@ -56,10 +46,12 @@ pub struct Tht<'a> {
     pub pad: f64,
     pub drill: f64,
     pub extent: (f64, f64),
+    /// The part's greatest height above the board.
+    pub height: f64,
 }
 
 pub fn tht_two(s: &mut Script, t: Tht<'_>, body: impl FnOnce(&mut Script, &str)) -> String {
-    let fp = s.footprint(t.name, t.description);
+    let fp = s.footprint(t.name, t.description, t.height);
     for (number, x, shape) in [
         ("1", -t.pitch / 2.0, "rect"),
         ("2", t.pitch / 2.0, "circle"),
@@ -134,7 +126,7 @@ pub fn axial(
 }
 
 fn resistors(s: &mut Script) -> Vec<String> {
-    let mut sym = two_pin(s, "Resistor", "R", "Resistor", 50);
+    let mut sym = two_pin(s, "Resistor", "R", "Resistor", 200);
     sym.names = false;
     s.draw(&sym, rect(mil(-40), mil(-100), mil(40), mil(100)), false);
     let sym = s.finish_symbol(sym);
@@ -151,6 +143,8 @@ fn resistors(s: &mut Script) -> Vec<String> {
             pad: 1.6,
             drill: 0.8,
             extent: (3.25, 1.35),
+            // Lying on the board: the body's diameter.
+            height: 2.5,
         },
         |s, fp| axial(s, fp, 10.16, 1.6, (6.3, 2.5), None),
     );
@@ -162,14 +156,14 @@ fn resistors(s: &mut Script) -> Vec<String> {
         footprints,
         fields: fields("10k", "Resistor", "R resistor"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
     chips
 }
 
 fn capacitors(s: &mut Script) {
-    let sym = two_pin(s, "Capacitor", "C", "Capacitor", 130);
-    for y in [20, -20] {
+    let sym = two_pin(s, "Capacitor", "C", "Capacitor", 150);
+    for y in [50, -50] {
         s.draw(&sym, line(mil(-80), mil(y), mil(80), mil(y)), false);
     }
     let sym = s.finish_symbol(sym);
@@ -186,6 +180,8 @@ fn capacitors(s: &mut Script) {
             pad: 1.6,
             drill: 0.8,
             extent: (2.5, 1.25),
+            // Standing on its leads: the disc's diameter.
+            height: 5.0,
         },
         |s, fp| {
             s.fp_draw(
@@ -210,7 +206,7 @@ fn capacitors(s: &mut Script) {
         footprints,
         fields: fields("100n", "Unpolarised capacitor", "C capacitor ceramic"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
     let sym = two_pin(
@@ -218,23 +214,29 @@ fn capacitors(s: &mut Script) {
         "Capacitor_Polarised",
         "C",
         "Polarised capacitor; Pin 1 is positive",
-        130,
+        150,
     );
-    s.draw(&sym, line(mil(-80), mil(20), mil(80), mil(20)), false);
-    s.draw(&sym, rect(mil(-80), mil(-40), mil(80), mil(-20)), true);
-    s.draw(&sym, line(mil(-70), mil(70), mil(-30), mil(70)), false);
-    s.draw(&sym, line(mil(-50), mil(50), mil(-50), mil(90)), false);
+    s.draw(&sym, line(mil(-80), mil(50), mil(80), mil(50)), false);
+    s.draw(&sym, rect(mil(-80), mil(-50), mil(80), mil(-30)), true);
+    s.draw(&sym, line(mil(-70), mil(100), mil(-30), mil(100)), false);
+    s.draw(&sym, line(mil(-50), mil(80), mil(-50), mil(120)), false);
     let sym = s.finish_symbol(sym);
     let mut footprints = vec![];
     for (name, length, width, height) in [
         ("CAPMP3216X180N", (3.0, 3.4), (1.4, 1.8), "1.8mm"),
         ("CAPMP3528X210N", (3.3, 3.7), (2.6, 3.0), "2.1mm"),
     ] {
+        let description = format!(
+            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
+            &name[5..9]
+        );
         let fp = s.generate(
             "chip",
             json!({
                 "class": "capacitor",
                 "name": name,
+                "description": description,
+                "polarity_mark": true,
                 "dimensions": {
                     "length": {"min": mm(length.0), "max": mm(length.1)},
                     "width": {"min": mm(width.0), "max": mm(width.1)},
@@ -243,11 +245,6 @@ fn capacitors(s: &mut Script) {
                 },
             }),
         );
-        let description = format!(
-            "Moulded polarised chip capacitor, {} metric, IPC-7351 Nominal",
-            &name[5..9]
-        );
-        s.mark_pad_one(&fp, &description);
         footprints.push(fp);
     }
     for (diameter, pitch, pad, drill) in [(5.0, 2.0, 1.4, 0.8), (6.3, 2.5, 1.6, 0.8)] {
@@ -264,6 +261,8 @@ fn capacitors(s: &mut Script) {
                 pad,
                 drill,
                 extent: (r, r),
+                // The common 5 × 11 and 6.3 × 11 mm cans, standing.
+                height: 11.0,
             },
             |s, fp| {
                 s.fp_draw(fp, "assembly_top", circle(0, 0, mm(r)), mm(0.1));
@@ -295,12 +294,12 @@ fn capacitors(s: &mut Script) {
             "C capacitor polarised electrolytic tantalum",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
 fn inductors(s: &mut Script) {
-    let sym = two_pin(s, "Inductor", "L", "Inductor", 50);
+    let sym = two_pin(s, "Inductor", "L", "Inductor", 200);
     for y in [75, 25, -25, -75] {
         s.draw(&sym, arc((0, mil(y)), (0, mil(y + 25)), -180), false);
     }
@@ -315,17 +314,18 @@ fn inductors(s: &mut Script) {
         footprints: footprints.clone(),
         fields: fields("10u", "Inductor", "L inductor choke"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
-    let sym = two_pin(s, "Ferrite_Bead", "FB", "Ferrite bead", 70);
+    let sym = two_pin(s, "Ferrite_Bead", "FB", "Ferrite bead", 200);
+    // A slanted bar from Pin to Pin.
     s.draw(
         &sym,
         polygon(&[
-            (mil(-60), mil(30)),
-            (mil(0), mil(80)),
-            (mil(60), mil(-30)),
-            (mil(0), mil(-80)),
+            (mil(-75), mil(40)),
+            (mil(0), mil(100)),
+            (mil(75), mil(-40)),
+            (mil(0), mil(-100)),
         ]),
         false,
     );
@@ -338,13 +338,13 @@ fn inductors(s: &mut Script) {
         footprints: beads,
         fields: fields("600R@100MHz", "Ferrite bead", "FB ferrite bead EMI"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
 /// Chip fuses share the resistor land patterns.
 fn fuse(s: &mut Script, resistor_chips: &[String]) {
-    let sym = two_pin(s, "Fuse", "F", "Fuse", 50);
+    let sym = two_pin(s, "Fuse", "F", "Fuse", 200);
     s.draw(&sym, rect(mil(-30), mil(-100), mil(30), mil(100)), false);
     s.draw(&sym, line(0, mil(-100), 0, mil(100)), false);
     let sym = s.finish_symbol(sym);
@@ -358,7 +358,7 @@ fn fuse(s: &mut Script, resistor_chips: &[String]) {
         ],
         fields: fields("500mA", "Fuse", "F fuse polyfuse PTC"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -391,6 +391,7 @@ fn crystals(s: &mut Script) {
         "XTAL_SMD_3225_4Pad",
         "SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. \
          Lands per Abracon ABM8 datasheet, Recommended land pattern",
+        0.8,
     );
     for (number, x, y) in [
         ("1", -1.15, -0.875),
@@ -446,7 +447,7 @@ fn crystals(s: &mut Script) {
             "Y crystal quartz",
         ),
         pin_map: Some(json!({"pins": [{"pin": "2", "pads": ["3"]}], "unconnected": ["2", "4"]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 
     // Abracon ABL series datasheet (HC49/US (AT49) crystal), Mechanical Dimensions:
@@ -462,6 +463,8 @@ fn crystals(s: &mut Script) {
             pad: 1.5,
             drill: 0.8,
             extent: (5.75, 2.5),
+            // The low-profile (AT49) can.
+            height: 3.5,
         },
         |s, fp| {
             s.fp_draw(
@@ -484,7 +487,7 @@ fn crystals(s: &mut Script) {
         footprints: vec![hc49],
         fields: fields("16MHz", "Quartz crystal, HC-49/US", "Y crystal quartz"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -510,21 +513,24 @@ fn button(s: &mut Script) {
 
     let mut footprints = vec![];
     for tht in [true, false] {
-        let (name, description, x) = if tht {
+        // Heights: the B3F-1000's 4.3 mm and the B3FS-1000P's 3.5 mm, plunger included.
+        let (name, description, x, height) = if tht {
             (
                 "SW_Push_6x6mm_THT",
                 "Tactile switch, 6 × 6 mm, through-hole. Per Omron B3F datasheet, \
                  PCB Processing Dimensions",
                 3.25,
+                4.3,
             )
         } else {
             (
                 "SW_Push_6x6mm_SMD",
                 "Tactile switch, 6 × 6 mm, SMD. Lands per Omron B3FS datasheet, PCB Pad",
                 4.0,
+                3.5,
             )
         };
-        let fp = s.footprint(name, description);
+        let fp = s.footprint(name, description, height);
         for (number, y) in [("1", 2.25), ("2", -2.25)] {
             for sx in [-x, x] {
                 let pad = if tht {
@@ -587,6 +593,6 @@ fn button(s: &mut Script) {
             "SW switch button tactile",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }

@@ -1,7 +1,7 @@
 //! DRC II: the placement, silkscreen and sync checks, through `drc.run`, on Footprints
 //! synced from the repo's starter Library.
 //!
-//! The 0603 Resistor (RESC1608X55N) has two 0.925 × 1 mm Pads at x = ±0.7875 mm, a
+//! The 0603 Resistor (RESC1608X55N) has two 0.90 × 0.95 mm Pads at x = ±0.775 mm, a
 //! 3 × 1.5 mm courtyard centred on its origin and its Designator 1.45 mm above it.
 
 mod common;
@@ -113,7 +113,7 @@ fn pad(engine: &TestEngine, footprint: Uuid, number: &str) -> Uuid {
 }
 
 #[test]
-fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
+fn silkscreen_over_exposed_pads_on_its_side_breaks_silk_to_mask() {
     let dir = TempDir::new("drc-silk");
     let mut engine = engine(&dir);
     let r = synced(&mut engine, 3);
@@ -141,7 +141,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
         ("10.8mm", "8mm"),
         ("10.8mm", "12mm"),
     );
-    // Above both Pads, 0.425 mm clear.
+    // Above both Pads, 0.45 mm clear.
     line(
         &mut engine,
         "silkscreen_top",
@@ -151,7 +151,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     // R2's Designator moved onto its Pad 2.
     engine.run_ok(
         "pcb.designator_text.set",
-        json!({"footprint": r[1], "at": {"x": "20.7875mm", "y": "10mm"}}),
+        json!({"footprint": r[1], "at": {"x": "20.775mm", "y": "10mm"}}),
     );
     // A text over R3's Pad 1.
     let text = created(&engine.run_ok(
@@ -160,7 +160,7 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
                "height": "0.8mm", "thickness": "0.15mm"}),
     ));
     let run = drc(&mut engine);
-    let mut found = objects_of(&run, "silkscreen_over_pads");
+    let mut found = objects_of(&run, "silk_to_mask");
     found.sort();
     let mut expected = vec![
         vec![across, r[0], pad(&engine, r[0], "1")],
@@ -169,7 +169,14 @@ fn silkscreen_over_exposed_pads_on_its_side_is_reported() {
     ];
     expected.sort();
     assert_eq!(found, expected, "{run:#}");
-    assert_eq!(of(&run, "silkscreen_over_pads")[0]["severity"], "warning");
+    assert_eq!(of(&run, "silk_to_mask")[0]["severity"], "warning");
+    for v in of(&run, "silk_to_mask") {
+        assert_eq!(v["document"], common::PCB);
+        assert!(v["at"].is_object());
+        assert_eq!(v["layers"].as_array().unwrap().len(), 1);
+        assert_eq!(v["measured"], json!({"length": 0}));
+        assert_eq!(v["required"], json!({"length": 100_000}));
+    }
 }
 
 /// The schematic Component a synced Footprint stands for.
@@ -236,11 +243,104 @@ fn an_out_of_sync_violation_can_be_waived() {
         "schematic.component.set",
         json!({"components": [c1], "value": "4k7"}),
     );
+    let v = &of(&drc(&mut engine), "out_of_sync")[0];
+    assert_eq!(v["document"], common::PCB);
+    assert!(v["at"].is_object());
+    assert!(v["layers"].is_array());
     engine.run_ok(
         "drc.waive",
-        json!({"check": "out_of_sync", "objects": [], "comment": "later"}),
+        json!({"violations": [{"check": "out_of_sync", "objects": []}], "reason": "later"}),
     );
     let run = drc(&mut engine);
     assert_eq!(of(&run, "out_of_sync"), Vec::<Value>::new(), "{run:#}");
     assert_eq!(run["waived"], 1);
+}
+
+fn square(x0: i64, y0: i64, x1: i64, y1: i64) -> Value {
+    json!([{"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}])
+}
+
+#[test]
+fn a_footprint_is_checked_by_its_courtyard_against_keepouts_restricting_footprints() {
+    let dir = TempDir::new("drc-keepout-footprints");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 1);
+    // R1's courtyard spans x 8.5–11.5 mm, y 9.25–10.75 mm; its Pads end at x 11.225 mm
+    // and y 10.475 mm.
+    move_to(&mut engine, r[0], 10 * MM, 10 * MM);
+    // Over the courtyard's corner but clear of the Pads by more than the clearance.
+    let corner = square(11_300_000, 10_700_000, 13 * MM, 11 * MM);
+    let keepout = uuid(
+        &engine.run_ok(
+            "pcb.keepout.add",
+            json!({"layer": "copper_top", "vertices": corner}),
+        )["result"]["uuid"],
+    );
+    let keepouts = |e: &mut TestEngine| objects_of(&drc(e), "keepout");
+    assert!(
+        keepouts(&mut engine).is_empty(),
+        "Footprints are not restricted by default"
+    );
+
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "restrict": ["footprints"]}),
+    );
+    let run = drc(&mut engine);
+    assert_eq!(
+        objects_of(&run, "keepout"),
+        [vec![r[0], keepout]],
+        "{run:#}"
+    );
+    let v = &of(&run, "keepout")[0];
+    assert_eq!(v["severity"], "error");
+    let courtyard = pcb(&engine)
+        .layers()
+        .find(
+            reda_model::LayerKind::Courtyard,
+            Some(reda_model::Side::Top),
+        )
+        .unwrap()
+        .uuid;
+    assert_eq!(v["layers"], json!([courtyard]));
+
+    // The bottom copper's side is the other side; every Layer covers both.
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "layer": "copper_bottom"}),
+    );
+    assert!(keepouts(&mut engine).is_empty());
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout, "layer": null}),
+    );
+    assert_eq!(keepouts(&mut engine), [vec![r[0], keepout]]);
+
+    // With no clearance: a courtyard exactly touching passes.
+    engine.run_ok(
+        "pcb.keepout.set",
+        json!({"keepout": keepout,
+               "vertices": square(11_500_000, 10_700_000, 13 * MM, 11 * MM)}),
+    );
+    assert!(keepouts(&mut engine).is_empty());
+}
+
+#[test]
+fn a_dimension_on_the_silkscreen_is_checked_like_its_lines_and_text() {
+    let dir = TempDir::new("drc-silk-dimension");
+    let mut engine = engine(&dir);
+    let r = synced(&mut engine, 1);
+    move_to(&mut engine, r[0], 10 * MM, 10 * MM);
+    // Its left extension line runs up through R1's Pad 1 at x = 9.225 mm.
+    let dimension = created(&engine.run_ok(
+        "pcb.dimension.add",
+        json!({"layer": "silkscreen_top", "a": {"point": {"x": "9.2mm", "y": "8mm"}},
+               "b": {"point": {"x": "14mm", "y": "8mm"}}, "offset": "4mm"}),
+    ));
+    let run = drc(&mut engine);
+    assert_eq!(
+        objects_of(&run, "silk_to_mask"),
+        vec![vec![dimension, r[0], pad(&engine, r[0], "1")]],
+        "{run:#}"
+    );
 }

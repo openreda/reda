@@ -36,6 +36,10 @@ pub struct SelectionHandle {
     /// Cross-probed or Net-highlighted objects: marked highlighted, and everything else
     /// on a canvas that shows any of them dims.
     pub highlighted: Arc<[Uuid]>,
+    /// Everything not highlighted is masked (greyed, not pickable) rather than dimmed.
+    pub mask: bool,
+    /// How strongly (dim, mask) the rest fades, each 0..1.
+    pub strengths: (f32, f32),
 }
 
 impl Default for SelectionHandle {
@@ -44,6 +48,8 @@ impl Default for SelectionHandle {
             generation: 0,
             objects: Arc::from([]),
             highlighted: Arc::from([]),
+            mask: false,
+            strengths: reda_engine::render::gpu::DEFAULT_STRENGTHS,
         }
     }
 }
@@ -267,6 +273,9 @@ impl CanvasResources {
             // A Scene with no marks needs no write for no marks.
             if gpu.selection.is_some() || !unmarked {
                 let mut highlight = Highlight::new();
+                if frame.selection.mask {
+                    highlight.mask_rest();
+                }
                 highlight.mark_all(
                     frame.selection.highlighted.iter().copied(),
                     Flags::HIGHLIGHTED,
@@ -292,6 +301,8 @@ impl CanvasResources {
             gpu.target = Some((target, source));
         }
         gpu.canvas.set_moving_offset(frame.moving_offset);
+        let (dim, mask) = frame.selection.strengths;
+        gpu.canvas.set_strengths(dim, mask);
         gpu.canvas.set_view(queue, &gpu.scene, &frame.view);
         gpu.grid.set(queue, &frame.view, frame.grid.as_ref());
         let (target, _) = gpu.target.as_ref().expect("made above");

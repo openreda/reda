@@ -9,19 +9,40 @@
 //!   with `pcb.footprint.set`: a synced Footprint writes through to every Unit of its
 //!   Component, a Mechanical Part changes only on the board. Which fields show on the
 //!   sheet is not set from here.
-//! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Class,
-//!   set with `pcb.net.set_class`.
+//! - Selected Tracks, Vias, Zones, Pads and highlighted Nets give their Nets' Net Classes;
+//!   picking a class adds them all to it with `pcb.net.add_to_class`, or, when they are
+//!   all in it already, takes them out with `pcb.net.remove_from_class`.
+//! - Selected texts and Zones give their numeric properties ([`Numbers`]), which take
+//!   numeric expressions run per object and committed as one batch.
+//! - Selected Tracks, Vias and Footprints give their sizes and Location the same way.
+//! - One or two selected copper objects give the design rules that apply ([`Rules`]).
+//! - A selected Pad or Footprint whose Footprint was edited on the board gives its local
+//!   edits ([`LocalEdits`]), with the compare and the Revert Command.
+//! - One selected Wire, or segments of only one Wire, give its vertex list (Index, X and
+//!   Y, plus Add and Remove), edited with `schematic.wire.set_vertices`.
 //! - Any one selected object shows its stored properties, read-only.
+
+pub mod annotation;
+pub mod commands;
+pub mod footprint_edit;
+mod numbers;
+pub mod overview;
+pub mod rules;
+pub mod track;
 
 use std::collections::BTreeSet;
 use std::fmt;
 
+use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{
     DocumentKind, Fields, FootprintInstance, Object, Project, UnitInstance, Uuid,
 };
 use serde_json::{Value, json};
 
 use crate::selection::Selection;
+
+pub use numbers::{Kind, NumberRow, Numbers, Region};
+pub use rules::Rules;
 
 /// A value the selected objects share, or `Mixed` when they differ.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,7 +53,7 @@ pub enum Shared<T> {
 
 impl<T: PartialEq> Shared<T> {
     /// What `values` share; `None` when there are none.
-    fn of(values: impl IntoIterator<Item = T>) -> Option<Shared<T>> {
+    pub(crate) fn of(values: impl IntoIterator<Item = T>) -> Option<Shared<T>> {
         let mut values = values.into_iter();
         let first = values.next()?;
         Some(if values.all(|v| v == first) {
@@ -71,11 +92,57 @@ pub enum Edit {
     Field(String, String),
     /// Shows (`true`) or hides a field on the sheet.
     Visible(String, bool),
+    /// Locks (`true`) or unlocks a field: Update from Library leaves a Locked Field alone.
+    Locked(String, bool),
     /// Chooses the Footprint among the Part's alternates.
     Footprint(Uuid),
+    InBom(bool),
+    InCpl(bool),
     NotFitted(bool),
-    /// Moves the selection's Nets into a Net Class.
+    /// Adds the selection's Nets to a Net Class, or takes them out when all are in it.
     NetClass(Uuid),
+    /// Moves the listed Wire's vertex at this index to the point.
+    Vertex(usize, Point),
+    /// Adds a vertex to the listed Wire: a new end one snap grid (this long) on from its
+    /// last vertex, square to the last segment.
+    AddVertex(Nm),
+    /// Removes the listed Wire's vertex at this index.
+    RemoveVertex(usize),
+}
+
+/// The vertex list of the one Wire selected.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WireVertices {
+    pub wire: Uuid,
+    /// In order, from the first; the list's Index is the position here.
+    pub vertices: Vec<Point>,
+}
+
+impl WireVertices {
+    /// The vertices after `edit`, or `None` when it doesn't apply or would leave fewer
+    /// than two.
+    fn edited(&self, edit: &Edit) -> Option<Vec<Point>> {
+        let mut v = self.vertices.clone();
+        match *edit {
+            Edit::Vertex(i, to) => *v.get_mut(i)? = to,
+            Edit::RemoveVertex(i) if i < v.len() && v.len() > 2 => {
+                v.remove(i);
+            }
+            Edit::AddVertex(grid) => {
+                let (a, b) = (v[v.len() - 2], v[v.len() - 1]);
+                let (dx, dy) = ((b.x - a.x).0, (b.y - a.y).0);
+                // Square to the last segment: across a horizontal-ish one, up; else right.
+                let step = if dx.abs() >= dy.abs() {
+                    Point::new(Nm(0), grid)
+                } else {
+                    Point::new(grid, Nm(0))
+                };
+                v.push(b + step);
+            }
+            _ => return None,
+        }
+        Some(v)
+    }
 }
 
 /// The Properties panel's content for one selection.
@@ -90,8 +157,32 @@ pub struct Properties {
     pub component: Option<ComponentProperties>,
     /// The Net Class of the selection's Nets, when it touches any PCB Net.
     pub net_class: Option<NetClassProperty>,
+    /// The numeric properties every selected object has.
+    pub numbers: Numbers,
     /// With one object selected, its stored properties as `(name, value)`, read-only.
     pub details: Vec<(String, String)>,
+    /// The design rules that apply, for one or two copper objects.
+    pub rules: Option<Rules>,
+    /// The local edits of the selected Pads' or Footprints' Footprints, when any of them
+    /// was edited on the board.
+    pub local_edits: Option<LocalEdits>,
+    /// The selected objects of each kind, in the order of `kinds`.
+    by_kind: Vec<Vec<Uuid>>,
+    /// With one Wire selected (whole or by segments), its vertex list.
+    pub vertices: Option<WireVertices>,
+}
+
+/// The selected Footprint instances that were edited on the board.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LocalEdits {
+    /// The locally edited instances, by UUID.
+    pub instances: Vec<Uuid>,
+    /// With one instance: what changed, Pad or graphic by property, edited against
+    /// original.
+    pub edits: Vec<reda_engine::model::local_edit::LocalEdit>,
+    /// With one instance: the Footprint as edited and the copy it came from, for the
+    /// compare drawing.
+    pub compare: Option<(reda_engine::model::Footprint, reda_engine::model::Footprint)>,
 }
 
 /// The properties the selected Components share.
@@ -109,7 +200,12 @@ pub struct ComponentProperties {
     pub footprint: Shared<Option<Uuid>>,
     /// The alternates to choose from; empty unless every Component is the same Part.
     pub alternates: Vec<Alternate>,
+    pub in_bom: Shared<bool>,
+    pub in_cpl: Shared<bool>,
     pub not_fitted: Shared<bool>,
+    /// The Library Part the Components were placed from, by UUID with its name; `None`
+    /// when the edit comes from the board.
+    pub part: Option<Shared<(Uuid, String)>>,
 }
 
 /// One Component field.
@@ -119,6 +215,8 @@ pub struct FieldRow {
     pub value: Shared<String>,
     /// Shown on the sheet.
     pub visible: Shared<bool>,
+    /// On the Components' Locked Fields; always unlocked from the board.
+    pub locked: Shared<bool>,
     /// The Designator can be set on one Component at a time only.
     pub editable: bool,
 }
@@ -131,12 +229,14 @@ pub struct Alternate {
     pub name: String,
 }
 
-/// The Net Class of the selection's Nets.
+/// The Net Classes of the selection's Nets.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NetClassProperty {
     /// The PCB Nets, sorted by UUID.
     pub nets: Vec<Uuid>,
-    pub class: Shared<Uuid>,
+    /// The classes each Net is in besides the Default Net Class, sorted by UUID; empty
+    /// for the Default Net Class only.
+    pub class: Shared<Vec<Uuid>>,
     /// Every Net Class on the board, `(uuid, name)`, in name order.
     pub classes: Vec<(Uuid, String)>,
 }
@@ -151,33 +251,103 @@ impl Properties {
             .filter_map(|uuid| project.object(*uuid))
             .collect();
         let mut kinds: Vec<(String, usize)> = Vec::new();
+        let mut by_kind: Vec<Vec<Uuid>> = Vec::new();
         for object in &objects {
             let kind = kind_name(object);
-            match kinds.iter_mut().find(|(k, _)| *k == kind) {
-                Some((_, n)) => *n += 1,
-                None => kinds.push((kind, 1)),
+            match kinds.iter().position(|(k, _)| *k == kind) {
+                Some(i) => {
+                    kinds[i].1 += 1;
+                    by_kind[i].push(object.uuid());
+                }
+                None => {
+                    kinds.push((kind, 1));
+                    by_kind.push(vec![object.uuid()]);
+                }
             }
+        }
+        if !selection.segments.is_empty() {
+            kinds.push(("wire_segment".to_owned(), selection.segments.len()));
+            by_kind.push(Vec::new());
         }
         let details = match objects.as_slice() {
             [one] => details(one),
             _ => Vec::new(),
         };
+        let mut wires: Vec<Uuid> = objects.iter().map(Object::uuid).collect();
+        wires.extend(selection.segments.iter().map(|s| s.wire));
+        wires.sort();
+        wires.dedup();
+        let vertices = match (
+            wires.as_slice(),
+            wires.first().and_then(|w| project.object(*w)),
+        ) {
+            ([wire], Some(Object::Wire(w))) => Some(WireVertices {
+                wire: *wire,
+                vertices: w.object.vertices.clone(),
+            }),
+            _ => None,
+        };
         Properties {
-            count: objects.len() + selection.pads.len() + selection.nets.len(),
+            count: objects.len()
+                + selection.segments.len()
+                + selection.pads.len()
+                + selection.nets.len(),
             kinds,
             component: component_properties(project, &objects)
                 .or_else(|| footprint_properties(project, &objects)),
             net_class: net_class(project, &objects, selection),
+            numbers: Numbers::of(&objects),
             details,
+            rules: Rules::of(project, selection),
+            local_edits: local_edits(project, &objects, selection),
+            by_kind,
+            vertices,
         }
+    }
+
+    /// The `selection.set` that narrows the selection to the objects of kind `kind` (a
+    /// kind chip's click); `None` for a kind not selected.
+    pub fn narrow(&self, kind: &str) -> Option<(&'static str, Value)> {
+        let i = self.kinds.iter().position(|(k, _)| k == kind)?;
+        let objects = self.by_kind.get(i).filter(|o| !o.is_empty())?;
+        Some(("selection.set", json!({ "objects": objects })))
+    }
+
+    /// The Command that returns the locally edited Footprints to the copies they were
+    /// edited from (Revert).
+    pub fn revert(&self) -> Option<(&'static str, Value)> {
+        let edits = self.local_edits.as_ref()?;
+        Some((
+            "pcb.footprint.revert_local_edits",
+            json!({"instances": edits.instances}),
+        ))
     }
 
     /// The Command that makes `edit` to everything selected, as `(id, params)`; `None`
     /// when the selection has nothing it applies to.
     pub fn command(&self, edit: &Edit) -> Option<(&'static str, Value)> {
+        if matches!(
+            edit,
+            Edit::Vertex(..) | Edit::AddVertex(_) | Edit::RemoveVertex(_)
+        ) {
+            let list = self.vertices.as_ref()?;
+            let vertices: Vec<Value> = (list.edited(edit)?.iter())
+                .map(|p| json!({"x": p.x.0, "y": p.y.0}))
+                .collect();
+            return Some((
+                "schematic.wire.set_vertices",
+                json!({"wire": list.wire, "vertices": vertices}),
+            ));
+        }
         if let Edit::NetClass(class) = edit {
-            let nets = &self.net_class.as_ref()?.nets;
-            return Some(("pcb.net.set_class", json!({"nets": nets, "class": class})));
+            let property = self.net_class.as_ref()?;
+            let all_in = property.class.same().is_some_and(|c| c.contains(class));
+            let id = if all_in {
+                "pcb.net.remove_from_class"
+            } else {
+                "pcb.net.add_to_class"
+            };
+            return Some((id, json!({"nets": property.nets, "class": class})));
         }
         let component = self.component.as_ref()?;
         if !component.footprints.is_empty() {
@@ -201,6 +371,9 @@ impl Properties {
             Edit::Visible(name, shown) => {
                 set.insert("visible".into(), json!({ name: shown }));
             }
+            Edit::Locked(name, locked) => {
+                set.insert("locked".into(), json!({ name: locked }));
+            }
             Edit::Footprint(footprint) => {
                 if !component
                     .alternates
@@ -211,10 +384,18 @@ impl Properties {
                 }
                 set.insert("footprint".into(), json!(footprint));
             }
+            Edit::InBom(in_bom) => {
+                set.insert("in_bom".into(), json!(in_bom));
+            }
+            Edit::InCpl(in_cpl) => {
+                set.insert("in_cpl".into(), json!(in_cpl));
+            }
             Edit::NotFitted(not_fitted) => {
                 set.insert("not_fitted".into(), json!(not_fitted));
             }
-            Edit::NetClass(_) => unreachable!("handled above"),
+            Edit::NetClass(_) | Edit::Vertex(..) | Edit::AddVertex(_) | Edit::RemoveVertex(_) => {
+                unreachable!("handled above")
+            }
         }
         Some(("schematic.component.set", params))
     }
@@ -278,11 +459,14 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
                 .expect("units is not empty");
             let visible = Shared::of(units.iter().map(|(_, u)| u.visible_fields.contains(&name)))
                 .expect("units is not empty");
+            let locked = Shared::of(units.iter().map(|(_, u)| u.locked_fields.contains(&name)))
+                .expect("units is not empty");
             FieldRow {
                 editable: single || name != UnitInstance::DESIGNATOR,
                 name,
                 value,
                 visible,
+                locked,
             }
         })
         .collect();
@@ -292,7 +476,13 @@ fn component_properties(project: &Project, objects: &[Object]) -> Option<Compone
         fields,
         footprint: Shared::of(units.iter().map(|(_, u)| u.footprint)).expect("not empty"),
         alternates: alternates(project, &units),
+        in_bom: Shared::of(units.iter().map(|(_, u)| u.in_bom)).expect("not empty"),
+        in_cpl: Shared::of(units.iter().map(|(_, u)| u.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(units.iter().map(|(_, u)| u.not_fitted)).expect("not empty"),
+        part: Shared::of(units.iter().filter_map(|(sheet, u)| {
+            let entry = project.schematic_sheet(*sheet)?.part(u.part)?;
+            Some((entry.part.uuid, entry.part.name.clone()))
+        })),
     })
 }
 
@@ -327,10 +517,21 @@ fn footprint_command(
             }
             set.insert("footprint".into(), json!(footprint));
         }
+        Edit::InBom(in_bom) => {
+            set.insert("in_bom".into(), json!(in_bom));
+        }
+        Edit::InCpl(in_cpl) => {
+            set.insert("in_cpl".into(), json!(in_cpl));
+        }
         Edit::NotFitted(not_fitted) => {
             set.insert("not_fitted".into(), json!(not_fitted));
         }
-        Edit::Visible(..) | Edit::NetClass(_) => return None,
+        Edit::Visible(..)
+        | Edit::Locked(..)
+        | Edit::NetClass(_)
+        | Edit::Vertex(..)
+        | Edit::AddVertex(_)
+        | Edit::RemoveVertex(_) => return None,
     }
     Some(("pcb.footprint.set", params))
 }
@@ -376,6 +577,7 @@ fn footprint_properties(project: &Project, objects: &[Object]) -> Option<Compone
                 name,
                 value,
                 visible: Shared::Same(false),
+                locked: Shared::Same(false),
             }
         })
         .collect();
@@ -402,7 +604,10 @@ fn footprint_properties(project: &Project, objects: &[Object]) -> Option<Compone
         fields,
         footprint: Shared::of(chosen).expect("not empty"),
         alternates: synced.map_or_else(Vec::new, |units| alternates(project, &units)),
+        in_bom: Shared::of(footprints.iter().map(|f| f.in_bom)).expect("not empty"),
+        in_cpl: Shared::of(footprints.iter().map(|f| f.in_cpl)).expect("not empty"),
         not_fitted: Shared::of(footprints.iter().map(|f| f.not_fitted)).expect("not empty"),
+        part: None,
     })
 }
 
@@ -486,7 +691,11 @@ fn net_class(
         );
     }
     let nets: Vec<Uuid> = nets.into_iter().filter(|n| pcb.net(*n).is_some()).collect();
-    let class = Shared::of(nets.iter().filter_map(|n| pcb.net(*n)).map(|n| n.class))?;
+    let class = Shared::of(nets.iter().filter_map(|n| pcb.net(*n)).map(|n| {
+        let mut classes = n.classes.clone();
+        classes.sort();
+        classes
+    }))?;
     let mut classes: Vec<(Uuid, String)> = pcb
         .net_classes()
         .map(|c| (c.uuid, c.name.clone()))
@@ -496,5 +705,47 @@ fn net_class(
         nets,
         class,
         classes,
+    })
+}
+
+/// The local edits of the Footprints of the selected Pads and Footprints.
+fn local_edits(project: &Project, objects: &[Object], selection: &Selection) -> Option<LocalEdits> {
+    let pcb = project.pcb()?;
+    let mut instances: Vec<Uuid> = Vec::new();
+    let footprints = objects
+        .iter()
+        .filter_map(|o| match o {
+            Object::FootprintInstance(f) => Some(f.object.uuid),
+            _ => None,
+        })
+        .chain(selection.pads.iter().map(|p| p.footprint));
+    for uuid in footprints {
+        let edited = pcb
+            .footprint(uuid)
+            .and_then(|f| pcb.footprint_copy(f.footprint))
+            .is_some_and(|c| c.is_locally_edited());
+        if edited && !instances.contains(&uuid) {
+            instances.push(uuid);
+        }
+    }
+    if instances.is_empty() {
+        return None;
+    }
+    let compare = match instances.as_slice() {
+        [one] => pcb.footprint(*one).and_then(|f| {
+            let copy = pcb.footprint_copy(f.footprint)?;
+            let original = pcb.footprint_copy(copy.edited_from.as_ref()?.uuid)?;
+            Some((copy.footprint.clone(), original.footprint.clone()))
+        }),
+        _ => None,
+    };
+    Some(LocalEdits {
+        edits: compare
+            .as_ref()
+            .map_or_else(Vec::new, |(edited, original)| {
+                reda_engine::model::local_edit::local_edits(original, edited)
+            }),
+        compare,
+        instances,
     })
 }

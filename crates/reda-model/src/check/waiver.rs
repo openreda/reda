@@ -22,17 +22,29 @@ pub struct Waiver {
     pub objects: Vec<Uuid>,
     /// Why it is waived. Left out when empty.
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub comment: String,
+    pub reason: String,
+    /// Preference `user.name` at the instant this Waiver was created.
+    pub author: String,
+    /// Milliseconds since the Unix epoch, UTC, from the injected Clock.
+    pub created: i64,
 }
 
 impl Waiver {
     /// A Waiver of `violation`'s check and objects.
-    pub fn of(uuid: Uuid, violation: &Violation, comment: impl Into<String>) -> Waiver {
+    pub fn of(
+        uuid: Uuid,
+        violation: &Violation,
+        author: impl Into<String>,
+        created: i64,
+        reason: impl Into<String>,
+    ) -> Waiver {
         Waiver {
             uuid,
             check: violation.check.clone(),
             objects: object_set(&violation.objects),
-            comment: comment.into(),
+            reason: reason.into(),
+            author: author.into(),
+            created,
         }
     }
 
@@ -62,11 +74,14 @@ pub struct Waived {
 }
 
 /// Lays `waivers` over a run's `violations`. Waived Violations are dropped unless
-/// `include_waived`, when they stay with their Waiver named.
+/// `include_waived`, when they stay with their Waiver named. Only Waivers whose check
+/// ran across the whole design can be reported as unmatched. Callers must return false
+/// for Off checks, checks omitted from a run, and checks run with a narrowed scope.
 pub fn apply_waivers<'a>(
     violations: Vec<Violation>,
     waivers: impl IntoIterator<Item = &'a Waiver>,
     include_waived: bool,
+    check_ran_fully: impl Fn(&str) -> bool,
 ) -> Waived {
     let waivers: Vec<&Waiver> = waivers.into_iter().collect();
     let mut used = vec![false; waivers.len()];
@@ -89,7 +104,7 @@ pub fn apply_waivers<'a>(
         }
     }
     out.unmatched = (waivers.iter().zip(used))
-        .filter(|(_, used)| !used)
+        .filter(|(w, used)| !used && check_ran_fully(&w.check))
         .map(|(w, _)| w.uuid)
         .collect();
     out.unmatched.sort();

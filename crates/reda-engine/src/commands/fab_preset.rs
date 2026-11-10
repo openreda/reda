@@ -1,5 +1,6 @@
 //! Fab Presets: listing the presets there are, the Project's copies of them ("Update from
-//! source", "Save as user preset"), and adding and deleting copies.
+//! source", "Save as user preset"), adding and deleting copies, and editing a copy or a
+//! user preset key by key (the Fab Preset pages).
 
 use std::path::PathBuf;
 
@@ -21,6 +22,8 @@ pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(PresetDeleteUser);
     registry.add(PresetSourceDiff);
     registry.add(PresetUpdateFromSource);
+    registry.add(PresetSet);
+    registry.add(PresetSetUser);
 }
 
 /// Names one of the Project's Fab Preset copies.
@@ -306,30 +309,51 @@ fn diff(project: &FabPreset, source: &FabPreset) -> Vec<FieldChange> {
     let (Value::Object(a), Value::Object(b)) = (to_value(project), to_value(source)) else {
         unreachable!("a preset serialises as an object");
     };
+    // A field left out (such as empty `stackup` seeds) compares as `null`, and as an
+    // empty object against one that is set.
+    let empty = Value::Object(Default::default());
     let mut changes = vec![];
-    for (key, a) in &a {
-        let b = &b[key];
+    for key in union(&a, &b) {
+        let (a, b) = (a.get(key), b.get(key));
+        let is_object = |v: Option<&Value>| v.is_none_or(Value::is_object);
         match (a, b) {
-            (Value::Object(inner_a), Value::Object(inner_b)) => {
-                for (inner, value) in inner_a {
-                    if &inner_b[inner] != value {
+            (a, b) if is_object(a) && is_object(b) => {
+                let (Value::Object(inner_a), Value::Object(inner_b)) =
+                    (a.unwrap_or(&empty), b.unwrap_or(&empty))
+                else {
+                    unreachable!("both are objects");
+                };
+                for inner in union(inner_a, inner_b) {
+                    let (va, vb) = (
+                        inner_a.get(inner).cloned().unwrap_or(Value::Null),
+                        inner_b.get(inner).cloned().unwrap_or(Value::Null),
+                    );
+                    if va != vb {
                         changes.push(FieldChange {
                             field: format!("{key}.{inner}"),
-                            project: value.clone(),
-                            source: inner_b[inner].clone(),
+                            project: va,
+                            source: vb,
                         });
                     }
                 }
             }
-            _ if a != b => changes.push(FieldChange {
+            (a, b) if a != b => changes.push(FieldChange {
                 field: key.clone(),
-                project: a.clone(),
-                source: b.clone(),
+                project: a.cloned().unwrap_or(Value::Null),
+                source: b.cloned().unwrap_or(Value::Null),
             }),
             _ => {}
         }
     }
     changes
+}
+
+/// The keys of `a` in order, then those only `b` has.
+fn union<'v>(
+    a: &'v serde_json::Map<String, Value>,
+    b: &'v serde_json::Map<String, Value>,
+) -> impl Iterator<Item = &'v String> {
+    a.keys().chain(b.keys().filter(|k| !a.contains_key(*k)))
 }
 
 /// The copy and the preset it came from.
@@ -400,5 +424,79 @@ impl Command for PresetUpdateFromSource {
             origin: source.origin,
             changes,
         })
+    }
+}
+
+pub struct PresetSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetSetParams {
+    /// The Project copy's UUID.
+    pub preset: Uuid,
+    /// Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,
+    /// `gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each
+    /// whole, such as `{"gerber": {"slot_command": "g85"}}`; `zip_assembly` is set as it
+    /// is. The name cannot be set.
+    pub values: Value,
+}
+
+impl Command for PresetSet {
+    const META: Meta = Meta {
+        id: "fab_preset.set",
+        title: "Edit Fab Preset Copy",
+        description: "Changes keys of one of the Project's Fab Preset copies, as its pages \
+                      in Project Settings do. Sections change only the keys they name. \
+                      The source preset is not touched.",
+        category: "output",
+        icon: "fab_preset",
+        kind: Kind::Edit,
+    };
+    type Params = PresetSetParams;
+    type Output = ();
+
+    fn run(&self, cx: &mut Context<'_>, p: PresetSetParams) -> Result<(), CommandError> {
+        let copy = copy(cx.project()?, p.preset)?;
+        let edited = fab_presets::edited(&copy.preset(), &p.values)?;
+        if edited != copy.preset() {
+            cx.tx()?
+                .replace(Object::FabPreset(ProjectFabPreset::new(copy.uuid, edited)))?;
+        }
+        Ok(())
+    }
+}
+
+pub struct PresetSetUser;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresetSetUserParams {
+    /// The user preset's name (case does not matter).
+    pub name: String,
+    /// Preset keys to change, as `fab_preset.set` takes them.
+    pub values: Value,
+}
+
+impl Command for PresetSetUser {
+    const META: Meta = Meta {
+        id: "fab_preset.set_user",
+        title: "Edit User Fab Preset",
+        description: "Changes keys of one of the user's Fab Presets and writes its \
+                      `.redafab` file, as its pages in Preferences do. Project copies of it \
+                      change only with Update from Source.",
+        category: "output",
+        icon: "fab_preset",
+        kind: Kind::File,
+    };
+    type Params = PresetSetUserParams;
+    type Output = PresetSaveUserResult;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: PresetSetUserParams,
+    ) -> Result<PresetSaveUserResult, CommandError> {
+        let path = fab_presets::edit_user(user_dirs(cx)?, &p.name, &p.values)?;
+        Ok(PresetSaveUserResult { path })
     }
 }

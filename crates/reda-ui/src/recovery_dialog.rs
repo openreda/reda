@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use egui::{Id, Modal, RichText};
+use egui::{Id, RichText};
 
 use crate::recovery::{Choice, Prompt};
 use crate::tr;
@@ -22,66 +22,68 @@ pub(crate) enum RecoveryAction {
 /// Draws the recovery prompt.
 pub(crate) fn recovery(ctx: &egui::Context, prompt: &Prompt) -> Option<RecoveryAction> {
     let mut action = None;
-    Modal::new(Id::NULL.with("recovery-prompt")).show(ctx, |ui| {
-        ui.set_max_width(560.0);
-        ui.heading(tr!("recovery-title"));
-        ui.label(tr!("recovery-intro"));
-        ui.separator();
-        for row in &prompt.rows {
-            let file = row.found.snapshot.file.clone();
-            ui.group(|ui| {
-                ui.add_enabled_ui(row.can_restore(), |ui| {
-                    ui.strong(row.title());
-                    if row.found.snapshot.taken > 0 {
-                        ui.weak(tr!("recovery-taken", time = utc(row.found.snapshot.taken)));
-                    }
-                });
-                if let Some(error) = row.error() {
-                    ui.colored_label(
-                        ui.visuals().error_fg_color,
-                        tr!("recovery-unreadable", error = error),
-                    );
-                } else if row.found.disk_changed {
-                    ui.colored_label(ui.visuals().warn_fg_color, tr!("recovery-disk-changed"));
-                } else if row.found.missing {
-                    ui.label(tr!("recovery-missing"));
-                }
-                ui.horizontal(|ui| {
-                    let emphasis = |text: String, on: bool| match on {
-                        true => RichText::new(text).strong(),
-                        false => RichText::new(text),
-                    };
-                    if row.can_restore() {
-                        let restore =
-                            emphasis(tr!("recovery-restore"), row.choice == Choice::Restore);
-                        if ui.button(restore).clicked() {
-                            action = Some(RecoveryAction::Restore(file.clone()));
+    crate::modal::Dialog::new(Id::NULL.with("recovery-prompt"), tr!("recovery-title"))
+        .width(560.0)
+        .show(ctx, |ui| {
+            ui.label(tr!("recovery-intro"));
+            ui.separator();
+            for row in &prompt.rows {
+                let file = row.found.snapshot.file.clone();
+                ui.group(|ui| {
+                    ui.add_enabled_ui(row.can_restore(), |ui| {
+                        ui.strong(row.title());
+                        if row.found.snapshot.taken > 0 {
+                            ui.weak(tr!("recovery-taken", time = utc(row.found.snapshot.taken)));
                         }
+                    });
+                    if let Some(error) = row.error() {
+                        ui.colored_label(
+                            ui.visuals().error_fg_color,
+                            tr!("recovery-unreadable", error = error),
+                        );
+                    } else if row.found.disk_changed {
+                        ui.colored_label(ui.visuals().warn_fg_color, tr!("recovery-disk-changed"));
+                    } else if row.found.missing {
+                        ui.label(tr!("recovery-missing"));
                     }
-                    let discard = emphasis(tr!("recovery-discard"), row.choice == Choice::Discard);
-                    if ui.button(discard).clicked() {
-                        action = Some(RecoveryAction::Discard(file.clone()));
-                    }
-                    if !row.can_restore() && ui.button(tr!("recovery-show-in-folder")).clicked() {
-                        action = Some(RecoveryAction::ShowInFolder(prompt.dir.clone()));
-                    }
+                    ui.horizontal(|ui| {
+                        let emphasis = |text: String, on: bool| match on {
+                            true => RichText::new(text).strong(),
+                            false => RichText::new(text),
+                        };
+                        if row.can_restore() {
+                            let restore =
+                                emphasis(tr!("recovery-restore"), row.choice == Choice::Restore);
+                            if ui.button(restore).clicked() {
+                                action = Some(RecoveryAction::Restore(file.clone()));
+                            }
+                        }
+                        let discard =
+                            emphasis(tr!("recovery-discard"), row.choice == Choice::Discard);
+                        if ui.button(discard).clicked() {
+                            action = Some(RecoveryAction::Discard(file.clone()));
+                        }
+                        if !row.can_restore() && ui.button(tr!("recovery-show-in-folder")).clicked()
+                        {
+                            action = Some(RecoveryAction::ShowInFolder(prompt.dir.clone()));
+                        }
+                    });
                 });
+            }
+            ui.separator();
+            ui.horizontal(|ui| {
+                let any = prompt.rows.iter().any(|r| r.choice == Choice::Restore);
+                if ui
+                    .add_enabled(any, egui::Button::new(tr!("recovery-restore-all")))
+                    .clicked()
+                {
+                    action = Some(RecoveryAction::RestoreAll);
+                }
+                if ui.button(tr!("recovery-discard-all")).clicked() {
+                    action = Some(RecoveryAction::DiscardAll);
+                }
             });
-        }
-        ui.separator();
-        ui.horizontal(|ui| {
-            let any = prompt.rows.iter().any(|r| r.choice == Choice::Restore);
-            if ui
-                .add_enabled(any, egui::Button::new(tr!("recovery-restore-all")))
-                .clicked()
-            {
-                action = Some(RecoveryAction::RestoreAll);
-            }
-            if ui.button(tr!("recovery-discard-all")).clicked() {
-                action = Some(RecoveryAction::DiscardAll);
-            }
         });
-    });
     action
 }
 
@@ -96,32 +98,32 @@ pub(crate) enum CrashAction {
 /// Draws the offer of the Crash Report at `report`.
 pub(crate) fn crash(ctx: &egui::Context, report: &std::path::Path) -> Option<CrashAction> {
     let mut action = None;
-    Modal::new(Id::NULL.with("crash-report")).show(ctx, |ui| {
-        ui.set_max_width(480.0);
-        ui.heading(tr!("crash-title"));
-        ui.label(tr!("crash-intro"));
-        ui.monospace(report.display().to_string());
-        ui.horizontal(|ui| {
-            if ui.button(tr!("crash-open-folder")).clicked() {
-                action = Some(CrashAction::OpenFolder);
-            }
-            if ui
-                .button(tr!("crash-report-github"))
-                .on_hover_text(tr!("crash-report-github-hint"))
-                .clicked()
-            {
-                action = Some(CrashAction::ReportOnGitHub);
-            }
-            if ui.button(tr!("crash-dismiss")).clicked() {
-                action = Some(CrashAction::Dismiss);
-            }
+    crate::modal::Dialog::new(Id::NULL.with("crash-report"), tr!("crash-title"))
+        .width(480.0)
+        .show(ctx, |ui| {
+            ui.label(tr!("crash-intro"));
+            ui.monospace(report.display().to_string());
+            ui.horizontal(|ui| {
+                if ui.button(tr!("crash-open-folder")).clicked() {
+                    action = Some(CrashAction::OpenFolder);
+                }
+                if ui
+                    .button(tr!("crash-report-github"))
+                    .on_hover_text(tr!("crash-report-github-hint"))
+                    .clicked()
+                {
+                    action = Some(CrashAction::ReportOnGitHub);
+                }
+                if ui.button(tr!("crash-dismiss")).clicked() {
+                    action = Some(CrashAction::Dismiss);
+                }
+            });
         });
-    });
     action
 }
 
 /// `ms` since the Unix epoch as `YYYY-MM-DD HH:MM UTC`.
-fn utc(ms: i64) -> String {
+pub(crate) fn utc(ms: i64) -> String {
     let secs = ms.div_euclid(1000);
     let (days, rest) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
     // Howard Hinnant's days-to-civil algorithm.

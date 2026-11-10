@@ -5,6 +5,7 @@ use reda_engine::Engine;
 use reda_engine::command::ErrorCode;
 use reda_engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_engine::model::geom::Nm;
+use reda_engine::model::{RuleField, RuleKind};
 use reda_engine::state;
 use reda_testkit::{FolderTrash, TempDir, TestEngine, test_engine, test_engine_in};
 use serde_json::{Value, json};
@@ -29,16 +30,47 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     let mut engine = test_engine();
     new_project(&mut engine, &dir, json!({"fab_preset": "jlcpcb"}));
     let project = engine.project().unwrap();
-    let rules = project.pcb().unwrap().setup().rules;
-    // JLCPCB's published 2-layer minimums (fab research, openreda/reda#4).
-    assert_eq!(rules.track_width, Nm::from_um(100));
-    assert_eq!(rules.clearance, Nm::from_um(100));
-    assert_eq!(rules.via_hole, Nm::from_um(150));
+    let pcb = project.pcb().unwrap();
+    let value = |kind: RuleKind, field: RuleField| pcb.board_rule(kind).values.length(field);
+    // JLCPCB's published 2-layer minimums (fab research, openreda/reda#4), and the
+    // preferred seeds of `checks.md`.
+    assert_eq!(
+        value(RuleKind::TrackWidth, RuleField::Min),
+        Some(Nm::from_um(100))
+    );
+    assert_eq!(
+        value(RuleKind::TrackWidth, RuleField::Preferred),
+        Some(Nm::from_um(250))
+    );
+    assert_eq!(
+        value(RuleKind::Clearance, RuleField::Value),
+        Some(Nm::from_um(100))
+    );
+    assert_eq!(
+        value(RuleKind::ViaSize, RuleField::HoleMin),
+        Some(Nm::from_um(150))
+    );
+    assert_eq!(
+        value(RuleKind::ViaSize, RuleField::DiameterPreferred),
+        Some(Nm::from_um(660))
+    );
+    assert_eq!(
+        value(RuleKind::ViaSize, RuleField::HolePreferred),
+        Some(Nm::from_um(300))
+    );
+    assert_eq!(
+        value(RuleKind::HoleSize, RuleField::Min),
+        Some(Nm::from_um(200))
+    );
+    assert_eq!(
+        value(RuleKind::HoleSize, RuleField::Max),
+        Some(Nm::from_um(6300))
+    );
 
     let preset = only_preset(&engine);
     assert_eq!(preset.name, "JLCPCB");
     assert!(
-        preset.bom.iter().any(|c| c.header == "LCSC Part #"),
+        preset.bom.columns.iter().any(|c| c.header == "LCSC Part #"),
         "{:?}",
         preset.bom
     );
@@ -50,8 +82,10 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     assert_eq!(jobs[0].destination(), "outputs/JLCPCB");
 }
 
+/// Each preset's seed Via meets its own annular ring minimum. JLCPCB's is 0.66/0.30 mm
+/// (a 0.18 mm ring) because 0.60/0.30 mm left 0.15 mm, under JLCPCB's 0.18 mm.
 #[test]
-fn a_default_via_on_a_board_from_any_shipped_preset_has_enough_annular_ring() {
+fn a_default_via_on_every_shipped_preset_has_enough_annular_ring() {
     for preset in ["Generic", "JLCPCB", "PCBWay"] {
         let dir = TempDir::new("fab-via");
         let mut engine = test_engine();
@@ -77,11 +111,28 @@ fn the_generic_preset_is_conservative() {
     let dir = TempDir::new("fab-generic");
     let mut engine = test_engine();
     new_project(&mut engine, &dir, json!({}));
-    let rules = engine.project().unwrap().pcb().unwrap().setup().rules;
-    assert_eq!(rules.track_width, Nm::from_um(200));
-    assert_eq!(rules.clearance, Nm::from_um(160));
-    assert_eq!(rules.via_hole, Nm::from_um(300));
-    assert_eq!(rules.edge_clearance, Nm::from_um(400));
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let value = |kind: RuleKind, field: RuleField| pcb.board_rule(kind).values.length(field);
+    assert_eq!(
+        value(RuleKind::TrackWidth, RuleField::Min),
+        Some(Nm::from_um(200))
+    );
+    assert_eq!(
+        value(RuleKind::Clearance, RuleField::Value),
+        Some(Nm::from_um(160))
+    );
+    assert_eq!(
+        value(RuleKind::ViaSize, RuleField::HoleMin),
+        Some(Nm::from_um(300))
+    );
+    assert_eq!(
+        value(RuleKind::EdgeClearance, RuleField::Value),
+        Some(Nm::from_um(400))
+    );
+    assert_eq!(
+        value(RuleKind::HoleSize, RuleField::Min),
+        Some(Nm::from_um(500))
+    );
     assert_eq!(only_preset(&engine).name, "Generic");
 }
 
@@ -230,8 +281,11 @@ fn update_from_source_previews_then_replaces_the_copy() {
     engine.run_ok("fab_preset.update_from_source", json!({"preset": uuid}));
     assert_eq!(copy(&engine).rules.clearance, Nm::from_um(125));
     // The board keeps its own rules: the preset only seeds them.
-    let board = engine.project().unwrap().pcb().unwrap().setup().rules;
-    assert_eq!(board.clearance, Nm::from_um(100));
+    let board = engine.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.board_rule(RuleKind::Clearance).values.value,
+        Some(Nm::from_um(100))
+    );
 
     engine.run_ok("edit.undo", json!({"document": "project"}));
     assert_eq!(copy(&engine).rules.clearance, Nm::from_um(100));
@@ -288,6 +342,7 @@ fn copies_and_jobs_survive_save_and_open() {
 fn with_user_preset(home: &TempDir, dir: &TempDir) -> TestEngine {
     let mut engine = TestEngine(
         Engine::builder()
+            .version(reda_testkit::TEST_VERSION)
             .ids(SeededIds::new(0))
             .clock(FixedClock::EPOCH)
             .user_dirs(Some(UserDirs::under(home.path())))
@@ -355,5 +410,398 @@ fn a_deleted_user_preset_goes_to_the_trash() {
         err.code,
         ErrorCode::NotFound,
         "a shipped preset is not the user's"
+    );
+}
+
+#[test]
+fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
+    let home = TempDir::new("fab-stackup-home");
+    let dir = TempDir::new("fab-stackup");
+    let mut engine = with_user_preset(&home, &dir);
+    let generic = engine.project().unwrap().pcb().unwrap().stackup().clone();
+    // JLCPCB seeds 1.6 mm with 1 oz copper; finish and colours stay unset.
+    assert_eq!(generic.thickness, Nm::from_um(1_600));
+    assert!(generic.copper().all(|c| c.thickness == Nm::from_um(35)));
+
+    let path = home.path().join("config/fab-presets/My JLC.redafab");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let text = text.replace(
+        "\"stackup\": {\"thickness\":1600000,\"copper\":35000}",
+        "\"stackup\": {\"thickness\":800000,\"copper\":70000}",
+    );
+    std::fs::write(&path, text).unwrap();
+
+    let other = TempDir::new("fab-stackup-2");
+    new_project(&mut engine, &other, json!({"fab_preset": "My JLC"}));
+    let stackup = engine.project().unwrap().pcb().unwrap().stackup().clone();
+    assert_eq!(stackup.thickness, Nm::from_um(800));
+    let copper: Vec<Nm> = stackup.copper().map(|c| c.thickness).collect();
+    assert_eq!(copper, [Nm::from_um(70), Nm::from_um(70)]);
+    assert_eq!(stackup.dielectrics().count(), 1);
+    assert_eq!(only_preset(&engine).stackup.copper, Some(Nm::from_um(70)));
+    // The copy keeps the seeds, and they come back after save and open.
+    let folder = other.path().join("work/Demo");
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = test_engine();
+    reopened.run_ok("project.open", json!({"path": folder}));
+    assert_eq!(
+        only_preset(&reopened).stackup.thickness,
+        Some(Nm::from_um(800))
+    );
+    let board = reopened.project().unwrap().pcb().unwrap().stackup().clone();
+    assert_eq!(board, stackup);
+}
+
+#[test]
+fn shipped_presets_describe_the_fabs_complete_output_conventions() {
+    let mut engine = test_engine();
+    let list = engine.run_ok("fab_preset.list", json!({}));
+    for (name, origin, required, mount, unplaced, rotation, suffix, tht) in [
+        (
+            "Generic",
+            "absolute",
+            json!([]),
+            "SMT",
+            true,
+            "plus_180",
+            false,
+            false,
+        ),
+        (
+            "JLCPCB",
+            "absolute",
+            json!(["LCSC"]),
+            "SMT",
+            false,
+            "negate",
+            false,
+            false,
+        ),
+        (
+            "PCBWay",
+            "relative",
+            json!(["MPN"]),
+            "SMD",
+            false,
+            "plus_180",
+            true,
+            true,
+        ),
+    ] {
+        let preset = &list["presets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["preset"]["name"] == name)
+            .unwrap()["preset"];
+        let expansion = if name == "JLCPCB" { 0 } else { 50_000 };
+        assert_eq!(
+            preset["rules"]["mask_expansion"],
+            json!({"top":expansion,"bottom":expansion,"from_hole_edge":false,
+                "tent_vias_top":true,"tent_vias_bottom":true}),
+            "{name}"
+        );
+        assert_eq!(
+            preset["rules"]["paste_expansion"],
+            json!({"expansion":0}),
+            "{name}"
+        );
+        assert_eq!(preset["gerber"]["file_origin"], origin, "{name}");
+        assert_eq!(preset["gerber"]["naming"], "classic");
+        assert_eq!(preset["gerber"]["slot_command"], "route");
+        assert_eq!(preset["gerber"]["merge_drill"], false);
+        assert_eq!(preset["gerber"]["outline_on_every_plot"], false);
+        assert_eq!(preset["gerber"]["file_names"], json!([]));
+        assert_eq!(preset["bom"]["required_fields"], required);
+        assert_eq!(
+            preset["bom"]["mount_values"],
+            json!({"smt": mount, "tht": "THT"})
+        );
+        assert_eq!(preset["bom"]["list_unplaced"], unplaced);
+        assert_eq!(preset["bom"]["layout"], "grouped");
+        assert_eq!(
+            preset["bom"]["group_by"],
+            json!(["part", "footprint", "fields"])
+        );
+        assert_eq!(preset["bom"]["sort"], json!(["designator"]));
+        assert_eq!(preset["bom"]["designator_separator"], ",");
+        assert_eq!(preset["bom"]["not_fitted"], "omit");
+        assert_eq!(
+            preset["bom"]["line_numbers"],
+            json!({"enabled": name == "PCBWay", "start": 1, "step": 1})
+        );
+        assert_eq!(preset["cpl"]["bottom_rotation"], rotation);
+        assert_eq!(preset["cpl"]["unit_suffix"], suffix);
+        assert_eq!(preset["cpl"]["exclude_through_hole"], tht);
+        assert_eq!(preset["cpl"]["units"], "mm");
+        assert_eq!(preset["cpl"]["bottom_position"], "top_view");
+        assert_eq!(
+            preset["cpl"]["side_values"],
+            json!({"top": "Top", "bottom": "Bottom"})
+        );
+        assert_eq!(preset["zip_assembly"], false);
+        let headers: Vec<_> = preset["bom"]["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["header"].as_str().unwrap())
+            .collect();
+        let expected = match name {
+            "Generic" => vec![
+                "Designator",
+                "Quantity",
+                "Value",
+                "Footprint",
+                "Manufacturer",
+                "MPN",
+            ],
+            "JLCPCB" => vec!["Comment", "Designator", "Footprint", "LCSC Part #"],
+            _ => vec![
+                "Item #",
+                "Designator",
+                "Qty",
+                "Manufacturer",
+                "Mfg Part #",
+                "Description / Value",
+                "Package/Footprint",
+                "Type",
+            ],
+        };
+        assert_eq!(headers, expected);
+        let cpl_headers: Vec<_> = preset["cpl"]["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["header"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            cpl_headers,
+            if name == "PCBWay" {
+                vec![
+                    "Designator",
+                    "Footprint",
+                    "Mid X",
+                    "Mid Y",
+                    "Ref X",
+                    "Ref Y",
+                    "Pad X",
+                    "Pad Y",
+                    "TB",
+                    "Rotation",
+                    "Comment",
+                ]
+            } else {
+                vec!["Designator", "Mid X", "Mid Y", "Layer", "Rotation"]
+            }
+        );
+        let suggestions = &preset["stackup_suggestions"];
+        assert_eq!(
+            suggestions["thickness"],
+            if name == "PCBWay" {
+                json!([
+                    200000, 400000, 600000, 800000, 1000000, 1200000, 1600000, 2000000, 2400000,
+                    2600000, 2800000, 3000000, 3200000
+                ])
+            } else {
+                json!([400000, 600000, 800000, 1000000, 1200000, 1600000, 2000000])
+            }
+        );
+        assert_eq!(
+            suggestions["copper"],
+            match name {
+                "JLCPCB" => json!([35000, 70000, 87500, 122500, 157500]),
+                "PCBWay" => json!([35000, 70000, 105000, 140000, 175000, 210000, 245000, 280000]),
+                _ => json!([35000, 70000]),
+            }
+        );
+        assert_eq!(
+            suggestions["finish"],
+            if name == "PCBWay" {
+                json!([
+                    "HASL with lead",
+                    "HASL lead free",
+                    "Immersion Gold",
+                    "OSP",
+                    "Hard Gold",
+                    "Immersion Silver",
+                    "Immersion Tin",
+                    "ENEPIG"
+                ])
+            } else {
+                json!(["HASL (leaded)", "HASL (lead-free)", "ENIG", "OSP"])
+            }
+        );
+        assert_eq!(
+            suggestions["mask_color"],
+            if name == "PCBWay" {
+                json!([
+                    "Green",
+                    "Red",
+                    "Yellow",
+                    "Blue",
+                    "White",
+                    "Black",
+                    "Matt green",
+                    "Matte black",
+                    "Purple",
+                    "none"
+                ])
+            } else {
+                json!(["Green", "Purple", "Red", "Yellow", "Blue", "White", "Black"])
+            }
+        );
+        assert_eq!(
+            suggestions["silk_color"],
+            if name == "PCBWay" {
+                json!(["White", "Black", "Yellow", "None"])
+            } else {
+                json!([])
+            }
+        );
+        if name == "Generic" {
+            assert!(preset.get("stackup").is_none());
+        } else {
+            assert_eq!(
+                preset["stackup"],
+                json!({"thickness":1600000,"copper":35000})
+            );
+        }
+    }
+}
+
+#[test]
+fn custom_output_conventions_survive_user_and_project_file_roundtrips() {
+    let (home, dir) = (
+        TempDir::new("fab-conventions-home"),
+        TempDir::new("fab-conventions"),
+    );
+    let mut engine = with_user_preset(&home, &dir);
+    let source = home.path().join("config/fab-presets/My JLC.redafab");
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&source).unwrap()).unwrap();
+    file["gerber"] = json!({"x2_attributes":false,"naming":"descriptive","file_origin":"relative",
+        "slot_command":"g85","merge_drill":true,"outline_on_every_plot":true,
+        "file_names":[{"layer":"Top Copper","name":"top.gbr"}]});
+    file["bom"]["layout"] = json!("flat");
+    file["bom"]["group_by"] = json!(["part","footprint","fields","value",{"field":"MPN"}]);
+    file["bom"]["sort"] = json!(["quantity", "designator"]);
+    file["bom"]["line_numbers"] = json!({"enabled":true,"start":5,"step":10});
+    file["bom"]["not_fitted"] = json!("list");
+    file["bom"]["designator_separator"] = json!("; ");
+    file["bom"]["columns"] = json!([{"header":"Fitted","source":"fitted"}]);
+    file["cpl"]["columns"] = json!([
+        {"header":"CX","source":"centre_x"},{"header":"CY","source":"centre_y"},
+        {"header":"OX","source":"origin_x"},{"header":"OY","source":"origin_y"},
+        {"header":"P1X","source":"pad1_x"},{"header":"P1Y","source":"pad1_y"},
+        {"header":"Side","source":"side"}]);
+    file["cpl"]["side_values"] = json!({"top":"T","bottom":"B"});
+    file["cpl"]["units"] = json!("in");
+    file["cpl"]["unit_suffix"] = json!(true);
+    file["cpl"]["bottom_rotation"] = json!("stored");
+    file["cpl"]["bottom_position"] = json!("negate_x");
+    file["cpl"]["exclude_through_hole"] = json!(true);
+    file["zip_assembly"] = json!(true);
+    std::fs::write(&source, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+    let destination = TempDir::new("fab-conventions-project");
+    new_project(&mut engine, &destination, json!({"fab_preset":"My JLC"}));
+    let copy = only_preset(&engine);
+    let mut expected = file.clone();
+    expected.as_object_mut().unwrap().remove("format");
+    assert_eq!(serde_json::to_value(copy.preset()).unwrap(), expected);
+    engine.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":copy.uuid,"name":"Roundtrip"}),
+    );
+    let saved: Value = serde_json::from_slice(
+        &std::fs::read(home.path().join("config/fab-presets/Roundtrip.redafab")).unwrap(),
+    )
+    .unwrap();
+    file["name"] = json!("Roundtrip");
+    assert_eq!(saved, file);
+    engine.run_ok("project.save", json!({}));
+    let mut reopened = test_engine();
+    reopened.run_ok(
+        "project.open",
+        json!({"path": destination.path().join("work/Demo")}),
+    );
+    assert_eq!(only_preset(&reopened), copy);
+}
+
+#[test]
+fn a_project_copy_is_edited_key_by_key_and_undone_as_one_step() {
+    let dir = TempDir::new("fab-set");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({"fab_preset": "JLCPCB"}));
+    let before = only_preset(&engine);
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset": before.uuid, "values": {
+            "gerber": {"slot_command": "g85", "merge_drill": true},
+            "stackup_suggestions": {"finish": ["ENIG", "Purple dip"]},
+            "zip_assembly": true
+        }}),
+    );
+    let after = only_preset(&engine);
+    assert_eq!(
+        after.gerber.slot_command,
+        reda_engine::model::SlotCommand::G85
+    );
+    assert!(after.gerber.merge_drill && after.zip_assembly);
+    assert_eq!(after.gerber.naming, before.gerber.naming, "other keys stay");
+    assert_eq!(after.stackup_suggestions.finish, ["ENIG", "Purple dip"]);
+    assert_eq!(
+        after.stackup_suggestions.mask_color,
+        before.stackup_suggestions.mask_color
+    );
+
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    assert_eq!(only_preset(&engine), before);
+
+    for (values, pointer) in [
+        (json!({"name": "Other"}), "/values/name"),
+        (json!({"gerber": {"slot_command": "drill"}}), "/values"),
+        (json!({"nope": 1}), "/values"),
+    ] {
+        let err = engine.run_err(
+            "fab_preset.set",
+            json!({"preset": before.uuid, "values": values}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{values}");
+        let at = err.details.as_ref().and_then(|d| d["pointer"].as_str());
+        assert!(at.unwrap_or("").starts_with(pointer), "{err:?}");
+    }
+    assert_eq!(
+        only_preset(&engine),
+        before,
+        "a refused edit changes nothing"
+    );
+}
+
+#[test]
+fn a_user_preset_file_is_edited_key_by_key() {
+    let (home, dir) = (TempDir::new("fab-setu-home"), TempDir::new("fab-setu"));
+    let mut engine = with_user_preset(&home, &dir);
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name": "my jlc", "values": {"gerber": {"file_origin": "relative"}}}),
+    );
+    let list = engine.run_ok("fab_preset.list", json!({}));
+    let mine = list["presets"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["preset"]["name"] == "My JLC")
+        .unwrap();
+    assert_eq!(mine["preset"]["gerber"]["file_origin"], "relative");
+    assert_eq!(mine["preset"]["bom"], json!(only_preset(&engine).bom));
+    assert!(!engine.is_dirty(), "the Project is left alone");
+
+    let err = engine.run_err(
+        "fab_preset.set_user",
+        json!({"name": "JLCPCB", "values": {"zip_assembly": true}}),
+    );
+    assert_eq!(
+        err.code,
+        ErrorCode::NotFound,
+        "a shipped preset is not edited"
     );
 }

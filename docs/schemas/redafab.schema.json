@@ -1,5 +1,169 @@
 {
   "$defs": {
+    "BomGroup": {
+      "description": "Sources shared by Components on a grouped BOM row.",
+      "oneOf": [
+        {
+          "const": "part",
+          "description": "The Component's Part.",
+          "type": "string"
+        },
+        {
+          "const": "footprint",
+          "description": "The chosen Footprint.",
+          "type": "string"
+        },
+        {
+          "const": "fields",
+          "description": "All Component value fields, including manufacturer and supplier numbers.",
+          "type": "string"
+        },
+        {
+          "const": "value",
+          "description": "The Component's value.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The Component field with this name.",
+          "properties": {
+            "field": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "BomLayout": {
+      "description": "One BOM row per group or per Component.",
+      "oneOf": [
+        {
+          "const": "grouped",
+          "description": "One row per group of Components sharing `group_by`.",
+          "type": "string"
+        },
+        {
+          "const": "flat",
+          "description": "One row per Component.",
+          "type": "string"
+        }
+      ]
+    },
+    "BomSettings": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's BOM: its columns and row conventions.",
+      "properties": {
+        "columns": {
+          "description": "The columns, Source → Header, in file order.",
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "designator_separator": {
+          "description": "What joins a row's Designators, which are never written as ranges.",
+          "type": "string"
+        },
+        "group_by": {
+          "description": "What a grouped row's Components share.",
+          "items": {
+            "$ref": "#/$defs/BomGroup"
+          },
+          "type": "array"
+        },
+        "layout": {
+          "$ref": "#/$defs/BomLayout",
+          "description": "Grouped rows or one row per Component."
+        },
+        "line_numbers": {
+          "$ref": "#/$defs/LineNumbers",
+          "description": "The line-number column's start and step."
+        },
+        "list_unplaced": {
+          "description": "Whether footprintless Mechanical Components on a sheet are listed.",
+          "type": "boolean"
+        },
+        "mount_values": {
+          "$ref": "#/$defs/MountValues",
+          "description": "The spellings of the mount column."
+        },
+        "not_fitted": {
+          "$ref": "#/$defs/NotFittedBom",
+          "description": "Whether Not Fitted Components are listed."
+        },
+        "required_fields": {
+          "description": "Fields whose missing value warns; the row stays, and Mechanical rows are skipped.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sort": {
+          "description": "The row order, by these columns in turn.",
+          "items": {
+            "$ref": "#/$defs/ColumnSource"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "layout",
+        "group_by",
+        "sort",
+        "line_numbers",
+        "designator_separator",
+        "not_fitted",
+        "required_fields",
+        "list_unplaced",
+        "mount_values"
+      ],
+      "type": "object"
+    },
+    "BottomPosition": {
+      "description": "How a bottom-side part's position is written.",
+      "oneOf": [
+        {
+          "const": "top_view",
+          "description": "Positions as seen from the top.",
+          "type": "string"
+        },
+        {
+          "const": "negate_x",
+          "description": "X negated.",
+          "type": "string"
+        },
+        {
+          "const": "negate_y",
+          "description": "Y negated.",
+          "type": "string"
+        }
+      ]
+    },
+    "BottomRotation": {
+      "description": "How a bottom-side part's stored rotation θ is written.",
+      "oneOf": [
+        {
+          "const": "stored",
+          "description": "θ as stored: a part at 30° flipped to the bottom writes 330.",
+          "type": "string"
+        },
+        {
+          "const": "plus_180",
+          "description": "θ + 180: writes 150.",
+          "type": "string"
+        },
+        {
+          "const": "negate",
+          "description": "360 − θ: writes 30.",
+          "type": "string"
+        }
+      ]
+    },
     "Column": {
       "additionalProperties": false,
       "description": "One column of a BOM or CPL file.",
@@ -9,7 +173,8 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/ColumnSource"
+          "$ref": "#/$defs/ColumnSource",
+          "description": "What fills the column."
         }
       },
       "required": [
@@ -48,22 +213,47 @@
         },
         {
           "const": "mount",
-          "description": "`SMT` or `THT`.",
+          "description": "The mount type, spelled with the BOM's `mount_values`.",
           "type": "string"
         },
         {
-          "const": "mid_x",
-          "description": "The Footprint's centre, X, in mm from the CPL origin.",
+          "const": "centre_x",
+          "description": "Footprint copper-Pad bounding box centre, X, from the output origin.",
           "type": "string"
         },
         {
-          "const": "mid_y",
-          "description": "The Footprint's centre, Y, in mm from the CPL origin.",
+          "const": "centre_y",
+          "description": "Footprint copper-Pad bounding box centre, Y.",
           "type": "string"
         },
         {
-          "const": "layer",
-          "description": "`Top` or `Bottom`.",
+          "const": "origin_x",
+          "description": "Footprint origin, X.",
+          "type": "string"
+        },
+        {
+          "const": "origin_y",
+          "description": "Footprint origin, Y.",
+          "type": "string"
+        },
+        {
+          "const": "pad1_x",
+          "description": "Pad 1, X.",
+          "type": "string"
+        },
+        {
+          "const": "pad1_y",
+          "description": "Pad 1, Y.",
+          "type": "string"
+        },
+        {
+          "const": "fitted",
+          "description": "Whether the Component is fitted.",
+          "type": "string"
+        },
+        {
+          "const": "side",
+          "description": "`Top` or `Bottom`, or the spellings from `side_values`.",
           "type": "string"
         },
         {
@@ -86,38 +276,76 @@
         }
       ]
     },
-    "FileNaming": {
-      "description": "How the Gerber and drill files of a job are named.",
+    "CplSettings": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's CPL: its columns and position conventions.",
+      "properties": {
+        "bottom_position": {
+          "$ref": "#/$defs/BottomPosition",
+          "description": "How a bottom-side part's position is written."
+        },
+        "bottom_rotation": {
+          "$ref": "#/$defs/BottomRotation",
+          "description": "How a bottom-side part's rotation is written."
+        },
+        "columns": {
+          "description": "The columns, Source → Header, in file order.",
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "type": "array"
+        },
+        "exclude_through_hole": {
+          "description": "Leaves out Footprints with a plated through-hole Pad.",
+          "type": "boolean"
+        },
+        "side_values": {
+          "$ref": "#/$defs/SideValues",
+          "description": "The spellings of the side column."
+        },
+        "unit_suffix": {
+          "description": "Whether the unit follows each position.",
+          "type": "boolean"
+        },
+        "units": {
+          "$ref": "#/$defs/CplUnits",
+          "description": "The unit positions are written in."
+        }
+      },
+      "required": [
+        "columns",
+        "side_values",
+        "units",
+        "unit_suffix",
+        "bottom_rotation",
+        "bottom_position",
+        "exclude_through_hole"
+      ],
+      "type": "object"
+    },
+    "CplUnits": {
+      "description": "The unit of CPL positions.",
       "oneOf": [
         {
-          "const": "protel",
-          "description": "Protel extensions: `.GTL`, `.GBL`, `.GTS`, … and `.GKO` for the Board Outline.",
+          "const": "mm",
+          "description": "Millimetres.",
+          "type": "string"
+        },
+        {
+          "const": "mil",
+          "description": "Thousandths of an inch.",
+          "type": "string"
+        },
+        {
+          "const": "in",
+          "description": "Inches.",
           "type": "string"
         }
       ]
     },
-    "GerberSettings": {
+    "FabRules": {
       "additionalProperties": false,
-      "description": "The Gerber and drill switches of a Fab Preset.",
-      "properties": {
-        "naming": {
-          "$ref": "#/$defs/FileNaming",
-          "description": "How the files are named."
-        },
-        "x2_attributes": {
-          "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "x2_attributes",
-        "naming"
-      ],
-      "type": "object"
-    },
-    "Rules": {
-      "additionalProperties": false,
-      "description": "The board-wide minimum values that DRC checks against.\n\nNet Classes override some of them per Net. Later per-Layer or per-area rules (and a rule\nquery language) are meant to be new object kinds that override these values in a\nscope, so this set stays the board-wide fallback.",
+      "description": "A Fab Preset's design rules: flat limits with no scope, which a job compares the board\nwith, and the preferred values a new board's routing starts from.",
       "properties": {
         "annular_ring": {
           "description": "Minimum annular ring of Vias and plated Pads.",
@@ -134,10 +362,32 @@
           "format": "int64",
           "type": "integer"
         },
+        "hole_max": {
+          "description": "Maximum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "hole_min": {
+          "description": "Minimum Pad, Free Pad and non-plated hole.",
+          "format": "int64",
+          "type": "integer"
+        },
         "hole_to_hole": {
           "description": "Minimum spacing between hole edges.",
           "format": "int64",
           "type": "integer"
+        },
+        "mask_expansion": {
+          "$ref": "#/$defs/MaskExpansion",
+          "description": "The Solder Mask expansion and Via tenting a new board starts with."
+        },
+        "paste_expansion": {
+          "$ref": "#/$defs/PasteExpansion",
+          "description": "The paste expansion a new board starts with."
+        },
+        "preferred": {
+          "$ref": "#/$defs/PreferredSeeds",
+          "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
         },
         "track_width": {
           "description": "Minimum Track width.",
@@ -160,9 +410,374 @@
         "track_width",
         "via_diameter",
         "via_hole",
+        "hole_min",
+        "hole_max",
         "annular_ring",
         "hole_to_hole",
-        "edge_clearance"
+        "edge_clearance",
+        "preferred",
+        "mask_expansion",
+        "paste_expansion"
+      ],
+      "type": "object"
+    },
+    "FileNaming": {
+      "description": "How the Gerber and drill files of a job are named.",
+      "oneOf": [
+        {
+          "const": "classic",
+          "description": "Classic extensions: `.gtl`, `.gbl`, `.gts`, … and `.gm1` for the Profile.",
+          "type": "string"
+        },
+        {
+          "const": "descriptive",
+          "description": "The project and Layer name, ending in `.gbr`.",
+          "type": "string"
+        }
+      ]
+    },
+    "FileOrigin": {
+      "description": "Where Gerber, drill and CPL coordinates are measured from, for all three together.",
+      "oneOf": [
+        {
+          "const": "absolute",
+          "description": "Design zero.",
+          "type": "string"
+        },
+        {
+          "const": "relative",
+          "description": "The Output Origin if one is placed on the PCB Document, otherwise the lower-left\ncorner of the Board Outline's bounding box.",
+          "type": "string"
+        }
+      ]
+    },
+    "GerberSettings": {
+      "additionalProperties": false,
+      "description": "The Gerber and drill switches of a Fab Preset.",
+      "properties": {
+        "file_names": {
+          "description": "Layer name to output file name; portable between boards and Projects.",
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        },
+        "file_origin": {
+          "$ref": "#/$defs/FileOrigin",
+          "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
+        },
+        "merge_drill": {
+          "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
+          "type": "boolean"
+        },
+        "naming": {
+          "$ref": "#/$defs/FileNaming",
+          "description": "How the files are named."
+        },
+        "outline_on_every_plot": {
+          "description": "Adds the Board Outline to every Gerber plot.",
+          "type": "boolean"
+        },
+        "slot_command": {
+          "$ref": "#/$defs/SlotCommand",
+          "description": "How the drill file writes slots."
+        },
+        "x2_attributes": {
+          "description": "Write Gerber X2 attributes (`.FileFunction` and friends); off writes plain X1.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "x2_attributes",
+        "naming",
+        "file_origin",
+        "slot_command",
+        "merge_drill",
+        "outline_on_every_plot",
+        "file_names"
+      ],
+      "type": "object"
+    },
+    "LayerFileName": {
+      "additionalProperties": false,
+      "description": "A Layer whose Gerber file gets its own name.",
+      "properties": {
+        "layer": {
+          "description": "The Layer's name, so the override carries between boards and Projects.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The file name to write that Layer's Gerber as.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "name"
+      ],
+      "type": "object"
+    },
+    "LineNumbers": {
+      "additionalProperties": false,
+      "description": "The BOM's line-number column.",
+      "properties": {
+        "enabled": {
+          "description": "Whether the line-number column counts.",
+          "type": "boolean"
+        },
+        "start": {
+          "description": "The first row's number.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "description": "The increase from one row to the next.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled",
+        "start",
+        "step"
+      ],
+      "type": "object"
+    },
+    "MaskExpansion": {
+      "additionalProperties": false,
+      "description": "The board's solder-mask seed values. Tenting here applies only to Vias.",
+      "properties": {
+        "bottom": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "from_hole_edge": {
+          "type": "boolean"
+        },
+        "tent_vias_bottom": {
+          "type": "boolean"
+        },
+        "tent_vias_top": {
+          "type": "boolean"
+        },
+        "top": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "from_hole_edge",
+        "tent_vias_top",
+        "tent_vias_bottom"
+      ],
+      "type": "object"
+    },
+    "MountValues": {
+      "additionalProperties": false,
+      "description": "The spellings of the mount column.",
+      "properties": {
+        "smt": {
+          "description": "The mount column for a Footprint with no plated through-hole Pad.",
+          "type": "string"
+        },
+        "tht": {
+          "description": "The mount column for a Footprint with any plated through-hole Pad.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "smt",
+        "tht"
+      ],
+      "type": "object"
+    },
+    "NotFittedBom": {
+      "description": "Whether the BOM lists Not Fitted Components.",
+      "oneOf": [
+        {
+          "const": "omit",
+          "description": "Not Fitted Components are left out.",
+          "type": "string"
+        },
+        {
+          "const": "list",
+          "description": "Not Fitted Components get their own rows with quantity 0.",
+          "type": "string"
+        }
+      ]
+    },
+    "PasteExpansion": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "expansion": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "expansion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "percent": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "percent"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "The board's paste seed: length per edge or signed change in area in percent."
+    },
+    "PreferredSeeds": {
+      "additionalProperties": false,
+      "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
+      "properties": {
+        "track_width": {
+          "description": "The preferred Track width.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_diameter": {
+          "description": "The preferred Via diameter.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_hole": {
+          "description": "The preferred Via hole.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "track_width",
+        "via_diameter",
+        "via_hole"
+      ],
+      "type": "object"
+    },
+    "SideValues": {
+      "additionalProperties": false,
+      "description": "The spellings of the CPL's side column.",
+      "properties": {
+        "bottom": {
+          "description": "The side column for a part on the bottom.",
+          "type": "string"
+        },
+        "top": {
+          "description": "The side column for a part on top.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "top",
+        "bottom"
+      ],
+      "type": "object"
+    },
+    "SlotCommand": {
+      "description": "How the drill file writes a slot.",
+      "oneOf": [
+        {
+          "const": "route",
+          "description": "Routed: `G00`, `M15`, `G01`, `M16`, `G05`.",
+          "type": "string"
+        },
+        {
+          "const": "g85",
+          "description": "The `G85` canned slot.",
+          "type": "string"
+        }
+      ]
+    },
+    "StackupSeeds": {
+      "additionalProperties": false,
+      "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
+      "properties": {
+        "copper": {
+          "description": "The copper thickness of every copper Layer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "thickness": {
+          "description": "The finished board thickness.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "StackupSuggestions": {
+      "additionalProperties": false,
+      "description": "Suggestions never validate the board or seed its finish or colours.",
+      "properties": {
+        "copper": {
+          "description": "Outer copper thicknesses the fab offers.",
+          "items": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "finish": {
+          "description": "Surface finishes the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mask_color": {
+          "description": "Solder Mask colours the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "silk_color": {
+          "description": "Silkscreen colours the fab offers.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thickness": {
+          "description": "Board thicknesses the fab offers.",
+          "items": {
+            "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "thickness",
+        "copper",
+        "finish",
+        "mask_color",
+        "silk_color"
       ],
       "type": "object"
     }
@@ -172,18 +787,12 @@
   "description": "A REDA Fab Preset file (`.redafab`).",
   "properties": {
     "bom": {
-      "description": "The BOM columns, in order.",
-      "items": {
-        "$ref": "#/$defs/Column"
-      },
-      "type": "array"
+      "$ref": "#/$defs/BomSettings",
+      "description": "The BOM columns, in order."
     },
     "cpl": {
-      "description": "The CPL columns, in order.",
-      "items": {
-        "$ref": "#/$defs/Column"
-      },
-      "type": "array"
+      "$ref": "#/$defs/CplSettings",
+      "description": "The CPL columns, in order."
     },
     "format": {
       "const": 1,
@@ -199,8 +808,19 @@
       "type": "string"
     },
     "rules": {
-      "$ref": "#/$defs/Rules",
-      "description": "The design rules a new board is seeded with."
+      "$ref": "#/$defs/FabRules",
+      "description": "The flat limits a job checks the board against, and the preferred seeds of a new\nboard's rules."
+    },
+    "stackup": {
+      "$ref": "#/$defs/StackupSeeds",
+      "default": {},
+      "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither, and then a new board gets 1.6 mm and 1 oz."
+    },
+    "stackup_suggestions": {
+      "$ref": "#/$defs/StackupSuggestions"
+    },
+    "zip_assembly": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -209,7 +829,9 @@
     "rules",
     "gerber",
     "bom",
-    "cpl"
+    "cpl",
+    "zip_assembly",
+    "stackup_suggestions"
   ],
   "title": "REDA Fab Preset file",
   "type": "object"

@@ -12,7 +12,6 @@ use reda_ui::canvas::interact::Pointer;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::command::{FixedClock, SeededIds};
-use reda_ui::engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_ui::engine::model::{
     Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Shape, Uuid,
 };
@@ -190,7 +189,10 @@ fn the_pad_tool_places_pads_from_its_settings_with_the_next_number() {
         (800_000, 1_200_000),
         "a slot"
     );
-    assert_eq!(pad.mask_margin.map(|m| m.0), Some(50_000));
+    assert_eq!(
+        serde_json::to_value(pad.mask).unwrap()["top"]["expansion"],
+        50_000
+    );
 
     // Undo takes back one Pad: each placement is one step on the element's stack.
     shell.undo(false, None).unwrap();
@@ -249,27 +251,35 @@ fn dragging_moves_pads_and_the_designator_text_by_the_grid() {
     assert_eq!((pad.at.x.0, pad.at.y.0), (1_000_000, 3_500_000));
     assert_eq!(shell.selection().objects, vec![pad.uuid]);
 
+    let text = |shell: &Shell, field: &str| {
+        footprint(shell, fp)
+            .texts
+            .iter()
+            .find(|t| t.field == field)
+            .unwrap()
+            .clone()
+    };
+    let value = text(&shell, "Value").uuid;
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"}}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": value, "at": {"x": 0, "y": "-3mm"}}),
         )
         .unwrap();
-    let f = footprint(&shell, fp);
-    let d = f.designator.at;
+    let designator = text(&shell, "Designator");
+    let d = designator.at;
     drag(
         &mut shell,
         fp,
         (d.x.0 as f64, d.y.0 as f64),
         (d.x.0 as f64, d.y.0 as f64 + 2.0 * MM),
     );
-    let f = footprint(&shell, fp);
-    assert_eq!(f.designator.at.y.0, d.y.0 + 2_000_000);
-    assert_eq!(shell.selection().objects, vec![DESIGNATOR_TEXT]);
+    assert_eq!(text(&shell, "Designator").at.y.0, d.y.0 + 2_000_000);
+    assert_eq!(shell.selection().objects, vec![designator.uuid]);
 
-    // Delete hides texts and removes Pads, through the Keymap binding.
+    // Delete removes texts and Pads, through the Keymap binding.
     shell
-        .run("selection.set", json!({"objects": [pad.uuid, VALUE_TEXT]}))
+        .run("selection.set", json!({"objects": [pad.uuid, value]}))
         .unwrap();
     let keymap = shell.keymap().clone();
     let action = keymap
@@ -281,7 +291,7 @@ fn dragging_moves_pads_and_the_designator_text_by_the_grid() {
     shell.run(&id, params).unwrap();
     let f = footprint(&shell, fp);
     assert!(f.pads.is_empty());
-    assert!(!f.value.visible);
+    assert!(f.texts.iter().all(|t| t.uuid != value));
 }
 
 #[test]
@@ -363,4 +373,70 @@ fn open_footprint_tabs_stay_when_a_project_opens() {
     shell.new_project(home.path(), "Demo").unwrap();
     assert!(shell.document_tab(fp).is_some());
     assert!(shell.layout().place(&TabKey::Document(fp)).is_some());
+}
+
+#[test]
+fn the_pad_tool_steps_letter_numbers_and_skips_taken_ones() {
+    let home = TempDir::new("fpe-pad-increment");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    let f = footprint(&shell, fp);
+    assert_eq!(footprint_editor::next_number(&f, None, 1), "1");
+    assert_eq!(footprint_editor::next_number(&f, Some("A"), 1), "B");
+    assert_eq!(footprint_editor::next_number(&f, Some("Z"), 1), "AA");
+    assert_eq!(footprint_editor::next_number(&f, Some("A1"), 2), "A3");
+    assert_eq!(footprint_editor::next_number(&f, Some("EP"), 0), "1");
+
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    feed(&mut shell, fp, &[click(mm(0.0, 0.0))]);
+    let first = footprint(&shell, fp).pads[0].uuid;
+    // Renumbering the placed Pad does not stop the run: the next steps from what was placed.
+    shell
+        .run(
+            "library.footprint.pad.edit",
+            json!({"footprint": fp, "pad": first, "number": "2"}),
+        )
+        .unwrap();
+    feed(&mut shell, fp, &[click(mm(2.0, 0.0)), click(mm(4.0, 0.0))]);
+    let mut numbers: Vec<String> = footprint(&shell, fp)
+        .pads
+        .iter()
+        .map(|p| p.number.clone())
+        .collect();
+    numbers.sort();
+    assert_eq!(numbers, ["2", "3", "4"], "1 → 2 is taken, so 3, then 4");
+}
+
+#[test]
+fn the_footprint_editor_snaps_onto_its_hotspots_within_the_snap_distance() {
+    let home = TempDir::new("fpe-snap");
+    let mut shell = shell(&home);
+    let fp = new_footprint(&mut shell);
+    // Gridless: clicks stay where they are unless a Hotspot is within 8 mil on both axes.
+    shell
+        .run("view.snap.set", json!({"document": fp, "gridless": true}))
+        .unwrap();
+    shell.run("tool.activate:pad", json!({})).unwrap();
+    // Near the origin: onto it. Elsewhere: free.
+    feed(
+        &mut shell,
+        fp,
+        &[click(mm(0.1, 0.1)), click(mm(2.63, -0.17))],
+    );
+    let mut pads: Vec<(i64, i64)> = footprint(&shell, fp)
+        .pads
+        .iter()
+        .map(|p| (p.at.x.0, p.at.y.0))
+        .collect();
+    pads.sort();
+    assert_eq!(pads, [(0, 0), (2_630_000, -170_000)]);
+    // A line drawn from beside the second Pad starts on its centre.
+    shell.run("tool.activate:line", json!({})).unwrap();
+    drag(&mut shell, fp, mm(2.73, -0.07), mm(4.0, 1.0));
+    let f = footprint(&shell, fp);
+    let Shape::Line { start, end } = f.graphics[0].shape else {
+        panic!("a line");
+    };
+    assert_eq!((start.x.0, start.y.0), (2_630_000, -170_000));
+    assert_eq!((end.x.0, end.y.0), (4_000_000, 1_000_000));
 }

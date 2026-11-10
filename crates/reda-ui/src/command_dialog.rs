@@ -7,7 +7,7 @@
 //! each frame and runs the params it gives back.
 
 mod draw;
-mod form;
+pub(crate) mod form;
 
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -17,7 +17,6 @@ use serde_json::Value;
 
 use crate::shell::Shell;
 
-pub(crate) use draw::row as form_row;
 pub use form::{Field, Input, ParamForm};
 
 /// A dialog that collects a Command's params.
@@ -66,6 +65,9 @@ type Factory = Box<dyn Fn(&Shell, Value) -> Box<dyn ParamsDialog>>;
 #[derive(Default)]
 pub struct Dialogs {
     hand_written: BTreeMap<String, Factory>,
+    /// Commands whose dialog opens on every GUI call, as an options dialog does, even
+    /// when no required param is missing.
+    always: std::collections::BTreeSet<String>,
 }
 
 impl Dialogs {
@@ -84,12 +86,31 @@ impl Dialogs {
         self.hand_written.insert(command.to_owned(), Box::new(make));
     }
 
+    /// Like [`Dialogs::register`], but the dialog opens on every GUI call of `command`,
+    /// even when the call gives every required param: a Command whose params are all
+    /// options with defaults, such as Silkscreen Preparation's, still asks first.
+    pub fn register_always(
+        &mut self,
+        command: &str,
+        make: impl Fn(&Shell, Value) -> Box<dyn ParamsDialog> + 'static,
+    ) {
+        self.register(command, make);
+        self.always.insert(command.to_owned());
+    }
+
+    /// Whether `command`'s dialog opens on every GUI call ([`Dialogs::register_always`]).
+    pub fn asks_always(&self, command: &str) -> bool {
+        self.always.contains(command)
+    }
+
     /// Calls `id` from the GUI: runs it when no required param is missing (or when it
     /// cannot run now, to report why), else returns the dialog that asks for the rest.
+    /// A Command registered with [`Dialogs::register_always`] always gets its dialog.
     pub fn call(&self, shell: &mut Shell, id: &str, params: Value) -> Call {
         let registry = shell.engine().registry();
         let available = shell.engine().available(id, false).is_ok();
-        if !available || !lacks_required(registry, id, &params) {
+        let asks = self.always.contains(id);
+        if !available || (!asks && !lacks_required(registry, id, &params)) {
             return Call::Ran(shell.run_reporting(id, params));
         }
         let dialog = match self.hand_written.get(id) {

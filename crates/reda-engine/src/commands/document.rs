@@ -1,20 +1,28 @@
 //! `document.add`, `document.delete`, `document.rename` and `document.reorder`: Documents
 //! come, go, change name and move on the Project's own undo stack, each with its contents.
-//! The files follow on save (see `store::save`).
+//! The files follow on save (see `store::save`). `document.revert` drops a Document's
+//! unsaved changes by reading its file again.
 
-use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::{DocumentEntry, DocumentKind, Object, Project, Uuid};
+use std::collections::BTreeMap;
+
+use reda_command::{
+    AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
+    Unavailable,
+};
+use reda_model::{DocumentEntry, DocumentKind, Object, Project, Scope, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::project::check_file_stem;
 use crate::builders::{add_document, remove_document};
+use crate::format::{read_bytes, read_pcb_file, read_sheet_file};
 
 pub(crate) fn register_all(registry: &mut Registry) {
     registry.add(DocumentAdd);
     registry.add(DocumentDelete);
     registry.add(DocumentRename);
     registry.add(DocumentReorder);
+    registry.add(DocumentRevert);
 }
 
 pub struct DocumentAdd;
@@ -35,7 +43,7 @@ impl Command for DocumentAdd {
         title: "Add Document",
         description: "Adds a Document of `kind` at the end of the Project. A Schematic Sheet \
                       is empty; the PCB Document starts with its Layers, the Generic design \
-                      rules and DRC severities and a Default Net Class, and is available only \
+                      rule records and DRC severities, and is available only \
                       while the Project has none. Its file is written on save.",
         category: "project",
         icon: "document_add",
@@ -69,7 +77,8 @@ impl Command for DocumentAdd {
         let contents = match p.kind {
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
-                reda_pcb::new_board(uuid, reda_output::generic().rules, || cx.new_id())
+                let preset = reda_output::generic();
+                reda_pcb::new_board(uuid, &preset.rules, preset.stackup, || cx.new_id())
             }
         };
         let entry = DocumentEntry {
@@ -83,6 +92,19 @@ impl Command for DocumentAdd {
         for object in contents {
             tx.insert(object)?;
         }
+        if p.kind == DocumentKind::Pcb {
+            // The new PCB Document takes the place of a missing one.
+            let mut props = tx.project().props().clone();
+            let gone: Vec<Uuid> = (props.missing.iter())
+                .filter(|m| m.kind == DocumentKind::Pcb)
+                .map(|m| m.uuid)
+                .collect();
+            if !gone.is_empty() {
+                props.missing.retain(|m| !gone.contains(&m.uuid));
+                props.documents.retain(|d| !gone.contains(d));
+                tx.replace(Object::Project(props))?;
+            }
+        }
         Ok(entry)
     }
 }
@@ -93,8 +115,7 @@ impl Command for DocumentAdd {
 fn default_names(project: &Project, kind: DocumentKind) -> (String, String) {
     match kind {
         DocumentKind::Schematic => {
-            let sheets: Vec<&DocumentEntry> =
-                project.documents().filter(|d| d.kind == kind).collect();
+            let sheets: Vec<&DocumentEntry> = listed(project).filter(|d| d.kind == kind).collect();
             let taken = |title: &str, name: &str| {
                 sheets.iter().any(|d| {
                     d.title.to_lowercase() == title.to_lowercase() || d.name.to_lowercase() == name
@@ -131,8 +152,7 @@ fn free_name(project: &Project, kind: DocumentKind, title: &str, except: Option<
         base.push('_');
     }
     let taken = |name: &str| {
-        project
-            .documents()
+        listed(project)
             .filter(|d| Some(d.uuid) != except)
             .any(|d| d.kind == kind && d.name.to_lowercase() == name.to_lowercase())
     };
@@ -143,6 +163,14 @@ fn free_name(project: &Project, kind: DocumentKind, title: &str, except: Option<
         n += 1;
     }
     name
+}
+
+/// Every Document the Project file lists, missing ones too: none of them can give its
+/// file name to another Document. A missing PCB Document is left out, since a new one
+/// takes its place.
+fn listed(project: &Project) -> impl Iterator<Item = &DocumentEntry> {
+    let missing = project.props().missing.iter();
+    (project.documents()).chain(missing.filter(|m| m.kind != DocumentKind::Pcb))
 }
 
 pub struct DocumentDelete;
@@ -159,7 +187,9 @@ impl Command for DocumentDelete {
         id: "document.delete",
         title: "Delete Document",
         description: "Deletes a Document and everything in it, as one undoable step on the \
-                      Project's stack. Its file goes to the OS trash when the Project file is next saved.",
+                      Project's stack. Its file goes to the OS trash when the Project file is next saved. \
+                      A missing Document (one whose file is gone) is removed from the Project: \
+                      the Project file stops listing it.",
         category: "project",
         icon: "delete",
         kind: Kind::Edit,
@@ -168,7 +198,15 @@ impl Command for DocumentDelete {
     type Output = ();
 
     fn run(&self, cx: &mut Context<'_>, p: DocumentDeleteParams) -> Result<(), CommandError> {
-        if cx.project()?.document(p.document).is_none() {
+        let project = cx.project()?;
+        if project.missing_document(p.document).is_some() {
+            let mut props = project.props().clone();
+            props.missing.retain(|m| m.uuid != p.document);
+            props.documents.retain(|d| *d != p.document);
+            cx.tx()?.replace(Object::Project(props))?;
+            return Ok(());
+        }
+        if project.document(p.document).is_none() {
             return Err(CommandError::not_found(format!(
                 "no Document has UUID {}",
                 p.document
@@ -275,5 +313,98 @@ impl Command for DocumentReorder {
         let documents = props.documents.clone();
         cx.tx()?.replace(Object::Project(props))?;
         Ok(DocumentOrder { documents })
+    }
+}
+
+pub struct DocumentRevert;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentRevertParams {
+    /// The Document's UUID.
+    pub document: Uuid,
+}
+
+impl Command for DocumentRevert {
+    const META: Meta = Meta {
+        id: "document.revert",
+        title: "Revert Document",
+        description: "Drops a Document's unsaved changes: its contents are read again from \
+                      its file, and its undo stack is forgotten, leaving it clean. The \
+                      Project file and other Documents keep their changes. A Document whose \
+                      file was never written is refused.",
+        category: "project",
+        icon: "undo",
+        kind: Kind::File,
+    };
+    type Params = DocumentRevertParams;
+    type Output = DocumentEntry;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        match cx.project {
+            Some(_) => Ok(()),
+            None => Err(Unavailable {
+                reason: NO_PROJECT.into(),
+            }),
+        }
+    }
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: DocumentRevertParams,
+    ) -> Result<DocumentEntry, CommandError> {
+        let session = cx.session()?;
+        let project = session
+            .project
+            .as_mut()
+            .ok_or_else(|| CommandError::unavailable(NO_PROJECT))?;
+        let entry = entry(project, p.document)?.clone();
+        let never_saved = || {
+            CommandError::rejected(format!(
+                "{} has never been saved, so there is no file to revert to",
+                entry.title
+            ))
+        };
+        let (Some(folder), Some(file)) =
+            (&session.location, session.files_on_disk.get(&entry.uuid))
+        else {
+            return Err(never_saved());
+        };
+        let path = folder.join(file);
+        let bytes = match read_bytes(&path) {
+            Ok(bytes) => bytes,
+            Err(crate::format::LoadError::Missing(_)) => return Err(never_saved()),
+            Err(e) => return Err(e.into()),
+        };
+        let objects = match entry.kind {
+            DocumentKind::Schematic => read_sheet_file(&path, &bytes, entry.uuid)?,
+            DocumentKind::Pcb => read_pcb_file(&path, &bytes, entry.uuid)?,
+        };
+        let want: BTreeMap<Uuid, Object> = objects.into_iter().map(|o| (o.uuid(), o)).collect();
+        let have: BTreeMap<Uuid, Object> = (project.objects().into_iter())
+            .filter(|o| o.scope() == Scope::Document(entry.uuid))
+            .map(|o| (o.uuid(), o))
+            .collect();
+        let mut tx = project.transaction();
+        let invalid = |e: reda_model::TxError| {
+            CommandError::rejected(format!("{} cannot be read back: {e}", path.display()))
+        };
+        for uuid in have.keys().filter(|u| !want.contains_key(u)) {
+            tx.remove(*uuid).map_err(invalid)?;
+        }
+        for (uuid, object) in &want {
+            match have.get(uuid) {
+                None => tx.insert(object.clone()).map_err(invalid)?,
+                Some(old) if old != object => tx.replace(object.clone()).map_err(invalid)?,
+                Some(_) => {}
+            }
+        }
+        tx.commit().map_err(invalid)?;
+        if entry.kind == DocumentKind::Pcb {
+            super::zone_fill::load_caches(project, folder);
+        }
+        session.history.forget(Scope::Document(entry.uuid));
+        Ok(entry)
     }
 }

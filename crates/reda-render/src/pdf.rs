@@ -2,36 +2,109 @@
 //!
 //! A minimal, uncompressed PDF 1.4: a catalog, a page tree, an info dictionary and one
 //! content stream per page. Glyphs are filled outline paths and no font is embedded, so
-//! the text is not searchable. The only time in the file comes from [`PdfInfo::created`],
-//! which callers take from the injected Clock, so the bytes are stable for goldens.
+//! the text is not searchable. The file holds no date, so the same Scenes give the same
+//! bytes.
 
 use std::fmt::Write;
 
+use reda_model::Uuid;
 use reda_model::geom::Point;
 
 use crate::color::{Palette, Rgba};
 use crate::outline::{Seg, circle, mesh_contours, mm, polygons, rect};
-use crate::scene::{Primitive, Scene};
+use crate::scene::{Primitive, Scene, SceneSource};
 use crate::viewport::ink;
 
-/// The document metadata.
+/// The document metadata and outline.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PdfInfo {
     pub title: String,
-    /// When the file was made: ms since the Unix epoch, UTC.
-    pub created: i64,
+    /// The bookmarks, top level first; each nests its children. Empty for no outline.
+    pub outline: Vec<Bookmark>,
+}
+
+/// One entry of the PDF's outline.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Bookmark {
+    pub title: String,
+    /// The page it opens, from 0.
+    pub page: usize,
+    /// Where on the page, in the Scene's coordinates; `None` fits the whole page.
+    pub at: Option<Point>,
+    pub children: Vec<Bookmark>,
 }
 
 /// Points per mm (72 / 25.4), the scale every page's content stream starts with.
 const PT_PER_MM: &str = "2.834646";
 
 /// `scenes` as a PDF, one page each, in order. Each page is the Scene's bounds (a sheet's
-/// paper), drawn in `palette`.
+/// paper), drawn in `palette`. A Scene's [`links`](Scene::links) become link annotations
+/// to the page of the sheet they lead to, when that sheet is in `scenes`.
 pub fn to_pdf(scenes: &[Scene], palette: &Palette, info: &PdfInfo) -> Vec<u8> {
     let mut objects: Vec<Vec<u8>> = Vec::new();
-    // 1 catalog, 2 page tree, 3 info, then a page and its content per Scene.
+    // 1 catalog, 2 page tree, 3 info, a page and its content per Scene, then the link
+    // annotations and the outline.
     let page_ids: Vec<usize> = (0..scenes.len()).map(|i| 4 + 2 * i).collect();
-    objects.push(b"<< /Type /Catalog /Pages 2 0 R >>".to_vec());
+    let origins: Vec<Point> = scenes
+        .iter()
+        .map(|s| s.bounds().unwrap_or_default().0)
+        .collect();
+    let page_of = |sheet: Uuid| {
+        scenes
+            .iter()
+            .position(|s| s.source == SceneSource::Schematic(sheet))
+    };
+    let dest = |page: usize, at: Option<Point>| match at {
+        None => format!("[{} 0 R /Fit]", page_ids[page]),
+        Some(at) => {
+            let o = origins[page];
+            format!(
+                "[{} 0 R /XYZ {} {} null]",
+                page_ids[page],
+                points((at.x - o.x).0),
+                points((at.y - o.y).0)
+            )
+        }
+    };
+    let mut next_id = 4 + 2 * scenes.len();
+    let mut annots: Vec<Vec<usize>> = Vec::new();
+    let mut annot_bodies: Vec<Vec<u8>> = Vec::new();
+    for (scene, origin) in scenes.iter().zip(&origins) {
+        let mut ids = Vec::new();
+        for link in &scene.links {
+            let Some(page) = page_of(link.sheet) else {
+                continue;
+            };
+            let (lo, hi) = link.area;
+            annot_bodies.push(
+                format!(
+                    "<< /Type /Annot /Subtype /Link /Rect [{} {} {} {}] /Border [0 0 0] \
+                     /Dest {} >>",
+                    points((lo.x - origin.x).0),
+                    points((lo.y - origin.y).0),
+                    points((hi.x - origin.x).0),
+                    points((hi.y - origin.y).0),
+                    dest(page, Some(link.at))
+                )
+                .into_bytes(),
+            );
+            ids.push(next_id);
+            next_id += 1;
+        }
+        annots.push(ids);
+    }
+    let outline_root = (!info.outline.is_empty()).then_some(next_id);
+    let outline = outline_root
+        .map(|root| outline_objects(root, &info.outline, &dest))
+        .unwrap_or_default();
+
+    objects.push(match outline_root {
+        None => b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        Some(root) => {
+            format!("<< /Type /Catalog /Pages 2 0 R /Outlines {root} 0 R /PageMode /UseOutlines >>")
+                .into_bytes()
+        }
+    });
     let kids: Vec<String> = page_ids.iter().map(|id| format!("{id} 0 R")).collect();
     objects.push(
         format!(
@@ -41,31 +114,38 @@ pub fn to_pdf(scenes: &[Scene], palette: &Palette, info: &PdfInfo) -> Vec<u8> {
         )
         .into_bytes(),
     );
-    objects.push(
-        format!(
-            "<< /Title {} /Producer (REDA) /CreationDate (D:{}Z) >>",
-            text_string(&info.title),
-            date(info.created)
-        )
-        .into_bytes(),
-    );
-    for (scene, id) in scenes.iter().zip(&page_ids) {
+    objects
+        .push(format!("<< /Title {} /Producer (REDA) >>", text_string(&info.title),).into_bytes());
+    for ((scene, id), (origin, links)) in scenes
+        .iter()
+        .zip(&page_ids)
+        .zip(origins.iter().zip(&annots))
+    {
         let (min, max) = scene.bounds().unwrap_or_default();
+        let annots = match links.is_empty() {
+            true => String::new(),
+            false => {
+                let refs: Vec<String> = links.iter().map(|id| format!("{id} 0 R")).collect();
+                format!(" /Annots [{}]", refs.join(" "))
+            }
+        };
         objects.push(
             format!(
-                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Contents {} 0 R >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Contents {} 0 R{annots} >>",
                 points((max.x - min.x).0),
                 points((max.y - min.y).0),
                 id + 1
             )
             .into_bytes(),
         );
-        let content = page_content(scene, palette, min);
+        let content = page_content(scene, palette, *origin);
         let mut stream = format!("<< /Length {} >>\nstream\n", content.len()).into_bytes();
         stream.extend_from_slice(content.as_bytes());
         stream.extend_from_slice(b"\nendstream");
         objects.push(stream);
     }
+    objects.extend(annot_bodies);
+    objects.extend(outline);
 
     let mut out = b"%PDF-1.4\n".to_vec();
     let mut offsets = Vec::with_capacity(objects.len());
@@ -86,6 +166,69 @@ pub fn to_pdf(scenes: &[Scene], palette: &Palette, info: &PdfInfo) -> Vec<u8> {
         objects.len() + 1
     );
     out.extend_from_slice(tail.as_bytes());
+    out
+}
+
+/// The outline's objects, numbered from `root` (the Outlines dictionary), then each
+/// bookmark depth first. Every entry is open, so each `/Count` is all its descendants.
+fn outline_objects(
+    root: usize,
+    top: &[Bookmark],
+    dest: &dyn Fn(usize, Option<Point>) -> String,
+) -> Vec<Vec<u8>> {
+    fn count(marks: &[Bookmark]) -> usize {
+        marks.iter().map(|m| 1 + count(&m.children)).sum()
+    }
+    /// Writes `marks` (children of `parent`) into `out`, where `out[0]` is object `root`.
+    fn level(
+        marks: &[Bookmark],
+        parent: usize,
+        root: usize,
+        out: &mut Vec<Vec<u8>>,
+        dest: &dyn Fn(usize, Option<Point>) -> String,
+    ) -> Vec<usize> {
+        let mut ids = Vec::new();
+        let mut id = root + out.len();
+        for m in marks {
+            ids.push(id);
+            id += 1 + count(&m.children);
+        }
+        for (i, m) in marks.iter().enumerate() {
+            let me = ids[i];
+            out.push(Vec::new());
+            let kids = level(&m.children, me, root, out, dest);
+            let mut d = format!(
+                "<< /Title {} /Parent {parent} 0 R /Dest {}",
+                text_string(&m.title),
+                dest(m.page, m.at)
+            );
+            if i > 0 {
+                let _ = write!(d, " /Prev {} 0 R", ids[i - 1]);
+            }
+            if let Some(next) = ids.get(i + 1) {
+                let _ = write!(d, " /Next {next} 0 R");
+            }
+            if let (Some(first), Some(last)) = (kids.first(), kids.last()) {
+                let _ = write!(
+                    d,
+                    " /First {first} 0 R /Last {last} 0 R /Count {}",
+                    count(&m.children)
+                );
+            }
+            d.push_str(" >>");
+            out[me - root] = d.into_bytes();
+        }
+        ids
+    }
+    let mut out = vec![Vec::new()];
+    let ids = level(top, root, root, &mut out, dest);
+    out[0] = format!(
+        "<< /Type /Outlines /First {} 0 R /Last {} 0 R /Count {} >>",
+        ids[0],
+        ids[ids.len() - 1],
+        count(top)
+    )
+    .into_bytes();
     out
 }
 
@@ -118,6 +261,10 @@ fn page_content(scene: &Scene, palette: &Palette, origin: Point) -> String {
                     p(*a),
                     p(*b)
                 );
+            }
+            Primitive::Hairline { a, b } => {
+                // Width 0 is the thinnest line the device can draw.
+                let _ = write!(c, "{color} RG\n0 w\n1 j\n{} m\n{} l\nS\n", p(*a), p(*b));
             }
             Primitive::Rect {
                 center,
@@ -223,38 +370,9 @@ fn text_string(s: &str) -> String {
     }
 }
 
-/// `ms` since the Unix epoch as a PDF date's `YYYYMMDDHHmmSS`, UTC.
-fn date(ms: i64) -> String {
-    let secs = ms.div_euclid(1000);
-    let (days, rem) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
-    // Howard Hinnant's days-to-civil algorithm.
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}{month:02}{day:02}{:02}{:02}{:02}",
-        rem / 3600,
-        rem % 3600 / 60,
-        rem % 60
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn dates_are_utc_calendar_dates() {
-        assert_eq!(date(0), "19700101000000");
-        assert_eq!(date(951_782_400_000 + 3_723_000), "20000229010203");
-        assert_eq!(date(-1000), "19691231235959");
-    }
 
     #[test]
     fn non_ascii_titles_are_utf16() {

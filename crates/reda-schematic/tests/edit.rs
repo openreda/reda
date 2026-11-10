@@ -82,7 +82,8 @@ fn count(engine: &mut TestEngine, kind: &str) -> usize {
     objects(engine, SHEET, kind).len()
 }
 
-/// Every Wire on the sheet as `((x1, y1), (x2, y2))` in mil, ends sorted, sorted.
+/// Every segment of every Wire on the sheet as `((x1, y1), (x2, y2))` in mil, ends sorted,
+/// sorted.
 fn wire_segments(engine: &mut TestEngine) -> Vec<((i64, i64), (i64, i64))> {
     let mil = |p: &Value| {
         (
@@ -92,9 +93,13 @@ fn wire_segments(engine: &mut TestEngine) -> Vec<((i64, i64), (i64, i64))> {
     };
     let mut segments: Vec<_> = objects(engine, SHEET, "wire")
         .iter()
-        .map(|w| {
-            let (a, b) = (mil(&w["from"]), mil(&w["to"]));
-            (a.min(b), a.max(b))
+        .flat_map(|w| {
+            let vertices: Vec<_> = w["vertices"].as_array().unwrap().iter().map(mil).collect();
+            let pairs: Vec<_> = vertices
+                .windows(2)
+                .map(|p| (p[0].min(p[1]), p[0].max(p[1])))
+                .collect();
+            pairs
         })
         .collect();
     segments.sort();
@@ -187,7 +192,10 @@ fn move_translates_every_selected_object_and_detaches_from_wires() {
         wire_segments(&mut engine),
         [((0, 150), (0, 500)), ((3000, -100), (3500, -100))]
     );
-    assert_eq!(object(&mut engine, &attached[0])["from"], point(0, 150));
+    assert_eq!(
+        object(&mut engine, &attached[0])["vertices"][0],
+        point(0, 150)
+    );
     // One undo step.
     engine.run_ok("edit.undo", json!({"document": SHEET}));
     assert_eq!(object(&mut engine, &r1)["at"], point(0, 0));
@@ -216,13 +224,13 @@ fn drag_along_a_wire_stretches_it_and_across_it_turns_a_corner() {
     // Along the Wire: its attached end follows Pin 1 and it stays one straight Wire.
     shift(&mut engine, "schematic.drag", &[&r1], 0, 100);
     assert_eq!(wire_segments(&mut engine), [((0, 250), (0, 500))]);
-    // Across it: the Wire keeps its direction from the end that stayed, then turns.
+    // Across it: the Wire keeps its direction from the end that stayed, then turns a
+    // corner, a new vertex of the same Wire.
     shift(&mut engine, "schematic.drag", &[&r1], 300, 0);
     assert_eq!(
-        wire_segments(&mut engine),
-        [((0, 250), (0, 500)), ((0, 250), (300, 250))]
+        object(&mut engine, &up[0])["vertices"],
+        json!([point(300, 250), point(0, 250), point(0, 500)])
     );
-    assert_eq!(object(&mut engine, &up[0])["to"], point(0, 500));
     // Still one Net from the Wire's far end to the Pin.
     let nets = engine.run_ok("schematic.nets", json!({"document": SHEET}));
     let net = nets["nets"]
@@ -232,7 +240,7 @@ fn drag_along_a_wire_stretches_it_and_across_it_turns_a_corner() {
         .find(|n| n["wires"].as_array().unwrap().contains(&up[0]))
         .unwrap()
         .clone();
-    assert_eq!(net["wires"].as_array().unwrap().len(), 2);
+    assert_eq!(net["wires"], json!([up[0]]));
     assert_eq!(net["pins"].as_array().unwrap().len(), 1);
 }
 
@@ -250,7 +258,10 @@ fn drag_moves_wires_between_dragged_pins_whole_and_brings_labels_on_pins() {
         wire_segments(&mut engine),
         [((0, 350), (1000, 350)), ((1000, -600), (1000, 50))]
     );
-    assert_eq!(object(&mut engine, &tail[0])["to"], point(1000, -600));
+    assert_eq!(
+        object(&mut engine, &tail[0])["vertices"][1],
+        point(1000, -600)
+    );
     assert_eq!(object(&mut engine, &vcc)["at"], point(0, 50));
     // A drag that folds a Wire onto itself removes it.
     shift(&mut engine, "schematic.drag", &[&r1, &r2], 0, -650);
@@ -315,12 +326,16 @@ fn rotate_a_selection_about_a_centre_turns_positions_and_directions() {
     assert_eq!(pose(&mut engine, &r1), (point(0, 1000), json!(90_000)));
     assert_eq!(pose(&mut engine, &vcc), (point(0, 2000), json!(90_000)));
     assert_eq!(wire_segments(&mut engine), [((0, 3000), (0, 3500))]);
-    // Wires turn only in quarter turns.
-    let err = engine.run_err(
+    // Wires turn by any angle.
+    engine.run_ok(
         "schematic.rotate",
-        json!({"objects": [r1, wires[0]], "angle": "45deg"}),
+        json!({"objects": [wires[0]], "angle": "45deg", "center": at(0, 0)}),
     );
-    assert_eq!(err.code, ErrorCode::Rejected);
+    let turned = object(&mut engine, &wires[0]);
+    for v in turned["vertices"].as_array().unwrap() {
+        let (x, y) = (v["x"].as_i64().unwrap(), v["y"].as_i64().unwrap());
+        assert!(x < 0 && (x + y).abs() <= 1, "{v} is not on the diagonal");
+    }
 }
 
 #[test]
@@ -488,6 +503,37 @@ fn free_text_can_be_added_edited_moved_and_deleted() {
     assert_eq!(at_mil(&mut engine, &text), (200, 200));
     engine.run_ok("schematic.delete", json!({"objects": [text]}));
     assert_eq!(count(&mut engine, "sheet_text"), 0);
+}
+
+#[test]
+fn free_text_takes_nine_point_justification_and_several_lines() {
+    let dir = TempDir::new("text-justify");
+    let mut engine = demo(&dir);
+    let out = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Notes:\n1. Fit C3 last", "at": at(0, 0),
+               "justify": "top_right"}),
+    );
+    let text = out["result"]["text"].clone();
+    let stored = object(&mut engine, &text);
+    assert_eq!(stored["justify"], "top_right");
+    assert_eq!(stored["text"], "Notes:\n1. Fit C3 last");
+    engine.run_ok(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "center"}),
+    );
+    assert_eq!(object(&mut engine, &text)["justify"], "center");
+    // Bottom left is the default, and is left out of the file.
+    engine.run_ok(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "bottom_left"}),
+    );
+    assert_eq!(object(&mut engine, &text).get("justify"), None);
+    let err = engine.run_err(
+        "schematic.text.set",
+        json!({"uuid": text, "justify": "middle"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
 }
 
 #[test]
@@ -668,6 +714,34 @@ fn cut_removes_the_selection_and_returns_what_paste_needs() {
 }
 
 #[test]
+fn a_pasted_component_keeps_its_designator_while_it_is_free() {
+    let dir = TempDir::new("paste-keeps-designator");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    place(&mut engine, R_10K, 1000, 0);
+    let r3 = place(&mut engine, R_10K, 2000, 0);
+    let out = engine.run_ok("schematic.cut", json!({"objects": [r3]}));
+    engine.run_ok("schematic.delete", json!({"objects": [r1]}));
+    assert_eq!(designators(&mut engine, SHEET), ["R2"]);
+    // R3 is free, so the pasted resistor keeps it rather than taking R1, the lowest free.
+    let clipboard = out["result"].clone();
+    let pasted = engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(0, 2000)}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["R2", "R3"]);
+    // Every paste gives new UUIDs, even after a cut.
+    assert_ne!(pasted["result"]["objects"][0], r3);
+    // Pasted again, R3 is taken, so the copy takes the next free one; none is ever left
+    // unannotated.
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(0, 4000)}),
+    );
+    assert_eq!(designators(&mut engine, SHEET), ["R1", "R2", "R3"]);
+}
+
+#[test]
 fn duplicate_pastes_a_copy_offset_on_the_same_sheet() {
     let dir = TempDir::new("duplicate");
     let mut engine = demo(&dir);
@@ -788,13 +862,14 @@ fn ports_and_power_ports_copy_paste_and_duplicate_with_their_names() {
     assert_eq!(count(&mut engine, "power_port"), 2);
 }
 
-/// A previewed shift's Wires as `((x1, y1), (x2, y2))` in mil, ends sorted, sorted.
+/// A previewed shift's Wire segments as `((x1, y1), (x2, y2))` in mil, ends sorted, sorted.
 fn preview_segments(preview: &reda_schematic::ShiftPreview) -> Vec<((i64, i64), (i64, i64))> {
     let mil = |p: reda_model::geom::Point| (p.x.0 / 25_400, p.y.0 / 25_400);
     let mut segments: Vec<_> = preview
         .wires
         .iter()
-        .map(|&(a, b)| (mil(a).min(mil(b)), mil(a).max(mil(b))))
+        .flat_map(|v| v.windows(2))
+        .map(|p| (mil(p[0]).min(mil(p[1])), mil(p[0]).max(mil(p[1]))))
         .collect();
     segments.sort();
     segments
@@ -858,4 +933,156 @@ fn a_detached_move_preview_leaves_every_other_object_alone() {
     assert_eq!(preview.moved, [uuid(&r1)]);
     assert!(preview.hidden.is_empty());
     assert!(preview.wires.is_empty());
+}
+
+#[test]
+fn a_pasted_wire_keeps_every_vertex_at_the_offset() {
+    let dir = TempDir::new("paste-polyline");
+    let mut engine = demo(&dir);
+    let w = wire(&mut engine, &[(0, 0), (100, 50), (100, 200)]);
+    let clipboard = engine.run_ok("schematic.copy", json!({"objects": [w[0]]}));
+    // The extent's lower-left corner (0, 0) goes to `at`.
+    let out = engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(1000, 1000)}),
+    );
+    let pasted = out["result"]["objects"][0].clone();
+    assert_ne!(pasted, w[0]);
+    assert_eq!(
+        object(&mut engine, &pasted)["vertices"],
+        json!([point(1000, 1000), point(1100, 1050), point(1100, 1200)])
+    );
+}
+
+#[test]
+fn deleting_a_wire_removes_the_whole_run() {
+    let dir = TempDir::new("delete-polyline");
+    let mut engine = demo(&dir);
+    let w = wire(&mut engine, &[(0, 0), (100, 0), (100, 100), (200, 150)]);
+    engine.run_ok("schematic.delete", json!({"objects": [w[0]]}));
+    assert!(wire_segments(&mut engine).is_empty());
+    engine.run_ok("edit.undo", json!({"document": SHEET}));
+    assert_eq!(wire_segments(&mut engine).len(), 3);
+}
+
+#[test]
+fn moving_a_wire_moves_every_vertex_and_dragging_bends_only_its_moved_end() {
+    let dir = TempDir::new("drag-polyline");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    // From Pin 1 up, across and down again. Dragged sideways, the first segment keeps its
+    // direction from the vertex that stayed and turns a corner to the Pin.
+    let run = wire(&mut engine, &[(0, 150), (0, 300), (500, 300), (500, 100)]);
+    shift(&mut engine, "schematic.drag", &[&r1], -200, 0);
+    assert_eq!(
+        object(&mut engine, &run[0])["vertices"],
+        json!([
+            point(-200, 150),
+            point(0, 150),
+            point(0, 300),
+            point(500, 300),
+            point(500, 100)
+        ])
+    );
+    shift(&mut engine, "schematic.move", &[&run[0]], 0, 1000);
+    assert_eq!(
+        object(&mut engine, &run[0])["vertices"],
+        json!([
+            point(-200, 1150),
+            point(0, 1150),
+            point(0, 1300),
+            point(500, 1300),
+            point(500, 1100)
+        ])
+    );
+}
+
+#[test]
+fn dragging_the_end_of_a_diagonal_wire_keeps_it_straight() {
+    let dir = TempDir::new("drag-diagonal");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let slope = wire(&mut engine, &[(0, 150), (300, 450)]);
+    shift(&mut engine, "schematic.drag", &[&r1], 100, 0);
+    assert_eq!(
+        object(&mut engine, &slope[0])["vertices"],
+        json!([point(100, 150), point(300, 450)])
+    );
+}
+
+#[test]
+fn copy_and_cut_take_a_reference_point_that_paste_puts_at_at() {
+    let dir = TempDir::new("paste-reference");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    // The reference point is held instead of the lower-left corner.
+    let clipboard = engine.run_ok(
+        "schematic.copy",
+        json!({"objects": [r1], "origin": at(0, 150)}),
+    );
+    assert_eq!(clipboard["origin"], point(0, 150));
+    engine.run_ok(
+        "schematic.paste",
+        json!({"document": SHEET, "clipboard": clipboard, "at": at(1000, 1150)}),
+    );
+    let units = objects(&mut engine, SHEET, "unit");
+    let pasted = units.iter().find(|u| u["designator"] == "R2").unwrap();
+    assert_eq!(pasted["at"], point(1000, 1000));
+
+    let cut = engine.run_ok(
+        "schematic.cut",
+        json!({"objects": [r1], "origin": at(50, 50)}),
+    );
+    assert_eq!(cut["result"]["origin"], point(50, 50));
+}
+
+#[test]
+fn copy_as_text_copies_the_names_and_designators_line_by_line() {
+    let dir = TempDir::new("copy-as-text");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let vcc = label(&mut engine, "VCC", 500, 150);
+    let text = engine.run_ok(
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Filter\nstage", "at": at(0, 500)}),
+    )["result"]["text"]
+        .clone();
+    let gnd = engine.run_ok(
+        "schematic.power_port.add",
+        json!({"document": SHEET, "name": "GND", "at": at(0, -500)}),
+    )["result"]["power_port"]
+        .clone();
+    let w = wire(&mut engine, &[(0, 150), (1000, 150)]);
+    let out = engine.run_ok(
+        "schematic.copy_as_text",
+        json!({"objects": [r1, vcc, text, gnd, w[0]]}),
+    );
+    // Wires carry no text; the order is the selection's.
+    assert_eq!(out["text"], "R1\nVCC\nFilter\nstage\nGND");
+}
+
+#[test]
+fn a_drag_with_flip_corners_turns_rubber_banded_corners_the_other_way() {
+    let dir = TempDir::new("drag-flip");
+    let mut engine = demo(&dir);
+    let r1 = place(&mut engine, R_10K, 0, 0);
+    let up = wire(&mut engine, &[(0, 150), (0, 500)]);
+    // The preview shows the corner by the end that stayed: the moved end keeps its
+    // direction.
+    let project = engine.project().unwrap().clone();
+    let preview =
+        reda_schematic::shift_preview_flipped(&project, &[uuid(&r1)], mil(300, 100), true, true)
+            .unwrap();
+    assert_eq!(
+        preview_segments(&preview),
+        [((0, 500), (300, 500)), ((300, 250), (300, 500))]
+    );
+    engine.run_ok(
+        "schematic.drag",
+        json!({"objects": [r1], "by": at(300, 100), "flip_corners": true}),
+    );
+    assert_eq!(
+        object(&mut engine, &up[0])["vertices"],
+        json!([point(300, 250), point(300, 500), point(0, 500)])
+    );
 }

@@ -4,7 +4,7 @@
 
 use std::any::Any;
 
-use egui::{Grid, Id, Modal, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Grid, Id, Role, TextEdit, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
@@ -115,59 +115,60 @@ impl ParamsDialog for ImportDialog {
             _ => {}
         }
         let mut outcome = Outcome::Open;
-        let modal = Modal::new(Id::NULL.with("import-part")).show(ctx, |ui| {
-            ui.set_width(480.0);
-            ui.heading(tr!("import-title"));
-            ui.weak(tr!("import-intro"));
-            ui.add_space(6.0);
-            Grid::new("import-part-fields")
-                .num_columns(2)
-                .spacing([8.0, 6.0])
-                .show(ui, |ui| {
-                    self.file_row(ui, tr!("import-symbol-file"), Pick::ImportSymbol);
-                    self.file_row(ui, tr!("import-footprint-file"), Pick::ImportFootprint);
-                    super::library_picker(
-                        ui,
-                        shell,
-                        Id::NULL.with("import-library"),
-                        &mut self.library,
-                    );
-                    ui.end_row();
-                    Self::text_row(
-                        ui,
-                        tr!("import-name"),
-                        tr!("import-name-hint"),
-                        &mut self.name,
-                    );
-                    Self::text_row(
-                        ui,
-                        tr!("import-symbol"),
-                        tr!("import-symbol-hint"),
-                        &mut self.symbol,
-                    );
-                });
-            if super::writable_libraries(shell).is_empty() {
-                ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
-            }
-            if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
-            }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                let params = self.params();
-                let run = ui.add_enabled(params.is_some(), egui::Button::new(tr!("import-run")));
-                if let Some(params) = params {
-                    if run.clicked() {
-                        outcome = Outcome::Run(params);
+        let modal = crate::modal::Dialog::new(Id::NULL.with("import-part"), tr!("import-title"))
+            .width(480.0)
+            .show(ctx, |ui| {
+                ui.weak(tr!("import-intro"));
+                ui.add_space(6.0);
+                Grid::new("import-part-fields")
+                    .num_columns(2)
+                    .spacing([8.0, 6.0])
+                    .show(ui, |ui| {
+                        self.file_row(ui, tr!("import-symbol-file"), Pick::ImportSymbol);
+                        self.file_row(ui, tr!("import-footprint-file"), Pick::ImportFootprint);
+                        super::library_picker(
+                            ui,
+                            shell,
+                            Id::NULL.with("import-library"),
+                            &mut self.library,
+                        );
+                        ui.end_row();
+                        Self::text_row(
+                            ui,
+                            tr!("import-name"),
+                            tr!("import-name-hint"),
+                            &mut self.name,
+                        );
+                        Self::text_row(
+                            ui,
+                            tr!("import-symbol"),
+                            tr!("import-symbol-hint"),
+                            &mut self.symbol,
+                        );
+                    });
+                if super::writable_libraries(shell).is_empty() {
+                    ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
+                }
+                if let Some(error) = &self.error {
+                    ui.colored_label(ui.visuals().error_fg_color, error);
+                }
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    let params = self.params();
+                    let run =
+                        ui.add_enabled(params.is_some(), egui::Button::new(tr!("import-run")));
+                    if let Some(params) = params {
+                        if run.clicked() {
+                            outcome = Outcome::Run(params);
+                        }
+                    } else {
+                        run.on_disabled_hover_text(tr!("import-needs"));
                     }
-                } else {
-                    run.on_disabled_hover_text(tr!("import-needs"));
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
-                    outcome = Outcome::Cancel;
-                }
+                    if ui.button(tr!("dialog-cancel")).clicked() {
+                        outcome = Outcome::Cancel;
+                    }
+                });
             });
-        });
         if modal.should_close() && outcome == Outcome::Open {
             outcome = Outcome::Cancel;
         }

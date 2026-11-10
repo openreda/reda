@@ -1,4 +1,4 @@
-// The canvas grid: anti-aliased dots computed per pixel on a full-screen triangle, so the
+// The canvas grid: anti-aliased dots or lines computed per pixel on a full-screen triangle, so the
 // grid costs no geometry. Everything is in target pixels; the CPU works out the phase in
 // f64 so far-off Document coordinates lose no precision.
 
@@ -15,6 +15,13 @@ struct Grid {
     _pad: u32,
     // Straight-alpha sRGB colour.
     color: vec4<f32>,
+    // The paper in target pixels: min x, min y, max x, max y. The grid stops at its edge.
+    clip: vec4<f32>,
+    // The coarse grid's phase and pitch in pixels; a zero pitch draws none.
+    coarse_phase: vec2<f32>,
+    coarse_pitch: f32,
+    // 1 draws lines, 0 dots.
+    lines: u32,
 }
 
 @group(0) @binding(0) var<uniform> grid: Grid;
@@ -34,9 +41,27 @@ fn to_linear(c: vec3<f32>) -> vec3<f32> {
 
 @fragment
 fn fs_main(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
+    if any(frag.xy < grid.clip.xy) || any(frag.xy > grid.clip.zw) {
+        discard;
+    }
     let local = frag.xy - grid.half_size - grid.phase;
-    let d = local - round(local / grid.pitch) * grid.pitch;
-    let a = clamp(grid.radius + 0.5 - length(d), 0.0, 1.0) * grid.color.a;
+    let d = abs(local - round(local / grid.pitch) * grid.pitch);
+    var coarse = vec2(1e9, 1e9);
+    if grid.coarse_pitch > 0.0 {
+        let c = frag.xy - grid.half_size - grid.coarse_phase;
+        coarse = abs(c - round(c / grid.coarse_pitch) * grid.coarse_pitch);
+    }
+    var cover = 0.0;
+    if grid.lines != 0u {
+        // Fine lines one pixel wide at half strength, coarse ones at full strength.
+        cover = clamp(1.0 - min(d.x, d.y), 0.0, 1.0) * 0.5;
+        cover = max(cover, clamp(1.0 - min(coarse.x, coarse.y), 0.0, 1.0));
+    } else {
+        // Coarse dots are half again as big.
+        cover = clamp(grid.radius + 0.5 - length(d), 0.0, 1.0);
+        cover = max(cover, clamp(grid.radius * 1.5 + 0.5 - length(coarse), 0.0, 1.0));
+    }
+    let a = cover * grid.color.a;
     if a <= 0.0 {
         discard;
     }

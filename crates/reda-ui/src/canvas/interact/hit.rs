@@ -240,7 +240,7 @@ pub(super) fn segment_distance(p: P, a: P, b: P) -> f64 {
 }
 
 /// The point of the segment `a`–`b` nearest `p`.
-pub(super) fn closest_on_segment(p: P, a: P, b: P) -> P {
+pub(crate) fn closest_on_segment(p: P, a: P, b: P) -> P {
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len2 = dx * dx + dy * dy;
     let t = if len2 > 0.0 {
@@ -258,4 +258,77 @@ fn in_triangle(p: P, a: P, b: P, c: P) -> bool {
     let neg = d1 < 0.0 || d2 < 0.0 || d3 < 0.0;
     let pos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
     !(neg && pos)
+}
+
+/// What [`hit_stack_on`] gathers about one object over all of its items.
+struct StackEntry {
+    /// The best tier among the items within tolerance.
+    tier: u8,
+    /// Every hit in that tier was only within tolerance, none on the ink itself.
+    near_only: bool,
+    /// Some item is within tolerance.
+    hit: bool,
+    /// The object's total drawn bounds.
+    lo: P,
+    hi: P,
+}
+
+impl StackEntry {
+    fn area(&self) -> f64 {
+        (self.hi.0 - self.lo.0).max(1.0) * (self.hi.1 - self.lo.1).max(1.0)
+    }
+}
+
+/// All eligible objects under a point, ordered by selection tier and then their total
+/// drawn bounds, smallest first. An object on several Layers appears only once.
+pub fn hit_stack_on(
+    scene: &Scene,
+    layers: Option<&[Composite]>,
+    at: P,
+    tolerance: f64,
+    rank: impl Fn(&Item) -> Option<u8>,
+) -> Vec<Uuid> {
+    let visible = |i: &Item| layers.is_none_or(|ls| ls.iter().any(|l| l.layer == i.layer));
+    // One pass accumulates bounds and hits: hover must stay usable on large boards.
+    let mut objects = std::collections::BTreeMap::new();
+    for item in &scene.items {
+        if !visible(item) {
+            continue;
+        }
+        let Some(tier) = rank(item) else {
+            continue;
+        };
+        let entry = objects.entry(item.object).or_insert(StackEntry {
+            tier: u8::MAX,
+            near_only: true,
+            hit: false,
+            lo: (f64::INFINITY, f64::INFINITY),
+            hi: (f64::NEG_INFINITY, f64::NEG_INFINITY),
+        });
+        if let Some((a, b)) = bounds(item) {
+            entry.lo = (entry.lo.0.min(a.0), entry.lo.1.min(a.1));
+            entry.hi = (entry.hi.0.max(b.0), entry.hi.1.max(b.1));
+        }
+        let d = distance(&item.primitive, at);
+        if d <= tolerance {
+            // Nearness belongs to the best hit tier. An exact body hit must not
+            // turn a nearby Pin into an exact hit ahead of overlapping field text.
+            if tier < entry.tier {
+                entry.tier = tier;
+                entry.near_only = d > 0.0;
+            } else if tier == entry.tier {
+                entry.near_only &= d > 0.0;
+            }
+            entry.hit = true;
+        }
+    }
+    let mut hits: Vec<_> = objects.into_iter().filter(|(_, e)| e.hit).collect();
+    hits.sort_by(|(a_id, a), (b_id, b)| {
+        a.tier
+            .cmp(&b.tier)
+            .then(a.near_only.cmp(&b.near_only))
+            .then(a.area().total_cmp(&b.area()))
+            .then(a_id.cmp(b_id))
+    });
+    hits.into_iter().map(|(id, _)| id).collect()
 }

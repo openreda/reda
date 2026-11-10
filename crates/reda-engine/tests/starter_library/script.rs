@@ -265,7 +265,21 @@ pub struct PartSpec<'a> {
     pub fields: Value,
     /// `library.part.pin_map.set` params, without `part`; `None` keeps the implicit map.
     pub pin_map: Option<Value>,
-    pub mechanical: bool,
+    /// Its Component Type, In BOM and In CPL.
+    pub kind: Kind,
+}
+
+/// The Component Type of a Part, with the In BOM and In CPL it gets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// Standard, in the BOM and CPL.
+    Standard,
+    /// Mechanical, out of the BOM and CPL: a mounting hole or a fiducial.
+    Mechanical,
+    /// A Net Tie, out of the BOM and CPL.
+    NetTie,
+    /// Standard but out of the BOM and CPL, like a test point: copper only.
+    Unassembled,
 }
 
 /// The engine with a new, empty Library open for writing.
@@ -420,6 +434,15 @@ impl Script {
         );
     }
 
+    /// Moves the origin to Pin 1's connection end, as a rectangular IC body has it. Draw
+    /// it about any convenient point first.
+    pub fn origin_at_pin_1(&mut self, sym: &Sym) {
+        self.edit(
+            "library.symbol.origin.set",
+            json!({"symbol": sym.uuid, "to": {"kind": "pin1"}}),
+        );
+    }
+
     pub fn finish_symbol(&mut self, sym: Sym) -> String {
         self.save(&sym.uuid);
         sym.uuid
@@ -437,41 +460,13 @@ impl Script {
         out["footprint"].as_str().unwrap().to_owned()
     }
 
-    /// Adds a Silkscreen bar just outside Pad 1's outer edge, marking a cathode or the
-    /// positive end of a generated two-terminal Footprint, and gives it `description`
-    /// (the chip generator only knows resistors, capacitors and inductors).
-    pub fn mark_pad_one(&mut self, footprint: &str, description: &str) {
-        self.ids.set(&format!("mark/{footprint}"));
-        self.run("library.element.open", json!({ "element": footprint }));
-        self.edit(
-            "library.footprint.edit",
-            json!({"footprint": footprint, "description": description}),
-        );
-        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
-        let pad = object["pads"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|p| p["number"] == "1")
-            .unwrap()
-            .clone();
-        let int = |v: &Value| v.as_i64().unwrap();
-        let x = int(&pad["at"]["x"]) - int(&pad["width"]) / 2 - mm(0.26);
-        let half = int(&pad["height"]) / 2;
-        self.fp_draw(
-            footprint,
-            "silkscreen_top",
-            line(x, -half, x, half),
-            mm(0.12),
-        );
-        self.save(footprint);
-    }
-
-    pub fn footprint(&mut self, name: &str, description: &str) -> String {
+    /// A new hand-drawn Footprint; `height` is the part's greatest height above the board,
+    /// in millimetres.
+    pub fn footprint(&mut self, name: &str, description: &str, height: f64) -> String {
         let uuid = self.new_element("footprint", name);
         self.edit(
             "library.footprint.edit",
-            json!({"footprint": uuid, "description": description}),
+            json!({"footprint": uuid, "description": description, "height": mm(height)}),
         );
         uuid
     }
@@ -491,22 +486,111 @@ impl Script {
 
     /// Puts the Designator above the courtyard, whose top edge is at `top`.
     pub fn finish_footprint(&mut self, footprint: &str, top: i64) -> String {
+        let top = top - self.centre_on_courtyard(footprint);
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let designator = object["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == "Designator")
+            .unwrap()["uuid"]
+            .clone();
         self.edit(
-            "library.footprint.text.set",
-            json!({"footprint": footprint, "text": "designator", "at": pt(0, top + mm(0.8))}),
+            "library.footprint.text.edit",
+            json!({"footprint": footprint, "text": designator, "at": pt(0, top + mm(0.8))}),
         );
+        self.assembly_designator(footprint);
         self.save(footprint);
         footprint.to_owned()
+    }
+
+    /// Adds the Assembly Designator in the middle of the body and moves the Value below the
+    /// courtyard, both sized as the generators size them: half the Assembly outline's
+    /// shorter side, at most 1 mm, in 0.01 mm steps.
+    fn assembly_designator(&mut self, footprint: &str) {
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let extent = |prefix: &str| {
+            let (mut xs, mut ys) = (vec![], vec![]);
+            for g in object["graphics"].as_array().unwrap() {
+                if g["layer"].as_str().unwrap().starts_with(prefix) {
+                    for (x, y) in shape_extent(&g["shape"]) {
+                        xs.push(x);
+                        ys.push(y);
+                    }
+                }
+            }
+            assert!(!xs.is_empty(), "{footprint}: nothing on {prefix}");
+            (xs, ys)
+        };
+        let span = |v: &[i64]| v.iter().max().unwrap() - v.iter().min().unwrap();
+        let (xs, ys) = extent("assembly");
+        let size = (span(&xs).min(span(&ys)) / 2).min(mm(1.0)) / 10_000 * 10_000;
+        self.edit(
+            "library.footprint.text.add",
+            json!({"footprint": footprint, "field": "Designator", "at": pt(0, 0),
+                   "layer": "assembly_top", "height": size}),
+        );
+        let bottom = *extent("courtyard").1.iter().min().unwrap();
+        let value = object["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["field"] == "Value")
+            .unwrap()["uuid"]
+            .clone();
+        self.edit(
+            "library.footprint.text.edit",
+            json!({"footprint": footprint, "text": value, "height": size,
+                   "at": pt(0, bottom - mm(0.2) - size / 2)}),
+        );
+    }
+
+    /// Moves the origin of a Footprint whose courtyard box's centre is more than the
+    /// Library check's 0.1 mm off it (`origin_off_centroid`) to that centre, and returns
+    /// how far it moved in y. Rectangle, circle and polygon courtyards are read.
+    fn centre_on_courtyard(&mut self, footprint: &str) -> i64 {
+        let object = self.run("object.get", json!({ "uuid": footprint }))["object"].clone();
+        let mut xs = vec![];
+        let mut ys = vec![];
+        for g in object["graphics"].as_array().unwrap() {
+            if !g["layer"].as_str().unwrap().starts_with("courtyard") {
+                continue;
+            }
+            for (x, y) in shape_extent(&g["shape"]) {
+                xs.push(x);
+                ys.push(y);
+            }
+        }
+        let centre = |v: &[i64]| match (v.iter().min(), v.iter().max()) {
+            (Some(a), Some(b)) => (a + b) / 2,
+            _ => 0,
+        };
+        let (cx, cy) = (centre(&xs), centre(&ys));
+        if cx.abs() <= mm(0.1) && cy.abs() <= mm(0.1) {
+            return 0;
+        }
+        self.edit(
+            "library.footprint.origin.set",
+            json!({"footprint": footprint, "at": pt(cx, cy)}),
+        );
+        cy
     }
 
     // Parts.
 
     pub fn part(&mut self, spec: PartSpec<'_>) -> String {
         let uuid = self.new_element("part", spec.name);
-        if spec.mechanical {
+        let component_type = match spec.kind {
+            Kind::Standard => None,
+            Kind::Mechanical => Some("mechanical"),
+            Kind::NetTie => Some("net_tie"),
+            Kind::Unassembled => Some("standard"),
+        };
+        if let Some(component_type) = component_type {
             self.edit(
                 "library.part.edit",
-                json!({"part": uuid, "component_type": "mechanical"}),
+                json!({"part": uuid, "component_type": component_type,
+                       "in_bom": false, "in_cpl": false}),
             );
         }
         if let Some(symbol) = spec.symbol {
@@ -528,5 +612,25 @@ impl Script {
         }
         self.save(&uuid);
         uuid
+    }
+}
+
+/// Points spanning a graphic's box, in nanometres; an arc counts as its whole circle.
+fn shape_extent(shape: &Value) -> Vec<(i64, i64)> {
+    let at = |p: &Value| (p["x"].as_i64().unwrap(), p["y"].as_i64().unwrap());
+    match shape["kind"].as_str().unwrap() {
+        "rect" | "line" => vec![at(&shape["start"]), at(&shape["end"])],
+        "circle" => {
+            let (x, y) = at(&shape["center"]);
+            let r = shape["radius"].as_i64().unwrap();
+            vec![(x - r, y - r), (x + r, y + r)]
+        }
+        "arc" => {
+            let ((x, y), (sx, sy)) = (at(&shape["center"]), at(&shape["start"]));
+            let r = ((sx - x) as f64).hypot((sy - y) as f64).round() as i64;
+            vec![(x - r, y - r), (x + r, y + r)]
+        }
+        "polygon" => shape["points"].as_array().unwrap().iter().map(at).collect(),
+        other => panic!("a {other} outline: {shape}"),
     }
 }

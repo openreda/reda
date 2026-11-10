@@ -3,6 +3,7 @@
 use std::sync::OnceLock;
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::net_name::NameGlyph;
 use reda_text::{Font, Mesh, OutlineFont, Segment, layout};
 
 use crate::scene::{Align, GlyphRun, HAlign, VAlign};
@@ -24,7 +25,7 @@ pub(crate) struct TextStyle {
 }
 
 /// Lines are this many capital heights apart (the same pitch as PCB text).
-const LINE_PITCH: (i64, i64) = (8, 5);
+pub(crate) const LINE_PITCH: (i64, i64) = (8, 5);
 
 /// Lays out `text` (`\n` starts a new line, below the first) in Noto Sans, aligned on `at`.
 ///
@@ -77,6 +78,87 @@ pub(crate) fn glyph_run(text: &str, at: Point, style: TextStyle) -> GlyphRun {
         fill,
     }
 }
+
+/// The overbars of one line of text laid out as [`glyph_run`] lays out `glyphs`' characters
+/// on `at`: one segment over each run of negated characters, a little above the capitals.
+pub(crate) fn overbars(glyphs: &[NameGlyph], at: Point, style: TextStyle) -> Vec<(Point, Point)> {
+    let (rotation, align) = readable(style.rotation, style.align);
+    let h = style.height.0;
+    let dy = match align.v {
+        VAlign::Baseline => 0,
+        VAlign::Middle => -h / 2,
+        VAlign::Top => -h,
+    };
+    let chars: Vec<char> = glyphs.iter().map(|g| g.ch).collect();
+    let reach = |n: usize| advance(&chars[..n].iter().collect::<String>(), style.height).0;
+    let dx = match align.h {
+        HAlign::Left => 0,
+        HAlign::Center => -reach(chars.len()) / 2,
+        HAlign::Right => -reach(chars.len()),
+    };
+    let y = dy + h * OVERBAR_LIFT.0 / OVERBAR_LIFT.1;
+    let place = |x: i64| {
+        let (x, y) = rotate(x + dx, y, rotation);
+        Point::new(at.x + Nm(x), at.y + Nm(y))
+    };
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < glyphs.len() {
+        if !glyphs[i].overbar {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < glyphs.len() && glyphs[i].overbar {
+            i += 1;
+        }
+        out.push((place(reach(start)), place(reach(i))));
+    }
+    out
+}
+
+/// The box round the characters at byte range `range` of one line of `text`, laid out as
+/// [`glyph_run`] lays it out on `at`: from a quarter of a capital height below the
+/// baseline to a quarter above the capitals.
+pub(crate) fn span(
+    text: &str,
+    range: std::ops::Range<usize>,
+    at: Point,
+    style: TextStyle,
+) -> (Point, Point) {
+    let (rotation, align) = readable(style.rotation, style.align);
+    let h = style.height.0;
+    let dy = match align.v {
+        VAlign::Baseline => 0,
+        VAlign::Middle => -h / 2,
+        VAlign::Top => -h,
+    };
+    let reach = |s: &str| advance(s, style.height).0;
+    let dx = match align.h {
+        HAlign::Left => 0,
+        HAlign::Center => -reach(text) / 2,
+        HAlign::Right => -reach(text),
+    };
+    let (x0, x1) = (
+        dx + reach(&text[..range.start]),
+        dx + reach(&text[..range.end]),
+    );
+    let (y0, y1) = (dy - h / 4, dy + h + h / 4);
+    let corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)].map(|(x, y)| {
+        let (x, y) = rotate(x, y, rotation);
+        Point::new(at.x + Nm(x), at.y + Nm(y))
+    });
+    let lo = corners
+        .iter()
+        .fold(corners[0], |a, p| Point::new(a.x.min(p.x), a.y.min(p.y)));
+    let hi = corners
+        .iter()
+        .fold(corners[0], |a, p| Point::new(a.x.max(p.x), a.y.max(p.y)));
+    (lo, hi)
+}
+
+/// An overbar sits this many capital heights above the baseline.
+const OVERBAR_LIFT: (i64, i64) = (23, 20);
 
 /// How far the longest line of `text` reaches at capital height `height`.
 pub(crate) fn advance(text: &str, height: Nm) -> Nm {

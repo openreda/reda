@@ -21,8 +21,8 @@ pub(crate) type Contour = Vec<IntPoint<i64>>;
 /// Shapes of outer contour + holes, as `i_overlay` returns them.
 pub(crate) type Area = Vec<Vec<Contour>>;
 
-/// How far a circumscribed polygon may stray outside its circle.
-const ROUND_TOLERANCE: f64 = 1_000.0;
+/// How far a circumscribed polygon may stray outside its circle: the fill's arc tolerance.
+const ROUND_TOLERANCE: f64 = super::ARC_TOLERANCE.0 as f64;
 
 pub(crate) fn ip(p: P) -> IntPoint<i64> {
     IntPoint::new(p[0], p[1])
@@ -98,8 +98,12 @@ pub(crate) fn opened(area: &Area, half: i64) -> Area {
     if half <= 0 || area.is_empty() {
         return area.clone();
     }
+    // Round corners turn in steps whose chords stay within the arc tolerance.
+    let r = half as f64;
+    let step = 2.0 * (1.0 - (ROUND_TOLERANCE / r).min(1.0)).acos();
+    let bits = (step / std::f64::consts::TAU * 4_294_967_296.0) as u64;
     let join = IntLineJoin::Round(ArcOptions {
-        max_step: Angle::from_bits(1 << 26),
+        max_step: Angle::from_bits(bits.clamp(1 << 22, 1 << 29) as u32),
         rotation_precision: 5,
     });
     let shrunk = area
@@ -118,7 +122,7 @@ pub(crate) fn opened(area: &Area, half: i64) -> Area {
 /// most [`ROUND_TOLERANCE`] outside it.
 fn sides(radius: f64) -> usize {
     let n = std::f64::consts::PI / (radius / (radius + ROUND_TOLERANCE)).acos();
-    (n.ceil() as usize).clamp(8, 256)
+    (n.ceil() as usize).clamp(8, 1 << 14)
 }
 
 /// The corners of a polygon around the origin that contains the circle of `radius`.
@@ -239,4 +243,96 @@ pub(crate) fn bounds(area: &Area) -> Option<(P, P)> {
         hi = [hi[0].max(p.x), hi[1].max(p.y)];
     }
     Some((lo, hi))
+}
+
+/// The edges of an area as lines of no width, for measuring distances to it.
+pub(crate) fn boundary(area: &Area) -> Shape {
+    let mut prims = Vec::new();
+    for ring in area.iter().flatten() {
+        for i in 0..ring.len() {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            prims.push(Prim {
+                core: Core::Seg([a.x, a.y], [b.x, b.y]),
+                radius: 0,
+            });
+        }
+    }
+    Shape { prims }
+}
+
+/// The gap between two areas, the closest points on each (the middle of the overlap,
+/// twice, where they overlap) and whether they overlap with some area. `None` when either
+/// is empty.
+pub(crate) fn gap(a: &Area, b: &Area) -> Option<(f64, [Point; 2], bool)> {
+    if a.is_empty() || b.is_empty() {
+        return None;
+    }
+    let overlap = intersection(a, b);
+    if area_of(&overlap) == 0 {
+        let (ea, eb) = (boundary(a), boundary(b));
+        return Some((ea.distance(&eb).max(0.0), ea.closest_points(&eb), false));
+    }
+    if let Some((lo, hi)) = bounds(&overlap) {
+        let mid = Point::new(
+            reda_model::geom::Nm(lo[0] + (hi[0] - lo[0]) / 2),
+            reda_model::geom::Nm(lo[1] + (hi[1] - lo[1]) / 2),
+        );
+        return Some((0.0, [mid, mid], true));
+    }
+    None
+}
+
+/// Whether `p` lies strictly inside the area (even-odd over every contour, so holes are
+/// outside).
+pub(crate) fn inside(area: &Area, p: Point) -> bool {
+    let (x, y) = (p.x.0 as f64, p.y.0 as f64);
+    let mut inside = false;
+    for ring in area.iter().flatten() {
+        for i in 0..ring.len() {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            let (ax, ay, bx, by) = (a.x as f64, a.y as f64, b.x as f64, b.y as f64);
+            if (ay > y) != (by > y) && x < ax + (y - ay) / (by - ay) * (bx - ax) {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+/// The area inside a closed outline, in square nanometres (0 for none).
+pub(crate) fn outline_area(vertices: &[Vertex]) -> i128 {
+    if vertices.is_empty() {
+        return 0;
+    }
+    area_of(&polygon(contour(vertices))) / 2
+}
+
+/// The area an [`Area`] covers, in square nanometres.
+pub(crate) fn covered(area: &Area) -> i128 {
+    area_of(area) / 2
+}
+
+/// Twice the signed area enclosed, outer contours less holes: 0 for shapes that only
+/// touch along an edge.
+fn area_of(area: &Area) -> i128 {
+    area.iter()
+        .flatten()
+        .map(|ring| {
+            (0..ring.len())
+                .map(|i| {
+                    let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+                    i128::from(a.x) * i128::from(b.y) - i128::from(b.x) * i128::from(a.y)
+                })
+                .sum::<i128>()
+        })
+        .sum::<i128>()
+        .abs()
+}
+
+/// Whether two boxes come within `reach` of each other.
+pub(crate) fn boxes_within(a: (P, P), b: (P, P), reach: i64) -> bool {
+    a.0[0] - reach <= b.1[0]
+        && b.0[0] - reach <= a.1[0]
+        && a.0[1] - reach <= b.1[1]
+        && b.0[1] - reach <= a.1[1]
 }

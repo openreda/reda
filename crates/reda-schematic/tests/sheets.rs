@@ -146,7 +146,7 @@ fn net_labels_do_not_join_across_sheets() {
 }
 
 #[test]
-fn power_ports_join_across_the_project_and_win_the_name() {
+fn power_ports_join_across_the_project_and_win_the_name_over_ports() {
     let dir = TempDir::new("power-join");
     let (mut engine, second) = demo(&dir);
     let out = engine.run_ok("document.add", json!({"kind": "schematic"}));
@@ -158,13 +158,12 @@ fn power_ports_join_across_the_project_and_win_the_name() {
     power(&mut engine, &third, "GND", 0, -150);
     // On the second sheet, R2-2 joins the first sheet through a Port only.
     port(&mut engine, &second, "RET", 0, -150);
-    label(&mut engine, &second, "local", 0, -150);
     port(&mut engine, SHEET, "RET", 0, -150);
 
     let net = project_net(&mut engine, "R1-2");
     assert_eq!(net["name"], "GND");
     assert_eq!(pins(&net), ["R1-2", "R2-2", "R3-2"]);
-    assert_eq!(net["names"], json!(["GND", "RET", "local"]));
+    assert_eq!(net["names"], json!(["GND", "RET"]));
     // Each sheet names its part of the Net by the Project-wide winner.
     assert_eq!(sheet_net_name(&mut engine, &second, "R2-2"), "GND");
 
@@ -177,7 +176,7 @@ fn power_ports_join_across_the_project_and_win_the_name() {
 }
 
 #[test]
-fn name_priority_is_power_port_then_port_then_net_label_then_auto_name() {
+fn name_priority_is_net_label_then_power_port_then_port_then_auto_name() {
     let dir = TempDir::new("name-priority");
     let (mut engine, _) = demo(&dir);
     place(&mut engine, SHEET, 0, 0); // R1
@@ -194,8 +193,8 @@ fn name_priority_is_power_port_then_port_then_net_label_then_auto_name() {
     // R3-1: a label.
     label(&mut engine, SHEET, "C_LABEL", 2000, 150);
 
-    assert_eq!(sheet_net_name(&mut engine, SHEET, "R1-1"), "VCC");
-    assert_eq!(sheet_net_name(&mut engine, SHEET, "R2-1"), "B_PORT2");
+    assert_eq!(sheet_net_name(&mut engine, SHEET, "R1-1"), "A_LABEL");
+    assert_eq!(sheet_net_name(&mut engine, SHEET, "R2-1"), "A_LABEL2");
     assert_eq!(sheet_net_name(&mut engine, SHEET, "R3-1"), "C_LABEL");
     assert_eq!(sheet_net_name(&mut engine, SHEET, "R4-1"), "Net-(R4-1)");
 }

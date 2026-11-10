@@ -45,10 +45,13 @@ pub enum AlignTo {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AlignParams {
-    /// The Footprints, Free Pads and Placement Origin to align, by UUID. A Footprint's
+    /// The Footprints, Free Pads and Output Origin to align, by UUID. A Footprint's
     /// extent is its Pads and drawing.
     pub objects: Vec<Uuid>,
     pub to: AlignTo,
+    /// Moves locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct Align;
@@ -59,7 +62,7 @@ impl Command for Align {
         title: "Align",
         description: "Aligns the selected Footprints' (and Free Pads') left, right, top or \
                       bottom edges, or their centres, moving each as a whole. Up is +y. \
-                      Refused when any of them is locked.",
+                      Refused when any of them is locked (unless `include_locked`).",
         category: "pcb",
         icon: "align",
         kind: Kind::Edit,
@@ -73,7 +76,7 @@ impl Command for Align {
 
     fn run(&self, cx: &mut Context<'_>, p: AlignParams) -> Result<Placed, CommandError> {
         let to = p.to;
-        arrange(cx, &p.objects, |boxes| {
+        arrange(cx, &p.objects, p.include_locked, |boxes| {
             let all = boxes
                 .iter()
                 .copied()
@@ -107,9 +110,12 @@ pub enum Direction {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DistributeParams {
-    /// The Footprints, Free Pads and Placement Origin to space out, by UUID.
+    /// The Footprints, Free Pads and Output Origin to space out, by UUID.
     pub objects: Vec<Uuid>,
     pub direction: Direction,
+    /// Moves locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct Distribute;
@@ -120,7 +126,7 @@ impl Command for Distribute {
         title: "Distribute",
         description: "Spaces the selected Footprints' centres evenly, horizontally or \
                       vertically, between the two outermost, which stay put. Refused when \
-                      any of them is locked.",
+                      any of them is locked (unless `include_locked`).",
         category: "pcb",
         icon: "distribute",
         kind: Kind::Edit,
@@ -138,7 +144,7 @@ impl Command for Distribute {
             let c = b.center();
             if horizontal { c.x.0 } else { c.y.0 }
         };
-        arrange(cx, &p.objects, |boxes| {
+        arrange(cx, &p.objects, p.include_locked, |boxes| {
             let n = boxes.len();
             let mut out = vec![Point::default(); n];
             if n < 3 {
@@ -173,6 +179,9 @@ pub struct ArrangeInRectParams {
     /// The space left between neighbours; 1 mm when left out.
     #[serde(default)]
     pub spacing: Option<Length>,
+    /// Moves locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 pub struct ArrangeInRect;
@@ -184,7 +193,7 @@ impl Command for ArrangeInRect {
         description: "Packs the selected Footprints into a rectangle in rows, from its top-left \
                       corner, left to right and then down, in Designator order, `spacing` \
                       (1 mm) apart. Their rotation and side are kept. Refused when they do not \
-                      fit or any of them is locked.",
+                      fit or any of them is locked (unless `include_locked`).",
         category: "pcb",
         icon: "arrange",
         kind: Kind::Edit,
@@ -205,7 +214,7 @@ impl Command for ArrangeInRect {
         let items = resolve(pcb, &p.objects)?;
         let mut order: Vec<usize> = (0..items.len()).collect();
         order.sort_by(|&a, &b| designator_order(&items[a], &items[b]));
-        arrange(cx, &p.objects, |boxes| {
+        arrange(cx, &p.objects, p.include_locked, |boxes| {
             let mut out = vec![Point::default(); boxes.len()];
             let (mut x, mut top) = (rect.min.x, rect.max.y);
             let mut row_height = Nm::ZERO;
@@ -231,7 +240,7 @@ impl Command for ArrangeInRect {
 }
 
 /// Footprints by Designator in natural order (R2 before R10), then Free Pads and the
-/// Placement Origin by UUID.
+/// Output Origin by UUID.
 fn designator_order(a: &Item, b: &Item) -> Ordering {
     match (a, b) {
         (Item::Footprint(a), Item::Footprint(b)) => {
@@ -278,12 +287,13 @@ pub fn natural_cmp(a: &str, b: &str) -> Ordering {
 fn arrange(
     cx: &mut Context<'_>,
     uuids: &[Uuid],
+    include_locked: bool,
     offsets: impl FnOnce(&[Bounds]) -> Result<Vec<Point>, CommandError>,
 ) -> Result<Placed, CommandError> {
     let pcb: &PcbDocument = pcb(cx)?;
     let items = resolve(pcb, uuids)?;
-    refuse_locked(&items)?;
+    refuse_locked(pcb, &items, include_locked)?;
     let boxes: Vec<Bounds> = items.iter().map(|i| i.bounds(pcb)).collect();
     let ops: Vec<Op> = offsets(&boxes)?.into_iter().map(Op::Translate).collect();
-    place(cx, items, ops)
+    place(cx, items, ops, include_locked)
 }

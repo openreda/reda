@@ -10,8 +10,7 @@ use crate::document::{DocumentEntry, DocumentKind};
 use crate::output::{OutputJob, ProjectFabPreset};
 use crate::pcb::{PcbDocument, ZoneFills};
 use crate::schematic::SchematicSheet;
-use crate::{ElementSource, ErcSeverities, LibraryElement, Scope, TxError, Uuid};
-use reda_geom::Nm;
+use crate::{ElementSource, ErcSettings, LibraryElement, Scope, TxError, Uuid};
 
 /// Project-wide properties, stored in `<name>.reda`.
 ///
@@ -22,7 +21,8 @@ use reda_geom::Nm;
 pub struct ProjectProps {
     pub uuid: Uuid,
     pub name: String,
-    /// Every Document's UUID, in Project order.
+    /// Every Document's UUID, in Project order, [missing](ProjectProps::missing) ones
+    /// included.
     pub documents: Vec<Uuid>,
     /// The Project Libraries: folders relative to the Project folder, `/`-separated.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -30,13 +30,155 @@ pub struct ProjectProps {
     /// The Project properties that fill the sheets' title blocks.
     #[serde(default)]
     pub properties: ProjectProperties,
-    /// The ERC severities.
+    /// The ERC severities and Pin Matrix.
     #[serde(default)]
-    pub erc: ErcSeverities,
+    pub erc: ErcSettings,
+    /// The schematic options.
+    #[serde(default)]
+    pub schematic: SchematicOptions,
+    /// The last Re-annotate settings applied, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reannotate: Option<crate::annotate::ReannotateSettings>,
+    /// The Update from Library settings page 1 saved, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_update: Option<crate::library_update::LibraryUpdateSettings>,
+    /// The Documents the Project file lists whose files were missing when it was opened.
+    /// They keep their place in `documents` but have no body: nothing can open or edit
+    /// them until they are relinked to a file or removed from the Project.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing: Vec<DocumentEntry>,
 }
 
-/// The Project properties: fixed free-text fields that fill each sheet's title block, and
-/// the board thickness and copper weight that go into fab notes.
+/// The Project's schematic options: how Nets are named, Ports cross-referenced and Not
+/// Fitted Components drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchematicOptions {
+    /// Power Port Names Take Priority: a Power Port's name beats a Net Label's, giving
+    /// Power Port > Net Label > Port > auto-name. Off by default (Net Label > Power Port >
+    /// Port > auto-name).
+    pub power_port_names_priority: bool,
+    /// Allow Ports to Name Nets. Off, a Port still joins its Net across sheets but never
+    /// names it.
+    pub allow_ports_to_name_nets: bool,
+    /// Append Sheet Numbers to Local Nets: every Local Net named by a Net Label gets the
+    /// board name `<name>_<n>`, `n` being its sheet's number. Sheets keep showing the plain
+    /// name.
+    pub append_sheet_numbers: bool,
+    /// Automatic Cross References: each Port shows where its partners are, such as
+    /// `[2:B3]`. Off by default, so a Project opts in.
+    pub cross_references: bool,
+    /// The Project's cross-reference styles, unless it follows the Preferences.
+    pub cross_reference_styles: CrossReferenceStyles,
+    /// Follow Cross References settings in Preferences: the styles come from the
+    /// Preferences instead of [`SchematicOptions::cross_reference_styles`]. Off by default.
+    pub cross_references_follow_preferences: bool,
+    /// How a Not Fitted Component is drawn on the canvas and in the PDF: `cross` (the
+    /// default), `mesh` or `none`.
+    pub not_fitted_display: NotFittedDisplay,
+}
+
+/// How a Not Fitted Component is drawn on a sheet. `text` is a reserved name for a later
+/// text overlay.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NotFittedDisplay {
+    /// A red cross over its masked body.
+    #[default]
+    Cross,
+    /// A grey box with a mesh over its masked body.
+    Mesh,
+    /// Nothing extra: drawn like any other Component.
+    None,
+}
+
+impl SchematicOptions {
+    pub const DEFAULT: SchematicOptions = SchematicOptions {
+        power_port_names_priority: false,
+        allow_ports_to_name_nets: true,
+        append_sheet_numbers: false,
+        cross_references: false,
+        cross_reference_styles: CrossReferenceStyles::DEFAULT,
+        cross_references_follow_preferences: false,
+        not_fitted_display: NotFittedDisplay::Cross,
+    };
+
+    pub fn is_default(&self) -> bool {
+        *self == SchematicOptions::DEFAULT
+    }
+
+    /// The styles Port cross-references are drawn in, given the Preferences' styles, or
+    /// none when the Project shows no cross-references.
+    pub fn cross_reference_styles(
+        &self,
+        preferences: CrossReferenceStyles,
+    ) -> Option<CrossReferenceStyles> {
+        self.cross_references
+            .then_some(match self.cross_references_follow_preferences {
+                true => preferences,
+                false => self.cross_reference_styles,
+            })
+    }
+}
+
+/// How a Port cross-reference names its partners' places: by sheet, then by location on
+/// that sheet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct CrossReferenceStyles {
+    /// Sheet Style: `number` by default.
+    pub sheet: SheetStyle,
+    /// Location Style: `zone` by default.
+    pub location: LocationStyle,
+}
+
+impl CrossReferenceStyles {
+    pub const DEFAULT: CrossReferenceStyles = CrossReferenceStyles {
+        sheet: SheetStyle::Number,
+        location: LocationStyle::Zone,
+    };
+}
+
+impl Default for CrossReferenceStyles {
+    fn default() -> CrossReferenceStyles {
+        CrossReferenceStyles::DEFAULT
+    }
+}
+
+/// How a cross-reference names a partner's sheet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SheetStyle {
+    /// Not at all.
+    None,
+    /// By the sheet's title, as in the Projects panel.
+    Name,
+    /// By its number in the Projects panel, from 1.
+    #[default]
+    Number,
+}
+
+/// How a cross-reference names where on its sheet a partner is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationStyle {
+    /// Not at all.
+    None,
+    /// By its Border Zone, such as `B3`; nothing on a sheet with Border Zones off.
+    #[default]
+    Zone,
+    /// By its X,Y position on the sheet, in millimetres.
+    Xy,
+}
+
+impl Default for SchematicOptions {
+    fn default() -> SchematicOptions {
+        SchematicOptions::DEFAULT
+    }
+}
+
+/// The Project properties: fixed free-text fields that fill each sheet's title block. The
+/// board thickness and copper are the PCB Document's [`crate::Stackup`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct ProjectProperties {
@@ -46,12 +188,6 @@ pub struct ProjectProperties {
     pub date: String,
     pub author: String,
     pub company: String,
-    /// The finished board thickness, for fab notes; left out when not set.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub board_thickness: Option<Nm>,
-    /// The copper weight, for fab notes, as free text such as `1 oz`; left out when empty.
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub copper_weight: String,
 }
 
 impl ProjectProperties {
@@ -124,13 +260,37 @@ impl Project {
         &self.props
     }
 
-    /// The Documents in Project order.
+    /// The open Documents in Project order; missing ones are left out (see
+    /// [`Project::document_list`]).
     pub fn documents(&self) -> impl Iterator<Item = &DocumentEntry> {
-        self.props.documents.iter().map(|uuid| &self.entries[uuid])
+        (self.props.documents.iter()).filter_map(|uuid| self.entries.get(uuid))
     }
 
     pub fn document(&self, uuid: Uuid) -> Option<&DocumentEntry> {
         self.entries.get(&uuid)
+    }
+
+    /// Every Document the Project file lists, in Project order, the
+    /// [missing](ProjectProps::missing) ones included. Document numbers count this list.
+    pub fn document_list(&self) -> Vec<crate::ListedDocument> {
+        let row = |uuid: &Uuid| match self.entries.get(uuid) {
+            Some(entry) => Some(crate::ListedDocument {
+                entry: entry.clone(),
+                missing: false,
+            }),
+            None => self
+                .missing_document(*uuid)
+                .map(|entry| crate::ListedDocument {
+                    entry: entry.clone(),
+                    missing: true,
+                }),
+        };
+        self.props.documents.iter().filter_map(row).collect()
+    }
+
+    /// The missing Document with this UUID, if any.
+    pub fn missing_document(&self, uuid: Uuid) -> Option<&DocumentEntry> {
+        self.props.missing.iter().find(|e| e.uuid == uuid)
     }
 
     /// The Project's copies of Fab Presets, by UUID.
@@ -251,6 +411,8 @@ impl Project {
         let pcb = match object {
             Object::LayerSet(o) => o.document,
             Object::BoardSetup(o) => o.document,
+            Object::Stackup(o) => o.document,
+            Object::DesignRule(o) => o.document,
             Object::BoardOutline(o) => o.document,
             Object::BoardCutout(o) => o.document,
             Object::NetClass(o) => o.document,
@@ -277,13 +439,15 @@ impl Project {
             Object::Waiver(o) => return self.check_sheet(o.document),
             Object::PcbText(o) => o.document,
             Object::PcbGraphic(o) => o.document,
+            Object::Dimension(o) => o.document,
             Object::FootprintInstance(o) => o.document,
             Object::Track(o) => o.document,
             Object::Via(o) => o.document,
             Object::Zone(o) => o.document,
             Object::Keepout(o) => o.document,
+            Object::ZoneCutout(o) => o.document,
             Object::FreePad(o) => o.document,
-            Object::PlacementOrigin(o) => o.document,
+            Object::OutputOrigin(o) => o.document,
             _ => return Ok(()),
         };
         match self.pcb_documents.contains_key(&pcb) {
@@ -381,6 +545,12 @@ impl Project {
             Some(Object::BoardSetup(o)) => {
                 self.pcb_mut(o.document).setups.insert(uuid, o.object);
             }
+            Some(Object::Stackup(o)) => {
+                self.pcb_mut(o.document).stackups.insert(uuid, o.object);
+            }
+            Some(Object::DesignRule(o)) => {
+                self.pcb_mut(o.document).rules.insert(uuid, o.object);
+            }
             Some(Object::BoardOutline(o)) => {
                 self.pcb_mut(o.document).outlines.insert(uuid, o.object);
             }
@@ -449,6 +619,9 @@ impl Project {
             Some(Object::PcbGraphic(o)) => {
                 self.pcb_mut(o.document).graphics.insert(uuid, o.object);
             }
+            Some(Object::Dimension(o)) => {
+                self.pcb_mut(o.document).dimensions.insert(uuid, o.object);
+            }
             Some(Object::FootprintInstance(o)) => {
                 self.pcb_mut(o.document).footprints.insert(uuid, o.object);
             }
@@ -464,12 +637,15 @@ impl Project {
             Some(Object::Keepout(o)) => {
                 self.pcb_mut(o.document).keepouts.insert(uuid, o.object);
             }
+            Some(Object::ZoneCutout(o)) => {
+                self.pcb_mut(o.document).zone_cutouts.insert(uuid, o.object);
+            }
             Some(Object::FreePad(o)) => {
                 self.pcb_mut(o.document).free_pads.insert(uuid, o.object);
             }
-            Some(Object::PlacementOrigin(o)) => {
+            Some(Object::OutputOrigin(o)) => {
                 self.pcb_mut(o.document)
-                    .placement_origins
+                    .output_origins
                     .insert(uuid, o.object);
             }
             #[cfg(feature = "test-objects")]
@@ -525,15 +701,24 @@ impl Project {
     /// Checks the invariants a committed transaction must leave behind.
     pub(crate) fn check(&self) -> Result<(), String> {
         let mut seen = std::collections::BTreeSet::new();
+        for missing in &self.props.missing {
+            if self.entries.contains_key(&missing.uuid) {
+                return Err(format!(
+                    "Document {} is open and missing at once",
+                    missing.uuid
+                ));
+            }
+        }
         for uuid in &self.props.documents {
-            if !self.entries.contains_key(uuid) {
+            if !self.entries.contains_key(uuid) && self.missing_document(*uuid).is_none() {
                 return Err(format!("the Document order names unknown Document {uuid}"));
             }
             if !seen.insert(*uuid) {
                 return Err(format!("Document {uuid} appears twice in the order"));
             }
         }
-        if let Some(orphan) = self.entries.keys().find(|uuid| !seen.contains(uuid)) {
+        let mut listed = (self.entries.keys()).chain(self.props.missing.iter().map(|m| &m.uuid));
+        if let Some(orphan) = listed.find(|uuid| !seen.contains(uuid)) {
             return Err(format!(
                 "Document {orphan} is missing from the Document order"
             ));
@@ -549,7 +734,10 @@ impl Project {
                 ));
             }
         }
-        if self.pcb_documents.len() > 1 {
+        let missing_pcbs = (self.props.missing.iter())
+            .filter(|m| m.kind == DocumentKind::Pcb)
+            .count();
+        if self.pcb_documents.len() + missing_pcbs > 1 {
             return Err("a Project has at most one PCB Document".into());
         }
         self.pcb_documents

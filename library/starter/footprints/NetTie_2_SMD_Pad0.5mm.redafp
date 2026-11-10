@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "footprint": {"uuid":"12c5684d-d33c-4b0f-9976-eadf8448d148","name":"NetTie_2_SMD_Pad0.5mm","description":"Net Tie, two touching 0.5 mm SMD Pads, tented, no paste","height":35000},
+  "pads": [
+    {"uuid":"a50d96b0-da32-497e-a262-4be1a58b0139","number":"2","kind":"smd","shape":"rect","at":{"x":250000,"y":0},"rotation":0,"width":500000,"height":500000,"mask":{"top":"tent"},"paste":"none"},
+    {"uuid":"e8743dd2-4de3-4feb-87d5-c28801d13218","number":"1","kind":"smd","shape":"rect","at":{"x":-250000,"y":0},"rotation":0,"width":500000,"height":500000,"mask":{"top":"tent"},"paste":"none"}
+  ],
+  "graphics": [
+    {"uuid":"44b620e5-5e97-459d-9d46-b8ce836180cc","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-500000,"y":-250000},"end":{"x":500000,"y":250000}},"width":100000},
+    {"uuid":"55a77829-63e4-487b-942a-dfc280185cc8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-750000,"y":-500000},"end":{"x":750000,"y":500000}},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"3ef97327-0a7b-4be8-aa79-8842b3411c3c","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"47a00aa4-04c7-477b-aa70-7347f43a8f93","field":"Value","at":{"x":0,"y":-825000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":250000,"thickness":37500,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"a5e4e866-4020-4c11-82ce-dd1a78e4c783","field":"Designator","at":{"x":0,"y":1300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"}
+  ]
+}

@@ -10,11 +10,12 @@ use serde::{Deserialize, Serialize};
 use super::outline::PointParam;
 use super::track::existing_net;
 use super::{needs_pcb, pcb, positive};
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ViaAdd);
     registry.add(ViaDelete);
+    registry.add(ViaSet);
 }
 
 /// The span of a through Via: the outermost copper Layers.
@@ -39,6 +40,7 @@ pub struct ViaAdd;
 pub struct ViaAddParams {
     /// The centre.
     pub at: PointParam,
+    pub mask: Option<reda_command::MaskParam>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
     /// any copper Layer, or else no Net.
     #[serde(default)]
@@ -94,10 +96,12 @@ impl Command for ViaAdd {
         let rules = net_rules(pcb, net);
         let diameter = p
             .diameter
-            .map_or(Ok(rules.via_diameter), |d| positive("/diameter", d))?;
+            .map_or(Ok(rules.via_diameter.default_size()), |d| {
+                positive("/diameter", d)
+            })?;
         let hole = p
             .hole
-            .map_or(Ok(rules.via_hole), |h| positive("/hole", h))?;
+            .map_or(Ok(rules.via_hole.default_size()), |h| positive("/hole", h))?;
         if diameter <= hole {
             return Err(CommandError::invalid_params(
                 "/diameter",
@@ -106,12 +110,14 @@ impl Command for ViaAdd {
         }
         let uuid = cx.new_id();
         let via = Via {
+            locked: false,
             uuid,
             at,
             net,
             diameter,
             hole,
             span,
+            mask: reda_command::mask(p.mask),
         };
         cx.tx()?
             .insert(Object::Via(InDocument::new(document, via)))?;
@@ -126,6 +132,9 @@ pub struct ViaDelete;
 pub struct ViaDeleteParams {
     /// The Vias' UUIDs.
     pub vias: Vec<Uuid>,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for ViaDelete {
@@ -154,10 +163,87 @@ impl Command for ViaDelete {
                 ));
             }
         }
+        crate::lock::refuse(pcb, p.vias.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in p.vias {
             tx.remove(uuid)?;
         }
         Ok(())
+    }
+}
+
+pub struct ViaSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ViaSetParams {
+    /// The Vias' UUIDs; each gets every value given.
+    pub vias: Vec<Uuid>,
+    /// The copper diameter.
+    #[serde(default)]
+    pub diameter: Option<Length>,
+    /// The drilled hole.
+    #[serde(default)]
+    pub hole: Option<Length>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ViaSetResult {
+    /// The Vias that changed, sorted.
+    pub vias: Vec<Uuid>,
+}
+
+impl Command for ViaSet {
+    const META: Meta = Meta {
+        id: "pcb.via.set",
+        title: "Set Via",
+        description: "Sets the copper diameter and the hole of Vias. Values left out stay; \
+                      the diameter must stay larger than the hole. Returns the Vias that \
+                      changed.",
+        category: "pcb",
+        icon: "via",
+        kind: Kind::Edit,
+    };
+    type Params = ViaSetParams;
+    type Output = ViaSetResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: ViaSetParams) -> Result<ViaSetResult, CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        let diameter = p.diameter.map(|d| positive("/diameter", d)).transpose()?;
+        let hole = p.hole.map(|h| positive("/hole", h)).transpose()?;
+        let mut changed: Vec<Via> = Vec::new();
+        for (i, uuid) in p.vias.iter().enumerate() {
+            let before = pcb.via(*uuid).ok_or_else(|| {
+                CommandError::invalid_params(
+                    &format!("/vias/{i}"),
+                    format!("no Via has UUID {uuid}"),
+                )
+            })?;
+            let mut via = before.clone();
+            via.diameter = diameter.unwrap_or(via.diameter);
+            via.hole = hole.unwrap_or(via.hole);
+            if via.diameter <= via.hole {
+                let pointer = if hole.is_some() { "/hole" } else { "/diameter" };
+                return Err(CommandError::invalid_params(
+                    pointer,
+                    "the diameter must be larger than the hole",
+                ));
+            }
+            if via != *before && !changed.iter().any(|v| v.uuid == *uuid) {
+                changed.push(via);
+            }
+        }
+        changed.sort_by_key(|v| v.uuid);
+        let vias = changed.iter().map(|v| v.uuid).collect();
+        let tx = cx.tx()?;
+        for via in changed {
+            tx.replace(Object::Via(InDocument::new(document, via)))?;
+        }
+        Ok(ViaSetResult { vias })
     }
 }

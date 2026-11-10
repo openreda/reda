@@ -62,6 +62,10 @@ pub(crate) fn holder(session: &mut Session) -> &mut Project {
             libraries: vec![],
             properties: Default::default(),
             erc: Default::default(),
+            schematic: Default::default(),
+            reannotate: None,
+            library_update: None,
+            missing: vec![],
         }));
     }
     session.elements_mut().expect("a Project or the workbench")
@@ -110,44 +114,75 @@ impl Command for ElementNew {
         p: ElementNewParams,
     ) -> Result<ElementSummary, CommandError> {
         check_element_name(&p.name).map_err(|why| CommandError::invalid_params("/name", why))?;
-        let (uuid, unit) = (cx.new_id(), cx.new_id());
+        // A Symbol's second UUID is its Unit's; a Footprint's second and third are its
+        // Designator and value texts'.
+        let (uuid, second) = (cx.new_id(), cx.new_id());
+        let third = (p.kind == ElementKind::Footprint).then(|| cx.new_id());
         let session = cx.session()?;
-        let index = scan_registered(session);
-        let library = index.library(p.library).ok_or_else(|| {
-            CommandError::not_found(format!("no registered Library has UUID {}", p.library))
-        })?;
-        if library.origin == Origin::Starter {
-            return Err(CommandError::rejected(
-                "the starter Library is read-only; create the element in your own Library",
-            ));
-        }
-        let path =
-            library
-                .root
-                .join(p.kind.folder())
-                .join(format!("{}.{}", p.name, p.kind.extension()));
-        if path.exists() {
-            return Err(CommandError::rejected(format!(
-                "{} already exists",
-                path.display()
-            )));
-        }
-        let element = new_element(p.kind, uuid, unit, p.name);
-        let source = ElementSource {
-            library: p.library,
-            read_only: false,
-        };
-        let out = summary(source, &element);
-        holder(session)
-            .open_element(source, element)
-            .map_err(CommandError::conflict)?;
-        session.history.forget(Scope::Element(uuid));
-        session.history.mark_unsaved(Scope::Element(uuid));
-        Ok(out)
+        let source = new_element_source(session, p.library, p.kind, &p.name)?;
+        let element = new_element(p.kind, uuid, (second, third), p.name);
+        open_new_element(session, source, element)
     }
 }
 
-fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> LibraryElement {
+/// Where a new element of `kind` called `name` goes in the registered Library
+/// `library`: refused when the Library is not registered, is the read-only starter
+/// Library, or already has a file of that name.
+pub(crate) fn new_element_source(
+    session: &mut Session,
+    library: Uuid,
+    kind: ElementKind,
+    name: &str,
+) -> Result<ElementSource, CommandError> {
+    let index = scan_registered(session);
+    let found = index.library(library).ok_or_else(|| {
+        CommandError::not_found(format!("no registered Library has UUID {library}"))
+    })?;
+    if found.origin == Origin::Starter {
+        return Err(CommandError::rejected(
+            "the starter Library is read-only; create the element in your own Library",
+        ));
+    }
+    let path = found
+        .root
+        .join(kind.folder())
+        .join(format!("{name}.{}", kind.extension()));
+    if path.exists() {
+        return Err(CommandError::rejected(format!(
+            "{} already exists",
+            path.display()
+        )));
+    }
+    Ok(ElementSource {
+        library,
+        read_only: false,
+    })
+}
+
+/// Opens the new, unsaved `element` from `source` on a fresh undo stack.
+pub(crate) fn open_new_element(
+    session: &mut Session,
+    source: ElementSource,
+    element: LibraryElement,
+) -> Result<ElementSummary, CommandError> {
+    let uuid = element.uuid();
+    let out = summary(source, &element);
+    holder(session)
+        .open_element(source, element)
+        .map_err(CommandError::conflict)?;
+    session.history.forget(Scope::Element(uuid));
+    session.history.mark_unsaved(Scope::Element(uuid));
+    Ok(out)
+}
+
+/// A new, empty element of `kind`: a Symbol with one Unit (UUID `ids.0`), or a Footprint
+/// with a Designator and a value text (UUIDs `ids.0` and `ids.1`).
+pub(crate) fn new_element(
+    kind: ElementKind,
+    uuid: Uuid,
+    ids: (Uuid, Option<Uuid>),
+    name: String,
+) -> LibraryElement {
     match kind {
         ElementKind::Symbol => LibraryElement::Symbol(Symbol {
             uuid,
@@ -155,27 +190,37 @@ fn new_element(kind: ElementKind, uuid: Uuid, unit: Uuid, name: String) -> Libra
             description: String::new(),
             designator_prefix: "U".into(),
             units: vec![Unit {
-                uuid: unit,
+                uuid: ids.0,
                 name: "A".into(),
             }],
             pins: vec![],
             graphics: vec![],
             provenance: None,
         }),
-        ElementKind::Footprint => LibraryElement::Footprint(Footprint {
-            uuid,
-            name,
-            description: String::new(),
-            pads: vec![],
-            graphics: vec![],
-            designator: FootprintText::DESIGNATOR,
-            value: FootprintText::VALUE,
-            provenance: None,
-        }),
+        ElementKind::Footprint => {
+            let mut texts = vec![
+                FootprintText::designator(ids.0),
+                FootprintText::value(ids.1.unwrap_or(Uuid::NIL)),
+            ];
+            texts.sort_by_key(|t| t.uuid);
+            LibraryElement::Footprint(Footprint {
+                uuid,
+                name,
+                description: String::new(),
+                height: None,
+                pads: vec![],
+                graphics: vec![],
+                texts,
+                generator: None,
+                provenance: None,
+            })
+        }
         ElementKind::Part => LibraryElement::Part(Part {
             uuid,
             name,
             component_type: ComponentType::Standard,
+            in_bom: ComponentType::Standard.default_in_bom(),
+            in_cpl: ComponentType::Standard.default_in_cpl(),
             symbol: None,
             footprints: vec![],
             fields: Fields::default(),

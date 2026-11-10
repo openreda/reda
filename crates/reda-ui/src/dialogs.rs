@@ -6,6 +6,10 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::task::{Context, Poll, Wake, Waker};
 
+use reda_engine::model::{DocumentKind, Uuid};
+
+use crate::layout::SettingsWindow;
+use crate::settings::FileRequest;
 use crate::tr;
 
 /// What a pending file picker is for.
@@ -17,10 +21,11 @@ pub enum Pick {
     NewProjectLocation,
     /// A folder to add as a Project Library.
     LibraryFolder,
-    /// A folder a settings dialog page asked for.
-    SettingsFolder,
-    /// A user Library folder for the Preferences dialog.
-    PreferencesFolder,
+    /// A folder a settings window's page asked for (a user Library folder, for
+    /// Preferences).
+    SettingsFolder(SettingsWindow),
+    /// A file a settings window's page asked for.
+    SettingsFile(SettingsWindow, FileRequest),
     /// Where to save the exported Journal.
     ExportJournal,
     /// The symbol file Import part reads.
@@ -29,6 +34,8 @@ pub enum Pick {
     ImportFootprint,
     /// Where to write the schematic PDF.
     ExportPdf,
+    /// The file a missing Document of this kind is relinked to.
+    Relink(Uuid, DocumentKind),
 }
 
 /// Native file pickers. Each runs on its own thread, so the window keeps drawing; the
@@ -63,9 +70,20 @@ impl FileDialogs {
             Pick::NewProjectLocation => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-location-title"))
             }
-            Pick::LibraryFolder | Pick::SettingsFolder | Pick::PreferencesFolder => {
+            Pick::LibraryFolder | Pick::SettingsFolder(_) => {
                 rfd::AsyncFileDialog::new().set_title(tr!("dialog-library-folder-title"))
             }
+            Pick::SettingsFile(_, FileRequest::ExportRules) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("rules-export-title"))
+                .add_filter(tr!("rules-filter"), &["redarules"])
+                .set_file_name(file_name),
+            Pick::SettingsFile(_, FileRequest::ExportChangeList) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("change-list-export-title"))
+                .add_filter(tr!("change-list-export-filter"), &["html", "json"])
+                .set_file_name(file_name),
+            Pick::SettingsFile(_, FileRequest::ImportRules) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("rules-import-title"))
+                .add_filter(tr!("rules-filter"), &["redarules"]),
             Pick::ExportJournal => rfd::AsyncFileDialog::new()
                 .set_title(tr!("journal-export-title"))
                 .add_filter(tr!("journal-export-filter"), &["jsonl"])
@@ -80,17 +98,26 @@ impl FileDialogs {
                 .set_title(tr!("export-pdf-title"))
                 .add_filter(tr!("export-pdf-filter"), &["pdf"])
                 .set_file_name(file_name),
+            Pick::Relink(_, kind) => rfd::AsyncFileDialog::new()
+                .set_title(tr!("relink-title", name = file_name.as_str()))
+                .add_filter(tr!("relink-filter"), &[kind.extension()]),
         };
         std::thread::spawn(move || {
             let picked = match pick {
-                Pick::OpenProject | Pick::ImportSymbol | Pick::ImportFootprint => {
-                    block_on(dialog.pick_file())
+                Pick::OpenProject
+                | Pick::ImportSymbol
+                | Pick::ImportFootprint
+                | Pick::Relink(..)
+                | Pick::SettingsFile(_, FileRequest::ImportRules) => block_on(dialog.pick_file()),
+                Pick::NewProjectLocation | Pick::LibraryFolder | Pick::SettingsFolder(_) => {
+                    block_on(dialog.pick_folder())
                 }
-                Pick::NewProjectLocation
-                | Pick::LibraryFolder
-                | Pick::SettingsFolder
-                | Pick::PreferencesFolder => block_on(dialog.pick_folder()),
-                Pick::ExportJournal | Pick::ExportPdf => block_on(dialog.save_file()),
+                Pick::ExportJournal
+                | Pick::ExportPdf
+                | Pick::SettingsFile(_, FileRequest::ExportRules)
+                | Pick::SettingsFile(_, FileRequest::ExportChangeList) => {
+                    block_on(dialog.save_file())
+                }
             };
             let _ = tx.send(picked.map(|h| h.path().to_owned()));
             ctx.request_repaint();

@@ -10,11 +10,12 @@ use serde::{Deserialize, Serialize};
 use super::layer::LayerRef;
 use super::outline::PointParam;
 use super::{needs_pcb, pcb, positive};
-use crate::net_rules::net_rules;
+use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(TrackAdd);
     registry.add(TrackDelete);
+    registry.add(TrackSet);
 }
 
 /// The copper Layer a param names; `pointer` names the param in errors.
@@ -124,12 +125,13 @@ impl Command for TrackAdd {
         };
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width,
+            None => net_rules(pcb, net).track_width.default_size(),
         };
         let mut tracks = Vec::new();
         for pair in points.windows(2) {
             let uuid = cx.new_id();
             let track = Track {
+                locked: false,
                 uuid,
                 layer,
                 net,
@@ -158,6 +160,9 @@ pub struct TrackDeleteParams {
     /// same Layer, up to a Pad, a Via or a branch.
     #[serde(default)]
     pub whole: bool,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -208,10 +213,168 @@ impl Command for TrackDelete {
         };
         deleted.sort();
         deleted.dedup();
+        crate::lock::refuse(pcb, deleted.iter().copied(), p.include_locked, "delete")?;
         let tx = cx.tx()?;
         for uuid in &deleted {
             tx.remove(*uuid)?;
         }
         Ok(TrackDeleteResult { deleted })
     }
+}
+
+pub struct TrackSet;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrackSetParams {
+    /// The Track segments' UUIDs; each gets every value given.
+    pub tracks: Vec<Uuid>,
+    /// The new start point.
+    #[serde(default)]
+    pub start: Option<PointParam>,
+    /// The new end point; not with `length`.
+    #[serde(default)]
+    pub end: Option<PointParam>,
+    /// The new length of a straight Track: Start stays and End moves along the line.
+    #[serde(default)]
+    pub length: Option<Length>,
+    #[serde(default)]
+    pub width: Option<Length>,
+    /// A copper Layer, such as `copper_bottom`.
+    #[serde(default)]
+    pub layer: Option<LayerRef>,
+    /// The Net's UUID, or `null` for no Net; left out, the Net stays.
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<Uuid>")]
+    pub net: Option<Option<Uuid>>,
+    /// Moves the ends of locked Tracks too; without it Start, End or Length on a locked Track is refused.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TrackSetResult {
+    /// The Tracks that changed, sorted.
+    pub tracks: Vec<Uuid>,
+}
+
+impl Command for TrackSet {
+    const META: Meta = Meta {
+        id: "pcb.track.set",
+        title: "Set Track",
+        description: "Sets values of Track segments: Start and End, Length (Start stays and \
+                      End moves along the line), width, copper Layer and Net (`null` for \
+                      none). Values left out stay. Returns the Tracks that changed. Start, End and \
+                      Length are refused on a locked Track unless `include_locked`.",
+        category: "pcb",
+        icon: "track",
+        kind: Kind::Edit,
+    };
+    type Params = TrackSetParams;
+    type Output = TrackSetResult;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: TrackSetParams) -> Result<TrackSetResult, CommandError> {
+        let pcb = pcb(cx)?;
+        let document = pcb.uuid;
+        if p.length.is_some() && p.end.is_some() {
+            return Err(CommandError::invalid_params(
+                "/length",
+                "give `length` or `end`, not both",
+            ));
+        }
+        let length = p.length.map(|l| positive("/length", l)).transpose()?;
+        let width = p.width.map(|w| positive("/width", w)).transpose()?;
+        let layer = p
+            .layer
+            .map(|l| copper_layer(pcb, l, "/layer"))
+            .transpose()?;
+        let net = match p.net {
+            Some(net) => Some(existing_net(pcb, net, "/net")?),
+            None => None,
+        };
+        if p.start.is_some() || p.end.is_some() || length.is_some() {
+            crate::lock::refuse(pcb, p.tracks.iter().copied(), p.include_locked, "move")?;
+        }
+        let mut changed = Vec::new();
+        for (i, uuid) in p.tracks.iter().enumerate() {
+            let before = pcb.track(*uuid).ok_or_else(|| {
+                CommandError::invalid_params(
+                    &format!("/tracks/{i}"),
+                    format!("no Track has UUID {uuid}"),
+                )
+            })?;
+            let mut track = before.clone();
+            track.geometry = moved_ends(&track.geometry, &p, length)?;
+            if let Some(width) = width {
+                track.width = width;
+            }
+            if let Some(layer) = layer {
+                track.layer = layer;
+            }
+            if let Some(net) = net {
+                track.net = net;
+            }
+            if track != *before && !changed.iter().any(|t: &Track| t.uuid == *uuid) {
+                changed.push(track);
+            }
+        }
+        changed.sort_by_key(|t| t.uuid);
+        let tracks = changed.iter().map(|t| t.uuid).collect();
+        let tx = cx.tx()?;
+        for track in changed {
+            tx.replace(Object::Track(InDocument::new(document, track)))?;
+        }
+        Ok(TrackSetResult { tracks })
+    }
+}
+
+/// `geometry` with the ends `p` gives, or End moved along the line to `length`.
+fn moved_ends(
+    geometry: &TrackGeometry,
+    p: &TrackSetParams,
+    length: Option<reda_model::geom::Nm>,
+) -> Result<TrackGeometry, CommandError> {
+    let (mut from, mut to) = geometry.ends();
+    if let Some(start) = &p.start {
+        from = start.point();
+    }
+    if let Some(end) = &p.end {
+        to = end.point();
+    }
+    if let Some(length) = length {
+        let TrackGeometry::Line { .. } = geometry else {
+            return Err(CommandError::invalid_params(
+                "/length",
+                "only a straight Track's length can be set",
+            ));
+        };
+        let (dx, dy) = ((to.x.0 - from.x.0) as f64, (to.y.0 - from.y.0) as f64);
+        let now = dx.hypot(dy);
+        if now == 0.0 {
+            return Err(CommandError::invalid_params(
+                "/length",
+                "the Track has no direction to lengthen along",
+            ));
+        }
+        let k = length.0 as f64 / now;
+        to = reda_model::geom::Point::new(
+            reda_model::geom::Nm(from.x.0 + (dx * k).round() as i64),
+            reda_model::geom::Nm(from.y.0 + (dy * k).round() as i64),
+        );
+    }
+    if from == to {
+        let pointer = if p.end.is_some() { "/end" } else { "/start" };
+        return Err(CommandError::invalid_params(
+            pointer,
+            "a Track's start and end must differ",
+        ));
+    }
+    Ok(match *geometry {
+        TrackGeometry::Line { .. } => TrackGeometry::Line { from, to },
+        TrackGeometry::Arc { sweep, .. } => TrackGeometry::Arc { from, to, sweep },
+    })
 }

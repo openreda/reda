@@ -1,4 +1,4 @@
-//! The PCB Document: its Layers, board setup (rules and DRC severities), Board Outline,
+//! The PCB Document: its Layers, Stackup ([`stackup`]), board setup (rules and DRC severities), Board Outline,
 //! Board Cutouts, Net Classes, Nets, free text and graphics ([`graphics`]), and the
 //! placed Footprints: a table of Footprint copies and the Footprint instances
 //! ([`footprint`]) placed from them.
@@ -16,19 +16,39 @@ use serde::{Deserialize, Serialize};
 use crate::{FootprintCopy, Object, Severity, Uuid, Waiver};
 
 mod copper;
+mod dimension;
 mod footprint;
 mod graphics;
 mod placement;
+mod rules;
+mod stackup;
 mod zone;
 
 pub use copper::{LayerSpan, Track, TrackGeometry, Via};
+pub use dimension::{
+    ArrowPosition, Dimension, DimensionEnd, DimensionFormat, DimensionTextPosition, DimensionUnits,
+    Hotspot, HotspotRef,
+};
 
-pub use footprint::{FootprintInstance, PadNet};
-pub use placement::{FreePad, PlacementOrigin};
+pub use footprint::{
+    FootprintInstance, FootprintTextRef, PadNet, PadRef, TextAutoposition, TextOverride,
+};
+pub use placement::{FreePad, OutputOrigin};
+pub use rules::{
+    Bounds, ConnectionTarget, ConnectionValue, DesignRule, PortableClass, PortableRule, RuleField,
+    RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
+};
+pub use stackup::{
+    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
+    StackupSeeds, StackupTotals,
+};
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
-pub use zone::{FillShape, Keepout, PadConnection, Zone, ZoneFills};
+pub use zone::{
+    FillShape, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, PourOver, Restriction, Zone,
+    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+};
 
 /// Which face of the board a sided Layer is on.
 #[derive(
@@ -90,42 +110,26 @@ impl LayerSet {
     }
 }
 
-/// The board-wide minimum values that DRC checks against.
-///
-/// Net Classes override some of them per Net. Later per-Layer or per-area rules (and a rule
-/// query language) are meant to be new object kinds that override these values in a
-/// scope, so this set stays the board-wide fallback.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Rules {
-    /// Minimum clearance between copper of different Nets.
-    pub clearance: Nm,
-    /// Minimum Track width.
-    pub track_width: Nm,
-    /// Minimum Via diameter.
-    pub via_diameter: Nm,
-    /// Minimum Via hole.
-    pub via_hole: Nm,
-    /// Minimum annular ring of Vias and plated Pads.
-    pub annular_ring: Nm,
-    /// Minimum spacing between hole edges.
-    pub hole_to_hole: Nm,
-    /// Minimum clearance from copper to the Board Outline and Board Cutouts.
-    pub edge_clearance: Nm,
-}
-
 crate::check::severities! {
     /// One DRC check, named as in [`DrcSeverities`].
     enum DrcCheck;
-    /// The severity of every DRC check, stored next to the rules.
+    /// The severity of every DRC check, stored next to the rules. A check left out has its
+    /// default.
+    #[serde(default)]
     struct DrcSeverities;
     /// Clearance between copper of different Nets.
     clearance => Clearance = Error,
     /// Different Nets touching.
     short_circuit => ShortCircuit = Error,
-    /// A Track narrower than the minimum.
+    /// Pads with different numbers touching on a Part that isn't a Net Tie.
+    shorted_copper => ShortedCopper = Error,
+    /// A Net Tie's Footprint that isn't a valid tie.
+    net_tie_not_joined => NetTieNotJoined = Error,
+    /// A Track narrower than the minimum or wider than the maximum.
     track_width => TrackWidth = Error,
-    /// A Via or Pad hole smaller than the minimum.
+    /// A Via diameter or hole outside the `via_size` range.
+    via_size => ViaSize = Error,
+    /// A Pad, Free Pad or non-plated hole outside the `hole_size` range.
     hole_size => HoleSize = Error,
     /// An annular ring below the minimum.
     annular_ring => AnnularRing = Error,
@@ -141,25 +145,72 @@ crate::check::severities! {
     unrouted => Unrouted = Error,
     /// Copper with no Net.
     copper_without_net => CopperWithoutNet = Warning,
-    /// Tracks and Vias that end unconnected.
+    /// Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`
+    /// tolerance.
     dangling => Dangling = Warning,
-    /// Overlapping courtyards.
+    /// A Track end touching copper, with its centre outside that copper.
+    poor_connection => PoorConnection = Warning,
+    /// A Via inside an SMD Pad.
+    via_under_smd => ViaUnderSmd = Warning,
+    /// Courtyards closer than `courtyard_clearance`.
     courtyard_overlap => CourtyardOverlap = Warning,
-    /// Silkscreen over exposed Pads.
-    silkscreen_over_pads => SilkscreenOverPads = Warning,
+    /// Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening.
+    silk_to_mask => SilkToMask = Warning,
+    /// Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout.
+    silk_to_edge => SilkToEdge = Warning,
+    /// Health check: a Track whose ends coincide.
+    zero_length_track => ZeroLengthTrack = Warning,
+    /// Health check: a Track no longer than the `micro_segment` length.
+    micro_segment => MicroSegment = Warning,
+    /// Health check: Tracks or Vias that repeat one another exactly.
+    duplicate_copper => DuplicateCopper = Warning,
+    /// Health check: a Zone whose outline encloses no area.
+    zero_area_zone => ZeroAreaZone = Warning,
+    /// A kept piece of fill touching no copper of its Net, above the `dead_copper` area.
+    dead_copper => DeadCopper = Warning,
+    /// A Zone with a Net and nothing left to fill.
+    empty_zone => EmptyZone = Warning,
+    /// A shelved Zone, whose copper outputs leave out.
+    shelved_zone => ShelvedZone = Warning,
     /// The PCB out of sync with the schematic.
     out_of_sync => OutOfSync = Warning,
+    /// A negative mask or paste expansion leaves no opening.
+    opening_collapsed => OpeningCollapsed = Warning,
+    /// A rule record with a blocking problem, which only a hand edit or a merge can cause.
+    rule_invalid => RuleInvalid = Error,
+    /// A rule that allows less than a Fab Preset limit.
+    rule_outside_preset => RuleOutsidePreset = Warning,
 }
 
-/// The board's own settings: its design rules, DRC severities and Default Net Class.
+impl DrcCheck {
+    /// The health checks: data that passes the other checks but harms outputs. Only they
+    /// run when a board opens, and `drc.fix` removes what they find.
+    pub const HEALTH: [DrcCheck; 4] = [
+        DrcCheck::ZeroLengthTrack,
+        DrcCheck::MicroSegment,
+        DrcCheck::DuplicateCopper,
+        DrcCheck::ZeroAreaZone,
+    ];
+
+    /// Whether it is one of the [health checks](Self::HEALTH).
+    pub fn is_health(self) -> bool {
+        DrcCheck::HEALTH.contains(&self)
+    }
+}
+
+/// The board's own settings: its DRC severities, Zone naming and Fab Notes text. The design rules are records of their
+/// own ([`DesignRule`]).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BoardSetup {
     pub uuid: Uuid,
-    /// The Net Class that new Nets get, and that Nets of a deleted class fall back to.
-    pub default_net_class: Uuid,
-    pub rules: Rules,
     pub severities: DrcSeverities,
+    /// How Zones with no typed name are named.
+    #[serde(default, skip_serializing_if = "ZoneNameScheme::is_default")]
+    pub zone_name_scheme: ZoneNameScheme,
+    /// Free text for the fab, copied into the Fab Notes; left out when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fab_notes: Option<String>,
 }
 
 /// The closed shape of the board's physical edge.
@@ -167,6 +218,9 @@ pub struct BoardSetup {
 #[serde(deny_unknown_fields)]
 pub struct BoardOutline {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The contour, counter-clockwise or not; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
 }
@@ -176,29 +230,23 @@ pub struct BoardOutline {
 #[serde(deny_unknown_fields)]
 pub struct BoardCutout {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The contour; the last vertex joins the first.
     pub vertices: Vec<Vertex>,
 }
 
-/// A named group of Nets that share design rules. A value left out uses the board-wide
-/// rule.
+/// A named, ranked group of Nets that share design rules. Its values are the rule records
+/// scoped to it. The Default Net Class is not stored: it is the board-wide records.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NetClass {
     pub uuid: Uuid,
     pub name: String,
-    /// Clearance to copper of other Nets; where two classes meet, the larger applies.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub clearance: Option<Nm>,
-    /// Track width for routing this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_width: Option<Nm>,
-    /// Via diameter for this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via_diameter: Option<Nm>,
-    /// Via hole for this class.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via_hole: Option<Nm>,
+    /// Its rank, unique on the board: 1 ranks highest. Where a Net's classes set the same
+    /// value, the highest-ranked class wins; the Default Net Class ranks below them all.
+    pub rank: u32,
 }
 
 /// A PCB Net: Pads, Tracks, Vias and Zones name it by UUID.
@@ -207,8 +255,39 @@ pub struct NetClass {
 pub struct Net {
     pub uuid: Uuid,
     pub name: String,
-    /// Its Net Class.
-    pub class: Uuid,
+    /// The Net Classes it is in besides the Default Net Class, which every Net is in;
+    /// left out when there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classes: Vec<Uuid>,
+    /// Its colour as `#rrggbb`, for its Ratsnest lines (and its copper with Net colours
+    /// on); left out when unset. No manufacturing output reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Whether a route that closes a loop on this Net removes the old path; left out when
+    /// on. Off for power and ground Nets that need loops.
+    #[serde(default = "yes", skip_serializing_if = "is_true")]
+    pub loop_removal: bool,
+}
+
+impl Net {
+    /// A Net with this name in no Net Class, with no colour and loop removal on.
+    pub fn new(uuid: Uuid, name: impl Into<String>) -> Net {
+        Net {
+            uuid,
+            name: name.into(),
+            classes: Vec::new(),
+            color: None,
+            loop_removal: true,
+        }
+    }
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
 }
 
 /// An object stored in a Document, with the Document it lives in. The Document is not
@@ -236,27 +315,31 @@ impl<T> std::ops::Deref for InDocument<T> {
 
 /// The body of a PCB Document: one UUID-keyed table per object kind.
 ///
-/// A committed Project has exactly one [`LayerSet`] and one [`BoardSetup`] here and at most
+/// A committed Project has exactly one [`LayerSet`], one [`Stackup`] and one [`BoardSetup`] here and at most
 /// one [`BoardOutline`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PcbDocument {
     pub uuid: Uuid,
     pub(crate) layer_sets: BTreeMap<Uuid, LayerSet>,
     pub(crate) setups: BTreeMap<Uuid, BoardSetup>,
+    pub(crate) stackups: BTreeMap<Uuid, Stackup>,
+    pub(crate) rules: BTreeMap<Uuid, DesignRule>,
     pub(crate) outlines: BTreeMap<Uuid, BoardOutline>,
     pub(crate) cutouts: BTreeMap<Uuid, BoardCutout>,
     pub(crate) net_classes: BTreeMap<Uuid, NetClass>,
     pub(crate) nets: BTreeMap<Uuid, Net>,
     pub(crate) texts: BTreeMap<Uuid, PcbText>,
     pub(crate) graphics: BTreeMap<Uuid, PcbGraphic>,
+    pub(crate) dimensions: BTreeMap<Uuid, Dimension>,
     pub(crate) footprint_copies: BTreeMap<Uuid, FootprintCopy>,
     pub(crate) footprints: BTreeMap<Uuid, FootprintInstance>,
     pub(crate) tracks: BTreeMap<Uuid, Track>,
     pub(crate) vias: BTreeMap<Uuid, Via>,
     pub(crate) zones: BTreeMap<Uuid, Zone>,
     pub(crate) keepouts: BTreeMap<Uuid, Keepout>,
+    pub(crate) zone_cutouts: BTreeMap<Uuid, ZoneCutout>,
     pub(crate) free_pads: BTreeMap<Uuid, FreePad>,
-    pub(crate) placement_origins: BTreeMap<Uuid, PlacementOrigin>,
+    pub(crate) output_origins: BTreeMap<Uuid, OutputOrigin>,
     pub(crate) waivers: BTreeMap<Uuid, Waiver>,
 }
 
@@ -266,20 +349,24 @@ impl PcbDocument {
             uuid,
             layer_sets: BTreeMap::new(),
             setups: BTreeMap::new(),
+            stackups: BTreeMap::new(),
+            rules: BTreeMap::new(),
             outlines: BTreeMap::new(),
             cutouts: BTreeMap::new(),
             net_classes: BTreeMap::new(),
             nets: BTreeMap::new(),
             texts: BTreeMap::new(),
             graphics: BTreeMap::new(),
+            dimensions: BTreeMap::new(),
             footprint_copies: BTreeMap::new(),
             footprints: BTreeMap::new(),
             tracks: BTreeMap::new(),
             vias: BTreeMap::new(),
             zones: BTreeMap::new(),
             keepouts: BTreeMap::new(),
+            zone_cutouts: BTreeMap::new(),
             free_pads: BTreeMap::new(),
-            placement_origins: BTreeMap::new(),
+            output_origins: BTreeMap::new(),
             waivers: BTreeMap::new(),
         }
     }
@@ -292,13 +379,56 @@ impl PcbDocument {
             .expect("a PCB Document has its Layers")
     }
 
-    /// The rules, DRC severities and Default Net Class. Every committed PCB Document has
-    /// them.
+    /// The DRC severities. Every committed PCB Document has them.
     pub fn setup(&self) -> &BoardSetup {
         self.setups
             .values()
             .next()
             .expect("a PCB Document has its board setup")
+    }
+
+    /// The Stackups: one in v0.1.
+    pub fn stackups(&self) -> impl Iterator<Item = &Stackup> {
+        self.stackups.values()
+    }
+
+    /// The Stackup. Every committed PCB Document has one.
+    pub fn stackup(&self) -> &Stackup {
+        self.stackups
+            .values()
+            .next()
+            .expect("a PCB Document has its Stackup")
+    }
+
+    /// The design rule records, sorted by UUID.
+    pub fn rules(&self) -> impl Iterator<Item = &DesignRule> {
+        self.rules.values()
+    }
+
+    pub fn rule(&self, uuid: Uuid) -> Option<&DesignRule> {
+        self.rules.get(&uuid)
+    }
+
+    /// The board-wide record of `kind`. Every committed PCB Document has one per kind.
+    pub fn board_rule(&self, kind: RuleKind) -> &DesignRule {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope.is_board_wide())
+            .expect("a PCB Document has a board-wide record of every rule kind")
+    }
+
+    /// Net Class `class`'s record of `kind`, if it has one.
+    pub fn class_rule(&self, kind: RuleKind, class: Uuid) -> Option<&DesignRule> {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope.net_class == Some(class))
+    }
+
+    /// The record of `kind` in `scope`, if there is one.
+    pub fn scoped_rule(&self, kind: RuleKind, scope: RuleScope) -> Option<&DesignRule> {
+        self.rules
+            .values()
+            .find(|r| r.kind == kind && r.scope == scope)
     }
 
     pub fn outline(&self) -> Option<&BoardOutline> {
@@ -353,6 +483,15 @@ impl PcbDocument {
         self.graphics.get(&uuid)
     }
 
+    /// The Dimensions, sorted by UUID.
+    pub fn dimensions(&self) -> impl Iterator<Item = &Dimension> {
+        self.dimensions.values()
+    }
+
+    pub fn dimension(&self, uuid: Uuid) -> Option<&Dimension> {
+        self.dimensions.get(&uuid)
+    }
+
     /// The part table: the copies of the Footprints in use, sorted by UUID.
     pub fn footprint_copies(&self) -> impl Iterator<Item = &FootprintCopy> {
         self.footprint_copies.values()
@@ -362,11 +501,11 @@ impl PcbDocument {
         self.footprint_copies.get(&uuid)
     }
 
-    /// The copy of Library Footprint `footprint` with content hash `hash`.
+    /// The unedited copy of Library Footprint `footprint` with content hash `hash`.
     pub fn footprint_copy_for(&self, footprint: Uuid, hash: &str) -> Option<&FootprintCopy> {
         self.footprint_copies
             .values()
-            .find(|c| c.footprint.uuid == footprint && c.hash == hash)
+            .find(|c| c.footprint.uuid == footprint && c.hash == hash && c.edited_from.is_none())
     }
 
     /// The placed Footprint instances, sorted by UUID.
@@ -414,12 +553,55 @@ impl PcbDocument {
         self.keepouts.get(&uuid)
     }
 
+    /// The copper Layers `keepout` applies to, top to bottom: its own, or every copper
+    /// Layer.
+    pub fn keepout_layers(&self, keepout: &Keepout) -> Vec<Uuid> {
+        self.copper_layers()
+            .map(|l| l.uuid)
+            .filter(|l| keepout.on_layer(*l))
+            .collect()
+    }
+
+    /// The Zone Cutouts, sorted by UUID.
+    pub fn zone_cutouts(&self) -> impl Iterator<Item = &ZoneCutout> {
+        self.zone_cutouts.values()
+    }
+
+    pub fn zone_cutout(&self, uuid: Uuid) -> Option<&ZoneCutout> {
+        self.zone_cutouts.get(&uuid)
+    }
+
+    /// The Zones that take part in the design: every Zone but the shelved ones, sorted
+    /// by UUID. Fill, DRC, connectivity, the canvas and outputs see only these.
+    pub fn active_zones(&self) -> impl Iterator<Item = &Zone> {
+        self.zones.values().filter(|z| !z.shelved)
+    }
+
+    /// The outline of `zone`: its own vertices, or the Board Outline's while it follows
+    /// the outline (none while the board has no outline).
+    pub fn zone_vertices<'a>(&'a self, zone: &'a Zone) -> &'a [Vertex] {
+        if zone.follows_outline {
+            self.outline().map_or(&[], |o| &o.vertices[..])
+        } else {
+            &zone.vertices
+        }
+    }
+
     /// The copper Layers, top to bottom.
     pub fn copper_layers(&self) -> impl Iterator<Item = &Layer> {
         self.layers()
             .layers
             .iter()
             .filter(|l| l.kind == LayerKind::Copper)
+    }
+
+    /// The copper number of Layer `layer`: 1 for the top copper, counting down. Copper
+    /// numbers (`L1`, `L2`, …) come from position and are never stored. `None` for a
+    /// Layer that is not copper.
+    pub fn copper_number(&self, layer: Uuid) -> Option<usize> {
+        self.copper_layers()
+            .position(|l| l.uuid == layer)
+            .map(|i| i + 1)
     }
 
     /// The copper Layers a Via's span joins, top to bottom; empty when the span names a
@@ -444,9 +626,9 @@ impl PcbDocument {
         self.free_pads.get(&uuid)
     }
 
-    /// The Placement Origin, if the user has set one.
-    pub fn placement_origin(&self) -> Option<&PlacementOrigin> {
-        self.placement_origins.values().next()
+    /// The Output Origin, if the user has set one.
+    pub fn output_origin(&self) -> Option<&OutputOrigin> {
+        self.output_origins.values().next()
     }
 
     /// The Waivers of DRC Violations, sorted by UUID.
@@ -472,26 +654,30 @@ impl PcbDocument {
         find!(
             layer_sets => LayerSet,
             setups => BoardSetup,
+            stackups => Stackup,
+            rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
             nets => Net,
             texts => PcbText,
             graphics => PcbGraphic,
+            dimensions => Dimension,
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
             vias => Via,
             zones => Zone,
             keepouts => Keepout,
+            zone_cutouts => ZoneCutout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin,
+            output_origins => OutputOrigin,
             waivers => Waiver
         )
     }
 
     /// Every object this Document holds, cloned.
-    pub(crate) fn objects(&self) -> Vec<Object> {
+    pub fn objects(&self) -> Vec<Object> {
         let doc = self.uuid;
         let mut out = Vec::new();
         macro_rules! all {
@@ -506,20 +692,24 @@ impl PcbDocument {
         all!(
             layer_sets => LayerSet,
             setups => BoardSetup,
+            stackups => Stackup,
+            rules => DesignRule,
             outlines => BoardOutline,
             cutouts => BoardCutout,
             net_classes => NetClass,
             nets => Net,
             texts => PcbText,
             graphics => PcbGraphic,
+            dimensions => Dimension,
             footprint_copies => FootprintCopy,
             footprints => FootprintInstance,
             tracks => Track,
             vias => Via,
             zones => Zone,
             keepouts => Keepout,
+            zone_cutouts => ZoneCutout,
             free_pads => FreePad,
-            placement_origins => PlacementOrigin,
+            output_origins => OutputOrigin,
             waivers => Waiver
         );
         out
@@ -529,40 +719,48 @@ impl PcbDocument {
     pub(crate) fn remove(&mut self, uuid: Uuid) {
         self.layer_sets.remove(&uuid);
         self.setups.remove(&uuid);
+        self.stackups.remove(&uuid);
+        self.rules.remove(&uuid);
         self.outlines.remove(&uuid);
         self.cutouts.remove(&uuid);
         self.net_classes.remove(&uuid);
         self.nets.remove(&uuid);
         self.texts.remove(&uuid);
         self.graphics.remove(&uuid);
+        self.dimensions.remove(&uuid);
         self.footprint_copies.remove(&uuid);
         self.footprints.remove(&uuid);
         self.tracks.remove(&uuid);
         self.vias.remove(&uuid);
         self.zones.remove(&uuid);
         self.keepouts.remove(&uuid);
+        self.zone_cutouts.remove(&uuid);
         self.free_pads.remove(&uuid);
-        self.placement_origins.remove(&uuid);
+        self.output_origins.remove(&uuid);
         self.waivers.remove(&uuid);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
         self.layer_sets.is_empty()
             && self.setups.is_empty()
+            && self.stackups.is_empty()
+            && self.rules.is_empty()
             && self.outlines.is_empty()
             && self.cutouts.is_empty()
             && self.net_classes.is_empty()
             && self.nets.is_empty()
             && self.texts.is_empty()
             && self.graphics.is_empty()
+            && self.dimensions.is_empty()
             && self.footprint_copies.is_empty()
             && self.footprints.is_empty()
             && self.tracks.is_empty()
             && self.vias.is_empty()
             && self.zones.is_empty()
             && self.keepouts.is_empty()
+            && self.zone_cutouts.is_empty()
             && self.free_pads.is_empty()
-            && self.placement_origins.is_empty()
+            && self.output_origins.is_empty()
             && self.waivers.is_empty()
     }
 
@@ -584,20 +782,21 @@ impl PcbDocument {
                 "PCB Document {doc} has more than one Board Outline"
             ));
         }
-        if self.placement_origins.len() > 1 {
+        if self.output_origins.len() > 1 {
             return Err(format!(
-                "PCB Document {doc} has more than one Placement Origin"
+                "PCB Document {doc} has more than one Output Origin"
             ));
         }
-        let mut layers = std::collections::BTreeSet::new();
-        if let Some(dup) = self.layers().layers.iter().find(|l| !layers.insert(l.uuid)) {
-            return Err(format!("Layer {} appears twice", dup.uuid));
+        if self.stackups.len() != 1 {
+            return Err(format!("PCB Document {doc} must have exactly one Stackup"));
         }
-        let default = self.setup().default_net_class;
-        if !self.net_classes.contains_key(&default) {
-            return Err(format!("the Default Net Class {default} does not exist"));
+        self.check_layers()?;
+        let copper: Vec<Uuid> = self.copper_layers().map(|l| l.uuid).collect();
+        if let Some(problem) = self.stackup().problem(&copper) {
+            return Err(problem);
         }
         let mut names = std::collections::BTreeSet::new();
+        let mut ranks = std::collections::BTreeSet::new();
         for class in self.net_classes.values() {
             if class.name.trim().is_empty() {
                 return Err(format!("Net Class {} has no name", class.uuid));
@@ -605,22 +804,36 @@ impl PcbDocument {
             if !names.insert(class.name.to_lowercase()) {
                 return Err(format!("two Net Classes are named {:?}", class.name));
             }
+            if class.rank == 0 || !ranks.insert(class.rank) {
+                return Err(format!(
+                    "Net Class {:?} needs a rank of 1 or more that no other class has",
+                    class.name
+                ));
+            }
         }
-        if let Some(net) = self
-            .nets
-            .values()
-            .find(|n| !self.net_classes.contains_key(&n.class))
-        {
-            return Err(format!(
-                "Net {:?} names Net Class {}, which does not exist",
-                net.name, net.class
-            ));
+        for net in self.nets.values() {
+            if let Some(class) = net
+                .classes
+                .iter()
+                .find(|c| !self.net_classes.contains_key(c))
+            {
+                return Err(format!(
+                    "Net {:?} names Net Class {class}, which does not exist",
+                    net.name
+                ));
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            if !net.classes.iter().all(|c| seen.insert(*c)) {
+                return Err(format!("Net {:?} lists a Net Class twice", net.name));
+            }
         }
+        self.check_rules()?;
         let drawn = self
             .texts
             .values()
             .map(|t| (t.uuid, t.layer))
-            .chain(self.graphics.values().map(|g| (g.uuid, g.layer)));
+            .chain(self.graphics.values().map(|g| (g.uuid, g.layer)))
+            .chain(self.dimensions.values().map(|d| (d.uuid, d.layer)));
         for (uuid, layer) in drawn {
             if self.layers().layer(layer).is_none() {
                 return Err(format!(
@@ -631,6 +844,98 @@ impl PcbDocument {
         self.check_footprints()?;
         self.check_copper()?;
         self.check_free_pads()
+    }
+
+    /// Checks the Layer list: no Layer twice, and every side where it belongs. Copper runs
+    /// from the top copper (`side: top`) to the bottom copper (`side: bottom`), and copper
+    /// in between is inner copper, with no side. The other sided Layers lie outside the
+    /// copper on their own face, and the rest have no side.
+    fn check_layers(&self) -> Result<(), String> {
+        let layers = &self.layers().layers;
+        let mut seen = std::collections::BTreeSet::new();
+        if let Some(dup) = layers.iter().find(|l| !seen.insert(l.uuid)) {
+            return Err(format!("Layer {} appears twice", dup.uuid));
+        }
+        let copper: Vec<usize> = layers
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.kind == LayerKind::Copper)
+            .map(|(i, _)| i)
+            .collect();
+        let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
+            return Err("the board has no copper Layers".into());
+        };
+        if first == last {
+            return Err("the board needs a top and a bottom copper Layer".into());
+        }
+        for (i, layer) in layers.iter().enumerate() {
+            let uuid = layer.uuid;
+            let expected = match layer.kind {
+                LayerKind::Copper if i == first => Some(Some(Side::Top)),
+                LayerKind::Copper if i == last => Some(Some(Side::Bottom)),
+                LayerKind::Copper => Some(None),
+                LayerKind::BoardOutline | LayerKind::Mechanical | LayerKind::Documentation => {
+                    Some(None)
+                }
+                _ => match layer.side {
+                    Some(Side::Top) if i < first => None,
+                    Some(Side::Bottom) if i > last => None,
+                    Some(side) => {
+                        return Err(format!(
+                            "Layer {uuid} is on the {side:?} side but lies on the other side \
+                             of the copper"
+                        ));
+                    }
+                    None => return Err(format!("Layer {uuid} needs a side")),
+                },
+            };
+            if let Some(side) = expected
+                && layer.side != side
+            {
+                let want = match side {
+                    Some(Side::Top) => "the top copper must have side top",
+                    Some(Side::Bottom) => "the bottom copper must have side bottom",
+                    None if layer.kind == LayerKind::Copper => "inner copper has no side",
+                    None => "this kind of Layer has no side",
+                };
+                return Err(format!("Layer {uuid}: {want}"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Exactly one board-wide record per kind, at most one record per class and kind,
+    /// scopes naming classes that exist, and values that fit their kind.
+    fn check_rules(&self) -> Result<(), String> {
+        let mut scopes = std::collections::BTreeSet::new();
+        for rule in self.rules.values() {
+            if let Some(class) = rule.scope.net_class
+                && !self.net_classes.contains_key(&class)
+            {
+                return Err(format!(
+                    "rule {} is scoped to Net Class {class}, which does not exist",
+                    rule.uuid
+                ));
+            }
+            if !scopes.insert((rule.kind, rule.scope)) {
+                return Err(match rule.scope.net_class {
+                    None => format!("two board-wide `{}` rules", rule.kind.id()),
+                    Some(class) => {
+                        format!("two `{}` rules for Net Class {class}", rule.kind.id())
+                    }
+                });
+            }
+            if let Some(problem) = rule.problem() {
+                return Err(format!("rule {}: {problem}", rule.uuid));
+            }
+        }
+        if let Some(kind) = RuleKind::ALL
+            .iter()
+            .find(|k| !scopes.contains(&(**k, RuleScope::BOARD)))
+        {
+            return Err(format!("no board-wide `{}` rule", kind.id()));
+        }
+        Ok(())
     }
 
     fn check_copper(&self) -> Result<(), String> {
@@ -651,15 +956,19 @@ impl PcbDocument {
             if track.width <= Nm::ZERO {
                 return Err(format!("Track {uuid} has no width"));
             }
-            let (from, to) = track.geometry.ends();
-            if from == to {
-                return Err(format!("Track {uuid} has no length"));
-            }
+            // A Track with no length is allowed, so a file holding one opens: the
+            // `zero_length_track` health check finds it and `drc.fix` removes it.
         }
         for via in self.vias.values() {
             let uuid = via.uuid;
             if !is_copper(via.span.from) || !is_copper(via.span.to) {
                 return Err(format!("Via {uuid} spans a Layer that is not copper"));
+            }
+            let number = |l| self.copper_number(l).unwrap_or(0);
+            if number(via.span.from) >= number(via.span.to) {
+                return Err(format!(
+                    "Via {uuid} must span from an upper copper Layer to a lower one"
+                ));
             }
             if !net_exists(via.net) {
                 return Err(format!("Via {uuid} is on a Net that does not exist"));
@@ -678,35 +987,64 @@ impl PcbDocument {
             if !net_exists(zone.net) {
                 return Err(format!("Zone {uuid} is on a Net that does not exist"));
             }
-            reda_geom::check_contour(&zone.vertices).map_err(|e| format!("Zone {uuid}: {e}"))?;
-            if zone.min_width <= Nm::ZERO || zone.thermal_spoke_width <= Nm::ZERO {
-                return Err(format!(
-                    "Zone {uuid} needs a positive minimum width and spoke width"
-                ));
+            if zone.follows_outline {
+                if !zone.vertices.is_empty() {
+                    return Err(format!(
+                        "Zone {uuid} follows the Board Outline and has vertices too"
+                    ));
+                }
+            } else {
+                reda_geom::check_contour(&zone.vertices)
+                    .map_err(|e| format!("Zone {uuid}: {e}"))?;
             }
-            if zone.clearance < Nm::ZERO || zone.thermal_gap < Nm::ZERO {
-                return Err(format!("Zone {uuid} has a negative clearance or gap"));
+            if zone.name.as_deref().is_some_and(|n| n.trim().is_empty()) {
+                return Err(format!("Zone {uuid} has an empty name"));
+            }
+            if zone.min_width.is_some_and(|w| w <= Nm::ZERO) {
+                return Err(format!("Zone {uuid} needs a positive minimum width"));
+            }
+            if zone.clearance.is_some_and(|c| c < Nm::ZERO) {
+                return Err(format!("Zone {uuid} has a negative clearance"));
+            }
+            if zone.min_island_area < 0 {
+                return Err(format!("Zone {uuid} has a negative minimum island area"));
             }
         }
         for keepout in self.keepouts.values() {
             let uuid = keepout.uuid;
-            if keepout.layers.is_empty() || !keepout.layers.iter().all(|l| is_copper(*l)) {
-                return Err(format!(
-                    "Keepout {uuid} must apply to one or more copper Layers"
-                ));
+            if keepout.layer.is_some_and(|l| !is_copper(l)) {
+                return Err(format!("Keepout {uuid} is not on a copper Layer"));
             }
-            if !keepout.copper && !keepout.vias {
-                return Err(format!("Keepout {uuid} forbids nothing"));
+            if keepout.restrict.is_empty() {
+                return Err(format!("Keepout {uuid} restricts nothing"));
             }
-            reda_geom::check_contour(&keepout.vertices)
-                .map_err(|e| format!("Keepout {uuid}: {e}"))?;
+            match &keepout.shape {
+                KeepoutShape::Polygon { vertices } => reda_geom::check_contour(vertices)
+                    .map_err(|e| format!("Keepout {uuid}: {e}"))?,
+                KeepoutShape::Line { vertices, width } => {
+                    if vertices.len() < 2 {
+                        return Err(format!("Keepout {uuid} needs two or more line vertices"));
+                    }
+                    if *width <= Nm::ZERO {
+                        return Err(format!("Keepout {uuid} needs a positive line width"));
+                    }
+                }
+            }
+        }
+        for cutout in self.zone_cutouts.values() {
+            let uuid = cutout.uuid;
+            if !is_copper(cutout.layer) {
+                return Err(format!("Zone Cutout {uuid} is not on a copper Layer"));
+            }
+            reda_geom::check_contour(&cutout.vertices)
+                .map_err(|e| format!("Zone Cutout {uuid}: {e}"))?;
         }
         Ok(())
     }
 
     fn check_free_pads(&self) -> Result<(), String> {
         for pad in self.free_pads.values() {
-            if let Some(problem) = pad.problem() {
+            if let Some((_, problem)) = pad.problem() {
                 return Err(format!("Free Pad {}: {problem}", pad.uuid));
             }
             if let Some(net) = pad.net
@@ -724,6 +1062,30 @@ impl PcbDocument {
     fn check_footprints(&self) -> Result<(), String> {
         let mut keys = std::collections::BTreeSet::new();
         for copy in self.footprint_copies.values() {
+            for pad in &copy.footprint.pads {
+                if let Some((field, problem)) = crate::opening_problem(
+                    pad.kind,
+                    pad.side,
+                    pad.mask.as_ref(),
+                    pad.paste.as_ref(),
+                ) {
+                    return Err(format!("Pad {}{field}: {problem}", pad.uuid));
+                }
+            }
+            if let Some(from) = &copy.edited_from {
+                let origin = self.footprint_copies.get(&from.uuid).filter(|o| {
+                    o.edited_from.is_none()
+                        && o.footprint.uuid == copy.footprint.uuid
+                        && o.hash == from.hash
+                });
+                if origin.is_none() {
+                    return Err(format!(
+                        "Footprint copy {} is edited from copy {} with hash {}, which the PCB \
+                         does not hold as an unedited copy of the same Footprint",
+                        copy.uuid, from.uuid, from.hash
+                    ));
+                }
+            }
             if !keys.insert((copy.footprint.uuid, copy.hash.as_str())) {
                 return Err(format!(
                     "the PCB holds Footprint {} with hash {} twice",
@@ -777,4 +1139,8 @@ impl serde::Serialize for PcbDocument {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.collect_seq(self.objects())
     }
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

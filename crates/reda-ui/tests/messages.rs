@@ -11,7 +11,7 @@ use reda_ui::engine::command::{FontFace, UserDirs};
 use reda_ui::engine::model::Severity;
 use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::layout::TabKey;
-use reda_ui::messages::{CheckKind, LineKey, MessageGroup};
+use reda_ui::messages::{CheckKind, GroupKind, LineKey, MessageGroup};
 use reda_ui::shell::{InstalledFonts, Shell};
 use serde_json::{Value, json};
 
@@ -96,7 +96,7 @@ fn violation_lines(shell: &Shell) -> Vec<(LineKey, String)> {
         .message_groups()
         .into_iter()
         .flat_map(|g| g.lines)
-        .filter(|l| matches!(l.key, LineKey::Violation(..)))
+        .filter(|l| matches!(l.key, LineKey::Violation(..)) && !l.waived)
         .map(|l| (l.key, l.text))
         .collect()
 }
@@ -158,7 +158,12 @@ fn going_to_a_violation_opens_its_document_zooms_to_it_and_selects_its_objects()
         .iter()
         .map(|e| e.id.as_str())
         .collect();
-    assert!(journal.ends_with(&["document.open", "selection.set"]));
+    // The shared highlight Preference also dims everything else.
+    assert!(journal.ends_with(&["document.open", "selection.set", "view.highlight"]));
+    let lit: Vec<String> = (d.shell.highlight().objects.iter())
+        .map(|u| u.to_string())
+        .collect();
+    assert_eq!(lit, [d.wire.clone()]);
     // The canvas marks the one selection.
     let marked = &d.shell.document_tab(sheet2).unwrap().selection.objects;
     assert_eq!(marked[..], d.shell.selection().objects[..]);
@@ -200,7 +205,7 @@ fn the_canvas_has_a_marker_at_each_violation_of_its_document() {
 }
 
 #[test]
-fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
+fn a_waived_violation_moves_to_a_collapsed_waived_group_shown_by_default() {
     let mut d = demo();
     d.shell.run_check(CheckKind::Erc).unwrap();
     let (label_line, _) = violation_lines(&d.shell)[0].clone();
@@ -210,21 +215,35 @@ fn a_waived_violation_is_hidden_until_waived_ones_are_shown() {
     assert_eq!(lines.len(), 2, "{lines:?}");
     assert!(!d.shell.messages().run(CheckKind::Erc).unwrap().stale);
 
-    d.shell.set_show_waived(true).unwrap();
+    // Waived Violations show by default: in their own group, collapsed, at the end.
+    assert!(d.shell.messages().show_waived());
+    let groups = d.shell.message_groups();
+    let last = groups.last().unwrap();
+    assert_eq!(last.kind, GroupKind::Waived);
+    assert!(last.collapsed);
+    let waived: Vec<&str> = last.lines.iter().map(|l| l.text.as_str()).collect();
+    assert_eq!(waived, ["A is attached to nothing"]);
+    assert!(last.lines.iter().all(|l| l.waived));
+    // Their markers draw muted.
+    let sheet1: reda_ui::engine::model::Uuid = d.sheet1.parse().unwrap();
+    let markers = d.shell.markers(sheet1);
+    assert!(markers.iter().any(|m| m.waived), "{markers:?}");
+
+    // The view toggle hides both.
+    d.shell.set_show_waived(false).unwrap();
     let last = d.shell.engine().journal().last().unwrap().id.clone();
     assert_eq!(last, "view.messages.show_waived");
-    let groups = d.shell.message_groups();
-    let waived: Vec<&str> = groups
-        .iter()
-        .flat_map(|g| &g.lines)
-        .filter(|l| l.waived)
-        .map(|l| l.text.as_str())
-        .collect();
-    assert_eq!(waived, ["A is attached to nothing"]);
+    assert!(
+        d.shell
+            .message_groups()
+            .iter()
+            .all(|g| g.kind != GroupKind::Waived)
+    );
+    assert!(!d.shell.markers(sheet1).iter().any(|m| m.waived));
 
-    let key = groups[0].lines[0].key;
+    d.shell.set_show_waived(true).unwrap();
+    let key = d.shell.message_groups().last().unwrap().lines[0].key;
     d.shell.unwaive(key).unwrap();
-    d.shell.set_show_waived(false).unwrap();
     assert_eq!(violation_lines(&d.shell).len(), 3);
     let _ = d.label;
 }
@@ -369,12 +388,13 @@ fn a_pin_violation_is_marked_on_its_pin() {
         .run(
             "schematic.component.place",
             json!({"document": sheet, "part": "a0000000-0000-4000-8000-000000000100",
-                   "at": at(0, 0)}),
+                   "at": at(1000, 1000)}),
         )
         .unwrap();
     shell.run_check(CheckKind::Erc).unwrap();
 
-    // The resistor's two Pins are unconnected: one marker on each Pin's end.
+    // The resistor's two Pins are unconnected: one marker on each Pin's end, then the
+    // test Part's missing Footprint choice on the Unit's origin.
     let project = shell.engine().project().unwrap();
     let pins: Vec<Point> = reda_ui::engine::schematic::connectivity::placed_pins(
         project.schematic_sheet(sheet).unwrap(),
@@ -383,7 +403,8 @@ fn a_pin_violation_is_marked_on_its_pin() {
     .map(|(_, _, p)| p)
     .collect();
     let markers: Vec<Point> = shell.markers(sheet).iter().map(|m| m.at).collect();
-    assert_eq!(markers, pins);
+    assert_eq!(markers[..2], pins);
+    assert_eq!(markers[2..], [Point::new(Nm(25_400_000), Nm(25_400_000))]);
     assert_ne!(pins[0], pins[1]);
 }
 
@@ -431,4 +452,200 @@ fn a_drc_run_lists_its_violations_under_the_pcb_and_goes_stale_after_an_edit() {
         .run("pcb.track.delete", json!({"tracks": [track]}))
         .unwrap();
     assert!(shell.messages().run(CheckKind::Drc).unwrap().stale);
+}
+
+#[test]
+fn a_deleted_objects_stale_marker_keeps_the_location_returned_by_the_check() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let sheet = d.sheet1.parse().unwrap();
+    let before = d.shell.markers(sheet)[0].at;
+    d.shell
+        .run("schematic.delete", json!({"objects":[d.label]}))
+        .unwrap();
+    assert_eq!(d.shell.markers(sheet).len(), 1);
+    assert_eq!(d.shell.markers(sheet)[0].at, before);
+    assert_eq!(before, Point::new(mil(500), mil(500)));
+}
+
+#[test]
+fn selected_violations_share_one_reason_and_each_sheet_gets_one_undo_entry() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let keys: Vec<LineKey> = violation_lines(&d.shell).iter().map(|(k, _)| *k).collect();
+    d.shell
+        .waive_many(&keys, "intentional test wiring")
+        .unwrap();
+    let run = d.shell.messages().run(CheckKind::Erc).unwrap();
+    assert_eq!(
+        run.entries
+            .iter()
+            .filter(|e| e.violation.waiver.is_some())
+            .count(),
+        3
+    );
+    let waivers: std::collections::BTreeSet<_> = run
+        .entries
+        .iter()
+        .filter_map(|e| e.violation.waiver)
+        .collect();
+    assert_eq!(waivers.len(), 2);
+    for w in waivers {
+        let object = d.shell.run("object.get", json!({"uuid":w})).unwrap()["object"].clone();
+        assert_eq!(object["reason"], "intentional test wiring");
+    }
+    d.shell
+        .run("edit.undo", json!({"document":d.sheet2}))
+        .unwrap();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    assert_eq!(violation_lines(&d.shell).len(), 2);
+}
+
+#[test]
+fn collapsed_openings_translate_both_sides_and_kinds_without_changing_check_arguments() {
+    let home = TempDir::new("messages-opening-home");
+    let work = TempDir::new("messages-opening-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Openings").unwrap();
+    for side in ["top", "bottom"] {
+        shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind":"smd","side":side,
+            "at":{"x":if side == "top" { "1mm" } else { "5mm" },"y":"1mm"},
+            "width":"1mm","mask":{side:{"expansion":"-0.5mm"}},
+            "paste":{"expansion":"-0.6mm"}}),
+            )
+            .unwrap();
+    }
+    shell.run_check(CheckKind::Drc).unwrap();
+    let text: Vec<_> = violation_lines(&shell)
+        .into_iter()
+        .map(|(_, t)| t)
+        .collect();
+    for expected in [
+        "The top mask opening has collapsed",
+        "The bottom mask opening has collapsed",
+        "The top paste opening has collapsed",
+        "The bottom paste opening has collapsed",
+    ] {
+        assert!(
+            text.iter().any(|t| t == expected),
+            "missing {expected}: {text:?}"
+        );
+    }
+    let report = shell.run("drc.run", json!({})).unwrap();
+    let arguments: Vec<_> = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "opening_collapsed")
+        .map(|v| {
+            (
+                v["args"]["side"].as_str().unwrap(),
+                v["args"]["kind"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    for expected in [
+        ("top", "mask"),
+        ("bottom", "mask"),
+        ("top", "paste"),
+        ("bottom", "paste"),
+    ] {
+        assert!(arguments.contains(&expected));
+    }
+}
+
+#[test]
+fn opening_a_board_runs_the_health_checks_without_opening_messages_or_dirtying_it() {
+    let home = TempDir::new("messages-health-home");
+    let work = TempDir::new("messages-health-work");
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.new_project(work.path(), "Demo").unwrap();
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": "copper_top", "width": "0.25mm",
+                   "points": [{"x": "10mm", "y": "10mm"}, {"x": "15mm", "y": "10mm"}]}),
+        )
+        .unwrap();
+    shell.run("project.save", json!({})).unwrap();
+    let folder = work.path().join("Demo");
+
+    // Opened as saved: nothing to report, and the layout it opens with.
+    let mut clean = Shell::new(engine_in(home.path()));
+    clean.open_project(&folder).unwrap();
+    assert!(clean.message_groups().is_empty());
+    let layout = clean.layout().clone();
+    drop(clean);
+
+    // A second, zero-length Track, as a hand edit or merge can leave.
+    let path = folder.join("Demo.redapcb");
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let mut zero = file["tracks"][0].clone();
+    zero["uuid"] = json!("00000000-0000-4000-8000-0000000fff01");
+    zero["geometry"]["to"] = zero["geometry"]["from"].clone();
+    file["tracks"].as_array_mut().unwrap().push(zero);
+    std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
+
+    let mut shell = Shell::new(engine_in(home.path()));
+    shell.open_project(&folder).unwrap();
+    let groups = shell.message_groups();
+    assert_eq!(groups.len(), 1, "{groups:?}");
+    let texts: Vec<&str> = groups[0].lines.iter().map(|l| l.text.as_str()).collect();
+    // Only the health checks ran: the other Track's dangling ends are not listed.
+    assert_eq!(texts, ["Track with no length"]);
+    assert_eq!(shell.layout(), &layout, "Messages is not opened");
+    assert!(!shell.engine().is_dirty());
+    // It runs no Command, so the Journal holds only the user's.
+    assert!(shell.engine().journal().iter().all(|e| e.id != "drc.run"));
+}
+
+#[test]
+fn going_to_a_violation_follows_the_shared_highlight_preference() {
+    let mut d = demo();
+    d.shell.run_check(CheckKind::Erc).unwrap();
+    let sheet2 = d.sheet2.parse().unwrap();
+    let (key, _) = violation_lines(&d.shell)[2].clone();
+    // Closeness 0 leaves more room around the Violation than 1.
+    let frame_at = |d: &mut Demo, closeness: f64| {
+        d.shell
+            .run(
+                "app.preferences.set",
+                json!({"key": "editing.highlight.closeness", "value": closeness}),
+            )
+            .unwrap();
+        d.shell.go_to(key);
+        let (lo, hi) = d
+            .shell
+            .document_tab_mut(sheet2)
+            .unwrap()
+            .zoom_to
+            .take()
+            .unwrap();
+        hi.x - lo.x
+    };
+    let loose = frame_at(&mut d, 0.0);
+    let tight = frame_at(&mut d, 1.0);
+    assert!(loose > tight, "{loose:?} {tight:?}");
+    for key in ["select", "zoom", "dim"] {
+        d.shell
+            .run(
+                "app.preferences.set",
+                json!({"key": format!("editing.highlight.{key}"), "value": false}),
+            )
+            .unwrap();
+    }
+    d.shell
+        .run("selection.set", json!({"objects": []}))
+        .unwrap();
+    d.shell.run("view.highlight.clear", json!({})).unwrap();
+    d.shell.go_to(key);
+    assert!(d.shell.selection().objects.is_empty(), "Select off");
+    assert!(d.shell.highlight().objects.is_empty(), "Dim off");
+    assert!(
+        d.shell.document_tab(sheet2).unwrap().zoom_to.is_none(),
+        "Zoom off"
+    );
 }

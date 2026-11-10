@@ -12,7 +12,7 @@ const HEIGHT: f32 = 120.0;
 const MARGIN: f32 = 8.0;
 
 /// Fits Document points (nm, y up) into a screen rect.
-struct Fit {
+pub(crate) struct Fit {
     rect: Rect,
     center: (f64, f64),
     scale: f64,
@@ -20,7 +20,11 @@ struct Fit {
 
 impl Fit {
     fn new(rect: Rect, lo: (f64, f64), hi: (f64, f64)) -> Fit {
-        let inner = rect.shrink(MARGIN);
+        Fit::with_margin(rect, lo, hi, MARGIN)
+    }
+
+    fn with_margin(rect: Rect, lo: (f64, f64), hi: (f64, f64), margin: f32) -> Fit {
+        let inner = rect.shrink(margin);
         let w = (hi.0 - lo.0).max(1.0);
         let h = (hi.1 - lo.1).max(1.0);
         let scale = (f64::from(inner.width()) / w).min(f64::from(inner.height()) / h);
@@ -31,7 +35,7 @@ impl Fit {
         }
     }
 
-    fn pos(&self, p: Point) -> Pos2 {
+    pub(crate) fn pos(&self, p: Point) -> Pos2 {
         let c = self.rect.center();
         pos2(
             c.x + ((p.x.0 as f64 - self.center.0) * self.scale) as f32,
@@ -39,7 +43,7 @@ impl Fit {
         )
     }
 
-    fn len(&self, n: Nm) -> f32 {
+    pub(crate) fn len(&self, n: Nm) -> f32 {
         (n.0 as f64 * self.scale) as f32
     }
 }
@@ -92,7 +96,11 @@ fn point(p: (f64, f64)) -> Point {
 
 /// A box for a preview, announced by `label`.
 fn canvas(ui: &mut Ui, label: String) -> (Rect, egui::Painter) {
-    let size = Vec2::new(ui.available_width(), HEIGHT);
+    canvas_sized(ui, label, HEIGHT)
+}
+
+fn canvas_sized(ui: &mut Ui, label: String, height: f32) -> (Rect, egui::Painter) {
+    let size = Vec2::new(ui.available_width(), height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::Image, true, label.clone()));
     let painter = ui.painter_at(rect);
@@ -153,7 +161,7 @@ fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke,
             painter.text(
                 fit.pos(*at),
                 egui::Align2::CENTER_CENTER,
-                text,
+                reda_engine::model::text::display(text),
                 egui::FontId::proportional(px),
                 stroke.color,
             );
@@ -163,6 +171,16 @@ fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke,
 
 /// Draws one Unit of `symbol` (the first when `unit` is none): its graphics and Pins.
 pub fn symbol(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>) {
+    symbol_drawn(ui, symbol, unit, &[]);
+}
+
+/// [`symbol`]'s first Unit with the Pins numbered in `lit` marked: the Part editor's
+/// side of the Pins Panel cross-probe.
+pub fn symbol_probed(ui: &mut Ui, symbol: &Symbol, lit: &[String]) {
+    symbol_drawn(ui, symbol, None, lit);
+}
+
+fn symbol_drawn(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>, lit: &[String]) {
     let Some(unit) = unit.or_else(|| symbol.units.first().map(|u| u.uuid)) else {
         return;
     };
@@ -189,12 +207,57 @@ pub fn symbol(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>) {
         draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
     }
     let pin_colour = ui.visuals().weak_text_color();
+    let lit_colour = ui.visuals().selection.stroke.color;
     for pin in &pins {
+        let on = lit.contains(&pin.number);
+        let (width, colour) = if on {
+            (3.0, lit_colour)
+        } else {
+            (1.0, pin_colour)
+        };
         painter.line_segment(
             [fit.pos(pin.at), fit.pos(pin_end(pin))],
-            Stroke::new(1.0, pin_colour),
+            Stroke::new(width, colour),
         );
+        if on {
+            painter.circle_stroke(fit.pos(pin.at), 4.0, Stroke::new(1.5, lit_colour));
+        }
     }
+}
+
+/// [`footprint`] with the Pads numbered in `lit` ringed, giving back the number of the
+/// Pad under the pointer: the Part editor's side of the Pins Panel cross-probe.
+pub fn footprint_probed(ui: &mut Ui, footprint: &Footprint, lit: &[String]) -> Option<String> {
+    let (painter, fit) = footprint_fitted(ui, footprint, HEIGHT, MARGIN)?;
+    let pointer = ui
+        .ctx()
+        .pointer_hover_pos()
+        .filter(|p| painter.clip_rect().contains(*p));
+    let ring = ui.visuals().selection.stroke.color;
+    let mut hovered = None;
+    for pad in &footprint.pads {
+        let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
+        let (w, h) = if quarter {
+            (pad.height, pad.width)
+        } else {
+            (pad.width, pad.height)
+        };
+        let centre = pad.outline().center + pad.at;
+        let c = fit.pos(centre.rotated_about(pad.at, pad.rotation));
+        let r = Rect::from_center_size(c, Vec2::new(fit.len(w), fit.len(h)).max(Vec2::splat(4.0)));
+        if lit.contains(&pad.number) {
+            painter.rect_stroke(
+                r.expand(2.0),
+                2.0,
+                Stroke::new(2.0, ring),
+                egui::StrokeKind::Outside,
+            );
+        }
+        if pointer.is_some_and(|p| r.contains(p)) && !pad.number.is_empty() {
+            hovered = Some(pad.number.clone());
+        }
+    }
+    hovered
 }
 
 fn layer_colour(ui: &Ui, layer: FootprintLayer) -> Color32 {
@@ -208,6 +271,17 @@ fn layer_colour(ui: &Ui, layer: FootprintLayer) -> Color32 {
 
 /// Draws `footprint`: its Pads (copper colour) and graphics.
 pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
+    footprint_fitted(ui, footprint, HEIGHT, MARGIN);
+}
+
+/// [`footprint`] in a box `height` high with `margin` round the drawing, giving back its
+/// painter and fit for drawing over it.
+pub(crate) fn footprint_fitted(
+    ui: &mut Ui,
+    footprint: &Footprint,
+    height: f32,
+    margin: f32,
+) -> Option<(egui::Painter, Fit)> {
     let mut bounds = Bounds::default();
     footprint
         .graphics
@@ -217,11 +291,9 @@ pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
         let r = (pad.width.0.max(pad.height.0) as f64) / 2.0;
         bounds.add(pad.at, r);
     }
-    let (rect, painter) = canvas(ui, tr!("library-footprint-preview"));
-    let Some((lo, hi)) = bounds.0 else {
-        return;
-    };
-    let fit = Fit::new(rect, lo, hi);
+    let (rect, painter) = canvas_sized(ui, tr!("library-footprint-preview"), height);
+    let (lo, hi) = bounds.0?;
+    let fit = Fit::with_margin(rect, lo, hi, margin);
     let copper = Color32::from_rgb(0xc8, 0x8a, 0x2e);
     for pad in &footprint.pads {
         let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
@@ -230,27 +302,29 @@ pub fn footprint(ui: &mut Ui, footprint: &Footprint) {
         } else {
             (pad.width, pad.height)
         };
-        let c = fit.pos(pad.at);
+        let centre = pad.outline().center + pad.at;
+        let c = fit.pos(centre.rotated_about(pad.at, pad.rotation));
         let size = Vec2::new(fit.len(w), fit.len(h));
         match pad.shape {
             PadShape::Circle => {
                 painter.circle_filled(c, size.x / 2.0, copper);
             }
-            PadShape::Oval | PadShape::RoundedRect | PadShape::Rect => {
-                let radius = match pad.shape {
-                    PadShape::Oval => size.x.min(size.y) / 2.0,
-                    PadShape::RoundedRect => size.x.min(size.y) / 4.0,
-                    _ => 0.0,
-                };
+            PadShape::Oval | PadShape::RoundedRect | PadShape::ChamferedRect | PadShape::Rect => {
+                let radius = pad.outline().uniform_radius().map_or(0.0, |r| fit.len(r));
                 painter.rect_filled(Rect::from_center_size(c, size), radius, copper);
             }
         }
         if let Some(hole) = pad.hole {
-            painter.circle_filled(c, fit.len(hole.width) / 2.0, ui.visuals().extreme_bg_color);
+            painter.circle_filled(
+                fit.pos(pad.at),
+                fit.len(hole.width) / 2.0,
+                ui.visuals().extreme_bg_color,
+            );
         }
     }
     for g in &footprint.graphics {
         let stroke = Stroke::new(1.0, layer_colour(ui, g.layer));
         draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
     }
+    Some((painter, fit))
 }

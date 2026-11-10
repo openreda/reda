@@ -1,175 +1,253 @@
 //! The assembly files: the CSV BOM and CPL (pick and place) of a PCB Document.
 //!
-//! Both read only the PCB Document's Footprint instances, which carry their Component's
-//! Designator, fields and Not Fitted. Not Fitted Footprints and Mechanical Parts are left
-//! out. The columns are a Fab Preset's mapping; a column with nothing to say for a file
-//! (a position in the BOM) is left blank.
-
-use std::collections::BTreeSet;
+//! Both read the PCB Document's Footprint instances, which carry their Component's
+//! Designator, fields, In BOM, In CPL and Not Fitted: the BOM lists those In BOM, the CPL
+//! those In CPL, whatever their Component Type. The CPL never lists a Not Fitted one, the
+//! BOM only on its own rows when the preset's `not_fitted` is `list`. The one exception is a Mechanical Component on a sheet with no Footprint (a screw), which
+//! the BOM reads from the sheet. The columns are a Fab Preset's mapping; a column with
+//! nothing to say for a file (a position in the BOM) is left blank.
 
 use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::text::display;
 use reda_model::{
-    Column, ColumnSource, ComponentRef, ComponentType, Fields, FootprintCopy, FootprintInstance,
-    PadKind, PcbDocument, Project, Side,
+    BottomPosition, BottomRotation, Column, ColumnSource, ComponentType, CplSettings, CplUnits,
+    Fields, FootprintCopy, FootprintInstance, MountValues, PadKind, PcbDocument, Project, Side,
+    Uuid,
 };
 use reda_pcb::natural_cmp;
+use reda_pcb::placed::Frame;
 
-use crate::gerber::{arc_centre, degrees, mm};
+mod bom;
+
+pub use bom::{Bom, MissingField, bom_file};
+
+use crate::BoardInstance;
+use crate::gerber::degrees;
 use crate::plot::OutputFile;
 
-/// The BOM of `pcb`: one row per Part + chosen Footprint + fields, its Designators in
-/// natural order, the rows in the order of their first Designator.
-pub fn bom_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
-    let mut groups: Vec<Vec<Fitted<'_>>> = Vec::new();
-    for part in fitted(project, pcb) {
-        match groups.iter_mut().find(|g| g[0].same_line(&part)) {
-            Some(group) => group.push(part),
-            None => groups.push(vec![part]),
-        }
-    }
-    let rows = groups.iter().enumerate().map(|(i, group)| {
-        let first = &group[0];
-        columns
-            .iter()
-            .map(|c| match &c.source {
-                ColumnSource::Line => (i + 1).to_string(),
-                ColumnSource::Quantity => group.len().to_string(),
-                ColumnSource::Designator => group
-                    .iter()
-                    .map(|p| p.instance.designator.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                ColumnSource::MidX
-                | ColumnSource::MidY
-                | ColumnSource::Layer
-                | ColumnSource::Rotation => String::new(),
-                source => first.describe(source),
-            })
-            .collect()
-    });
+/// The CPL of the board `instances`: one row per placed part in natural Designator order,
+/// with `cpl`'s columns, units and bottom-side conventions. Positions come from the instance
+/// transform; rotation is in degrees counter-clockwise as the Footprint is turned from its
+/// IPC-7351 zero orientation. The mount column is spelled with `mount`, the preset's
+/// `mount_values`, as in the BOM.
+pub fn cpl_file(
+    project: &Project,
+    instances: &[BoardInstance<'_>],
+    cpl: &CplSettings,
+    mount: &MountValues,
+) -> OutputFile {
     OutputFile {
-        name: format!("{}-BOM.csv", project.props().name),
-        function: "bom",
-        bytes: csv(columns, rows),
+        name: format!("{}-CPL.csv", project.props().name),
+        function: "cpl",
+        bytes: cpl_table(project, instances, cpl, mount).csv(),
+        attributes: None,
     }
 }
 
-/// The CPL of `pcb`: one row per placed part in natural Designator order, positions in mm
-/// from [`cpl_origin`], rotation in degrees counter-clockwise as the Footprint is turned
-/// from its IPC-7351 zero orientation, and the side it sits on.
-pub fn cpl_file(project: &Project, pcb: &PcbDocument, columns: &[Column]) -> OutputFile {
-    let origin = cpl_origin(pcb);
-    let rows = fitted(project, pcb)
-        .into_iter()
+/// The rows [`cpl_file`] writes, header first, before they become CSV: what the Output
+/// Job window previews.
+pub fn cpl_table(
+    _project: &Project,
+    instances: &[BoardInstance<'_>],
+    cpl: &CplSettings,
+    mount: &MountValues,
+) -> Table {
+    let rows = instances
+        .iter()
+        .flat_map(|board| {
+            cpl_parts(board.pcb, cpl.exclude_through_hole)
+                .into_iter()
+                .map(move |(instance, part)| (board, instance, part))
+        })
         .enumerate()
-        .map(|(i, part)| {
-            let at = part.instance.at;
-            columns
+        .map(|(i, (board, instance, part))| {
+            let at = Positions::of(board, instance);
+            let bottom = instance.side == Side::Bottom;
+            let position = |p: Point, x: bool| {
+                let flip = bottom
+                    && match cpl.bottom_position {
+                        BottomPosition::TopView => false,
+                        BottomPosition::NegateX => x,
+                        BottomPosition::NegateY => !x,
+                    };
+                let v = if x { p.x } else { p.y };
+                length(if flip { Nm(-v.0) } else { v }, cpl.units, cpl.unit_suffix)
+            };
+            cpl.columns
                 .iter()
                 .map(|c| match &c.source {
                     ColumnSource::Line => (i + 1).to_string(),
                     ColumnSource::Quantity => "1".into(),
-                    ColumnSource::Designator => part.instance.designator.clone(),
-                    ColumnSource::MidX => mm(at.x - origin.x),
-                    ColumnSource::MidY => mm(at.y - origin.y),
-                    ColumnSource::Layer => match part.instance.side {
-                        Side::Top => "Top".into(),
-                        Side::Bottom => "Bottom".into(),
+                    ColumnSource::Designator => instance.designator.clone(),
+                    ColumnSource::CentreX => position(at.centre, true),
+                    ColumnSource::CentreY => position(at.centre, false),
+                    ColumnSource::OriginX => position(at.origin, true),
+                    ColumnSource::OriginY => position(at.origin, false),
+                    ColumnSource::Pad1X => position(at.pad1, true),
+                    ColumnSource::Pad1Y => position(at.pad1, false),
+                    ColumnSource::Side => match instance.side {
+                        Side::Top => cpl.side_values.top.clone(),
+                        Side::Bottom => cpl.side_values.bottom.clone(),
                     },
-                    ColumnSource::Rotation => degrees(part.instance.rotation),
-                    source => part.describe(source),
+                    ColumnSource::Rotation => {
+                        let stored = board.transform.angle(instance.rotation);
+                        degrees(match (bottom, cpl.bottom_rotation) {
+                            (false, _) | (true, BottomRotation::Stored) => stored,
+                            (true, BottomRotation::Plus180) => stored + Millideg(180_000),
+                            (true, BottomRotation::Negate) => Millideg(-stored.0),
+                        })
+                    }
+                    source => part.describe(source, mount),
                 })
                 .collect()
         });
-    OutputFile {
-        name: format!("{}-CPL.csv", project.props().name),
-        function: "cpl",
-        bytes: csv(columns, rows),
-    }
+    Table::new(&cpl.columns, rows)
 }
 
-/// Where CPL positions are measured from: the Placement Origin when the board has one,
-/// otherwise the lower-left corner of the Board Outline's bounding box (arcs included),
-/// otherwise the board's own zero.
-pub fn cpl_origin(pcb: &PcbDocument) -> Point {
-    if let Some(origin) = pcb.placement_origin() {
-        return origin.at;
-    }
-    let Some(outline) = pcb.outline() else {
-        return Point::new(Nm::ZERO, Nm::ZERO);
-    };
-    let vertices = &outline.vertices;
-    let mut min = Point::new(Nm(i64::MAX), Nm(i64::MAX));
-    let mut take = |p: Point| {
-        min = Point::new(min.x.min(p.x), min.y.min(p.y));
-    };
-    for (i, v) in vertices.iter().enumerate() {
-        take(v.point());
-        if v.sweep != Millideg::ZERO {
-            let to = vertices[(i + 1) % vertices.len()].point();
-            for p in arc_extremes(v.point(), to, v.sweep) {
-                take(p);
-            }
+/// An assembly file's cells: the header row and the rows under it, unquoted.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Table {
+    pub header: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+impl Table {
+    fn new(columns: &[Column], rows: impl Iterator<Item = Vec<String>>) -> Table {
+        Table {
+            header: columns.iter().map(|c| c.header.clone()).collect(),
+            rows: rows.collect(),
         }
     }
-    min
-}
 
-/// The points where the arc from `from` to `to` sweeping `sweep` reaches furthest left,
-/// down, right or up, when it passes them.
-fn arc_extremes(from: Point, to: Point, sweep: Millideg) -> Vec<Point> {
-    let c = arc_centre(from, to, sweep);
-    let (dx, dy) = ((from.x.0 - c.x.0) as f64, (from.y.0 - c.y.0) as f64);
-    let r = Nm(dx.hypot(dy).round() as i64);
-    let start = dy.atan2(dx).to_degrees();
-    let s = sweep.0 as f64 / 1000.0;
-    [
-        (0.0, Point::new(c.x + r, c.y)),
-        (90.0, Point::new(c.x, c.y + r)),
-        (180.0, Point::new(c.x - r, c.y)),
-        (270.0, Point::new(c.x, c.y - r)),
-    ]
-    .into_iter()
-    .filter(|(axis, _)| {
-        if s > 0.0 {
-            (axis - start).rem_euclid(360.0) <= s
-        } else {
-            (start - axis).rem_euclid(360.0) <= -s
+    /// The CSV file: the header row, then the rows, each line ending in `\n`.
+    pub fn csv(&self) -> Vec<u8> {
+        let mut out = String::new();
+        for cells in std::iter::once(&self.header).chain(&self.rows) {
+            let cells: Vec<String> = cells.iter().map(|c| quote(c)).collect();
+            out.push_str(&cells.join(","));
+            out.push('\n');
         }
-    })
-    .map(|(_, p)| p)
-    .collect()
+        out.into_bytes()
+    }
 }
 
-/// A Footprint instance that goes into the BOM and CPL, with its Footprint copy.
+/// A placed part's three CPL positions, in output coordinates.
+struct Positions {
+    /// The centre of the box around its copper Pads (non-plated holes left out), boxed
+    /// in the Footprint's frame; its origin when it has no copper Pads.
+    centre: Point,
+    /// The Footprint's origin.
+    origin: Point,
+    /// Pad 1's anchor; the origin when it has no Pad 1.
+    pad1: Point,
+}
+
+impl Positions {
+    fn of(board: &BoardInstance<'_>, instance: &FootprintInstance) -> Positions {
+        let frame = Frame::of(instance);
+        let pads = board
+            .pcb
+            .footprint_copy(instance.footprint)
+            .map_or(&[][..], |copy| &copy.footprint.pads[..]);
+        let copper = pads
+            .iter()
+            .filter(|p| p.kind != PadKind::NonPlated)
+            .map(|p| p.bounds())
+            .reduce(|a, b| a.union(b));
+        let local_origin = Point::default();
+        let centre = copper.map_or(local_origin, |b| b.center());
+        let pad1 = pads
+            .iter()
+            .find(|p| p.number == "1")
+            .map_or(local_origin, |p| p.at);
+        let out = |local: Point| board.transform.point(frame.point(local));
+        Positions {
+            centre: out(centre),
+            origin: out(local_origin),
+            pad1: out(pad1),
+        }
+    }
+}
+
+/// A CPL position: 6 decimals in `units`, rounded half away from zero, then the unit
+/// when `suffix` is on.
+fn length(nm: Nm, units: CplUnits, suffix: bool) -> String {
+    // Millionths of the unit = nm × num / den.
+    let (num, den, unit) = match units {
+        CplUnits::Mm => (1, 1, "mm"),
+        CplUnits::Mil => (10_000, 254, "mil"),
+        CplUnits::In => (10, 254, "in"),
+    };
+    let scaled = i128::from(nm.0) * num;
+    let micro = (scaled.abs() * 2 + den) / (den * 2);
+    let sign = if scaled < 0 && micro != 0 { "-" } else { "" };
+    let suffix = if suffix { unit } else { "" };
+    format!(
+        "{sign}{}.{:06}{suffix}",
+        micro / 1_000_000,
+        micro % 1_000_000
+    )
+}
+
+/// A part that goes into the BOM or CPL: a Footprint instance with its Footprint copy, or
+/// for the BOM a footprintless Mechanical Component on a sheet.
 struct Fitted<'a> {
-    instance: &'a FootprintInstance,
-    copy: &'a FootprintCopy,
+    designator: &'a str,
+    fields: &'a Fields,
+    /// Left out for a Component with no Footprint.
+    copy: Option<&'a FootprintCopy>,
+    /// The Library Part, when its Component is on a sheet.
+    part: Option<Uuid>,
+    component_type: ComponentType,
+    not_fitted: bool,
+    /// The Footprint instance it is, if any.
+    instance: Option<Uuid>,
 }
 
-impl Fitted<'_> {
-    /// Whether `other` shares this one's BOM line: the same Footprint and fields (which
-    /// hold the Part's own).
-    fn same_line(&self, other: &Fitted<'_>) -> bool {
-        self.copy.footprint.uuid == other.copy.footprint.uuid
-            && self.instance.fields == other.instance.fields
+impl<'a> Fitted<'a> {
+    fn instance(pcb: &'a PcbDocument, instance: &'a FootprintInstance) -> Option<Fitted<'a>> {
+        Some(Fitted {
+            designator: &instance.designator,
+            fields: &instance.fields,
+            copy: Some(pcb.footprint_copy(instance.footprint)?),
+            part: None,
+            component_type: instance.component_type,
+            not_fitted: instance.not_fitted,
+            instance: Some(instance.uuid),
+        })
     }
 
-    /// The value of a column the BOM and CPL fill the same way.
-    fn describe(&self, source: &ColumnSource) -> String {
-        match source {
-            ColumnSource::Value => self.instance.fields.value.clone(),
-            ColumnSource::Footprint => self.copy.footprint.name.clone(),
-            ColumnSource::Mount => {
-                let tht = self
-                    .copy
-                    .footprint
-                    .pads
-                    .iter()
-                    .any(|p| p.kind == PadKind::PlatedThroughHole);
-                if tht { "THT" } else { "SMT" }.into()
+    /// Whether its Footprint has a plated through-hole Pad.
+    fn through_hole(&self) -> bool {
+        self.copy.is_some_and(|copy| {
+            copy.footprint
+                .pads
+                .iter()
+                .any(|p| p.kind == PadKind::PlatedThroughHole)
+        })
+    }
+
+    /// The value of a column the BOM and CPL fill the same way. A part with no Footprint
+    /// leaves the Footprint and mount type blank; a Footprint with any plated through-hole
+    /// Pad is `mount.tht`, any other `mount.smt`. The fitted column says "Fitted" or
+    /// "Not Fitted".
+    fn describe(&self, source: &ColumnSource, mount: &MountValues) -> String {
+        match (source, self.copy) {
+            (ColumnSource::Value, _) => display(&self.fields.value).into_owned(),
+            (ColumnSource::Footprint, Some(copy)) => copy.footprint.name.clone(),
+            (ColumnSource::Mount, Some(_)) => if self.through_hole() {
+                &mount.tht
+            } else {
+                &mount.smt
             }
-            ColumnSource::Field(name) => field(&self.instance.fields, name).into(),
+            .clone(),
+            (ColumnSource::Fitted, _) => if self.not_fitted {
+                "Not Fitted"
+            } else {
+                "Fitted"
+            }
+            .into(),
+            (ColumnSource::Field(name), _) => display(field(self.fields, name)).into_owned(),
             _ => String::new(),
         }
     }
@@ -195,55 +273,23 @@ fn field<'a>(fields: &'a Fields, name: &str) -> &'a str {
         .map_or("", |f| f.value.as_str())
 }
 
-/// The Footprint instances to assemble, in natural Designator order: not Not Fitted, not
-/// a Mechanical Part (placed on the PCB alone, or a Mechanical Component on a sheet).
-fn fitted<'a>(project: &Project, pcb: &'a PcbDocument) -> Vec<Fitted<'a>> {
-    let mechanical = mechanical_components(project);
-    let mut parts: Vec<Fitted<'a>> = pcb
+/// What the CPL lists, in natural Designator order: every Footprint instance In CPL and
+/// not Not Fitted, leaving out those with a plated through-hole Pad when
+/// `exclude_through_hole` is on.
+fn cpl_parts(
+    pcb: &PcbDocument,
+    exclude_through_hole: bool,
+) -> Vec<(&FootprintInstance, Fitted<'_>)> {
+    let mut parts: Vec<_> = pcb
         .footprints()
-        .filter(|i| !i.not_fitted)
-        .filter(|i| {
-            i.component
-                .as_ref()
-                .is_some_and(|c| !mechanical.contains(c))
-        })
-        .filter_map(|instance| {
-            let copy = pcb.footprint_copy(instance.footprint)?;
-            Some(Fitted { instance, copy })
-        })
+        .filter(|i| i.in_cpl && !i.not_fitted)
+        .filter_map(|i| Some((i, Fitted::instance(pcb, i)?)))
+        .filter(|(_, part)| !(exclude_through_hole && part.through_hole()))
         .collect();
     parts.sort_by(|a, b| {
-        natural_cmp(&a.instance.designator, &b.instance.designator)
-            .then(a.instance.uuid.cmp(&b.instance.uuid))
+        natural_cmp(&a.0.designator, &b.0.designator).then(a.0.uuid.cmp(&b.0.uuid))
     });
     parts
-}
-
-/// The Components placed on a sheet from a Mechanical Part. The Footprint instance does
-/// not carry the Component Type, so it is read from the Component's Units.
-fn mechanical_components(project: &Project) -> BTreeSet<ComponentRef> {
-    project
-        .documents()
-        .filter_map(|d| project.schematic_sheet(d.uuid))
-        .flat_map(|sheet| sheet.units())
-        .filter(|u| u.component_type == ComponentType::Mechanical)
-        .map(|u| u.component.clone())
-        .collect()
-}
-
-/// A CSV file: the header row, then `rows`, each line ending in `\n`.
-fn csv(columns: &[Column], rows: impl Iterator<Item = Vec<String>>) -> Vec<u8> {
-    let mut out = String::new();
-    let mut line = |cells: &mut dyn Iterator<Item = &str>| {
-        let cells: Vec<String> = cells.map(quote).collect();
-        out.push_str(&cells.join(","));
-        out.push('\n');
-    };
-    line(&mut columns.iter().map(|c| c.header.as_str()));
-    for row in rows {
-        line(&mut row.iter().map(String::as_str));
-    }
-    out.into_bytes()
 }
 
 /// A CSV cell, quoted (with inner quotes doubled) when it holds a comma, a quote or a line
@@ -259,26 +305,6 @@ fn quote(cell: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn arcs_reach_their_extremes_only_when_they_pass_them() {
-        let p = |x: i64, y: i64| Point::new(Nm(x), Nm(y));
-        // Half circle from the top round the left to the bottom.
-        assert_eq!(
-            arc_extremes(p(0, 10), p(0, -10), Millideg(180_000)),
-            [p(0, 10), p(-10, 0), p(0, -10)]
-        );
-        // The same ends clockwise go round the right.
-        assert_eq!(
-            arc_extremes(p(0, 10), p(0, -10), Millideg(-180_000)),
-            [p(10, 0), p(0, 10), p(0, -10)]
-        );
-        // A 60° arc from 0° passes only its start.
-        assert_eq!(
-            arc_extremes(p(1_000_000, 0), p(500_000, 866_025), Millideg(60_000)),
-            [p(1_000_000, 0)]
-        );
-    }
 
     #[test]
     fn cells_with_commas_quotes_or_line_breaks_are_quoted() {

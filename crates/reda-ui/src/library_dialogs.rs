@@ -7,6 +7,10 @@
 mod generate;
 mod import;
 mod new_library;
+mod paste;
+pub mod paste_array;
+mod to_library;
+mod wizard;
 
 use reda_engine::library::LibraryOrigin;
 use reda_engine::model::Uuid;
@@ -14,18 +18,50 @@ use reda_engine::model::Uuid;
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 
-pub use generate::GenerateDialog;
+pub use generate::{
+    Axis, Callout, GenerateDialog, Generated, GeneratorForm, Preview, Row, Section, Shown, Side,
+    callouts,
+};
 pub use import::ImportDialog;
 pub use new_library::{For as NewLibraryFor, NewLibraryDialog};
+pub use paste::{PasteMapping, PasteOutcome};
+pub use paste_array::{ArrayOptions, PasteArrayDialog};
+pub use to_library::ToLibraryDialog;
+pub use wizard::{SymbolWizardDialog, Target as WizardTarget};
 
-/// The window's hand-written dialogs: New Library's, Import part's and every generator's.
+/// The window's hand-written dialogs: New Library's, Import part's, every generator's, and
+/// Copy to Library's and Extract's (Make Project Library).
 pub fn dialogs() -> Dialogs {
     let mut dialogs = Dialogs::new();
     dialogs.register("library.create", |shell, params| {
         Box::new(NewLibraryDialog::new(shell, &params))
     });
+    dialogs.register_always(wizard::COMMAND, |shell, params| {
+        Box::new(SymbolWizardDialog::new(shell, &params))
+    });
+    dialogs.register_always(paste_array::COMMAND, |shell, params| {
+        Box::new(PasteArrayDialog::new(shell, &params))
+    });
     dialogs.register("library.import_part", |_, params| {
         Box::new(ImportDialog::new(&params))
+    });
+    for id in [to_library::COPY, to_library::EXTRACT] {
+        dialogs.register(id, move |shell, params| {
+            Box::new(ToLibraryDialog::new(shell, id, &params))
+        });
+    }
+    // Regenerate… asks first even with the Footprint given: the form shows its stored
+    // params and what regenerating loses.
+    dialogs.register_always(generate::REGENERATE, |shell, params| {
+        let footprint = params["footprint"].as_str().and_then(|f| f.parse().ok());
+        match footprint.and_then(|f| GenerateDialog::regenerate(shell, f)) {
+            Some(dialog) => Box::new(dialog),
+            None => Box::new(crate::command_dialog::ParamForm::new(
+                shell.engine().registry(),
+                generate::REGENERATE,
+                &params,
+            )),
+        }
     });
     for id in reda_engine::library::GENERATORS {
         dialogs.register(id, move |shell, params| {

@@ -4,62 +4,182 @@
     "files": [
       {
         "function": "copper_top",
-        "name": "Blinky.GTL"
+        "path": "fab/Blinky.gtl"
       },
       {
         "function": "copper_bottom",
-        "name": "Blinky.GBL"
+        "path": "fab/Blinky.gbl"
       },
       {
         "function": "solder_mask_top",
-        "name": "Blinky.GTS"
+        "path": "fab/Blinky.gts"
       },
       {
         "function": "solder_mask_bottom",
-        "name": "Blinky.GBS"
+        "path": "fab/Blinky.gbs"
       },
       {
         "function": "paste_top",
-        "name": "Blinky.GTP"
-      },
-      {
-        "function": "paste_bottom",
-        "name": "Blinky.GBP"
+        "path": "fab/Blinky.gtp"
       },
       {
         "function": "silkscreen_top",
-        "name": "Blinky.GTO"
+        "path": "fab/Blinky.gto"
       },
       {
         "function": "silkscreen_bottom",
-        "name": "Blinky.GBO"
+        "path": "fab/Blinky.gbo"
       },
       {
         "function": "profile",
-        "name": "Blinky.GKO"
+        "path": "fab/Blinky.gm1"
       },
       {
         "function": "drill_plated",
-        "name": "Blinky-PTH.drl"
+        "path": "fab/Blinky-PTH.drl"
       },
       {
         "function": "drill_non_plated",
-        "name": "Blinky-NPTH.drl"
+        "path": "fab/Blinky-NPTH.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/Blinky-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/Blinky-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/Blinky-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "Blinky-JLCPCB.zip"
       },
       {
         "function": "bom",
-        "name": "Blinky-BOM.csv"
+        "path": "Blinky-JLCPCB-BOM.csv"
       },
       {
         "function": "cpl",
-        "name": "Blinky-CPL.csv"
+        "path": "Blinky-JLCPCB-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "Blinky-JLCPCB-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/Blinky-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/Blinky-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/Blinky-change-list.json"
       }
     ],
-    "warnings": [],
+    "manifest": "outputs/JLCPCB/manifest.json",
+    "skipped": [
+      {
+        "function": "paste_bottom",
+        "name": "Blinky.gbp"
+      }
+    ],
+    "warnings": [
+      {
+        "args": {
+          "designators": "C1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000091"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "C3",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000094"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "D1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000096"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "J1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-000000000098"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000009a"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R2",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000009b"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "R3",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000009c"
+        ],
+        "severity": "warning"
+      },
+      {
+        "args": {
+          "designators": "U1",
+          "field": "LCSC"
+        },
+        "check": "bom_missing_field",
+        "objects": [
+          "00000000-0000-4000-8000-00000000009e"
+        ],
+        "severity": "warning"
+      }
+    ],
     "zip": "outputs/JLCPCB/Blinky-JLCPCB.zip"
-  },
-  {
-    "pages": 1,
-    "path": "outputs/schematic.pdf"
   }
 ]

@@ -12,6 +12,10 @@ _Avoid_: Workspace, design, solution
 A single editable part of a Project, opened as a tab in the application, such as a Schematic Sheet or a PCB Document.
 _Avoid_: File, page, view
 
+**Missing Document**:
+A Document the Project file lists whose file is gone. It keeps its place and number but cannot be opened until it is relinked to a file or removed from the Project.
+_Avoid_: Broken Document, orphan
+
 **Schematic Sheet**:
 A Document that expresses a circuit's logical connectivity using Symbols and wires.
 _Avoid_: Schematic page, diagram
@@ -143,6 +147,10 @@ _Avoid_: Trace, track (those are copper on the board), connection
 **Junction**:
 The dot marking where Wires meet in a T or a 4-way, or where a Wire passes over a Pin, Port or Power Port; it follows from the drawing and is never placed by hand.
 _Avoid_: Node, dot, connection point
+
+**Normalisation**:
+The tidying an edit Command does to the Wires it touches, in the same undo step: merging, cutting at a dropped Component, splitting at Junctions and offsetting 4-ways, as the wiring Preferences (or the Command's `wiring` parameter) say.
+_Avoid_: Cleanup, optimisation (Optimize Wires is one of its steps)
 
 **Net Label**:
 A named marker attached to a Wire or Pin that joins it to every other Wire with the same name on the same Schematic Sheet.
@@ -293,6 +301,14 @@ _Avoid_: Inverted text, negative text
 **Text Frame**:
 A box that free text wraps inside.
 _Avoid_: Text box
+
+**Field Text**:
+A text entry of a Footprint that shows one of its Component's fields, such as the Designator or the value, wherever that Footprint is placed.
+_Avoid_: Label, attribute text
+
+**Text Override**:
+A placed Footprint's own position, rotation, style, visibility or autoposition for one Field Text. It isn't a local edit: the Footprint copy and its hash stay unchanged.
+_Avoid_: Footprint override, local text edit
 
 **Lock**:
 A mark on a placed object that protects its geometry from being changed by accident.

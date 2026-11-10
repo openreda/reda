@@ -1,15 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"fa427f08-4c9a-40c3-a75b-86a822ec3481","name":"TERM_Screw_1x03_P5.08mm","description":"Screw terminal block, 3 positions, 5.08 mm pitch. Per Same Sky TB007-508 datasheet"},
-  "text": {"designator":{"at":{"x":0,"y":6070000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"fa427f08-4c9a-40c3-a75b-86a822ec3481","name":"TERM_Screw_1x03_P5.08mm","description":"Screw terminal block, 3 positions, 5.08 mm pitch. Per Same Sky TB007-508 datasheet","height":10000000},
   "pads": [
-    {"uuid":"4a8b380e-b966-4aff-b851-7236d8ae38e8","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}},
-    {"uuid":"a221b58e-a41d-4c50-84a1-c34569ea2cd4","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":0},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}},
-    {"uuid":"e3d79fdf-4b7d-4b34-b59c-2e9a7c7acdbb","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":0},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}}
+    {"uuid":"3b82911a-b652-4afd-9a20-64513c433b48","number":"3","kind":"plated_through_hole","shape":"circle","at":{"x":5080000,"y":225000},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}},
+    {"uuid":"4a8b380e-b966-4aff-b851-7236d8ae38e8","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-5080000,"y":225000},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}},
+    {"uuid":"e3d79fdf-4b7d-4b34-b59c-2e9a7c7acdbb","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":225000},"rotation":0,"width":2600000,"height":2600000,"hole":{"width":1600000,"height":1600000}}
   ],
   "graphics": [
-    {"uuid":"3b82911a-b652-4afd-9a20-64513c433b48","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-7620000,"y":-5350000},"end":{"x":7620000,"y":4900000}},"width":100000},
-    {"uuid":"5ff55d25-87e0-4ba1-b6ac-48c9f39eb087","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-7680000,"y":-5410000},"end":{"x":7680000,"y":4960000}},"width":120000},
-    {"uuid":"b4541803-1942-4410-90bc-354504ceada6","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-7990000,"y":-5720000},"end":{"x":7990000,"y":5270000}},"width":50000}
+    {"uuid":"5ff55d25-87e0-4ba1-b6ac-48c9f39eb087","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-7620000,"y":-5125000},"end":{"x":7620000,"y":5125000}},"width":100000},
+    {"uuid":"b4541803-1942-4410-90bc-354504ceada6","layer":"silkscreen_top","shape":{"kind":"rect","start":{"x":-7680000,"y":-5185000},"end":{"x":7680000,"y":5185000}},"width":120000},
+    {"uuid":"cd0e544c-069a-4e7a-a336-1761840647d8","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-7990000,"y":-5495000},"end":{"x":7990000,"y":5495000}},"width":50000}
+  ],
+  "texts": [
+    {"uuid":"89ce9281-6306-428d-a8e1-2c87ef90f363","field":"Designator","at":{"x":0,"y":6295000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"a221b58e-a41d-4c50-84a1-c34569ea2cd4","field":"Value","at":{"x":0,"y":-6195000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"eb1892aa-2bd1-429f-8b86-6d00eb89cf3a","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

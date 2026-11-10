@@ -4,7 +4,7 @@
 //!
 //! - Units show as tabs over the canvas (`library.symbol.unit.show` switches); the canvas
 //!   draws the shown Unit ([`reda_engine::render::symbol_scene`]) and the Tools work on it.
-//! - Select picks Pins and graphics (click, Shift/Mod, box), and dragging moves them on
+//! - Select picks Pins and graphics (click, Shift+click, box), and dragging moves them on
 //!   the grid: one `library.symbol.move` on release.
 //! - Pin places a Pin per click on the 50 mil grid, numbered one past the highest; Space
 //!   (`tool.rotate`) turns the next one by 90°.
@@ -12,8 +12,10 @@
 //!   counter-clockwise), Polygon a click per corner until a click on the first corner or
 //!   Enter (`tool.finish`); Backspace (`tool.undo_segment`) takes back a corner. Text
 //!   asks for its text over the canvas, then places it where it was clicked.
-//! - Below the canvas the pin table lists the shown Unit's Pins for editing and takes
-//!   pasted rows ([`parse_pin_rows`]), all of them one undo step.
+//! - The Pins Panel ([`crate::panels::pins`]) lists the Symbol's Pins for editing and
+//!   takes pasted rows through the column-mapping paste, all of them one undo step.
+//! - Origin (the Origin Tool, or Set Origin at Pin 1 or the centre) moves the origin with
+//!   `library.symbol.origin.set`; Jump to Origin centres the canvas on it.
 //!
 //! What is in flight is view state; the Symbol changes only through `library.symbol.*`
 //! Commands on its own undo stack, which the engine refuses for a read-only (starter
@@ -21,30 +23,27 @@
 //!
 //! [`element_editor`]: crate::element_editor
 
-mod pin_rows;
 pub(crate) mod view;
 
 use std::collections::BTreeMap;
 
 use reda_engine::Engine;
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
+use reda_engine::library::wizard::{Side, WizardPin};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid};
+use reda_engine::model::{LibraryElement, Pin, Symbol, Uuid, auto_increment};
 use reda_engine::render::{Scene, symbol_scene};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, box_select, combine, hit_test, snap_to_grid,
-};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
+use crate::panels::pins::PinSide;
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
-
-pub use pin_rows::{PinRow, parse_pin_rows};
 
 /// A Document point in nm, y up.
 type P = (f64, f64);
@@ -92,6 +91,9 @@ pub struct Canvas {
     pub interaction: Interaction,
     /// The Text Tool's text being typed, and where it goes.
     pub text: Option<(Point, String)>,
+    /// The number and name of the last Pin the Pin Tool placed here, which the next one
+    /// auto-increments from.
+    pub last_pin: Option<(String, String)>,
 }
 
 /// The Symbol editor's view state: each Symbol tab's canvas.
@@ -213,14 +215,14 @@ pub fn pointer(
     let mut hovered = tab.live.hovered;
     let mut cursor = tab.cursor;
     let mut state = canvas(shell, symbol);
+    let read_only = element_editor::read_only(shell.engine(), symbol);
     let mut cx = Cx {
         shell,
         symbol: &s,
         unit: unit_in(&s, state.unit),
         pick: PICK_POINTS * nm_per_point,
-        read_only: element_editor::read_only(shell.engine(), symbol),
+        read_only,
         commands: Vec::new(),
-        pins_added: 0,
     };
     state.interaction = cx.sync_tool(state.interaction);
     for &event in events {
@@ -239,6 +241,28 @@ pub fn pointer(
     *canvas_mut(shell, symbol) = state;
     show(shell, symbol, hovered);
     commands
+}
+
+/// What hovering shows over the Symbol `symbol`'s canvas: the hovered Pin's number, name
+/// and description, when it has a description.
+pub fn hover_text(shell: &Shell, symbol: Uuid) -> Option<String> {
+    let hovered = shell.document_tab(symbol)?.live.hovered?;
+    let pin = (symbol_of(shell.engine(), symbol)?.pins.iter()).find(|p| p.uuid == hovered)?;
+    (!pin.description.is_empty()).then(|| {
+        tr!(
+            "symbol-pin-hover",
+            number = pin.number.as_str(),
+            name = pin.name.as_str(),
+            description = pin.description.as_str()
+        )
+    })
+}
+
+/// Shows [`hover_text`] as a tooltip over the canvas `response`.
+pub(crate) fn hover_tip(shell: &Shell, symbol: Uuid, response: &egui::Response) {
+    if let Some(text) = hover_text(shell, symbol) {
+        response.clone().on_hover_text(text);
+    }
 }
 
 fn event_at(event: Pointer) -> Option<P> {
@@ -266,10 +290,17 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
     let tool = shell.tool();
     let grid = snap_grid(shell, symbol, tool);
     let state = canvas(shell, symbol);
+    let mode = match &state.interaction {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, symbol, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
+    let rules = crate::snap::rules_on(shell, symbol, grid);
     let Some(tab) = shell.document_tab_mut(symbol) else {
         return;
     };
-    let snapped = tab.cursor.map(|c| snap_to_grid(c, grid));
+    let snapped = tab.cursor.map(|c| rules.to_grid(c));
     let drawing = tool != Tool::Select;
     let (moving, offset, overlay) = match &state.interaction {
         Interaction::Idle => (
@@ -287,7 +318,7 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -324,14 +355,12 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
 }
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     symbol: &'a Symbol,
     unit: Option<Uuid>,
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pins this frame's clicks already asked for, so each gets its own number.
-    pins_added: u64,
 }
 
 impl Cx<'_> {
@@ -339,39 +368,27 @@ impl Cx<'_> {
         self.symbol.uuid
     }
 
+    /// `at` snapped onto the Symbol's Pin ends, else its grid (the Pin Tool's own).
     fn snap(&self, at: P) -> Point {
-        let tool = self.shell.tool();
-        snap_to_grid(at, snap_grid(self.shell, self.element(), tool))
+        self.snap_moving(at, &[])
     }
 
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
+    /// `at` snapped as a move of `objects` lands: onto the other Pins' ends.
+    fn snap_moving(&self, at: P, objects: &[Uuid]) -> Point {
+        let tool = self.shell.tool();
+        let pitch = snap_grid(self.shell, self.element(), tool);
+        let rules = crate::snap::rules_on(self.shell, self.element(), pitch);
+        let targets =
+            crate::snap::hotspots::without(crate::snap::hotspots::symbol(self.symbol), objects);
+        crate::snap::snap(at, &targets, &[], &rules).at
     }
 
     fn run(&mut self, id: &str, params: Value) {
         self.commands.push((id.to_owned(), params));
     }
 
-    /// Pins and graphics of the shown Unit (other Units are not drawn).
-    fn pickable(&self, uuid: Uuid) -> bool {
-        let unit = self.unit;
-        self.symbol
-            .pins
-            .iter()
-            .any(|p| p.uuid == uuid && Some(p.unit) == unit)
-            || self
-                .symbol
-                .graphics
-                .iter()
-                .any(|g| g.uuid == uuid && Some(g.unit) == unit)
-    }
-
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.element())?;
-        hit_test(&tab.scene.scene, at, self.pick, |o| self.pickable(o))
+        crate::selection::picking::hit(self.shell, self.element(), at, self.pick)
     }
 
     /// Drops what a Tool that is no longer active had in flight.
@@ -392,7 +409,7 @@ impl Cx<'_> {
         state.interaction = match self.shell.tool() {
             Tool::Pin => {
                 if let Pointer::Click { at, .. } = event {
-                    self.place_pin(at, state.pin_rotation);
+                    self.place_pin(at, state.pin_rotation, &mut state.last_pin);
                 }
                 Interaction::Idle
             }
@@ -408,20 +425,34 @@ impl Cx<'_> {
             tool @ (Tool::Line | Tool::Rect | Tool::Circle | Tool::Arc | Tool::Polygon) => {
                 self.draw(tool, interaction, event)
             }
+            Tool::Origin => {
+                if let Pointer::Click { at, .. } = event
+                    && !self.read_only
+                {
+                    let at = self.snap(at);
+                    self.run(
+                        "library.symbol.origin.set",
+                        json!({"symbol": self.element(), "to": {"kind": "pick", "at": json_point(at)}}),
+                    );
+                    self.run("tool.activate:select", json!({}));
+                }
+                Interaction::Idle
+            }
             _ => self.select_step(interaction, event, hovered),
         };
     }
 
-    fn place_pin(&mut self, at: P, rotation: Millideg) {
+    fn place_pin(&mut self, at: P, rotation: Millideg, last: &mut Option<(String, String)>) {
         let Some(unit) = self.unit.filter(|_| !self.read_only) else {
             return;
         };
-        let number = next_number(self.symbol, self.pins_added);
-        self.pins_added += 1;
+        let steps = self.shell.preferences().schematic.auto_increment;
+        let (number, name) = next_pin(self.symbol, last.as_ref(), steps.primary, steps.secondary);
+        *last = Some((number.clone(), name.clone()));
         let at = self.snap(at);
         self.run(
             "library.symbol.pin.add",
-            json!({"symbol": self.element(), "unit": unit, "name": "", "number": number,
+            json!({"symbol": self.element(), "unit": unit, "name": name, "number": number,
                    "at": json_point(at), "rotation": rotation.0}),
         );
     }
@@ -478,7 +509,7 @@ impl Cx<'_> {
                 },
                 Pointer::Drag(at),
             ) => Interaction::Moving {
-                offset: self.snap(at) - anchor,
+                offset: self.snap_moving(at, &objects) - anchor,
                 objects,
                 anchor,
             },
@@ -488,7 +519,7 @@ impl Cx<'_> {
                 },
                 Pointer::DragEnd(at),
             ) => {
-                let offset = self.snap(at) - anchor;
+                let offset = self.snap_moving(at, &objects) - anchor;
                 if offset != Point::default() && !self.read_only {
                     self.run(
                         "library.symbol.move",
@@ -518,17 +549,20 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.element(), at, self.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.element(),
+                    at,
+                    self.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -540,28 +574,34 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.element(),
+                    from,
+                    self.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = element_editor::selected_on(self.shell, self.element());
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let parts = element_editor::parts(self.shell.engine(), self.element());
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element(),
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 if self.read_only {
                     return Interaction::Idle;
                 }
                 let anchor = self.snap(from);
                 Interaction::Moving {
-                    offset: self.snap(at) - anchor,
+                    offset: self.snap_moving(at, &objects) - anchor,
                     objects,
                     anchor,
                 }
@@ -571,24 +611,21 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.element()) else {
-            return;
-        };
-        let picked = box_select(
-            &tab.scene.scene,
+        if let Some(command) = crate::selection::picking::box_selection(
+            self.shell,
+            self.element(),
             from,
             to,
-            BoxMode::of_drag(from, to),
-            |o| self.pickable(o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+            modifiers,
+        ) {
+            self.commands.push(command);
+        }
     }
 }
 
 /// How many clicks `tool` takes for one shape; `None` for a polygon, which closes on its
 /// first corner or Enter.
-fn corners(tool: Tool) -> Option<usize> {
+pub(crate) fn corners(tool: Tool) -> Option<usize> {
     match tool {
         Tool::Line | Tool::Rect | Tool::Circle => Some(2),
         Tool::Arc => Some(3),
@@ -598,7 +635,7 @@ fn corners(tool: Tool) -> Option<usize> {
 
 /// The shape `tool` draws through `points`, or `None` when they make none (a circle of
 /// no size, an arc of no sweep).
-fn shape_of(tool: Tool, points: &[Point]) -> Option<Value> {
+pub(crate) fn shape_of(tool: Tool, points: &[Point]) -> Option<Value> {
     let p = |i: usize| json_point(points[i]);
     Some(match tool {
         Tool::Line => json!({"kind": "line", "start": p(0), "end": p(1)}),
@@ -648,40 +685,39 @@ pub(crate) fn set_text(shell: &mut Shell, symbol: Uuid, text: Option<(Point, Str
     canvas_mut(shell, symbol).text = text;
 }
 
-/// What a paste into the pin table did.
+/// What a paste into the Pins Panel did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pasted {
     pub added: usize,
     pub updated: usize,
 }
 
-/// The one `batch` that applies pasted pin rows to `symbol`: a row whose number is a Pin's
-/// updates that Pin, any other adds a Pin to the shown Unit, below the others when it has
-/// no position. `Err` says what is wrong with the text.
+/// The one `batch` that applies pasted Pin rows (from the column-mapping paste) to
+/// `symbol`: a row whose number is a Pin's updates that Pin's name and type (and its side,
+/// when the row gives one), any other adds a Pin to the shown Unit, below the others,
+/// pointing in from the row's side (the left without one). `Err` says why nothing can be
+/// pasted.
 pub fn paste_command(
     shell: &Shell,
     symbol: Uuid,
-    text: &str,
+    rows: &[WizardPin],
 ) -> Result<(Invocation, Pasted), String> {
-    let rows = parse_pin_rows(text)?;
     let s = symbol_of(shell.engine(), symbol).ok_or("the Symbol is not open")?;
     let unit = shown_unit(shell, symbol).ok_or("the Symbol has no Unit")?;
     let mut next_at = paste_start(s, unit);
     let mut pasted = Pasted::default();
     let mut steps = Vec::new();
     for row in rows {
-        let mut params = json!({"symbol": symbol, "name": row.name});
-        if let Some(t) = row.electrical_type {
-            params["electrical_type"] = json!(t);
-        }
-        if let Some(r) = row.rotation {
-            params["rotation"] = json!(r.0);
-        }
-        if let Some(l) = row.length {
-            params["length"] = json!(l.0);
-        }
-        if let Some(at) = row.at {
-            params["at"] = json_point(at);
+        let mut params = json!({"symbol": symbol, "name": row.name,
+                                "electrical_type": row.electrical_type});
+        let side = row.side.map(|side| match side {
+            Side::Left => PinSide::Left,
+            Side::Right => PinSide::Right,
+            Side::Top => PinSide::Top,
+            Side::Bottom => PinSide::Bottom,
+        });
+        if let Some(side) = side {
+            params["rotation"] = json!(side.rotation().0);
         }
         match s.pins.iter().find(|p| p.number == row.number) {
             Some(pin) => {
@@ -692,10 +728,8 @@ pub fn paste_command(
             None => {
                 params["number"] = json!(row.number);
                 params["unit"] = json!(unit);
-                if row.at.is_none() {
-                    params["at"] = json_point(next_at);
-                    next_at.y = next_at.y - PASTE_PITCH;
-                }
+                params["at"] = json_point(next_at);
+                next_at.y = next_at.y - PASTE_PITCH;
                 steps.push(json!({"id": "library.symbol.pin.add", "params": params}));
                 pasted.added += 1;
             }
@@ -707,10 +741,14 @@ pub fn paste_command(
     Ok((("batch".to_owned(), json!({ "commands": steps })), pasted))
 }
 
-/// Applies pasted pin rows to `symbol` as one undo step (see [`paste_command`]).
-pub fn paste_pins(shell: &mut Shell, symbol: Uuid, text: &str) -> Result<Pasted, CommandError> {
+/// Applies pasted Pin rows to `symbol` as one undo step (see [`paste_command`]).
+pub fn paste_pins(
+    shell: &mut Shell,
+    symbol: Uuid,
+    rows: &[WizardPin],
+) -> Result<Pasted, CommandError> {
     let ((id, params), pasted) =
-        paste_command(shell, symbol, text).map_err(|why| CommandError::invalid_params("", why))?;
+        paste_command(shell, symbol, rows).map_err(|why| CommandError::invalid_params("", why))?;
     shell.run_reporting(&id, params)?;
     Ok(pasted)
 }
@@ -731,20 +769,41 @@ fn paste_start(symbol: &Symbol, unit: Uuid) -> Point {
     Point::new(x, lowest - PASTE_PITCH)
 }
 
-/// The number for a new Pin: one more than the highest numeric number, `skip` further
-/// on for Pins already asked for.
-fn next_number(symbol: &Symbol, skip: u64) -> String {
-    let highest = symbol
-        .pins
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    let mut n = highest + 1 + skip;
-    while symbol.pins.iter().any(|p| p.number == n.to_string()) {
-        n += 1;
-    }
-    n.to_string()
+/// The number and name of the next Pin the Pin Tool places in `symbol`, after `last`
+/// (the number and name of the one it placed before, if any): the number steps by
+/// `primary` (letters too, A → B, skipping numbers taken) and the name by `secondary`
+/// (its trailing number only), as the Pin now is if it is still there under that number,
+/// so edits made to it carry on. With nothing to step from, the number is one past the
+/// highest numeric one and the name is empty.
+pub fn next_pin(
+    symbol: &Symbol,
+    last: Option<&(String, String)>,
+    primary: i64,
+    secondary: i64,
+) -> (String, String) {
+    let taken = |n: &str| symbol.pins.iter().any(|p| p.number == n);
+    let stepped = last.and_then(|(number, name)| {
+        let name = symbol
+            .pins
+            .iter()
+            .find(|p| p.number == *number)
+            .map_or(name.as_str(), |p| p.name.as_str());
+        let next = auto_increment::next_number(number, primary, |n| !taken(n))?;
+        Some((next, auto_increment::step(name, secondary)))
+    });
+    stepped.unwrap_or_else(|| {
+        let highest = symbol
+            .pins
+            .iter()
+            .filter_map(|p| p.number.parse::<u64>().ok())
+            .max()
+            .unwrap_or(0);
+        let mut n = highest + 1;
+        while taken(&n.to_string()) {
+            n += 1;
+        }
+        (n.to_string(), String::new())
+    })
 }
 
 fn json_point(p: Point) -> Value {
@@ -768,7 +827,8 @@ fn sweep(center: Point, start: Point, end: Point) -> i64 {
 }
 
 /// Opens the Library Symbol of the placed Unit `unit` (or the Component it belongs to)
-/// in the Symbol editor: Edit in Library.
+/// in the Symbol editor: Edit in Library. On Source Missing it offers Extract to Library
+/// instead.
 pub(crate) fn edit_in_library(shell: &mut Shell, unit: Uuid) {
     let component = shell.engine().project().and_then(|p| {
         p.documents()
@@ -781,6 +841,23 @@ pub(crate) fn edit_in_library(shell: &mut Shell, unit: Uuid) {
         shell.report(tr!("error-edit-in-library-nothing"));
         return;
     };
+    // On Source Missing there is nothing to open: offer to extract it to a Library.
+    let index = shell.library_index();
+    let missing = shell.engine().project().is_some_and(|p| {
+        reda_engine::library::library_statuses(p, &index)
+            .iter()
+            .any(|s| {
+                s.component == component
+                    && s.status == reda_engine::schematic::LibraryStatus::SourceMissing
+            })
+    });
+    if missing {
+        shell.queue_call(
+            "library.extract_from_project",
+            json!({ "components": [component] }),
+        );
+        return;
+    }
     let Ok(found) = shell.run_reporting(
         "schematic.component.library_element",
         json!({ "component": component }),
@@ -805,7 +882,12 @@ pub struct UnitShowParams {
     /// The open Symbol.
     symbol: Uuid,
     /// One of its Units.
-    unit: Uuid,
+    #[serde(default)]
+    unit: Option<Uuid>,
+    /// Instead of `unit`: the Unit this many places after the shown one (negative
+    /// before), wrapping round (the Active Bar's Previous Unit and Next Unit).
+    #[serde(default)]
+    step: Option<i64>,
 }
 
 /// The Symbol and the Unit it now shows.
@@ -820,7 +902,9 @@ impl Command for UnitShow {
         id: "library.symbol.unit.show",
         title: "Show Unit",
         description: "Shows one Unit of an open Symbol in its editor, as clicking its Unit \
-                      tab does. The editor's Tools then draw on that Unit.",
+                      tab does, or with `step` the next (1) or previous (-1) Unit, as the \
+                      Active Bar's Unit buttons do. The editor's Tools then draw on that \
+                      Unit.",
         category: "library",
         icon: "symbol_edit",
         kind: Kind::View,
@@ -839,10 +923,33 @@ impl Command for UnitShow {
                 )));
             }
         };
-        if !symbol.units.iter().any(|u| u.uuid == p.unit) {
+        let unit = match (p.unit, p.step) {
+            (Some(unit), _) => unit,
+            (None, Some(step)) => {
+                let shown = cx
+                    .view::<SymbolEditorState>()?
+                    .canvases
+                    .get(&p.symbol)
+                    .and_then(|c| c.unit);
+                let at = shown
+                    .and_then(|u| symbol.units.iter().position(|x| x.uuid == u))
+                    .unwrap_or(0) as i64;
+                let n = symbol.units.len() as i64;
+                if n == 0 {
+                    return Err(CommandError::rejected("the Symbol has no Unit"));
+                }
+                symbol.units[(at + step).rem_euclid(n) as usize].uuid
+            }
+            (None, None) => {
+                return Err(CommandError::invalid_params(
+                    "/unit",
+                    "name the Unit, or a `step` from the shown one",
+                ));
+            }
+        };
+        if !symbol.units.iter().any(|u| u.uuid == unit) {
             return Err(CommandError::not_found(format!(
-                "the Symbol has no Unit {}",
-                p.unit
+                "the Symbol has no Unit {unit}"
             )));
         }
         let canvas = cx
@@ -850,12 +957,12 @@ impl Command for UnitShow {
             .canvases
             .entry(p.symbol)
             .or_default();
-        canvas.unit = Some(p.unit);
+        canvas.unit = Some(unit);
         canvas.interaction = Interaction::Idle;
         canvas.text = None;
         Ok(UnitShown {
             symbol: p.symbol,
-            unit: p.unit,
+            unit,
         })
     }
 }

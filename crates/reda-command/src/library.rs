@@ -43,6 +43,20 @@ pub trait PartSource {
         uuids.iter().map(|&uuid| self.part(uuid)).collect()
     }
 
+    /// Each of these Library Footprints, by UUID, copied as a Document holds it (without
+    /// its `generator`) with its content hash, in the same order: `not_found` for one no
+    /// registered Library holds.
+    fn footprints(&self, uuids: &[Uuid]) -> Vec<Result<FootprintCopyData, CommandError>> {
+        uuids
+            .iter()
+            .map(|uuid| {
+                Err(CommandError::not_found(format!(
+                    "no registered Library holds Footprint {uuid}"
+                )))
+            })
+            .collect()
+    }
+
     /// Where each of these Library elements (any kind) is on disk, in the same order:
     /// `None` for one no registered Library holds.
     fn locate(&self, elements: &[Uuid]) -> Vec<Option<ElementLocation>> {

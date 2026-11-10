@@ -109,7 +109,7 @@ fn every_order_walks_the_sheet_its_own_way() {
 fn units_slightly_off_level_still_count_as_one_row() {
     let dir = TempDir::new("reannotate-band");
     let mut engine = demo(&dir);
-    let right = place(&mut engine, R_10K, 40, 3); // R1, a little higher
+    let right = place(&mut engine, R_10K, 40, 2); // R1, a little higher
     let left = place(&mut engine, R_10K, 0, 0); // R2
 
     engine.run_ok(
@@ -232,7 +232,7 @@ fn the_lock_is_saved_with_the_sheet() {
 }
 
 #[test]
-fn sheet_scope_renumbers_only_the_components_on_that_sheet() {
+fn sheets_scope_renumbers_only_the_components_on_those_sheets() {
     let dir = TempDir::new("reannotate-sheet-scope");
     let mut engine = demo(&dir);
     let second = add_sheet(&mut engine);
@@ -242,7 +242,7 @@ fn sheet_scope_renumbers_only_the_components_on_that_sheet() {
 
     engine.run_ok(
         "schematic.reannotate",
-        json!({"order": "across_then_down", "scope": "sheet", "document": second}),
+        json!({"order": "across_then_down", "scope": "sheets", "sheets": [second]}),
     );
 
     assert_eq!(
@@ -252,9 +252,14 @@ fn sheet_scope_renumbers_only_the_components_on_that_sheet() {
 
     let missing = engine.run_err(
         "schematic.reannotate",
-        json!({"order": "across_then_down", "scope": "sheet"}),
+        json!({"order": "across_then_down", "scope": "sheets"}),
     );
     assert_eq!(missing.code, ErrorCode::InvalidParams);
+    let board_order = engine.run_err(
+        "schematic.reannotate",
+        json!({"order": "descending_y_then_ascending_x", "scope": "project"}),
+    );
+    assert_eq!(board_order.code, ErrorCode::InvalidParams);
 }
 
 fn first_unit_of(engine: &mut TestEngine, component: &Value) -> Value {
@@ -360,7 +365,10 @@ fn applying_records_an_undo_entry_in_each_touched_sheet() {
         json!({"order": "across_then_down", "scope": "project"}),
     );
     let touched: Vec<&String> = applied["changes"].as_object().unwrap().keys().collect();
-    assert_eq!(touched.len(), 2, "{applied}");
+    assert!(
+        touched.iter().any(|t| *t == SHEET) && touched.iter().any(|t| **t == second),
+        "{applied}"
+    );
     assert_eq!(
         designators(&mut engine, &[&on_first, &on_second]),
         ["R1", "R2"]
@@ -376,4 +384,276 @@ fn applying_records_an_undo_entry_in_each_touched_sheet() {
         designators(&mut engine, &[&on_first, &on_second]),
         ["R2", "R1"]
     );
+}
+
+/// Places `part` with its Symbol turned by `rotation` degrees.
+fn place_turned(engine: &mut TestEngine, part: &str, x: i64, y: i64, rotation: i64) -> Value {
+    engine.run_ok(
+        "schematic.component.place",
+        json!({"document": SHEET, "part": part, "rotation": format!("{rotation}deg"),
+               "at": {"x": format!("{x}mm"), "y": format!("{y}mm")}}),
+    )["result"]["component"]["uuid"]
+        .clone()
+}
+
+#[test]
+fn a_row_is_measured_from_its_first_part_not_chained_or_banded() {
+    let dir = TempDir::new("reannotate-threshold");
+    let mut engine = demo(&dir);
+    // Each 2 mm below the last: the second joins the first's row (within 100 mil), the
+    // third is 4 mm from the first and starts a row of its own.
+    let top = place(&mut engine, R_10K, 40, 0); // R1
+    let middle = place(&mut engine, R_10K, 0, -2); // R2
+    let low = place(&mut engine, R_10K, -40, -4); // R3
+
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "across_then_down", "scope": "project"}),
+    );
+    assert_eq!(
+        designators(&mut engine, &[&middle, &top, &low]),
+        ["R1", "R2", "R3"]
+    );
+
+    // A wider threshold takes all three into one row.
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "across_then_down", "scope": "project", "threshold": "5mm"}),
+    );
+    assert_eq!(
+        designators(&mut engine, &[&low, &middle, &top]),
+        ["R1", "R2", "R3"]
+    );
+}
+
+#[test]
+fn parts_are_sorted_by_their_body_centre_not_their_origin() {
+    let dir = TempDir::new("reannotate-body");
+    let mut engine = demo(&dir);
+    // Unit A of the op amp sits right of its origin (its body centre is 6.35 mm to the
+    // right); turned half round, it sits left of it.
+    let upright = place(&mut engine, LM358, 0, 20); // U1, centre x 6.35
+    let turned = place_turned(&mut engine, LM358, 10, 0, 180); // U2, centre x 3.65
+
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "down_then_across", "scope": "project"}),
+    );
+    assert_eq!(designators(&mut engine, &[&turned, &upright]), ["U1", "U2"]);
+}
+
+#[test]
+fn location_designator_sorts_by_where_the_designator_text_sits() {
+    let dir = TempDir::new("reannotate-location");
+    let mut engine = demo(&dir);
+    let left = place(&mut engine, R_10K, 0, 0); // R1
+    let right = place(&mut engine, R_10K, 40, 0); // R2
+    // The right one's Designator is moved far to the left, above the row.
+    let unit = first_unit_of(&mut engine, &right);
+    engine.run_ok(
+        "schematic.field.move",
+        json!({"unit": unit, "field": "designator", "at": {"x": "-30mm", "y": "1mm"}}),
+    );
+
+    let params = json!({"order": "across_then_down", "scope": "project",
+                        "location": "designator"});
+    engine.run_ok("schematic.reannotate", params);
+    assert_eq!(designators(&mut engine, &[&right, &left]), ["R1", "R2"]);
+
+    // By the part, the left one is first again.
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "across_then_down", "scope": "project", "location": "part"}),
+    );
+    assert_eq!(designators(&mut engine, &[&left, &right]), ["R1", "R2"]);
+}
+
+#[test]
+fn per_sheet_start_indices_number_each_sheet_from_its_own_start() {
+    let dir = TempDir::new("reannotate-start");
+    let mut engine = demo(&dir);
+    let second = add_sheet(&mut engine);
+    let a = place(&mut engine, R_10K, 0, 0);
+    let b = place(&mut engine, R_10K, 20, 0);
+    let c = place_on(&mut engine, &second, R_10K, 0, 0);
+    let d = place_on(&mut engine, &second, C_100N, 20, 0);
+
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "across_then_down", "scope": "project",
+               "per_sheet": [{"sheet": SHEET, "start_index": 100},
+                             {"sheet": second, "start_index": 200}]}),
+    );
+    assert_eq!(
+        designators(&mut engine, &[&a, &b, &c, &d]),
+        ["R100", "R101", "R200", "C200"]
+    );
+
+    // A sheet that runs over into the next one's numbers takes the next free number.
+    engine.run_ok(
+        "schematic.reannotate",
+        json!({"order": "across_then_down", "scope": "project",
+               "per_sheet": [{"sheet": second, "start_index": 2}]}),
+    );
+    assert_eq!(
+        designators(&mut engine, &[&a, &b, &c, &d]),
+        ["R1", "R2", "R3", "C2"]
+    );
+}
+
+/// Saves the Project, rewrites Designators in its sheet file and opens it again.
+fn reopen_with(dir: &TempDir, engine: &mut TestEngine, rewrites: &[(&str, &str)]) -> TestEngine {
+    engine.run_ok("project.save", json!({}));
+    let folder = dir.path().join("Demo");
+    let sheet = std::fs::read_dir(&folder)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().is_some_and(|e| e == "redasch"))
+        .unwrap();
+    let mut text = std::fs::read_to_string(&sheet).unwrap();
+    for (from, to) in rewrites {
+        let from = format!(r#""designator":"{from}""#);
+        assert!(text.contains(&from), "{from}");
+        text = text.replace(&from, &format!(r#""designator":"{to}""#));
+    }
+    std::fs::write(&sheet, text).unwrap();
+    let mut reopened = test_engine_with_library(&library());
+    reopened.run_ok("project.open", json!({"path": folder}));
+    reopened
+}
+
+#[test]
+fn fix_duplicates_only_keeps_the_first_and_renumbers_the_rest() {
+    let dir = TempDir::new("reannotate-duplicates");
+    let mut engine = demo(&dir);
+    // One row, left to right.
+    let a = place(&mut engine, R_10K, 0, 0); // R1 -> R2
+    let b = place(&mut engine, R_10K, 10, 0); // R2
+    let c = place(&mut engine, R_10K, 20, 0); // R3 -> R1
+    let d = place(&mut engine, R_10K, 30, 0); // R4 -> R7, locked
+    let e = place(&mut engine, R_10K, 40, 0); // R5 -> R7, locked
+    let f = place(&mut engine, R_10K, 50, 0); // R6 -> R5
+    let g = place(&mut engine, R_10K, 60, 0); // R7 -> R5, locked
+    engine.run_ok(
+        "schematic.component.set",
+        json!({"components": [d, e, g], "designator_locked": true}),
+    );
+    let mut engine = reopen_with(
+        &dir,
+        &mut engine,
+        &[
+            ("R1", "Rx"),
+            ("R2", "R2"),
+            ("R3", "R1"),
+            ("R4", "R7a"),
+            ("R5", "R7b"),
+            ("R7", "R5"),
+            ("R6", "R5"),
+            ("Rx", "R2"),
+            ("R7a", "R7"),
+            ("R7b", "R7"),
+        ],
+    );
+    assert_eq!(
+        designators(&mut engine, &[&a, &b, &c, &d, &e, &f, &g]),
+        ["R2", "R2", "R1", "R7", "R7", "R5", "R5"]
+    );
+
+    let params = json!({"order": "across_then_down", "scope": "project",
+                        "mode": "fix_duplicates_only"});
+    let preview = engine.run_ok("schematic.reannotate.preview", params.clone());
+    // The locked pair stays, and the preview says so.
+    let mut pair = [d.as_str().unwrap(), e.as_str().unwrap()];
+    pair.sort();
+    assert_eq!(
+        preview["kept_duplicates"],
+        json!([{"designator": "R7", "components": pair}]),
+        "{preview}"
+    );
+    engine.run_ok("schematic.reannotate", params);
+    // a is first with R2 and keeps it; b takes the smallest free number; c is unique;
+    // f's R5 is held by locked g, so f moves.
+    assert_eq!(
+        designators(&mut engine, &[&a, &b, &c, &d, &e, &f, &g]),
+        ["R2", "R3", "R1", "R7", "R7", "R4", "R5"]
+    );
+}
+
+#[test]
+fn the_last_settings_are_saved_in_the_project_file_and_run_again() {
+    let dir = TempDir::new("reannotate-saved");
+    let mut engine = demo(&dir);
+    let err = engine.run_err("schematic.reannotate", json!({"saved": true}));
+    assert_eq!(err.code, ErrorCode::Unavailable);
+
+    let [tl, tr, bl, br] = grid(&mut engine);
+    let settings = json!({"order": "down_then_across", "scope": "project",
+                          "threshold": "1mm",
+                          "per_sheet": [{"sheet": SHEET, "start_index": 10}]});
+    engine.run_ok("schematic.reannotate", settings);
+    assert_eq!(
+        designators(&mut engine, &[&tl, &tr, &bl, &br]),
+        ["R10", "R12", "R11", "R13"]
+    );
+    engine.run_ok("project.save", json!({}));
+
+    let tree = reda_testkit::read_tree(dir.path());
+    let file = tree
+        .iter()
+        .find(|(path, _)| path.ends_with(".reda"))
+        .map(|(_, bytes)| String::from_utf8(bytes.clone()).unwrap())
+        .unwrap();
+    let file: Value = serde_json::from_str(&file).unwrap();
+    assert_eq!(
+        file["reannotate"],
+        json!({"source": "schematic", "mode": "renumber_all", "scope": "project",
+               "order": "down_then_across", "location": "part", "threshold": 1_000_000,
+               "per_sheet": [{"sheet": SHEET, "start_index": 10}],
+               "sides": "top_then_bottom", "start_index": 1}),
+        "{file}"
+    );
+
+    // Reopened and shuffled, the saved settings number the same way again.
+    let mut reopened = test_engine_with_library(&library());
+    reopened.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
+    reopened.run_ok(
+        "schematic.component.set",
+        json!({"components": [tl], "designator": "R50"}),
+    );
+    let preview = reopened.run_ok("schematic.reannotate.preview", json!({"saved": true}));
+    assert_eq!(preview["designators"][0]["new"], "R10", "{preview}");
+    reopened.run_ok("schematic.reannotate", json!({"saved": true}));
+    assert_eq!(
+        designators(&mut reopened, &[&tl, &tr, &bl, &br]),
+        ["R10", "R12", "R11", "R13"]
+    );
+
+    let mixed = reopened.run_err(
+        "schematic.reannotate",
+        json!({"saved": true, "order": "across_then_up"}),
+    );
+    assert_eq!(mixed.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn reset_clears_the_saved_settings_as_one_undoable_project_edit() {
+    let dir = TempDir::new("reannotate-reset");
+    let mut engine = demo(&dir);
+    grid(&mut engine);
+    engine.run_ok("schematic.reannotate", json!({"order": "down_then_across"}));
+    engine.run_ok("schematic.reannotate.preview", json!({"saved": true}));
+
+    let out = engine.run_ok("schematic.reannotate.reset", json!({}));
+    assert_eq!(out["result"]["cleared"], true);
+    let err = engine.run_err("schematic.reannotate.preview", json!({"saved": true}));
+    assert_eq!(err.code, ErrorCode::Unavailable);
+
+    // One undo brings the settings back.
+    engine.run_ok("edit.undo", json!({"document": "project"}));
+    engine.run_ok("schematic.reannotate.preview", json!({"saved": true}));
+
+    // Nothing left to forget after a second reset.
+    engine.run_ok("schematic.reannotate.reset", json!({}));
+    let out = engine.run_ok("schematic.reannotate.reset", json!({}));
+    assert_eq!(out["result"]["cleared"], false);
 }

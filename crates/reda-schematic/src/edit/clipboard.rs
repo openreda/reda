@@ -1,5 +1,5 @@
-//! The clipboard: `schematic.copy`, `schematic.cut`, `schematic.paste` and
-//! `schematic.duplicate`.
+//! The clipboard: `schematic.copy`, `schematic.cut`, `schematic.paste`,
+//! `schematic.duplicate` and `schematic.copy_as_text`.
 //!
 //! The clipboard is plain data that `copy` and `cut` return and `paste` takes back, so a
 //! front end can keep it on the system clipboard and paste into any sheet, or any Project.
@@ -21,7 +21,7 @@ use super::bounds::union;
 use super::delete::delete_objects;
 use super::selection::{one_sheet, resolve};
 use crate::component::{At, next_free_designator};
-use crate::wiring::split_wires_at_pins;
+use crate::normalise::{Wiring, normalise};
 
 /// Copied sheet objects, as `schematic.copy` and `schematic.cut` return them and
 /// `schematic.paste` takes them. Treat it as opaque.
@@ -59,6 +59,9 @@ pub struct Clipboard {
 pub struct CopyParams {
     /// The objects to copy, by UUID, all on one sheet.
     pub objects: Vec<Uuid>,
+    /// The reference point a paste puts at its `at` (Clipboard Reference); the lower-left
+    /// corner of the copied objects by default.
+    pub origin: Option<At>,
 }
 
 pub struct Copy;
@@ -80,8 +83,24 @@ impl Command for Copy {
     fn run(&self, cx: &mut Context<'_>, p: CopyParams) -> Result<Clipboard, CommandError> {
         let project = cx.project()?;
         let objects = resolve(project, &p.objects, "/objects")?;
-        copy(project, &objects)
+        let mut clipboard = copy(project, &objects)?;
+        if let Some(origin) = p.origin {
+            clipboard.origin = origin.point();
+        }
+        Ok(clipboard)
     }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CutParams {
+    /// The objects to cut, by UUID, all on one sheet.
+    pub objects: Vec<Uuid>,
+    /// The reference point a paste puts at its `at` (Clipboard Reference); the lower-left
+    /// corner of the cut objects by default.
+    pub origin: Option<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct Cut;
@@ -96,14 +115,17 @@ impl Command for Cut {
         icon: "cut",
         kind: Kind::Edit,
     };
-    type Params = CopyParams;
+    type Params = CutParams;
     type Output = Clipboard;
 
-    fn run(&self, cx: &mut Context<'_>, p: CopyParams) -> Result<Clipboard, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: CutParams) -> Result<Clipboard, CommandError> {
         let project = cx.project()?;
         let objects = resolve(project, &p.objects, "/objects")?;
-        let clipboard = copy(project, &objects)?;
-        delete_objects(cx, &objects)?;
+        let mut clipboard = copy(project, &objects)?;
+        if let Some(origin) = p.origin {
+            clipboard.origin = origin.point();
+        }
+        delete_objects(cx, &objects, &p.wiring.unwrap_or_default())?;
         Ok(clipboard)
     }
 }
@@ -118,6 +140,8 @@ pub struct PasteParams {
     /// Where the clipboard's origin (the lower-left corner of what was copied) goes; where
     /// it was copied from by default.
     pub at: Option<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 /// The objects a paste made.
@@ -135,9 +159,11 @@ impl Command for Paste {
         id: "schematic.paste",
         title: "Paste",
         description: "Pastes a clipboard onto a Schematic Sheet. Everything gets a fresh \
-                      UUID; each copied Component becomes a new Component with the next \
-                      free Designator, its copied Units staying together. Part-table entries \
-                      the sheet lacks are added.",
+                      UUID, even after a cut; each copied Component becomes a new Component, \
+                      its copied Units staying together, and keeps its Designator if no \
+                      Component uses it, else takes the next free one. Part-table entries \
+                      the sheet lacks are added. schematic.selection.move_to_sheet keeps \
+                      UUIDs instead.",
         category: "schematic",
         icon: "paste",
         kind: Kind::Edit,
@@ -149,7 +175,8 @@ impl Command for Paste {
         crate::sheet(cx.project()?, p.document)?;
         let offset =
             p.at.map_or(Point::default(), |at| at.point() - p.clipboard.origin);
-        let objects = paste(cx, p.document, p.clipboard, offset)?;
+        let wiring = p.wiring.unwrap_or_default();
+        let objects = paste(cx, p.document, p.clipboard, offset, &wiring)?;
         Ok(PasteResult { objects })
     }
 }
@@ -162,6 +189,8 @@ pub struct DuplicateParams {
     /// How far from the originals the copies go; 100 mil right and 100 mil down by
     /// default.
     pub offset: Option<At>,
+    /// How the Wires this edit touches are normalised; the fixed defaults when left out.
+    pub wiring: Option<Wiring>,
 }
 
 pub struct Duplicate;
@@ -171,7 +200,7 @@ impl Command for Duplicate {
         id: "schematic.duplicate",
         title: "Duplicate",
         description: "Copies the selected objects and pastes them on the same sheet at an \
-                      offset, with fresh Designators.",
+                      offset, with Designators following schematic.paste's rule.",
         category: "schematic",
         icon: "duplicate",
         kind: Kind::Edit,
@@ -186,7 +215,13 @@ impl Command for Duplicate {
         let clipboard = copy(project, &objects)?;
         let step = Nm::from_mil(100);
         let offset = p.offset.map_or(Point::new(step, -step), At::point);
-        let objects = paste(cx, document, clipboard, offset)?;
+        let objects = paste(
+            cx,
+            document,
+            clipboard,
+            offset,
+            &p.wiring.unwrap_or_default(),
+        )?;
         Ok(PasteResult { objects })
     }
 }
@@ -238,12 +273,24 @@ fn copy(project: &Project, objects: &[Object]) -> Result<Clipboard, CommandError
     Ok(clip)
 }
 
+/// Whether no Unit in the Project, the ones pasted so far included, carries `designator`.
+/// A blank Designator is never free, so a paste always ends annotated.
+fn designator_is_free(project: &Project, designator: &str) -> bool {
+    !designator.trim().is_empty()
+        && !project
+            .documents()
+            .filter_map(|d| project.schematic_sheet(d.uuid))
+            .flat_map(|s| s.units())
+            .any(|u| u.designator == designator)
+}
+
 /// Pastes `clip` onto `document`, moved by `offset`, and returns the new objects.
 fn paste(
     cx: &mut Context<'_>,
     document: Uuid,
     clip: Clipboard,
     offset: Point,
+    wiring: &Wiring,
 ) -> Result<Vec<Uuid>, CommandError> {
     let bad = |why: String| CommandError::invalid_params("/clipboard", why);
     let body = crate::sheet(cx.project()?, document)?.clone();
@@ -293,7 +340,6 @@ fn paste(
     let mut pasted = vec![];
     // Each copied Component becomes a new one; its copied Units stay together.
     let mut components: BTreeMap<Uuid, (Uuid, String)> = BTreeMap::new();
-    let mut units = vec![];
     for mut unit in clip.units {
         let Some((entry, prefix)) = entry_ids.get(&unit.part) else {
             return Err(bad(format!(
@@ -304,7 +350,12 @@ fn paste(
         let (component, designator) = match components.get(&unit.component.uuid) {
             Some(known) => known.clone(),
             None => {
-                let fresh = (cx.new_id(), next_free_designator(cx.project()?, prefix));
+                let project = cx.project()?;
+                let designator = match designator_is_free(project, &unit.designator) {
+                    true => unit.designator.clone(),
+                    false => next_free_designator(project, prefix),
+                };
+                let fresh = (cx.new_id(), designator);
                 components.insert(unit.component.uuid, fresh.clone());
                 fresh
             }
@@ -314,15 +365,15 @@ fn paste(
         unit.component = ComponentRef::new(component);
         unit.designator = designator;
         unit.at = unit.at + offset;
-        units.push(unit.uuid);
         pasted.push(unit.uuid);
         cx.tx()?
             .insert(Object::Unit(InDocument::new(document, unit)))?;
     }
     for mut wire in clip.wires {
         wire.uuid = cx.new_id();
-        wire.from = wire.from + offset;
-        wire.to = wire.to + offset;
+        for v in &mut wire.vertices {
+            *v = *v + offset;
+        }
         pasted.push(wire.uuid);
         cx.tx()?
             .insert(Object::Wire(InDocument::new(document, wire)))?;
@@ -370,8 +421,57 @@ fn paste(
         cx.tx()?
             .insert(Object::SheetGraphic(InDocument::new(document, graphic)))?;
     }
-    for unit in units {
-        split_wires_at_pins(cx, document, unit)?;
+    let lineage = normalise(cx, document, &body, wiring)?;
+    Ok(lineage.trace_all(&pasted))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CopyAsTextParams {
+    /// The objects whose text to copy, by UUID.
+    pub objects: Vec<Uuid>,
+}
+
+/// What `schematic.copy_as_text` returns.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct CopiedText {
+    /// One line per object (more for multi-line text), in the order given.
+    pub text: String,
+}
+
+pub struct CopyAsText;
+
+impl Command for CopyAsText {
+    const META: Meta = Meta {
+        id: "schematic.copy_as_text",
+        title: "Copy As Text",
+        description: "Returns the text of the given Net Labels, Ports, Power Ports, free \
+                      texts and Units (their Designators), one per line in the order given, \
+                      for the system clipboard. Objects with no text are skipped. Changes \
+                      nothing.",
+        category: "schematic",
+        icon: "copy",
+        kind: Kind::Query,
+    };
+    type Params = CopyAsTextParams;
+    type Output = CopiedText;
+
+    fn run(&self, cx: &mut Context<'_>, p: CopyAsTextParams) -> Result<CopiedText, CommandError> {
+        let project = cx.project()?;
+        let objects = resolve(project, &p.objects, "/objects")?;
+        let lines: Vec<&str> = objects
+            .iter()
+            .filter_map(|object| match object {
+                Object::Unit(u) => Some(u.object.designator.as_str()),
+                Object::NetLabel(l) => Some(l.object.name.as_str()),
+                Object::Port(p) => Some(p.object.name.as_str()),
+                Object::PowerPort(p) => Some(p.object.name.as_str()),
+                Object::SheetText(t) => Some(t.object.text.as_str()),
+                _ => None,
+            })
+            .collect();
+        Ok(CopiedText {
+            text: lines.join("\n"),
+        })
     }
-    Ok(pasted)
 }

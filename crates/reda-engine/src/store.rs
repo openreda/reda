@@ -39,10 +39,9 @@ pub struct Opened {
     pub project: Project,
     /// The Project folder.
     pub folder: PathBuf,
-    /// Documents the Project file lists whose files are missing. A missing PCB Document
-    /// is left out of `project`, so saving drops it from the Project file; a missing
-    /// Schematic Sheet is recreated empty at its manifest path (a Recovery Snapshot may
-    /// then restore its contents), so saving writes it again.
+    /// Documents the Project file lists whose files are missing. They are left out of
+    /// `project` and kept in its [`ProjectProps::missing`], so saving keeps listing them
+    /// in the Project file and writes no file for them.
     pub missing: Vec<DocumentEntry>,
 }
 
@@ -93,29 +92,30 @@ pub fn open_from(
         libraries: file.libraries.clone(),
         properties: file.properties.clone(),
         erc: file.erc,
+        schematic: file.schematic,
+        reannotate: file.reannotate,
+        library_update: file.library_update,
+        missing: vec![],
     });
+    reda_model::text::check_object(&Object::Project(project.props().clone())).map_err(invalid)?;
     let mut missing = vec![];
     let mut tx = project.transaction();
+    let mut order = vec![];
     for row in &file.documents {
         let entry = row.entry().map_err(invalid)?;
         let path = folder.join(entry.file_name());
+        order.push(entry.uuid);
+        let bytes = match read(&path) {
+            Ok(bytes) => bytes,
+            Err(LoadError::Missing(_)) => {
+                missing.push(entry);
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
         let objects = match entry.kind {
-            DocumentKind::Schematic => match read(&path) {
-                Ok(bytes) => read_sheet_file(&path, &bytes, entry.uuid)?,
-                Err(LoadError::Missing(_)) => {
-                    missing.push(entry.clone());
-                    vec![]
-                }
-                Err(e) => return Err(e),
-            },
-            DocumentKind::Pcb => match read(&path) {
-                Ok(bytes) => read_pcb_file(&path, &bytes, entry.uuid)?,
-                Err(LoadError::Missing(_)) => {
-                    missing.push(entry);
-                    continue;
-                }
-                Err(e) => return Err(e),
-            },
+            DocumentKind::Schematic => read_sheet_file(&path, &bytes, entry.uuid)?,
+            DocumentKind::Pcb => read_pcb_file(&path, &bytes, entry.uuid)?,
         };
         add_document(&mut tx, entry).map_err(|e| invalid(e.to_string()))?;
         for object in objects {
@@ -126,6 +126,13 @@ pub fn open_from(
         .chain(file.output_jobs.into_iter().map(Object::OutputJob));
     for object in settings {
         tx.insert(object).map_err(|e| invalid(e.to_string()))?;
+    }
+    if !missing.is_empty() {
+        let mut props = tx.project().props().clone();
+        props.missing = missing.clone();
+        props.documents = order;
+        tx.replace(Object::Project(props))
+            .map_err(|e| invalid(e.to_string()))?;
     }
     tx.commit().map_err(|e| invalid(e.to_string()))?;
     Ok(Opened {
@@ -241,7 +248,10 @@ pub fn save_tracked(
     let doomed: Vec<Uuid> = on_disk
         .iter()
         .filter(|(uuid, name)| {
+            // A missing Document's file is not REDA's to trash: undoing a relink leaves
+            // the file it was relinked to where it is.
             project.document(**uuid).is_none()
+                && project.missing_document(**uuid).is_none()
                 && (with_project || files.iter().any(|(rel, _)| same(rel, name)))
         })
         .map(|(uuid, _)| *uuid)

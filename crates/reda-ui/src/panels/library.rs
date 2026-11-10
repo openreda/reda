@@ -1,19 +1,30 @@
 //! The Library panel: the registered Libraries' Parts, searched and filtered, with a
 //! preview of the chosen one. On a sheet it lists Parts that have a Symbol, on the PCB
-//! Mechanical Parts. Clicking or dragging a Part starts the placement Tool
-//! (`tool.place`); Edit opens the chosen Part in the Part editor, and New… makes a Part,
-//! Symbol or Footprint, imports a Part or runs a Footprint generator.
+//! Mechanical Parts, and beside a Library editor tab that element's Library's Symbols,
+//! Footprints and Parts (Library mode). Each Part row shows its Library Status over the
+//! open Project ("3 placed, 1 differs"). Clicking or dragging a Part starts the placement
+//! Tool (`tool.place`); Edit opens the chosen element in its editor; a row's menu has
+//! Where Used, Duplicate, Copy to Library…, Check and more; and New… makes a Part, Symbol
+//! or Footprint or a Library, imports a Part, runs a Footprint generator or makes a
+//! Project Library from the Project's part tables.
 //!
 //! The panel reads the Libraries through [`Engine::libraries`](reda_engine::Engine),
 //! scanning again only when a Command may have changed them (the Shell's library
 //! generation) or on Refresh, and changes nothing itself.
 
+mod details;
+mod menu;
 pub(crate) mod preview;
+pub mod rows;
+
+use std::collections::BTreeMap;
 
 use egui::{ComboBox, Id, Role, ScrollArea, Sense, TextEdit, Ui, WidgetInfo};
-use reda_engine::library::{LibraryIndex, SearchHit, SearchQuery};
+use reda_engine::library::{LibraryIndex, SearchQuery};
 use reda_engine::model::{ComponentType, DocumentKind, Part, Uuid};
 use serde_json::{Value, json};
+
+pub use rows::{Entry, Mode, RowStatus};
 
 use crate::shell::Shell;
 use crate::tr;
@@ -31,14 +42,42 @@ pub enum Action {
     Call(String, Value),
 }
 
-/// The panel's state between frames: the filters, the chosen Part and the scanned
+/// What a click in the panel does: what the window runs after the frame, or what the
+/// panel does itself with the Shell once drawn.
+enum Do {
+    Out(Action),
+    /// Run Where Used on the element and show what it found in the details.
+    WhereUsed(Uuid),
+    /// Run the Library check on the element into the Messages panel.
+    Check(Uuid),
+}
+
+impl Do {
+    /// Opens the element in its editor.
+    fn open(element: Uuid) -> Do {
+        Do::Out(Action::Run(
+            "library.element.open".into(),
+            json!({ "element": element }),
+        ))
+    }
+
+    /// Opens the Update from Library dialog on the Components of Part `part`.
+    fn update(part: Uuid) -> Do {
+        Do::Out(Action::Run(
+            "schematic.update_from_library.open".into(),
+            json!({ "parts": [part] }),
+        ))
+    }
+}
+
+/// The panel's state between frames: the filters, the chosen row and the scanned
 /// Libraries.
 #[derive(Default)]
 pub struct LibraryPanel {
     pub text: String,
     pub library: Option<Uuid>,
     pub component_type: Option<ComponentType>,
-    /// The chosen Part.
+    /// The chosen row's element.
     pub selected: Option<Uuid>,
     /// The Unit tab shown, by index.
     pub unit: usize,
@@ -46,6 +85,12 @@ pub struct LibraryPanel {
     pub footprint: usize,
     /// The scan and the library generation it was made at.
     index: Option<(u64, LibraryIndex)>,
+    /// How many scans the panel has made, so the statuses know when theirs is stale.
+    scans: u64,
+    /// Each Part's Library Status, and the scan and Journal length it was worked out at.
+    statuses: Option<((u64, usize), BTreeMap<Uuid, RowStatus>)>,
+    /// The last Where Used result, and the element it was asked about.
+    where_used: Option<(Uuid, Value)>,
 }
 
 /// Where Parts from the panel would go now: the active Document.
@@ -80,6 +125,7 @@ impl LibraryPanel {
         let generation = shell.library_generation();
         if self.index.as_ref().is_none_or(|(g, _)| *g != generation) {
             self.index = Some((generation, shell.engine().libraries()));
+            self.scans += 1;
         }
         &self.index.as_ref().expect("just scanned").1
     }
@@ -89,29 +135,44 @@ impl LibraryPanel {
         self.index = None;
     }
 
-    /// The Parts the panel lists for `target`: the search's hits, only those with a
-    /// Symbol on a sheet and only Mechanical Parts on the board.
-    pub fn parts(&mut self, shell: &Shell) -> Vec<(String, Part)> {
+    /// What the panel lists now: Library mode beside a Library editor tab whose
+    /// element a registered Library holds, else Parts to place in the active Document.
+    pub fn mode(&mut self, shell: &Shell) -> Mode {
+        let element = shell
+            .active_document()
+            .map(|d| d.document)
+            .filter(|e| shell.engine().element(*e).is_some());
+        if let Some(element) = element {
+            let library = (shell.engine().element_source(element).map(|s| s.library))
+                .or_else(|| self.index(shell).library_of(element).map(|l| l.info.uuid));
+            if let Some(library) = library {
+                return Mode::Library(library);
+            }
+        }
+        Mode::Place(target(shell))
+    }
+
+    /// The rows the panel lists in `mode` for its search and filters.
+    pub fn entries(&mut self, shell: &Shell, mode: Mode) -> Vec<Entry> {
         let query = SearchQuery {
             text: self.text.clone(),
             library: self.library,
             component_type: self.component_type,
         };
-        let target = target(shell);
-        self.index(shell)
-            .search(&query)
-            .into_iter()
-            .filter(|hit| fits(hit, target))
-            .map(|hit| (hit.library.info.name.clone(), hit.part.clone()))
-            .collect()
+        rows::entries(self.index(shell), mode, &query)
     }
-}
 
-fn fits(hit: &SearchHit<'_>, target: Placing) -> bool {
-    match target {
-        Placing::Sheet(_) => hit.part.symbol.is_some(),
-        Placing::Board(_) => hit.part.component_type == ComponentType::Mechanical,
-        Placing::Nowhere => true,
+    /// Each Part's Library Status over the open Project, worked out again only after a
+    /// Command ran or the Libraries were scanned again.
+    pub fn statuses(&mut self, shell: &Shell) -> &BTreeMap<Uuid, RowStatus> {
+        self.index(shell);
+        let key = (self.scans, shell.engine().journal().len());
+        if self.statuses.as_ref().is_none_or(|(k, _)| *k != key) {
+            let index = &self.index.as_ref().expect("just scanned").1;
+            let statuses = rows::statuses(shell.engine().project(), index);
+            self.statuses = Some((key, statuses));
+        }
+        &self.statuses.as_ref().expect("just worked out").1
     }
 }
 
@@ -141,26 +202,51 @@ fn place(
 /// Draws the panel; returns what was clicked.
 pub fn show(ui: &mut Ui, shell: &mut Shell) -> Vec<Action> {
     let mut panel = std::mem::take(shell.library_panel_mut());
-    let actions = draw(ui, shell, &mut panel);
+    let done = draw(ui, shell, &mut panel);
+    let mut actions = Vec::new();
+    for d in done {
+        match d {
+            Do::Out(action) => actions.push(action),
+            Do::WhereUsed(element) => {
+                // From a row's menu: its details show what was found.
+                if panel.selected != Some(element) {
+                    panel.selected = Some(element);
+                    panel.unit = 0;
+                    panel.footprint = 0;
+                }
+                if let Ok(found) =
+                    shell.run_reporting("library.where_used", json!({ "element": element }))
+                {
+                    panel.where_used = Some((element, found));
+                }
+            }
+            Do::Check(element) => {
+                let _ = crate::element_editor::check(shell, element);
+            }
+        }
+    }
     *shell.library_panel_mut() = panel;
     actions
 }
 
-fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Action> {
-    let mut actions = Vec::new();
+fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
+    let mut out = Vec::new();
     let target = target(shell);
-    filters(ui, shell, panel);
-    let parts = panel.parts(shell);
+    let mode = panel.mode(shell);
+    filters(ui, shell, panel, mode);
+    let entries = panel.entries(shell, mode);
+    let statuses = panel.statuses(shell).clone();
     if panel
         .selected
-        .is_some_and(|s| !parts.iter().any(|(_, p)| p.uuid == s))
+        .is_some_and(|s| !entries.iter().any(|e| e.uuid == s))
     {
         panel.selected = None;
     }
-    match target {
-        Placing::Sheet(_) => ui.weak(tr!("library-sheet-parts")),
-        Placing::Board(_) => ui.weak(tr!("library-board-parts")),
-        Placing::Nowhere => ui.weak(tr!("library-no-document")),
+    match mode {
+        Mode::Library(_) => ui.weak(tr!("library-library-mode")),
+        Mode::Place(Placing::Sheet(_)) => ui.weak(tr!("library-sheet-parts")),
+        Mode::Place(Placing::Board(_)) => ui.weak(tr!("library-board-parts")),
+        Mode::Place(Placing::Nowhere) => ui.weak(tr!("library-no-document")),
     };
     let list_height = (ui.available_height() * 0.45).max(80.0);
     ScrollArea::vertical()
@@ -168,51 +254,52 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Action> {
         .max_height(list_height)
         .auto_shrink([false, true])
         .show(ui, |ui| {
-            if parts.is_empty() {
+            if entries.is_empty() {
                 ui.weak(tr!("library-no-parts"));
             }
-            for (_, part) in &parts {
-                if let Some(action) = row(ui, panel, target, part) {
-                    actions.push(action);
-                }
+            for entry in &entries {
+                let status = statuses.get(&entry.uuid).copied();
+                out.extend(row(ui, panel, mode, target, entry, status));
             }
         });
     ui.separator();
     let chosen = panel
         .selected
-        .and_then(|s| parts.iter().find(|(_, p)| p.uuid == s))
+        .and_then(|s| entries.iter().find(|e| e.uuid == s))
         .cloned();
     ui.horizontal(|ui| {
-        // Edit opens the chosen Part in the Part editor, which links to its Symbol and
-        // Footprints; New makes an element, imports a Part or generates a Footprint.
-        let part = chosen.as_ref().map(|(_, p)| p.uuid);
-        let edit = ui.add_enabled(part.is_some(), egui::Button::new(tr!("library-edit")));
+        // Edit opens the chosen element in its editor (a Part's links to its Symbol and
+        // Footprints); New makes an element or a Library, imports a Part, generates a
+        // Footprint or makes a Project Library.
+        let label = match mode {
+            Mode::Place(_) => tr!("library-edit"),
+            Mode::Library(_) => tr!("library-edit-element"),
+        };
+        let edit = ui.add_enabled(chosen.is_some(), egui::Button::new(label));
         if edit.clicked()
-            && let Some(part) = part
+            && let Some(entry) = &chosen
         {
-            actions.push(Action::Run(
-                "library.element.open".into(),
-                json!({ "element": part }),
-            ));
+            out.push(Do::open(entry.uuid));
         }
         ui.menu_button(tr!("library-new"), |ui| {
-            actions.extend(new_menu(ui, shell, panel.library));
+            out.extend(new_menu(ui, shell, panel.library).map(Do::Out));
         });
         if ui.button(tr!("library-refresh")).clicked() {
             panel.rescan();
         }
     });
-    // The chosen Part's previews scroll under the buttons, which stay in view.
-    if let Some((library, part)) = &chosen {
+    // The chosen row's details scroll under the buttons, which stay in view.
+    if let Some(entry) = &chosen {
         ui.separator();
         ScrollArea::vertical()
             .id_salt("library-details")
             .auto_shrink([false, true])
             .show(ui, |ui| {
-                actions.extend(details(ui, panel, target, library, part));
+                let project = shell.engine().project();
+                out.extend(details::show(ui, panel, project, target, entry));
             });
     }
-    actions
+    out
 }
 
 /// The New menu: a new Part, Symbol or Footprint opened in its editor, Import part, and a
@@ -240,6 +327,12 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
     if ui.button(tr!("library-new-library")).clicked() {
         picked = Some(Action::Call("library.create".into(), json!({})));
     }
+    if ui.button(tr!("library-make-project-library")).clicked() {
+        picked = Some(Action::Call(
+            "library.extract_from_project".into(),
+            with_library(json!({})),
+        ));
+    }
     ui.separator();
     if ui.button(tr!("library-import-part")).clicked() {
         picked = Some(Action::Call(
@@ -266,7 +359,7 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
 }
 
 /// The search box and the Library and Component Type filters.
-fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) {
+fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
     let search = tr!("library-search");
     let response = ui.add(
         TextEdit::singleline(&mut panel.text)
@@ -282,35 +375,32 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) {
         .collect();
     ui.horizontal(|ui| {
         let all = tr!("library-all-libraries");
+        // In Library mode the editor's Library is the one listed.
+        let shown = matches!(mode, Mode::Place(_));
         let chosen = panel
             .library
             .and_then(|u| libraries.iter().find(|(l, _)| *l == u))
             .map_or(all.clone(), |(_, n)| n.clone());
         let label = tr!("library-filter-library");
-        let response = ComboBox::from_id_salt("library-filter-library")
-            .selected_text(chosen)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut panel.library, None, all);
-                for (uuid, name) in &libraries {
-                    ui.selectable_value(&mut panel.library, Some(*uuid), name);
-                }
-            })
-            .response;
-        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-        let type_name = |t: Option<ComponentType>| match t {
-            None => tr!("library-all-types"),
-            Some(ComponentType::Standard) => tr!("library-type-standard"),
-            Some(ComponentType::Mechanical) => tr!("library-type-mechanical"),
-        };
+        if shown {
+            let response = ComboBox::from_id_salt("library-filter-library")
+                .selected_text(chosen)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut panel.library, None, all);
+                    for (uuid, name) in &libraries {
+                        ui.selectable_value(&mut panel.library, Some(*uuid), name);
+                    }
+                })
+                .response;
+            response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+        }
+        let type_name =
+            |t: Option<ComponentType>| t.map_or_else(|| tr!("library-all-types"), type_name);
         let label = tr!("library-filter-type");
         let response = ComboBox::from_id_salt("library-filter-type")
             .selected_text(type_name(panel.component_type))
             .show_ui(ui, |ui| {
-                for t in [
-                    None,
-                    Some(ComponentType::Standard),
-                    Some(ComponentType::Mechanical),
-                ] {
+                for t in std::iter::once(None).chain(ComponentType::ALL.map(Some)) {
                     ui.selectable_value(&mut panel.component_type, t, type_name(t));
                 }
             })
@@ -319,116 +409,84 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) {
     });
 }
 
-/// One Part's row: a click chooses it and picks it up to place, and so does a drag,
-/// which carries it onto a canvas.
-fn row(ui: &mut Ui, panel: &mut LibraryPanel, target: Placing, part: &Part) -> Option<Action> {
-    let chosen = panel.selected == Some(part.uuid);
-    let text = if part.fields.value.is_empty() || part.fields.value == part.name {
-        part.name.clone()
-    } else {
-        format!("{} · {}", part.name, part.fields.value)
-    };
-    let response = ui
-        .selectable_label(chosen, text)
-        .interact(Sense::click_and_drag());
-    let name = part.name.clone();
-    response.widget_info(|| WidgetInfo::selected(Role::ListItem, true, chosen, name.clone()));
-    if response.drag_started() {
-        response.dnd_set_drag_payload(Dragged);
-    }
-    if response.clicked() || response.drag_started() {
-        if !chosen {
-            panel.selected = Some(part.uuid);
-            panel.unit = 0;
-            panel.footprint = 0;
-        }
-        return place(
-            target,
-            part,
-            None,
-            part.footprints.get(panel.footprint).copied(),
-        );
-    }
-    None
-}
-
-/// The chosen Part's previews: the Symbol with a tab per Unit, the Footprint with a
-/// picker for the alternates. Choosing a Unit or Footprint while it is being placed
-/// places that one.
-fn details(
+/// One row. A Part's click chooses it and picks it up to place, and so does a drag,
+/// which carries it onto a canvas; in Library mode a click only chooses it and a
+/// double-click opens it. A right-click opens its menu; a Part placed in the Project
+/// shows its Library Status, which opens Update from Library.
+fn row(
     ui: &mut Ui,
     panel: &mut LibraryPanel,
+    mode: Mode,
     target: Placing,
-    library: &str,
-    part: &Part,
-) -> Vec<Action> {
-    let mut actions = Vec::new();
-    let Some((_, index)) = &panel.index else {
-        return actions;
-    };
-    ui.strong(&part.name);
-    ui.weak(tr!("library-in", library = library.to_owned()));
-    if !part.fields.description.is_empty() {
-        ui.weak(&part.fields.description);
-    }
-    let symbol = part.symbol.and_then(|s| index.symbol(s)).cloned();
-    let footprints: Vec<_> = part
-        .footprints
-        .iter()
-        .filter_map(|f| index.footprint(*f))
-        .cloned()
-        .collect();
-    let mut changed = false;
-    match &symbol {
-        Some(symbol) => {
-            if symbol.units.len() > 1 {
-                ui.horizontal(|ui| {
-                    for (i, unit) in symbol.units.iter().enumerate() {
-                        let label = tr!("library-unit", unit = unit.name.clone());
-                        let tab = ui.selectable_label(panel.unit == i, &unit.name);
-                        tab.widget_info(|| {
-                            WidgetInfo::selected(Role::Tab, true, panel.unit == i, label.clone())
-                        });
-                        if tab.clicked() && panel.unit != i {
-                            panel.unit = i;
-                            changed = true;
-                        }
-                    }
-                });
-            }
-            let unit = symbol.units.get(panel.unit).map(|u| u.uuid);
-            preview::symbol(ui, symbol, unit);
-        }
-        None => {
-            ui.weak(tr!("library-no-symbol"));
-        }
-    }
-    if !footprints.is_empty() {
-        panel.footprint = panel.footprint.min(footprints.len() - 1);
-        let label = tr!("library-footprint");
-        let response = ComboBox::from_id_salt("library-footprint")
-            .selected_text(&footprints[panel.footprint].name)
-            .show_ui(ui, |ui| {
-                for (i, f) in footprints.iter().enumerate() {
-                    if ui.selectable_label(panel.footprint == i, &f.name).clicked()
-                        && panel.footprint != i
-                    {
-                        panel.footprint = i;
-                        changed = true;
-                    }
+    entry: &Entry,
+    status: Option<RowStatus>,
+) -> Vec<Do> {
+    let mut out = Vec::new();
+    let chosen = panel.selected == Some(entry.uuid);
+    let label = entry.label(mode);
+    let response = ui
+        .horizontal(|ui| {
+            let response = ui
+                .selectable_label(chosen, entry.text(mode))
+                .interact(Sense::click_and_drag());
+            response.widget_info(|| WidgetInfo::selected(Role::ListItem, true, chosen, &label));
+            if let Some(status) = status.filter(|s| s.placed > 0) {
+                let text = status.text();
+                let shown = ui
+                    .add(egui::Label::new(egui::RichText::new(&text).weak()).sense(Sense::click()));
+                let name = tr!(
+                    "library-status-of",
+                    name = entry.name.clone(),
+                    status = text
+                );
+                shown.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
+                if shown.clicked() {
+                    out.push(Do::update(entry.uuid));
                 }
-            })
-            .response;
-        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-        preview::footprint(ui, &footprints[panel.footprint]);
+            }
+            response
+        })
+        .inner;
+    response.context_menu(|ui| {
+        out.extend(menu::show(ui, entry, target, status));
+    });
+    let place_here = entry
+        .part
+        .as_ref()
+        .filter(|_| matches!(mode, Mode::Place(_)));
+    if place_here.is_some() && response.drag_started() {
+        response.dnd_set_drag_payload(Dragged);
     }
-    if changed {
-        let unit = symbol
-            .as_ref()
-            .and_then(|s| s.units.get(panel.unit))
-            .map(|u| u.name.clone());
-        let footprint = part.footprints.get(panel.footprint).copied();
-        actions.extend(place(target, part, unit, footprint));
+    let picked = response.clicked() || (place_here.is_some() && response.drag_started());
+    if picked && !chosen {
+        panel.selected = Some(entry.uuid);
+        panel.unit = 0;
+        panel.footprint = 0;
     }
-    actions
+    if let Some(part) = place_here
+        && picked
+    {
+        out.extend(
+            place(
+                target,
+                part,
+                None,
+                part.footprints.get(panel.footprint).copied(),
+            )
+            .map(Do::Out),
+        );
+    }
+    if matches!(mode, Mode::Library(_)) && response.double_clicked() {
+        out.push(Do::open(entry.uuid));
+    }
+    out
+}
+
+/// A Component Type as the Library panel and the Part editor show it.
+pub(crate) fn type_name(t: ComponentType) -> String {
+    match t {
+        ComponentType::Standard => tr!("library-type-standard"),
+        ComponentType::Mechanical => tr!("library-type-mechanical"),
+        ComponentType::NetTie => tr!("library-type-net-tie"),
+    }
 }

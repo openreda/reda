@@ -1,0 +1,17 @@
+Drill report for UsbMcu
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+UsbMcu-PTH.drl
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.200  plated     via            2     0  -
+  T2      0.300  plated     via           19     0  -
+  T3      0.600  plated     component      0     4  -
+  T4      1.150  plated     component      5     0  -
+  Total                                   26     4
+
+UsbMcu-NPTH.drl
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.650  non-plated mechanical     2     0  -
+  Total                                    2     0
+
+All files: 28 holes, 4 slots

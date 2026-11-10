@@ -6,35 +6,53 @@ use reda_command::{CommandError, Kind, Length, Meta};
 use reda_model::Uuid;
 use reda_model::geom::{Nm, Point};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::ipc::{self, Goals, Tol};
+use super::sections::{
+    Applies, GoalsParams, OutputsParams, PadsParams, SmdResolved, TolerancesParams,
+};
 use super::{FootprintFamily, FootprintPlan, Target, TolParam, hundredths};
-use crate::generate::pattern::{Body, PadSpec};
+use crate::generate::pattern::{Body, PadSpec, Resolved, polarity_mark};
 
 pub struct Chip;
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChipParams {
     /// The registered Library to write the Footprint into.
     pub library: Uuid,
     /// The Footprint's name. Omitted, it gets its IPC-7351 name, such as `RESC1608X55N`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// The Footprint's description. Omitted, it gets one naming the package and density.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// A standard EIA size, with typical body dimensions. Give `size` or `dimensions`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<ChipSize>,
     /// The body dimensions from a datasheet, for a chip of no standard size.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<ChipDimensions>,
     /// What the chip is, which sets the name prefix (`RESC`, `CAPC`, `INDC`).
     #[serde(default)]
     pub class: ChipClass,
+    /// Mark terminal 1 with a Silkscreen bar beyond its Pad, for a polarised chip such
+    /// as a tantalum capacitor. Off by default.
+    #[serde(default)]
+    pub polarity_mark: bool,
+    #[serde(default)]
+    pub goals: GoalsParams,
+    #[serde(default)]
+    pub tolerances: TolerancesParams,
+    #[serde(default)]
+    pub pads: PadsParams,
+    #[serde(default)]
+    pub outputs: OutputsParams,
 }
 
 /// A chip's body dimensions.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ChipDimensions {
     /// The body length, terminal end to terminal end.
@@ -47,7 +65,7 @@ pub struct ChipDimensions {
     pub height: Length,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ChipClass {
     #[default]
@@ -75,7 +93,7 @@ impl ChipClass {
 }
 
 /// A standard chip size by its imperial (EIA) code.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum ChipSize {
     #[serde(rename = "0201")]
     S0201,
@@ -210,10 +228,11 @@ impl FootprintFamily for Chip {
     const META: Meta = Meta {
         id: "library.footprint.generate.chip",
         title: "Generate Chip Footprint",
-        description: "Generates an IPC-7351 Nominal Footprint for a two-terminal \
+        description: "Generates an IPC-7351 Footprint for a two-terminal \
                       rectangular chip (resistor, capacitor or inductor) of a standard size \
                       from 0201 to 2512, or of the body `dimensions` given, writes it into a \
-                      registered Library and runs the Library check on it.",
+                      registered Library and runs the Library check on it. `goals.density` \
+                      picks the IPC density level, Nominal by default.",
         category: "library",
         icon: "footprint_generate",
         kind: Kind::File,
@@ -224,7 +243,25 @@ impl FootprintFamily for Chip {
         Target {
             library: p.library,
             name: p.name.clone(),
+            description: p.description.clone(),
         }
+    }
+
+    fn resolve_package(p: &ChipParams) -> Result<ChipParams, CommandError> {
+        let Some(size) = p.size else {
+            return Ok(p.clone());
+        };
+        let s = size.standard();
+        Ok(ChipParams {
+            size: None,
+            dimensions: Some(ChipDimensions {
+                length: TolParam::of(s.length),
+                width: TolParam::of(s.width),
+                terminal: TolParam::of(s.terminal),
+                height: Length(s.height),
+            }),
+            ..p.clone()
+        })
     }
 
     fn plan(p: &ChipParams) -> Result<FootprintPlan, CommandError> {
@@ -253,14 +290,23 @@ impl FootprintFamily for Chip {
                 ));
             }
         };
-        let goals = if length.nominal().0 >= 1_500_000 {
-            Goals::CHIP
-        } else {
-            Goals::SMALL_CHIP
-        };
+        let smd = p.smd();
+        smd.check(Applies::default())?;
+        let density = p.goals.density;
+        let goals = smd.goals(Goals::chip(length, width, density));
         let span = ipc::span(length, terminal, goals)
             .map_err(|why| CommandError::invalid_params("/dimensions/terminal", why))?;
-        let pad_width = ipc::pad_width(width, goals);
+        let span = smd.span(span, false)?;
+        let pad_width = smd.pad_width(ipc::pad_width(width, goals));
+        let (cl, cs) = ipc::tolerances(length, terminal, goals);
+        let resolved = Resolved::Smd(SmdResolved {
+            goals,
+            tolerances: (cl, cs, ipc::width_tolerance(width, goals)),
+            span,
+            y: None,
+            pad_width,
+            exposed_pad: None,
+        });
         let offset = span.pad_offset();
         let spec = |number: &str, x: i64| {
             PadSpec::smd(
@@ -278,27 +324,48 @@ impl FootprintFamily for Chip {
                 (width.nominal().0 + 50_000) / 100_000
             ),
         };
-        let name = format!("{}{code}X{}N", p.class.prefix(), hundredths(height));
+        let name = format!(
+            "{}{code}X{}{}",
+            p.class.prefix(),
+            hundredths(height),
+            density.letter()
+        );
         let description = match &size {
             Some(s) => format!(
-                "{}, {} ({} metric), IPC-7351 Nominal",
+                "{}, {} ({} metric), IPC-7351 {}",
                 p.class.noun(),
                 s.imperial,
-                s.metric
+                s.metric,
+                density.title()
             ),
-            None => format!("{}, {code} metric, IPC-7351 Nominal", p.class.noun()),
+            None => format!(
+                "{}, {code} metric, IPC-7351 {}",
+                p.class.noun(),
+                density.title()
+            ),
+        };
+        let pad_specs = vec![spec("1", -offset.0), spec("2", offset.0)];
+        let finish = smd.finish();
+        let silkscreen = if p.polarity_mark {
+            polarity_mark(&pad_specs[0], Nm(width.max.0 / 2), finish.silkscreen_width)
+        } else {
+            vec![]
         };
         Ok(FootprintPlan {
             name,
             description,
-            pad_specs: vec![spec("1", -offset.0), spec("2", offset.0)],
+            pad_specs,
             body: Body {
                 nominal: (length.nominal(), width.nominal()),
                 max: (length.max, width.max),
-                polarised: false,
+                chamfered: false,
             },
-            silkscreen: vec![],
+            silkscreen,
             courtyard_excess: goals.courtyard,
+            height: Some(height),
+            warnings: vec![],
+            finish,
+            resolved,
         })
     }
 }

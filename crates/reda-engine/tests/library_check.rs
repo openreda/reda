@@ -10,7 +10,7 @@ use reda_engine::model::{
     ComponentType, Fields, Footprint, FootprintText, LibraryInfo, Pad, PadKind, PadShape, Part,
     PinMap, Uuid,
 };
-use reda_testkit::{TempDir, TestEngine, test_engine};
+use reda_testkit::{TempDir, TestEngine, test_engine, test_engine_in};
 use serde_json::json;
 
 const LIBRARY: &str = "000000aa-0000-4000-8000-000000000000";
@@ -41,7 +41,7 @@ fn write_flawed_library(folder: &Path) {
     let footprint = Footprint {
         uuid: uuid(FOOTPRINT),
         name: "TP".into(),
-        description: String::new(),
+        description: "Test point".into(),
         pads: vec![Pad {
             uuid: uuid("000000f2-0000-4000-8000-000000000000"),
             number: "1".into(),
@@ -51,14 +51,22 @@ fn write_flawed_library(folder: &Path) {
             rotation: Millideg(0),
             width: Nm::from_mm(1),
             height: Nm::from_mm(1),
-            corner_radius: None,
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+            offset: None,
             hole: None,
-            mask_margin: None,
-            paste_margin: None,
+            mask: None,
+            paste: None,
+            side: None,
+            zone_connection: None,
         }],
         graphics: vec![],
-        designator: FootprintText::DESIGNATOR,
-        value: FootprintText::VALUE,
+        height: None,
+        texts: vec![FootprintText::designator(uuid(
+            "000000f3-0000-4000-8000-000000000000",
+        ))],
+        generator: None,
         provenance: None,
     };
     std::fs::write(
@@ -70,9 +78,14 @@ fn write_flawed_library(folder: &Path) {
         uuid: uuid(PART),
         name: "TestPoint".into(),
         component_type: ComponentType::Standard,
+        in_bom: ComponentType::Standard.default_in_bom(),
+        in_cpl: ComponentType::Standard.default_in_cpl(),
         symbol: Some(uuid(MISSING_SYMBOL)),
         footprints: vec![uuid(FOOTPRINT)],
-        fields: Fields::default(),
+        fields: Fields {
+            description: "Test point".into(),
+            ..Fields::default()
+        },
         pin_map: PinMap::default(),
         provenance: None,
     };
@@ -150,7 +163,8 @@ fn an_open_element_is_checked_as_edited_and_still_saves() {
     let out = e.run_ok("library.check", json!({ "element": symbol }));
     assert_eq!(
         out["violations"],
-        json!([{"check": "off_grid_pin", "severity": "warning",
+        json!([{"check": "missing_description", "severity": "warning", "objects": [symbol]},
+               {"check": "off_grid_pin", "severity": "warning",
                 "args": {"pin": "1", "grid": 1_270_000}, "objects": [symbol, pin]}])
     );
 
@@ -165,7 +179,12 @@ fn an_open_element_is_checked_as_edited_and_still_saves() {
         .collect();
     assert_eq!(
         checks,
-        ["off_grid_pin", "missing_courtyard", "broken_reference"]
+        [
+            "missing_description",
+            "off_grid_pin",
+            "missing_courtyard",
+            "broken_reference"
+        ]
     );
 }
 
@@ -189,4 +208,170 @@ fn an_element_and_a_library_together_are_refused() {
         json!({"element": PART, "library": LIBRARY}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn paste_windows_outside_copper_are_warnings_and_never_block_saving() {
+    let dir = TempDir::new("paste-window-check");
+    let mut e = engine_with_library(&dir);
+    let fp = e.run_ok(
+        "library.element.new",
+        json!({"library":LIBRARY,"kind":"footprint","name":"Windows"}),
+    )["element"]
+        .clone();
+    e.run_ok(
+        "library.footprint.pad.add",
+        json!({"footprint":fp,"number":"1","kind":"smd","shape":"circle",
+        "at":{"x":0,"y":0},"width":"2mm","height":"2mm","paste":{"windows":[
+            {"at":{"x":0,"y":0},"width":"1mm","height":"1mm"},
+            {"at":{"x":"0.8mm","y":0},"width":"1mm","height":"1mm"},
+            {"at":{"x":0,"y":0},"width":"2mm","height":"2mm","corner_ratio":100000}]}}),
+    );
+    let out = e.run_ok("library.check", json!({"element":fp}));
+    let found: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "paste_window_outside_copper")
+        .collect();
+    assert_eq!(found.len(), 1, "{out}");
+    assert_eq!(found[0]["severity"], "warning");
+    assert_eq!(found[0]["args"]["window"], 1);
+    e.run_ok("library.element.save", json!({"element":fp}));
+}
+
+/// The flawed Library as a Project Library, with per-user folders under `dir/home`.
+fn engine_with_user(dir: &TempDir) -> TestEngine {
+    let mut e = test_engine_in(&dir.path().join("home"));
+    e.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    write_flawed_library(&dir.path().join("Demo/lib"));
+    e.run_ok("project.library.add", json!({"path": "lib"}));
+    e
+}
+
+fn set_severity(e: &mut TestEngine, check: &str, severity: &str) {
+    e.run_ok(
+        "app.preferences.set",
+        json!({"key": format!("libraries.severities.{check}"), "value": severity}),
+    );
+}
+
+#[test]
+fn severities_come_from_the_users_preferences() {
+    let dir = TempDir::new("check-severities");
+    let mut e = engine_with_user(&dir);
+    set_severity(&mut e, "missing_courtyard", "error");
+    set_severity(&mut e, "broken_reference", "off");
+    let out = e.run_ok("library.check", json!({ "library": LIBRARY }));
+    assert_eq!(
+        out["violations"],
+        json!([{"check": "missing_courtyard", "severity": "error", "objects": [FOOTPRINT]}])
+    );
+
+    // Reset, they are the defaults again.
+    e.run_ok(
+        "app.preferences.reset",
+        json!({"keys": ["libraries.severities.missing_courtyard",
+                        "libraries.severities.broken_reference"]}),
+    );
+    let out = e.run_ok("library.check", json!({ "library": LIBRARY }));
+    let severities: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| {
+            (
+                v["check"].as_str().unwrap(),
+                v["severity"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        severities,
+        [
+            ("missing_courtyard", "warning"),
+            ("broken_reference", "error")
+        ]
+    );
+}
+
+#[test]
+fn every_check_is_a_preference_starting_at_the_specs_default() {
+    let dir = TempDir::new("check-severity-keys");
+    let mut e = engine_with_user(&dir);
+    let out = e.run_ok("app.preferences.get", json!({}));
+    let value = &out["values"]["libraries"]["severities"];
+    assert_eq!(value["duplicate_pin_number"], "error");
+    assert_eq!(value["missing_pad_number"], "error");
+    assert_eq!(value["origin_off_centroid"], "warning");
+    assert_eq!(value["generator_out_of_date"], "warning");
+    assert_eq!(value["missing_pin_name"], "off");
+    assert_eq!(value.as_object().unwrap().len(), 23, "{value}");
+    let err = e.run_err(
+        "app.preferences.set",
+        json!({"key": "libraries.severities.missing_pin_name", "value": "info"}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams, "no Info level");
+}
+
+/// Generates a chip Footprint into the flawed Library; returns the generator's output.
+fn generate_chip(e: &mut TestEngine, extra: serde_json::Value) -> serde_json::Value {
+    let mut params = json!({"library": LIBRARY, "size": "0603"});
+    for (k, v) in extra.as_object().unwrap() {
+        params[k] = v.clone();
+    }
+    e.run_ok("library.footprint.generate.chip", params)
+}
+
+#[test]
+fn a_generator_checks_what_it_wrote_with_the_users_severities() {
+    let dir = TempDir::new("check-generate");
+    let mut e = engine_with_user(&dir);
+    let out = generate_chip(&mut e, json!({"outputs": {"courtyard": false}}));
+    assert_eq!(
+        out["violations"],
+        json!([{"check": "missing_courtyard", "severity": "warning", "objects": [out["footprint"]]}])
+    );
+    set_severity(&mut e, "missing_courtyard", "off");
+    let out = generate_chip(
+        &mut e,
+        json!({"name": "Other", "outputs": {"courtyard": false}}),
+    );
+    assert_eq!(out["violations"], json!([]));
+}
+
+#[test]
+fn a_hand_edited_generated_footprint_is_out_of_date_and_regenerating_fixes_it() {
+    let dir = TempDir::new("check-out-of-date");
+    let mut e = engine_with_user(&dir);
+    let out = generate_chip(&mut e, json!({}));
+    assert_eq!(out["violations"], json!([]));
+    let footprint = out["footprint"].clone();
+    e.run_ok("library.element.open", json!({"element": footprint}));
+    let opened = e.run_ok("library.check", json!({"element": footprint}));
+    assert_eq!(opened["violations"], json!([]));
+
+    let file: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(out["file"].as_str().unwrap()).unwrap()).unwrap();
+    let pad = file["pads"][0]["uuid"].clone();
+    e.run_ok(
+        "library.footprint.pad.edit",
+        json!({"footprint": footprint, "pad": pad, "width": "2mm"}),
+    );
+    let edited = e.run_ok("library.check", json!({"element": footprint}));
+    assert_eq!(
+        edited["violations"],
+        json!([{"check": "generator_out_of_date", "severity": "warning",
+                "args": {"generator": "library.footprint.generate.chip"},
+                "objects": [footprint]}])
+    );
+    // It warns and never blocks: the edit saves.
+    e.run_ok("library.element.save", json!({"element": footprint}));
+
+    e.run_ok(
+        "library.footprint.regenerate",
+        json!({"footprint": footprint}),
+    );
+    let again = e.run_ok("library.check", json!({"element": footprint}));
+    assert_eq!(again["violations"], json!([]));
 }

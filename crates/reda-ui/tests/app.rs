@@ -17,7 +17,7 @@ use reda_ui::App;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::{Engine, preferences, state};
 use reda_ui::shell::Shell;
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn engine_in(home: &Path) -> Engine {
     Engine::builder()
@@ -95,7 +95,7 @@ fn the_new_project_form_creates_and_opens_a_project() {
     let mut h = harness(home.path());
     h.run();
 
-    // The toolbar's New Project button comes first; the Start page's last.
+    // The Start page's New Project button.
     h.get_all_by_label("New Project…").last().unwrap().click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Name")
@@ -226,13 +226,16 @@ fn set_theme(home: &Path, theme: &str) {
     preferences::set(&UserDirs::under(home), "general.theme", json!(theme)).unwrap();
 }
 
-/// A fixed folder for Projects that snapshots show, so their paths are the same on every
-/// machine (the snapshots run on Linux only). It holds an exclusive lock on
-/// `<name>.lock` beside it until dropped, so test runs in other checkouts that want the
-/// same folder wait instead of deleting it under this one.
+/// A folder for the Projects a snapshot test makes. When snapshots are compared it is a
+/// fixed folder, because the images show its paths (the snapshots run on Linux only), and
+/// it holds an exclusive lock on `<name>.lock` beside it until dropped, so test runs in
+/// other checkouts that want the same folder wait instead of deleting it under this one.
+/// When they are skipped it is a folder of this run's own under the temp directory, removed
+/// on drop.
 struct SnapshotFolder {
     dir: PathBuf,
-    _lock: std::fs::File,
+    /// The lock on a fixed folder; `None` for a folder of this run's own.
+    lock: Option<std::fs::File>,
 }
 
 impl std::ops::Deref for SnapshotFolder {
@@ -243,8 +246,33 @@ impl std::ops::Deref for SnapshotFolder {
     }
 }
 
+impl Drop for SnapshotFolder {
+    fn drop(&mut self) {
+        if self.lock.is_none()
+            && let Some(run) = self.dir.parent()
+        {
+            let _ = std::fs::remove_dir_all(run);
+        }
+    }
+}
+
 fn snapshot_folder(name: &str) -> SnapshotFolder {
-    let root = PathBuf::from("/tmp/reda-ui-snapshots");
+    if snapshot_skip_reason().is_some() {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "reda-ui-snapshots-{}-{n}/{name}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        return SnapshotFolder { dir, lock: None };
+    }
+    // Local runs can keep their files under the configured scratch directory while
+    // CI retains the fixed paths already shown in the reference images.
+    let root = std::env::var_os("REDA_SNAPSHOT_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/tmp/reda-ui-snapshots"));
     std::fs::create_dir_all(&root).unwrap();
     let lock = std::fs::OpenOptions::new()
         .create(true)
@@ -256,7 +284,10 @@ fn snapshot_folder(name: &str) -> SnapshotFolder {
     let dir = root.join(name);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    SnapshotFolder { dir, _lock: lock }
+    SnapshotFolder {
+        dir,
+        lock: Some(lock),
+    }
 }
 
 fn start_page_snapshot(theme: &str) {
@@ -347,14 +378,18 @@ fn snapshot_of_a_drag_in_flight() {
     let shell = h.state_mut().shell_mut();
     shell.open_project(&file).unwrap();
     let sheet = shell.active_document().expect("a sheet tab").document;
-    shell
-        .run(
-            "schematic.wire.add",
-            json!({"document": sheet,
-                   "points": [{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"},
-                              {"x": "150mm", "y": "60mm"}]}),
-        )
-        .unwrap();
+    // Two Wires meeting at a corner (one run would be one Wire, dragged whole).
+    for points in [
+        json!([{"x": "50mm", "y": "100mm"}, {"x": "150mm", "y": "100mm"}]),
+        json!([{"x": "150mm", "y": "100mm"}, {"x": "150mm", "y": "60mm"}]),
+    ] {
+        shell
+            .run(
+                "schematic.wire.add",
+                json!({"document": sheet, "points": points}),
+            )
+            .unwrap();
+    }
     // The Properties panel would show the Wire's UUID, which differs run to run.
     shell
         .run("layout.tab.close", json!({"tab": "properties"}))
@@ -632,8 +667,7 @@ fn snapshot_of_a_tab_drag_the_layout_would_refuse() {
     drag_snapshot("Start", "Drop Below", "drag_refused_dark");
 }
 
-/// Project Settings on `page`, with a Project whose board thickness is typed wrong so the
-/// flag shows.
+/// Project Settings on `page`, with a blank Library folder added so the flag shows.
 fn project_settings_snapshot(page: &str, name: &str) {
     let home = TempDir::new("app-home");
     let folder = snapshot_folder(name);
@@ -646,13 +680,11 @@ fn project_settings_snapshot(page: &str, name: &str) {
     h.state_mut().shell_mut().open_project(&file).unwrap();
     h.state_mut().open_project_settings();
     h.run();
-    let field = h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)");
-    field.click();
+    h.get_by_role_and_label(Role::TreeItem, "Libraries").click();
     h.run();
-    h.get_by_role_and_label(Role::TextInput, "Board thickness (mm)")
-        .type_text("1.6x");
+    h.get_by_label("Add Path").click();
     h.run();
-    if page != "Properties" {
+    if page != "Libraries" {
         h.get_by_role_and_label(Role::TreeItem, page).click();
     }
     h.run();
@@ -770,17 +802,26 @@ fn snapshot_of_the_footprint_editor() {
                              "end": {"x": "4mm", "y": "2mm"}}}),
         )
         .unwrap();
+    let uuid = fp.as_str().unwrap().parse().unwrap();
+    let text = |shell: &Shell, field: &str| match shell.engine().element(uuid) {
+        Some(reda_ui::engine::model::LibraryElement::Footprint(f)) => {
+            f.texts.iter().find(|t| t.field == field).unwrap().uuid
+        }
+        _ => panic!("the Footprint is open"),
+    };
+    let designator = text(shell, "Designator");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "designator", "at": {"x": 0, "y": "3mm"}}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": designator, "at": {"x": 0, "y": "3mm"}}),
         )
         .unwrap();
+    let value = text(shell, "Value");
     shell
         .run(
-            "library.footprint.text.set",
-            json!({"footprint": fp, "text": "value", "at": {"x": 0, "y": "-3mm"},
-                   "size": "0.6mm"}),
+            "library.footprint.text.edit",
+            json!({"footprint": fp, "text": value, "at": {"x": 0, "y": "-3mm"},
+                   "height": "0.6mm"}),
         )
         .unwrap();
     shell
@@ -904,11 +945,17 @@ fn board_setup_snapshot(page: &str, name: &str) {
     let shell = h.state_mut().shell_mut();
     shell.open_project(&file).unwrap();
     shell
-        .run("pcb.rules.set", json!({"clearance": "0.3mm"}))
+        .run(
+            "pcb.rules.set",
+            json!({"kind": "clearance", "values": {"value": "0.3mm"}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.net_class.add", json!({"name": "Power"}))
         .unwrap();
     h.state_mut().open_board_setup();
     h.run();
-    let field = "Default: Clearance";
+    let field = "Power: Clearance";
     h.get_by_role_and_label(Role::TextInput, field).click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, field)
@@ -917,7 +964,12 @@ fn board_setup_snapshot(page: &str, name: &str) {
     h.get_by_label("Apply Generic Rules…").click();
     h.run();
     if page != "Clearance" {
-        h.get_by_role_and_label(Role::TreeItem, page).click();
+        // A page showing the invalid override is flagged in the tree.
+        let flagged = format!("{page} (has invalid values)");
+        match h.query_by_role_and_label(Role::TreeItem, &flagged) {
+            Some(item) => item.click(),
+            None => h.get_by_role_and_label(Role::TreeItem, page).click(),
+        }
     }
     h.run();
     h.snapshot(name);
@@ -931,6 +983,51 @@ fn snapshot_of_board_setup_clearance_with_a_fab_preset_preview() {
 #[test]
 fn snapshot_of_board_setup_drc_severities() {
     board_setup_snapshot("DRC", "board_setup_drc_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_net_classes_grid() {
+    board_setup_snapshot("Net Classes", "board_setup_net_classes_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_mask_and_paste() {
+    board_setup_snapshot("Mask & Paste", "board_setup_mask_paste_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_zone_connections() {
+    board_setup_snapshot("Zone Connections", "board_setup_zone_connections_dark");
+}
+
+#[test]
+fn snapshot_of_board_setup_stackup_with_its_cross_section() {
+    board_setup_snapshot("Stackup", "board_setup_stackup_dark");
+}
+
+#[test]
+fn snapshot_of_the_board_shown_for_board_setup_with_its_banner() {
+    let home = TempDir::new("app-home");
+    let name = "board_setup_show_on_board_dark";
+    let folder = snapshot_folder(name);
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "dark");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    // The board as Show on board leaves it, with the settings window (its own OS
+    // window in the app) out of the way.
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let rule = pcb
+        .board_rule(reda_ui::engine::model::RuleKind::Clearance)
+        .uuid;
+    shell.show_on_board(&[reda_ui::show_on_board::Shown::Rule(rule)]);
+    h.run();
+    h.get_by_label("Back to Board Setup");
+    h.snapshot(name);
 }
 
 /// A harness on a Project with no Board Outline, so its job's run is blocked.
@@ -991,12 +1088,23 @@ fn snapshot_of_a_blocked_run_report() {
 fn preferences_snapshot(page: Option<reda_ui::preferences_dialog::PageId>, name: &str) {
     let home = TempDir::new("app-home");
     set_theme(home.path(), "dark");
+    if page.is_none() {
+        preferences::set(
+            &UserDirs::under(home.path()),
+            "user.name",
+            json!("REDA Author"),
+        )
+        .unwrap();
+    }
     let Some(mut h) = snapshot_harness(home.path()) else {
         return;
     };
     h.run();
     h.state_mut().open_preferences(page);
     h.run();
+    if page.is_none() {
+        h.get_by_role_and_label(Role::TextInput, "User name");
+    }
     h.snapshot(name);
 }
 
@@ -1008,7 +1116,218 @@ fn snapshot_of_the_preferences_general_page() {
 #[test]
 fn snapshot_of_the_keyboard_shortcuts_page() {
     preferences_snapshot(
-        Some(reda_ui::preferences_dialog::PageId::KeyboardShortcuts),
+        Some(reda_ui::preferences_dialog::PageId::KEYBOARD_SHORTCUTS),
         "preferences_keyboard_shortcuts_dark",
     );
+}
+
+#[test]
+fn the_visible_board_grid_follows_output_origin_and_returns_to_zero_when_removed() {
+    let home = TempDir::new("app-grid-origin-home");
+    let work = TempDir::new("app-grid-origin-work");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    let shell = h.state_mut().shell_mut();
+    shell.new_project(work.path(), "Grid").unwrap();
+    shell
+        .run(
+            "pcb.board_outline.add_rect",
+            json!({"width":"40mm","height":"30mm"}),
+        )
+        .unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell.run("document.open", json!({"document":pcb})).unwrap();
+    shell
+        .run("layout.tab.activate", json!({"tab":pcb.to_string()}))
+        .unwrap();
+    shell
+        .run("view.grid.set", json!({"document":pcb,"grid":"1mm"}))
+        .unwrap();
+    h.run();
+    h.run();
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h.state().shell().document_tab(pcb).unwrap().camera.unwrap();
+    let old = camera.screen_point(rect, (20_000_000.0, 15_000_000.0));
+    let new = camera.screen_point(rect, (20_200_000.0, 15_300_000.0));
+    let samples = |image: &[u8], width: u32, at: egui::Pos2| {
+        let (x, y) = (at.x.floor() as u32, at.y.floor() as u32);
+        (y - 1..=y + 1)
+            .flat_map(|y| {
+                (x - 1..=x + 1).map(move |x| {
+                    let offset = ((y * width + x) * 4) as usize;
+                    image[offset..offset + 4].to_vec()
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let before = h.render().unwrap();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.output_origin.set",
+            json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+        )
+        .unwrap();
+    h.run();
+    h.run();
+    let shifted = h.render().unwrap();
+    assert_ne!(
+        samples(before.as_raw(), before.width(), new),
+        samples(shifted.as_raw(), shifted.width(), new),
+        "a grid dot appears on the offset lattice"
+    );
+    assert_ne!(
+        samples(before.as_raw(), before.width(), old),
+        samples(shifted.as_raw(), shifted.width(), old),
+        "the former grid dot moves away"
+    );
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.output_origin.delete", json!({}))
+        .unwrap();
+    h.run();
+    h.run();
+    let restored = h.render().unwrap();
+    assert_eq!(
+        samples(before.as_raw(), before.width(), new),
+        samples(restored.as_raw(), restored.width(), new)
+    );
+    assert_eq!(
+        samples(before.as_raw(), before.width(), old),
+        samples(restored.as_raw(), restored.width(), old)
+    );
+}
+
+#[test]
+fn the_sheet_grid_stops_at_the_papers_edge() {
+    let home = TempDir::new("app-grid-paper-home");
+    let folder = snapshot_folder("grid-paper");
+    let file = make_project(&folder, "GridPaper");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let sheet = shell.active_document().expect("a sheet tab").document;
+    shell
+        .run(
+            "view.grid.set",
+            json!({"document": sheet, "grid": "2.54mm"}),
+        )
+        .unwrap();
+    h.run();
+    // The paper's bottom-left corner at the canvas centre, 10 px between grid dots.
+    let tab = h.state_mut().shell_mut().document_tab_mut(sheet).unwrap();
+    tab.camera = Some(reda_ui::canvas::Camera {
+        center: (0.0, 0.0),
+        nm_per_point: 254_000.0,
+    });
+    h.run();
+    h.run();
+    let rect = h.get_by_role(Role::Canvas).rect();
+    let camera = h
+        .state()
+        .shell()
+        .document_tab(sheet)
+        .unwrap()
+        .camera
+        .unwrap();
+    let image = h.render().unwrap();
+    let ppp = h.ctx.pixels_per_point();
+    let at = |x_mm: f64, y_mm: f64| {
+        let p = camera.screen_point(rect, (x_mm * 1e6, y_mm * 1e6)) * ppp;
+        let (x, y) = (p.x.floor() as u32, p.y.floor() as u32);
+        image.get_pixel(x, y).0
+    };
+    // On the paper a grid point differs from the paper midway between dots.
+    assert_ne!(at(5.08, 5.08), at(6.35, 6.35), "a dot on the paper");
+    // Off the paper, left of it and below it, there is no dot.
+    assert_eq!(at(-5.08, 5.08), at(-6.35, 6.35), "no dot left of the paper");
+    assert_eq!(at(5.08, -5.08), at(6.35, -6.35), "no dot below the paper");
+}
+
+/// The Board navigator in its Nets and Zones modes: Nets GND (coloured) and SIG with
+/// Tracks, and two Zones on Top Copper, the small one stale after a refill and an edit.
+#[test]
+fn snapshot_of_the_board_navigator() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("navigator");
+    let file = make_project(&folder, "Nav");
+    set_theme(home.path(), "dark");
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "pcb.zone.auto_refill",
+        json!("off"),
+    )
+    .unwrap();
+    let engine = Engine::builder()
+        .user_dirs(Some(UserDirs::under(home.path())))
+        .starter_library(None)
+        .ids(reda_ui::engine::command::SeededIds::new(0))
+        .commands(reda_testkit::probe_commands)
+        .headless(false)
+        .build();
+    let Some(mut h) = snapshot_harness_on(engine) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    let mut net = |name: &str| {
+        let out = shell.run("test.net.add", json!({ "name": name })).unwrap();
+        out["result"]["uuid"].clone()
+    };
+    let (gnd, sig) = (net("GND"), net("SIG"));
+    for (net, y, length) in [
+        (&gnd, "0mm", "4mm"),
+        (&gnd, "2mm", "6mm"),
+        (&sig, "4mm", "3mm"),
+    ] {
+        shell
+            .run(
+                "pcb.track.add",
+                json!({"layer": "copper_top", "net": net, "width": "0.5mm",
+                       "points": [{"x": 0, "y": y}, {"x": length, "y": y}]}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "pcb.net.set_color",
+            json!({"nets": [gnd], "color": "#3cb44b"}),
+        )
+        .unwrap();
+    let mut zone = |name: &str, net: &Value, (a, b): (i64, i64)| {
+        let v = |x: i64, y: i64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
+        let out = shell
+            .run(
+                "pcb.zone.add",
+                json!({"layer": "copper_top", "net": net, "name": name,
+                       "vertices": [v(a, a), v(b, a), v(b, b), v(a, b)]}),
+            )
+            .unwrap();
+        out["result"]["uuid"].clone()
+    };
+    zone("BIG", &gnd, (0, 20));
+    let small = zone("SMALL", &sig, (2, 4));
+    shell.run("pcb.zone.fill", json!({})).unwrap();
+    shell
+        .run("pcb.zone.set", json!({"zone": small, "clearance": "0.5mm"}))
+        .unwrap();
+    shell
+        .run("document.open", json!({ "document": pcb }))
+        .unwrap();
+    shell
+        .run("panel.show", json!({"panel": "navigator"}))
+        .unwrap();
+    h.run();
+    h.snapshot("board_navigator_nets_dark");
+    h.get_by_label("Navigator mode: Zones").click();
+    h.run();
+    h.remove_cursor();
+    h.run();
+    h.snapshot("board_navigator_zones_dark");
 }

@@ -1,8 +1,8 @@
 //! The PCB drawing Tools, through the Shell with no window: each previews while it is
 //! drawn, touches the Journal only when the shape is finished, and then runs one Command
 //! (Board Outline and Cutouts, Zones (Z) and Keepouts (K), text, lines, arcs and
-//! rectangles on the active Layer, Free Pads and the Placement Origin);
-//! the user origin and the measure Tool change only the view; and the Shell says when
+//! rectangles on the active Layer, Free Pads and the Output Origin); the cursor reads
+//! from the Output Origin; the measure Tool changes nothing; and the Shell says when
 //! Zones need refilling.
 
 use std::path::{Path, PathBuf};
@@ -165,7 +165,12 @@ fn a_zone_is_refused_off_copper_and_k_draws_a_keepout_on_every_copper_layer() {
     }
     run(&mut b.shell, "tool.finish", json!({}));
     assert_eq!(b.edits_since(start), ["pcb.keepout.add"]);
-    assert_eq!(b.pcb().keepouts().next().unwrap().layers.len(), 2);
+    let keepout = b.pcb().keepouts().next().unwrap().clone();
+    assert_eq!(
+        keepout.layer, None,
+        "a drawn Keepout is on every copper Layer"
+    );
+    assert_eq!(b.pcb().keepout_layers(&keepout).len(), 2);
 }
 
 #[test]
@@ -293,34 +298,44 @@ fn text_asks_for_its_words_then_runs_one_command() {
 }
 
 #[test]
-fn free_pads_and_the_placement_origin_are_placed_by_a_click() {
+fn free_pads_and_the_output_origin_are_placed_by_a_click() {
     let mut b = board();
     let start = b.mark();
     b.tool("free_pad");
     b.click(mm(2.0, 2.0));
-    b.tool("placement_origin");
+    b.tool("output_origin");
     b.click(mm(1.0, 1.0));
     assert_eq!(
         b.edits_since(start),
-        ["pcb.free_pad.add", "pcb.placement_origin.set"]
+        ["pcb.free_pad.add", "pcb.output_origin.set"]
     );
     assert_eq!(b.pcb().free_pads().next().unwrap().at, mm(2.0, 2.0));
-    assert_eq!(b.pcb().placement_origin().unwrap().at, mm(1.0, 1.0));
+    assert_eq!(b.pcb().output_origin().unwrap().at, mm(1.0, 1.0));
 }
 
 #[test]
-fn the_user_origin_and_measure_change_only_the_view() {
+fn the_cursor_reads_from_the_output_origin() {
     let mut b = board();
-    let start = b.mark();
-    b.tool("user_origin");
+    assert_eq!(
+        b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
+        mm(12.0, 4.0),
+        "without an Output Origin the cursor reads from design zero"
+    );
+    b.tool("output_origin");
     b.click(mm(10.0, 5.0));
-    assert_eq!(b.shell.board_view().origin, Some(mm(10.0, 5.0)));
     assert_eq!(
         b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)),
         mm(2.0, -1.0),
-        "the cursor reads from the user origin"
+        "the cursor reads from the Output Origin"
     );
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(b.shell.pcb_cursor_from_origin(mm(12.0, 4.0)), mm(12.0, 4.0));
+}
 
+#[test]
+fn measure_changes_nothing() {
+    let mut b = board();
+    let start = b.mark();
     b.tool("measure");
     b.click(mm(0.0, 0.0));
     b.shell.pcb_hover(mm(3.0, 4.0));
@@ -329,12 +344,12 @@ fn the_user_origin_and_measure_change_only_the_view() {
     assert_eq!(m.distance(), Nm::from_mm(5));
     b.click(mm(3.0, 4.0));
     b.shell.pcb_hover(mm(8.0, 8.0));
-    let m = b.shell.pcb_draw().measurement().unwrap();
-    assert_eq!(m.to, mm(3.0, 4.0), "a second click holds the measurement");
+    assert!(
+        b.shell.pcb_draw().measurement().is_none(),
+        "a second click finishes the measurement"
+    );
+    assert_eq!(reda_ui::pcb::measure::shown(&b.shell)[0].to, mm(3.0, 4.0));
     assert!(b.edits_since(start).is_empty());
-
-    run(&mut b.shell, "pcb.view.origin.set", json!({}));
-    assert_eq!(b.shell.board_view().origin, None);
 }
 
 #[test]
@@ -363,5 +378,179 @@ fn the_shell_says_when_zones_need_refilling_until_they_are_refilled() {
     run(&mut b.shell, "tool.finish", json!({}));
     assert!(b.shell.zones_need_refill());
     run(&mut b.shell, "pcb.zone.fill", json!({}));
+    assert!(!b.shell.zones_need_refill());
+}
+
+#[test]
+fn dragging_a_footprint_preserves_the_filtered_free_pad_selection_and_position() {
+    let mut b = board();
+    let footprint: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":0,"y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let pad: Uuid = run(
+        &mut b.shell,
+        "pcb.free_pad.add",
+        json!({"kind":"smd","at":{"x":"5mm","y":0},"width":"1mm"}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let locked: Uuid = run(
+        &mut b.shell,
+        "test.footprint.add",
+        json!({"at":{"x":"10mm","y":0},"pads":[{"at":{"x":0,"y":0},"width":"2mm","height":"2mm"}]}),
+    )["result"]["footprint"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    run(
+        &mut b.shell,
+        "pcb.lock",
+        json!({"objects":[locked],"locked":true}),
+    );
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"editing.protect_locked_objects","value":true}),
+    );
+    run(
+        &mut b.shell,
+        "selection.set",
+        json!({"objects":[footprint,pad,locked]}),
+    );
+    let pcb = b.pcb().uuid;
+    run(
+        &mut b.shell,
+        "selection.filter.set",
+        json!({"document":pcb,"kinds":{"free_pad":false}}),
+    );
+    b.drag(mm(0.0, 0.0), mm(2.0, 0.0));
+    assert_eq!(b.shell.selection().objects, [footprint, pad, locked]);
+    assert_eq!(b.pcb().footprint(locked).unwrap().at, mm(10.0, 0.0));
+    assert_eq!(b.pcb().footprint(footprint).unwrap().at, mm(2.0, 0.0));
+    assert_eq!(b.pcb().free_pad(pad).unwrap().at, mm(5.0, 0.0));
+}
+
+#[test]
+fn output_origin_phases_the_board_grid_for_hover_drawing_and_electrical_snap() {
+    use reda_ui::snap::{Hit, Hotspot};
+    let hover = |b: &mut Board, at| {
+        let s = b.shell.pcb_hover(at);
+        (s.at, s.hit)
+    };
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    assert_eq!(hover(&mut b, mm(1.1, 1.1)), (mm(1.2, 1.3), Hit::Grid));
+    b.tool("free_pad");
+    b.click(mm(2.1, 2.1));
+    let pad = b.pcb().free_pads().next().unwrap().clone();
+    assert_eq!(pad.at, mm(2.2, 2.3));
+    b.tool("select");
+    assert_eq!(
+        b.shell.pcb_hover(mm(2.21, 2.31)).hit.hotspot(),
+        Some(Hotspot::PadCenter),
+        "electrical targets still win"
+    );
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.1mm","y":"0.1mm"}}),
+    );
+    assert_eq!(
+        b.pcb().free_pad(pad.uuid).unwrap().at,
+        pad.at,
+        "moving the grid moves no objects"
+    );
+    assert_eq!(hover(&mut b, mm(4.0, 4.0)), (mm(4.1, 4.1), Hit::Grid));
+    run(&mut b.shell, "pcb.output_origin.delete", json!({}));
+    assert_eq!(hover(&mut b, mm(4.0, 4.0)), (mm(4.0, 4.0), Hit::Grid));
+}
+
+fn add_zone(b: &mut Board, x0: f64) {
+    let p = |x: f64, y: f64| json!({"x": format!("{x}mm"), "y": format!("{y}mm")});
+    run(
+        &mut b.shell,
+        "pcb.zone.add",
+        json!({"layer": "copper_top", "remove_unconnected": false,
+               "vertices": [p(x0, 0.0), p(x0 + 4.0, 0.0), p(x0 + 4.0, 4.0), p(x0, 4.0)]}),
+    );
+}
+
+#[test]
+fn zones_refill_in_the_background_after_each_committed_edit() {
+    let mut b = board();
+    let start = b.mark();
+    add_zone(&mut b, 0.0);
+    assert!(b.shell.zone_refill_running(), "the edit starts a refill");
+    b.shell.wait_zone_refill();
+    assert!(!b.shell.zone_refill_running());
+    assert!(!b.shell.zones_need_refill());
+    assert_eq!(b.edits_since(start), ["pcb.zone.add", "pcb.zone.fill"]);
+    let pcb = b.pcb().uuid;
+    let fills = b.shell.engine().project().unwrap().zone_fills(pcb).unwrap();
+    assert_eq!(fills.zones.len(), 1);
+
+    // Each Zone has its own hash: a second Zone apart from the first refills alone.
+    add_zone(&mut b, 10.0);
+    b.shell.wait_zone_refill();
+    assert!(!b.shell.zones_need_refill());
+    let fill = b.shell.engine().journal().last().unwrap().clone();
+    assert_eq!(fill.id, "pcb.zone.fill");
+    assert_eq!(fill.outcome.unwrap()["zones"].as_array().unwrap().len(), 1);
+
+    // A query or a view change starts nothing.
+    run(&mut b.shell, "pcb.zone.fill_status", json!({}));
+    assert!(!b.shell.zone_refill_running());
+}
+
+#[test]
+fn with_automatic_refill_off_zones_wait_for_refill() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key": "pcb.zone.auto_refill", "value": "off"}),
+    );
+    add_zone(&mut b, 0.0);
+    assert!(!b.shell.zone_refill_running());
+    b.shell.wait_zone_refill();
+    assert!(b.shell.zones_need_refill());
+}
+
+#[test]
+fn a_refill_never_runs_during_a_drag() {
+    let mut b = board();
+    add_zone(&mut b, 0.0);
+    assert!(b.shell.zone_refill_running());
+    // A rectangle drag on empty board stops the refill in flight...
+    b.shell.pcb_press(mm(30.0, 30.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(35.0, 35.0));
+    while b.shell.poll_zone_refill() {
+        std::thread::yield_now();
+    }
+    assert!(
+        b.shell.zones_need_refill(),
+        "the cancelled fill kept nothing"
+    );
+    // ...and none starts again until it ends.
+    assert!(!b.shell.poll_zone_refill());
+    b.shell.pcb_release();
+    assert!(
+        b.shell.poll_zone_refill(),
+        "the next one starts after the drag"
+    );
+    b.shell.wait_zone_refill();
     assert!(!b.shell.zones_need_refill());
 }

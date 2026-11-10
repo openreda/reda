@@ -2,7 +2,7 @@
 //! canvas Tools. Its keys are Keymap bindings in the `footprint` context
 //! (`keymap/reda.toml`).
 //!
-//! - Select picks Pads, graphics and the Designator and value text (click, Shift/Mod,
+//! - Select picks Pads, graphics and the Designator and value text (click, Shift+click,
 //!   box), and dragging moves them on the grid: one `library.footprint.move` on release.
 //! - Pad places a Pad per click from the Pad Tool's settings ([`PadTemplate`]: SMD,
 //!   plated or non-plated; circle, rectangle, rounded rectangle or oval; a round hole or a
@@ -22,14 +22,13 @@ pub mod inspector;
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_engine::footprint_scene::{DESIGNATOR_TEXT, VALUE_TEXT};
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Uuid};
+use reda_engine::model::{
+    Footprint, FootprintLayer, LibraryElement, PadKind, PadShape, Ratio, Uuid, auto_increment,
+};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{
-    BoxMode, Combine, Pointer, box_select, combine, hit_test, snap_to_grid,
-};
+use crate::canvas::interact::{BoxMode, Pointer};
 use crate::canvas::{LiveHandle, Overlay, RubberBand};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
@@ -51,8 +50,12 @@ pub struct PadTemplate {
     pub shape: PadShape,
     pub width: Nm,
     pub height: Nm,
-    /// Only for a rounded rectangle; `None` is a quarter of the shorter side.
-    pub corner_radius: Option<Nm>,
+    /// For a rounded rectangle and the uncut corners of a chamfered one; `None` takes the
+    /// Command's default.
+    pub corner_ratio: Option<Ratio>,
+    /// For a chamfered rectangle; `None` is [`DEFAULT_CHAMFER_RATIO`].
+    #[serde(default)]
+    pub chamfer_ratio: Option<Ratio>,
     pub rotation: Millideg,
     /// The hole of a through-hole Pad, as (width, height): equal is round, else a slot.
     /// SMD Pads ignore it.
@@ -70,7 +73,8 @@ impl Default for PadTemplate {
             shape: PadShape::Rect,
             width: Nm(1_000_000),
             height: Nm(1_500_000),
-            corner_radius: None,
+            corner_ratio: None,
+            chamfer_ratio: None,
             rotation: Millideg(0),
             hole: None,
             mask_margin: None,
@@ -78,6 +82,9 @@ impl Default for PadTemplate {
         }
     }
 }
+
+/// The chamfer a chamfered Pad gets when its settings name none.
+pub const DEFAULT_CHAMFER_RATIO: Ratio = Ratio::percent(50);
 
 /// The hole a through-hole Pad gets when its settings name none: 0.8 mm round.
 const DEFAULT_HOLE: Nm = Nm(800_000);
@@ -95,20 +102,27 @@ impl PadTemplate {
             "width": self.width.0,
             "height": self.height.0,
         });
-        if self.shape == PadShape::RoundedRect
-            && let Some(r) = self.corner_radius
-        {
-            p["corner_radius"] = json!(r.0);
+        let cornered = matches!(self.shape, PadShape::RoundedRect | PadShape::ChamferedRect);
+        if cornered && let Some(r) = self.corner_ratio {
+            p["corner_ratio"] = json!(r.0);
+        }
+        if self.shape == PadShape::ChamferedRect {
+            p["chamfer_ratio"] = json!(self.chamfer_ratio.unwrap_or(DEFAULT_CHAMFER_RATIO).0);
         }
         if self.kind != PadKind::Smd {
             let (w, h) = self.hole.unwrap_or((DEFAULT_HOLE, DEFAULT_HOLE));
             p["hole"] = json!({"width": w.0, "height": h.0});
         }
         if let Some(m) = self.mask_margin {
-            p["mask_margin"] = json!(m.0);
+            p["mask"] = json!({"top": {"expansion": m.0}});
+            if self.kind != PadKind::Smd {
+                p["mask"]["bottom"] = json!({"expansion": m.0});
+            }
         }
-        if let Some(m) = self.paste_margin {
-            p["paste_margin"] = json!(m.0);
+        if self.kind == PadKind::Smd
+            && let Some(m) = self.paste_margin
+        {
+            p["paste"] = json!({"expansion": m.0});
         }
         p
     }
@@ -118,8 +132,11 @@ impl PadTemplate {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToolSettings {
     pub pad: PadTemplate,
-    /// The Layer Line, Rect and Circle draw on.
+    /// The Layer Line, Rect, Circle, Arc and Polygon draw on, and Text places on (on the
+    /// Silkscreen of the same side for a Courtyard Layer).
     pub layer: FootprintLayer,
+    /// The field the Text Tool's text shows: `Designator`, `Value` or any field name.
+    pub text_field: String,
 }
 
 impl Default for ToolSettings {
@@ -127,6 +144,7 @@ impl Default for ToolSettings {
         ToolSettings {
             pad: PadTemplate::default(),
             layer: FootprintLayer::SilkscreenTop,
+            text_field: reda_engine::model::DESIGNATOR_FIELD.to_owned(),
         }
     }
 }
@@ -150,6 +168,16 @@ pub enum Interaction {
     },
     /// A line, rectangle or circle being dragged out, snapped.
     Drawing { tool: Tool, from: Point, to: Point },
+    /// An arc (centre, start, end) or polygon being clicked out, corner by corner; `at`
+    /// is the pointer.
+    Drafting {
+        tool: Tool,
+        points: Vec<Point>,
+        at: Point,
+    },
+    /// Measure: from the first click to the pointer, or to the second click once
+    /// `done`.
+    Measuring { from: Point, to: Point, done: bool },
 }
 
 /// The Footprint editor's view state: the Tools' settings and each canvas's interaction.
@@ -157,6 +185,9 @@ pub enum Interaction {
 pub struct FootprintEditorState {
     pub settings: ToolSettings,
     pub canvases: BTreeMap<Uuid, Interaction>,
+    /// The number of the last Pad the Pad Tool placed in each Footprint tab, which the
+    /// next one auto-increments from.
+    pub last_pads: BTreeMap<Uuid, String>,
 }
 
 fn state(shell: &Shell) -> FootprintEditorState {
@@ -202,9 +233,12 @@ pub struct ToolSetParams {
     /// What the Pad Tool places.
     #[serde(default)]
     pub pad: Option<PadTemplate>,
-    /// The Layer Line, Rect and Circle draw on.
+    /// The Layer Line, Rect, Circle, Arc and Polygon draw on.
     #[serde(default)]
     pub layer: Option<FootprintLayer>,
+    /// The field the Text Tool places.
+    #[serde(default)]
+    pub text_field: Option<String>,
 }
 
 struct ToolSet;
@@ -231,7 +265,11 @@ impl Command for ToolSet {
         if let Some(layer) = p.layer {
             settings.layer = layer;
         }
-        Ok(json!({ "pad": settings.pad, "layer": settings.layer }))
+        if let Some(field) = p.text_field.filter(|f| !f.trim().is_empty()) {
+            settings.text_field = field.trim().to_owned();
+        }
+        Ok(json!({ "pad": settings.pad, "layer": settings.layer,
+                   "text_field": settings.text_field }))
     }
 }
 
@@ -239,19 +277,30 @@ impl Command for ToolSet {
 pub fn selectable(footprint: &Footprint) -> Vec<Uuid> {
     let mut out: Vec<Uuid> = footprint.pads.iter().map(|p| p.uuid).collect();
     out.extend(footprint.graphics.iter().map(|g| g.uuid));
-    out.extend([DESIGNATOR_TEXT, VALUE_TEXT]);
+    out.extend(footprint.texts.iter().map(|t| t.uuid));
     out
 }
 
-/// The number one past the highest numeric Pad number, 1 on an empty Footprint.
-pub fn next_number(footprint: &Footprint) -> u64 {
-    let highest = footprint
-        .pads
-        .iter()
-        .filter_map(|p| p.number.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0);
-    highest + 1
+/// The number for the next Pad the Pad Tool places in `footprint`: `last` (the one it
+/// placed before, if any) stepped by `primary` (letters too, A → B), skipping numbers
+/// taken; with nothing to step from, one past the highest numeric number, 1 on an empty
+/// Footprint.
+pub fn next_number(footprint: &Footprint, last: Option<&str>, primary: i64) -> String {
+    let taken = |n: &str| footprint.pads.iter().any(|p| p.number == n);
+    last.and_then(|last| auto_increment::next_number(last, primary, |n| !taken(n)))
+        .unwrap_or_else(|| {
+            let highest = footprint
+                .pads
+                .iter()
+                .filter_map(|p| p.number.parse::<u64>().ok())
+                .max()
+                .unwrap_or(0);
+            let mut n = highest + 1;
+            while taken(&n.to_string()) {
+                n += 1;
+            }
+            n.to_string()
+        })
 }
 
 /// Runs the active Tool on a frame's pointer `events` over the Footprint `element`'s
@@ -277,14 +326,14 @@ pub fn pointer(
         .get(&element)
         .cloned()
         .unwrap_or_default();
+    let read_only = element_editor::read_only(shell.engine(), element);
     let mut cx = Cx {
         shell,
         element,
         footprint: &footprint,
         pick: PICK_POINTS * nm_per_point,
-        read_only: element_editor::read_only(shell.engine(), element),
+        read_only,
         commands: Vec::new(),
-        pads_added: 0,
     };
     let mut state = cx.sync_tool(state);
     for &event in events {
@@ -299,6 +348,46 @@ pub fn pointer(
     }
     show(shell, element, state, hovered, cursor);
     commands
+}
+
+/// Closes the polygon being clicked out on the Footprint canvas `element` (Enter): the
+/// Command that adds it, if it has three corners.
+pub fn finish(shell: &mut Shell, element: Uuid) -> Option<Invocation> {
+    let Interaction::Drafting {
+        tool: Tool::Polygon,
+        points,
+        ..
+    } = state(shell).canvases.get(&element).cloned()?
+    else {
+        return None;
+    };
+    let shape =
+        (points.len() >= 3).then(|| crate::symbol_editor::shape_of(Tool::Polygon, &points))??;
+    let cursor = shell.document_tab(element).and_then(|t| t.cursor);
+    show(shell, element, Interaction::Idle, None, cursor);
+    Some(graphic_add(shell, element, shape))
+}
+
+/// The `library.footprint.graphic.add` of `shape` on the drawing Layer.
+fn graphic_add(shell: &Shell, element: Uuid, shape: Value) -> Invocation {
+    let layer = tool_settings(shell).layer;
+    (
+        "library.footprint.graphic.add".to_owned(),
+        json!({"footprint": element, "layer": layer, "shape": shape}),
+    )
+}
+
+/// The distance Measure shows from `from` to `to`, for the status bar.
+pub fn measure_note(from: Point, to: Point) -> String {
+    let mm = |n: i64| crate::pcb::view::format_length(Nm(n), reda_engine::preferences::Units::Mm);
+    let (dx, dy) = (to.x.0 - from.x.0, to.y.0 - from.y.0);
+    let d = (dx as f64).hypot(dy as f64).round() as i64;
+    crate::tr!(
+        "footprint-measure-note",
+        distance = mm(d),
+        dx = mm(dx.abs()),
+        dy = mm(dy.abs())
+    )
 }
 
 /// Drops whatever is in flight on the Footprint canvas `element` (Escape).
@@ -354,11 +443,17 @@ fn show(
     hovered: Option<Uuid>,
     cursor: Option<P>,
 ) {
-    let grid = shell.grid(element);
+    let rules = crate::snap::rules(shell, element);
+    let mode = match &state {
+        Interaction::Boxing { from, to, .. } => {
+            crate::selection::rules::box_mode(shell, element, *from, *to)
+        }
+        _ => BoxMode::Enclose,
+    };
     let Some(tab) = shell.document_tab_mut(element) else {
         return;
     };
-    let snapped = cursor.map(|c| snap_to_grid(c, grid));
+    let snapped = cursor.map(|c| rules.to_grid(c));
     let (moving, offset, overlay) = match &state {
         Interaction::Idle => (
             Vec::new(),
@@ -375,7 +470,7 @@ fn show(
                 rubber_band: Some(RubberBand {
                     from: *from,
                     to: *to,
-                    mode: BoxMode::of_drag(*from, *to),
+                    mode,
                 }),
                 ..Overlay::default()
             },
@@ -401,6 +496,32 @@ fn show(
                 ..Overlay::default()
             },
         ),
+        Interaction::Drafting { points, at, .. } => {
+            let mut corners = points.clone();
+            corners.push(*at);
+            (
+                Vec::new(),
+                (0.0, 0.0),
+                Overlay {
+                    wires: corners
+                        .windows(2)
+                        .map(|w| (w[0], w[1]))
+                        .collect::<Vec<_>>()
+                        .into(),
+                    cursor: Some(*at),
+                    ..Overlay::default()
+                },
+            )
+        }
+        Interaction::Measuring { from, to, .. } => (
+            Vec::new(),
+            (0.0, 0.0),
+            Overlay {
+                wires: vec![(*from, *to)].into(),
+                cursor: Some(*to),
+                ..Overlay::default()
+            },
+        ),
     };
     if !tab.live.shows(hovered, &moving, &[]) {
         tab.live = LiveHandle::new(hovered, &moving, &[]);
@@ -412,34 +533,27 @@ fn show(
 }
 
 struct Cx<'a> {
-    shell: &'a Shell,
+    shell: &'a mut Shell,
     element: Uuid,
     footprint: &'a Footprint,
     pick: f64,
     read_only: bool,
     commands: Vec<Invocation>,
-    /// Pads this frame's clicks already asked for, so each gets its own number.
-    pads_added: u64,
 }
 
 impl Cx<'_> {
-    fn grid(&self) -> Nm {
-        self.shell.grid(self.element)
-    }
-
+    /// `at` snapped onto the Footprint's Hotspots, else its grid.
     fn snap(&self, at: P) -> Point {
-        snap_to_grid(at, self.grid())
+        self.snap_moving(at, &[])
     }
 
-    fn selected(&self) -> Vec<Uuid> {
-        element_editor::selected_on(self.shell, self.element)
-    }
-
-    fn select(&mut self, objects: Vec<Uuid>) {
-        if objects != self.shell.selection().objects {
-            self.commands
-                .push(("selection.set".to_owned(), json!({ "objects": objects })));
-        }
+    /// `at` snapped as a move of `objects` lands: onto the other objects' Hotspots.
+    fn snap_moving(&self, at: P, objects: &[Uuid]) -> Point {
+        let targets = crate::snap::hotspots::without(
+            crate::snap::hotspots::footprint(self.footprint),
+            objects,
+        );
+        crate::snap::snap_at(self.shell, self.element, at, &targets).at
     }
 
     fn run(&mut self, id: &str, params: Value) {
@@ -447,15 +561,20 @@ impl Cx<'_> {
     }
 
     fn hit(&self, at: P) -> Option<Uuid> {
-        let tab = self.shell.document_tab(self.element)?;
-        let pickable = selectable(self.footprint);
-        hit_test(&tab.scene.scene, at, self.pick, |o| pickable.contains(&o))
+        crate::selection::picking::hit(self.shell, self.element, at, self.pick)
     }
 
     /// Drops a drawing whose Tool is no longer active.
     fn sync_tool(&self, state: Interaction) -> Interaction {
         match state {
-            Interaction::Drawing { tool, .. } if tool != self.shell.tool() => Interaction::Idle,
+            Interaction::Drawing { tool, .. } | Interaction::Drafting { tool, .. }
+                if tool != self.shell.tool() =>
+            {
+                Interaction::Idle
+            }
+            Interaction::Measuring { .. } if self.shell.tool() != Tool::Measure => {
+                Interaction::Idle
+            }
             Interaction::Moving { .. } | Interaction::Boxing { .. }
                 if self.shell.tool() != Tool::Select =>
             {
@@ -472,13 +591,15 @@ impl Cx<'_> {
         hovered: &mut Option<Uuid>,
     ) -> Interaction {
         match self.shell.tool() {
-            Tool::Pad | Tool::Origin => {
+            Tool::Pad | Tool::Origin | Tool::Text => {
                 if let Pointer::Click { at, .. } = event {
                     self.click_tool(at);
                 }
                 Interaction::Idle
             }
             tool @ (Tool::Line | Tool::Rect | Tool::Circle) => self.draw(tool, state, event),
+            tool @ (Tool::Arc | Tool::Polygon) => self.draft(tool, state, event),
+            Tool::Measure => self.measure(state, event),
             _ => self.select_step(state, event, hovered),
         }
     }
@@ -490,13 +611,25 @@ impl Cx<'_> {
         let at = self.snap(at);
         match self.shell.tool() {
             Tool::Pad => {
-                let number = next_number(self.footprint) + self.pads_added;
-                self.pads_added += 1;
-                let number = number.to_string();
+                let primary = self.shell.preferences().schematic.auto_increment.primary;
+                let last = state(self.shell).last_pads.get(&self.element).cloned();
+                let number = next_number(self.footprint, last.as_deref(), primary);
+                state_mut(self.shell)
+                    .last_pads
+                    .insert(self.element, number.clone());
                 let params = tool_settings(self.shell)
                     .pad
                     .params(self.element, &number, at);
                 self.run("library.footprint.pad.add", params);
+            }
+            Tool::Text => {
+                let settings = tool_settings(self.shell);
+                self.run(
+                    "library.footprint.text.add",
+                    json!({"footprint": self.element, "field": settings.text_field,
+                           "at": {"x": at.x.0, "y": at.y.0},
+                           "layer": inspector::text_layer(settings.layer)}),
+                );
             }
             Tool::Origin => {
                 self.run(
@@ -528,6 +661,91 @@ impl Cx<'_> {
                 let to = self.snap(at);
                 self.add_graphic(tool, from, to);
                 Interaction::Idle
+            }
+            (state, _) => state,
+        }
+    }
+
+    /// Arc and Polygon: each click adds a corner; an arc is done after three (centre,
+    /// start, end), a polygon on a click on its first corner or Enter ([`finish`]).
+    fn draft(&mut self, tool: Tool, state: Interaction, event: Pointer) -> Interaction {
+        if self.read_only {
+            return Interaction::Idle;
+        }
+        let mut points = match state {
+            Interaction::Drafting {
+                tool: t, points, ..
+            } if t == tool => points,
+            _ => Vec::new(),
+        };
+        let at = match event {
+            Pointer::Click { at, .. } => self.snap(at),
+            Pointer::Hover(at) | Pointer::Drag(at) => {
+                if points.is_empty() {
+                    return Interaction::Idle;
+                }
+                let at = self.snap(at);
+                return Interaction::Drafting { tool, points, at };
+            }
+            _ if points.is_empty() => return Interaction::Idle,
+            _ => {
+                let at = *points.last().expect("not empty");
+                return Interaction::Drafting { tool, points, at };
+            }
+        };
+        if points.last() == Some(&at) {
+            return Interaction::Drafting { tool, points, at };
+        }
+        let closes = tool == Tool::Polygon && points.len() >= 3 && points[0] == at;
+        if !closes {
+            points.push(at);
+        }
+        let needed = crate::symbol_editor::corners(tool);
+        if !closes && needed.is_none_or(|n| points.len() < n) {
+            return Interaction::Drafting { tool, points, at };
+        }
+        if let Some(shape) = crate::symbol_editor::shape_of(tool, &points) {
+            let (id, params) = graphic_add(self.shell, self.element, shape);
+            self.run(&id, params);
+        }
+        Interaction::Idle
+    }
+
+    /// Measure: a click starts, the second click ends and shows the distance; a third
+    /// click starts again.
+    fn measure(&mut self, state: Interaction, event: Pointer) -> Interaction {
+        match (state, event) {
+            (
+                Interaction::Measuring {
+                    from, done: false, ..
+                },
+                Pointer::Hover(at),
+            ) => Interaction::Measuring {
+                from,
+                to: self.snap(at),
+                done: false,
+            },
+            (
+                Interaction::Measuring {
+                    from, done: false, ..
+                },
+                Pointer::Click { at, .. },
+            ) => {
+                let to = self.snap(at);
+                self.shell.set_note(measure_note(from, to));
+                Interaction::Measuring {
+                    from,
+                    to,
+                    done: true,
+                }
+            }
+            (_, Pointer::Click { at, .. }) => {
+                let from = self.snap(at);
+                Interaction::Measuring {
+                    from,
+                    to: from,
+                    done: false,
+                }
             }
             (state, _) => state,
         }
@@ -565,7 +783,7 @@ impl Cx<'_> {
                 },
                 Pointer::Drag(at),
             ) => Interaction::Moving {
-                offset: self.snap(at) - anchor,
+                offset: self.snap_moving(at, &objects) - anchor,
                 objects,
                 anchor,
             },
@@ -575,7 +793,7 @@ impl Cx<'_> {
                 },
                 Pointer::DragEnd(at),
             ) => {
-                let offset = self.snap(at) - anchor;
+                let offset = self.snap_moving(at, &objects) - anchor;
                 if offset != Point::default() && !self.read_only {
                     self.run(
                         "library.footprint.move",
@@ -605,17 +823,20 @@ impl Cx<'_> {
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Hover(at)) => {
+                crate::selection::picking::hover(self.shell, self.element, at, self.pick);
                 *hovered = self.hit(at);
                 Interaction::Idle
             }
             (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                let how = Combine::of(modifiers);
-                let current = self.shell.selection().objects.clone();
-                let picked: Vec<Uuid> = self.hit(at).into_iter().collect();
-                if picked.is_empty() && how != Combine::Replace {
-                    return Interaction::Idle;
+                if let Some(command) = crate::selection::picking::click(
+                    self.shell,
+                    self.element,
+                    at,
+                    self.pick,
+                    modifiers,
+                ) {
+                    self.commands.push(command);
                 }
-                self.select(combine(&current, &picked, how));
                 Interaction::Idle
             }
             (
@@ -627,25 +848,31 @@ impl Cx<'_> {
                 },
             ) => {
                 *hovered = None;
-                let Some(hit) = self.hit(from) else {
+                let Some(hit) = crate::selection::picking::movement_hit(
+                    self.shell,
+                    self.element,
+                    from,
+                    self.pick,
+                ) else {
                     return Interaction::Boxing {
                         from,
                         to: at,
                         modifiers,
                     };
                 };
-                let selected = self.selected();
-                let objects = if selected.contains(&hit) {
-                    selected
-                } else if modifiers.shift {
-                    combine(&selected, &[hit], Combine::Add)
-                } else {
-                    vec![hit]
-                };
-                self.select(objects.clone());
+                let parts = element_editor::parts(self.shell.engine(), self.element);
+                let drag = crate::selection::picking::drag_start(
+                    self.shell,
+                    self.element,
+                    hit,
+                    modifiers,
+                    |id| parts.contains(&id),
+                );
+                self.commands.extend(drag.select);
+                let objects = drag.objects;
                 let anchor = self.snap(from);
                 Interaction::Moving {
-                    offset: self.snap(at) - anchor,
+                    offset: self.snap_moving(at, &objects) - anchor,
                     objects,
                     anchor,
                 }
@@ -655,18 +882,10 @@ impl Cx<'_> {
     }
 
     fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        let Some(tab) = self.shell.document_tab(self.element) else {
-            return;
-        };
-        let pickable = selectable(self.footprint);
-        let picked = box_select(
-            &tab.scene.scene,
-            from,
-            to,
-            BoxMode::of_drag(from, to),
-            |o| pickable.contains(&o),
-        );
-        let current = self.shell.selection().objects.clone();
-        self.select(combine(&current, &picked, Combine::of(modifiers)));
+        if let Some(command) =
+            crate::selection::picking::box_selection(self.shell, self.element, from, to, modifiers)
+        {
+            self.commands.push(command);
+        }
     }
 }

@@ -4,6 +4,7 @@
 //! clearances (the board-wide rule where a class sets none). Copper on no Net keeps its
 //! clearance from everything, other unassigned copper included.
 
+use crate::copper::shape::BoardShape as _;
 use reda_model::geom::{Nm, Point};
 use reda_model::{PcbDocument, TrackGeometry, Uuid};
 use rstar::AABB;
@@ -12,7 +13,8 @@ use serde::Serialize;
 
 use super::shape::Shape;
 use super::{Copper, Item};
-use crate::net_rules::{clearance_between, net_rules};
+use crate::rules::{clearance_between, largest};
+use reda_model::{RuleField, RuleKind};
 
 /// Copper the routing Tool is about to add.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,6 +81,7 @@ impl Copper {
             [lo[0] - reach, lo[1] - reach],
             [hi[0] + reach, hi[1] + reach],
         );
+        let ties = super::ties::Ties::of(pcb);
         let mut hits = Vec::new();
         for layer in layers {
             for piece in self.candidates(layer, search) {
@@ -90,8 +93,12 @@ impl Copper {
                 {
                     continue;
                 }
-                let required = clearance_between(pcb, net, other);
+                let required = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
                 let gap = shape.distance(&piece.shape);
+                // A Net Tie's other Pads need no clearance, but touching one is a short.
+                if ties.tie_pad_on(net, piece.item) && !shape.touches(&piece.shape) {
+                    continue;
+                }
                 if gap < required.0 as f64 {
                     hits.push(ClearanceHit {
                         item: piece.item,
@@ -106,6 +113,63 @@ impl Copper {
         hits.sort_by_key(|h| (h.item, h.layer));
         hits.dedup();
         hits
+    }
+}
+
+/// Other-Net copper grown by the clearance a route on one Net must keep from it: the
+/// Track Tool's clearance display (`C`). Where the route's centre line may not go is the
+/// halo grown by a further half route width.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Halo {
+    pub item: Item,
+    /// The copper's outline, each primitive grown by `clearance`.
+    pub shape: reda_model::geom::grown::Shape,
+    pub clearance: Nm,
+}
+
+impl Copper {
+    /// The clearance halos on `layer` for a route on `net`: every piece of copper of
+    /// another Net (or of no Net) other than Zone fills, grown by the clearance between the
+    /// two Nets, sorted by item. With `near`, only copper within that distance of the
+    /// point.
+    pub fn halos(
+        &self,
+        pcb: &PcbDocument,
+        layer: Uuid,
+        net: Option<Uuid>,
+        near: Option<(Point, Nm)>,
+    ) -> Vec<Halo> {
+        let envelope = match near {
+            Some((at, reach)) => AABB::from_corners(
+                [at.x.0 - reach.0, at.y.0 - reach.0],
+                [at.x.0 + reach.0, at.y.0 + reach.0],
+            ),
+            None => AABB::from_corners([i64::MIN / 4, i64::MIN / 4], [i64::MAX / 4, i64::MAX / 4]),
+        };
+        let mut out: Vec<Halo> = Vec::new();
+        for piece in self.candidates(layer, envelope) {
+            let other = self.net(piece.item);
+            if matches!(piece.item, Item::Zone { .. }) || (net.is_some() && other == net) {
+                continue;
+            }
+            if let Some((at, reach)) = near
+                && piece.shape.distance(&Shape::disc(at, Nm::ZERO)) > reach.0 as f64
+            {
+                continue;
+            }
+            let clearance = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
+            let mut shape = piece.shape.clone();
+            for prim in &mut shape.prims {
+                prim.radius += clearance.0;
+            }
+            out.push(Halo {
+                item: piece.item,
+                shape,
+                clearance,
+            });
+        }
+        out.sort_by_key(|h| h.item);
+        out
     }
 }
 
@@ -128,6 +192,7 @@ impl Copper {
     /// left out: a current fill keeps its clearance by construction.
     pub(crate) fn gaps(&self, pcb: &PcbDocument) -> Vec<Gap> {
         let reach = max_clearance(pcb).0;
+        let ties = super::ties::Ties::of(pcb);
         let mut found: std::collections::BTreeMap<(Item, Item), Gap> = Default::default();
         for (&layer, tree) in &self.index {
             for entry in tree.iter() {
@@ -148,10 +213,19 @@ impl Copper {
                     if na.is_some() && na == nb {
                         continue;
                     }
-                    if piece.shape.touches(&other.shape) {
+                    if piece.shape.touches(&other.shape)
+                        || ties.no_clearance((piece.item, na), (other.item, nb))
+                    {
                         continue;
                     }
-                    let required = clearance_between(pcb, na, nb);
+                    let Some(required) = clearance_between(pcb, na, nb) else {
+                        continue;
+                    };
+                    if same_footprint_pads(piece.item, other.item)
+                        && ignores_pad_to_pad(pcb, na, nb)
+                    {
+                        continue;
+                    }
                     let gap = piece.shape.distance(&other.shape);
                     if gap >= required.0 as f64 {
                         continue;
@@ -174,11 +248,21 @@ impl Copper {
     }
 }
 
-/// The largest clearance any Net Class asks for.
+/// The largest clearance any enabled record asks for.
 fn max_clearance(pcb: &PcbDocument) -> Nm {
-    pcb.net_classes()
-        .filter_map(|c| c.clearance)
-        .chain([net_rules(pcb, None).clearance, pcb.setup().rules.clearance])
-        .max()
-        .unwrap_or(Nm::ZERO)
+    largest(pcb, RuleKind::Clearance, RuleField::Value)
+}
+
+/// Whether `a` and `b` are two Pads of one placed Footprint.
+fn same_footprint_pads(a: Item, b: Item) -> bool {
+    matches!(
+        (a, b),
+        (Item::Pad { footprint: fa, .. }, Item::Pad { footprint: fb, .. }) if fa == fb
+    )
+}
+
+/// Whether the clearance rule of either Net lets Pads within one Footprint sit closer.
+fn ignores_pad_to_pad(pcb: &PcbDocument, a: Option<Uuid>, b: Option<Uuid>) -> bool {
+    use crate::rules::net_rules;
+    net_rules(pcb, a).ignore_pad_to_pad || net_rules(pcb, b).ignore_pad_to_pad
 }

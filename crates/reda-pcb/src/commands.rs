@@ -1,31 +1,44 @@
 //! The PCB Commands. Each one edits the Project's PCB Document and is unavailable while
 //! the Project has none.
 
+mod board_info;
+mod clipboard;
 mod copper;
+mod dimension;
 mod drc;
+mod find;
 mod free_pad;
+pub mod from_graphics;
 mod graphic;
-mod layer;
+pub(crate) mod layer;
+mod measure;
 mod mechanical;
+mod net;
 mod net_class;
 mod outline;
 pub(crate) mod placement;
+mod polygon;
+mod route;
 mod rules;
+mod stackup;
 mod text;
 mod text_geometry;
 mod track;
 mod track_edit;
 mod via;
 mod zone;
+pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
 
-pub use drc::{SyncCheck, SyncState};
+pub use board_info::{BoardInfoResult, board_info};
+pub use drc::{AreaParam, DrcRunParams, DrcRunResult, SyncCheck, SyncState, run as drc_run};
 pub use mechanical::{MechanicalSet, MechanicalSetParams};
+pub use net_class::glob_match;
 pub use outline::rect_outline;
 pub use placement::{
     Op as PlacementOp, Placed, anchor as placement_anchor, preview as placement_preview,
+    preview_including_locked as placement_preview_including_locked,
 };
-pub use track_edit::{DragPlan as TrackDragPlan, drag_plan as track_drag_plan};
 
 use reda_command::{
     AvailabilityContext, CommandError, Context, Length, NO_PROJECT, Registry, Unavailable,
@@ -38,22 +51,40 @@ use serde::Serialize;
 /// Adds every PCB Command. `sync` tells DRC whether the board is out of sync with the
 /// schematic, which only the engine can work out.
 pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
+    register_all_with_user(registry, sync, reda_command::os_user_name);
+}
+
+/// Adds the Commands with the source for the Preference-backed Waiver author.
+pub fn register_all_with_user(
+    registry: &mut Registry,
+    sync: SyncCheck,
+    user_name: reda_command::UserName,
+) {
     outline::register_all(registry);
     rules::register_all(registry);
+    stackup::register_all(registry);
     net_class::register_all(registry);
+    net::register_all(registry);
     text::register_all(registry);
     registry.add(text_geometry::TextGeometry);
     graphic::register_all(registry);
+    dimension::register_all(registry);
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);
     copper::register_all(registry);
-    drc::register_all(registry, sync);
+    board_info::register_all(registry);
+    clipboard::register_all(registry);
+    drc::register_all(registry, sync, user_name);
     zone::register_all(registry);
     zone_fill::register_all(registry);
     placement::register_all(registry);
+    polygon::register_all(registry);
+    route::register_all(registry);
     mechanical::register_all(registry);
+    measure::register_all(registry);
     free_pad::register_all(registry);
+    registry.add(find::PcbFind);
 }
 
 /// Why a PCB Command cannot run in a Project without a PCB Document.
@@ -92,6 +123,13 @@ pub struct Created {
     pub uuid: Uuid,
 }
 
+/// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
+fn nullable<'de, D: serde::Deserializer<'de>, T: serde::Deserialize<'de>>(
+    d: D,
+) -> Result<Option<Option<T>>, D::Error> {
+    <Option<T> as serde::Deserialize>::deserialize(d).map(Some)
+}
+
 /// A length param that must not be negative; `pointer` names it in the error.
 fn non_negative(pointer: &str, length: Length) -> Result<Nm, CommandError> {
     let nm = length.nm();
@@ -102,14 +140,6 @@ fn non_negative(pointer: &str, length: Length) -> Result<Nm, CommandError> {
         ));
     }
     Ok(nm)
-}
-
-/// An optional length param that must not be negative.
-fn optional_non_negative(
-    pointer: &str,
-    length: Option<Length>,
-) -> Result<Option<Nm>, CommandError> {
-    length.map(|l| non_negative(pointer, l)).transpose()
 }
 
 /// A length param that must be positive; `pointer` names it in the error.

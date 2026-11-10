@@ -1,16 +1,17 @@
-//! The schematic's dialogs: Find, Select Similar, Re-annotate, Update from Library, the
-//! words of new text, and Export PDF's file picker.
+//! The schematic's dialogs: Select Similar, Re-annotate, Re-annotate (last settings), Update from Library,
+//! Convert Cross Junctions, the words of new text, and Export PDF's file picker.
 //!
 //! Each dialog is a model that works on a [`Shell`] (tested without a window) plus its
 //! drawing. The menus open them through the view Command `schematic.dialog.open`, which
 //! queues a [`Request`] the window carries out; every change they make goes through
 //! Commands (`schematic.find`, `selection.set`, `schematic.reannotate`, …).
 
-mod find;
+mod cross;
+mod library;
 mod reannotate;
-mod similar;
+mod replace;
 mod text;
-mod update;
+pub mod update;
 
 use std::path::Path;
 
@@ -26,31 +27,44 @@ use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 use crate::tr;
 
-pub use find::{FindDialog, FindRow};
-pub use reannotate::{ReannotateDialog, ReannotateOrder, ReannotateScope, Rename};
-pub use similar::{Criterion, SimilarDialog};
+pub use cross::ConvertCrossDialog;
+pub use library::LibraryDialog;
+pub use reannotate::labels as reannotate_labels;
+pub use reannotate::{
+    ReannotateDialog, ReannotateLast, Rename, RowSort, SheetRow as ReannotateSheetRow,
+};
+pub use replace::{KeepFields, Outcome, PickRow, ReplaceDialog};
 pub use text::TextDialog;
-pub use update::{UpdateDialog, UpdateRow};
+pub use update::{
+    ComponentRow, GridCell, Page, PartRow, Replacement, Section, SheetRow, UpdateDialog,
+    UpdateScope,
+};
 
 /// A schematic dialog the menus open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DialogKind {
-    /// Find by Designator, value or Net name, across sheets.
+    /// The Find Panel, with its text field focused.
     Find,
     /// Select the Units like the selected one.
     SelectSimilar,
     /// Renumber Designators, with an old → new preview.
     Reannotate,
+    /// Re-annotate (last settings): a count to confirm, then the saved settings run.
+    ReannotateLast,
     /// Update outdated Components, with a preview.
     UpdateFromLibrary,
     /// Pick where to write the PDF of every sheet.
     ExportPdf,
+    /// Convert Cross Junctions, on this sheet or the Project, with a Miter Size.
+    ConvertCrossJunctions,
 }
 
 /// Adds `schematic.dialog.open` to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(OpenDialog);
+    library::register_all(registry);
+    registry.add(crate::panels::find::FindStep);
 }
 
 /// Adds the hand-written dialogs that ask for what an incomplete call lacks: the words
@@ -77,9 +91,10 @@ impl Command for OpenDialog {
     const META: Meta = Meta {
         id: "schematic.dialog.open",
         title: "Open Schematic Dialog",
-        description: "Opens one of the schematic's dialogs in the window: Find, Select \
-                      Similar, Re-annotate, Update from Library, or the file picker of \
-                      Export PDF.",
+        description: "Opens one of the schematic's dialogs in the window: Find (the Find \
+                      Panel), Select \
+                      Similar, Re-annotate, Re-annotate (last settings), Update from Library, Convert Cross Junctions, \
+                      or the file picker of Export PDF.",
         category: "schematic",
         icon: "dialog",
         kind: Kind::View,
@@ -116,10 +131,22 @@ impl Command for OpenDialog {
                 json!({"dialog": "reannotate"}),
             ),
             Preset::new(
+                "reannotate_last",
+                "Re-annotate (last settings)…",
+                "annotate",
+                json!({"dialog": "reannotate_last"}),
+            ),
+            Preset::new(
                 "update_from_library",
                 "Update from Library…",
                 "library_update",
                 json!({"dialog": "update_from_library"}),
+            ),
+            Preset::new(
+                "convert_cross_junctions",
+                "Convert Cross Junctions…",
+                "wire",
+                json!({"dialog": "convert_cross_junctions"}),
             ),
             Preset::new(
                 "export_pdf",
@@ -138,10 +165,12 @@ impl Command for OpenDialog {
 
 /// An open schematic dialog. The window keeps one and shows it every frame.
 pub enum SchematicDialog {
-    Find(FindDialog),
-    Similar(SimilarDialog),
     Reannotate(ReannotateDialog),
-    Update(UpdateDialog),
+    ReannotateLast(ReannotateLast),
+    Update(Box<UpdateDialog>),
+    ConvertCross(ConvertCrossDialog),
+    Replace(Box<ReplaceDialog>),
+    Board(Box<crate::pcb::update_dialog::BoardUpdateDialog>),
 }
 
 impl SchematicDialog {
@@ -150,20 +179,33 @@ impl SchematicDialog {
     /// bar).
     pub fn open(kind: DialogKind, shell: &mut Shell) -> Option<SchematicDialog> {
         Some(match kind {
-            DialogKind::Find => SchematicDialog::Find(FindDialog::default()),
-            DialogKind::SelectSimilar => match SimilarDialog::new(shell) {
-                Some(dialog) => SchematicDialog::Similar(dialog),
-                None => {
-                    shell.report(tr!("similar-needs-unit"));
+            DialogKind::Find => {
+                crate::panels::find::open(shell);
+                return None;
+            }
+            DialogKind::SelectSimilar => {
+                // The non-modal window, on the first selected object.
+                let selection = shell.selection().clone();
+                let params = json!({"objects": selection.objects, "pads": selection.pads});
+                if shell.run("selection.similar.window", params).is_err() {
+                    shell.report(tr!("similar-needs-object"));
+                }
+                return None;
+            }
+            DialogKind::Reannotate => SchematicDialog::Reannotate(ReannotateDialog::new(shell)),
+            DialogKind::ReannotateLast => match ReannotateLast::new(shell) {
+                Ok(dialog) => SchematicDialog::ReannotateLast(dialog),
+                Err(reason) => {
+                    shell.report(reason);
                     return None;
                 }
             },
-            DialogKind::Reannotate => {
-                let mut dialog = ReannotateDialog::new(shell);
-                dialog.refresh(shell);
-                SchematicDialog::Reannotate(dialog)
+            DialogKind::UpdateFromLibrary => {
+                SchematicDialog::Update(Box::new(UpdateDialog::new(shell, UpdateScope::default())))
             }
-            DialogKind::UpdateFromLibrary => SchematicDialog::Update(UpdateDialog::new(shell)),
+            DialogKind::ConvertCrossJunctions => {
+                SchematicDialog::ConvertCross(ConvertCrossDialog::new(shell)?)
+            }
             DialogKind::ExportPdf => return None,
         })
     }
@@ -171,10 +213,12 @@ impl SchematicDialog {
     /// Draws the dialog for one frame. Returns whether it is still open.
     pub fn show(&mut self, ctx: &egui::Context, shell: &mut Shell) -> bool {
         match self {
-            SchematicDialog::Find(d) => d.show(ctx, shell),
-            SchematicDialog::Similar(d) => d.show(ctx, shell),
             SchematicDialog::Reannotate(d) => d.show(ctx, shell),
+            SchematicDialog::ReannotateLast(d) => d.show(ctx, shell),
             SchematicDialog::Update(d) => d.show(ctx, shell),
+            SchematicDialog::ConvertCross(d) => d.show(ctx, shell),
+            SchematicDialog::Replace(d) => d.show(ctx, shell) == Outcome::Open,
+            SchematicDialog::Board(d) => d.show(ctx, shell),
         }
     }
 }

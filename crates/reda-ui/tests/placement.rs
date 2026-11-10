@@ -159,7 +159,7 @@ fn space_rotates_and_x_and_y_mirror_in_flight_and_later_placements_keep_it() {
     );
     assert_eq!(
         press(&mut shell, sheet(), "X").as_deref(),
-        Some("tool.mirror:x")
+        Some("tool.mirror_x")
     );
     let from = shell.engine().journal().len();
     placement::click(&mut shell, sheet(), mil(0, 0));
@@ -208,7 +208,7 @@ fn space_and_x_while_placing_turn_only_the_part_in_flight_not_the_selection() {
     press(&mut shell, sheet(), "X");
     assert_eq!(
         journal_since(&shell, from),
-        ["tool.rotate", "tool.mirror:x"]
+        ["tool.rotate", "tool.mirror_x"]
     );
     let first = units(&shell)
         .into_iter()
@@ -229,7 +229,12 @@ fn edits_made_in_flight_carry_to_later_placements_with_the_next_designator() {
     // Tab opens Properties, where the placement in flight is edited.
     assert_eq!(
         press(&mut shell, sheet(), "Tab").as_deref(),
-        Some("panel.show:properties")
+        Some("tool.edit_properties")
+    );
+    let last = shell.engine().journal().last().unwrap().id.clone();
+    assert_eq!(
+        last, "panel.show:properties",
+        "Tab shows the Properties Panel"
     );
     run(
         &mut shell,
@@ -313,7 +318,10 @@ fn a_mechanical_part_places_on_the_board_turned_and_flipped_in_flight() {
         press(&mut shell, board, "Space").as_deref(),
         Some("tool.rotate")
     );
-    assert_eq!(press(&mut shell, board, "L").as_deref(), Some("tool.flip"));
+    assert_eq!(
+        press(&mut shell, board, "L").as_deref(),
+        Some("tool.flip_side")
+    );
     assert!(footprints(&shell).is_empty());
 
     placement::click(
@@ -329,7 +337,7 @@ fn a_mechanical_part_places_on_the_board_turned_and_flipped_in_flight() {
     assert_eq!(placed[0].side, Side::Bottom);
     assert_eq!(
         journal_since(&shell, from),
-        ["tool.rotate", "tool.flip", "pcb.mechanical.place"]
+        ["tool.rotate", "tool.flip_side", "pcb.mechanical.place"]
     );
 }
 
@@ -347,4 +355,31 @@ fn a_part_that_does_not_fit_the_document_is_refused() {
     );
     assert_eq!(no_symbol.unwrap_err().code, ErrorCode::Rejected);
     assert_eq!(shell.tool(), Tool::Select);
+}
+
+#[test]
+fn mechanical_part_placement_uses_the_output_origins_grid_phase() {
+    let Fixture { mut shell, .. } = fixture("place-board-origin");
+    let board = pcb(&shell);
+    run(&mut shell, "document.open", json!({"document":board}));
+    run(
+        &mut shell,
+        "view.grid.set",
+        json!({"document":board,"grid":"0.5mm"}),
+    );
+    run(
+        &mut shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    run(
+        &mut shell,
+        "tool.place",
+        json!({"document":board,"part":MOUNTING_HOLE_M3}),
+    );
+    placement::click(&mut shell, board, Point::new(Nm(5_100_000), Nm(5_100_000)));
+    assert_eq!(
+        footprints(&shell)[0].at,
+        Point::new(Nm(5_200_000), Nm(5_300_000))
+    );
 }

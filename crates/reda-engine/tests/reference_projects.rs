@@ -1,12 +1,17 @@
 //! The reference Projects under `tests/projects/`, driven end to end: ERC, DRC, the Sync
-//! preview, every Output Job and the schematic PDF, each checked against goldens in
+//! preview, every Output Job (the schematic PDF among its files), each checked against goldens in
 //! `tests/projects/goldens/<project>/`. `REDA_BLESS=1` rewrites them.
 //!
-//! **Where they come from.** Each one was first built by a scenario script in
+//! **Where they come from.** Each one is built by its scenario script in
 //! `tests/scenarios/` (`<project>.jsonl`, whose goldens beside it are the Project as the
-//! script leaves it) and copied here; from then on it is kept as files. Change a reference
-//! Project by editing these files (or by opening them in REDA and saving), not by
-//! rerunning its script.
+//! script leaves it), and the files here must equal those goldens (the `scenarios` test
+//! checks it). Change a reference Project by changing its script: `REDA_BLESS=1` on the
+//! `scenarios` test rewrites the goldens and copies them here, then `REDA_BLESS=1` on this
+//! test rewrites the outputs made from them.
+//!
+//! **What they cover.** Between them the Projects hold every kind of object the output
+//! goldens must show; [`between_them_the_projects_hold_every_object_the_goldens_cover`]
+//! keeps it so.
 //!
 //! **Format bumps.** On every `format::FORMAT` bump, before the migration lands, copy each
 //! reference Project as it is, still in the old format, to
@@ -67,6 +72,7 @@ fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
     // theirs.
     let mut engine = TestEngine(
         Engine::builder()
+            .version(reda_testkit::TEST_VERSION)
             .ids(SeededIds::new(1 << 32))
             .clock(FixedClock::EPOCH)
             .user_dirs(None)
@@ -196,17 +202,91 @@ fn every_output_matches_its_goldens() {
             relative(&mut report, work.path());
             reports.push(report);
         }
-        let mut pdf = engine.run_ok(
-            "schematic.export_pdf",
-            json!({"path": "outputs/schematic.pdf"}),
-        );
-        relative(&mut pdf, work.path());
-        reports.push(pdf);
         assert_golden(goldens(dir).join("outputs.json"), &pretty(&json!(reports)));
 
         let outputs = read_tree(&work.path().join("outputs"));
         assert_golden_tree(&goldens(dir).join("outputs"), &outputs);
     }
+}
+
+/// The kept Project's Documents as JSON, by file extension.
+fn documents(dir: &str) -> Vec<(String, Value)> {
+    read_tree(&projects_dir().join(dir))
+        .into_iter()
+        .filter(|(rel, _)| !rel.contains('/'))
+        .map(|(rel, bytes)| {
+            let ext = rel.rsplit('.').next().unwrap().to_string();
+            (ext, serde_json::from_slice(&bytes).unwrap())
+        })
+        .collect()
+}
+
+/// The rows of `table` in every Document with extension `ext` across the Projects.
+fn rows<'a>(docs: &'a [(String, Value)], ext: &str, table: &str) -> Vec<&'a Value> {
+    docs.iter()
+        .filter(|(e, _)| e == ext)
+        .filter_map(|(_, doc)| doc[table].as_array())
+        .flatten()
+        .collect()
+}
+
+#[test]
+fn between_them_the_projects_hold_every_object_the_goldens_cover() {
+    let docs: Vec<(String, Value)> = PROJECTS.iter().flat_map(|(d, _)| documents(d)).collect();
+    let footprints = rows(&docs, "redapcb", "footprints");
+    let units = rows(&docs, "redasch", "units");
+    let slot =
+        |pad: &Value| pad["kind"] == "non_plated" && pad["hole"]["width"] != pad["hole"]["height"];
+    let copy_pads = rows(&docs, "redapcb", "footprint_copies")
+        .into_iter()
+        .flat_map(|c| {
+            c["footprint"]["pads"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
+    let held = [
+        (
+            "a Net Tie",
+            footprints.iter().any(|f| f["component_type"] == "net_tie"),
+        ),
+        (
+            "a bottom-side part",
+            footprints.iter().any(|f| f["side"] == "bottom"),
+        ),
+        (
+            "a Zone Cutout",
+            !rows(&docs, "redapcb", "zone_cutouts").is_empty(),
+        ),
+        (
+            "a Dimension",
+            !rows(&docs, "redapcb", "dimensions").is_empty(),
+        ),
+        (
+            "a Locally Edited Footprint",
+            rows(&docs, "redapcb", "footprint_copies")
+                .iter()
+                .any(|c| c.get("edited_from").is_some()),
+        ),
+        (
+            "a Mechanical Component with no Footprint",
+            units
+                .iter()
+                .any(|u| u["component_type"] == "mechanical" && u.get("footprint").is_none()),
+        ),
+        (
+            "a Not Fitted Component",
+            units.iter().any(|u| u["not_fitted"] == true)
+                && footprints.iter().any(|f| f["not_fitted"] == true),
+        ),
+        (
+            "a non-plated slot",
+            rows(&docs, "redapcb", "free_pads").into_iter().any(slot) || copy_pads.iter().any(slot),
+        ),
+    ];
+    let missing: Vec<&str> = held.iter().filter(|(_, h)| !h).map(|(w, _)| *w).collect();
+    assert!(missing.is_empty(), "no reference Project holds {missing:?}");
 }
 
 #[test]

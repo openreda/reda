@@ -8,7 +8,8 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{ErrorCode, FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
-use reda_ui::properties::{Edit, FieldRow, Properties, Shared};
+use reda_ui::engine::preferences::Units;
+use reda_ui::properties::{Edit, FieldRow, Kind, Properties, Shared};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -192,7 +193,7 @@ fn the_footprint_is_chosen_from_the_parts_alternates() {
 }
 
 #[test]
-fn selected_copper_and_highlighted_nets_set_the_net_class_of_all_their_nets() {
+fn selected_copper_and_highlighted_nets_join_or_leave_a_net_class_together() {
     let dir = TempDir::new("properties-net-class");
     let mut shell = shell(&dir);
     let net = |shell: &mut Shell, name: &str| -> Uuid {
@@ -237,15 +238,28 @@ fn selected_copper_and_highlighted_nets_set_the_net_class_of_all_their_nets() {
     let p = properties(&shell);
     let class = p.net_class.as_ref().expect("a Net Class row");
     assert_eq!(class.nets, sorted(vec![gnd, vcc]));
-    assert!(matches!(class.class, Shared::Same(_)));
-    assert_eq!(class.classes.len(), 2);
+    assert_eq!(
+        class.class,
+        Shared::Same(vec![]),
+        "the Default Net Class only"
+    );
+    assert_eq!(class.classes.len(), 1, "the stored classes");
 
     let (id, params) = apply(&mut shell, Edit::NetClass(power));
-    assert_eq!(id, "pcb.net.set_class");
+    assert_eq!(id, "pcb.net.add_to_class");
     assert_eq!(
         params,
         json!({"nets": sorted(vec![gnd, vcc]), "class": power})
     );
+    // With every Net in it, picking the class again takes them out.
+    let p = properties(&shell);
+    assert_eq!(
+        p.net_class.as_ref().unwrap().class,
+        Shared::Same(vec![power])
+    );
+    let (id, _) = apply(&mut shell, Edit::NetClass(power));
+    assert_eq!(id, "pcb.net.remove_from_class");
+    apply(&mut shell, Edit::NetClass(power));
 
     // A Footprint's Pad and a highlighted Net: one is now Power, the other Default.
     select(&mut shell, json!({"pads": [pad], "nets": [gnd]}));
@@ -289,4 +303,183 @@ fn selecting_an_unknown_object_is_not_found_and_keeps_the_selection() {
         .unwrap_err();
     assert_eq!(err.code, ErrorCode::NotFound);
     assert!(shell.selection().objects.is_empty());
+}
+
+/// Adds a silkscreen text `height` high and returns its UUID.
+fn pcb_text(shell: &mut Shell, height: &str) -> Value {
+    let out = run(
+        shell,
+        "pcb.text.add",
+        json!({"layer": "silkscreen_top", "text": "A", "x": 0, "y": 0, "height": height}),
+    );
+    out["result"]["uuid"].clone()
+}
+
+fn text_height(shell: &Shell, text: &Value) -> i64 {
+    match shell.engine().project().unwrap().object(uuid(text)) {
+        Some(reda_ui::engine::model::Object::PcbText(t)) => t.object.style.height.0,
+        other => panic!("not a PCB text: {other:?}"),
+    }
+}
+
+fn pcb_document(shell: &Shell) -> Uuid {
+    let project = shell.engine().project().unwrap();
+    project
+        .documents()
+        .find(|d| d.kind == reda_ui::engine::model::DocumentKind::Pcb)
+        .unwrap()
+        .uuid
+}
+
+#[test]
+fn a_numeric_expression_runs_per_object_and_commits_one_batch_of_resolved_values() {
+    let dir = TempDir::new("properties-expression");
+    let mut shell = shell(&dir);
+    let a = pcb_text(&mut shell, "1mm");
+    let b = pcb_text(&mut shell, "2mm");
+    select(&mut shell, json!({"objects": [a, b]}));
+    let p = properties(&shell);
+    let names: Vec<(&str, Kind)> = p.numbers.rows.iter().map(|r| (r.name, r.kind)).collect();
+    assert_eq!(
+        names,
+        [
+            ("x", Kind::Length),
+            ("y", Kind::Length),
+            ("rotation", Kind::Angle),
+            ("height", Kind::Length),
+            ("thickness", Kind::Length),
+        ]
+    );
+    assert_eq!(p.numbers.rows[3].value, Shared::Mixed);
+    assert_eq!(p.numbers.rows[2].value, Shared::Same(Some(0)));
+
+    // Each text doubles its own height and adds 5 mil; the Command carries the results.
+    let (id, params) = p
+        .numbers
+        .command("height", "! * 2 + 5mil", Units::Mm)
+        .expect("evaluates")
+        .expect("a height row");
+    assert_eq!(id, "batch");
+    assert_eq!(
+        params,
+        json!({"commands": [
+            {"id": "pcb.text.set", "params": {"uuid": a, "height": 2_127_000}},
+            {"id": "pcb.text.set", "params": {"uuid": b, "height": 4_127_000}},
+        ]})
+    );
+    run(&mut shell, id, params);
+    assert_eq!(
+        (text_height(&shell, &a), text_height(&shell, &b)),
+        (2_127_000, 4_127_000)
+    );
+
+    // One undo entry puts both back.
+    let pcb = pcb_document(&shell);
+    run(&mut shell, "edit.undo", json!({"document": pcb}));
+    assert_eq!(
+        (text_height(&shell, &a), text_height(&shell, &b)),
+        (1_000_000, 2_000_000)
+    );
+
+    // Attributes of the same object by schema name; a bare number is in the display units.
+    let (_, params) = properties(&shell)
+        .numbers
+        .command("thickness", "Height / 10 + 1", Units::Mil)
+        .unwrap()
+        .unwrap();
+    assert_eq!(params["commands"][0]["params"]["thickness"], json!(125_400));
+    assert_eq!(params["commands"][1]["params"]["thickness"], json!(225_400));
+
+    // One object alone runs its own Command, not a batch.
+    select(&mut shell, json!({"objects": [a]}));
+    let (id, params) = properties(&shell)
+        .numbers
+        .command("rotation", "! + 45", Units::Mm)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (id, params),
+        ("pcb.text.set", json!({"uuid": a, "rotation": 45_000}))
+    );
+}
+
+#[test]
+fn a_failing_expression_commits_nothing_and_says_why() {
+    let dir = TempDir::new("properties-expression-fails");
+    let mut shell = shell(&dir);
+    let layer = "copper_top";
+    let zone = |shell: &mut Shell, clearance: Option<&str>| {
+        let mut params = json!({"layer": layer, "vertices": [
+            {"x": 0, "y": 0}, {"x": "10mm", "y": 0}, {"x": "10mm", "y": "10mm"}
+        ]});
+        if let Some(c) = clearance {
+            params["clearance"] = json!(c);
+        }
+        run(shell, "pcb.zone.add", params)["result"]["uuid"].clone()
+    };
+    let own = zone(&mut shell, Some("0.3mm"));
+    let ruled = zone(&mut shell, None);
+    select(&mut shell, json!({"objects": [own, ruled]}));
+    let p = properties(&shell);
+    let row = p
+        .numbers
+        .rows
+        .iter()
+        .find(|r| r.name == "clearance")
+        .unwrap();
+    assert_eq!(row.value, Shared::Mixed);
+
+    // The second Zone leaves its clearance to the rules, so `!` has nothing to work on.
+    let why = p
+        .numbers
+        .command("clearance", "! + 0.1mm", Units::Mm)
+        .unwrap_err();
+    assert!(why.contains('!'), "{why}");
+    // Function names are reserved.
+    let why = p
+        .numbers
+        .command("clearance", "sqrt(!)", Units::Mm)
+        .unwrap_err();
+    assert!(why.contains("reserved"), "{why}");
+    // A plain value works for both.
+    let (id, params) = p
+        .numbers
+        .command("clearance", "0.25", Units::Mm)
+        .unwrap()
+        .unwrap();
+    assert_eq!(id, "batch");
+    assert_eq!(
+        params["commands"][1],
+        json!({"id": "pcb.zone.set", "params": {"zone": ruled, "clearance": 250_000}})
+    );
+    // A row the selection doesn't have gives no Command.
+    assert_eq!(p.numbers.command("height", "1", Units::Mm), Ok(None));
+}
+
+#[test]
+fn numeric_rows_show_only_when_every_selected_object_has_them() {
+    let dir = TempDir::new("properties-expression-rows");
+    let mut shell = shell(&dir);
+    let text = pcb_text(&mut shell, "1mm");
+    let sheet_text = run(
+        &mut shell,
+        "schematic.text.add",
+        json!({"document": SHEET, "text": "Hello", "at": {"x": 0, "y": 0}}),
+    )["result"]["text"]
+        .clone();
+    select(&mut shell, json!({"objects": [text, sheet_text]}));
+    let p = properties(&shell);
+    let names: Vec<&str> = p.numbers.rows.iter().map(|r| r.name).collect();
+    // Location rows come first, then the Graphical ones.
+    assert_eq!(names, ["rotation", "height"]);
+    let (_, params) = p
+        .numbers
+        .command("height", "!", Units::Mm)
+        .unwrap()
+        .unwrap();
+    assert_eq!(params["commands"][1]["id"], json!("schematic.text.set"));
+
+    let (_, unit) = place(&mut shell, R_10K, 0);
+    select(&mut shell, json!({"objects": [text, unit]}));
+    assert!(properties(&shell).numbers.rows.is_empty());
 }

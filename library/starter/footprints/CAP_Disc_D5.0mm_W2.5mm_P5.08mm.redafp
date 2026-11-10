@@ -1,15 +1,19 @@
 {
   "format": 1,
-  "footprint": {"uuid":"cd0be5b4-30b8-43a1-86a0-04fe884fe2c5","name":"CAP_Disc_D5.0mm_W2.5mm_P5.08mm","description":"Ceramic disc capacitor, 5.0 × 2.5 mm body, leads 5.08 mm apart"},
-  "text": {"designator":{"at":{"x":0,"y":2300000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"cd0be5b4-30b8-43a1-86a0-04fe884fe2c5","name":"CAP_Disc_D5.0mm_W2.5mm_P5.08mm","description":"Ceramic disc capacitor, 5.0 × 2.5 mm body, leads 5.08 mm apart","height":5000000},
   "pads": [
-    {"uuid":"b4dbdb7b-6578-40b8-ae0b-e50f2b7b8206","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
-    {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
+    {"uuid":"6ba85f01-5e09-4497-997a-ab6908cad773","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}},
+    {"uuid":"b4dbdb7b-6578-40b8-ae0b-e50f2b7b8206","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-2540000,"y":0},"rotation":0,"width":1600000,"height":1600000,"hole":{"width":800000,"height":800000}}
   ],
   "graphics": [
-    {"uuid":"21c680c6-582a-47e4-877b-0ddb2b010322","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2560000,"y":-1310000},"end":{"x":2560000,"y":-1310000}},"width":120000},
-    {"uuid":"6ba85f01-5e09-4497-997a-ab6908cad773","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1250000},"end":{"x":2500000,"y":1250000}},"width":100000},
-    {"uuid":"994ab059-2eb6-42ec-ae9c-ebade935e3b0","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3590000,"y":-1500000},"end":{"x":3590000,"y":1500000}},"width":50000},
-    {"uuid":"fdf40709-28ed-4787-b83c-9a01b0ede2f3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2560000,"y":1310000},"end":{"x":2560000,"y":1310000}},"width":120000}
+    {"uuid":"21c680c6-582a-47e4-877b-0ddb2b010322","layer":"assembly_top","shape":{"kind":"rect","start":{"x":-2500000,"y":-1250000},"end":{"x":2500000,"y":1250000}},"width":100000},
+    {"uuid":"994ab059-2eb6-42ec-ae9c-ebade935e3b0","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2560000,"y":1310000},"end":{"x":2560000,"y":1310000}},"width":120000},
+    {"uuid":"f24cc5cc-f235-443b-aa47-8ff76a78e5ca","layer":"courtyard_top","shape":{"kind":"rect","start":{"x":-3590000,"y":-1500000},"end":{"x":3590000,"y":1500000}},"width":50000},
+    {"uuid":"fdf40709-28ed-4787-b83c-9a01b0ede2f3","layer":"silkscreen_top","shape":{"kind":"line","start":{"x":-2560000,"y":-1310000},"end":{"x":2560000,"y":-1310000}},"width":120000}
+  ],
+  "texts": [
+    {"uuid":"44e00762-a41d-49b3-9770-d4b89f8e2d8d","field":"Designator","at":{"x":0,"y":2300000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"c21bea96-b079-4f3c-9e7f-d0c71a08b449","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"d892f725-4b0a-4cea-9b32-7beea19dcad3","field":"Value","at":{"x":0,"y":-2200000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

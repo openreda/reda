@@ -1,5 +1,5 @@
 //! The routing Tool, the Via Tool and Track editing through the Shell with no window: T
-//! starts routing, `/` cycles the corner mode, the width comes from the Net Class and can
+//! starts routing, the width comes from the Net Class and can
 //! change mid-route, the live clearance check flags and stops the route, V drops a Via
 //! and switches Layer, a route ends on its own on same-Net copper and commits as one
 //! Command (or one `batch`), a bridged edit cancels it, and segments drag, delete and
@@ -12,8 +12,7 @@ use reda_ui::engine::Engine;
 use reda_ui::engine::command::{SeededIds, Signals, UserDirs};
 use reda_ui::engine::journal::Source;
 use reda_ui::engine::model::geom::{Nm, Point};
-use reda_ui::engine::model::{LayerKind, Side, TrackGeometry, Uuid};
-use reda_ui::pcb::route::Corner;
+use reda_ui::engine::model::{LayerKind, RuleKind, Side, TrackGeometry, Uuid};
 use reda_ui::shell::Shell;
 use reda_ui::tools::Tool;
 use serde_json::{Value, json};
@@ -168,26 +167,16 @@ fn t_starts_routing_and_reaching_a_same_net_pad_commits_one_track_add() {
         .unwrap()
         .pcb()
         .unwrap()
-        .setup()
-        .rules;
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
     let top = copper(&b, Side::Top);
     assert_eq!(
         tracks(&b),
         [
-            (
-                top,
-                Some(b.net),
-                rule.track_width,
-                mm(0.0, 0.0),
-                mm(5.0, 0.0)
-            ),
-            (
-                top,
-                Some(b.net),
-                rule.track_width,
-                mm(5.0, 0.0),
-                mm(10.0, 0.0)
-            ),
+            (top, Some(b.net), rule, mm(0.0, 0.0), mm(5.0, 0.0)),
+            (top, Some(b.net), rule, mm(5.0, 0.0), mm(10.0, 0.0)),
         ]
     );
     assert_eq!(
@@ -198,38 +187,17 @@ fn t_starts_routing_and_reaching_a_same_net_pad_commits_one_track_add() {
 }
 
 #[test]
-fn slash_cycles_the_corner_mode() {
-    let mut b = board();
-    run(&mut b.shell, "tool.activate:route", json!({}));
-    route_to(&mut b, mm(0.0, 0.0));
-    let ahead = |b: &mut Board| {
-        b.shell.route_hover(mm(3.0, 1.0));
-        b.shell.route_preview().unwrap().ahead
-    };
-    assert_eq!(b.shell.router().corner(), Corner::Straight45);
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(2.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(1.0, 1.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(3.0, 0.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(ahead(&mut b), [mm(0.0, 0.0), mm(0.0, 1.0), mm(3.0, 1.0)]);
-    run(&mut b.shell, "tool.cycle_corner", json!({}));
-    assert_eq!(b.shell.router().corner(), Corner::Straight45);
-}
-
-#[test]
 fn the_width_comes_from_the_net_class_and_changes_mid_route() {
     let mut b = board();
     let class = run(
         &mut b.shell,
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "0.5mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width", "values": {"preferred": "0.5mm"}}]}),
     )["result"]["uuid"]
         .clone();
     run(
         &mut b.shell,
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [b.net], "class": class}),
     );
     run(&mut b.shell, "tool.activate:route", json!({}));
@@ -258,7 +226,7 @@ fn the_width_steps_through_the_boards_widths() {
     run(
         &mut b.shell,
         "pcb.net_class.add",
-        json!({"name": "Power", "track_width": "1mm"}),
+        json!({"name": "Power", "rules": [{"kind": "track_width", "values": {"preferred": "1mm"}}]}),
     );
     run(&mut b.shell, "tool.activate:route", json!({}));
     route_to(&mut b, mm(0.0, 0.0));
@@ -269,13 +237,15 @@ fn the_width_steps_through_the_boards_widths() {
         .unwrap()
         .pcb()
         .unwrap()
-        .setup()
-        .rules;
-    assert_eq!(b.shell.route_preview().unwrap().width, rule.track_width);
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
+    assert_eq!(b.shell.route_preview().unwrap().width, rule);
     run(&mut b.shell, "pcb.route.width:next", json!({}));
     assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
     run(&mut b.shell, "pcb.route.width:previous", json!({}));
-    assert_eq!(b.shell.route_preview().unwrap().width, rule.track_width);
+    assert_eq!(b.shell.route_preview().unwrap().width, rule);
 }
 
 #[test]
@@ -293,9 +263,20 @@ fn a_clearance_violation_flags_the_route_and_stops_it() {
     let preview = b.shell.route_preview().unwrap();
     assert!(preview.blocked, "through OTHER's Pad");
 
+    // `stop`: the click places up to the last clear point, off the 0.5 mm grid.
     b.shell.route_click(mm(8.0, 0.0));
     let preview = b.shell.route_preview().expect("still routing");
-    assert_eq!(preview.placed, [mm(0.0, 0.0)], "the corner is not placed");
+    assert_eq!(preview.placed.len(), 2);
+    let clip = preview.placed[1];
+    assert_eq!(clip.y, Nm::ZERO);
+    assert!(
+        clip.x > mm(4.0, 0.0).x && clip.x < mm(4.5, 0.0).x,
+        "{clip:?}"
+    );
+    assert_ne!(clip.x.0 % 500_000, 0, "kept off grid");
+    // From there nothing more can be placed: the click says why.
+    b.shell.route_click(mm(8.0, 0.0));
+    assert_eq!(b.shell.route_preview().unwrap().placed.len(), 2);
     assert!(b.shell.message().is_some(), "says why");
     assert!(tracks(&b).is_empty(), "nothing shoves, nothing commits");
 }
@@ -334,14 +315,14 @@ fn v_drops_a_via_mid_route_switches_layer_and_the_route_commits_as_one_batch() {
             (
                 copper(&b, Side::Top),
                 Some(b.net),
-                pcb.setup().rules.track_width,
+                Nm::from_um(250),
                 mm(0.0, 0.0),
                 mm(4.0, 0.0)
             ),
             (
                 bottom,
                 Some(b.net),
-                pcb.setup().rules.track_width,
+                Nm::from_um(250),
                 mm(4.0, 0.0),
                 mm(4.0, 5.0)
             ),
@@ -476,9 +457,10 @@ fn dragging_a_segment_previews_then_runs_one_track_drag_keeping_neighbours() {
         }
     );
 
-    // Mod+drag detaches.
-    b.shell.pcb_press(mm(5.0, 7.0), true, TOLERANCE);
-    b.shell.pcb_drag(mm(5.0, 9.0));
+    // Mod+drag detaches. (Off the midpoint: on the selected segment's midpoint handle a
+    // drag breaks it.)
+    b.shell.pcb_press(mm(3.0, 7.0), true, TOLERANCE);
+    b.shell.pcb_drag(mm(3.0, 9.0));
     b.shell.pcb_release();
     let (id, params) = last_entry(&b);
     assert_eq!(id, "pcb.track.drag");
@@ -488,6 +470,54 @@ fn dragging_a_segment_previews_then_runs_one_track_drag_keeping_neighbours() {
         TrackGeometry::Line {
             from: mm(0.0, 0.0),
             to: mm(0.0, 7.0)
+        }
+    );
+}
+
+#[test]
+fn the_drag_passes_pcb_drag_preserve_angle_to_the_command() {
+    let mut b = board();
+    let t = add_route(&mut b, &[(0.0, 0.0), (0.0, 5.0), (10.0, 5.0), (10.0, 0.0)]);
+
+    // On (the default): a plain drag keeps the neighbours upright.
+    b.shell.pcb_press(mm(5.0, 5.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(7.0, 7.0));
+    b.shell.pcb_release();
+    let (_, params) = last_entry(&b);
+    assert_eq!(params["preserve_angle"], json!(true));
+    assert_eq!(
+        geometry(&b, t[0]),
+        TrackGeometry::Line {
+            from: mm(0.0, 0.0),
+            to: mm(0.0, 7.0)
+        }
+    );
+
+    // Off: the segment moves by the whole drag and its neighbours' ends follow.
+    b.shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "pcb.drag.preserve_angle", "value": false}),
+        )
+        .unwrap();
+    b.shell.pcb_press(mm(3.0, 7.0), false, TOLERANCE);
+    b.shell.pcb_drag(mm(5.0, 8.0));
+    b.shell.pcb_release();
+    let (id, params) = last_entry(&b);
+    assert_eq!(id, "pcb.track.drag");
+    assert_eq!(params["preserve_angle"], json!(false));
+    assert_eq!(
+        geometry(&b, t[1]),
+        TrackGeometry::Line {
+            from: mm(2.0, 8.0),
+            to: mm(12.0, 8.0)
+        }
+    );
+    assert_eq!(
+        geometry(&b, t[0]),
+        TrackGeometry::Line {
+            from: mm(0.0, 0.0),
+            to: mm(2.0, 8.0)
         }
     );
 }
@@ -512,4 +542,115 @@ fn select_connected_and_delete_work_on_the_selection() {
     );
     assert_eq!(tracks(&b).len(), 1);
     assert!(!b.shell.selection().objects.contains(&t[1]));
+}
+
+#[test]
+fn via_placement_uses_the_output_origins_grid_phase() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.output_origin.set",
+        json!({"at":{"x":"0.2mm","y":"0.3mm"}}),
+    );
+    run(&mut b.shell, "tool.activate:via", json!({}));
+    route_to(&mut b, mm(5.1, 5.1));
+    assert_eq!(
+        b.shell
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .vias()
+            .next()
+            .unwrap()
+            .at,
+        mm(5.2, 5.3)
+    );
+}
+
+#[test]
+fn a_reroute_deletes_the_old_path_in_the_routes_one_batch() {
+    let mut b = board();
+    let net = b.net;
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": net,
+               "points": [{"x": 0, "y": 0}, {"x": 0, "y": "5mm"},
+                          {"x": "10mm", "y": "5mm"}, {"x": "10mm", "y": 0}]}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0.0, 0.0));
+    b.shell.route_hover(mm(10.0, 0.0));
+    let proposed = b.shell.route_preview().unwrap().proposed.unwrap();
+    assert!(proposed.ends_route);
+    assert_eq!(proposed.removes.removed.len(), 3, "the red preview");
+
+    let before = journal_ids(&b).len();
+    b.shell.route_click(mm(10.0, 0.0));
+    assert_eq!(journal_ids(&b).len(), before + 1, "one Journal entry");
+    let (id, params) = last_entry(&b);
+    assert_eq!(id, "batch");
+    assert_eq!(params["commands"][0]["id"], "pcb.copper.delete");
+    let top = copper(&b, Side::Top);
+    let rule = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .board_rule(RuleKind::TrackWidth)
+        .values
+        .preferred
+        .unwrap();
+    assert_eq!(
+        tracks(&b),
+        [(top, Some(net), rule, mm(0.0, 0.0), mm(10.0, 0.0))]
+    );
+}
+
+#[test]
+fn the_route_preferences_drive_the_tool() {
+    let mut b = board();
+    let other =
+        run(&mut b.shell, "test.net.add", json!({"name": "OTHER"}))["result"]["uuid"].clone();
+    add_pad(&mut b.shell, "5mm", "3mm", &other);
+    let net = b.net;
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer": "copper_top", "net": net, "width": "1mm",
+               "points": [{"x": 0, "y": "10mm"}, {"x": "10mm", "y": "10mm"}]}),
+    );
+    let set = |b: &mut Board, key: &str, value: Value| {
+        b.shell
+            .run("app.preferences.set", json!({"key": key, "value": value}))
+            .unwrap();
+    };
+    run(&mut b.shell, "tool.activate:route", json!({}));
+
+    // `pickup_width`: a route started on a Track takes its width, unless turned off.
+    route_to(&mut b, mm(5.0, 10.0));
+    assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    set(&mut b, "pcb.route.pickup_width", json!(false));
+    route_to(&mut b, mm(5.0, 10.0));
+    assert_ne!(b.shell.route_preview().unwrap().width, Nm::from_mm(1));
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+
+    // `obstacle_mode`: `ignore` places the whole path through OTHER's Pad.
+    set(&mut b, "pcb.route.obstacle_mode", json!("ignore"));
+    route_to(&mut b, mm(0.0, 3.0));
+    b.shell.route_hover(mm(8.0, 3.0));
+    assert!(
+        b.shell.route_preview().unwrap().blocked,
+        "drawn in the violation colour"
+    );
+    b.shell.route_click(mm(8.0, 3.0));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.placed, [mm(0.0, 3.0), mm(8.0, 3.0)]);
 }

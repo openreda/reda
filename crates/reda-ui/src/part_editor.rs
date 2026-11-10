@@ -59,6 +59,11 @@ pub const BUILT_IN: [&str; 6] = [
     "keywords",
 ];
 
+/// The built-in fields the Part region shows (library.md#part-editor).
+pub const PART_FIELDS: [&str; 2] = ["description", "keywords"];
+/// The built-in fields the Fields grid starts with, before the free-form ones.
+pub const FIELD_GRID: [&str; 4] = ["value", "datasheet", "manufacturer", "mpn"];
+
 /// Every Symbol in the registered Libraries, by label.
 pub fn symbol_choices(shell: &mut Shell) -> Vec<Choice> {
     let index = shell.library_index();
@@ -285,11 +290,32 @@ pub fn rename(part: &Part, name: &str) -> Option<Invocation> {
     })
 }
 
+/// Retypes the Part; the Command resets In BOM and In CPL to the new type's defaults.
 pub fn set_component_type(part: &Part, component_type: ComponentType) -> Option<Invocation> {
     (part.component_type != component_type).then(|| {
         (
             "library.part.edit".to_owned(),
             json!({"part": part.uuid, "component_type": component_type}),
+        )
+    })
+}
+
+/// Sets the Part's In BOM default.
+pub fn set_in_bom(part: &Part, in_bom: bool) -> Option<Invocation> {
+    (part.in_bom != in_bom).then(|| {
+        (
+            "library.part.edit".to_owned(),
+            json!({"part": part.uuid, "in_bom": in_bom}),
+        )
+    })
+}
+
+/// Sets the Part's In CPL default.
+pub fn set_in_cpl(part: &Part, in_cpl: bool) -> Option<Invocation> {
+    (part.in_cpl != in_cpl).then(|| {
+        (
+            "library.part.edit".to_owned(),
+            json!({"part": part.uuid, "in_cpl": in_cpl}),
         )
     })
 }
@@ -372,4 +398,209 @@ pub fn remove_field(part: &Part, index: usize) -> Invocation {
         custom.remove(index);
     }
     custom_set(part, custom)
+}
+
+/// Why a pin-map cell is marked red in the Pins Panel.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CellMark {
+    /// The Pin reaches no Pad of this Footprint.
+    Empty,
+    /// A Pad number this Footprint doesn't have.
+    Unknown(String),
+    /// A Pad another Pin reaches too.
+    Shared(String),
+}
+
+/// One alternate Footprint's cell of a Pin's row.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MapCell {
+    /// The Pads the Pin reaches, comma-separated.
+    pub text: String,
+    pub marks: Vec<CellMark>,
+}
+
+/// One Pin's row of the Pins Panel on a Part: one cell per alternate Footprint.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MapRow {
+    pub number: String,
+    pub name: String,
+    pub overridden: bool,
+    pub cells: Vec<MapCell>,
+}
+
+/// The Pins Panel's pin-pad map of `part`, one cell per Footprint of `footprints` (its
+/// alternates, in order). The map is the Part's one map; a cell is red when the Pin
+/// reaches no Pad of that Footprint, names a Pad it doesn't have, or shares a Pad with
+/// another Pin.
+pub fn map_rows(part: &Part, symbol: Option<&Symbol>, footprints: &[Footprint]) -> Vec<MapRow> {
+    let rows = pin_rows(part, symbol);
+    let mut uses: std::collections::BTreeMap<&str, usize> = Default::default();
+    for row in &rows {
+        for pad in &row.pads {
+            *uses.entry(pad.as_str()).or_default() += 1;
+        }
+    }
+    rows.iter()
+        .map(|row| MapRow {
+            number: row.number.clone(),
+            name: row.name.clone(),
+            overridden: row.overridden,
+            cells: footprints
+                .iter()
+                .map(|f| {
+                    let has = |n: &str| f.pads.iter().any(|p| p.number == n);
+                    let mut marks = Vec::new();
+                    if row.pads.is_empty() {
+                        marks.push(CellMark::Empty);
+                    }
+                    for pad in &row.pads {
+                        if !has(pad) {
+                            marks.push(CellMark::Unknown(pad.clone()));
+                        }
+                        if uses.get(pad.as_str()).copied().unwrap_or(0) > 1 {
+                            marks.push(CellMark::Shared(pad.clone()));
+                        }
+                    }
+                    MapCell {
+                        text: row.pads.join(", "),
+                        marks,
+                    }
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// The Library holding `element`, and whether it can be written to: an open element's
+/// own, else the registered Library that has it.
+pub fn library_of(shell: &mut Shell, element: Uuid) -> Option<(Uuid, bool)> {
+    let index = shell.library_index();
+    let library = index.library_of(element)?;
+    Some((
+        library.info.uuid,
+        library.origin != reda_engine::library::LibraryOrigin::Starter,
+    ))
+}
+
+/// What the Pins Panel's rows and the Part editor's previews point at for each other
+/// (library.md#pins-panel): the Pin whose row the pointer is on, or the Pad under it in a
+/// preview. View state, one Part at a time.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Probe {
+    pub part: Option<Uuid>,
+    /// A row hovered in the Pins Panel: that Pin's number.
+    pub pin: Option<String>,
+    /// A Pad hovered in a Footprint preview: its number.
+    pub pad: Option<String>,
+}
+
+/// The cross-probe now.
+pub fn probe(shell: &Shell) -> Probe {
+    shell
+        .engine()
+        .view()
+        .get::<Probe>()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Sets the cross-probe: `pin` from the Pins Panel's rows or `pad` from a preview, each
+/// kept until the other side says otherwise.
+pub fn set_probe(
+    shell: &mut Shell,
+    part: Uuid,
+    pin: Option<Option<String>>,
+    pad: Option<Option<String>>,
+) {
+    let view = shell.engine.view_mut();
+    if view.get::<Probe>().is_none() {
+        view.set(Probe::default());
+    }
+    let probe = view.get_mut::<Probe>().expect("just set");
+    if probe.part != Some(part) {
+        *probe = Probe {
+            part: Some(part),
+            ..Probe::default()
+        };
+    }
+    if let Some(pin) = pin {
+        probe.pin = pin;
+    }
+    if let Some(pad) = pad {
+        probe.pad = pad;
+    }
+}
+
+/// The Pin numbers the cross-probe highlights on `part`: the hovered row's Pin, or the
+/// Pins that reach the hovered Pad.
+pub fn probed_pins(shell: &Shell, part: &Part, symbol: Option<&Symbol>) -> Vec<String> {
+    let probe = probe(shell);
+    if probe.part != Some(part.uuid) {
+        return Vec::new();
+    }
+    match (&probe.pin, &probe.pad) {
+        (Some(pin), _) => vec![pin.clone()],
+        (None, Some(pad)) => pin_rows(part, symbol)
+            .into_iter()
+            .filter(|r| r.pads.contains(pad))
+            .map(|r| r.number)
+            .collect(),
+        (None, None) => Vec::new(),
+    }
+}
+
+/// The Pad numbers the cross-probe highlights on `part`: those of the hovered row's Pin,
+/// or the hovered Pad.
+pub fn probed_pads(shell: &Shell, part: &Part, symbol: Option<&Symbol>) -> Vec<String> {
+    let probe = probe(shell);
+    if probe.part != Some(part.uuid) {
+        return Vec::new();
+    }
+    match (&probe.pin, &probe.pad) {
+        (Some(pin), _) => pin_rows(part, symbol)
+            .into_iter()
+            .find(|r| r.number == *pin)
+            .map(|r| r.pads)
+            .unwrap_or_default(),
+        (None, Some(pad)) => vec![pad.clone()],
+        (None, None) => Vec::new(),
+    }
+}
+
+/// New for the Part's Symbol, or Add ▸ New for a Footprint: makes an empty element named
+/// after the Part in the Part's Library (or the first writable one), points the Part at it
+/// and opens it. Returns the new element.
+pub fn new_element(
+    shell: &mut Shell,
+    part: Uuid,
+    kind: &str,
+) -> Result<Uuid, reda_engine::command::CommandError> {
+    use reda_engine::command::CommandError;
+    let Some(LibraryElement::Part(p)) = shell.engine().element(part).cloned() else {
+        return Err(CommandError::not_found("the Part is not open"));
+    };
+    let library = match library_of(shell, part) {
+        Some((library, true)) => library,
+        _ => crate::library_dialogs::writable_libraries(shell)
+            .first()
+            .map(|(l, _)| *l)
+            .ok_or_else(|| CommandError::rejected("no Library can be written to"))?,
+    };
+    let out = shell.run_reporting(
+        "library.element.new",
+        json!({"library": library, "kind": kind, "name": p.name}),
+    )?;
+    let element: Uuid = out["element"]
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(|| CommandError::internal("the new element has no UUID"))?;
+    let (id, params) = match kind {
+        "symbol" => set_symbol(&p, Some(element)),
+        _ => add_footprint(&p, element),
+    }
+    .ok_or_else(|| CommandError::internal("the Part already has it"))?;
+    shell.run_reporting(&id, params)?;
+    crate::shared_element::opened_from_part(shell, element, part);
+    shell.run_reporting("library.element.open", json!({"element": element}))?;
+    Ok(element)
 }

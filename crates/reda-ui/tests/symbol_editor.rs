@@ -1,5 +1,5 @@
 //! The Symbol editor on a Shell, without a window: its tab with or without a Project,
-//! Units as tabs, the Pin and drawing Tools, select, move and delete, the pin table's
+//! Units as tabs, the Pin and drawing Tools, select, move and delete, the Pins Panel's
 //! paste, Save with the Library check in Messages, read-only starter Symbols, Edit in
 //! Library and Recovery Snapshots of element tabs with no Project open.
 
@@ -14,6 +14,7 @@ use reda_ui::element_editor;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::format::library::write_library_info;
+use reda_ui::engine::library::wizard::paste::PasteTable;
 use reda_ui::engine::model::geom::{Millideg, Nm, Point};
 use reda_ui::engine::model::{LibraryElement, LibraryInfo, Scope, Shape, Symbol, Uuid};
 use reda_ui::engine::recovery as snapshots;
@@ -161,7 +162,13 @@ fn a_new_symbol_opens_in_a_document_tab_with_no_project_open() {
         .iter()
         .map(|m| m.id.as_str())
         .collect();
-    assert!(menus.contains(&"library"), "{menus:?}");
+    // The element's own items fold into File and Tools.
+    assert_eq!(
+        menus,
+        [
+            "file", "edit", "view", "project", "place", "tools", "window", "help"
+        ]
+    );
 }
 
 #[test]
@@ -206,7 +213,100 @@ fn the_pin_tool_places_pins_on_the_50_mil_grid_with_rising_numbers() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "on grid, numbers unique");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "on grid, numbers unique");
+}
+
+#[test]
+fn the_pin_tool_steps_on_from_the_last_pin_it_placed_keeping_its_edited_name() {
+    let mut f = Fixture::new("sym-pin-increment");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, 0.0, 0.0);
+    // The user names the first Pin D0; placement carries on from it.
+    let first = f.symbol(symbol).pins[0].uuid;
+    f.shell
+        .run(
+            "library.symbol.pin.edit",
+            json!({"symbol": symbol, "pin": first, "name": "D0"}),
+        )
+        .unwrap();
+    f.click(symbol, 0.0, -100.0);
+    f.click(symbol, 0.0, -200.0);
+    let s = f.symbol(symbol);
+    let mut pins: Vec<(String, String)> = s
+        .pins
+        .iter()
+        .map(|p| (p.number.clone(), p.name.clone()))
+        .collect();
+    pins.sort();
+    assert_eq!(
+        pins,
+        [
+            ("1".to_owned(), "D0".to_owned()),
+            ("2".to_owned(), "D1".to_owned()),
+            ("3".to_owned(), "D2".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn the_next_pin_follows_the_auto_increment_preferences_and_skips_taken_numbers() {
+    let mut f = Fixture::new("sym-pin-next");
+    let symbol = f.new_symbol("Chip");
+    for (number, at) in [("3", 0), ("5", -100)] {
+        f.shell
+            .run(
+                "library.symbol.pin.add",
+                json!({"symbol": symbol, "name": "X", "number": number,
+                       "at": {"x": 0, "y": format!("{at}mil")}}),
+            )
+            .unwrap();
+    }
+    let s = f.symbol(symbol);
+    let last = ("1".to_owned(), "IN1".to_owned());
+    assert_eq!(
+        symbol_editor::next_pin(&s, Some(&last), 2, 3),
+        ("7".to_owned(), "IN4".to_owned()),
+        "1 + 2 is taken, so 5 + 2; the name steps by the secondary 3"
+    );
+    assert_eq!(
+        symbol_editor::next_pin(&s, None, 1, 1),
+        ("6".to_owned(), String::new()),
+        "nothing placed yet: one past the highest"
+    );
+    let plus = ("+".to_owned(), "V".to_owned());
+    assert_eq!(symbol_editor::next_pin(&s, Some(&plus), 1, 1).0, "6");
+    let row_a = ("A".to_owned(), "PA".to_owned());
+    assert_eq!(
+        symbol_editor::next_pin(&s, Some(&row_a), 1, 1),
+        ("B".to_owned(), "PA".to_owned()),
+        "letter numbers step; a name with no trailing number repeats"
+    );
+
+    f.shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "schematic.auto_increment.primary", "value": 2}),
+        )
+        .unwrap();
+    f.key("P");
+    f.click(symbol, 0.0, -300.0);
+    f.click(symbol, 0.0, -400.0);
+    let mut numbers: Vec<String> = f
+        .symbol(symbol)
+        .pins
+        .iter()
+        .map(|p| p.number.clone())
+        .collect();
+    numbers.sort();
+    assert_eq!(numbers, ["3", "5", "6", "8"]);
 }
 
 #[test]
@@ -424,7 +524,8 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
     f.key("P");
     f.click(symbol, -200.0, 0.0);
     let text = "Number\tName\tType\n1\tVCC\tpower_in\n2\tGND\tPower In\n3\tPA0\tbidirectional\n";
-    let out = symbol_editor::paste_pins(&mut f.shell, symbol, text).unwrap();
+    let rows = PasteTable::parse(text, None).pins().unwrap();
+    let out = symbol_editor::paste_pins(&mut f.shell, symbol, &rows).unwrap();
     assert_eq!(out.added, 2);
     assert_eq!(out.updated, 1);
     let s = f.symbol(symbol);
@@ -452,23 +553,18 @@ fn pasted_pin_rows_add_and_update_pins_in_one_step() {
         .shell
         .run("library.check", json!({"element": symbol}))
         .unwrap();
-    assert_eq!(out["violations"], json!([]), "new Pins land on the grid");
+    // A new Symbol has no description yet; nothing else is found.
+    let checks: Vec<&str> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["check"].as_str().unwrap())
+        .collect();
+    assert_eq!(checks, ["missing_description"], "new Pins land on the grid");
     f.shell
         .run("edit.undo", json!({"document": symbol}))
         .unwrap();
     assert_eq!(f.symbol(symbol).pins.len(), 1, "the paste is one undo step");
-}
-
-#[test]
-fn pin_rows_parse_from_tabs_or_commas_and_bad_rows_are_reported() {
-    let rows = symbol_editor::parse_pin_rows("1, A, input, 0mil, 100mil\n\n2;B\n").unwrap();
-    assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0].number, "1");
-    assert_eq!(rows[0].name, "A");
-    assert_eq!(rows[0].at, Some(Point::new(Nm(0), mil(100))));
-    assert_eq!(rows[1].name, "B");
-    let err = symbol_editor::parse_pin_rows("1\tA\tsideways\n").unwrap_err();
-    assert!(err.contains("row 1"), "{err}");
 }
 
 #[test]
@@ -639,4 +735,87 @@ fn opening_a_project_keeps_unanswered_per_user_snapshots() {
     next.new_project(&work, "Demo").unwrap();
     next.flush_recovery();
     assert_eq!(snapshots::scan(&folder, None).len(), 1, "still there");
+}
+
+#[test]
+fn the_symbol_editor_snaps_onto_pin_ends_within_the_electrical_range() {
+    let mut f = Fixture::new("sym-snap");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -213.0, 30.0);
+    f.shell
+        .run(
+            "view.snap.set",
+            json!({"document": symbol, "gridless": true}),
+        )
+        .unwrap();
+    f.shell.run("tool.activate:line", json!({})).unwrap();
+    // 50 mil grid: a 40 mil range. 30 mil off on both axes lands on the Pin end
+    // (-200, 50); further off, gridless, the click stays where it is.
+    f.click(symbol, -170.0, 80.0);
+    f.click(symbol, -100.0, 133.0);
+    f.click(symbol, -100.0, 133.0);
+    let s = f.symbol(symbol);
+    let points: Vec<Point> = s
+        .graphics
+        .iter()
+        .flat_map(|g| match &g.shape {
+            reda_ui::engine::model::Shape::Line { start, end } => vec![*start, *end],
+            reda_ui::engine::model::Shape::Polygon { points } => points.clone(),
+            other => panic!("unexpected {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        points,
+        [
+            Point::new(mil(-200), mil(50)),
+            Point::new(mil(-100), mil(133))
+        ]
+    );
+}
+
+#[test]
+fn the_origin_tool_moves_the_origin_to_the_point_clicked() {
+    let mut f = Fixture::new("sym-origin-pick");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -200.0, 0.0);
+    f.shell.run("tool.activate:origin", json!({})).unwrap();
+    f.click(symbol, -200.0, 100.0);
+    let s = f.symbol(symbol);
+    assert_eq!(s.pins[0].at, Point::new(Nm(0), mil(-100)));
+    assert_eq!(
+        f.shell.tool(),
+        Tool::Select,
+        "one pick, then back to Select"
+    );
+}
+
+#[test]
+fn hovering_a_pin_shows_its_description() {
+    let mut f = Fixture::new("sym-hover");
+    let symbol = f.new_symbol("Chip");
+    f.key("P");
+    f.click(symbol, -200.0, 0.0);
+    f.shell.run("tool.activate:select", json!({})).unwrap();
+    let pin = f.symbol(symbol).pins[0].uuid;
+    f.events(symbol, &[Pointer::Hover((-150.0 * MIL, 0.0))]);
+    assert_eq!(
+        symbol_editor::hover_text(&f.shell, symbol),
+        None,
+        "no description"
+    );
+    f.shell
+        .run(
+            "library.symbol.pin.edit",
+            json!({"symbol": symbol, "pin": pin, "name": "RST", "description": "Resets the chip"}),
+        )
+        .unwrap();
+    f.events(symbol, &[Pointer::Hover((-150.0 * MIL, 0.0))]);
+    assert_eq!(
+        symbol_editor::hover_text(&f.shell, symbol).as_deref(),
+        Some("Pin 1 RST: Resets the chip")
+    );
+    f.events(symbol, &[Pointer::Hover((500.0 * MIL, 500.0 * MIL))]);
+    assert_eq!(symbol_editor::hover_text(&f.shell, symbol), None);
 }

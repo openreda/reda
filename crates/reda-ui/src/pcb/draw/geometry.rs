@@ -65,3 +65,61 @@ pub(super) fn arc_points(from: Point, to: Point, through: Point) -> Option<Vec<P
     points.push(to);
     Some(points)
 }
+
+/// Points around the circle about `centre` through `edge`, 5° apart.
+pub(super) fn circle_points(centre: Point, edge: Point) -> Vec<Point> {
+    let (dx, dy) = (
+        (edge.x.0 - centre.x.0) as f64,
+        (edge.y.0 - centre.y.0) as f64,
+    );
+    let (r, start) = (dx.hypot(dy), dy.atan2(dx));
+    (0..72)
+        .map(|i| {
+            let t = start + TAU * i as f64 / 72.0;
+            Point::new(
+                Nm((centre.x.0 as f64 + r * t.cos()).round() as i64),
+                Nm((centre.y.0 as f64 + r * t.sin()).round() as i64),
+            )
+        })
+        .collect()
+}
+
+/// The arc about `centre` from `start` counter-clockwise to the ray towards `towards`:
+/// its end and sweep, or `None` when a point sits on the centre.
+pub(super) fn arc_about(centre: Point, start: Point, towards: Point) -> Option<(Point, Millideg)> {
+    let rel = |p: Point| ((p.x.0 - centre.x.0) as f64, (p.y.0 - centre.y.0) as f64);
+    let ((sx, sy), (tx, ty)) = (rel(start), rel(towards));
+    if (sx == 0.0 && sy == 0.0) || (tx == 0.0 && ty == 0.0) {
+        return None;
+    }
+    let (r, a, b) = (sx.hypot(sy), sy.atan2(sx), ty.atan2(tx));
+    let sweep = Millideg((ccw(a, b).to_degrees() * 1000.0).round() as i64);
+    if sweep.0 == 0 {
+        return None;
+    }
+    let end = Point::new(
+        Nm((centre.x.0 as f64 + r * b.cos()).round() as i64),
+        Nm((centre.y.0 as f64 + r * b.sin()).round() as i64),
+    );
+    Some((end, sweep))
+}
+
+/// Points along the arc about `centre` from `start`, sweeping `sweep`, at most 5° apart.
+pub(super) fn arc_points_about(centre: Point, start: Point, sweep: Millideg) -> Vec<Point> {
+    let (dx, dy) = (
+        (start.x.0 - centre.x.0) as f64,
+        (start.y.0 - centre.y.0) as f64,
+    );
+    let (r, a) = (dx.hypot(dy), dy.atan2(dx));
+    let sweep = (sweep.0 as f64 / 1000.0).to_radians();
+    let steps = ((sweep.abs().to_degrees() / 5.0).ceil() as usize).max(1);
+    (0..=steps)
+        .map(|i| {
+            let t = a + sweep * i as f64 / steps as f64;
+            Point::new(
+                Nm((centre.x.0 as f64 + r * t.cos()).round() as i64),
+                Nm((centre.y.0 as f64 + r * t.sin()).round() as i64),
+            )
+        })
+        .collect()
+}

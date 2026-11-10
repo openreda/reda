@@ -11,6 +11,9 @@ use crate::Uuid;
 #[serde(deny_unknown_fields)]
 pub struct Track {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The copper Layer it is on.
     pub layer: Uuid,
     /// Its PCB Net; left out for copper on no Net.
@@ -43,10 +46,30 @@ impl TrackGeometry {
             TrackGeometry::Line { from, to } | TrackGeometry::Arc { from, to, .. } => (from, to),
         }
     }
+
+    /// The length of the centreline in nm: an arc's along its curve. 0 when the ends
+    /// coincide.
+    pub fn length(&self) -> f64 {
+        let (from, to) = self.ends();
+        let chord = ((to.x.0 - from.x.0) as f64).hypot((to.y.0 - from.y.0) as f64);
+        match *self {
+            TrackGeometry::Line { .. } => chord,
+            TrackGeometry::Arc { sweep, .. } => {
+                let angle = (sweep.0 as f64 / 1000.0).to_radians().abs();
+                let half = (angle / 2.0).sin();
+                if chord == 0.0 || half == 0.0 {
+                    chord
+                } else {
+                    chord / (2.0 * half) * angle
+                }
+            }
+        }
+    }
 }
 
 /// The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.
-/// A through Via spans the outermost copper Layers.
+/// `from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the
+/// side it is drilled from, which matters only once blind Vias come.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LayerSpan {
@@ -59,6 +82,9 @@ pub struct LayerSpan {
 #[serde(deny_unknown_fields)]
 pub struct Via {
     pub uuid: Uuid,
+    /// Locked against geometry changes; left out when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
     /// The centre.
     pub at: Point,
     /// Its PCB Net; left out for a Via on no Net.
@@ -70,4 +96,10 @@ pub struct Via {
     pub hole: Nm,
     /// The copper Layers it joins.
     pub span: LayerSpan,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<crate::Mask>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }

@@ -1,14 +1,15 @@
 //! The Board Outline and Board Cutouts.
 
 use reda_command::{
-    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, NoParams,
-    Registry, Unavailable,
+    Angle, AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry,
+    Unavailable,
 };
 use reda_model::geom::{self, Millideg, Nm, Point, Segment, Vertex};
-use reda_model::{BoardCutout, BoardOutline, GraphicShape, InDocument, Object, Uuid};
+use reda_model::{BoardCutout, BoardOutline, InDocument, Object, Uuid};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use super::from_graphics::FromGraphics;
 use super::{Created, needs_pcb, non_negative, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
@@ -18,6 +19,7 @@ pub(super) fn register_all(registry: &mut Registry) {
     registry.add(OutlineAddFromGraphics);
     registry.add(OutlineDelete);
     registry.add(CutoutAdd);
+    registry.add(CutoutAddFromGraphics);
     registry.add(CutoutDelete);
 }
 
@@ -47,7 +49,8 @@ pub struct VertexParam {
     pub sweep: Option<Angle>,
 }
 
-/// Contour params as stored vertices, checked to be one closed contour.
+/// Contour params as stored vertices, checked to be one closed contour that does not cross
+/// itself.
 pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandError> {
     let vertices: Vec<Vertex> = vertices
         .iter()
@@ -58,6 +61,7 @@ pub(super) fn contour(vertices: &[VertexParam]) -> Result<Vec<Vertex>, CommandEr
         .collect();
     geom::check_contour(&vertices)
         .map_err(|e| CommandError::invalid_params("/vertices", e.to_string()))?;
+    super::polygon::refuse_crossing(&vertices)?;
     Ok(vertices)
 }
 
@@ -70,7 +74,11 @@ fn set_outline(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, C
     if let Some(old) = old {
         tx.remove(old)?;
     }
-    let outline = BoardOutline { uuid, vertices };
+    let outline = BoardOutline {
+        locked: false,
+        uuid,
+        vertices,
+    };
     tx.insert(Object::BoardOutline(InDocument::new(document, outline)))?;
     Ok(Created { uuid })
 }
@@ -237,104 +245,97 @@ impl Command for OutlineAddFromSegments {
 
 pub struct OutlineAddFromGraphics;
 
-#[derive(Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct OutlineAddFromGraphicsParams {
-    /// Free lines, arcs and outlined rectangles whose ends meet exactly, forming one loop,
-    /// such as the selection.
-    pub graphics: Vec<Uuid>,
-    /// Keep the graphics as well; by default they become the outline and are removed.
-    #[serde(default)]
-    pub keep: bool,
-}
-
 impl Command for OutlineAddFromGraphics {
     const META: Meta = Meta {
         id: "pcb.board_outline.add_from_graphics",
         title: "Board Outline from Selection",
         description: "Sets the Board Outline to the closed loop that the free lines, arcs \
                       and rectangles `graphics` form, and removes them unless `keep`. \
-                      Their ends must meet exactly. Replaces any Board Outline the board \
-                      already has.",
+                      `mode` `centerline` (default) needs their ends to meet within \
+                      0.001 mm and refuses a gap with its location and size; \
+                      `outer_edge` follows the outside of the strokes. Replaces any Board \
+                      Outline the board already has.",
         category: "pcb",
         icon: "board_outline_from_lines",
         kind: Kind::Edit,
     };
-    type Params = OutlineAddFromGraphicsParams;
+    type Params = FromGraphics;
     type Output = Created;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(
-        &self,
-        cx: &mut Context<'_>,
-        p: OutlineAddFromGraphicsParams,
-    ) -> Result<Created, CommandError> {
-        let pcb = pcb(cx)?;
-        let mut segments = Vec::new();
-        for (i, uuid) in p.graphics.iter().enumerate() {
-            let refuse = || {
-                CommandError::invalid_params(
-                    &format!("/graphics/{i}"),
-                    format!("{uuid} is not a free line, arc or rectangle outline"),
-                )
-            };
-            let graphic = pcb.graphic(*uuid).ok_or_else(refuse)?;
-            match graphic.shape {
-                GraphicShape::Line { from, to } => segments.push(Segment::line(from, to)),
-                GraphicShape::Arc { from, to, sweep } => {
-                    segments.push(Segment::arc(from, to, sweep))
-                }
-                GraphicShape::Rect {
-                    from,
-                    to,
-                    filled: false,
-                } => {
-                    let (b, d) = (Point::new(to.x, from.y), Point::new(from.x, to.y));
-                    for (a, z) in [(from, b), (b, to), (to, d), (d, from)] {
-                        segments.push(Segment::line(a, z));
-                    }
-                }
-                GraphicShape::Rect { .. } => return Err(refuse()),
-            }
-        }
-        let vertices = geom::chain(&segments)
-            .map_err(|e| CommandError::invalid_params("/graphics", e.to_string()))?;
-        if !p.keep {
-            let tx = cx.tx()?;
-            for uuid in &p.graphics {
-                tx.remove(*uuid)?;
-            }
-        }
+    fn run(&self, cx: &mut Context<'_>, p: FromGraphics) -> Result<Created, CommandError> {
+        let vertices = p.contour(pcb(cx)?)?;
+        p.consume(cx)?;
         set_outline(cx, vertices)
+    }
+}
+
+pub struct CutoutAddFromGraphics;
+
+impl Command for CutoutAddFromGraphics {
+    const META: Meta = Meta {
+        id: "pcb.board_cutout.add_from_graphics",
+        title: "Board Cutout from Selection",
+        description: "Adds a Board Cutout along the closed loop that the free lines, arcs \
+                      and rectangles `graphics` form, and removes them unless `keep`. \
+                      `mode` `centerline` (default) needs their ends to meet within \
+                      0.001 mm and refuses a gap with its location and size; \
+                      `outer_edge` follows the outside of the strokes.",
+        category: "pcb",
+        icon: "board_cutout",
+        kind: Kind::Edit,
+    };
+    type Params = FromGraphics;
+    type Output = Created;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: FromGraphics) -> Result<Created, CommandError> {
+        let vertices = p.contour(pcb(cx)?)?;
+        p.consume(cx)?;
+        add_cutout(cx, vertices)
     }
 }
 
 pub struct OutlineDelete;
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineDeleteParams {
+    /// Deletes a locked Board Outline too; without it a locked one is refused.
+    #[serde(default)]
+    pub include_locked: bool,
+}
+
 impl Command for OutlineDelete {
     const META: Meta = Meta {
         id: "pcb.board_outline.delete",
         title: "Delete Board Outline",
-        description: "Deletes the Board Outline.",
+        description: "Deletes the Board Outline. Refused when it is locked, unless \
+                      `include_locked`.",
         category: "pcb",
         icon: "delete",
         kind: Kind::Edit,
     };
-    type Params = NoParams;
+    type Params = OutlineDeleteParams;
     type Output = ();
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
 
-    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
-        let outline = pcb(cx)?
+    fn run(&self, cx: &mut Context<'_>, p: OutlineDeleteParams) -> Result<(), CommandError> {
+        let pcb = pcb(cx)?;
+        let outline = pcb
             .outline()
             .map(|o| o.uuid)
             .ok_or_else(|| CommandError::not_found("the board has no Board Outline"))?;
+        crate::lock::refuse(pcb, [outline], p.include_locked, "delete")?;
         cx.tx()?.remove(outline)?;
         Ok(())
     }
@@ -368,13 +369,21 @@ impl Command for CutoutAdd {
 
     fn run(&self, cx: &mut Context<'_>, p: CutoutAddParams) -> Result<Created, CommandError> {
         let vertices = contour(&p.vertices)?;
-        let document = pcb(cx)?.uuid;
-        let uuid = cx.new_id();
-        let cutout = BoardCutout { uuid, vertices };
-        cx.tx()?
-            .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
-        Ok(Created { uuid })
+        add_cutout(cx, vertices)
     }
+}
+
+fn add_cutout(cx: &mut Context<'_>, vertices: Vec<Vertex>) -> Result<Created, CommandError> {
+    let document = pcb(cx)?.uuid;
+    let uuid = cx.new_id();
+    let cutout = BoardCutout {
+        locked: false,
+        uuid,
+        vertices,
+    };
+    cx.tx()?
+        .insert(Object::BoardCutout(InDocument::new(document, cutout)))?;
+    Ok(Created { uuid })
 }
 
 pub struct CutoutDelete;
@@ -384,6 +393,9 @@ pub struct CutoutDelete;
 pub struct CutoutDeleteParams {
     /// The Board Cutout's UUID.
     pub cutout: Uuid,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for CutoutDelete {
@@ -409,6 +421,7 @@ impl Command for CutoutDelete {
                 p.cutout
             )));
         }
+        crate::lock::refuse(pcb(cx)?, [p.cutout], p.include_locked, "delete")?;
         cx.tx()?.remove(p.cutout)?;
         Ok(())
     }

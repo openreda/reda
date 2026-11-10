@@ -83,8 +83,47 @@ const SCENES: &[Scene] = &[
     },
 ];
 
-/// The folder the scenes' Projects and per-user state are staged in.
-const STAGE: &str = "/tmp/reda-showcase";
+/// The folder the scenes' Projects and per-user state are staged in: `REDA_SHOWCASE_ROOT`
+/// when set; for the website's images (`REDA_SHOWCASE_OUT`), a fixed path, so the paths the
+/// window shows are the same on every machine; otherwise a folder of this run's own under
+/// the temp directory, so runs from two checkouts never share one.
+fn stage_root() -> PathBuf {
+    static ROOT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    ROOT.get_or_init(|| {
+        if let Some(root) = std::env::var_os("REDA_SHOWCASE_ROOT") {
+            PathBuf::from(root)
+        } else if std::env::var_os("REDA_SHOWCASE_OUT").is_some() {
+            PathBuf::from("/tmp/reda-showcase")
+        } else {
+            std::env::temp_dir().join(format!("reda-showcase-{}", std::process::id()))
+        }
+    })
+    .clone()
+}
+
+/// An exclusive lock on `<stage root>.lock` when the stage is a fixed folder, held while
+/// the scenes are drawn, so another run staging into it waits instead of deleting it under
+/// this one. A folder of this run's own needs none.
+fn lock_stage() -> Option<std::fs::File> {
+    if std::env::var_os("REDA_SHOWCASE_ROOT").is_none()
+        && std::env::var_os("REDA_SHOWCASE_OUT").is_none()
+    {
+        return None;
+    }
+    let root = stage_root();
+    let parent = root.parent().expect("the stage root has a parent");
+    std::fs::create_dir_all(parent).unwrap();
+    let mut name = root.file_name().unwrap().to_owned();
+    name.push(".lock");
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(parent.join(name))
+        .unwrap();
+    lock.lock().unwrap();
+    Some(lock)
+}
 
 /// Where a scene's window lives: its per-user folder (holding the theme) and its Projects'
 /// folder.
@@ -98,7 +137,7 @@ impl Stage {
     /// machine (the showcase is drawn on Linux). Scenes are drawn one at a time, so each
     /// takes the folder over.
     fn new(theme: &'static str) -> Stage {
-        let root = PathBuf::from(STAGE);
+        let root = stage_root();
         let _ = std::fs::remove_dir_all(&root);
         let (home, work) = (root.join("home"), root.join("Projects"));
         std::fs::create_dir_all(&home).unwrap();
@@ -296,12 +335,12 @@ fn library(stage: &Stage) -> Harness<'static, App> {
 fn checks(stage: &Stage) -> Harness<'static, App> {
     let mut h = stage.window_on("blinky_555", false);
     let sheet = h.state().shell().active_document().unwrap().document;
-    // A stray Wire whose ends touch nothing, for ERC to find.
+    // A stray Wire whose ends touch nothing, for ERC to find; on the connection grid.
     run(
         &mut h,
         "schematic.wire.add",
         json!({"document": sheet,
-               "points": [{"x": "20mm", "y": "20mm"}, {"x": "40mm", "y": "20mm"}]}),
+               "points": [{"x": "800mil", "y": "800mil"}, {"x": "1600mil", "y": "800mil"}]}),
     );
     run(&mut h, "pcb.zone.fill", json!({}));
     zoom_to_circuit(&mut h);
@@ -345,6 +384,7 @@ fn every_scene_renders_in_both_themes() {
     };
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out).unwrap();
+    let _stage = lock_stage();
 
     let mut entries = Vec::new();
     for scene in SCENES {
@@ -378,7 +418,7 @@ fn every_scene_renders_in_both_themes() {
             drop(h);
         }
     }
-    let _ = std::fs::remove_dir_all(STAGE);
+    let _ = std::fs::remove_dir_all(stage_root());
     let manifest = json!({ "scenes": entries });
     std::fs::write(
         out.join("manifest.json"),

@@ -139,7 +139,12 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - `manual` uses the entry's own position, moved with the Footprint.
   - The other values place the text against the Courtyard or fallback box. It keeps that place when the Footprint rotates, and stays upright. The upright rule is REDA's own, because the docs don't cover it.
   - Dragging the text sets `manual`.
-- **Bulk edit:** `pcb.footprint.text.set {instances, field, autoposition?, at?, rotation?, style?, visible?}` sets position, size, style and visibility across many instances, and hides a Designator on tiny parts.
+- **Bulk edit:** `pcb.footprint.text.set {instances, field | texts, autoposition?, at?, rotation?, style?, visible?, reset?}` sets position, size, style and visibility across many instances, and hides a Designator on tiny parts.
+  - `field` picks every entry showing that field. `texts` picks entries by UUID instead, as a drag does.
+  - `at` and `rotation` are on the board. `at` moves exactly one entry, because one board point for many would stack them; `autoposition` places many.
+  - `style` patches only the properties it names, and `clear_knockout` removes a knockout.
+  - `reset` drops the picked entries' overrides.
+  - An override keeps only values that differ from the entry's, and `manual` is never stored.
 - **A Footprint change** keeps an override whose entry matches by UUID, or else by `field` and Layer. Any other override is dropped. This keeps the [Designator text placement](sync.md#what-sync-does-to-the-board) that Sync promises.
 - Text overrides aren't local edits: they don't change the Footprint's hash.
 
@@ -506,7 +511,7 @@ Free text and [Footprint text](library.md#footprint-contents) share one style: `
 - **`justify {h: left|center|right, v: top|center|bottom}`:** how the text sits on its anchor. `position` is now the anchor, where it was the left of the first baseline. `bottom` is the last line's baseline. Free text defaults to left and bottom, and Footprint text to centre.
 - **`knockout {margin}`:** the box around the text, grown by `margin`, with the glyphs removed. It works on every font. The docs show it clearly only on TrueType and barcode text, but REDA's default font is a stroke font and silk labels need it there.
   - It is one flattened polygon, the same on the canvas, in PDFs and in [Gerbers](outputs.md#gerber). So it doesn't depend on draw order and erases nothing beside it. Other silk under the box shows through the letters.
-- **`frame {width, height}`**, on free text only: the text wraps at the width, and `justify` applies inside the frame. A line that doesn't fit the height isn't drawn, and Properties says so. The leading suite clips, but half a glyph can't be read on a board. With `knockout`, the frame is the box.
+- **`frame {width, height}`**, on free text only: the text wraps at the width, and `justify` applies inside the frame. A line that doesn't fit the height isn't drawn, and Properties says so. A single glyph wider than the frame can't wrap, so its line isn't drawn either, and leaves no gap. `pcb.text.set` takes `clear_frame` and `clear_knockout` to remove them. The leading suite clips, but half a glyph can't be read on a board. With `knockout`, the frame is the box.
 - A barcode `kind` is [reserved](architecture.md#reserved-names).
 
 ## Dimensions
@@ -515,6 +520,8 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
 
 - **A Dimension** is its own object, in a `dimensions` table in `.redapcb`, on any Layer that takes graphics. v0.1 has one linear type, at any angle. Other types are v0.7.
 - **Ends:** `a` and `b` each hold a `point` and an optional `ref {object, hotspot}`. The Tool attaches to the [Hotspot](editing.md#cursor-snapping) under the click, or to free space. `point` is kept current, so the Dimension survives losing its reference.
+  - `hotspot` is `origin` (Footprint), `{pad: <uuid>}` (a Footprint's Pad), `center` (Free Pad, Via, arc), `start` or `end` (Track, line, arc), `anchor` (text) or `{vertex: <n>}` (outline, cutout, Zone, Zone Cutout, Keepout, rectangle). After every edit, before it commits, a followed end moves onto its Hotspot, or drops its `ref` if the Hotspot is gone. Undo and redo replay that with the edit.
+  - The value is measured along `rotation`, which defaults to the line from `a` to `b`. The dimension line sits `offset` to the left of `a`, looking along `rotation`.
 - **Value:** derived, never stored. The Dimension follows its references, and its value updates.
 - **Fields:**
   - `layer`, `rotation`
@@ -522,7 +529,7 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - `text_position`: `automatic`, the aligned options, `unidirectional` or `manual`, and the text [style](#text-style)
   - `units`: mm, mil, in, cm or `automatic`; `precision`; `format`: `none`, `value`, `value_unit` or `value_bracketed_unit`; `prefix`; `suffix`
 - **Moving:**
-  - A Dimension with a reference can't move alone. Select it with its objects to move them together.
+  - A Dimension with a reference can't move alone. Select it with its objects to move them together. `pcb.move`, `pcb.rotate` and `pcb.flip` take Dimensions and refuse one without its referenced objects.
   - Handles adjust the text position, the extension length and each end.
 - **Deleting a reference:** the GUI asks whether to delete the Dimension too. A Command keeps it, with no `ref`.
 - **Commands:** `pcb.dimension.add`, `set`, `delete` and `explode`. `explode` replaces it with free lines and text, and only undo reverses it.

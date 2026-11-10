@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"5a799ef7-6993-460c-a83a-6d77dbfaa5ff","name":"NetTie_2","designator_prefix":"NT","description":"Net Tie between two Nets"},
+  "units": [
+    {"uuid":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"A"}
+  ],
+  "pins": [
+    {"uuid":"51b2a0fe-6678-405e-96c8-478ac44a816f","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"~","number":"1","electrical_type":"passive","at":{"x":-3810000,"y":0},"rotation":0,"length":2540000,"name_visible":false,"number_visible":false},
+    {"uuid":"824ca84e-0d77-4386-b404-40bc4ef8a578","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","name":"~","number":"2","electrical_type":"passive","at":{"x":3810000,"y":0},"rotation":180000,"length":2540000,"name_visible":false,"number_visible":false}
+  ],
+  "graphics": [
+    {"uuid":"245ce16b-accb-479e-935c-fd7a5fb70660","unit":"a264518f-f2ae-4bf1-a201-a79d47ebfadb","shape":{"kind":"rect","start":{"x":-1270000,"y":-635000},"end":{"x":1270000,"y":635000}},"width":254000,"fill":true}
+  ]
+}

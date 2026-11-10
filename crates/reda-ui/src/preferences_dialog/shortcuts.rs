@@ -1,6 +1,7 @@
 //! The Keyboard Shortcuts page (docs/spec/v0.1/app.md#keymap): every Command and Preset
 //! with the keys that run it, search, chord recording with conflict flags, removing a key,
-//! reset to default and an "Open folder" link.
+//! reset to default, the Modifiers section for the gesture roles of the `[modifiers]`
+//! table, and an "Open folder" link.
 //!
 //! Changes go to the user's `keymap.toml` as `[[bind]]` and `[[unbind]]` entries (edited
 //! in place, so comments survive) and the Shell reloads the Keymap at once. Clashes in
@@ -13,7 +14,7 @@ use reda_engine::command::Kind;
 
 use super::user_keymap;
 use crate::bars::{self, Action, Binding};
-use crate::keymap::{self, Bound, Chord, Context, Keymap};
+use crate::keymap::{self, Bound, Chord, Context, Held, Keymap, Role};
 use crate::shell::Shell;
 use crate::tr;
 
@@ -230,6 +231,44 @@ impl Shortcuts {
         let _ = self.done(out);
     }
 
+    /// The held modifier of each gesture role now, and whether it differs from the base
+    /// Keymap's.
+    pub fn modifiers(shell: &Shell) -> Vec<(Role, Held, bool)> {
+        let now = *shell.keymap().modifiers();
+        let base = *base(shell).modifiers();
+        Role::ALL
+            .into_iter()
+            .map(|r| (r, now.get(r), now.get(r) != base.get(r)))
+            .collect()
+    }
+
+    /// Sets gesture `role` to `held` in the user's `[modifiers]` table; the base Keymap's
+    /// own modifier takes the line out again.
+    pub fn set_modifier(
+        &mut self,
+        shell: &mut Shell,
+        role: Role,
+        held: Held,
+    ) -> Result<(), String> {
+        let default = base(shell).modifiers().get(role);
+        let out = edit(shell, |doc| {
+            if held == default {
+                if let Some(table) = doc.get_mut("modifiers").and_then(|t| t.as_table_like_mut()) {
+                    table.remove(role.name());
+                    if table.is_empty() {
+                        doc.remove("modifiers");
+                    }
+                }
+                return;
+            }
+            if !doc.contains_table("modifiers") {
+                doc.insert("modifiers", toml_edit::Item::Table(toml_edit::Table::new()));
+            }
+            doc["modifiers"][role.name()] = toml_edit::value(held.name());
+        });
+        self.done(out)
+    }
+
     fn done(&mut self, out: Result<(), String>) -> Result<(), String> {
         match &out {
             Ok(()) => {
@@ -303,6 +342,7 @@ pub(super) fn title(shell: &Shell, binding: &Binding) -> String {
         id: String::new(),
         binding: binding.clone(),
         title: None,
+        icon: None,
     };
     bars::resolve(shell, &action).title
 }

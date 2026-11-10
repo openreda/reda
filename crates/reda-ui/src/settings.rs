@@ -1,6 +1,7 @@
-//! The settings dialogs: modal dialogs with a page tree on the left and OK, Cancel and
-//! Apply. Project Settings is the first ([`project`]); Board Setup and the Output Job
-//! dialog are built the same way.
+//! The settings windows: non-modal windows of their own from the docking layer, with a
+//! page tree on the left and OK, Cancel and Apply. Project Settings is the first
+//! ([`project`]); Board Setup, the Output Job window and the Change List are built the
+//! same way, and [`windows`] holds the open ones.
 //!
 //! Each page keeps a draft of the settings it edits ([`Draft`]) and turns the difference
 //! from the Project into Command steps. Apply runs every page's steps as one `batch`, so
@@ -8,8 +9,8 @@
 //! drops the drafts. A page reports invalid values as [`Problem`]s, which are flagged
 //! beside their field and disable OK and Apply.
 //!
-//! The model here has no drawing, so the dialogs can be tested without a window; the
-//! modal is drawn by [`SettingsDialog::show`] (in `settings/draw.rs`).
+//! The model here has no drawing, so the dialogs can be tested without a window; a
+//! window's tab is drawn by [`SettingsDialog::show`] (in `settings/draw.rs`).
 
 use std::any::Any;
 use std::path::Path;
@@ -23,10 +24,23 @@ use crate::shell::Shell;
 pub mod board_setup;
 pub mod change_list;
 mod draw;
+pub mod fab_preset;
 pub mod output_job;
 pub mod project;
+pub mod windows;
 
-pub use draw::{Outcome, PageCx, field, problem_label};
+pub use draw::{Outcome, PageCx, field, problem_label, tree_row};
+
+/// A file a page asked the window to pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileRequest {
+    /// Where Board Setup's Export rules… writes a `.redarules` file.
+    ExportRules,
+    /// The `.redarules` file Board Setup's Import rules… reads.
+    ImportRules,
+    /// Where the Change List's Export writes its report (`.html` or `.json`).
+    ExportChangeList,
+}
 
 /// One Command a page wants run when the dialog applies.
 #[derive(Clone, Debug, PartialEq)]
@@ -47,7 +61,7 @@ impl Step {
 /// An invalid value on a page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Problem {
-    /// Which field it is on, as the page names its fields (such as `board_thickness` or
+    /// Which field it is on, as the page names its fields (such as `clearance` or
     /// `path/2` for a table's third row).
     pub field: String,
     /// What is wrong, for the user.
@@ -85,12 +99,57 @@ pub trait Page: Any {
     /// The page's invalid values.
     fn problems(&self) -> Vec<Problem>;
 
+    /// Apply was refused with `conflict` because the page's data went stale. A page that
+    /// can refresh from `project` and say so itself returns true, and the dialog shows no
+    /// error of its own.
+    fn conflict(&mut self, _project: &Project) -> bool {
+        false
+    }
+
     /// Draws the page's content.
     fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>);
 
     /// A folder the user picked after the page asked for one (relative to the Project
     /// folder when it can be).
     fn picked_folder(&mut self, _path: &Path) {}
+
+    /// A file the user picked after the page asked for one.
+    fn picked_file(&mut self, _shell: &mut Shell, _request: FileRequest, _path: &Path) {}
+
+    /// Draws the page's own footer buttons, left of the window's; returns a file to pick.
+    fn footer(&mut self, _ui: &mut egui::Ui) -> Option<FileRequest> {
+        None
+    }
+
+    /// Whether the page offers Reset to defaults.
+    fn has_defaults(&self) -> bool {
+        false
+    }
+
+    /// Puts the defaults in the drafts, as pending edits until Apply.
+    fn reset_to_defaults(&mut self, _shell: &mut Shell) {}
+
+    /// The label of the button that runs [`Page::reset_to_defaults`].
+    fn reset_label(&self) -> String {
+        crate::tr!("settings-reset-defaults")
+    }
+
+    /// Notes the drafts as they are now, for [`Page::step_back`] (Board Setup's pages).
+    fn checkpoint(&mut self) {}
+
+    /// Steps back over the last pending edit (`Mod+Z` inside Board Setup); false when the
+    /// page keeps no such steps or has none left.
+    fn step_back(&mut self) -> bool {
+        false
+    }
+}
+
+/// The buttons along a settings window's bottom.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Buttons {
+    OkCancelApply,
+    /// The Change List's.
+    ApplyClose,
 }
 
 /// A value being edited: what the Project has (`base`) and what the dialog shows.
@@ -153,6 +212,11 @@ pub struct SettingsDialog {
     selected: usize,
     error: Option<String>,
     undo_scope: Scope,
+    buttons: Buttons,
+    /// Whether the page tree shows.
+    tree: bool,
+    /// The Output Job window's Run button: `None` without one, `Some(true)` once pressed.
+    run: Option<bool>,
 }
 
 impl SettingsDialog {
@@ -167,6 +231,62 @@ impl SettingsDialog {
             selected: 0,
             error: None,
             undo_scope: Scope::Project,
+            buttons: Buttons::OkCancelApply,
+            tree: true,
+            run: None,
+        }
+    }
+
+    /// The same dialog with a Run button beside OK, Cancel and Apply (the Output Job
+    /// window's): it is enabled while every value is valid, and pressing it is taken with
+    /// [`SettingsDialog::take_run`].
+    pub fn with_run(mut self) -> Self {
+        self.run = Some(false);
+        self
+    }
+
+    /// Whether the dialog has a Run button.
+    pub fn has_run(&self) -> bool {
+        self.run.is_some()
+    }
+
+    /// Presses Run, as the button does.
+    pub fn request_run(&mut self) {
+        if self.run.is_some() {
+            self.run = Some(true);
+        }
+    }
+
+    /// Whether Run was pressed since this was last called.
+    pub fn take_run(&mut self) -> bool {
+        match &mut self.run {
+            Some(pressed) => std::mem::take(pressed),
+            None => false,
+        }
+    }
+
+    /// The same dialog with Apply and Close, and no page tree: the Change List's. Its
+    /// changes are the design's, not edits, so closing it never asks.
+    pub fn apply_and_close(mut self) -> Self {
+        self.buttons = Buttons::ApplyClose;
+        self.tree = false;
+        self
+    }
+
+    pub fn buttons(&self) -> Buttons {
+        self.buttons
+    }
+
+    /// Whether closing the window would lose edits: something changed, and the window is
+    /// one with OK and Cancel.
+    pub fn unapplied(&self) -> bool {
+        self.buttons == Buttons::OkCancelApply && self.has_changes()
+    }
+
+    /// Reset to defaults on the shown page.
+    pub fn reset_page(&mut self, shell: &mut Shell) {
+        if let Some(page) = self.pages.get_mut(self.selected) {
+            page.reset_to_defaults(shell);
         }
     }
 
@@ -201,6 +321,38 @@ impl SettingsDialog {
         }
     }
 
+    /// Every page, in tree order.
+    pub fn pages(&self) -> &[Box<dyn Page>] {
+        &self.pages
+    }
+
+    /// The reset button's label on the shown page, if it has one.
+    pub fn reset_label(&self) -> Option<String> {
+        let page = self.pages.get(self.selected)?;
+        page.has_defaults().then(|| page.reset_label())
+    }
+
+    /// The first page of type `T` that `pick` accepts.
+    pub fn page_where_mut<T: Page>(&mut self, pick: impl Fn(&T) -> bool) -> Option<&mut T> {
+        self.pages
+            .iter_mut()
+            .filter_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
+            .find(|p| pick(p))
+    }
+
+    /// Shows the first page of type `T` that `pick` accepts; false when there is none.
+    pub fn select_where<T: Page>(&mut self, pick: impl Fn(&T) -> bool) -> bool {
+        let found = self.pages.iter().position(|p| {
+            (p.as_ref() as &dyn Any)
+                .downcast_ref::<T>()
+                .is_some_and(&pick)
+        });
+        if let Some(i) = found {
+            self.selected = i;
+        }
+        found.is_some()
+    }
+
     /// The page of type `T`.
     pub fn page<T: Page>(&self) -> Option<&T> {
         self.pages
@@ -212,6 +364,20 @@ impl SettingsDialog {
         self.pages
             .iter_mut()
             .find_map(|p| (p.as_mut() as &mut dyn Any).downcast_mut::<T>())
+    }
+
+    /// Notes the drafts as they are now: a change since the last check becomes one step
+    /// back.
+    pub fn checkpoint(&mut self) {
+        for page in &mut self.pages {
+            page.checkpoint();
+        }
+    }
+
+    /// Steps back over the last pending edit; false when there is none, so `Mod+Z` falls
+    /// through to the undo stack.
+    pub fn step_back(&mut self) -> bool {
+        self.pages.iter_mut().any(|p| p.step_back())
     }
 
     /// Every page's Commands, in page order.
@@ -264,6 +430,13 @@ impl SettingsDialog {
         }
     }
 
+    /// Hands a picked file to the pages.
+    pub fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
+        for page in &mut self.pages {
+            page.picked_file(shell, request, path);
+        }
+    }
+
     /// Commits every page's changes as one `batch`. Refused while a value is invalid; does
     /// nothing when nothing changed. On success the drafts become the Project's values.
     pub fn apply(&mut self, shell: &mut Shell) -> Result<(), CommandError> {
@@ -291,7 +464,15 @@ impl SettingsDialog {
                 Ok(())
             }
             Err(e) => {
-                self.error = Some(e.message.clone());
+                let handled = e.code == reda_engine::command::ErrorCode::Conflict
+                    && shell.engine().project().is_some_and(|project| {
+                        let mut handled = false;
+                        for page in &mut self.pages {
+                            handled |= page.conflict(project);
+                        }
+                        handled
+                    });
+                self.error = (!handled).then(|| e.message.clone());
                 Err(e)
             }
         }

@@ -1,7 +1,10 @@
 //! Output Jobs on the Project stack: add, edit, duplicate and delete.
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
-use reda_model::{DocumentKind, Object, OutputJob, Outputs, Project, Uuid};
+use reda_model::{
+    DocumentKind, NAME_TEMPLATE_TOKENS, NameTemplate, NotFittedPaste, Object, OutputJob, Outputs,
+    PdfColour, Project, Uuid,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +26,9 @@ pub fn new_job(uuid: Uuid, name: String, pcb: Uuid, fab_preset: Uuid) -> OutputJ
         fab_preset,
         outputs: Outputs::ALL,
         destination: None,
+        name_template: NameTemplate::default(),
+        not_fitted_paste: NotFittedPaste::Keep,
+        schematic_pdf_colour: PdfColour::Colour,
     }
 }
 
@@ -47,6 +53,16 @@ pub struct OutputsParam {
     pub bom: Option<bool>,
     #[serde(default)]
     pub cpl: Option<bool>,
+    #[serde(default)]
+    pub fab_notes: Option<bool>,
+    #[serde(default)]
+    pub drill_report: Option<bool>,
+    #[serde(default)]
+    pub gerber_job: Option<bool>,
+    #[serde(default)]
+    pub reports: Option<bool>,
+    #[serde(default)]
+    pub schematic_pdf: Option<bool>,
 }
 
 impl OutputsParam {
@@ -56,6 +72,11 @@ impl OutputsParam {
             (self.drill, &mut outputs.drill),
             (self.bom, &mut outputs.bom),
             (self.cpl, &mut outputs.cpl),
+            (self.fab_notes, &mut outputs.fab_notes),
+            (self.drill_report, &mut outputs.drill_report),
+            (self.gerber_job, &mut outputs.gerber_job),
+            (self.reports, &mut outputs.reports),
+            (self.schematic_pdf, &mut outputs.schematic_pdf),
         ];
         for (value, field) in fields {
             if let Some(value) = value {
@@ -109,7 +130,94 @@ pub fn job_destination(value: String) -> Result<Option<String>, CommandError> {
             "the destination must be a /-separated folder inside the Project folder",
         ));
     }
+    // The same tokens as the name template; the run resolves them.
+    let known = |name: &str| NAME_TEMPLATE_TOKENS.contains(&name).then(String::new);
+    reda_model::text::resolve(&value, known).map_err(|e| {
+        CommandError::invalid_params("/destination", format!("the destination: {e}"))
+    })?;
     Ok(Some(value))
+}
+
+/// The value of each name template token for a run of `job` on `date` (`YYYY-MM-DD`),
+/// with the Fab Preset copy named `preset`.
+pub fn name_values<'a>(
+    project: &'a Project,
+    job: &'a OutputJob,
+    preset: &'a str,
+    date: &'a str,
+) -> impl Fn(&str) -> Option<String> + 'a {
+    move |token: &str| {
+        Some(match token {
+            "project" => project.props().name.clone(),
+            "job" => job.name.clone(),
+            "revision" => project.props().properties.revision.clone(),
+            "date" => date.to_owned(),
+            "preset" => preset.to_owned(),
+            _ => return None,
+        })
+    }
+}
+
+/// The job's destination relative to the Project folder, `/`-separated, with the name
+/// template's tokens resolved by `values`. An empty part (an unset revision) is dropped;
+/// a value that would leave the Project folder is refused, with why.
+pub fn resolve_destination(
+    job: &OutputJob,
+    values: impl Fn(&str) -> Option<String>,
+) -> Result<String, String> {
+    let raw = job.destination();
+    let resolved = match &job.destination {
+        Some(raw) => {
+            reda_model::text::resolve(raw, values).map_err(|e| format!("the destination: {e}"))?
+        }
+        None => raw,
+    };
+    let parts: Vec<&str> = resolved.split('/').filter(|p| !p.is_empty()).collect();
+    let escapes = parts.is_empty()
+        || resolved.contains('\\')
+        || resolved.contains(':')
+        || parts.iter().any(|p| *p == ".." || *p == ".");
+    if escapes {
+        return Err(format!(
+            "Output Job \"{}\": the destination \"{resolved}\" is not a folder inside the \
+             Project folder",
+            job.name
+        ));
+    }
+    Ok(parts.join("/"))
+}
+
+/// The settings `output.job.add` and `output.job.set` share; each one left out keeps the
+/// job's value.
+struct JobSettings {
+    outputs: Option<OutputsParam>,
+    destination: Option<String>,
+    name_template: Option<String>,
+    not_fitted_paste: Option<NotFittedPaste>,
+    schematic_pdf_colour: Option<PdfColour>,
+}
+
+impl JobSettings {
+    fn apply(self, job: &mut OutputJob) -> Result<(), CommandError> {
+        if let Some(outputs) = self.outputs {
+            outputs.apply(&mut job.outputs);
+        }
+        if let Some(value) = self.destination {
+            job.destination = job_destination(value)?;
+        }
+        if let Some(value) = self.name_template {
+            job.name_template = NameTemplate::new(value).map_err(|reason| {
+                CommandError::invalid_params("/name_template", reason.to_string())
+            })?;
+        }
+        if let Some(value) = self.not_fitted_paste {
+            job.not_fitted_paste = value;
+        }
+        if let Some(value) = self.schematic_pdf_colour {
+            job.schematic_pdf_colour = value;
+        }
+        Ok(())
+    }
 }
 
 /// A trimmed job name no other job (but `except`) has, compared case-insensitively.
@@ -165,6 +273,16 @@ pub struct JobAddParams {
     /// The output folder inside the Project folder; defaults to `outputs/<job name>`.
     #[serde(default)]
     pub destination: Option<String>,
+    /// Names the zip and the BOM and CPL files, from `${project}`, `${job}`,
+    /// `${revision}`, `${date}` and `${preset}`; defaults to `${project}-${job}`.
+    #[serde(default)]
+    pub name_template: Option<String>,
+    /// Keep or remove Not Fitted Components' paste openings.
+    #[serde(default)]
+    pub not_fitted_paste: Option<NotFittedPaste>,
+    /// The schematic PDF in colour or mono.
+    #[serde(default)]
+    pub schematic_pdf_colour: Option<PdfColour>,
 }
 
 impl Command for JobAdd {
@@ -203,10 +321,14 @@ impl Command for JobAdd {
             }
         };
         let mut job = new_job(cx.new_id(), name, pcb, p.fab_preset);
-        p.outputs.unwrap_or_default().apply(&mut job.outputs);
-        if let Some(value) = p.destination {
-            job.destination = job_destination(value)?;
+        JobSettings {
+            outputs: p.outputs,
+            destination: p.destination,
+            name_template: p.name_template,
+            not_fitted_paste: p.not_fitted_paste,
+            schematic_pdf_colour: p.schematic_pdf_colour,
         }
+        .apply(&mut job)?;
         let created = JobCreated {
             uuid: job.uuid,
             name: job.name.clone(),
@@ -236,14 +358,25 @@ pub struct JobSetParams {
     /// The output folder inside the Project folder; empty for `outputs/<job name>`.
     #[serde(default)]
     pub destination: Option<String>,
+    /// Names the zip and the BOM and CPL files, from `${project}`, `${job}`,
+    /// `${revision}`, `${date}` and `${preset}`; defaults to `${project}-${job}`.
+    #[serde(default)]
+    pub name_template: Option<String>,
+    /// Keep or remove Not Fitted Components' paste openings.
+    #[serde(default)]
+    pub not_fitted_paste: Option<NotFittedPaste>,
+    /// The schematic PDF in colour or mono.
+    #[serde(default)]
+    pub schematic_pdf_colour: Option<PdfColour>,
 }
 
 impl Command for JobSet {
     const META: Meta = Meta {
         id: "output.job.set",
         title: "Edit Output Job",
-        description: "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs or \
-                      destination. Values left out are kept; an empty `destination` restores \
+        description: "Changes an Output Job's name, PCB Document, Fab Preset copy, outputs, \
+                      destination, name template, Not Fitted paste or schematic PDF colour. \
+                      Values left out are kept; an empty `destination` restores \
                       the default. Returns the job.",
         category: "output",
         icon: "output_job_edit",
@@ -266,12 +399,14 @@ impl Command for JobSet {
             check_preset(project, preset)?;
             job.fab_preset = preset;
         }
-        if let Some(outputs) = p.outputs {
-            outputs.apply(&mut job.outputs);
+        JobSettings {
+            outputs: p.outputs,
+            destination: p.destination,
+            name_template: p.name_template,
+            not_fitted_paste: p.not_fitted_paste,
+            schematic_pdf_colour: p.schematic_pdf_colour,
         }
-        if let Some(value) = p.destination {
-            job.destination = job_destination(value)?;
-        }
+        .apply(&mut job)?;
         cx.tx()?.replace(Object::OutputJob(job.clone()))?;
         Ok(job)
     }

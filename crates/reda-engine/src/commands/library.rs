@@ -26,8 +26,11 @@ pub struct LibrarySearch;
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct SearchParams {
-    /// Matched, ignoring case, as a substring of a Part's name or any of its field values
-    /// (Value, Description, Keywords, MPN, the free-form fields…). Empty matches every Part.
+    /// Words separated by spaces, each of which must match, ignoring case: a plain word as
+    /// a substring of a Part's name or any of its field values (Value, Description,
+    /// Keywords, MPN, the free-form fields…), a `field:value` word such as `mpn:GRM188` or
+    /// `lcsc:C14` only in that field (`name:` for the Part's name; a Part without the field
+    /// never matches). `*` stands for any run of characters. Empty matches every Part.
     pub text: String,
     /// Only Parts of the Library with this UUID.
     pub library: Option<Uuid>,
@@ -51,6 +54,10 @@ pub struct PartHit {
     pub uuid: Uuid,
     pub name: String,
     pub component_type: ComponentType,
+    /// Whether its Components go into the BOM, by default.
+    pub in_bom: bool,
+    /// Whether its Components go into the CPL, by default.
+    pub in_cpl: bool,
     pub symbol: Option<Uuid>,
     /// The alternate Footprints, the default first.
     pub footprints: Vec<Uuid>,
@@ -68,7 +75,7 @@ pub struct SearchResult {
     pub problems: Vec<ScanProblem>,
 }
 
-fn summary(library: &reda_library::Library) -> LibrarySummary {
+pub(crate) fn summary(library: &reda_library::Library) -> LibrarySummary {
     LibrarySummary {
         uuid: library.info.uuid,
         name: library.info.name.clone(),
@@ -81,9 +88,10 @@ impl Command for LibrarySearch {
     const META: Meta = Meta {
         id: "library.search",
         title: "Search Libraries",
-        description: "Scans the registered Libraries (the starter Library, the user's from \
-                      Preferences and the Project's) and returns the Parts whose name or \
-                      field values contain `text`, optionally only from one Library or of \
+        description: "Scans the active registered Libraries (the Project's, the user's from \
+                      Preferences and the starter Library, in that resolution order) and \
+                      returns the Parts matching every word of `text` (`field:value` words \
+                      and `*` wildcards included), optionally only from one Library or of \
                       one Component Type.",
         category: "library",
         icon: "search",
@@ -106,6 +114,8 @@ impl Command for LibrarySearch {
                 uuid: hit.part.uuid,
                 name: hit.part.name.clone(),
                 component_type: hit.part.component_type,
+                in_bom: hit.part.in_bom,
+                in_cpl: hit.part.in_cpl,
                 symbol: hit.part.symbol,
                 footprints: hit.part.footprints.clone(),
                 fields: hit.part.fields.clone(),

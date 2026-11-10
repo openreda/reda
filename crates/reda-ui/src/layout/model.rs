@@ -21,17 +21,26 @@ pub enum PanelId {
     Library,
     Layers,
     Journal,
+    /// The Board navigator: the board's Nets, Footprints and Zones.
+    Navigator,
+    /// Find on the schematic.
+    Find,
+    /// The Pins of the open Symbol, or the pin-pad map of the open Part.
+    Pins,
 }
 
 impl PanelId {
     /// Every Panel, in the order the Panels button lists them.
-    pub const ALL: [PanelId; 6] = [
+    pub const ALL: [PanelId; 9] = [
         PanelId::Projects,
         PanelId::Properties,
         PanelId::Messages,
         PanelId::Library,
         PanelId::Layers,
         PanelId::Journal,
+        PanelId::Navigator,
+        PanelId::Find,
+        PanelId::Pins,
     ];
 
     /// The id in Commands and Presets, such as `properties` in `panel.show:properties`.
@@ -43,27 +52,73 @@ impl PanelId {
             PanelId::Library => "library",
             PanelId::Layers => "layers",
             PanelId::Journal => "journal",
+            PanelId::Navigator => "navigator",
+            PanelId::Find => "find",
+            PanelId::Pins => "pins",
         }
     }
 
     /// The Dock a Panel reopens in once closed.
     pub fn home(self) -> DockSide {
         match self {
-            PanelId::Projects | PanelId::Library => DockSide::Left,
+            PanelId::Projects | PanelId::Library | PanelId::Navigator | PanelId::Find => {
+                DockSide::Left
+            }
             PanelId::Properties | PanelId::Layers => DockSide::Right,
-            PanelId::Messages | PanelId::Journal => DockSide::Bottom,
+            PanelId::Messages | PanelId::Journal | PanelId::Pins => DockSide::Bottom,
         }
     }
 }
 
+/// A settings window: a non-modal window of its own from the docking layer, not a Panel.
+/// There is at most one of each.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SettingsWindow {
+    Preferences,
+    ProjectSettings,
+    BoardSetup,
+    OutputJob,
+    ChangeList,
+}
+
+impl SettingsWindow {
+    pub const ALL: [SettingsWindow; 5] = [
+        SettingsWindow::Preferences,
+        SettingsWindow::ProjectSettings,
+        SettingsWindow::BoardSetup,
+        SettingsWindow::OutputJob,
+        SettingsWindow::ChangeList,
+    ];
+
+    /// The id in Commands and in `state.json`, such as `board_setup`.
+    pub fn id(self) -> &'static str {
+        match self {
+            SettingsWindow::Preferences => "preferences",
+            SettingsWindow::ProjectSettings => "project_settings",
+            SettingsWindow::BoardSetup => "board_setup",
+            SettingsWindow::OutputJob => "output_job",
+            SettingsWindow::ChangeList => "change_list",
+        }
+    }
+
+    /// Whether it edits the open Project, and so closes with it. Preferences is per-user.
+    pub fn of_project(self) -> bool {
+        self != SettingsWindow::Preferences
+    }
+}
+
 /// What a tab shows. Written in Commands as a string: `start`, a Panel id such as
-/// `properties`, or a Document UUID.
+/// `properties`, a settings window id such as `board_setup`, or a Document UUID.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum TabKey {
     /// The Start page, shown while no Project is open.
     Start,
     Document(Uuid),
     Panel(PanelId),
+    Settings(SettingsWindow),
 }
 
 impl fmt::Display for TabKey {
@@ -72,6 +127,7 @@ impl fmt::Display for TabKey {
             TabKey::Start => f.write_str("start"),
             TabKey::Document(uuid) => write!(f, "{uuid}"),
             TabKey::Panel(panel) => f.write_str(panel.id()),
+            TabKey::Settings(window) => f.write_str(window.id()),
         }
     }
 }
@@ -99,8 +155,14 @@ impl FromStr for TabKey {
         if let Some(panel) = PanelId::ALL.into_iter().find(|p| p.id() == s) {
             return Ok(TabKey::Panel(panel));
         }
+        if let Some(window) = SettingsWindow::ALL.into_iter().find(|w| w.id() == s) {
+            return Ok(TabKey::Settings(window));
+        }
         s.parse::<Uuid>().map(TabKey::Document).map_err(|_| {
-            format!("{s:?} is not a tab: give \"start\", a Panel id or a Document UUID")
+            format!(
+                "{s:?} is not a tab: give \"start\", a Panel id, a settings window id or a \
+                 Document UUID"
+            )
         })
     }
 }
@@ -411,6 +473,36 @@ pub struct Layout {
     /// The Document last activated: menus and toolbars follow it.
     last_document: Option<Uuid>,
     next_id: u64,
+    /// What the layout remembers for this session; it is not saved and two layouts that
+    /// put the same tabs in the same places are equal whatever it holds.
+    #[serde(skip)]
+    memory: Memory,
+}
+
+/// A layout's session memory.
+#[derive(Clone, Debug, Default)]
+struct Memory {
+    /// The tabs in the order they were last activated, the latest last: closing a group's
+    /// active tab activates the group's last active one.
+    recent: Vec<TabKey>,
+    /// Where each closed Panel was, so it reopens there.
+    closed_at: Vec<(PanelId, ClosedAt)>,
+}
+
+impl PartialEq for Memory {
+    fn eq(&self, _: &Memory) -> bool {
+        true
+    }
+}
+
+impl Eq for Memory {}
+
+/// Where a Panel was when it was closed: its group and position, and the Dock it was in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ClosedAt {
+    group: GroupId,
+    index: usize,
+    dock: Option<DockSide>,
 }
 
 /// [`Layout`] as read, before it is checked.
@@ -471,6 +563,7 @@ impl Layout {
             flyout: None,
             last_document: None,
             next_id: 5,
+            memory: Memory::default(),
         };
         if let Some(first) = layout
             .group(GroupId(1))
@@ -501,6 +594,7 @@ impl Layout {
             flyout: None,
             last_document,
             next_id: 0,
+            memory: Memory::default(),
         };
         // Tidying needs a centre with a group in it.
         let mut centre = Vec::new();
@@ -583,6 +677,20 @@ impl Layout {
         })
     }
 
+    /// Whether `tab` is on screen: the tab its group shows, outside a collapsed Dock
+    /// (unless it is that Dock's flyout).
+    pub fn is_shown(&self, tab: &TabKey) -> bool {
+        self.groups().into_iter().any(|(area, g)| {
+            g.tabs.get(g.active) == Some(tab)
+                && match area {
+                    Area::Dock(side) => {
+                        !self.dock(side).collapsed || self.flyout.as_ref() == Some(tab)
+                    }
+                    _ => true,
+                }
+        })
+    }
+
     /// The Panels not open anywhere, in [`PanelId::ALL`] order: what the Panels button
     /// offers to reopen.
     pub fn closed_panels(&self) -> Vec<PanelId> {
@@ -625,7 +733,16 @@ impl Layout {
     /// returns its group. The `document.open` Command does this, and so does the app when
     /// a Project opens.
     pub fn open_document(&mut self, document: Uuid) -> GroupId {
-        let tab = TabKey::Document(document);
+        self.open_in_document_group(TabKey::Document(document))
+    }
+
+    /// Opens the Start page in the Document group (or shows it where it is) and activates
+    /// it, as when the Project closes.
+    pub fn open_start(&mut self) -> GroupId {
+        self.open_in_document_group(TabKey::Start)
+    }
+
+    fn open_in_document_group(&mut self, tab: TabKey) -> GroupId {
         if self.place(&tab).is_none() {
             let group = self.document_group();
             if let Some(g) = self.group_mut(group) {
@@ -714,6 +831,42 @@ impl Layout {
         })
     }
 
+    /// Shows the settings window `window` and focuses it: where it is when it is open,
+    /// else in a new window of its own placed at `rect` (where the OS puts it, when
+    /// `None`). Returns whether it was opened just now.
+    pub fn open_settings(&mut self, window: SettingsWindow, rect: Option<WindowRect>) -> bool {
+        let tab = TabKey::Settings(window);
+        let opened = self.place(&tab).is_none();
+        if opened {
+            let id = WindowId(self.fresh_id());
+            let group = GroupId(self.fresh_id());
+            self.windows.push(FloatingWindow {
+                id,
+                root: Node::Group(Group::new(group, vec![tab.clone()])),
+                rect,
+            });
+        }
+        self.activate_in_place(&tab);
+        opened
+    }
+
+    /// The floating window `tab` is in, if it is in one.
+    pub fn window_of(&self, tab: &TabKey) -> Option<WindowId> {
+        match self.place(tab)?.area {
+            Area::Window(window) => Some(window),
+            _ => None,
+        }
+    }
+
+    /// The tabs in the floating window `window`.
+    pub fn tabs_in_window(&self, window: WindowId) -> Vec<&TabKey> {
+        self.groups()
+            .into_iter()
+            .filter(|(area, _)| *area == Area::Window(window))
+            .flat_map(|(_, g)| g.tabs.iter())
+            .collect()
+    }
+
     /// Moves `tab` out of its group into a new group to the right of it or below it.
     pub fn split(&mut self, tab: &TabKey, side: SplitSide) -> Result<GroupId, CommandError> {
         self.split_beside(tab, None, side)
@@ -770,12 +923,50 @@ impl Layout {
         })
     }
 
-    /// Closes `tab`.
+    /// Closes `tab`. When it was its group's active tab, the group's last active tab
+    /// shows instead, as in the leading suite. A Panel remembers where it was.
     pub fn close(&mut self, tab: &TabKey) -> Result<(), CommandError> {
         self.apply(|l| {
-            l.find(tab)?;
-            l.take(tab)
+            let place = l.find(tab)?;
+            let was_active = l
+                .group(place.group)
+                .is_some_and(|g| g.active == place.index);
+            l.remember_panel(tab, place);
+            l.take(tab)?;
+            l.memory.recent.retain(|t| t != tab);
+            if was_active
+                && let Some(next) = l
+                    .memory
+                    .recent
+                    .iter()
+                    .rev()
+                    .find(|t| l.place(t).is_some_and(|p| p.group == place.group))
+                    .cloned()
+            {
+                let index = l.place(&next).expect("found above").index;
+                l.group_mut(place.group).expect("placed").active = index;
+            }
+            Ok(())
         })
+    }
+
+    /// Notes where the Panel `tab` is, at `place`, before it closes.
+    fn remember_panel(&mut self, tab: &TabKey, place: Place) {
+        if let TabKey::Panel(panel) = tab {
+            let dock = match place.area {
+                Area::Dock(side) => Some(side),
+                _ => None,
+            };
+            self.memory.closed_at.retain(|(p, _)| p != panel);
+            self.memory.closed_at.push((
+                *panel,
+                ClosedAt {
+                    group: place.group,
+                    index: place.index,
+                    dock,
+                },
+            ));
+        }
     }
 
     /// Closes the window `window` with every tab in it, as when its OS window is closed.
@@ -794,6 +985,15 @@ impl Layout {
 
     pub fn close_window(&mut self, window: WindowId) -> Result<(), CommandError> {
         self.apply(|l| {
+            for tab in l
+                .tabs_in_window(window)
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>()
+            {
+                let place = l.place(&tab).expect("in the window");
+                l.remember_panel(&tab, place);
+            }
             let before = l.windows.len();
             l.windows.retain(|w| w.id != window);
             if l.windows.len() == before {
@@ -818,12 +1018,34 @@ impl Layout {
         })
     }
 
-    /// Shows and focuses `panel`, reopening it in its home Dock when it is closed.
+    /// Shows and focuses `panel`. A closed Panel reopens where it was: in its group, at
+    /// its position, while the group still exists, else in the Dock it was in, else in its
+    /// home Dock.
     pub fn show_panel(&mut self, panel: PanelId) -> Result<GroupId, CommandError> {
         let tab = TabKey::Panel(panel);
         self.apply(|l| {
             if l.place(&tab).is_none() {
-                l.put_in_dock(tab.clone(), panel.home());
+                let was = l
+                    .memory
+                    .closed_at
+                    .iter()
+                    .find(|(p, _)| *p == panel)
+                    .map(|(_, at)| *at);
+                match was {
+                    Some(at) if l.group(at.group).is_some() => {
+                        let g = l.group_mut(at.group).expect("checked above");
+                        let index = at.index.min(g.tabs.len());
+                        g.tabs.insert(index, tab.clone());
+                        if g.active >= index && g.tabs.len() > 1 {
+                            g.active += 1;
+                        }
+                    }
+                    Some(ClosedAt {
+                        dock: Some(side), ..
+                    }) => l.put_in_dock(tab.clone(), side),
+                    _ => l.put_in_dock(tab.clone(), panel.home()),
+                }
+                l.memory.closed_at.retain(|(p, _)| *p != panel);
             }
             Ok(l.activate_in_place(&tab))
         })
@@ -952,6 +1174,8 @@ impl Layout {
         let place = self.place(tab).expect("activating an open tab");
         self.group_mut(place.group).expect("placed").active = place.index;
         self.focus = Some(tab.clone());
+        self.memory.recent.retain(|t| t != tab);
+        self.memory.recent.push(tab.clone());
         if let TabKey::Document(uuid) = tab {
             self.last_document = Some(*uuid);
         }

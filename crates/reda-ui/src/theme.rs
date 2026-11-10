@@ -31,6 +31,9 @@ struct Colors {
     /// What separates tab groups and Docks.
     gap: Color32,
     link: Color32,
+    /// A selection rectangle dragged right to left, which picks what it touches; one
+    /// dragged left to right (enclosing) uses the accent.
+    touch: Color32,
     warn: Color32,
     error: Color32,
 }
@@ -55,6 +58,7 @@ const DARK: Colors = Colors {
     selection_alpha: 0.55,
     gap: rgb(0x141619),
     link: rgb(0x4a98dc),
+    touch: rgb(0x4cb87a),
     warn: rgb(0xe8a33d),
     error: rgb(0xff6b6b),
 };
@@ -75,6 +79,7 @@ const LIGHT: Colors = Colors {
     selection_alpha: 0.35,
     gap: rgb(0xc3c9d1),
     link: rgb(0x1d68ad),
+    touch: rgb(0x23864f),
     warn: rgb(0x8a5a00),
     error: rgb(0xc62828),
 };
@@ -89,6 +94,13 @@ fn colors(theme: Theme) -> &'static Colors {
 /// The theme's one accent colour: selections, focus and the active Document's tab.
 pub fn accent(theme: Theme) -> Color32 {
     colors(theme).accent
+}
+
+/// A selection rectangle's colour: the accent when it encloses (dragged left to right),
+/// green when it touches (right to left), so the two directions read apart at a glance.
+pub fn selection_box(theme: Theme, touches: bool) -> Color32 {
+    let c = colors(theme);
+    if touches { c.touch } else { c.accent }
 }
 
 /// A tab group's tab strip: a solid blue bar, the deep accent on the active Document's
@@ -110,6 +122,12 @@ pub fn tab_text(active_tab: bool) -> Color32 {
         rgb(0xd6e2f2)
     }
 }
+
+/// What lies behind the active tab on its [`tab_bar`]: white at 15 % (premultiplied).
+pub const ACTIVE_TAB_FILL: Color32 = Color32::from_rgba_premultiplied(38, 38, 38, 38);
+
+/// The height of the white underline across the active tab.
+pub const ACTIVE_TAB_UNDERLINE: f32 = 2.0;
 
 /// The colour of the gaps between tab groups and Docks.
 pub fn gap(theme: Theme) -> Color32 {

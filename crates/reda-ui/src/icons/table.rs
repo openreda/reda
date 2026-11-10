@@ -209,6 +209,10 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ("pad", egui::include_image!("../../icons/pad.svg")),
     ("panel", egui::include_image!("../../icons/panel.svg")),
     (
+        "panel_find",
+        egui::include_image!("../../icons/panel_find.svg"),
+    ),
+    (
         "panel_journal",
         egui::include_image!("../../icons/panel_journal.svg"),
     ),
@@ -225,6 +229,14 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
         egui::include_image!("../../icons/panel_messages.svg"),
     ),
     (
+        "panel_navigator",
+        egui::include_image!("../../icons/panel_navigator.svg"),
+    ),
+    (
+        "panel_pins",
+        egui::include_image!("../../icons/panel_pins.svg"),
+    ),
+    (
         "panel_projects",
         egui::include_image!("../../icons/panel_projects.svg"),
     ),
@@ -238,6 +250,34 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ),
     ("paste", egui::include_image!("../../icons/paste.svg")),
     ("pin", egui::include_image!("../../icons/pin.svg")),
+    (
+        "place_guides",
+        egui::include_image!("../../icons/place_guides.svg"),
+    ),
+    (
+        "place_obstacle_avoid",
+        egui::include_image!("../../icons/place_obstacle_avoid.svg"),
+    ),
+    (
+        "place_obstacle_ignore",
+        egui::include_image!("../../icons/place_obstacle_ignore.svg"),
+    ),
+    (
+        "place_queue",
+        egui::include_image!("../../icons/place_queue.svg"),
+    ),
+    (
+        "place_ratsnest_breaks",
+        egui::include_image!("../../icons/place_ratsnest_breaks.svg"),
+    ),
+    (
+        "place_ratsnest_hidden",
+        egui::include_image!("../../icons/place_ratsnest_hidden.svg"),
+    ),
+    (
+        "place_ratsnest_pad_to_pad",
+        egui::include_image!("../../icons/place_ratsnest_pad_to_pad.svg"),
+    ),
     ("polygon", egui::include_image!("../../icons/polygon.svg")),
     ("port", egui::include_image!("../../icons/port.svg")),
     (
@@ -271,6 +311,54 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     ("render", egui::include_image!("../../icons/render.svg")),
     ("reorder", egui::include_image!("../../icons/reorder.svg")),
     ("rotate", egui::include_image!("../../icons/rotate.svg")),
+    (
+        "route_auto_terminate",
+        egui::include_image!("../../icons/route_auto_terminate.svg"),
+    ),
+    (
+        "route_clearance_all",
+        egui::include_image!("../../icons/route_clearance_all.svg"),
+    ),
+    (
+        "route_clearance_near",
+        egui::include_image!("../../icons/route_clearance_near.svg"),
+    ),
+    (
+        "route_corner_45",
+        egui::include_image!("../../icons/route_corner_45.svg"),
+    ),
+    (
+        "route_corner_90",
+        egui::include_image!("../../icons/route_corner_90.svg"),
+    ),
+    (
+        "route_corner_any",
+        egui::include_image!("../../icons/route_corner_any.svg"),
+    ),
+    (
+        "route_keys",
+        egui::include_image!("../../icons/route_keys.svg"),
+    ),
+    (
+        "route_lookahead",
+        egui::include_image!("../../icons/route_lookahead.svg"),
+    ),
+    (
+        "route_loop_removal",
+        egui::include_image!("../../icons/route_loop_removal.svg"),
+    ),
+    (
+        "route_obstacle_highlight",
+        egui::include_image!("../../icons/route_obstacle_highlight.svg"),
+    ),
+    (
+        "route_obstacle_ignore",
+        egui::include_image!("../../icons/route_obstacle_ignore.svg"),
+    ),
+    (
+        "route_obstacle_stop",
+        egui::include_image!("../../icons/route_obstacle_stop.svg"),
+    ),
     ("rule", egui::include_image!("../../icons/rule.svg")),
     ("rules", egui::include_image!("../../icons/rules.svg")),
     ("save", egui::include_image!("../../icons/save.svg")),
@@ -329,10 +417,6 @@ pub(super) const ICONS: &[(&str, egui::ImageSource<'static>)] = &[
     (
         "update_check",
         egui::include_image!("../../icons/update_check.svg"),
-    ),
-    (
-        "user_origin",
-        egui::include_image!("../../icons/user_origin.svg"),
     ),
     ("via", egui::include_image!("../../icons/via.svg")),
     (

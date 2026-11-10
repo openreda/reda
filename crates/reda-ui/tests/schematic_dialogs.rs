@@ -1,6 +1,6 @@
-//! The schematic's dialogs as models on a Shell, without a window: Find (selects the match,
-//! opens its sheet and zooms to it), Select Similar, Re-annotate with its old → new
-//! preview, Update from Library with its preview, and Export PDF.
+//! The schematic's dialogs as models on a Shell, without a window: Select Similar (its window),
+//! Re-annotate with its old → new preview, and Export PDF. Update from Library has its own
+//! tests (`library_update.rs`).
 
 use std::path::{Path, PathBuf};
 
@@ -8,10 +8,8 @@ use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds};
 use reda_ui::engine::model::Uuid;
-use reda_ui::engine::model::geom::Nm;
-use reda_ui::schematic_dialogs::{
-    FindDialog, ReannotateDialog, ReannotateScope, SimilarDialog, UpdateDialog, export_pdf,
-};
+use reda_ui::engine::model::annotate::ScopeKind;
+use reda_ui::schematic_dialogs::{ReannotateDialog, export_pdf};
 use reda_ui::shell::Shell;
 use serde_json::{Value, json};
 
@@ -84,72 +82,9 @@ fn designator(shell: &Shell, unit: Uuid) -> String {
 }
 
 #[test]
-fn find_selects_the_match_opens_its_sheet_and_zooms_to_it() {
-    let dir = TempDir::new("find");
-    let mut shell = shell(&dir);
-    place(&mut shell, sheet(), R_10K, 0, 0);
-    let second = add_sheet(&mut shell);
-    let (r2, _) = place(&mut shell, second, R_10K, 2000, 1000);
-    shell
-        .run("document.open", json!({"document": SHEET}))
-        .unwrap();
-
-    let mut find = FindDialog::default();
-    find.text = "r2".to_owned();
-    find.search(&mut shell);
-    let results = find.results();
-    assert_eq!(results.len(), 1);
-    assert!(results[0].label.contains("R2"), "{}", results[0].label);
-    // The first match is shown at once: its sheet, selected and zoomed to.
-    assert_eq!(shell.active_document().unwrap().document, second);
-    assert_eq!(shell.selection().objects, [r2]);
-    let (lo, hi) = shell.document_tab(second).unwrap().zoom_to.unwrap();
-    let x = Nm(2000 * 25_400);
-    assert!(lo.x <= x && x <= hi.x, "{lo:?}..{hi:?}");
-
-    // By value: both Resistors; going to the first goes back to the first sheet.
-    find.text = "10k".to_owned();
-    find.search(&mut shell);
-    assert_eq!(find.results().len(), 2);
-    assert_eq!(shell.active_document().unwrap().document, sheet());
-    find.go(&mut shell, 1);
-    assert_eq!(shell.active_document().unwrap().document, second);
-
-    // Nothing found leaves the selection alone and says so.
-    find.text = "nothing like it".to_owned();
-    find.search(&mut shell);
-    assert!(find.results().is_empty());
-    assert!(find.searched());
-    assert_eq!(shell.selection().objects, [r2]);
-}
-
-#[test]
-fn find_by_net_name_selects_the_objects_on_the_net() {
-    let dir = TempDir::new("find-net");
-    let mut shell = shell(&dir);
-    let wire = shell
-        .run(
-            "schematic.wire.add",
-            json!({"document": SHEET, "points": [
-                {"x": "0mil", "y": "0mil"}, {"x": "500mil", "y": "0mil"}]}),
-        )
-        .unwrap();
-    let wire = uuid(&wire["result"]["wires"][0]);
-    shell
-        .run(
-            "schematic.net_label.add",
-            json!({"document": SHEET, "name": "SDA", "at": {"x": "0mil", "y": "0mil"}}),
-        )
-        .unwrap();
-    let mut find = FindDialog::default();
-    find.text = "sda".to_owned();
-    find.search(&mut shell);
-    assert_eq!(find.results().len(), 1);
-    assert!(shell.selection().objects.contains(&wire));
-}
-
-#[test]
 fn select_similar_selects_matching_units_on_the_sheet_or_across_the_project() {
+    use reda_ui::engine::commands::similar::SimilarScope;
+    use reda_ui::similar::{self, Rule};
     let dir = TempDir::new("similar");
     let mut shell = shell(&dir);
     let (r1, _) = place(&mut shell, sheet(), R_10K, 0, 0);
@@ -158,32 +93,28 @@ fn select_similar_selects_matching_units_on_the_sheet_or_across_the_project() {
     let second = add_sheet(&mut shell);
     let (r3, _) = place(&mut shell, second, R_10K, 0, 0);
 
-    // It needs a selected Unit to compare with.
-    assert!(SimilarDialog::new(&shell).is_none());
-    shell
-        .run("selection.set", json!({"objects": [r1]}))
-        .unwrap();
-    let mut dialog = SimilarDialog::new(&shell).unwrap();
-    // The reference's free-form fields can be matched on too.
+    // It needs an object to compare with.
     assert!(
-        dialog
-            .criteria()
-            .iter()
-            .any(|c| c.param == json!({"field": "LCSC"}))
+        shell
+            .run("selection.similar.window", json!({"objects": []}))
+            .is_err()
     );
-    dialog.set(&json!("value"), true);
-    dialog.apply(&mut shell).unwrap();
+    shell
+        .run("selection.similar.window", json!({"objects": [r1]}))
+        .unwrap();
+    similar::window_mut(&mut shell)
+        .unwrap()
+        .set_rule("fields.value", Rule::Same);
+    similar::apply(&mut shell).unwrap();
     assert_eq!(shell.selection().objects, [r1, r2]);
 
-    dialog.project = true;
-    dialog.apply(&mut shell).unwrap();
-    assert_eq!(shell.selection().objects, [r1, r2, r3]);
-
-    // With nothing to match on, there is nothing to run.
-    for c in dialog.criteria().to_vec() {
-        dialog.set(&c.param, false);
-    }
-    assert!(!dialog.can_apply());
+    similar::window_mut(&mut shell).unwrap().scope = SimilarScope::Project;
+    similar::apply(&mut shell).unwrap();
+    let mut all = shell.selection().objects.clone();
+    all.sort();
+    let mut want = vec![r1, r2, r3];
+    want.sort();
+    assert_eq!(all, want);
 }
 
 #[test]
@@ -195,9 +126,8 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
     let (b, b_component) = place(&mut shell, sheet(), R_10K, 1000, 0);
     let (c, _) = place(&mut shell, sheet(), R_10K, -1000, 0);
 
-    let mut dialog = ReannotateDialog::new(&shell);
-    assert_eq!(dialog.scope, ReannotateScope::Project);
-    dialog.refresh(&mut shell);
+    let mut dialog = ReannotateDialog::new(&mut shell);
+    assert_eq!(dialog.settings.scope, ScopeKind::Project);
     let renames: Vec<(String, String)> = dialog
         .changes()
         .map(|r| (r.old.clone(), r.new.clone()))
@@ -215,7 +145,7 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
 
     // Locking R2 keeps it; the preview follows.
     dialog.set_locked(&mut shell, b_component, true);
-    assert_eq!(dialog.locked().len(), 1);
+    assert_eq!(dialog.rows().iter().filter(|r| r.locked).count(), 1);
     let renames: Vec<(String, String)> = dialog
         .changes()
         .map(|r| (r.old.clone(), r.new.clone()))
@@ -245,64 +175,9 @@ fn reannotate_previews_old_to_new_honours_locks_and_applies_as_one_command() {
     assert_eq!(ran, ["schematic.reannotate"]);
 
     // Scope selection with nothing selected cannot run.
-    dialog.scope = ReannotateScope::Selection;
+    dialog.settings.scope = ScopeKind::Selection;
     dialog.refresh(&mut shell);
     assert!(!dialog.can_apply());
-}
-
-fn copy_dir(from: &Path, to: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let target = to.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy_dir(&entry.path(), &target);
-        } else {
-            std::fs::copy(entry.path(), target).unwrap();
-        }
-    }
-}
-
-#[test]
-fn update_from_library_previews_the_changes_and_updates_the_checked_components() {
-    let dir = TempDir::new("update");
-    let library = dir.path().join("Test");
-    copy_dir(&fixture_library(), &library);
-    let mut shell = shell_with(&dir, library.clone());
-    let (r1, _) = place(&mut shell, sheet(), R_10K, 0, 0);
-
-    assert!(UpdateDialog::new(&mut shell).rows().is_empty());
-    let part = library.join("parts/R_10k.redapart");
-    let text = std::fs::read_to_string(&part).unwrap();
-    std::fs::write(
-        &part,
-        text.replace("\"value\":\"10k\"", "\"value\":\"22k\""),
-    )
-    .unwrap();
-
-    let mut dialog = UpdateDialog::new(&mut shell);
-    let rows = dialog.rows();
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].designator, "R1");
-    assert!(rows[0].checked);
-    assert!(
-        rows[0]
-            .changes
-            .iter()
-            .any(|c| c.contains("10k") && c.contains("22k")),
-        "{:?}",
-        rows[0].changes
-    );
-    // Nothing changes before Apply.
-    let value = |shell: &Shell| {
-        let project = shell.engine().project().unwrap();
-        let sheet = project.schematic_sheet(sheet()).unwrap();
-        sheet.unit(r1).unwrap().fields.value.clone()
-    };
-    assert_eq!(value(&shell), "10k");
-    dialog.apply(&mut shell).unwrap();
-    assert_eq!(value(&shell), "22k");
-    assert!(UpdateDialog::new(&mut shell).rows().is_empty());
 }
 
 #[test]

@@ -397,6 +397,9 @@ impl ShowPanel {
             PanelId::Library => "Show Library",
             PanelId::Layers => "Show Layers",
             PanelId::Journal => "Show Journal",
+            PanelId::Navigator => "Show Board Navigator",
+            PanelId::Find => "Show Find",
+            PanelId::Pins => "Show Pins",
         }
     }
 }

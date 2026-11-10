@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::passives::fields;
 use crate::script::{
-    PartSpec, Script, Sym, bottom, left, line, mil, polygon, rect, right, text, top,
+    Kind, PartSpec, Script, Sym, bottom, left, line, mil, polygon, rect, right, text, top,
 };
 
 pub fn build(s: &mut Script) {
@@ -18,19 +18,20 @@ pub fn build(s: &mut Script) {
     mcu(s);
 }
 
-/// One amplifier: the triangle, + and − inputs on the left, the output on the right.
+/// One amplifier: the triangle, centred on the origin, + and − inputs on the left, the
+/// output on the right.
 fn amplifier(s: &mut Script, sym: &Sym, plus: &str, minus: &str, out: &str) {
-    s.pin(sym, left("+", plus, "input", -200, 50));
-    s.pin(sym, left("-", minus, "input", -200, -50));
+    s.pin(sym, left("+", plus, "input", -250, 50));
+    s.pin(sym, left("-", minus, "input", -250, -50));
     s.pin(sym, right("~", out, "output", 250, 0));
     s.draw(
         sym,
-        polygon(&[(mil(-100), mil(150)), (mil(-100), mil(-150)), (mil(150), 0)]),
+        polygon(&[(mil(-150), mil(150)), (mil(-150), mil(-150)), (mil(150), 0)]),
         false,
     );
-    s.draw(sym, line(mil(-85), mil(50), mil(-55), mil(50)), false);
-    s.draw(sym, line(mil(-70), mil(35), mil(-70), mil(65)), false);
-    s.draw(sym, line(mil(-85), mil(-50), mil(-55), mil(-50)), false);
+    s.draw(sym, line(mil(-135), mil(50), mil(-105), mil(50)), false);
+    s.draw(sym, line(mil(-120), mil(35), mil(-120), mil(65)), false);
+    s.draw(sym, line(mil(-135), mil(-50), mil(-105), mil(-50)), false);
 }
 
 /// A dual op-amp in the industry-standard 8-pin order: amplifiers A and B as Units, and
@@ -61,7 +62,7 @@ fn op_amp(s: &mut Script, footprints: Vec<String>) {
             "U op-amp opamp operational amplifier dual",
         ),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -76,6 +77,7 @@ fn timer(s: &mut Script, footprints: Vec<String>) {
     s.pin(&sym, right("OUT", "3", "output", 300, 50));
     s.pin(&sym, right("DIS", "7", "open_collector", 300, -50));
     s.draw(&sym, rect(mil(-200), mil(-250), mil(200), mil(250)), false);
+    s.origin_at_pin_1(&sym);
     let sym = s.finish_symbol(sym);
     s.part(PartSpec {
         name: "Timer_555",
@@ -83,7 +85,7 @@ fn timer(s: &mut Script, footprints: Vec<String>) {
         footprints,
         fields: fields("NE555", "555 timer", "U timer 555 oscillator"),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -97,6 +99,7 @@ fn ldo(s: &mut Script) {
     s.pin(&sym, bottom("GND", "1", "power_in", 0, -200));
     s.draw(&sym, rect(mil(-200), mil(-100), mil(200), mil(100)), false);
     s.draw(&sym, text(0, mil(50), "LDO", mil(50)), false);
+    s.origin_at_pin_1(&sym);
     let sym = s.finish_symbol(sym);
     s.part(PartSpec {
         name: "LDO_SOT-223",
@@ -108,7 +111,7 @@ fn ldo(s: &mut Script) {
             "U regulator LDO linear voltage",
         ),
         pin_map: Some(json!({"pins": [{"pin": "2", "pads": ["2", "4"]}]})),
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }
 
@@ -156,6 +159,7 @@ fn mcu(s: &mut Script) {
     }
     s.draw(&sym, rect(mil(-500), mil(-550), mil(500), mil(550)), false);
     s.draw(&sym, text(0, mil(-450), "STM32F042", mil(50)), false);
+    s.origin_at_pin_1(&sym);
     let sym = s.finish_symbol(sym);
     s.part(PartSpec {
         name: "STM32F042F6P6",
@@ -171,6 +175,6 @@ fn mcu(s: &mut Script) {
             "keywords": "U microcontroller MCU USB STM32 Cortex-M0",
         }),
         pin_map: None,
-        mechanical: false,
+        kind: Kind::Standard,
     });
 }

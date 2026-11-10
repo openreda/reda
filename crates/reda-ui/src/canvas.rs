@@ -8,9 +8,11 @@
 //!   theme, view, size or grid changed, and copied into the window every frame.
 //! - [`canvas`]: the widget that ties them together for a Document tab.
 
+pub mod auto_pan;
 mod camera;
 mod gpu;
 pub mod interact;
+pub mod markers;
 mod widget;
 
 pub use camera::{Camera, CanvasInput, grid_pitch};
@@ -18,6 +20,8 @@ pub use gpu::{
     CanvasFrame, CanvasGpu, CanvasResources, LiveHandle, PaletteHandle, SceneHandle,
     SelectionHandle, paint,
 };
+pub(crate) use markers::MARKER_RADIUS;
 pub use widget::{
-    CanvasInputs, Overlay, RubberBand, canvas, canvas_id, canvas_input, canvas_paint,
+    CanvasInputs, Cutter, Overlay, RubberBand, SEGMENT_HANDLE, canvas, canvas_id, canvas_input,
+    canvas_paint,
 };

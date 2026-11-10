@@ -55,31 +55,83 @@ fn zone_fills_are_drawn_filled_stale_or_not_at_all() {
     assert!(triangles(&scene, board.zone).iter().all(|c| *c == fill));
     assert_eq!(outline(&scene, board.zone), 4);
 
-    // A new Zone makes the board's fills stale, and it has never been filled itself.
+    // A new Zone on the other Layer has never been filled, and leaves the bottom fill
+    // current: staleness is per Zone.
     let second = engine.run_ok(
         "pcb.zone.add",
         json!({"layer": "copper_top", "vertices": rect(20.0, 2.0, 28.0, 6.0)}),
     );
     let second = uuid(&second["result"]["uuid"]);
     let scene = engine.document_scene(board.pcb).unwrap();
-    assert!(!triangles(&scene, board.zone).is_empty());
-    assert!(triangles(&scene, board.zone).iter().all(|c| *c == stale));
+    assert!(triangles(&scene, board.zone).iter().all(|c| *c == fill));
     assert!(triangles(&scene, second).is_empty());
     assert_eq!(outline(&scene, second), 4);
+
+    // A Zone on the bottom Layer changes what the bottom fill depends on: it is stale.
+    engine.run_ok(
+        "pcb.zone.add",
+        json!({"layer": "copper_bottom", "vertices": rect(20.0, 2.0, 28.0, 6.0),
+               "priority": 1}),
+    );
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert!(!triangles(&scene, board.zone).is_empty());
+    assert!(triangles(&scene, board.zone).iter().all(|c| *c == stale));
 }
 
 #[test]
-fn keepouts_are_outlined_on_each_of_their_layers_and_the_placement_origin_is_marked() {
+fn a_shelved_zone_is_hidden_from_the_canvas_and_a_zone_cutout_is_outlined() {
+    let dir = TempDir::new("pcb-shelved");
+    let mut engine = demo(&dir);
+    let board = sample_board(&mut engine);
+    assert!(
+        engine
+            .document_scene(board.pcb)
+            .unwrap()
+            .items_of(board.zone)
+            .next()
+            .is_some()
+    );
+    engine.run_ok(
+        "pcb.zone.shelve",
+        json!({"zones": [board.zone.to_string()]}),
+    );
+    let scene = engine.document_scene(board.pcb).unwrap();
+    assert_eq!(
+        scene.items_of(board.zone).count(),
+        0,
+        "neither fill nor outline"
+    );
+    engine.run_ok("pcb.zone.restore", json!({}));
+    let cutout = engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer": "copper_bottom", "vertices": rect(2.0, 2.0, 6.0, 6.0)}),
+    );
+    let cutout = uuid(&cutout["result"]["uuid"]);
+    let scene = engine.document_scene(board.pcb).unwrap();
+    let bottom = layer(&engine, LayerKind::Copper, Some(Side::Bottom));
+    let edges: Vec<_> = scene.items_of(cutout).collect();
+    assert_eq!(edges.len(), 4);
+    assert!(edges.iter().all(|i| i.layer == SceneLayer::Board(bottom)));
+}
+
+#[test]
+fn keepouts_are_outlined_on_each_of_their_layers_and_the_output_origin_is_marked() {
     let dir = TempDir::new("pcb-keepouts");
     let mut engine = demo(&dir);
     let board = sample_board(&mut engine);
     let keepout = engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(2.0, 2.0, 6.0, 6.0), "layers": ["copper_bottom"]}),
+        json!({"vertices": rect(2.0, 2.0, 6.0, 6.0), "layer": "copper_bottom"}),
     );
     let keepout = uuid(&keepout["result"]["uuid"]);
+    let line = engine.run_ok(
+        "pcb.keepout.add",
+        json!({"shape": "line", "width": "1mm",
+               "vertices": [{"x": "10mm", "y": "2mm"}, {"x": "14mm", "y": "2mm"}]}),
+    );
+    let line = uuid(&line["result"]["uuid"]);
     let origin = engine.run_ok(
-        "pcb.placement_origin.set",
+        "pcb.output_origin.set",
         json!({"at": {"x": "1mm", "y": "1mm"}}),
     );
     let origin = uuid(&origin["result"]["uuid"]);
@@ -89,6 +141,22 @@ fn keepouts_are_outlined_on_each_of_their_layers_and_the_placement_origin_is_mar
     let items: Vec<_> = scene.items_of(keepout).collect();
     assert_eq!(items.len(), 4, "one stroke per edge");
     assert!(items.iter().all(|i| i.layer == SceneLayer::Board(bottom)));
+
+    // A line Keepout on every copper Layer: outlined by the edges of the area it covers,
+    // 0.5 mm either side of its centreline, on both Layers.
+    let top = layer(&engine, LayerKind::Copper, Some(Side::Top));
+    let items: Vec<_> = scene.items_of(line).collect();
+    for l in [top, bottom] {
+        assert!(items.iter().any(|i| i.layer == SceneLayer::Board(l)));
+    }
+    let (lo, hi) = items
+        .iter()
+        .filter_map(|i| i.primitive.bounds())
+        .fold((i64::MAX, i64::MIN), |(lo, hi), b| {
+            (lo.min(b.0.y.0), hi.max(b.1.y.0))
+        });
+    // The outline stroke is 0.1 mm wide.
+    assert_eq!((lo, hi), (1_450_000, 2_550_000));
 
     let outline = layer(&engine, LayerKind::BoardOutline, None);
     let marks: Vec<_> = scene.items_of(origin).collect();

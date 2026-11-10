@@ -30,8 +30,8 @@ use crate::chrome;
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{
-    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SplitSide, TabKey,
-    WindowId, WindowRect,
+    Area, Axis, DockSide, FloatingWindow, Group, Layout, Node, PanelId, SettingsWindow, SplitSide,
+    TabKey, WindowId, WindowRect,
 };
 use crate::panels;
 use crate::projects_panel::{self, ProjectsAction};
@@ -76,6 +76,38 @@ const PANEL_MARGIN: i8 = 6;
 const FLYOUT: Vec2 = Vec2::new(280.0, 320.0);
 /// The size a floating window opens at.
 const WINDOW: Vec2 = Vec2::new(640.0, 420.0);
+/// The size a settings window opens at, the first time.
+pub const SETTINGS_WINDOW: Vec2 = Vec2::new(1000.0, 680.0);
+
+/// Draws a settings window's content into a tab.
+pub type SettingsContent<'a> = dyn FnMut(&mut Ui, &mut Shell, SettingsWindow) + 'a;
+
+/// The size the floating window `window` opens at when it has no place yet: a settings
+/// window's when it holds only settings windows, else a plain floating window's.
+pub fn opening_size(layout: &Layout, window: WindowId) -> Vec2 {
+    let tabs = layout.tabs_in_window(window);
+    if !tabs.is_empty() && tabs.iter().all(|t| matches!(t, TabKey::Settings(_))) {
+        SETTINGS_WINDOW
+    } else {
+        WINDOW
+    }
+}
+
+/// The OS window (viewport) that shows the floating window `window`.
+pub fn viewport_of(window: WindowId) -> ViewportId {
+    drag::viewport_id(window)
+}
+
+/// The title of a settings window's tab when the window has not named it.
+pub fn settings_title(window: SettingsWindow) -> String {
+    match window {
+        SettingsWindow::Preferences => tr!("pref-title"),
+        SettingsWindow::ProjectSettings => tr!("project-settings-title"),
+        SettingsWindow::BoardSetup => tr!("board-setup-title"),
+        SettingsWindow::OutputJob => tr!("output-job-window-title"),
+        SettingsWindow::ChangeList => tr!("change-list-title"),
+    }
+}
 
 /// The title of a Panel, for its tab, its Dock icon and the Panels button.
 pub fn panel_title(panel: PanelId) -> String {
@@ -86,6 +118,9 @@ pub fn panel_title(panel: PanelId) -> String {
         PanelId::Library => tr!("panel-library"),
         PanelId::Layers => tr!("panel-layers"),
         PanelId::Journal => tr!("panel-journal"),
+        PanelId::Navigator => tr!("panel-navigator"),
+        PanelId::Find => tr!("panel-find"),
+        PanelId::Pins => tr!("panel-pins"),
     }
 }
 
@@ -103,6 +138,7 @@ fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
     Some(match tab {
         TabKey::Start => icons::START_PAGE,
         TabKey::Panel(panel) => icons::panel_icon(*panel),
+        TabKey::Settings(_) => return None,
         TabKey::Document(uuid) => {
             let kind = shell
                 .engine()
@@ -133,12 +169,17 @@ pub(crate) fn tab_title(shell: &Shell, tab: &TabKey) -> String {
         TabKey::Start => tr!("start-page-title"),
         TabKey::Panel(panel) => panel_title(*panel),
         TabKey::Document(_) => shell.document_title(tab).unwrap_or_default().to_owned(),
+        TabKey::Settings(window) => match shell.settings_title(*window) {
+            Some(title) => title.to_owned(),
+            None => settings_title(*window),
+        },
     }
 }
 
 /// Draws the whole layout into `ui`, which fills the window below the menu bar and above
 /// the status bar.
-pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
+/// `settings` draws the settings windows' tabs.
+pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) -> Frame {
     let layout = shell.layout().clone();
     let recent = if layout.place(&TabKey::Start).is_some() {
         shell.recent_projects()
@@ -158,6 +199,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
             dock_edges: true,
         },
         focus_request,
+        settings,
     };
     // What no group covers shows as the gaps between them.
     let gap = theme::gap(ui.ctx().theme());
@@ -192,9 +234,23 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Frame {
     let embedded = ctx.embed_viewports();
     if embedded {
         for window in &layout.windows {
-            egui::Window::new(window_title(cx.shell, &layout, window.id))
+            // A settings window opens centred, as large as it opens natively where the main
+            // window has room for that.
+            let screen = ctx.content_rect();
+            let (size, at) = match opening_size(&layout, window.id) {
+                size if size == SETTINGS_WINDOW => (
+                    size.min(screen.size() - Vec2::splat(40.0)),
+                    Some(screen.center()),
+                ),
+                _ => (Vec2::new(480.0, 320.0), None),
+            };
+            let mut floating = egui::Window::new(window_title(cx.shell, &layout, window.id));
+            if let Some(at) = at {
+                floating = floating.pivot(Align2::CENTER_CENTER).default_pos(at);
+            }
+            floating
                 .id(Id::NULL.with(("floating-window", window.id.0)))
-                .default_size([480.0, 320.0])
+                .default_size(size)
                 .show(&ctx, |ui| {
                     cx.node(ui, &window.root, Area::Window(window.id));
                 });
@@ -237,7 +293,7 @@ fn first_group(layout: &Layout, window: WindowId) -> Option<&Group> {
         .map(|(_, g)| g)
 }
 
-struct Cx<'a> {
+struct Cx<'a, 'b> {
     shell: &'a mut Shell,
     layout: &'a Layout,
     recent: &'a [RecentProject],
@@ -247,6 +303,7 @@ struct Cx<'a> {
     /// The tab whose button takes the keyboard focus this frame, after F6 or the tab
     /// switcher moved focus to it.
     focus_request: Option<TabKey>,
+    settings: &'a mut SettingsContent<'b>,
 }
 
 /// Sets aside all the space left in `ui` for contents drawn later; returns it. A Dock
@@ -257,7 +314,7 @@ fn reserve(ui: &mut Ui) -> Rect {
     rect
 }
 
-impl Cx<'_> {
+impl Cx<'_, '_> {
     fn run(&mut self, id: &'static str, params: Value) {
         self.frame.commands.push((id.to_owned(), params));
     }
@@ -268,7 +325,9 @@ impl Cx<'_> {
         let viewport = drag::viewport_id(window.id);
         let size = window
             .rect
-            .map_or(WINDOW, |r| egui::vec2(r.width as f32, r.height as f32));
+            .map_or(opening_size(self.layout, window.id), |r| {
+                egui::vec2(r.width as f32, r.height as f32)
+            });
         let mut builder = ViewportBuilder::default()
             .with_title(window_title(self.shell, self.layout, window.id))
             .with_inner_size(size)
@@ -480,12 +539,65 @@ impl Cx<'_> {
             .project()
             .and_then(|p| p.document(document))
             .map(|d| d.kind);
+        self.shell
+            .selection_picking_mut()
+            .set_time(input.response.ctx.input(|i| i.time));
+        // Mod+double-click on a Port goes to its partner on another sheet.
+        if self.shell.tool() == crate::tools::Tool::Select
+            && kind == Some(DocumentKind::Schematic)
+            && input.response.double_clicked()
+            && input.response.ctx.input(|i| i.modifiers.command)
+            && let Some(screen) = input.response.interact_pointer_pos()
+            && let Some(port) = crate::port_partner::port_at(
+                self.shell,
+                document,
+                input.document_point(screen),
+                5.0 * input.camera.nm_per_point,
+            )
+        {
+            let _ = self.shell.run_reporting(
+                "schematic.port.go_to_partner",
+                serde_json::json!({ "objects": [port] }),
+            );
+            return Vec::new();
+        }
+        if self.shell.tool() == crate::tools::Tool::Select
+            && input.response.double_clicked()
+            && let Some(screen) = input.response.interact_pointer_pos()
+        {
+            crate::selection::picking::double_click(
+                self.shell,
+                document,
+                input.document_point(screen),
+                5.0 * input.camera.nm_per_point,
+                screen,
+            );
+            return Vec::new();
+        }
+        for event in &input.events {
+            match event {
+                crate::canvas::interact::Pointer::DragStart { .. } => {
+                    self.shell.selection_picking_mut().set_idle(false)
+                }
+                crate::canvas::interact::Pointer::DragEnd(_) => {
+                    self.shell.selection_picking_mut().set_idle(true)
+                }
+                _ => {}
+            }
+        }
         // A Part from the Library panel in flight takes the pointer on any canvas.
         if self.shell.tool() == crate::tools::Tool::Place {
             crate::placement::canvas(self.shell, document, input);
             return Vec::new();
         }
         match kind {
+            // A right-click in the Wire Tool is Esc: it ends the run, or leaves the Tool.
+            Some(DocumentKind::Schematic)
+                if self.shell.tool() == crate::tools::Tool::Wire
+                    && input.response.secondary_clicked() =>
+            {
+                vec![("tool.activate:select".to_owned(), json!({}))]
+            }
             Some(DocumentKind::Schematic) => {
                 let scale = schematic_editor::Scale::at(input.camera.nm_per_point);
                 schematic_editor::pointer(self.shell, document, &input.events, scale)
@@ -592,7 +704,7 @@ impl Cx<'_> {
             ui.set_clip_rect(body.intersect(clip));
             match group.active_tab() {
                 // Panels and the Start page keep a margin; Documents fill the group.
-                Some(tab @ (TabKey::Panel(_) | TabKey::Start)) => {
+                Some(tab @ (TabKey::Panel(_) | TabKey::Start | TabKey::Settings(_))) => {
                     egui::Frame::new()
                         .inner_margin(PANEL_MARGIN)
                         .show(ui, |ui| self.content(ui, tab));
@@ -659,7 +771,22 @@ impl Cx<'_> {
             close
         });
         if ui.is_rect_visible(rect) {
-            if pointed {
+            if active {
+                // White at 15 % behind the active tab, rounded at the top, and a 2 px
+                // white underline across its width.
+                let top = egui::CornerRadius {
+                    nw: 3,
+                    ne: 3,
+                    sw: 0,
+                    se: 0,
+                };
+                ui.painter().rect_filled(rect, top, theme::ACTIVE_TAB_FILL);
+                let line = Rect::from_min_max(
+                    egui::pos2(rect.left(), rect.bottom() - theme::ACTIVE_TAB_UNDERLINE),
+                    rect.max,
+                );
+                ui.painter().rect_filled(line, 0.0, Color32::WHITE);
+            } else if pointed {
                 let hover = Color32::from_white_alpha(20);
                 ui.painter().rect_filled(rect, 3.0, hover);
             }
@@ -696,7 +823,8 @@ impl Cx<'_> {
                 );
             }
         }
-        if close.as_ref().is_some_and(Response::clicked) {
+        // A middle-click on any tab closes it.
+        if close.as_ref().is_some_and(Response::clicked) || response.middle_clicked() {
             self.run("layout.tab.close", json!({"tab": tab.to_string()}));
         }
         let shortcut = tab_shortcut(&response.ctx, self.shell, tab);
@@ -786,6 +914,13 @@ impl Cx<'_> {
                 }
             }
         });
+        // A sheet's tab selects its Components' Footprints on the board.
+        if let TabKey::Document(sheet) = tab
+            && (self.shell.engine().project()).is_some_and(|p| p.schematic_sheet(*sheet).is_some())
+            && self.item(ui, tr!("tab-menu-select-footprints"), None)
+        {
+            self.run("selection.footprints_of_sheet", json!({"document": sheet}));
+        }
         if self.item(ui, tr!("tab-menu-close"), None) {
             self.run("layout.tab.close", json!({"tab": param}));
         }
@@ -813,6 +948,17 @@ impl Cx<'_> {
         clicked
     }
 
+    /// Queues a Command to run after the frame; one still lacking params (text's words,
+    /// a Layer set's name) asks for them in a dialog.
+    fn push_call(&mut self, id: String, params: serde_json::Value) {
+        let registry = self.shell.engine().registry();
+        if crate::command_dialog::lacks_required(registry, &id, &params) {
+            self.frame.calls.push((id, params));
+        } else {
+            self.frame.commands.push((id, params));
+        }
+    }
+
     fn content(&mut self, ui: &mut Ui, tab: &TabKey) {
         match tab {
             TabKey::Start => {
@@ -836,38 +982,91 @@ impl Cx<'_> {
                 let theme = theme::canvas_theme(ui.ctx().theme());
                 let kind = bars::document_type(self.shell, *uuid);
                 let kind = kind.unwrap_or(bars::DocumentType::Schematic);
+                // Auto-pan while an operation is in flight: a drag, a move, a Tool's run.
+                let busy = ui
+                    .input(|i| i.pointer.primary_down() && i.pointer.is_decidedly_dragging())
+                    || self.shell.pcb_tool().moving()
+                    || self.shell.router().routing();
+                let auto_pan = self.shell.preferences().editing.auto_pan.clone();
                 let Some(doc) = self.shell.document_tab_mut(*uuid) else {
                     return;
                 };
-                let input = canvas_input(ui, doc, kind);
+                let busy = busy || doc.interaction != crate::schematic_editor::Interaction::Idle;
+                let input = canvas_input(ui, doc, kind, busy.then_some(&auto_pan));
+                // Shown on the board for a settings window, the canvas only pans and zooms.
+                let view_only = self.shell.view_only(*uuid);
+                let edits = if view_only {
+                    Vec::new()
+                } else {
+                    let (modifiers, pressed) =
+                        ui.input(|i| (i.modifiers, i.pointer.primary_down()));
+                    self.shell.hold_snap_keys(*uuid, modifiers, pressed);
+                    self.edit(*uuid, &input)
+                };
                 // A Command still lacking params (text's words) asks for them in a dialog.
-                for (id, params) in self.edit(*uuid, &input) {
-                    let registry = self.shell.engine().registry();
-                    if crate::command_dialog::lacks_required(registry, &id, &params) {
-                        self.frame.calls.push((id, params));
-                    } else {
-                        self.frame.commands.push((id, params));
-                    }
+                for (id, params) in edits {
+                    self.push_call(id, params);
+                }
+                // In the Wire Tool a right-click is Esc (see `edit`), and while routing it
+                // ends the route (pcb::canvas), instead of the menu.
+                let wiring = kind == bars::DocumentType::Schematic
+                    && self.shell.tool() == crate::tools::Tool::Wire;
+                let routing = kind == bars::DocumentType::Pcb
+                    && crate::pcb::route::takes_right_click(self.shell);
+                if !view_only && !wiring && !routing {
+                    crate::context_menu::canvas(ui, self.shell, *uuid, kind, &input);
+                    crate::canvas::markers::click(self.shell, *uuid, &input);
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
                 };
                 canvas_paint(ui, &input, doc, theme);
-                if self
-                    .shell
-                    .engine()
-                    .project()
-                    .is_some_and(|p| p.pcb_document(*uuid).is_some())
+                if element_editor_symbol(self.shell, *uuid) {
+                    crate::symbol_editor::hover_tip(self.shell, *uuid, &input.response);
+                }
+                if !view_only
+                    && self
+                        .shell
+                        .engine()
+                        .project()
+                        .is_some_and(|p| p.pcb_document(*uuid).is_some())
                 {
-                    crate::pcb::canvas::decorate(ui, self.shell, &input);
+                    for (id, params) in crate::pcb::canvas::decorate(ui, self.shell, &input) {
+                        self.push_call(id, params);
+                    }
                 }
                 let Some(doc) = self.shell.document_tab(*uuid) else {
                     return;
                 };
                 let id = canvas_id(doc);
-                if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
-                    self.frame.commands.push(clicked);
+                match self.shell.shown_on_board().filter(|_| view_only) {
+                    Some(_) => match crate::show_on_board::banner(ui, id, rect, self.shell) {
+                        Some(crate::show_on_board::BannerAction::Back) => {
+                            self.shell.back_from_show();
+                        }
+                        Some(crate::show_on_board::BannerAction::Switch) => {
+                            self.shell.switch_shown_side();
+                        }
+                        None => {}
+                    },
+                    None => {
+                        if let Some(clicked) = self.active_bar(ui, *uuid, id, rect) {
+                            self.frame.commands.push(clicked);
+                        }
+                    }
                 }
+                crate::selection::picking::show(ui, self.shell, *uuid);
+                let options = schematic_editor::auto_wire_options(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(options);
+                let options = schematic_editor::break_wire_options(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(options);
+                let edits = schematic_editor::decorate(ui, self.shell, *uuid, rect);
+                self.frame.commands.extend(edits);
+                let active = self.shell.active_document().map(|d| d.document) == Some(*uuid);
+                if active {
+                    crate::keys_card::show(ui, self.shell, rect);
+                }
+                crate::hud::show(ui, self.shell, *uuid, rect, active);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {
@@ -882,9 +1081,21 @@ impl Cx<'_> {
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Properties) => {
-                let commands = panels::properties::show(ui, self.shell);
-                let commands = commands.into_iter().map(|(id, p)| (id.to_owned(), p));
-                self.frame.commands.extend(commands);
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                for out in panels::properties::show(ui, self.shell) {
+                    match out {
+                        panels::properties::Out::Run(id, p) => {
+                            self.frame.commands.push((id.to_owned(), p));
+                        }
+                        panels::properties::Out::Messages(action) => {
+                            self.frame.messages.push(action);
+                        }
+                        panels::properties::Out::Units(units) => {
+                            self.shell.set_properties_units(Some(units));
+                        }
+                    }
+                }
+                self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Journal) => {
                 if let Some(action) = journal_panel::show(ui, self.shell.engine()) {
@@ -892,7 +1103,17 @@ impl Cx<'_> {
                 }
             }
             TabKey::Panel(PanelId::Layers) => {
-                let commands = panels::layers::show(ui, self.shell);
+                for (id, params) in panels::layers::show(ui, self.shell) {
+                    self.push_call(id, params);
+                }
+            }
+            TabKey::Panel(PanelId::Find) => panels::find::show(ui, self.shell),
+            TabKey::Panel(PanelId::Pins) => {
+                let commands = panels::pins::show(ui, self.shell);
+                self.frame.commands.extend(commands);
+            }
+            TabKey::Panel(PanelId::Navigator) => {
+                let commands = panels::navigator::show(ui, self.shell);
                 self.frame.commands.extend(commands);
             }
             TabKey::Panel(PanelId::Library) => {
@@ -910,6 +1131,11 @@ impl Cx<'_> {
             TabKey::Panel(PanelId::Messages) => {
                 let actions = panels::messages::show(ui, self.shell);
                 self.frame.messages.extend(actions);
+            }
+            TabKey::Settings(window) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                (self.settings)(ui, self.shell, *window);
+                self.focus_on_press(ui, rect, tab, start);
             }
         }
     }
@@ -980,4 +1206,9 @@ fn chevron(ui: &Ui, at: egui::Pos2, towards: Vec2, colour: egui::Color32) {
         .line_segment([back + across * 3.5, tip], stroke);
     ui.painter()
         .line_segment([tip, back - across * 3.5], stroke);
+}
+
+/// Whether the tab `uuid` is an open Symbol's.
+fn element_editor_symbol(shell: &Shell, uuid: Uuid) -> bool {
+    crate::symbol_editor::symbol_of(shell.engine(), uuid).is_some()
 }

@@ -100,10 +100,13 @@ Each icon is listed in `reda.txt`. To add one, draw `<key>.svg`, list it there a
 | `overview` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `pad` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `panel` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_find` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `panel_journal` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `panel_layers` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `panel_library` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `panel_messages` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_navigator` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `panel_pins` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `panel_projects` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `panel_properties` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `part_edit` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
@@ -124,6 +127,18 @@ Each icon is listed in `reda.txt`. To add one, draw `<key>.svg`, list it there a
 | `render` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `reorder` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `rotate` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
+| `route_auto_terminate` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_clearance_all` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_clearance_near` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_corner_45` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_corner_90` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_corner_any` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_keys` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_lookahead` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_loop_removal` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_obstacle_highlight` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_obstacle_ignore` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `route_obstacle_stop` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
 | `rule` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `rules` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `save` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
@@ -150,7 +165,6 @@ Each icon is listed in `reda.txt`. To add one, draw `<key>.svg`, list it there a
 | `unit_place` | Claude (claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (claude-opus-5-5) |
 | `units` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `update_check` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
-| `user_origin` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `via` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `view_flip` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `waive` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
@@ -159,3 +173,10 @@ Each icon is listed in `reda.txt`. To add one, draw `<key>.svg`, list it there a
 | `zone` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
 | `zone_fill` | claude-opus-5-5 (agent), hand-written SVG | none | claude-opus-5-5 (agent) |
 | `zoom_fit` | Claude (Opus 5.5), hand-written SVG | none traced; Recraft concept sheets (recraft-v4.1-flash) set the style only, see #32 | none |
+| `place_guides` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_obstacle_avoid` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_obstacle_ignore` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_queue` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_ratsnest_breaks` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_ratsnest_hidden` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |
+| `place_ratsnest_pad_to_pad` | Claude (Opus 5.5, claude-opus-5-5), hand-written SVG | none: no reference or generator | Claude (Opus 5.5, claude-opus-5-5) |

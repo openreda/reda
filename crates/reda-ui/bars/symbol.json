@@ -1,14 +1,21 @@
 {
   "menus": [
     {
-      "id": "library",
-      "title": "menu-library",
+      "id": "file",
+      "title": "menu-file",
       "items": [
-        { "id": "library.save", "command": "library.element.save", "params": { "element": "$active_document" } },
-        { "id": "library.save_all", "command": "library.element.save" },
-        { "id": "library.check", "command": "library.check", "params": { "element": "$active_document" } },
-        "separator",
-        { "id": "library.close", "command": "library.element.close", "params": { "element": "$active_document" } }
+        { "id": "file.element_save", "command": "library.element.save", "params": { "element": "$active_document" } },
+        { "id": "file.element_save_all", "command": "library.element.save" },
+        { "id": "file.element_close", "command": "library.element.close", "params": { "element": "$active_document" } }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "menu-tools",
+      "items": [
+        { "id": "tools.symbol_wizard", "command": "library.symbol.generate", "title": "menu-tools-symbol-wizard" },
+        { "id": "tools.library_check", "command": "library.check", "params": { "element": "$active_document" } },
+        { "id": "tools.update_in_project", "command": "schematic.update_from_library.open", "params": { "element": "$active_document" }, "title": "menu-tools-update-in-project" }
       ]
     },
     {
@@ -17,6 +24,7 @@
       "items": [
         { "id": "edit.delete", "command": "library.symbol.delete", "params": { "symbol": "$active_document", "objects": "$selection" }, "title": "menu-edit-delete" },
         { "id": "edit.select_all", "command": "selection.set", "params": { "objects": "$selectable" } },
+        { "id": "edit.paste_array", "command": "library.paste_array", "params": { "element": "$active_document", "objects": "$selection" }, "title": "menu-edit-paste-array" },
         "separator",
         { "id": "edit.add_unit", "command": "library.symbol.unit.add", "params": { "symbol": "$active_document" } }
       ]
@@ -32,16 +40,31 @@
         { "id": "place.arc", "command": "tool.activate:arc" },
         { "id": "place.circle", "command": "tool.activate:circle" },
         { "id": "place.polygon", "command": "tool.activate:polygon" },
-        { "id": "place.text", "command": "tool.activate:text" }
+        { "id": "place.text", "command": "tool.activate:text" },
+        "separator",
+        {
+          "id": "place.set_origin",
+          "title": "menu-place-set-origin",
+          "items": [
+            { "id": "place.set_origin.pin_one", "command": "library.symbol.origin.set", "params": { "symbol": "$active_document", "to": { "kind": "pin1" } }, "title": "menu-place-origin-pin1" },
+            { "id": "place.set_origin.centre", "command": "library.symbol.origin.set", "params": { "symbol": "$active_document", "to": { "kind": "centre" } }, "title": "menu-place-origin-centre" },
+            { "id": "place.set_origin.pick", "command": "tool.activate:origin", "title": "menu-place-origin-pick" }
+          ]
+        }
       ]
     },
     {
       "id": "view",
       "title": "menu-view",
       "items": [
-        { "id": "view.grid_cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } }
+        { "id": "view.grid_cycle", "command": "view.grid.cycle", "params": { "document": "$active_document" } },
+        { "id": "view.jump_to_origin", "command": "view.jump_to", "params": { "document": "$active_document", "x": 0, "y": 0 }, "title": "menu-view-jump-to-origin" },
+        { "id": "view.pins_panel", "command": "panel.show:pins" }
       ]
     }
+  ],
+  "toolbar": [
+    { "id": "toolbar.save", "command": "library.element.save", "params": { "element": "$active_document" }, "title": "toolbar-save", "icon": "save" }
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },
@@ -49,6 +72,11 @@
     { "id": "active_bar.pin", "command": "tool.activate:pin" },
     { "id": "active_bar.line", "command": "tool.activate:line" },
     { "id": "active_bar.rect", "command": "tool.activate:rect" },
-    { "id": "active_bar.text", "command": "tool.activate:text" }
+    { "id": "active_bar.arc", "command": "tool.activate:arc" },
+    { "id": "active_bar.polygon", "command": "tool.activate:polygon" },
+    { "id": "active_bar.text", "command": "tool.activate:text" },
+    "separator",
+    { "id": "active_bar.unit_previous", "command": "library.symbol.unit.show", "params": { "symbol": "$active_document", "step": -1 }, "title": "active-bar-unit-previous", "icon": "tab" },
+    { "id": "active_bar.unit_next", "command": "library.symbol.unit.show", "params": { "symbol": "$active_document", "step": 1 }, "title": "active-bar-unit-next", "icon": "tab_move" }
   ]
 }

@@ -22,14 +22,12 @@ use std::sync::Arc;
 
 use reda_engine::Engine;
 use reda_engine::command::CommandError;
-use reda_engine::model::geom::Nm;
 use reda_engine::model::{LibraryElement, Project, Uuid, Violation};
 use reda_engine::render::{InactiveLayers, LayerView, Scene, board_composites};
 use serde_json::{Value, json};
 
 use crate::bars::DocumentType;
 use crate::canvas::CanvasInputs;
-use crate::grid;
 use crate::messages::{self, Note};
 use crate::shell::Shell;
 use crate::tr;
@@ -87,19 +85,6 @@ pub fn open_elements(engine: &Engine) -> Vec<Uuid> {
         .unwrap_or_default()
 }
 
-/// The grid presets of an element's editor, and the one it starts with: board grids for a
-/// Footprint, sheet grids for a Symbol.
-pub fn grid_presets(element: &LibraryElement) -> Option<(&'static [Nm], Nm)> {
-    match element {
-        LibraryElement::Footprint(_) => Some((
-            &grid::PCB_PRESETS,
-            grid::pcb_default(reda_engine::preferences::Units::Mm),
-        )),
-        LibraryElement::Symbol(_) => Some((&grid::SCHEMATIC_PRESETS, grid::SCHEMATIC_DEFAULT)),
-        LibraryElement::Part(_) => None,
-    }
-}
-
 /// What the element's canvas draws: its Scene and, for a Footprint, the Layers to
 /// composite (every Layer, top copper active).
 pub fn scene(
@@ -123,6 +108,7 @@ pub fn scene(
                 inactive: InactiveLayers::Normal,
                 from_bottom: false,
                 ratsnest: false,
+                pinned: Vec::new(),
             };
             let layers = board_composites(&drawn.layers, &view).into();
             Some((drawn.scene, Some(layers)))
@@ -187,10 +173,20 @@ pub fn selected_on(shell: &Shell, element: Uuid) -> Vec<Uuid> {
 }
 
 /// Opens a tab for the element a successful `library.element.open` or `.new` returned.
+/// A Symbol or Part brings up the Pins Panel too, unless it is already in the layout.
 pub(crate) fn after_open(shell: &mut Shell, out: &Value) {
     let Some(element) = out["element"].as_str() else {
         return;
     };
+    let pins = crate::layout::TabKey::Panel(crate::layout::PanelId::Pins);
+    let kind = element.parse().ok().and_then(|e| shell.engine().element(e));
+    if matches!(
+        kind,
+        Some(LibraryElement::Symbol(_) | LibraryElement::Part(_))
+    ) && shell.layout().place(&pins).is_none()
+    {
+        let _ = shell.run("panel.show", json!({ "panel": "pins" }));
+    }
     let _ = shell.run("document.open", json!({ "document": element }));
 }
 
@@ -251,6 +247,16 @@ pub(crate) fn active_symbol(shell: &Shell) -> Option<Uuid> {
     .then_some(active)
 }
 
+/// The active Document, when it is an open Footprint.
+pub(crate) fn active_footprint(shell: &Shell) -> Option<Uuid> {
+    let active = shell.layout().active_document()?;
+    matches!(
+        shell.engine().element(active),
+        Some(LibraryElement::Footprint(_))
+    )
+    .then_some(active)
+}
+
 /// Runs the Library check on the active element, if the active Document is one, after a
 /// save: Save writes the file and the check's findings show in Messages.
 pub(crate) fn check_after_save(shell: &mut Shell) {
@@ -264,11 +270,13 @@ pub(crate) fn check_after_save(shell: &mut Shell) {
 /// in the Messages panel, replacing the last check's lines.
 pub fn check(shell: &mut Shell, element: Uuid) -> Result<(), CommandError> {
     let out = shell.run_reporting("library.check", json!({ "element": element }))?;
-    let name = shell
-        .engine()
-        .element(element)
-        .map(|e| e.name().to_owned())
-        .unwrap_or_default();
+    let name = match shell.engine().element(element) {
+        Some(e) => e.name().to_owned(),
+        // Checked from the Library panel without opening it.
+        None => (shell.library_index().element(element))
+            .map(|e| e.name().to_owned())
+            .unwrap_or_default(),
+    };
     report(shell, Some(element), &name, &out["violations"]);
     Ok(())
 }
@@ -317,6 +325,17 @@ pub(crate) fn text_field(
     current: &str,
     width: f32,
 ) -> Option<String> {
+    text_field_with(ui, id, label, current, width).0
+}
+
+/// [`text_field`], also giving back the field's response (to mark or hover it).
+pub(crate) fn text_field_with(
+    ui: &mut egui::Ui,
+    id: egui::Id,
+    label: &str,
+    current: &str,
+    width: f32,
+) -> (Option<String>, egui::Response) {
     let mut draft = ui
         .data(|d| d.get_temp::<String>(id))
         .unwrap_or_else(|| current.to_owned());
@@ -331,8 +350,9 @@ pub(crate) fn text_field(
         || (response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
     if response.has_focus() && !committed {
         ui.data_mut(|d| d.insert_temp(id, draft));
-        return None;
+        return (None, response);
     }
     ui.data_mut(|d| d.remove::<String>(id));
-    (committed && draft.trim() != current).then(|| draft.trim().to_owned())
+    let typed = (committed && draft.trim() != current).then(|| draft.trim().to_owned());
+    (typed, response)
 }

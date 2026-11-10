@@ -15,7 +15,9 @@ struct View {
     _pad: u32,
     // How far objects marked MOVING are drawn from where they are, in nm.
     moving: vec2<f32>,
-    _pad2: vec2<f32>,
+    // How far dimmed and masked ink is blended toward the background.
+    dim_strength: f32,
+    mask_strength: f32,
 }
 
 struct Palette {
@@ -37,6 +39,15 @@ const HIGHLIGHTED: u32 = 4u;
 const DIMMED: u32 = 8u;
 const MOVING: u32 = 16u;
 const HIDDEN: u32 = 32u;
+const MASKED: u32 = 64u;
+
+// Look bits, above the kind in the instance's kind word.
+const KIND_MASK: u32 = 255u;
+const CHECKER: u32 = 256u;
+// A colour word with this bit carries its own 0xRRGGBB (a Net colour), not a slot.
+const OWN_COLOR: u32 = 0x80000000u;
+// The side of a checker cell, in pixels.
+const CHECKER_PX: f32 = 4.0;
 
 // The selection halo's width in pixels.
 const HALO_PX: f32 = 3.0;
@@ -63,6 +74,7 @@ struct Varyings {
     @location(5) @interpolate(flat) kind_color: vec2<u32>,
     @location(6) @interpolate(flat) flags: u32,
     @location(7) @interpolate(flat) hidden: u32,
+    @location(8) @interpolate(flat) opacity: f32,
 }
 
 fn px_per_nm() -> f32 {
@@ -83,7 +95,7 @@ fn corner(i: u32) -> vec2<f32> {
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
-    let kind = inst.kind_color.x;
+    let kind = inst.kind_color.x & KIND_MASK;
     // Room around the shape for the anti-aliased edge and the halo, in nm.
     let pad = (1.5 + HALO_PX) / px_per_nm();
     let c = corner(vi);
@@ -97,7 +109,11 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
                 dir = d / len;
             }
             let normal = vec2(-dir.y, dir.x);
-            let r = max(inst.p2.x, 0.5 / px_per_nm()) + pad;
+            // p2.y > 0: a screen-width line, its half width in pixels.
+            var r = max(inst.p2.x, 0.5 / px_per_nm()) + pad;
+            if inst.p2.y > 0.0 {
+                r = inst.p2.y / px_per_nm() + pad;
+            }
             let mid = (inst.p0 + inst.p1) * 0.5;
             world = mid + dir * c.x * (len * 0.5 + r) + normal * c.y * r;
         }
@@ -136,6 +152,7 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> Varyings {
     out.p3 = inst.p3;
     out.kind_color = inst.kind_color;
     out.flags = inst.flags;
+    out.opacity = inst.extra.y;
     // A view-only label below its minimum on-screen size is hidden.
     out.hidden = select(0u, 1u, inst.extra.x > 0.0 && inst.extra.x * px_per_nm() < MIN_LABEL_PX);
     if (inst.flags & HIDDEN) != 0u {
@@ -171,7 +188,13 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
     if in.hidden != 0u {
         discard;
     }
-    let kind = in.kind_color.x;
+    let kind = in.kind_color.x & KIND_MASK;
+    if (in.kind_color.x & CHECKER) != 0u {
+        let cell = floor(in.position.xy / CHECKER_PX);
+        if (i32(cell.x) + i32(cell.y)) % 2 != 0 {
+            discard;
+        }
+    }
     let scale = px_per_nm();
     // Signed distance to the shape's edge in pixels (negative inside), and a coverage
     // factor for strokes thinner than a pixel.
@@ -179,7 +202,10 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
     var thin = 1.0;
     switch kind {
         case CAPSULE: {
-            let r_px = in.p2.x * scale;
+            var r_px = in.p2.x * scale;
+            if in.p2.y > 0.0 {
+                r_px = in.p2.y;
+            }
             let r = max(r_px, 0.5);
             thin = min(r_px / 0.5, 1.0);
             d_px = segment_distance(in.world, in.p0, in.p1) * scale - r;
@@ -217,7 +243,11 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
         alpha = 1.0;
     }
 
-    var color = palette.colors[in.kind_color.y];
+    var color = palette.colors[in.kind_color.y & 127u];
+    if (in.kind_color.y & OWN_COLOR) != 0u {
+        let w = in.kind_color.y;
+        color = vec4(f32((w >> 16u) & 255u), f32((w >> 8u) & 255u), f32(w & 255u), 255.0) / 255.0;
+    }
     var rgb = color.rgb;
     if (in.flags & HOVERED) != 0u {
         rgb = mix(rgb, vec3(1.0), 0.15);
@@ -226,9 +256,13 @@ fn fs_main(in: Varyings) -> @location(0) vec4<f32> {
         rgb = mix(rgb, vec3(1.0), 0.35);
     }
     if (in.flags & DIMMED) != 0u {
-        rgb = mix(rgb, palette.background.rgb, 0.7);
+        rgb = mix(rgb, palette.background.rgb, view.dim_strength);
     }
-    var a = alpha * color.a;
+    if (in.flags & MASKED) != 0u {
+        let grey = dot(rgb, vec3(0.299, 0.587, 0.114));
+        rgb = mix(vec3(grey), palette.background.rgb, view.mask_strength);
+    }
+    var a = alpha * color.a * in.opacity;
 
     // The halo: a soft band just outside a selected shape.
     var halo_rgb = vec3(0.0);

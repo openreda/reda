@@ -5,7 +5,10 @@ use reda_command::{
     Unavailable,
 };
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{HERSHEY_FONT, InDocument, Layer, Object, PcbText, Side, Uuid};
+use reda_model::{
+    HERSHEY_FONT, InDocument, Layer, Object, PcbText, Side, TextFrame, TextJustify, TextKnockout,
+    TextStyle, Uuid,
+};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -27,7 +30,7 @@ fn check_text(text: &str) -> Result<(), CommandError> {
     if text.trim().is_empty() {
         return Err(CommandError::invalid_params("/text", "the text is empty"));
     }
-    Ok(())
+    CommandError::check_text("/text", text)
 }
 
 fn check_font(font: &str) -> Result<(), CommandError> {
@@ -62,7 +65,7 @@ pub struct TextAddParams {
     pub layer: LayerRef,
     /// The text; `\n` starts a new line.
     pub text: String,
-    /// The left end of the first baseline.
+    /// The text block or frame anchor.
     pub x: Length,
     pub y: Length,
     /// The capital height; 1 mm when left out.
@@ -82,6 +85,12 @@ pub struct TextAddParams {
     /// default.
     #[serde(default)]
     pub mirrored: Option<bool>,
+    #[serde(default)]
+    pub justify: Option<TextJustify>,
+    #[serde(default)]
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub frame: Option<FrameParam>,
 }
 
 impl Command for TextAdd {
@@ -89,7 +98,7 @@ impl Command for TextAdd {
         id: "pcb.text.add",
         title: "Add Text",
         description: "Adds free text on a copper, silkscreen, mechanical or documentation \
-                      Layer, starting at (`x`, `y`), the left end of its baseline. It uses \
+                      Layer, anchored at (`x`, `y`), left/bottom by default. It uses \
                       the Hershey stroke font unless `font` names another family. Text on a \
                       bottom Layer is mirrored unless `mirrored` is false.",
         category: "pcb",
@@ -119,13 +128,19 @@ impl Command for TextAdd {
         let (document, layer) = (pcb.uuid, layer.uuid);
         let uuid = cx.new_id();
         let text = PcbText {
+            locked: false,
             uuid,
             layer,
             text: p.text,
-            font,
             position: Point::new(p.x.nm(), p.y.nm()),
-            height,
-            thickness,
+            style: TextStyle {
+                font,
+                height,
+                thickness,
+                justify: p.justify.unwrap_or_default(),
+                knockout: p.knockout.map(|k| k.resolve("/knockout")).transpose()?,
+            },
+            frame: p.frame.map(FrameParam::resolve).transpose()?,
             rotation: p
                 .rotation
                 .map_or(Millideg::ZERO, |r| r.millideg().normalized()),
@@ -150,7 +165,7 @@ pub struct TextSetParams {
     /// New text; `\n` starts a new line.
     #[serde(default)]
     pub text: Option<String>,
-    /// A new start point; give both coordinates.
+    /// A new anchor; give both coordinates.
     #[serde(default)]
     pub x: Option<Length>,
     #[serde(default)]
@@ -167,6 +182,19 @@ pub struct TextSetParams {
     /// mirrors on bottom Layers and unmirrors elsewhere.
     #[serde(default)]
     pub mirrored: Option<bool>,
+    #[serde(default)]
+    pub justify: Option<TextJustify>,
+    #[serde(default)]
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub frame: Option<FrameParam>,
+    #[serde(default)]
+    pub clear_knockout: bool,
+    #[serde(default)]
+    pub clear_frame: bool,
+    /// Moves a locked text too; without it `x`, `y` or `rotation` on a locked text is refused.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for TextSet {
@@ -193,6 +221,9 @@ impl Command for TextSet {
             .text(p.uuid)
             .cloned()
             .ok_or_else(|| CommandError::not_found(format!("no text has UUID {}", p.uuid)))?;
+        if p.x.is_some() || p.y.is_some() || p.rotation.is_some() {
+            crate::lock::refuse(pcb, [p.uuid], p.include_locked, "move")?;
+        }
         if let Some(value) = p.text {
             check_text(&value)?;
             text.text = value;
@@ -215,6 +246,21 @@ impl Command for TextSet {
         }
         if let Some(rotation) = p.rotation {
             text.rotation = rotation.millideg().normalized();
+        }
+        if let Some(justify) = p.justify {
+            text.justify = justify;
+        }
+        if let Some(knockout) = p.knockout {
+            text.knockout = Some(knockout.resolve("/knockout")?);
+        }
+        if let Some(frame) = p.frame {
+            text.frame = Some(frame.resolve()?);
+        }
+        if p.clear_knockout {
+            text.knockout = None;
+        }
+        if p.clear_frame {
+            text.frame = None;
         }
         let moved = p.layer.is_some();
         let layer = match p.layer {
@@ -240,6 +286,9 @@ pub struct TextDelete;
 pub struct TextDeleteParams {
     /// The text object's UUID.
     pub uuid: Uuid,
+    /// Deletes locked objects too; without it a locked one refuses the whole Command.
+    #[serde(default)]
+    pub include_locked: bool,
 }
 
 impl Command for TextDelete {
@@ -265,7 +314,79 @@ impl Command for TextDelete {
                 p.uuid
             )));
         }
+        crate::lock::refuse(pcb(cx)?, [p.uuid], p.include_locked, "delete")?;
         cx.tx()?.remove(p.uuid)?;
+        Ok(())
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KnockoutParam {
+    pub margin: Length,
+}
+impl KnockoutParam {
+    /// The knockout, checked; `at` is the JSON pointer of this parameter.
+    fn resolve(&self, at: &str) -> Result<TextKnockout, CommandError> {
+        let margin = self.margin.nm();
+        if margin < Nm::ZERO {
+            return Err(CommandError::invalid_params(
+                &format!("{at}/margin"),
+                "margin must be nonnegative",
+            ));
+        }
+        Ok(TextKnockout { margin })
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FrameParam {
+    pub width: Length,
+    pub height: Length,
+}
+impl FrameParam {
+    fn resolve(self) -> Result<TextFrame, CommandError> {
+        Ok(TextFrame {
+            width: positive("/frame/width", self.width)?,
+            height: positive("/frame/height", self.height)?,
+        })
+    }
+}
+
+/// Sparse shared style patch, used when changing Footprint text across instances.
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StyleParam {
+    pub font: Option<String>,
+    pub height: Option<Length>,
+    pub thickness: Option<Length>,
+    pub justify: Option<TextJustify>,
+    pub knockout: Option<KnockoutParam>,
+    #[serde(default)]
+    pub clear_knockout: bool,
+}
+impl StyleParam {
+    pub(super) fn apply(&self, style: &mut TextStyle) -> Result<(), CommandError> {
+        if let Some(font) = &self.font {
+            check_font(font)?;
+            style.font = font.clone();
+        }
+        if let Some(height) = self.height {
+            style.height = positive("/style/height", height)?;
+        }
+        if let Some(thickness) = self.thickness {
+            style.thickness = positive("/style/thickness", thickness)?;
+        }
+        if let Some(justify) = self.justify {
+            style.justify = justify;
+        }
+        if let Some(knockout) = &self.knockout {
+            style.knockout = Some(knockout.resolve("/style/knockout")?);
+        }
+        if self.clear_knockout {
+            style.knockout = None;
+        }
         Ok(())
     }
 }

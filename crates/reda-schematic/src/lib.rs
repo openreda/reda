@@ -4,16 +4,22 @@
 
 mod component;
 pub mod connectivity;
+pub mod cross_ref;
 mod edit;
 pub mod erc;
+mod fields;
 mod find;
 mod library_element;
 mod natural;
+mod normalise;
+mod options;
 mod pins;
 mod ports;
 mod properties;
+mod route;
 mod sheet;
 mod similar;
+mod unit_cycle;
 mod unit_move;
 mod update;
 mod wiring;
@@ -25,37 +31,59 @@ pub use component::{
     At, ComponentPlace, ComponentPlaceParams, PlacedResult, UnitPlace, UnitPlaceParams,
     next_free_designator,
 };
+pub use edit::Gap as BreakGap;
 pub use edit::{
-    Align, AlignParams, AlignTo, Axis, Clipboard, Copy, CopyParams, Cut, Delete, DeleteParams,
-    DeleteResult, Direction, Distribute, DistributeParams, Drag, Duplicate, DuplicateParams,
-    EditResult, FlightStep, GraphicResult, GraphicSet, GraphicSetParams, LineAdd, LineAddParams,
-    Mirror, MirrorParams, Move, Paste, PasteParams, PasteResult, RectAdd, RectAddParams, Rotate,
-    RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid, TextAdd, TextAddParams,
-    TextResult, TextSet, TextSetParams, flight_preview, selectable, shift_preview,
+    Align, AlignParams, AlignTo, Axis, Clipboard, ConvertCross, ConvertCrossParams,
+    ConvertCrossResult, ConvertedJunction, CopiedText, Copy, CopyAsText, CopyAsTextParams,
+    CopyParams, Cut, CutParams, Delete, DeleteParams, DeleteResult, Direction, Distribute,
+    DistributeParams, Drag, Duplicate, DuplicateParams, EditResult, FlightStep, GraphicResult,
+    GraphicSet, GraphicSetParams, LineAdd, LineAddParams, Mirror, MirrorParams, Move, MoveToSheet,
+    MoveToSheetParams, MoveToSheetResult, NetChange, Paste, PasteParams, PasteResult, RectAdd,
+    RectAddParams, Rotate, RotateParams, ShiftParams, ShiftPreview, SnapParams, SnapToGrid,
+    TextAdd, TextAddParams, TextResult, TextSet, TextSetParams, WireBreak, WireBreakParams,
+    WireBreakResult, WireSegment, WireSetVertices, WireSetVerticesParams, WireSetVerticesResult,
+    break_gap, flight_preview, selectable, shift_preview, shift_preview_flipped,
 };
+pub use fields::{FieldMove, FieldMoveParams, FieldResetParams, FieldResetPosition, FieldResult};
 pub use find::{Find, FindField, FindMatch, FindParams, FindResult, Matcher, find};
 pub use library_element::{
     ElementFile, LibraryElement, LibraryElementParams, LibraryElementResult,
 };
 pub use natural::natural_cmp;
+pub use normalise::{DEFAULT_SNAP_GRID, WIRING_COMMANDS, Wiring};
+pub use options::{OptionsSet, OptionsSetParams};
 pub use pins::{ComponentPins, ComponentPinsParams, ComponentPinsQuery, PinPads, component_pins};
 pub use ports::{
-    PortAdd, PortAddParams, PortAddResult, PowerPortAdd, PowerPortAddParams, PowerPortAddResult,
-    ProjectNets, ProjectNetsResult, default_power_port_style,
+    POWER_PORT_PRESETS, PortAdd, PortAddParams, PortAddResult, PortSet, PortSetParams,
+    PowerPortAdd, PowerPortAddParams, PowerPortAddResult, PowerPortSet, PowerPortSetParams,
+    ProjectNets, ProjectNetsResult, SetResult, default_power_port_style,
 };
 pub use properties::{ComponentSet, ComponentSetParams, ComponentSetResult};
+pub use route::{
+    Avoid, Obstacles, Options, Route, RouteError, WireRoute, WireRouteParams, WireRouteResult,
+    route,
+};
 pub use sheet::{
-    SheetFrameView, SheetRef, SheetSetSize, SheetSetSizeParams, SheetTitleBlock, TitleBlock,
-    title_block,
+    FrameSizeParam, SheetFrameView, SheetRef, SheetSetFrame, SheetSetFrameParams, SheetTitleBlock,
+    TitleBlock, ZoneCounts, title_block,
 };
 pub use similar::{
     SelectSimilar, SelectSimilarParams, SelectSimilarResult, SimilarField, SimilarScope,
     select_similar,
 };
+pub use unit_cycle::{UnitCycle, UnitCycleParams, UnitCycleResult};
 pub use unit_move::{UnitMove, UnitMoveParams, UnitMoveResult};
 pub use update::{
-    ComponentUpdate, FootprintChange, Outdated, OutdatedComponent, OutdatedResult, PartChange,
-    UpdateFromLibrary, UpdateParams, UpdatePreview, UpdateResult,
+    Aspect, Cell, CellAction, CellCase, CellRef, ComponentAspects, ComponentStatus,
+    ComponentUpdate, FootprintChange, FromTo, LibraryStatus, LibraryStatusParams,
+    LibraryStatusQuery, LibraryStatusResult, LostLocalEdits, PartChange, PartsOf, Problem,
+    ResetSettingsParams, ResetUpdateSettings, SettingsParams, SettingsReset, UpdateApplied,
+    UpdateFromLibrary, UpdateFromLibraryParams, UpdateParams, UpdatePreview, UpdateResult,
+    footprint_change, library_statuses,
+};
+pub use update::{
+    KeepFields, ReplaceParams, ReplacePart, ReplacePartParams, ReplacePreview,
+    ReplacePreviewResult, ReplaceRow, Replaced,
 };
 pub use wiring::{
     NetLabelAdd, NetLabelAddParams, NetLabelAddResult, NetsParams, NoConnectAdd,
@@ -64,32 +92,62 @@ pub use wiring::{
 
 /// Adds every Command defined in `reda-schematic`.
 pub fn register_all(registry: &mut Registry) {
+    register_all_with_user(
+        registry,
+        reda_command::os_user_name,
+        update::no_lost_local_edits,
+    );
+}
+
+/// Adds the Commands with a source for the Preference-backed Waiver author, and the PCB
+/// reader that tells which local edits an update removes (it lives in `reda-engine`).
+pub fn register_all_with_user(
+    registry: &mut Registry,
+    user_name: reda_command::UserName,
+    lost_local_edits: LostLocalEdits,
+) {
     registry.add(ComponentPlace);
     registry.add(UnitPlace);
     registry.add(ComponentSet);
     registry.add(ComponentPinsQuery);
     registry.add(Find);
     registry.add(SelectSimilar);
-    registry.add(Outdated);
-    registry.add(UpdatePreview);
-    registry.add(UpdateFromLibrary);
+    registry.add(LibraryStatusQuery);
+    registry.add(UpdatePreview { lost_local_edits });
+    registry.add(UpdateFromLibrary { lost_local_edits });
+    registry.add(ResetUpdateSettings);
+    registry.add(ReplacePreview { lost_local_edits });
+    registry.add(ReplacePart { lost_local_edits });
     registry.add(LibraryElement);
-    registry.add(SheetSetSize);
+    registry.add(SheetSetFrame);
     registry.add(SheetTitleBlock);
     registry.add(WireAdd);
+    registry.add(WireRoute);
+    registry.add(WireBreak);
+    registry.add(WireSetVertices);
+    registry.add(ConvertCross);
     registry.add(NetLabelAdd);
     registry.add(UnitMove);
+    registry.add(UnitCycle);
+    registry.add(FieldMove);
+    registry.add(FieldResetPosition);
     registry.add(NoConnectAdd);
     registry.add(SchematicNets);
     registry.add(PortAdd);
+    registry.add(PortSet);
+    registry.add(crate::wiring::NetLabelSet);
     registry.add(PowerPortAdd);
+    registry.add(PowerPortSet);
     registry.add(ProjectNets);
+    registry.add(OptionsSet);
     registry.add(Delete);
     registry.add(Copy);
     registry.add(Cut);
     registry.add(Paste);
     registry.add(Duplicate);
+    registry.add(CopyAsText);
     registry.add(Move);
+    registry.add(MoveToSheet);
     registry.add(Drag);
     registry.add(Rotate);
     registry.add(Mirror);
@@ -101,7 +159,7 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(LineAdd);
     registry.add(RectAdd);
     registry.add(GraphicSet);
-    erc::register_all(registry);
+    erc::register_all(registry, user_name);
 }
 
 /// The Schematic Sheet with this UUID, or `not_found`.

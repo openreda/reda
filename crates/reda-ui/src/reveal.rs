@@ -23,13 +23,72 @@ impl Shell {
         {
             return;
         }
-        let _ = self.run_reporting("selection.set", json!({ "objects": objects }));
-        if let Some(tab) = self.document_tab_mut(document)
-            && let Some(frame) = frame(&tab.scene.scene, objects)
+        // A mask already up (Find's Mask Matching) stays.
+        let dim = !self.highlight().mask;
+        self.show_result(document, objects, None, dim);
+    }
+
+    /// Shows a result as the shared highlight Preference says
+    /// (docs/spec/v0.1/editing.md#highlighting): selects `objects` (those the Project has),
+    /// zooms `document`'s canvas to `frame` (else to what it draws of them) as close as
+    /// its closeness says, and with `dim` dims everything else. Messages, Find and Show
+    /// use it.
+    pub fn show_result(
+        &mut self,
+        document: Uuid,
+        objects: &[Uuid],
+        frame: Option<(Point, Point)>,
+        dim: bool,
+    ) {
+        let prefs = self.preferences().editing.highlight.clone();
+        let existing: Vec<Uuid> = match self.engine().project() {
+            Some(project) => (objects.iter().copied())
+                .filter(|o| project.object(*o).is_some())
+                .collect(),
+            None => Vec::new(),
+        };
+        if prefs.select {
+            let _ = self.run_reporting("selection.set", json!({ "objects": existing }));
+        }
+        if prefs.zoom
+            && let Some(tab) = self.document_tab_mut(document)
+            && let Some(frame) = frame.or_else(|| self::frame(&tab.scene.scene, objects))
         {
-            tab.zoom_to = Some(frame);
+            tab.zoom_to = Some(closer(frame, prefs.closeness));
+        }
+        if dim && prefs.dim && !existing.is_empty() {
+            let _ = self.run_reporting("view.highlight", json!({ "objects": existing }));
         }
     }
+}
+
+impl Shell {
+    /// Zooms `document`'s canvas to what it draws of `objects`, as close as `closeness`
+    /// says (the shared highlight Preference's: 0 leaves room around them, 1 is tight);
+    /// false when it draws none of them.
+    pub fn zoom_closely(&mut self, document: Uuid, objects: &[Uuid], closeness: f64) -> bool {
+        let Some(tab) = self.document_tab_mut(document) else {
+            return false;
+        };
+        let Some(frame) = frame(&tab.scene.scene, objects) else {
+            return false;
+        };
+        tab.zoom_to = Some(closer(frame, closeness));
+        true
+    }
+}
+
+/// `frame` grown about its centre so the objects fill less of the view the less close
+/// `closeness` (0..1) is: tight at 1, four times the size at 0.
+pub fn closer((lo, hi): (Point, Point), closeness: f64) -> (Point, Point) {
+    let scale = 1.0 / (0.25 + 0.75 * closeness.clamp(0.0, 1.0));
+    let grow = |a: Nm, b: Nm| {
+        let (c, half) = ((a.0 + b.0) as f64 / 2.0, (b.0 - a.0) as f64 / 2.0 * scale);
+        (Nm((c - half).round() as i64), Nm((c + half).round() as i64))
+    };
+    let (x0, x1) = grow(lo.x, hi.x);
+    let (y0, y1) = grow(lo.y, hi.y);
+    (Point::new(x0, y0), Point::new(x1, y1))
 }
 
 impl Shell {
@@ -40,10 +99,16 @@ impl Shell {
         let objects: Vec<Uuid> = (selection.objects.iter().copied())
             .chain(selection.pads.iter().map(|p| p.footprint))
             .collect();
+        self.zoom_to_objects(document, &objects)
+    }
+
+    /// Zooms `document`'s canvas to what it draws of `objects` when it next lays out;
+    /// false when it draws none of them.
+    pub fn zoom_to_objects(&mut self, document: Uuid, objects: &[Uuid]) -> bool {
         let Some(tab) = self.document_tab_mut(document) else {
             return false;
         };
-        let Some(frame) = frame(&tab.scene.scene, &objects) else {
+        let Some(frame) = frame(&tab.scene.scene, objects) else {
             return false;
         };
         tab.zoom_to = Some(frame);

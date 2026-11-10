@@ -113,7 +113,7 @@ impl Command for Fills {
                 state: s.state,
                 shapes: stored
                     .and_then(|f| f.zones.get(&z.uuid))
-                    .cloned()
+                    .map(|f| f.shapes.clone())
                     .unwrap_or_default(),
             })
             .collect();

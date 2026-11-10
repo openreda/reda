@@ -1,13 +1,17 @@
 {
   "format": 1,
-  "footprint": {"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762"},
-  "text": {"designator":{"at":{"x":0,"y":3550000},"rotation":0,"size":1000000,"layer":"silkscreen_top"},"value":{"at":{"x":0,"y":0},"rotation":0,"size":1000000,"layer":"assembly_top"}},
+  "footprint": {"uuid":"e5327c47-451f-4774-8c20-2fb374d28712","name":"MountingHole_M2.5","description":"Mounting hole for M2.5, 2.7 mm, not plated. Hole per ISO 273 fine, head per ISO 4762","height":2500000},
   "pads": [
-    {"uuid":"75642a11-54f0-4eca-aa68-869bb07502e9","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
+    {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":2700000,"height":2700000,"hole":{"width":2700000,"height":2700000}}
   ],
   "graphics": [
-    {"uuid":"442904a3-35fb-4ac2-a25b-1fb5c222df7e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000},
-    {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
-    {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000}
+    {"uuid":"a33d477d-c391-4f50-9c6f-7e274cc51a98","layer":"silkscreen_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2570000},"width":120000},
+    {"uuid":"ad2a9b0c-9110-4ba6-a08d-67ea95208d34","layer":"courtyard_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2750000},"width":50000},
+    {"uuid":"bc47949f-9342-4e7a-9b99-781a4700f43e","layer":"assembly_top","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":2250000},"width":100000}
+  ],
+  "texts": [
+    {"uuid":"4910fe0f-68dc-46d0-aaa4-70ddd2b00c2a","field":"Designator","at":{"x":0,"y":3550000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
+    {"uuid":"75642a11-54f0-4eca-aa68-869bb07502e9","field":"Value","at":{"x":0,"y":-3450000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
+    {"uuid":"9e1f670f-25f9-455b-8aaf-28865d7a4844","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
   ]
 }

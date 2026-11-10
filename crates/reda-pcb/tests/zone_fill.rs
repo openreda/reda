@@ -1,4 +1,4 @@
-//! Filling Zones: clearance, thermal relief, islands, priority, Keepouts, the board edge
+//! Filling Zones: clearance, Zone connections, islands, priority, Keepouts, the board edge
 //! and the minimum width.
 
 use reda_model::geom::{Nm, Point};
@@ -70,6 +70,14 @@ fn track(engine: &mut TestEngine, net: Uuid, from: (f64, f64), to: (f64, f64), w
     );
 }
 
+/// Sets values of the board-wide `zone_connection` rule.
+fn connection(engine: &mut TestEngine, values: Value) {
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "zone_connection", "values": values}),
+    );
+}
+
 fn fill(engine: &TestEngine) -> ZoneFills {
     reda_pcb::zone::fill(pcb(engine), &mut |_, _| true).expect("not cancelled")
 }
@@ -118,7 +126,7 @@ fn filled(shapes: &[FillShape], p: Point) -> bool {
 }
 
 fn shapes(fills: &ZoneFills, zone: Uuid) -> &[FillShape] {
-    &fills.zones[&zone]
+    &fills.zones[&zone].shapes
 }
 
 #[test]
@@ -130,13 +138,16 @@ fn an_empty_zone_fills_its_whole_outline() {
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let fills = fill(&engine);
     let s = shapes(&fills, z);
     assert_eq!(s.len(), 1);
     assert!((area(s) - 100.0).abs() < 0.01, "{}", area(s));
-    assert_eq!(fills.inputs, reda_pcb::zone::inputs_hash(pcb(&engine)));
+    assert_eq!(
+        fills.zones[&z].inputs,
+        reda_pcb::zone::input_hashes(pcb(&engine))[&z]
+    );
 }
 
 #[test]
@@ -149,7 +160,7 @@ fn a_fill_keeps_its_clearance_from_other_nets_copper() {
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     // A 0.2 mm SIG Track across the middle at y = 5: the fill must stay 0.5 mm clear of
     // its edge, so 0.6 mm from its centreline.
@@ -174,18 +185,18 @@ fn a_larger_net_class_clearance_wins_over_the_zone_clearance() {
     let hv = add_net(&mut engine, "HV");
     let class = engine.run_ok(
         "pcb.net_class.add",
-        json!({"name": "HV", "clearance": "1mm"}),
+        json!({"name": "HV", "rules": [{"kind": "clearance", "values": {"value": "1mm"}}]}),
     )["result"]["uuid"]
         .clone();
     engine.run_ok(
-        "pcb.net.set_class",
+        "pcb.net.add_to_class",
         json!({"nets": [hv.to_string()], "class": class}),
     );
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     track(&mut engine, hv, (-1.0, 5.0), (11.0, 5.0), 0.2);
     let fills = fill(&engine);
@@ -200,11 +211,12 @@ fn islands_touching_no_copper_of_the_net_are_removed() {
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
     let sig = add_net(&mut engine, "SIG");
+    connection(&mut engine, json!({"smd": {"style": "solid"}}));
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"pad_connection": "solid"}),
+        json!({}),
     );
     track(&mut engine, sig, (-1.0, 5.0), (11.0, 5.0), 0.2);
     pad(&mut engine, 5.0, 2.0, 1.0, Some(gnd));
@@ -216,21 +228,25 @@ fn islands_touching_no_copper_of_the_net_are_removed() {
 
     engine.run_ok(
         "pcb.zone.set",
-        json!({"zone": z.to_string(), "remove_islands": false}),
+        json!({"zone": z.to_string(), "remove_unconnected": false}),
     );
     assert_eq!(shapes(&fill(&engine), z).len(), 2);
 }
 
 #[test]
-fn thermal_relief_leaves_a_gap_crossed_by_four_spokes() {
+fn relief_leaves_a_gap_crossed_by_four_spokes() {
     let dir = TempDir::new("fill-thermal");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"smd": {"gap": "0.5mm", "spoke_width": "0.3mm"}}),
+    );
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"thermal_gap": "0.5mm", "thermal_spoke_width": "0.3mm"}),
+        json!({}),
     );
     // A 2 mm Pad at the centre: its edges at 4 and 6 mm, the gap out to 3.5 and 6.5 mm.
     pad(&mut engine, 5.0, 5.0, 2.0, Some(gnd));
@@ -253,11 +269,12 @@ fn a_solid_connection_fills_right_up_to_the_pad() {
     let dir = TempDir::new("fill-solid");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
+    connection(&mut engine, json!({"smd": {"style": "solid"}}));
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"pad_connection": "solid"}),
+        json!({}),
     );
     pad(&mut engine, 5.0, 5.0, 2.0, Some(gnd));
     let fills = fill(&engine);
@@ -265,6 +282,71 @@ fn a_solid_connection_fills_right_up_to_the_pad() {
     assert!(filled(s, at(6.25, 5.5)));
     assert!(filled(s, at(6.3, 6.3)));
     assert!((area(s) - 100.0).abs() < 0.01);
+}
+
+#[test]
+fn a_pads_own_zone_connection_wins_over_the_rule() {
+    let dir = TempDir::new("fill-pad-connection");
+    let mut engine = engine_with_pcb(&dir);
+    let gnd = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"smd": {"gap": "0.5mm", "spoke_width": "0.3mm"}}),
+    );
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 20.0, 10.0),
+        json!({}),
+    );
+    let pad_with = |engine: &mut TestEngine, x: f64, connection: Value| {
+        engine.run_ok(
+            "test.footprint.add",
+            json!({"at": {"x": mm(x), "y": mm(5.0)},
+                   "pads": [{"at": {"x": 0, "y": 0}, "width": mm(2.0), "height": mm(2.0),
+                             "net": gnd.to_string(), "zone_connection": connection}]}),
+        );
+    };
+    // Solid where the rule relieves: the fill runs up to the Pad.
+    pad_with(&mut engine, 5.0, json!({"style": "solid"}));
+    // Relieved with its own 1 mm gap: the gap reaches 1 mm past the Pad's edge.
+    pad_with(&mut engine, 15.0, json!({"gap": 1_000_000}));
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(6.25, 5.5)), "solid");
+    assert!(filled(s, at(6.3, 6.3)), "solid");
+    assert!(!filled(s, at(16.75, 5.5)), "inside the Pad's own gap");
+    assert!(filled(s, at(16.75, 5.0)), "a spoke");
+    assert!(filled(s, at(17.2, 7.2)), "past the gap");
+}
+
+#[test]
+fn a_pad_with_no_zone_connection_keeps_its_gap_and_is_not_joined() {
+    let dir = TempDir::new("fill-pad-none");
+    let mut engine = engine_with_pcb(&dir);
+    let gnd = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"smd": {"style": "solid", "gap": "0.5mm"}}),
+    );
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 10.0, 10.0),
+        json!({"remove_unconnected": false}),
+    );
+    engine.run_ok(
+        "test.footprint.add",
+        json!({"at": {"x": mm(5.0), "y": mm(5.0)},
+               "pads": [{"at": {"x": 0, "y": 0}, "width": mm(2.0), "height": mm(2.0),
+                         "net": gnd.to_string(), "zone_connection": {"style": "none"}}]}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    for p in [at(6.25, 5.0), at(6.25, 5.5), at(5.0, 3.75)] {
+        assert!(!filled(s, p), "gap at {p:?}");
+    }
+    assert!(filled(s, at(7.0, 7.0)));
 }
 
 #[test]
@@ -277,13 +359,13 @@ fn a_higher_priority_zone_fills_first_and_the_other_keeps_clear_of_it() {
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let high = zone(
         &mut engine,
         Some(vcc),
         rect(5.0, 0.0, 15.0, 10.0),
-        json!({"remove_islands": false, "priority": 1}),
+        json!({"remove_unconnected": false, "priority": 1}),
     );
     let fills = fill(&engine);
     assert!((area(shapes(&fills, high)) - 100.0).abs() < 0.01);
@@ -313,13 +395,13 @@ fn zones_of_one_net_may_overlap() {
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let b = zone(
         &mut engine,
         Some(gnd),
         rect(5.0, 0.0, 15.0, 10.0),
-        json!({"remove_islands": false, "priority": 1}),
+        json!({"remove_unconnected": false, "priority": 1}),
     );
     let fills = fill(&engine);
     assert!((area(shapes(&fills, a)) - 100.0).abs() < 0.01);
@@ -327,35 +409,83 @@ fn zones_of_one_net_may_overlap() {
 }
 
 #[test]
-fn a_fill_leaves_copper_keepouts_empty() {
+fn a_fill_keeps_the_clearance_from_keepouts_restricting_zones() {
     let dir = TempDir::new("fill-keepout");
     let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"value": "0.5mm"}}),
+    );
     let gnd = add_net(&mut engine, "GND");
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     engine.run_ok(
         "pcb.keepout.add",
         json!({"vertices": rect(2.0, 2.0, 4.0, 4.0)}),
     );
-    // A Via-only Keepout and one on the other Layer leave the fill alone.
+    // A Keepout not restricting Zones, and one on the other Layer, leave the fill alone.
     engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(6.0, 6.0, 8.0, 8.0), "copper": false}),
+        json!({"vertices": rect(6.0, 6.0, 8.0, 8.0), "restrict": ["tracks", "vias"]}),
     );
     engine.run_ok(
         "pcb.keepout.add",
-        json!({"vertices": rect(6.0, 2.0, 8.0, 4.0), "layers": ["copper_bottom"]}),
+        json!({"vertices": rect(6.0, 2.0, 8.0, 4.0), "layer": "copper_bottom"}),
     );
     let fills = fill(&engine);
     let s = shapes(&fills, z);
     assert!(!filled(s, at(3.0, 3.0)));
+    assert!(!filled(s, at(1.6, 3.0)), "within the clearance");
+    assert!(filled(s, at(1.4, 3.0)));
     assert!(filled(s, at(7.0, 7.0)));
     assert!(filled(s, at(7.0, 3.0)));
+    // The 2 mm square grown by 0.5 mm with round corners: 4 + 4 × 1 + π × 0.25 mm².
+    // Round edges are polygons containing the arcs (within 1 µm), so a little more goes.
+    let cut = 8.0 + std::f64::consts::PI * 0.25;
+    assert!((area(s) - (100.0 - cut)).abs() < 0.03, "{}", area(s));
+
+    // Edge-exact under zero_keepout_clearance.
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(1.9, 3.0)));
     assert!((area(s) - 96.0).abs() < 0.01);
+}
+
+#[test]
+fn a_line_keepout_cuts_the_fill_along_its_width() {
+    let dir = TempDir::new("fill-keepout-line");
+    let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "clearance", "values": {"zero_keepout_clearance": true}}),
+    );
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 10.0, 10.0),
+        json!({"remove_unconnected": false}),
+    );
+    engine.run_ok(
+        "pcb.keepout.add",
+        json!({"shape": "line", "width": "1mm",
+               "vertices": [{"x": "-1mm", "y": "5mm"}, {"x": "11mm", "y": "5mm"}]}),
+    );
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(!filled(s, at(5.0, 5.4)));
+    assert!(filled(s, at(5.0, 5.6)));
+    assert!(filled(s, at(5.0, 4.4)));
+    // The line's sides are within 1 µm of exact.
+    assert!((area(s) - 90.0).abs() < 0.03, "{}", area(s));
 }
 
 #[test]
@@ -363,7 +493,10 @@ fn a_fill_stays_inside_the_board_by_the_edge_clearance() {
     let dir = TempDir::new("fill-edge");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
-    engine.run_ok("pcb.rules.set", json!({"edge_clearance": "0.5mm"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "edge_clearance", "values": {"value": "0.5mm"}}),
+    );
     engine.run_ok(
         "pcb.board_outline.add_rect",
         json!({"width": "8mm", "height": "8mm"}),
@@ -376,7 +509,7 @@ fn a_fill_stays_inside_the_board_by_the_edge_clearance() {
         &mut engine,
         Some(gnd),
         rect(-5.0, -5.0, 20.0, 20.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let fills = fill(&engine);
     let s = shapes(&fills, z);
@@ -417,7 +550,7 @@ fn necks_narrower_than_the_minimum_width_are_removed() {
         &mut engine,
         Some(gnd),
         outline,
-        json!({"remove_islands": false, "min_width": "0.5mm"}),
+        json!({"remove_unconnected": false, "min_width": "0.5mm"}),
     );
     let fills = fill(&engine);
     let s = shapes(&fills, z);
@@ -504,7 +637,7 @@ fn routing_clearance_ignores_zone_fills_but_a_track_end_on_a_fill_takes_its_net(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let pcb_doc = pcb(&engine);
     let layer = pcb_doc.copper_layers().next().unwrap().uuid;
@@ -540,7 +673,7 @@ fn the_index_follows_zone_changes_with_the_fills_it_holds() {
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 10.0, 10.0),
-        json!({"remove_islands": false}),
+        json!({"remove_unconnected": false}),
     );
     let fills = fill(&engine);
     let mut copper = Copper::build(pcb(&engine));
@@ -574,24 +707,28 @@ fn the_index_follows_zone_changes_with_the_fills_it_holds() {
 }
 
 #[test]
-fn free_pads_get_thermal_relief_and_bare_holes_keep_their_clearance() {
+fn free_pads_get_relief_and_bare_holes_keep_their_clearance() {
     let dir = TempDir::new("fill-free-pads");
     let mut engine = engine_with_pcb(&dir);
     let gnd = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"smd": {"gap": "0.5mm", "spoke_width": "0.3mm"}}),
+    );
     let z = zone(
         &mut engine,
         Some(gnd),
         rect(0.0, 0.0, 20.0, 10.0),
-        json!({"thermal_gap": "0.5mm", "thermal_spoke_width": "0.3mm"}),
+        json!({}),
     );
-    let before = reda_pcb::zone::inputs_hash(pcb(&engine));
+    let before = reda_pcb::zone::input_hashes(pcb(&engine))[&z].clone();
     // A 2 mm GND test point at (5, 5) and a 3 mm bare mounting hole at (15, 5).
     engine.run_ok(
         "pcb.free_pad.add",
         json!({"kind": "smd", "at": {"x": mm(5.0), "y": mm(5.0)}, "width": mm(2.0),
                "shape": "rect", "net": gnd.to_string()}),
     );
-    assert_ne!(reda_pcb::zone::inputs_hash(pcb(&engine)), before);
+    assert_ne!(reda_pcb::zone::input_hashes(pcb(&engine))[&z], before);
     engine.run_ok(
         "pcb.free_pad.add",
         json!({"kind": "non_plated", "at": {"x": mm(15.0), "y": mm(5.0)}, "width": mm(3.0),

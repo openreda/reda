@@ -36,7 +36,7 @@ fn a_locked_footprint_refuses_to_move() {
     let [r1, r2] = synced_resistors(&mut engine);
     let (a, b) = (at(&engine, r1), at(&engine, r2));
 
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     assert!(footprint(&engine, r1).locked);
 
     for (id, params) in [
@@ -54,7 +54,7 @@ fn a_locked_footprint_refuses_to_move() {
     assert_eq!(at(&engine, r1), a);
     assert_eq!(at(&engine, r2), b, "nothing moves when one is locked");
 
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": false}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": false}));
     engine.run_ok(
         "pcb.move",
         json!({"objects": [r1], "by": {"x": "1mm", "y": 0}}),
@@ -157,11 +157,13 @@ fn unknown_or_unplaceable_objects_are_refused() {
     let dir = TempDir::new("placement-unknown");
     let mut engine = engine(&dir);
     let [r1, _] = synced_resistors(&mut engine);
-    let net_class = pcb(&engine).setup().default_net_class;
+    let rule = pcb(&engine)
+        .board_rule(reda_model::RuleKind::Clearance)
+        .uuid;
 
     let err = engine.run_err(
         "pcb.move",
-        json!({"objects": [r1, net_class], "by": {"x": 0, "y": 0}}),
+        json!({"objects": [r1, rule], "by": {"x": 0, "y": 0}}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams);
     assert_eq!(err.details.unwrap()["pointer"], "/objects/1");
@@ -185,8 +187,8 @@ fn a_flipped_footprint_mirrors_its_pads_and_drawing_onto_the_bottom() {
             .find(|p| p.number == number)
             .unwrap()
     };
-    // RESC1608X55N: Pad 1 at (-0.7875 mm, 0), Pad 2 at (+0.7875 mm, 0), SMD on top.
-    let half = Nm(787_500);
+    // RESC1608X55N: Pad 1 at (-0.775 mm, 0), Pad 2 at (+0.775 mm, 0), SMD on top.
+    let half = Nm(775_000);
     assert_eq!(pad(&engine, "1").at, a + Point::new(-half, Nm(0)));
     assert_eq!(pad(&engine, "1").side, Some(Side::Top));
 
@@ -206,7 +208,8 @@ fn a_flipped_footprint_mirrors_its_pads_and_drawing_onto_the_bottom() {
             FootprintLayer::CourtyardBottom
         ]
     );
-    let designator = placed_designator(pcb(&engine), footprint(&engine, r1)).unwrap();
+    let designator =
+        placed_designator(pcb(&engine), footprint(&engine, r1), &Default::default()).unwrap();
     assert_eq!(designator.layer, FootprintLayer::SilkscreenBottom);
     assert_eq!(designator.at, a + Point::new(Nm(0), Nm(1_450_000)));
 
@@ -261,7 +264,7 @@ fn a_placement_preview_refuses_locked_footprints() {
     let dir = TempDir::new("placement-preview-locked");
     let mut engine = engine(&dir);
     let [r1, _] = synced_resistors(&mut engine);
-    engine.run_ok("pcb.lock", json!({"footprints": [r1], "locked": true}));
+    engine.run_ok("pcb.lock", json!({"objects": [r1], "locked": true}));
     let err = reda_pcb::placement_preview(
         pcb(&engine),
         &[r1],

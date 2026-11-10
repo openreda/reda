@@ -67,7 +67,14 @@ impl Registered {
 /// Every registered Command, keyed by id. It always holds the built-in `batch`.
 pub struct Registry {
     commands: BTreeMap<&'static str, Registered>,
+    settles: Vec<Settle>,
 }
+
+/// Work done after every edit, before its transaction commits, to keep derived data in
+/// the Project current: a Dimension following the object it references, say. It runs once
+/// per edit Command, once at the end of a `batch` and on a preview, but never on undo or
+/// redo, which replay changes that already include it.
+pub type Settle = fn(&mut Transaction<'_>) -> Result<(), CommandError>;
 
 impl Default for Registry {
     fn default() -> Registry {
@@ -81,7 +88,10 @@ impl Default for Registry {
                 result_schema: schema::result_schema::<Vec<Value>>(),
             },
         );
-        Registry { commands }
+        Registry {
+            commands,
+            settles: Vec::new(),
+        }
     }
 }
 
@@ -128,6 +138,15 @@ impl Registry {
         if self.commands.insert(id, entry).is_some() {
             panic!("Command {id} is registered twice");
         }
+    }
+
+    /// Adds a [`Settle`] step, run after every edit in the order added.
+    pub fn add_settle(&mut self, settle: Settle) {
+        self.settles.push(settle);
+    }
+
+    fn settle(&self, tx: &mut Transaction<'_>) -> Result<(), CommandError> {
+        self.settles.iter().try_for_each(|settle| settle(tx))
     }
 
     pub fn get(&self, id: &str) -> Option<Meta> {
@@ -268,12 +287,16 @@ impl Registry {
                             session.user_dirs.as_ref(),
                         ),
                         &mut *env.ids,
-                        (env.clock, env.parts, env.fonts),
+                        (env.clock, env.parts, env.fonts, env.version),
                         signals,
                         params,
                     );
                     let result = run.result?;
-                    (result, run.tx.commit()?, run.step)
+                    let mut tx = run.tx;
+                    if run.step.is_none() {
+                        self.settle(&mut tx)?;
+                    }
+                    (result, tx.commit()?, run.step)
                 };
                 let history = &mut session.history;
                 match step {
@@ -295,6 +318,7 @@ impl Registry {
                     clock: env.clock,
                     parts: env.parts,
                     fonts: env.fonts,
+                    version: env.version,
                     signals,
                     user_dirs: session.user_dirs.as_ref(),
                     step: None,
@@ -308,6 +332,7 @@ impl Registry {
                     clock: env.clock,
                     parts: env.parts,
                     fonts: env.fonts,
+                    version: env.version,
                     signals,
                     user_dirs: None,
                     step: None,
@@ -348,12 +373,14 @@ impl Registry {
                 Kind::Edit,
                 (copy.transaction(), history, None),
                 &mut *env.ids,
-                (env.clock, env.parts, env.fonts),
+                (env.clock, env.parts, env.fonts, env.version),
                 &signals,
                 params,
             );
             let result = run.result?;
-            run.tx.commit()?;
+            let mut tx = run.tx;
+            self.settle(&mut tx)?;
+            tx.commit()?;
             result
         };
         Ok((copy, result))
@@ -400,7 +427,7 @@ impl Registry {
                 entry.meta.kind,
                 (tx, history, user_dirs),
                 ids,
-                (env.clock, env.parts, env.fonts),
+                (env.clock, env.parts, env.fonts, env.version),
                 signals,
                 params,
             );
@@ -414,6 +441,7 @@ impl Registry {
             }
             results.push(result);
         }
+        self.settle(&mut tx)?;
         let changes = tx.commit()?;
         session.history.record(batch::META.title, &changes);
         Ok(envelope(&changes, Value::Array(results)))
@@ -472,7 +500,7 @@ fn invoke_in<'a>(
     kind: Kind,
     (tx, history, user_dirs): (Transaction<'a>, &'a History, Option<&'a UserDirs>),
     ids: &'a mut dyn IdSource,
-    (clock, parts, fonts): (&'a dyn Clock, &'a dyn crate::PartSource, &'a Fonts),
+    (clock, parts, fonts, version): (&'a dyn Clock, &'a dyn crate::PartSource, &'a Fonts, &'a str),
     signals: &'a Signals,
     params: Value,
 ) -> InTx<'a> {
@@ -486,6 +514,7 @@ fn invoke_in<'a>(
         clock,
         parts,
         fonts,
+        version,
         signals,
         user_dirs,
         step: None,

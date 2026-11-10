@@ -9,7 +9,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::json;
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000017";
+const JOB: &str = "00000000-0000-4000-8000-000000000028";
 
 fn board(dir: &TempDir) -> TestEngine {
     let mut engine = probe_engine();
@@ -109,7 +109,7 @@ fn only_long_running_file_commands_can_be_detached() {
     let dir = TempDir::new("detached-refused");
     let engine = board(&dir);
     let err = engine
-        .detach("project.properties.set", json!({"copper_weight": "1 oz"}))
+        .detach("project.properties.set", json!({"title": "X"}))
         .err()
         .unwrap();
     assert_eq!(err.code, ErrorCode::Rejected);
