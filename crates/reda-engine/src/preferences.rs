@@ -915,6 +915,9 @@ pub struct Display {
     pub inactive_layer_mode: InactiveLayerMode,
     /// Board Layer colours that replace the shipped ones, per theme.
     pub layer_colors: ThemeLayerColors,
+    /// Group Tools on the Active Bar: groups whose button shows the last-used Tool in
+    /// each, as in the leading suite, instead of the flat most-used Tools. Off by default.
+    pub group_active_bar_tools: bool,
 }
 
 /// Board Layer colour overrides for each theme.

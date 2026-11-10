@@ -108,12 +108,65 @@
   ],
   "active_bar": [
     { "id": "active_bar.select", "command": "tool.activate:select" },
+    { "id": "active_bar.move", "command": "tool.activate:move" },
     "separator",
     { "id": "active_bar.route", "command": "tool.activate:route" },
     { "id": "active_bar.via", "command": "tool.activate:via" },
     { "id": "active_bar.zone", "command": "tool.activate:zone" },
+    { "id": "active_bar.keepout", "command": "tool.activate:keepout" }
+  ],
+  "active_bar_groups": [
+    { "id": "active_bar_group.select", "command": "tool.activate:select" },
+    {
+      "id": "active_bar_group.move",
+      "title": "active-bar-group-move",
+      "items": [
+        { "id": "active_bar_group.move.move", "command": "tool.activate:move" },
+        { "id": "active_bar_group.move.move_by", "command": "tool.activate:move_by" },
+        { "id": "active_bar_group.move.swap", "command": "tool.activate:swap" }
+      ]
+    },
     "separator",
-    { "id": "active_bar.layers", "command": "panel.show:layers" }
+    { "id": "active_bar_group.route", "command": "tool.activate:route" },
+    { "id": "active_bar_group.via", "command": "tool.activate:via" },
+    {
+      "id": "active_bar_group.zone",
+      "title": "active-bar-group-zone",
+      "items": [
+        { "id": "active_bar_group.zone.zone", "command": "tool.activate:zone" },
+        { "id": "active_bar_group.zone.zone_cutout", "command": "tool.activate:zone_cutout" },
+        { "id": "active_bar_group.zone.keepout", "command": "tool.activate:keepout" }
+      ]
+    },
+    {
+      "id": "active_bar_group.board_outline",
+      "title": "active-bar-group-board-outline",
+      "items": [
+        { "id": "active_bar_group.board_outline.polygon", "command": "tool.activate:board_outline" },
+        { "id": "active_bar_group.board_outline.rect", "command": "tool.activate:board_outline_rect" },
+        { "id": "active_bar_group.board_outline.cutout", "command": "tool.activate:board_cutout" }
+      ]
+    },
+    { "id": "active_bar_group.pad", "command": "tool.activate:free_pad" },
+    "separator",
+    { "id": "active_bar_group.text", "command": "tool.activate:text" },
+    {
+      "id": "active_bar_group.graphics",
+      "title": "active-bar-group-graphics",
+      "items": [
+        { "id": "active_bar_group.graphics.line", "command": "tool.activate:line" },
+        { "id": "active_bar_group.graphics.arc", "command": "tool.activate:arc" },
+        { "id": "active_bar_group.graphics.rect", "command": "tool.activate:rect" }
+      ]
+    },
+    {
+      "id": "active_bar_group.measure",
+      "title": "active-bar-group-measure",
+      "items": [
+        { "id": "active_bar_group.measure.measure", "command": "tool.activate:measure" },
+        { "id": "active_bar_group.measure.dimension", "command": "tool.activate:dimension" }
+      ]
+    }
   ],
   "tool_bars": {
     "place": [

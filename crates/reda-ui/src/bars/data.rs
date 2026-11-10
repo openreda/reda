@@ -12,6 +12,7 @@
 //!       { "id": "view.theme", "title": "menu-view-theme", "items": [ … ] } ] }],
 //!   "toolbar": [ … ],
 //!   "active_bar": [ … ],
+//!   "active_bar_groups": [ … ],
 //!   "tool_bars": { "route": [ … ] } }
 //! ```
 
@@ -25,7 +26,13 @@ pub fn parse(text: &str) -> Result<Bars, String> {
     let root = object(&value, "the file")?;
     only(
         root,
-        &["menus", "toolbar", "active_bar", "tool_bars"],
+        &[
+            "menus",
+            "toolbar",
+            "active_bar",
+            "active_bar_groups",
+            "tool_bars",
+        ],
         "the file",
     )?;
     let menus = match root.get("menus") {
@@ -58,6 +65,7 @@ pub fn parse(text: &str) -> Result<Bars, String> {
         menus,
         toolbar: bar("toolbar")?,
         active_bar: bar("active_bar")?,
+        active_bar_groups: bar("active_bar_groups")?,
         tool_bars,
     })
 }
@@ -105,6 +113,7 @@ pub fn merge(mut common: Bars, own: Bars) -> Bars {
         }
     }
     common.active_bar.extend(own.active_bar);
+    common.active_bar_groups.extend(own.active_bar_groups);
     common.tool_bars.extend(own.tool_bars);
     common
 }
