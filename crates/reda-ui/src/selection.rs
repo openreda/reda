@@ -31,6 +31,14 @@ pub struct Selection {
     /// selected Wire; their Wires are not in `objects`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub segments: Vec<WireSegment>,
+    /// What cross-select selects on the other side for `objects`: a picked Unit's
+    /// Footprint (one per Component, at its first picked Unit) and a picked Footprint's
+    /// Units, in pick order. The Shell keeps it up to date (see
+    /// [`crate::cross_probe::mirror`]); it is really selected, so the active Document's
+    /// share of it is in `$selection`, but picking never adds to it. Derived, so it is
+    /// never serialised (`selection.set` takes the picks only).
+    #[serde(skip)]
+    pub mirrored: Vec<Uuid>,
 }
 
 pub use reda_engine::schematic::WireSegment;
@@ -249,6 +257,7 @@ impl Command for SelectionSet {
             texts: dedup(p.texts),
             nets: dedup(p.nets),
             segments: dedup(p.segments),
+            mirrored: Vec::new(),
         };
         if !selection.is_empty() {
             let project = cx.project()?;

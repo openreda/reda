@@ -46,6 +46,8 @@ pub struct Preferences {
     /// Editing in the PCB Document.
     pub pcb: Editing,
     pub display: Display,
+    /// Cross-select between the sheets and the board.
+    pub cross_select: CrossSelect,
     /// ERC and DRC results on the canvas.
     pub checks: Checks,
     pub libraries: Libraries,
@@ -1036,6 +1038,33 @@ impl Libraries {
     /// The user Library folders whose Active checkbox is on, in the listed order.
     pub fn active_paths(&self) -> impl Iterator<Item = &String> {
         self.paths.iter().filter(|p| !self.inactive.contains(p))
+    }
+}
+
+/// Cross-select (docs/spec/v0.1/sync.md#cross-select-and-net-highlighting): what
+/// selecting on one side does on the other.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct CrossSelect {
+    /// Dim everything else on the side the cross-selected objects are on.
+    pub dim: bool,
+    /// Zoom the other side's canvas to the cross-selected objects.
+    pub zoom: bool,
+    /// Focus the other Document when its canvas is visible.
+    pub focus: bool,
+    /// Reposition: picking a Unit attaches its Footprint to the PCB cursor when the PCB
+    /// canvas is visible. Locked Footprints are skipped.
+    pub reposition: bool,
+}
+
+impl Default for CrossSelect {
+    fn default() -> CrossSelect {
+        CrossSelect {
+            dim: true,
+            zoom: false,
+            focus: true,
+            reposition: false,
+        }
     }
 }
 
