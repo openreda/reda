@@ -292,4 +292,3 @@ pub(crate) fn number(nm: Nm) -> String {
 fn micrometres(nm: Nm) -> String {
     exact_decimal(nm.0, 1_000)
 }
-

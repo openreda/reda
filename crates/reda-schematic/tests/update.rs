@@ -1172,8 +1172,7 @@ fn a_project_whose_part_entry_lost_its_footprint_copies_is_refused_not_planned()
     let mut other = reda_testkit::test_engine_with_library(&f.library);
     let err = other
         .run("project.open", json!({"path": folder}))
-        .err()
-        .expect("a part entry without its Footprint copies is refused");
+        .expect_err("a part entry without its Footprint copies is refused");
     assert_eq!(err.code, ErrorCode::Rejected, "{}", err.message);
     assert!(err.message.contains("Footprint copy"), "{}", err.message);
     let err = other.run_err("schematic.component.update_preview", json!({}));

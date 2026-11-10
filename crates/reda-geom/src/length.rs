@@ -174,9 +174,6 @@ mod tests {
         assert_eq!(exact_decimal(-5, 10), "-0.5");
         assert_eq!(exact_decimal(7, 1), "7");
         assert_eq!(exact_decimal(i64::MIN, 1_000_000), "-9223372036854.775808");
-        assert_eq!(
-            exact_decimal(2_500_000_000_000, 1_000_000_000_000),
-            "2.5"
-        );
+        assert_eq!(exact_decimal(2_500_000_000_000, 1_000_000_000_000), "2.5");
     }
 }
