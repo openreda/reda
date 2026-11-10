@@ -62,46 +62,73 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
 }
 
 /// Copper of two different Nets touching, Zone fills included. Copper on no Net touching a
-/// Net is unassigned copper, not a short. Several islands of one Zone touching the same
-/// copper are one short.
+/// Net is unassigned copper, not a short. One Violation per Net pair and Layer, at the first
+/// contact, listing every object of the pair touching on that Layer (several islands of one
+/// Zone count once).
 fn short_circuit(board: &Board<'_>, report: &mut Report) {
     if report.is_off(DrcCheck::ShortCircuit) {
         return;
     }
     let copper = board.copper;
     let ties = crate::copper::ties::Ties::of(board.pcb);
-    let mut seen = std::collections::BTreeSet::new();
+    let mut shorts: Vec<Short> = Vec::new();
     for (a, b) in copper.touching_pairs() {
         let (na, nb) = (copper.net(a), copper.net(b));
-        let objects = [item_objects(a), item_objects(b)].concat();
-        if na.is_none()
-            || nb.is_none()
-            || na == nb
-            || ties.same_tie(a, b)
-            || !seen.insert(objects.clone())
-        {
+        let (Some(na), Some(nb)) = (na, nb) else {
+            continue;
+        };
+        if na == nb || ties.same_tie(a, b) {
             continue;
         }
-        let touching: Vec<_> = copper
-            .item_pieces(a)
-            .into_iter()
-            .flat_map(|(layer, a)| {
-                copper
-                    .item_pieces(b)
-                    .into_iter()
-                    .filter(move |(l, b)| *l == layer && a.touches(b))
-                    .map(move |(_, b)| (layer, a, b))
-            })
-            .collect();
-        let contact = touching.first().expect("touching pair shares copper");
-        let at = contact.1.closest_points(contact.2)[0];
+        for (layer, pa) in copper.item_pieces(a) {
+            for (_, pb) in copper.item_pieces(b).into_iter().filter(|(l, pb)| {
+                *l == layer && pa.touches(pb)
+            }) {
+                let key = (na.min(nb), na.max(nb), layer);
+                let short = match shorts.iter_mut().position(|s| s.key() == key) {
+                    Some(i) => &mut shorts[i],
+                    None => {
+                        shorts.push(Short {
+                            nets: (na, nb),
+                            layer,
+                            at: pa.closest_points(pb)[0],
+                            items: Vec::new(),
+                        });
+                        shorts.last_mut().expect("just pushed")
+                    }
+                };
+                for item in [a, b] {
+                    if !short.items.contains(&item) {
+                        short.items.push(item);
+                    }
+                }
+            }
+        }
+    }
+    for short in shorts {
         report.add(DrcCheck::ShortCircuit, |v| {
-            v.located(board.pcb.uuid, at)
-                .on_layers(touching.iter().map(|(l, _, _)| *l))
-                .arg("net_a", board.net_name(na))
-                .arg("net_b", board.net_name(nb))
-                .objects(objects)
+            v.located(board.pcb.uuid, short.at)
+                .on_layers([short.layer])
+                .arg("net_a", board.net_name(Some(short.nets.0)))
+                .arg("net_b", board.net_name(Some(short.nets.1)))
+                .objects(short.items.into_iter().flat_map(item_objects))
         });
+    }
+}
+
+/// The copper of one Net pair touching on one Layer.
+struct Short {
+    /// The Nets as the first contact found them.
+    nets: (reda_model::Uuid, reda_model::Uuid),
+    layer: reda_model::Uuid,
+    at: reda_model::geom::Point,
+    items: Vec<crate::copper::Item>,
+}
+
+impl Short {
+    fn key(&self) -> (reda_model::Uuid, reda_model::Uuid, reda_model::Uuid) {
+        let (a, b) = self.nets;
+        (a.min(b), a.max(b), self.layer)
     }
 }
 
