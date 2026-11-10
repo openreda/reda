@@ -418,9 +418,8 @@ fn run_all_runs_every_job_and_reports_each() {
 
 #[test]
 fn run_all_stops_at_a_blocked_job_and_tags_its_blockers() {
-    let (home, _work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
     let mut shell = shell(&home);
-    let work = TempDir::new("job-work");
     // No Board Outline: every job is blocked.
     shell
         .run("project.new", json!({"path": work.path(), "name": "Bare"}))
@@ -438,8 +437,11 @@ fn run_all_stops_at_a_blocked_job_and_tags_its_blockers() {
     assert!(stopped);
     assert_eq!(jobs[0].status, JobStatus::Blocked);
     assert_eq!(jobs[1].status, JobStatus::NotRun);
+    // The jobs run in Projects panel order; the first one's blockers carry its name.
+    let tag = format!("{}: ", jobs[0].name);
+    assert!(!report.blockers.is_empty());
     assert!(
-        report.blockers.iter().all(|b| b.starts_with("Generic: ")),
+        report.blockers.iter().all(|b| b.starts_with(&tag)),
         "{:?}",
         report.blockers
     );
