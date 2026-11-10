@@ -1,18 +1,18 @@
 //! The modals of a job run: the progress bar with Cancel while it runs, and the run
-//! report (files written, blockers, warnings) when it ends, with Show Zip.
+//! report (files written, blockers, warnings) when it ends, with Show in Folder.
 
 use std::path::PathBuf;
 
 use egui::{Button, Id, ProgressBar, RichText, ScrollArea, Ui};
 
-use super::{JobRunner, RunOutcome, RunReport};
+use super::{JobRunner, JobStatus, RunOutcome, RunReport};
 use crate::tr;
 
 /// What the user did in the report.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReportAction {
-    /// Show the zip in the OS file manager.
-    ShowZip(PathBuf),
+    /// Show a job's destination folder in the OS file manager.
+    ShowFolder(PathBuf),
     Close,
 }
 
@@ -56,6 +56,7 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
         RunOutcome::Blocked => tr!("output-job-blocked", job = job),
         RunOutcome::Cancelled => tr!("output-job-cancelled", job = job),
         RunOutcome::Failed(_) => tr!("output-job-failed", job = job),
+        RunOutcome::All { .. } => tr!("output-job-all-done"),
     };
     let dialog = crate::modal::Dialog::new(Id::NULL.with("job-run-report"), heading).width(460.0);
     let modal = dialog.show(ctx, |ui| {
@@ -82,6 +83,53 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                 RunOutcome::Failed(message) => {
                     ui.colored_label(ui.visuals().error_fg_color, message);
                 }
+                RunOutcome::All { jobs, stopped } => {
+                    for line in jobs {
+                        ui.horizontal(|ui| {
+                            let name = line.name.as_str();
+                            match &line.status {
+                                JobStatus::Written { destination } => {
+                                    ui.label(tr!("output-job-all-written", job = name));
+                                    let button = ui.button(tr!("output-job-show-zip"));
+                                    let label = tr!("output-job-all-show", job = name);
+                                    button.widget_info(|| {
+                                        egui::WidgetInfo::labeled(
+                                            egui::Role::Button,
+                                            true,
+                                            label.clone(),
+                                        )
+                                    });
+                                    if button.clicked() {
+                                        action =
+                                            Some(ReportAction::ShowFolder(destination.clone()));
+                                    }
+                                }
+                                JobStatus::Blocked => {
+                                    ui.colored_label(
+                                        ui.visuals().error_fg_color,
+                                        tr!("output-job-all-blocked", job = name),
+                                    );
+                                }
+                                JobStatus::Failed(why) => {
+                                    ui.colored_label(
+                                        ui.visuals().error_fg_color,
+                                        tr!(
+                                            "output-job-all-failed",
+                                            job = name,
+                                            error = why.as_str()
+                                        ),
+                                    );
+                                }
+                                JobStatus::NotRun => {
+                                    ui.weak(tr!("output-job-all-not-run", job = name));
+                                }
+                            }
+                        });
+                    }
+                    if *stopped {
+                        ui.weak(tr!("output-job-all-stopped"));
+                    }
+                }
             }
             list(ui, tr!("output-job-blockers"), &report.blockers, true);
             list(ui, tr!("output-job-warnings"), &report.warnings, false);
@@ -94,10 +142,10 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                 if ui.button(tr!("output-job-close")).clicked() {
                     action = Some(ReportAction::Close);
                 }
-                if let RunOutcome::Written { zip, .. } = &report.outcome
+                if let RunOutcome::Written { destination, .. } = &report.outcome
                     && ui.button(tr!("output-job-show-zip")).clicked()
                 {
-                    action = Some(ReportAction::ShowZip(zip.clone()));
+                    action = Some(ReportAction::ShowFolder(destination.clone()));
                 }
             })
         });

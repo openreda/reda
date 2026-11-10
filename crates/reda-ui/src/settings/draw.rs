@@ -3,6 +3,11 @@
 
 use egui::{Button, RichText, Role, Stroke, TextEdit, Ui, WidgetInfo};
 
+use std::path::PathBuf;
+
+use reda_engine::model::Uuid;
+
+use super::fab_preset::PresetPage;
 use super::{Buttons, FileRequest, Problem, SettingsDialog};
 use crate::shell::Shell;
 use crate::tr;
@@ -11,7 +16,7 @@ use crate::tr;
 const TREE_WIDTH: f32 = 150.0;
 
 /// What a frame of the dialog asks of the window.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
     /// It stays open.
     Open,
@@ -21,6 +26,12 @@ pub enum Outcome {
     PickFolder,
     /// A page wants a file picked; the answer goes to [`SettingsDialog::picked_file`].
     PickFile(FileRequest),
+    /// A page wants a folder shown in the OS file manager (the Output Job window's Last
+    /// run).
+    ShowFolder(PathBuf),
+    /// A page wants a page of a Project Fab Preset copy shown in Project Settings
+    /// (**Edit preset copy…**).
+    EditPreset(Uuid, PresetPage),
 }
 
 /// What a page may use while it draws.
@@ -31,6 +42,7 @@ pub struct PageCx<'a> {
     problems: Vec<Problem>,
     pick_folder: bool,
     pick_file: Option<FileRequest>,
+    asked: Option<Outcome>,
 }
 
 impl PageCx<'_> {
@@ -47,6 +59,16 @@ impl PageCx<'_> {
     /// Asks the window for a file picker.
     pub fn pick_file(&mut self, request: FileRequest) {
         self.pick_file = Some(request);
+    }
+
+    /// Asks the app to show `folder` in the OS file manager.
+    pub fn show_folder(&mut self, folder: PathBuf) {
+        self.asked = Some(Outcome::ShowFolder(folder));
+    }
+
+    /// Asks the app to show `page` of the Project's Fab Preset copy `preset`.
+    pub fn edit_preset(&mut self, preset: Uuid, page: PresetPage) {
+        self.asked = Some(Outcome::EditPreset(preset, page));
     }
 }
 
@@ -129,6 +151,12 @@ impl SettingsDialog {
                                 outcome = Outcome::Closed;
                             }
                             ok = enabled(ui, self.can_ok(), tr!("settings-ok"));
+                            if self.run.is_some() {
+                                ui.add_space(12.0);
+                                if enabled(ui, self.can_ok(), tr!("output-job-run")) {
+                                    self.run = Some(true);
+                                }
+                            }
                         }
                         Buttons::ApplyClose => {
                             if ui.button(tr!("settings-close")).clicked() {
@@ -235,6 +263,7 @@ impl SettingsDialog {
             problems: page.problems(),
             pick_folder: false,
             pick_file: None,
+            asked: None,
         };
         let mut reset = false;
         ui.horizontal(|ui| {
@@ -247,10 +276,11 @@ impl SettingsDialog {
         });
         ui.add_space(6.0);
         page.show(ui, &mut cx);
-        let outcome = match (cx.pick_folder, cx.pick_file) {
-            (true, _) => Outcome::PickFolder,
-            (false, Some(request)) => Outcome::PickFile(request),
-            (false, None) => Outcome::Open,
+        let outcome = match (cx.pick_folder, cx.pick_file, cx.asked) {
+            (true, _, _) => Outcome::PickFolder,
+            (false, Some(request), _) => Outcome::PickFile(request),
+            (false, None, Some(asked)) => asked,
+            (false, None, None) => Outcome::Open,
         };
         (outcome, reset)
     }

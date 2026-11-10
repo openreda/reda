@@ -97,6 +97,9 @@ pub struct SkippedFile {
 pub struct Gerbers {
     pub files: Vec<OutputFile>,
     pub skipped: Vec<SkippedFile>,
+    /// Every file's name, written or skipped, in plot order, with the Layer it plots,
+    /// such as ("Demo.gtl", "Top Copper").
+    pub layers: Vec<(String, String)>,
 }
 
 /// A coordinate the Gerber format can't hold (beyond ±2147.483647 mm, Gerber
@@ -117,6 +120,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     let mut out = Gerbers {
         files: Vec::new(),
         skipped: Vec::new(),
+        layers: Vec::new(),
     };
     let Some(first) = plot.instances.first() else {
         return Ok(out);
@@ -124,6 +128,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     let project = &plot.project.props().name;
     let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
         let name = file.name(project, plot.gerber);
+        out.layers.push((name.clone(), file.layer));
         if let Some(at) = rendered.out_of_range {
             return Err(CoordinateOutOfRange { file: name, at });
         }

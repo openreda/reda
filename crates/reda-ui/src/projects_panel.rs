@@ -28,6 +28,8 @@ pub enum ProjectsAction {
     EditJob(Uuid),
     /// Run an Output Job.
     RunJob(Uuid),
+    /// Run every Output Job (`output.job.run_all`).
+    RunAllJobs,
     /// Open the Project Settings dialog.
     ProjectSettings,
     /// Open the Board Setup dialog.
@@ -422,6 +424,10 @@ impl Tree<'_> {
             });
         let preset = self.project.fab_presets().next().map(|p| p.uuid);
         header.header_response.context_menu(|ui| {
+            let refused = jobs.is_empty().then(|| tr!("projects-no-jobs"));
+            if item(ui, tr!("projects-run-all"), refused) {
+                self.action = Some(ProjectsAction::RunAllJobs);
+            }
             let refused = preset.is_none().then(|| tr!("projects-no-fab-preset"));
             if item(ui, tr!("projects-new-job"), refused)
                 && let Some(preset) = preset

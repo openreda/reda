@@ -6,9 +6,12 @@
 use reda_testkit::TempDir;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{CancelToken, UserDirs};
-use reda_ui::engine::model::{DocumentKind, PdfColour, Scope, Severity, Uuid};
-use reda_ui::job_run::{JobRunner, RunOutcome};
-use reda_ui::settings::output_job::{self, JobPage};
+use reda_ui::engine::model::{DocumentKind, NotFittedPaste, PdfColour, Scope, Severity, Uuid};
+use reda_ui::job_run::{JobRunner, JobStatus, RunOutcome};
+use std::cell::RefMut;
+
+use reda_ui::settings::SettingsDialog;
+use reda_ui::settings::output_job::{self, FileCheck, JobDraft, JobPage, LastRun};
 use reda_ui::shell::Shell;
 use serde_json::json;
 
@@ -56,6 +59,11 @@ fn pcb(shell: &Shell) -> Uuid {
         .uuid
 }
 
+/// The job's draft, shared by the window's pages.
+fn draft(d: &SettingsDialog) -> RefMut<'_, JobDraft> {
+    d.page::<JobPage>().unwrap().draft()
+}
+
 fn journal_ids(shell: &Shell) -> Vec<String> {
     let journal = shell.engine().journal();
     journal.iter().map(|e| e.id.clone()).collect()
@@ -67,13 +75,20 @@ fn the_dialog_edits_one_job_and_applies_as_one_batch() {
     let mut shell = shell_with_board(&home, &work);
     let uuid = job(&shell);
     let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
-    assert_eq!(d.page_titles(), ["Job"]);
+    assert_eq!(
+        d.page_titles(),
+        [
+            "General", "Outputs", "Gerber", "Drill", "BOM", "CPL", "Last run"
+        ]
+    );
     assert!(!d.has_changes());
 
-    let page = d.page_mut::<JobPage>().unwrap();
-    page.name.set("Fab".into());
-    page.bom.set(false);
-    page.destination.set("out/fab".into());
+    {
+        let mut page = draft(&d);
+        page.name.set("Fab".into());
+        page.bom.set(false);
+        page.destination.set("out/fab".into());
+    }
     assert!(d.can_apply());
     let before = journal_ids(&shell).len();
     d.apply(&mut shell).unwrap();
@@ -95,21 +110,22 @@ fn the_dialog_toggles_the_schematic_pdf_and_picks_its_colour() {
     let mut shell = shell_with_board(&home, &work);
     let uuid = job(&shell);
     let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
-    let page = d.page_mut::<JobPage>().unwrap();
-    assert!(
-        *page.schematic_pdf.value() && *page.reports.value(),
-        "on by default"
-    );
-    assert_eq!(*page.schematic_pdf_colour.value(), PdfColour::Colour);
-    page.schematic_pdf_colour.set(PdfColour::Mono);
-    page.reports.set(false);
+    {
+        let mut page = draft(&d);
+        assert!(
+            *page.schematic_pdf.value() && *page.reports.value(),
+            "on by default"
+        );
+        assert_eq!(*page.schematic_pdf_colour.value(), PdfColour::Colour);
+        page.schematic_pdf_colour.set(PdfColour::Mono);
+        page.reports.set(false);
+    }
     d.apply(&mut shell).unwrap();
     let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
     assert_eq!(job.schematic_pdf_colour, PdfColour::Mono);
     assert!(!job.outputs.reports && job.outputs.schematic_pdf);
 
-    let page = d.page_mut::<JobPage>().unwrap();
-    page.schematic_pdf.set(false);
+    draft(&d).schematic_pdf.set(false);
     d.apply(&mut shell).unwrap();
     let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
     assert!(!job.outputs.schematic_pdf);
@@ -132,17 +148,21 @@ fn a_taken_or_blank_name_and_an_escaping_destination_are_flagged() {
         .unwrap()
         .name
         .clone();
-    let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
-    let page = d.page_mut::<JobPage>().unwrap();
-    page.name.set(other.to_uppercase());
-    page.destination.set("../elsewhere".into());
+    let d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    {
+        let mut page = draft(&d);
+        page.name.set(other.to_uppercase());
+        page.destination.set("../elsewhere".into());
+    }
     let fields: Vec<String> = d.problems().into_iter().map(|(_, p)| p.field).collect();
     assert_eq!(fields, ["name", "destination"]);
     assert!(!d.can_ok());
 
-    let page = d.page_mut::<JobPage>().unwrap();
-    page.name.set("  ".into());
-    page.destination.set(String::new());
+    {
+        let mut page = draft(&d);
+        page.name.set("  ".into());
+        page.destination.set(String::new());
+    }
     let fields: Vec<String> = d.problems().into_iter().map(|(_, p)| p.field).collect();
     assert_eq!(fields, ["name"]);
 }
@@ -170,9 +190,8 @@ fn a_job_whose_pcb_is_gone_is_broken_until_re_pointed() {
     shell.run("document.add", json!({"kind": "pcb"})).unwrap();
     let new = pcb(&shell);
     d.sync(shell.engine().project().unwrap());
-    let page = d.page_mut::<JobPage>().unwrap();
-    assert_eq!(page.pcbs(), [new]);
-    page.pcb.set(new);
+    assert_eq!(d.page::<JobPage>().unwrap().pcbs(), [new]);
+    draft(&d).pcb.set(new);
     assert!(d.problems().is_empty());
     d.apply(&mut shell).unwrap();
     assert!(!output_job::broken(shell.engine().project().unwrap(), uuid));
@@ -249,4 +268,181 @@ fn a_cancelled_run_writes_nothing() {
     let report = runner.wait(&mut shell);
     assert_eq!(report.outcome, RunOutcome::Cancelled);
     assert!(!work.path().join("Board/outputs").exists());
+}
+
+#[test]
+fn the_name_template_and_not_fitted_paste_apply_with_the_rest() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    {
+        let mut page = draft(&d);
+        page.name_template.set("${project}-${nope}".into());
+        page.not_fitted_paste.set(NotFittedPaste::Remove);
+    }
+    let fields: Vec<String> = d.problems().into_iter().map(|(_, p)| p.field).collect();
+    assert_eq!(fields, ["name_template"]);
+    draft(&d)
+        .name_template
+        .set("${project}-r${revision}".into());
+    assert!(d.problems().is_empty());
+    d.apply(&mut shell).unwrap();
+    let job = shell.engine().project().unwrap().output_job(uuid).unwrap();
+    assert_eq!(job.name_template.as_str(), "${project}-r${revision}");
+    assert_eq!(job.not_fitted_paste, NotFittedPaste::Remove);
+}
+
+#[test]
+fn the_previews_follow_the_drafts_before_apply() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    let d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    let mut page = draft(&d);
+    let preview = page.preview(shell.engine()).unwrap().clone();
+    assert_eq!(preview.stem.as_deref(), Ok("Board-Generic"));
+    assert!(preview.zip.contains(&"Board.gtl".to_owned()));
+    page.gerber.set(false);
+    page.destination.set("out/${preset}".into());
+    let preview = page.preview(shell.engine()).unwrap().clone();
+    assert!(!preview.zip.contains(&"Board.gtl".to_owned()));
+    assert_eq!(preview.destination.as_deref(), Ok("out/Generic"));
+    assert_eq!(
+        page.destination_folder(shell.engine()).unwrap(),
+        work.path().join("Board").join("out").join("Generic")
+    );
+}
+
+#[test]
+fn an_empty_column_is_one_blank_in_every_row() {
+    let table = reda_ui::engine::output::Table {
+        header: vec!["Ref".into(), "MPN".into(), "Value".into()],
+        rows: vec![
+            vec!["R1".into(), String::new(), "10k".into()],
+            vec!["R2".into(), " ".into(), String::new()],
+        ],
+    };
+    assert_eq!(output_job::empty_columns(&table), [1]);
+}
+
+#[test]
+fn last_run_reads_the_manifest_and_checks_each_file_on_disk() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    let d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    assert_eq!(draft(&d).last_run(shell.engine()), LastRun::NotRun);
+
+    let report = JobRunner::start(&shell, uuid).unwrap().wait(&mut shell);
+    let RunOutcome::Written { files, .. } = &report.outcome else {
+        panic!("{report:?}");
+    };
+    let LastRun::Read(manifest) = draft(&d).last_run(shell.engine()) else {
+        panic!("the manifest is read");
+    };
+    let listed: Vec<&str> = manifest.files.iter().map(|f| f.path.as_str()).collect();
+    let written: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(listed, written);
+    assert_eq!(manifest.zip, "Board-Generic.zip");
+    assert_eq!(manifest.preset, "Generic");
+    assert_eq!(manifest.changed(), 0);
+    let gtl = manifest
+        .files
+        .iter()
+        .find(|f| f.path == "fab/Board.gtl")
+        .unwrap();
+    assert_eq!(gtl.kind, "copper_top");
+    assert_eq!(gtl.sha256.len(), 64);
+
+    // Another window, as after reopening the Project, reads the same file; a file changed
+    // or removed since the run shows.
+    let folder = manifest.folder.clone();
+    std::fs::write(folder.join("fab").join("Board.gtl"), b"edited").unwrap();
+    std::fs::remove_file(folder.join("Board-Generic-BOM.csv")).unwrap();
+    let d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    let LastRun::Read(manifest) = draft(&d).last_run(shell.engine()) else {
+        panic!("the manifest is read");
+    };
+    let check = |path: &str| {
+        manifest
+            .files
+            .iter()
+            .find(|f| f.path == path)
+            .unwrap()
+            .check
+    };
+    assert_eq!(check("fab/Board.gtl"), FileCheck::Changed);
+    assert_eq!(check("Board-Generic-BOM.csv"), FileCheck::Missing);
+    assert_eq!(check("Board-Generic.zip"), FileCheck::Same);
+    assert_eq!(manifest.changed(), 2);
+}
+
+#[test]
+fn run_on_the_window_is_taken_once() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    let mut d = output_job::dialog(shell.engine().project().unwrap(), uuid).unwrap();
+    assert!(d.has_run() && !d.take_run());
+    d.request_run();
+    assert!(d.take_run());
+    assert!(!d.take_run());
+    assert_eq!(output_job::job_of(&d), Some(uuid));
+}
+
+#[test]
+fn run_all_runs_every_job_and_reports_each() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let uuid = job(&shell);
+    shell
+        .run("output.job.duplicate", json!({"job": uuid}))
+        .unwrap();
+    let runner = JobRunner::start_all(&shell, CancelToken::new(), None).unwrap();
+    assert_eq!(runner.job(), None);
+    let report = runner.wait(&mut shell);
+    let RunOutcome::All { jobs, stopped } = &report.outcome else {
+        panic!("{report:?}");
+    };
+    assert!(!stopped);
+    assert_eq!(jobs.len(), 2);
+    for line in jobs {
+        let JobStatus::Written { destination } = &line.status else {
+            panic!("{line:?}");
+        };
+        assert!(destination.join("manifest.json").is_file(), "{line:?}");
+    }
+    assert_eq!(journal_ids(&shell).last().unwrap(), "output.job.run_all");
+}
+
+#[test]
+fn run_all_stops_at_a_blocked_job_and_tags_its_blockers() {
+    let (home, work) = (TempDir::new("job-home"), TempDir::new("job-work"));
+    let mut shell = shell(&home);
+    // No Board Outline: every job is blocked.
+    shell
+        .run("project.new", json!({"path": work.path(), "name": "Bare"}))
+        .unwrap();
+    let uuid = job(&shell);
+    shell
+        .run("output.job.duplicate", json!({"job": uuid}))
+        .unwrap();
+    let report = JobRunner::start_all(&shell, CancelToken::new(), None)
+        .unwrap()
+        .wait(&mut shell);
+    let RunOutcome::All { jobs, stopped } = &report.outcome else {
+        panic!("{report:?}");
+    };
+    assert!(stopped);
+    assert_eq!(jobs[0].status, JobStatus::Blocked);
+    assert_eq!(jobs[1].status, JobStatus::NotRun);
+    // The jobs run in Projects panel order; the first one's blockers carry its name.
+    let tag = format!("{}: ", jobs[0].name);
+    assert!(!report.blockers.is_empty());
+    assert!(
+        report.blockers.iter().all(|b| b.starts_with(&tag)),
+        "{:?}",
+        report.blockers
+    );
 }
