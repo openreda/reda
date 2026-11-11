@@ -1,6 +1,7 @@
-//! Grids, the HUD and the status bar in the window, driven through AccessKit with
-//! `egui_kittest`: the status bar's segments in the spec's order, its grid menu and snap
-//! button, X running right to left on a board seen from below, the HUD over every canvas,
+//! Grids and the status bar in the window, driven through AccessKit with `egui_kittest`:
+//! the status bar's segments in the spec's order, its grid menu and snap button, X
+//! running right to left on a board seen from below, ΔX/ΔY in the status bar, not by the
+//! cursor,
 //! `Mod`+Shift+G's custom grid form, the Preferences grid tables, and the Properties Grid
 //! region's visible grid switch and style.
 
@@ -101,6 +102,7 @@ fn the_status_bar_segments_run_in_the_specs_order() {
     let pcb = open_board(&mut h);
     over_canvas(&mut h, 0.0);
     let cursor = format!("Cursor: {}", cursor_text(&h));
+    let delta = delta_text(&h);
     let layer = h
         .get_all_by_label_contains("Status bar Layer: ")
         .max_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y))
@@ -123,6 +125,7 @@ fn the_status_bar_segments_run_in_the_specs_order() {
     let order = [
         "Active: PCB Document",
         cursor.as_str(),
+        delta.as_str(),
         "Grid: 0.5 mm",
         "Object snap: Active Layer",
         layer.as_str(),
@@ -231,97 +234,6 @@ fn x_runs_right_to_left_on_a_board_seen_from_below() {
 }
 
 #[test]
-fn the_hud_shows_over_the_sheet_and_the_board_and_shift_h_hides_it() {
-    let home = TempDir::new("gh-hud-home");
-    let work = TempDir::new("gh-hud-work");
-    let mut h = harness(home.path(), work.path());
-    over_canvas(&mut h, 0.0);
-    assert!(
-        h.query_by_label("HUD").is_some(),
-        "on by default on a sheet"
-    );
-    open_board(&mut h);
-    over_canvas(&mut h, 0.0);
-    assert!(h.query_by_label("HUD").is_some(), "and on the board");
-    h.key_press_modifiers(Modifiers::SHIFT, Key::H);
-    h.run();
-    assert!(h.query_by_label("HUD").is_none());
-    // Parked rather than following the cursor, it still shows on the active canvas.
-    h.key_press_modifiers(Modifiers::SHIFT, Key::H);
-    h.state_mut()
-        .shell_mut()
-        .run(
-            "app.preferences.set",
-            json!({"key": "editing.hud.follow_cursor", "value": false}),
-        )
-        .unwrap();
-    h.run();
-    let canvas = h.get_by_role(Role::Canvas).rect();
-    let hud = h.get_by_label("HUD").rect();
-    assert!(hud.min.x < canvas.min.x + 40.0 && hud.max.y > canvas.max.y - 120.0);
-}
-
-/// The box of the tooltip showing now: a tooltip node has no bounds of its own, so its
-/// contents' bounds make it.
-fn tooltip(h: &Harness<'static, App>) -> Option<egui::Rect> {
-    let rect = |n: egui_kittest::Node<'_>| {
-        let b = n.accesskit_node().bounding_box()?;
-        Some(egui::Rect::from_min_max(
-            Pos2::new(b.x0 as f32, b.y0 as f32),
-            Pos2::new(b.x1 as f32, b.y1 as f32),
-        ))
-    };
-    h.query_all_by_role(Role::Tooltip).find_map(|t| {
-        t.query_all(egui_kittest::kittest::by())
-            .filter_map(rect)
-            .reduce(|a, b| a.union(b))
-    })
-}
-
-/// Crosses the canvas up to the Active Bar's `label` button and rests there until its
-/// tooltip opens.
-fn rest_on_bar_button(h: &mut Harness<'static, App>, label: &str) {
-    let canvas = h.get_by_role(Role::Canvas).rect();
-    let button = h
-        .get_all_by_role_and_label(Role::Button, label)
-        .map(|n| n.rect())
-        .find(|r| canvas.contains_rect(*r))
-        .unwrap();
-    for dy in [150.0, 30.0, 0.0] {
-        h.event(egui::Event::PointerMoved(
-            button.center() + egui::vec2(0.0, dy),
-        ));
-        h.run_steps(5);
-    }
-    // Past egui's half-second tooltip delay.
-    h.run_steps(40);
-}
-
-#[test]
-fn the_hud_keeps_off_the_active_bar_so_its_tooltips_show_whole() {
-    let home = TempDir::new("gh-hud-bar-home");
-    let work = TempDir::new("gh-hud-bar-work");
-    let mut h = harness(home.path(), work.path());
-    for (document, label) in [("sheet", "Wire"), ("board", "Route Tracks")] {
-        if document == "board" {
-            open_board(&mut h);
-        }
-        rest_on_bar_button(&mut h, label);
-        let tip = tooltip(&h).unwrap_or_else(|| panic!("{document}: no tooltip on {label}"));
-        if let Some(hud) = h.query_by_label("HUD") {
-            let hud = hud.rect();
-            assert!(
-                !hud.intersects(tip),
-                "{document}: the HUD {hud:?} covers {label}'s tooltip {tip:?}"
-            );
-        }
-        // Back on the canvas, the HUD follows the pointer again.
-        over_canvas(&mut h, 0.0);
-        assert!(h.query_by_label("HUD").is_some(), "{document}: no HUD");
-    }
-}
-
-#[test]
 fn the_properties_grid_region_switches_the_visible_grid_and_its_style() {
     let home = TempDir::new("gh-props-home");
     let work = TempDir::new("gh-props-work");
@@ -414,4 +326,40 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
         rows(&h),
         reda_ui::engine::preferences::GridTables::sheet().imperial
     );
+}
+
+/// The status bar's ΔX/ΔY segment.
+fn delta_text(h: &Harness<'static, App>) -> String {
+    let node = h.get_by_label_contains("ΔX ");
+    node.accesskit_node().label().unwrap().to_owned()
+}
+
+#[test]
+fn delta_reads_in_the_status_bar_and_nothing_draws_by_the_cursor() {
+    let home = TempDir::new("gh-delta-home");
+    let work = TempDir::new("gh-delta-work");
+    let mut h = harness(home.path(), work.path());
+    for document in ["sheet", "board"] {
+        if document == "board" {
+            open_board(&mut h);
+        }
+        over_canvas(&mut h, 0.0);
+        assert!(h.query_by_label("HUD").is_none(), "{document}: a HUD");
+        // A click on the canvas puts the delta origin there.
+        let canvas = h.get_by_role(Role::Canvas).rect();
+        for pressed in [true, false] {
+            h.event(egui::Event::PointerButton {
+                pos: canvas.center(),
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            });
+        }
+        h.run();
+        over_canvas(&mut h, 100.0);
+        let delta = delta_text(&h);
+        let dx: f64 = delta.split_whitespace().nth(1).unwrap().parse().unwrap();
+        assert!(dx > 0.0, "{document}: {delta}");
+        assert!(delta.contains("ΔY 0.0"), "{document}: {delta}");
+    }
 }

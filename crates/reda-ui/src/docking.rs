@@ -1066,7 +1066,7 @@ impl Cx<'_, '_> {
                 if active {
                     crate::keys_card::show(ui, self.shell, rect);
                 }
-                crate::hud::show(ui, self.shell, *uuid, rect, active);
+                crate::delta::track_clicks(ui, self.shell, *uuid, rect);
                 self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Panel(PanelId::Projects) => {

@@ -158,7 +158,7 @@ fn text_field(
 pub(super) fn chip(ui: &Ui, id: egui::Id, at: egui::Pos2, text: &str) {
     egui::Area::new(id)
         .order(egui::Order::Tooltip)
-        // Above-right of the cursor: the HUD sits below-right of it.
+        // Above-right of the cursor, clear of the pointer.
         .fixed_pos(at + egui::vec2(16.0, -16.0))
         .pivot(egui::Align2::LEFT_BOTTOM)
         .interactable(false)

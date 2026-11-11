@@ -146,7 +146,7 @@ fn swatch(
         });
 }
 
-/// The active Layer's name on the board, for the status bar and the HUD.
+/// The active Layer's name on the board, for the status bar.
 pub fn active_layer_name(shell: &Shell) -> Option<String> {
     let project = shell.engine().project()?;
     let pcb = project.pcb()?;

@@ -27,18 +27,18 @@ use serde_json::Value;
 
 pub use checks::{CheckDisplay, CheckDisplays, OVERLAY_BY_DEFAULT, OverlayStyle, OverlayZoomedOut};
 pub use file::{Loaded, load, parse, reset, set, value_of};
-pub use grid::{DisplayPrecision, GridPreferences, GridRow, GridStyle, GridTables, HudPreferences};
+pub use grid::{DisplayPrecision, GridPreferences, GridRow, GridStyle, GridTables};
 
 /// Renamed keys: `(old, new)`. A file that still uses an old key is read as the new one,
 /// and the next write of that key replaces the old spelling.
-pub const ALIASES: &[(&str, &str)] = &[];
+pub const ALIASES: &[(&str, &str)] = &[("editing.hud.delta", "editing.delta")];
 
 /// Every Preference with its default. The serde shape is the file's shape.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub general: General,
-    /// Editing shared by every canvas: selection, grids, the HUD and display precision.
+    /// Editing shared by every canvas: selection, grids, the delta and display precision.
     pub editing: SelectionEditing,
     pub user: User,
     /// Editing in Schematic Sheets.
@@ -103,8 +103,9 @@ pub struct SelectionEditing {
     pub grab_center: bool,
     /// Grid presets per Document type and the visible grid.
     pub grid: GridPreferences,
-    /// The HUD by the cursor.
-    pub hud: HudPreferences,
+    /// The status bar shows ΔX/ΔY from the last click (Shift+D toggles it for the
+    /// session, Insert resets it).
+    pub delta: bool,
     /// How many decimals coordinates and lengths show with.
     pub display_precision: DisplayPrecision,
     /// Auto-pan: how a canvas pans when the cursor reaches its edge during an operation.
@@ -123,7 +124,7 @@ impl Default for SelectionEditing {
             grab_hot_spot: true,
             grab_center: false,
             grid: GridPreferences::default(),
-            hud: HudPreferences::default(),
+            delta: true,
             display_precision: DisplayPrecision::default(),
             auto_pan: AutoPan::default(),
             highlight: HighlightPreferences::default(),

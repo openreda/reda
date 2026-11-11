@@ -323,8 +323,8 @@ impl Shell {
         if engine.registry().get("view.grid.set").is_none() {
             engine.register(grid::register_all);
         }
-        if engine.registry().get("view.hud.toggle").is_none() {
-            engine.register(crate::hud::register_all);
+        if engine.registry().get("view.delta.toggle").is_none() {
+            engine.register(crate::delta::register_all);
         }
         if engine.registry().get("selection.filter.set").is_none() {
             engine.register(working_state::register_all);
@@ -408,7 +408,7 @@ impl Shell {
             .view_mut()
             .set(crate::placement::Placement::default());
         engine.view_mut().set(Grids::default());
-        engine.view_mut().set(crate::hud::HudState::default());
+        engine.view_mut().set(crate::delta::DeltaState::default());
         let working = WorkingState::following(&preferences::current(engine.user_dirs()));
         engine.view_mut().set(working);
         engine.view_mut().set(CrossProbe::default());

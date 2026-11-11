@@ -159,16 +159,16 @@ impl Shell {
                 let (id, params) = crate::schematic_editor::cycle_cutting_length(self);
                 let _ = self.run_reporting(&id, params);
             }
-            // With no segment held, Insert resets the HUD's delta, as it does off a sheet.
+            // With no segment held, Insert resets the delta, as it does off a sheet.
             "tool.insert_vertex" if self.tool() == Tool::Select => {
                 let held = self
                     .active_sheet()
                     .is_some_and(|sheet| crate::schematic_editor::insert_held_vertex(self, sheet));
                 if !held && let Some(sheet) = self.active_sheet() {
-                    crate::hud::reset(self, sheet);
+                    crate::delta::reset(self, sheet);
                 }
             }
-            "view.hud.reset_delta" => crate::hud::apply_resets(self),
+            "view.delta.reset" => crate::delta::apply_resets(self),
             // A custom grid's range at or above its step is kept, with this advice.
             "view.grid.custom" => {
                 if let Some(warning) = out["warning"].as_str() {

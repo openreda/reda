@@ -35,7 +35,6 @@ pub const PAGES: &[Page] = &[
     under("editing", "editing.grid"),
     under("editing", "editing.auto_pan"),
     under("editing", "editing.highlight"),
-    under("editing", "editing.hud"),
     top("schematic"),
     under("schematic", "schematic.wires"),
     under("schematic", "schematic.names_units"),
@@ -63,7 +62,6 @@ pub fn page_of(key: &str) -> &'static str {
     let (section, name) = key.split_once('.').unwrap_or((key, ""));
     match (section, name) {
         ("editing", name) if name.starts_with("grid.") => "editing.grid",
-        ("editing", name) if name.starts_with("hud.") => "editing.hud",
         ("editing", name) if name.starts_with("auto_pan.") => "editing.auto_pan",
         ("editing", name) if name.starts_with("highlight.") => "editing.highlight",
         ("editing", _) => "editing",

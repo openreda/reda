@@ -1,6 +1,6 @@
-//! Grid presets, the visible grid, the HUD and display precision
-//! (docs/spec/v0.1/editing.md#grid, #hud and #properties-with-a-selection): the
-//! `editing.grid`, `editing.hud` and `editing.display_precision` Preferences.
+//! Grid presets, the visible grid and display precision
+//! (docs/spec/v0.1/editing.md#grid and #properties-with-a-selection): the `editing.grid`
+//! and `editing.display_precision` Preferences.
 
 use reda_command::Length;
 use reda_model::geom::Nm;
@@ -168,37 +168,6 @@ impl Default for GridPreferences {
             footprint: GridTables::board(),
             style: GridStyle::Dots,
             coarse_multiplier: 5,
-        }
-    }
-}
-
-/// The HUD: a small readout by the cursor on every canvas.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-pub struct HudPreferences {
-    /// Show the HUD (Shift+H toggles it for the session).
-    pub show: bool,
-    /// The HUD follows the cursor; off, it is parked at the canvas's bottom left.
-    pub follow_cursor: bool,
-    /// Show the cursor's X/Y.
-    pub xy: bool,
-    /// Show ΔX/ΔY from the last click (Shift+D toggles it, Insert resets it).
-    pub delta: bool,
-    /// Show the active Layer (boards and Footprints).
-    pub layer: bool,
-    /// Show the snap grid.
-    pub grid: bool,
-}
-
-impl Default for HudPreferences {
-    fn default() -> HudPreferences {
-        HudPreferences {
-            show: true,
-            follow_cursor: true,
-            xy: true,
-            delta: true,
-            layer: true,
-            grid: true,
         }
     }
 }
