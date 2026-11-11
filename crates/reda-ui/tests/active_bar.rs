@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use egui::accesskit::Role;
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::bars::{self, DocumentType};
@@ -331,4 +331,52 @@ fn group_tools_turns_the_active_bar_into_groups_faced_by_the_last_used_tool() {
     activate(&mut h, board);
     assert!(has_button(&h, "Arc"));
     assert!(has_button(&h, "Keepout"));
+}
+
+/// The lines of the tooltip showing now.
+fn tooltip_lines(h: &Harness<'_, App>) -> Vec<String> {
+    h.query_all_by_role(Role::Tooltip)
+        .flat_map(|t| {
+            t.query_all(egui_kittest::kittest::by())
+                .filter_map(|n| {
+                    let node = n.accesskit_node();
+                    node.label().or_else(|| node.value())
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// Rests the pointer on the Active Bar's `label` button until its tooltip opens.
+fn rest_on(h: &mut Harness<'static, App>, label: &str) {
+    let canvas = h.get_by_role(Role::Canvas).rect();
+    let button = h
+        .get_all_by_role_and_label(Role::Button, label)
+        .map(|n| n.rect())
+        .find(|r| canvas.contains_rect(*r))
+        .unwrap();
+    h.event(egui::Event::PointerMoved(button.center()));
+    // Past egui's half-second tooltip delay.
+    h.run_steps(40);
+}
+
+#[test]
+fn a_tool_buttons_tooltip_shows_its_name_and_key_only() {
+    let home = TempDir::new("active-bar-home");
+    let work = TempDir::new("active-bar-work");
+    let mut h = window(home.path(), work.path(), 1600.0);
+    let board = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .uuid;
+    rest_on(&mut h, "Wire");
+    assert_eq!(tooltip_lines(&h), ["Wire (W)"]);
+    activate(&mut h, board);
+    rest_on(&mut h, "Route Tracks");
+    assert_eq!(tooltip_lines(&h), ["Route Tracks (T)"]);
 }

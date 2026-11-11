@@ -200,7 +200,12 @@ pub(crate) fn menu_items(
                 let response = ui.add_enabled(enabled, button);
                 match &item.run {
                     Ok(run) => {
-                        if response.on_hover_text(&item.description).clicked() {
+                        let response = if item.description.is_empty() {
+                            response
+                        } else {
+                            response.on_hover_text(&item.description)
+                        };
+                        if response.clicked() {
                             *clicked = Some(run.clone());
                             ui.close();
                         }
@@ -341,7 +346,9 @@ fn icon_button_with(
         Ok(run) => {
             let response = response.on_hover_ui(|ui| {
                 ui.strong(&heading);
-                ui.label(&item.description);
+                if !item.description.is_empty() {
+                    ui.label(&item.description);
+                }
             });
             if response.clicked() {
                 clicked = Some(run.clone());
