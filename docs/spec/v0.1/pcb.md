@@ -104,7 +104,7 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - Off: moving or rotating one asks for confirmation.
   - The docs don't state the leading suite's default, so on is from memory of it.
 - **Other Tools:** [loop removal](#loop-removal) keeps a locked Track, with a note. A [Track drag](#dragging-tracks) stops at a locked neighbour. [Silkscreen Preparation](#silkscreen-preparation) skips locked objects unless told otherwise.
-- **Showing it:** a lock glyph on hover and selection, a HUD line, and the pick list's lock icon.
+- **Showing it:** a lock glyph on hover and selection, "Locked" after the object's name in the status bar's hover summary ("Footprint U1 · Locked"), and the pick list's lock icon.
 
 ### Placed Pad edits
 
@@ -251,7 +251,7 @@ When a route ends by joining two points already joined on its Net, the old path 
 - **Antennas:** a dangling stub on the old path goes too, unless it ends in a Via. `pcb.route.remove_antennas` turns this off.
 - **Vias:** a path through Vias goes with its Vias. `pcb.route.remove_loops_through_vias` turns this off.
 - **Off switches:**
-  - `Shift+L` toggles it in the Tool, and `pcb.route.loop_removal` holds the default. A loop made while it is off stays when it comes back on. The leading suite uses Shift+D, which is the [HUD](editing.md#hud)'s delta line here.
+  - `Shift+L` toggles it in the Tool, and `pcb.route.loop_removal` holds the default. A loop made while it is off stays when it comes back on. The leading suite uses Shift+D, which hides the status bar's [delta](editing.md#delta) here.
   - Per Net, `loop_removal` on the Net (default on, left out of the file when on), set with `pcb.net.set_routing {nets, loop_removal}` and shown in Properties for selected copper. It is for power and ground Nets that need loops.
 
 ### Dragging Tracks
@@ -567,7 +567,7 @@ Source for what follows: [What do PCB placement, text, dimensions, measuring and
 - **Layer sets:** All, Signal, NonSignal, Mechanical, Top, Bottom and Fab, plus user-saved sets kept in Preferences by Layer kind. `pcb.view.layer_set.apply`, `save` and `delete`. Top, Bottom and Fab are REDA's additions, for a one-click side or fab view. Plane Layers arrives with v0.2. There are no `.layerset` files, because Preferences already travel as a file.
 - **Pinned Layers:** `Mod`+click a Layer's eye to keep it shown in single-Layer mode, such as the Board Outline. Kept in `view.json`. The Gray and Mono single-Layer modes stay out, because Dimmed covers them.
 - **Per-kind display:** transparency from 0 to 100 % and Draft (outline only), set with `pcb.view.object_type.set`, kept in `view.json`. The leading suite's per-Layer Advanced dialog stays out, because no workflow here needs it on two Layers.
-- **Flip:** the origin moves to the bottom right, and X runs right to left in the status bar and HUD. Layers swap draw order in pairs. Outputs keep top-view coordinates.
+- **Flip:** the origin moves to the bottom right, and X runs right to left in the status bar. Layers swap draw order in pairs. Outputs keep top-view coordinates.
 - **Labels:** toggles for Pad Nets, Via Nets and Repeated Net Names on Tracks, each with the usual minimum on-screen size. Via Span is v0.2.
 - **Layer chip:** `Mod`+click highlights that Layer's content, on the [Layer control](#layer-control) and in the Layers panel. Hover to solo is v0.2. The docs reached don't describe this gesture.
 - **Live hover:** a Preference with Off, On and Shift only (default), drawn as an outline around the Net under the cursor. The docs reached don't confirm the default.

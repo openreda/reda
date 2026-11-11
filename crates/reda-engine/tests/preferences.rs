@@ -647,12 +647,9 @@ fn grid_tables_ship_per_document_type_and_take_edited_rows() {
     assert_eq!(grid["footprint"], grid["pcb"]);
     assert_eq!(grid["style"], "dots");
     assert_eq!(grid["coarse_multiplier"], 5);
-    let hud = all["values"]["editing"]["hud"].clone();
-    assert_eq!(
-        hud,
-        json!({"show": true, "follow_cursor": true, "xy": true, "delta": true,
-               "layer": true, "grid": true})
-    );
+    // The status bar's ΔX/ΔY from the last click.
+    assert_eq!(all["values"]["editing"]["delta"], true);
+    assert!(all["values"]["editing"].get("hud").is_none(), "no HUD");
     assert_eq!(
         all["values"]["editing"]["display_precision"],
         json!({"mm": 3, "mil": 1})
@@ -681,4 +678,10 @@ fn grid_tables_ship_per_document_type_and_take_edited_rows() {
         let err = engine.run_err("app.preferences.set", json!({"key": key, "value": value}));
         assert_eq!(err.code, ErrorCode::InvalidParams, "{key} = {value}");
     }
+}
+
+#[test]
+fn the_old_hud_delta_key_reads_as_the_status_bars_delta() {
+    let loaded = reda_engine::preferences::parse("[editing.hud]\ndelta = false\n");
+    assert!(!loaded.values.editing.delta, "{:?}", loaded.warnings);
 }

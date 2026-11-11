@@ -3,10 +3,11 @@
 //!
 //! 1. "Active: <Document kind>"
 //! 2. the cursor's X and Y in the Document's units, at the display precision
-//! 3. the grid, which opens the grid menu
-//! 4. the object snap mode, which cycles when clicked and is blank when off
-//! 5. the active Layer swatch (boards)
-//! 6. the Tool's prompt, or a summary of the object under the cursor with no Tool
+//! 3. ΔX/ΔY from the last click ([`crate::delta`])
+//! 4. the grid, which opens the grid menu
+//! 5. the object snap mode, which cycles when clicked and is blank when off
+//! 6. the active Layer swatch (boards)
+//! 7. the Tool's prompt, or a summary of the object under the cursor with no Tool
 //!
 //! The window adds the notes, the out-of-sync badge, the bridge indicator and the Panels
 //! button after these ([`crate::App`]). [`readout`] is the text, for tests; [`show`] draws.
@@ -30,6 +31,8 @@ pub struct Readout {
     pub kind: Option<String>,
     /// "X 1.270 mm  Y 2.540 mm", once the pointer has been over the canvas.
     pub cursor: Option<String>,
+    /// "ΔX 1.270 mm  ΔY 0.000 mm" from the last click, unless hidden.
+    pub delta: Option<String>,
     /// "Grid: 50 mil".
     pub grid: Option<String>,
     /// The object snap mode: "Active Layer", or blank when off.
@@ -61,7 +64,7 @@ pub fn units(shell: &Shell, document: Uuid) -> Units {
     }
 }
 
-/// Where the cursor is on `document`, in nm, as the status bar and the HUD read it. A
+/// Where the cursor is on `document`, in nm, as the status bar reads it. A
 /// board reads where the cursor last snapped, from its Output Origin; a sheet or Library
 /// element reads the pointer's last position. X is Document X, so on a board seen from
 /// below it runs right to left.
@@ -142,6 +145,7 @@ pub fn readout(shell: &Shell) -> Readout {
     Readout {
         kind: Some(tr!("status-active", kind = kind)),
         cursor: cursor.filter(|_| canvas),
+        delta: crate::delta::text(shell, document).filter(|_| canvas),
         grid: canvas.then(|| tr!("status-grid", grid = grid::label(shell.grid(document)))),
         snap,
         layer,
@@ -170,8 +174,8 @@ fn prompt(shell: &Shell, document: Uuid) -> Option<String> {
     hovered(shell, document)
 }
 
-/// A summary of the topmost object under the cursor: its kind and, for a Component, its
-/// Designator.
+/// A summary of the topmost object under the cursor: its kind, for a Component its
+/// Designator, and "Locked" when it is locked (docs/spec/v0.1/pcb.md#locks).
 fn hovered(shell: &Shell, document: Uuid) -> Option<String> {
     let tab = shell.document_tab(document)?;
     let at = if shell.is_pcb(document) {
@@ -199,9 +203,13 @@ fn hovered(shell: &Shell, document: Uuid) -> Option<String> {
     let name = ["designator", "name", "text"]
         .iter()
         .find_map(|k| value[*k].as_str().filter(|s| !s.is_empty()));
-    Some(match name {
+    let summary = match name {
         Some(name) => format!("{title} {name}"),
         None => title,
+    };
+    Some(match value["locked"].as_bool() {
+        Some(true) => tr!("status-hover-locked", summary = summary),
+        _ => summary,
     })
 }
 
@@ -216,7 +224,7 @@ fn button(ui: &mut Ui, text: &str, name: String) -> egui::Response {
     response
 }
 
-/// Draws segments 1 to 6 for the active Document, left to right, with a separator after
+/// Draws segments 1 to 7 for the active Document, left to right, with a separator after
 /// each shown one; returns what was clicked. Nothing with no Document active.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     let mut out = Vec::new();
@@ -230,6 +238,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     if let Some(cursor) = &readout.cursor {
         ui.separator();
         button(ui, cursor, tr!("status-cursor-name", at = cursor.as_str()));
+    }
+    if let Some(delta) = &readout.delta {
+        ui.separator();
+        button(ui, delta, tr!("status-delta-name", delta = delta.as_str()));
     }
     if let Some(grid_text) = &readout.grid {
         ui.separator();

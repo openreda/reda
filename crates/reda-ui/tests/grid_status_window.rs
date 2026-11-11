@@ -1,8 +1,8 @@
-//! Grids, the HUD and the status bar in the window, driven through AccessKit with
-//! `egui_kittest`: the status bar's segments in the spec's order, its grid menu and snap
-//! button, X running right to left on a board seen from below, the HUD over every canvas,
-//! `Mod`+Shift+G's custom grid form, the Preferences grid tables, and the Properties Grid
-//! region's visible grid switch and style.
+//! Grids and the status bar in the window, driven through AccessKit with `egui_kittest`:
+//! the status bar's segments in the spec's order, its grid menu and snap button, X
+//! running right to left on a board seen from below, ΔX/ΔY in the status bar and not by
+//! the cursor, `Mod`+Shift+G's custom grid form, the Preferences grid tables, and the
+//! Properties Grid region's visible grid switch and style.
 
 use std::path::Path;
 
@@ -101,6 +101,7 @@ fn the_status_bar_segments_run_in_the_specs_order() {
     let pcb = open_board(&mut h);
     over_canvas(&mut h, 0.0);
     let cursor = format!("Cursor: {}", cursor_text(&h));
+    let delta = delta_text(&h);
     let layer = h
         .get_all_by_label_contains("Status bar Layer: ")
         .max_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y))
@@ -123,6 +124,7 @@ fn the_status_bar_segments_run_in_the_specs_order() {
     let order = [
         "Active: PCB Document",
         cursor.as_str(),
+        delta.as_str(),
         "Grid: 0.5 mm",
         "Object snap: Active Layer",
         layer.as_str(),
@@ -231,37 +233,6 @@ fn x_runs_right_to_left_on_a_board_seen_from_below() {
 }
 
 #[test]
-fn the_hud_shows_over_the_sheet_and_the_board_and_shift_h_hides_it() {
-    let home = TempDir::new("gh-hud-home");
-    let work = TempDir::new("gh-hud-work");
-    let mut h = harness(home.path(), work.path());
-    over_canvas(&mut h, 0.0);
-    assert!(
-        h.query_by_label("HUD").is_some(),
-        "on by default on a sheet"
-    );
-    open_board(&mut h);
-    over_canvas(&mut h, 0.0);
-    assert!(h.query_by_label("HUD").is_some(), "and on the board");
-    h.key_press_modifiers(Modifiers::SHIFT, Key::H);
-    h.run();
-    assert!(h.query_by_label("HUD").is_none());
-    // Parked rather than following the cursor, it still shows on the active canvas.
-    h.key_press_modifiers(Modifiers::SHIFT, Key::H);
-    h.state_mut()
-        .shell_mut()
-        .run(
-            "app.preferences.set",
-            json!({"key": "editing.hud.follow_cursor", "value": false}),
-        )
-        .unwrap();
-    h.run();
-    let canvas = h.get_by_role(Role::Canvas).rect();
-    let hud = h.get_by_label("HUD").rect();
-    assert!(hud.min.x < canvas.min.x + 40.0 && hud.max.y > canvas.max.y - 120.0);
-}
-
-#[test]
 fn the_properties_grid_region_switches_the_visible_grid_and_its_style() {
     let home = TempDir::new("gh-props-home");
     let work = TempDir::new("gh-props-work");
@@ -354,4 +325,65 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
         rows(&h),
         reda_ui::engine::preferences::GridTables::sheet().imperial
     );
+}
+
+/// The status bar's ΔX/ΔY segment's screen reader name: "Delta: ΔX … ΔY …".
+fn delta_text(h: &Harness<'static, App>) -> String {
+    let node = h.get_by_label_contains("Delta: ");
+    node.accesskit_node().label().unwrap().to_owned()
+}
+
+/// The delta's ΔX number, and whether its ΔY reads zero.
+fn delta_dx(h: &Harness<'static, App>) -> (f64, bool) {
+    let delta = delta_text(h);
+    let dx = delta.split_whitespace().nth(2).unwrap().parse().unwrap();
+    (dx, delta.contains("ΔY 0.0"))
+}
+
+fn click(h: &mut Harness<'static, App>, pos: Pos2) {
+    h.event(egui::Event::PointerMoved(pos));
+    for pressed in [true, false] {
+        h.event(egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+    }
+    h.run();
+}
+
+#[test]
+fn delta_reads_in_the_status_bar_and_nothing_draws_by_the_cursor() {
+    let home = TempDir::new("gh-delta-home");
+    let work = TempDir::new("gh-delta-work");
+    let mut h = harness(home.path(), work.path());
+    for document in ["sheet", "board"] {
+        if document == "board" {
+            open_board(&mut h);
+        }
+        let canvas = h.get_by_role(Role::Canvas).rect();
+        // A click on the canvas puts the delta origin there.
+        click(&mut h, canvas.center());
+        over_canvas(&mut h, 100.0);
+        let (dx, no_dy) = delta_dx(&h);
+        assert!(dx > 0.0 && no_dy, "{document}: {}", delta_text(&h));
+        // The delta reads once, in the status bar under the canvas, not by the cursor.
+        let shown: Vec<_> = h
+            .get_all_by_label_contains("ΔX ")
+            .map(|n| n.rect())
+            .collect();
+        assert_eq!(shown.len(), 1, "{document}: {shown:?}");
+        assert!(shown[0].min.y >= canvas.max.y, "{document}: {shown:?}");
+
+        // A click on the Active Bar floating over the canvas leaves the origin alone.
+        let select = h
+            .get_all_by_label("Select")
+            .map(|n| n.rect())
+            .find(|r| canvas.contains_rect(*r))
+            .expect("the Active Bar's Select button");
+        click(&mut h, select.center());
+        over_canvas(&mut h, 100.0);
+        assert_eq!(delta_dx(&h), (dx, true), "{document}: {}", delta_text(&h));
+    }
 }

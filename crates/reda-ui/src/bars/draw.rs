@@ -341,7 +341,9 @@ fn icon_button_with(
         Ok(run) => {
             let response = response.on_hover_ui(|ui| {
                 ui.strong(&heading);
-                ui.label(&item.description);
+                if !item.preset {
+                    ui.label(&item.description);
+                }
             });
             if response.clicked() {
                 clicked = Some(run.clone());

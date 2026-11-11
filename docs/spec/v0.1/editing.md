@@ -1,6 +1,6 @@
 # v0.1 shared editing rules
 
-The rules every Document editor follows: selection, snapping, the grid, Properties, numeric expressions, highlighting, the HUD and navigation. Crate: `reda-ui`, with the query Commands in `reda-engine`.
+The rules every Document editor follows: selection, snapping, the grid, Properties, numeric expressions, highlighting, the delta and navigation. Crate: `reda-ui`, with the query Commands in `reda-engine`.
 
 Source: [How do selection, snapping, grids and Properties work across editors?](https://github.com/openreda/reda/issues/139). Modelled on the leading suite. Each difference says why.
 
@@ -182,15 +182,16 @@ As in the leading suite, each canvas has its own gesture:
 - **PCB:** `Mod`+click highlights a Net, Shift+`Mod`+click adds one, and `Mod`+click on empty space clears. A `Mod`+drag still detaches, because only a click without movement highlights. In the [polygon editor](pcb.md#polygon-editor), `Mod`+click on an edge of the polygon being edited still inserts a vertex.
 - **Schematic:** Alt+click highlights a Net, Shift+Alt+click adds one, and the [existing clears](schematic.md#editing) stay. The context menu offers the same, because some Linux window managers take Alt+click.
 
-## HUD
+## Delta
 
-A small readout by the cursor on every canvas, drawn over the canvas like the Active Bar. It is on by default.
+ΔX/ΔY, how far the cursor has moved since the last click on the canvas, reads in the [status bar](app.md#window-shell) after X/Y. It is on by default (**Show ΔX/ΔY from the last click**, a Preference).
 
-- **Items**, each with a checkbox in Preferences: X/Y, ΔX/ΔY from the last click, Layer and grid.
-- **Keys:** Shift+H toggles it, Shift+D toggles the delta line, and Insert resets the delta, as a click does. Insert stays add-vertex in the Wire Tool, because the Tool context wins.
-- **Follow cursor or parked** is a Preference only, because Shift+G is the reverse grid cycle.
+- **Keys:** Shift+D hides or shows it for the session, and Insert resets it, as a click does. Insert stays add-vertex in the Wire Tool, because the Tool context wins.
+- A click on a bar floating over the canvas doesn't reset it.
 
-It runs on every canvas because Wire and Symbol work benefit from the same deltas as the board. Hover mode is v0.2.
+It runs on every canvas because Wire and Symbol work benefit from the same deltas as the board.
+
+**No HUD.** The leading suite also shows a readout by the cursor. REDA doesn't: everything it would show (X/Y, the delta, the Layer and the grid) is already in the status bar, and a box following the pointer covered the Active Bar's tooltips and made the canvas busy.
 
 ## Navigation
 
@@ -211,4 +212,4 @@ It runs on every canvas because Wire and Symbol work benefit from the same delta
 
 ## Later
 
-Arrow keys moving the cursor, grid X ≠ Y, axis alignment guides, and HUD hover mode are v0.2. Guides, polar grids and Component-only grids are v0.3.
+Arrow keys moving the cursor, grid X ≠ Y, and axis alignment guides are v0.2. Guides, polar grids and Component-only grids are v0.3.

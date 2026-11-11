@@ -44,7 +44,6 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         (1, "Grid"),
         (1, "Auto-pan"),
         (1, "Highlight"),
-        (1, "HUD"),
         (0, "Schematic"),
         (1, "Wires"),
         (1, "Names & Units"),

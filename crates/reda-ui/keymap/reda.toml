@@ -65,20 +65,16 @@ command = "view.ui_scale.step:down"
 key = "Mod+0"
 command = "view.ui_scale.set:100"
 
-# The HUD: Shift+H toggles it, Shift+D its delta line, and Insert resets the delta (the
-# Wire Tool's Insert still adds a vertex: the Tool context wins).
-
-[[bind]]
-key = "Shift+H"
-command = "view.hud.toggle"
+# The status bar's ΔX/ΔY: Shift+D shows or hides it, and Insert resets it (the Wire
+# Tool's Insert still adds a vertex: the Tool context wins).
 
 [[bind]]
 key = "Shift+D"
-command = "view.hud.delta"
+command = "view.delta.toggle"
 
 [[bind]]
 key = "Insert"
-command = "view.hud.reset_delta"
+command = "view.delta.reset"
 params = { document = "$active_document" }
 
 # Keys in Tool: Shift+F1 toggles the card of the active Tool's keys.

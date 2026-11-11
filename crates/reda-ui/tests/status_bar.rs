@@ -1,8 +1,9 @@
-//! The status bar's readout and the HUD, through the Shell with no window: the active
-//! Document's kind, the cursor's X/Y in that Document's units at the display precision,
-//! its grid, object snap mode, Layer and prompt; and the HUD's items and keys.
+//! The status bar's readout, through the Shell with no window: the active Document's
+//! kind, the cursor's X/Y in that Document's units at the display precision, ΔX/ΔY from
+//! the last click and its keys, the grid, object snap mode, Layer and prompt.
 
 use reda_testkit::TempDir;
+use reda_ui::bars;
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::model::Uuid;
@@ -10,7 +11,6 @@ use reda_ui::engine::model::geom::{Nm, Point};
 use reda_ui::keymap::{self, Chord};
 use reda_ui::shell::Shell;
 use reda_ui::status_bar::{Readout, readout};
-use reda_ui::{bars, hud};
 use serde_json::json;
 
 fn shell(home: &TempDir) -> Shell {
@@ -177,10 +177,25 @@ fn the_prompt_names_the_object_under_the_cursor_with_no_tool() {
         .unwrap();
     shell.pcb_hover(Point::new(Nm::from_mm(5), Nm::from_mm(5)));
     assert_eq!(readout(&shell).prompt.as_deref(), Some("Via"));
+    // A locked object says so.
+    let via = shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .vias()
+        .next()
+        .unwrap()
+        .uuid;
+    shell
+        .run("pcb.lock", json!({"objects": [via], "locked": true}))
+        .unwrap();
+    assert_eq!(readout(&shell).prompt.as_deref(), Some("Via · Locked"));
 }
 
 #[test]
-fn the_hud_shows_its_items_and_its_keys_toggle_it_and_reset_the_delta() {
+fn the_delta_counts_from_the_last_click_and_its_keys_hide_and_reset_it() {
     let home = TempDir::new("status-home");
     let work = TempDir::new("status-work");
     let mut shell = shell(&home);
@@ -189,48 +204,40 @@ fn the_hud_shows_its_items_and_its_keys_toggle_it_and_reset_the_delta() {
     shell
         .run("document.open", json!({"document": pcb}))
         .unwrap();
-    assert!(hud::lines(&shell, pcb).is_empty(), "no cursor yet");
+    assert_eq!(readout(&shell).delta, None, "no cursor yet");
     shell.pcb_hover(Point::new(Nm::from_mm(2), Nm::from_mm(1)));
-    let lines = hud::lines(&shell, pcb);
-    assert_eq!(lines.len(), 4, "{lines:?}");
-    assert_eq!(lines[0], "X 2.000 mm  Y 1.000 mm");
-    assert_eq!(lines[1], "ΔX 2.000 mm  ΔY 1.000 mm");
-    assert!(lines[2].starts_with("Layer: "), "{lines:?}");
-    assert_eq!(lines[3], "Grid: 0.5 mm");
+    let shown = readout(&shell);
+    assert_eq!(shown.cursor.as_deref(), Some("X 2.000 mm  Y 1.000 mm"));
+    assert_eq!(shown.delta.as_deref(), Some("ΔX 2.000 mm  ΔY 1.000 mm"));
 
     // Insert puts the delta origin at the cursor, as a click does.
     press(&mut shell, pcb, "Insert");
-    assert_eq!(hud::lines(&shell, pcb)[1], "ΔX 0.000 mm  ΔY 0.000 mm");
-    shell.pcb_hover(Point::new(Nm::from_mm(3), Nm::from_mm(0)));
-    assert_eq!(hud::lines(&shell, pcb)[1], "ΔX 1.000 mm  ΔY -1.000 mm");
-
-    // Shift+D hides the delta line; Shift+H the whole HUD.
-    press(&mut shell, pcb, "Shift+D");
-    assert!(!hud::lines(&shell, pcb).iter().any(|l| l.starts_with("ΔX")));
-    press(&mut shell, pcb, "Shift+D");
-    press(&mut shell, pcb, "Shift+H");
-    assert!(!hud::shown(&shell));
-    assert!(hud::lines(&shell, pcb).is_empty());
-    press(&mut shell, pcb, "Shift+H");
-    assert!(hud::shown(&shell));
-
-    // Each item has its checkbox in Preferences.
-    for key in ["xy", "layer"] {
-        shell
-            .run(
-                "app.preferences.set",
-                json!({"key": format!("editing.hud.{key}"), "value": false}),
-            )
-            .unwrap();
-    }
     assert_eq!(
-        hud::lines(&shell, pcb),
-        ["ΔX 1.000 mm  ΔY -1.000 mm", "Grid: 0.5 mm"]
+        readout(&shell).delta.as_deref(),
+        Some("ΔX 0.000 mm  ΔY 0.000 mm")
     );
+    shell.pcb_hover(Point::new(Nm::from_mm(3), Nm::from_mm(0)));
+    assert_eq!(
+        readout(&shell).delta.as_deref(),
+        Some("ΔX 1.000 mm  ΔY -1.000 mm")
+    );
+
+    // Shift+D hides it for the session; the `editing.delta` Preference sets the default.
+    press(&mut shell, pcb, "Shift+D");
+    assert_eq!(readout(&shell).delta, None);
+    press(&mut shell, pcb, "Shift+D");
+    assert!(readout(&shell).delta.is_some());
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "editing.delta", "value": false}),
+        )
+        .unwrap();
+    assert_eq!(readout(&shell).delta, None);
 }
 
 #[test]
-fn the_hud_runs_on_a_sheet_and_insert_stays_add_vertex_in_the_wire_tool() {
+fn the_delta_runs_on_a_sheet_and_insert_stays_add_vertex_in_the_wire_tool() {
     let home = TempDir::new("status-home");
     let work = TempDir::new("status-work");
     let mut shell = shell(&home);
@@ -238,16 +245,15 @@ fn the_hud_runs_on_a_sheet_and_insert_stays_add_vertex_in_the_wire_tool() {
     let sheet = shell.active_document().unwrap().document;
     shell.document_tab_mut(sheet).unwrap().cursor = Some((254_000.0, 0.0));
     assert_eq!(
-        hud::lines(&shell, sheet),
-        [
-            "X 10.0 mil  Y 0.0 mil",
-            "ΔX 10.0 mil  ΔY 0.0 mil",
-            "Grid: 50 mil"
-        ]
+        readout(&shell).delta.as_deref(),
+        Some("ΔX 10.0 mil  ΔY 0.0 mil")
     );
     // With the Select Tool and no Wire segment held, Insert resets the delta.
     press(&mut shell, sheet, "Insert");
-    assert_eq!(hud::lines(&shell, sheet)[1], "ΔX 0.0 mil  ΔY 0.0 mil");
+    assert_eq!(
+        readout(&shell).delta.as_deref(),
+        Some("ΔX 0.0 mil  ΔY 0.0 mil")
+    );
     // In the Wire Tool, the Tool context wins: Insert adds a vertex.
     shell.run("tool.activate:wire", json!({})).unwrap();
     let chord = Chord::parse("Insert").unwrap();
@@ -257,4 +263,49 @@ fn the_hud_runs_on_a_sheet_and_insert_stays_add_vertex_in_the_wire_tool() {
         bars::resolve_for(&shell, &action, Some(sheet)).command,
         "tool.insert_vertex"
     );
+}
+
+#[test]
+fn the_delta_runs_in_the_symbol_and_footprint_editors() {
+    const LIBRARY: &str = "000000aa-0000-4000-8000-000000000000";
+    let home = TempDir::new("status-home");
+    let lib = home.path().join("lib");
+    std::fs::create_dir_all(&lib).unwrap();
+    let info = reda_ui::engine::model::LibraryInfo {
+        uuid: LIBRARY.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(
+        lib.join("Mine.redalib"),
+        reda_ui::engine::format::library::write_library_info(&info).unwrap(),
+    )
+    .unwrap();
+    let mut shell = shell(&home);
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "libraries.paths", "value": [lib]}),
+        )
+        .unwrap();
+    for kind in ["symbol", "footprint"] {
+        let out = shell
+            .run(
+                "library.element.new",
+                json!({"library": LIBRARY, "kind": kind, "name": kind}),
+            )
+            .unwrap();
+        let element: Uuid = out["element"].as_str().unwrap().parse().unwrap();
+        shell.document_tab_mut(element).unwrap().cursor = Some((1_000_000.0, 0.0));
+        let delta = readout(&shell)
+            .delta
+            .unwrap_or_else(|| panic!("{kind}: no delta"));
+        assert!(
+            delta.starts_with("ΔX ") && !delta.starts_with("ΔX 0"),
+            "{kind}: {delta}"
+        );
+        press(&mut shell, element, "Insert");
+        let delta = readout(&shell).delta.unwrap();
+        assert!(delta.starts_with("ΔX 0.0"), "{kind}: {delta}");
+    }
 }
