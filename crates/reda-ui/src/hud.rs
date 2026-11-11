@@ -138,9 +138,10 @@ pub fn show(ui: &Ui, shell: &mut Shell, document: Uuid, rect: Rect, active: bool
     if lines.is_empty() {
         return;
     }
+    // Over a bar floating on the canvas the HUD would sit where that bar's tooltips open.
     let hover = ui
         .input(|i| i.pointer.hover_pos())
-        .filter(|p| rect.contains(*p));
+        .filter(|p| rect.contains(*p) && ui.ctx().layer_id_at(*p) == Some(ui.layer_id()));
     let follow = shell.preferences().editing.hud.follow_cursor;
     let (at, pivot): (Pos2, Align2) = match (follow, hover) {
         (true, Some(p)) => (p + vec2(OFFSET, OFFSET), Align2::LEFT_TOP),

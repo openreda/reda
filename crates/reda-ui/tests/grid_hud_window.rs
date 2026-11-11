@@ -261,6 +261,66 @@ fn the_hud_shows_over_the_sheet_and_the_board_and_shift_h_hides_it() {
     assert!(hud.min.x < canvas.min.x + 40.0 && hud.max.y > canvas.max.y - 120.0);
 }
 
+/// The box of the tooltip showing now: a tooltip node has no bounds of its own, so its
+/// contents' bounds make it.
+fn tooltip(h: &Harness<'static, App>) -> Option<egui::Rect> {
+    let rect = |n: egui_kittest::Node<'_>| {
+        let b = n.accesskit_node().bounding_box()?;
+        Some(egui::Rect::from_min_max(
+            Pos2::new(b.x0 as f32, b.y0 as f32),
+            Pos2::new(b.x1 as f32, b.y1 as f32),
+        ))
+    };
+    h.query_all_by_role(Role::Tooltip).find_map(|t| {
+        t.query_all(egui_kittest::kittest::by())
+            .filter_map(rect)
+            .reduce(|a, b| a.union(b))
+    })
+}
+
+/// Crosses the canvas up to the Active Bar's `label` button and rests there until its
+/// tooltip opens.
+fn rest_on_bar_button(h: &mut Harness<'static, App>, label: &str) {
+    let canvas = h.get_by_role(Role::Canvas).rect();
+    let button = h
+        .get_all_by_role_and_label(Role::Button, label)
+        .map(|n| n.rect())
+        .find(|r| canvas.contains_rect(*r))
+        .unwrap();
+    for dy in [150.0, 30.0, 0.0] {
+        h.event(egui::Event::PointerMoved(
+            button.center() + egui::vec2(0.0, dy),
+        ));
+        h.run_steps(5);
+    }
+    // Past egui's half-second tooltip delay.
+    h.run_steps(40);
+}
+
+#[test]
+fn the_hud_keeps_off_the_active_bar_so_its_tooltips_show_whole() {
+    let home = TempDir::new("gh-hud-bar-home");
+    let work = TempDir::new("gh-hud-bar-work");
+    let mut h = harness(home.path(), work.path());
+    for (document, label) in [("sheet", "Wire"), ("board", "Route Tracks")] {
+        if document == "board" {
+            open_board(&mut h);
+        }
+        rest_on_bar_button(&mut h, label);
+        let tip = tooltip(&h).unwrap_or_else(|| panic!("{document}: no tooltip on {label}"));
+        if let Some(hud) = h.query_by_label("HUD") {
+            let hud = hud.rect();
+            assert!(
+                !hud.intersects(tip),
+                "{document}: the HUD {hud:?} covers {label}'s tooltip {tip:?}"
+            );
+        }
+        // Back on the canvas, the HUD follows the pointer again.
+        over_canvas(&mut h, 0.0);
+        assert!(h.query_by_label("HUD").is_some(), "{document}: no HUD");
+    }
+}
+
 #[test]
 fn the_properties_grid_region_switches_the_visible_grid_and_its_style() {
     let home = TempDir::new("gh-props-home");
