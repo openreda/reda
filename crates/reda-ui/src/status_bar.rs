@@ -174,8 +174,8 @@ fn prompt(shell: &Shell, document: Uuid) -> Option<String> {
     hovered(shell, document)
 }
 
-/// A summary of the topmost object under the cursor: its kind and, for a Component, its
-/// Designator.
+/// A summary of the topmost object under the cursor: its kind, for a Component its
+/// Designator, and "Locked" when it is locked (docs/spec/v0.1/pcb.md#locks).
 fn hovered(shell: &Shell, document: Uuid) -> Option<String> {
     let tab = shell.document_tab(document)?;
     let at = if shell.is_pcb(document) {
@@ -203,9 +203,13 @@ fn hovered(shell: &Shell, document: Uuid) -> Option<String> {
     let name = ["designator", "name", "text"]
         .iter()
         .find_map(|k| value[*k].as_str().filter(|s| !s.is_empty()));
-    Some(match name {
+    let summary = match name {
         Some(name) => format!("{title} {name}"),
         None => title,
+    };
+    Some(match value["locked"].as_bool() {
+        Some(true) => tr!("status-hover-locked", summary = summary),
+        _ => summary,
     })
 }
 
@@ -237,7 +241,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     }
     if let Some(delta) = &readout.delta {
         ui.separator();
-        button(ui, delta, delta.clone());
+        button(ui, delta, tr!("status-delta-name", delta = delta.as_str()));
     }
     if let Some(grid_text) = &readout.grid {
         ui.separator();

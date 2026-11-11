@@ -206,8 +206,11 @@ pub fn document_type(shell: &Shell, document: Uuid) -> Option<DocumentType> {
 pub struct Resolved {
     pub title: String,
     pub icon: String,
-    /// The Command's description, for the tooltip; empty for a Preset.
+    /// The Command's description, for a menu item's tooltip.
     pub description: String,
+    /// Bound to a Preset, whose Command's description covers every Preset: an icon
+    /// button's tooltip then shows just the name and key.
+    pub preset: bool,
     /// The Command id without any Preset, and the params it would run with.
     pub command: String,
     pub params: Value,
@@ -264,6 +267,7 @@ pub fn resolve_in(
             title: run_id.clone(),
             icon: String::new(),
             description: String::new(),
+            preset: false,
             command,
             params,
             run: Err(tr!("bars-unknown-command", command = run_id)),
@@ -383,16 +387,11 @@ pub fn resolve_in(
     if matches!(action.binding, Binding::Raw { .. }) {
         shown_params = params.clone();
     }
-    // A Preset has no description of its own, and its Command's, written for agents too,
-    // covers every Preset: its tooltip shows just the name and key.
-    let description = match action.binding {
-        Binding::Preset(_) => String::new(),
-        _ => meta.description.to_owned(),
-    };
     Resolved {
         title,
         icon,
-        description,
+        description: meta.description.to_owned(),
+        preset: matches!(action.binding, Binding::Preset(_)),
         command,
         params: shown_params,
         run,

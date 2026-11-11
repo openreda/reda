@@ -123,7 +123,7 @@ impl Command for DeltaToggle {
         description: "Shows or hides the status bar's ΔX/ΔY from the last click for the \
                       session. The `editing.delta` Preference sets the default.",
         category: "view",
-        icon: "grid",
+        icon: "measure",
         kind: Kind::View,
     };
     type Params = NoParams;
@@ -147,7 +147,7 @@ impl Command for DeltaReset {
         description: "Makes the cursor's position the origin the status bar's ΔX/ΔY count \
                       from, as a click on the canvas does.",
         category: "view",
-        icon: "grid",
+        icon: "measure",
         kind: Kind::View,
     };
     type Params = DocumentParams;

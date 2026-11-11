@@ -1,9 +1,8 @@
 //! Grids and the status bar in the window, driven through AccessKit with `egui_kittest`:
 //! the status bar's segments in the spec's order, its grid menu and snap button, X
-//! running right to left on a board seen from below, ΔX/ΔY in the status bar, not by the
-//! cursor,
-//! `Mod`+Shift+G's custom grid form, the Preferences grid tables, and the Properties Grid
-//! region's visible grid switch and style.
+//! running right to left on a board seen from below, ΔX/ΔY in the status bar and not by
+//! the cursor, `Mod`+Shift+G's custom grid form, the Preferences grid tables, and the
+//! Properties Grid region's visible grid switch and style.
 
 use std::path::Path;
 
@@ -328,10 +327,30 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
     );
 }
 
-/// The status bar's ΔX/ΔY segment.
+/// The status bar's ΔX/ΔY segment's screen reader name: "Delta: ΔX … ΔY …".
 fn delta_text(h: &Harness<'static, App>) -> String {
-    let node = h.get_by_label_contains("ΔX ");
+    let node = h.get_by_label_contains("Delta: ");
     node.accesskit_node().label().unwrap().to_owned()
+}
+
+/// The delta's ΔX number, and whether its ΔY reads zero.
+fn delta_dx(h: &Harness<'static, App>) -> (f64, bool) {
+    let delta = delta_text(h);
+    let dx = delta.split_whitespace().nth(2).unwrap().parse().unwrap();
+    (dx, delta.contains("ΔY 0.0"))
+}
+
+fn click(h: &mut Harness<'static, App>, pos: Pos2) {
+    h.event(egui::Event::PointerMoved(pos));
+    for pressed in [true, false] {
+        h.event(egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+    }
+    h.run();
 }
 
 #[test]
@@ -343,23 +362,28 @@ fn delta_reads_in_the_status_bar_and_nothing_draws_by_the_cursor() {
         if document == "board" {
             open_board(&mut h);
         }
-        over_canvas(&mut h, 0.0);
-        assert!(h.query_by_label("HUD").is_none(), "{document}: a HUD");
-        // A click on the canvas puts the delta origin there.
         let canvas = h.get_by_role(Role::Canvas).rect();
-        for pressed in [true, false] {
-            h.event(egui::Event::PointerButton {
-                pos: canvas.center(),
-                button: egui::PointerButton::Primary,
-                pressed,
-                modifiers: Modifiers::NONE,
-            });
-        }
-        h.run();
+        // A click on the canvas puts the delta origin there.
+        click(&mut h, canvas.center());
         over_canvas(&mut h, 100.0);
-        let delta = delta_text(&h);
-        let dx: f64 = delta.split_whitespace().nth(1).unwrap().parse().unwrap();
-        assert!(dx > 0.0, "{document}: {delta}");
-        assert!(delta.contains("ΔY 0.0"), "{document}: {delta}");
+        let (dx, no_dy) = delta_dx(&h);
+        assert!(dx > 0.0 && no_dy, "{document}: {}", delta_text(&h));
+        // The delta reads once, in the status bar under the canvas, not by the cursor.
+        let shown: Vec<_> = h
+            .get_all_by_label_contains("ΔX ")
+            .map(|n| n.rect())
+            .collect();
+        assert_eq!(shown.len(), 1, "{document}: {shown:?}");
+        assert!(shown[0].min.y >= canvas.max.y, "{document}: {shown:?}");
+
+        // A click on the Active Bar floating over the canvas leaves the origin alone.
+        let select = h
+            .get_all_by_label("Select")
+            .map(|n| n.rect())
+            .find(|r| canvas.contains_rect(*r))
+            .expect("the Active Bar's Select button");
+        click(&mut h, select.center());
+        over_canvas(&mut h, 100.0);
+        assert_eq!(delta_dx(&h), (dx, true), "{document}: {}", delta_text(&h));
     }
 }

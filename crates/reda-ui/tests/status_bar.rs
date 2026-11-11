@@ -177,6 +177,21 @@ fn the_prompt_names_the_object_under_the_cursor_with_no_tool() {
         .unwrap();
     shell.pcb_hover(Point::new(Nm::from_mm(5), Nm::from_mm(5)));
     assert_eq!(readout(&shell).prompt.as_deref(), Some("Via"));
+    // A locked object says so.
+    let via = shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .vias()
+        .next()
+        .unwrap()
+        .uuid;
+    shell
+        .run("pcb.lock", json!({"objects": [via], "locked": true}))
+        .unwrap();
+    assert_eq!(readout(&shell).prompt.as_deref(), Some("Via · Locked"));
 }
 
 #[test]
@@ -248,4 +263,49 @@ fn the_delta_runs_on_a_sheet_and_insert_stays_add_vertex_in_the_wire_tool() {
         bars::resolve_for(&shell, &action, Some(sheet)).command,
         "tool.insert_vertex"
     );
+}
+
+#[test]
+fn the_delta_runs_in_the_symbol_and_footprint_editors() {
+    const LIBRARY: &str = "000000aa-0000-4000-8000-000000000000";
+    let home = TempDir::new("status-home");
+    let lib = home.path().join("lib");
+    std::fs::create_dir_all(&lib).unwrap();
+    let info = reda_ui::engine::model::LibraryInfo {
+        uuid: LIBRARY.parse().unwrap(),
+        name: "Mine".into(),
+        description: String::new(),
+    };
+    std::fs::write(
+        lib.join("Mine.redalib"),
+        reda_ui::engine::format::library::write_library_info(&info).unwrap(),
+    )
+    .unwrap();
+    let mut shell = shell(&home);
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "libraries.paths", "value": [lib]}),
+        )
+        .unwrap();
+    for kind in ["symbol", "footprint"] {
+        let out = shell
+            .run(
+                "library.element.new",
+                json!({"library": LIBRARY, "kind": kind, "name": kind}),
+            )
+            .unwrap();
+        let element: Uuid = out["element"].as_str().unwrap().parse().unwrap();
+        shell.document_tab_mut(element).unwrap().cursor = Some((1_000_000.0, 0.0));
+        let delta = readout(&shell)
+            .delta
+            .unwrap_or_else(|| panic!("{kind}: no delta"));
+        assert!(
+            delta.starts_with("ΔX ") && !delta.starts_with("ΔX 0"),
+            "{kind}: {delta}"
+        );
+        press(&mut shell, element, "Insert");
+        let delta = readout(&shell).delta.unwrap();
+        assert!(delta.starts_with("ΔX 0.0"), "{kind}: {delta}");
+    }
 }

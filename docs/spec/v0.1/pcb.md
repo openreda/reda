@@ -104,7 +104,7 @@ Source: [What do PCB placement, text, dimensions, measuring and view add?](https
   - Off: moving or rotating one asks for confirmation.
   - The docs don't state the leading suite's default, so on is from memory of it.
 - **Other Tools:** [loop removal](#loop-removal) keeps a locked Track, with a note. A [Track drag](#dragging-tracks) stops at a locked neighbour. [Silkscreen Preparation](#silkscreen-preparation) skips locked objects unless told otherwise.
-- **Showing it:** a lock glyph on hover and selection, and the pick list's lock icon.
+- **Showing it:** a lock glyph on hover and selection, "Locked" after the object's name in the status bar's hover summary ("Footprint U1 · Locked"), and the pick list's lock icon.
 
 ### Placed Pad edits
 

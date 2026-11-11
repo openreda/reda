@@ -496,6 +496,10 @@ _Avoid_: Track toolbar, mode bar
 The bar at the bottom of the canvas while Footprints are selected or moving, showing and switching how they move.
 _Avoid_: Move toolbar, placement toolbar
 
+**Delta**:
+How far the cursor has moved since the last click on a canvas, read as ΔX/ΔY in the status bar.
+_Avoid_: HUD, cursor readout, relative coordinates
+
 **Selection Filter**:
 The per-kind switches that decide which kinds of object a click or rectangle can pick; filtered kinds stay visible.
 _Avoid_: Pick mask, selection mask
