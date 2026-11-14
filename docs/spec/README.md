@@ -9,7 +9,7 @@ This spec gathers the decisions made on the [wayfinder map](https://github.com/o
 | File | What it holds |
 |---|---|
 | [`modules.md`](modules.md) | Every planned module, the milestones from v0.1 to after 1.0, and how each module fits the one app and the crate layering. |
-| [`v0.1/README.md`](v0.1/README.md) | The v0.1 milestone: schematic → 2-layer PCB → Gerber/drill/BOM/CPL. It is specified tightly enough to slice into agent tickets, with one file per area. |
+| [`v0.1/README.md`](v0.1/README.md) | The v0.1 milestone: schematic → 2-layer PCB → Gerber/drill/BOM/CPL. It is specified tightly enough to slice into agent tickets, with one file per area. The chrome's look is in [`v0.1/design-language.md`](v0.1/design-language.md). |
 | This file | Product principles, the ADR index, and the open points. |
 
 ## Product principles
@@ -37,6 +37,10 @@ This spec gathers the decisions made on the [wayfinder map](https://github.com/o
 | [0009](../adr/0009-one-model-crate-behaviour-crates-above.md) | All persisted data lives in one model crate, with behaviour crates above it. |
 | [0010](../adr/0010-canvas-drawn-by-own-wgpu-renderer.md) | Canvases are drawn by REDA's own wgpu renderer inside egui. |
 | [0011](../adr/0011-own-docking-layer.md) | REDA writes its own docking layer, and Documents are ordinary tabs. |
+| [0012](../adr/0012-design-rules-are-scoped-records.md) | Design rules are scoped records in one table from v0.1, board-wide and per Net Class. |
+| [0013](../adr/0013-placed-pads-edit-a-local-footprint-copy.md) | Editing a placed Footprint's Pads gives that instance a local Footprint copy, which Sync does not revert. |
+| [0014](../adr/0014-reda-draws-its-own-title-bar.md) | REDA draws its own Title bar on Wayland, Windows and macOS, merged with the menus, with the system title bar as a fallback. |
+| [0015](../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md) | Chrome styling goes through one `Tokens` value and REDA widgets, enforced by a source-scanning test. |
 
 ## Research behind the decisions
 
