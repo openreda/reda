@@ -4,6 +4,9 @@
 //! (`pref-<key>`, dots and underscores written as `-`), else from the schema's
 //! description.
 
+use std::collections::BTreeMap;
+use std::sync::{Mutex, PoisonError};
+
 use reda_engine::preferences::{self, pages};
 use serde_json::Value;
 
@@ -83,12 +86,24 @@ pub fn preference_keys() -> Vec<String> {
 /// keys (from [`pages::page_of`]) without the hidden ones. On the Editing pages, which
 /// hold a value per Document type, the Schematic values come first under their heading,
 /// then the PCB ones.
+///
+/// The lists only change with the build (the schema and the catalogue are fixed while
+/// the app runs), so each page's is made once and the window's every frame reads it.
 pub fn settings_on(page: PageId) -> Vec<Setting> {
+    static PAGES: Mutex<BTreeMap<&'static str, Vec<Setting>>> = Mutex::new(BTreeMap::new());
+    let mut pages = PAGES.lock().unwrap_or_else(PoisonError::into_inner);
+    pages
+        .entry(page.id())
+        .or_insert_with(|| make_settings_on(page))
+        .clone()
+}
+
+fn make_settings_on(page: PageId) -> Vec<Setting> {
     let schema = preferences::schema();
     if page == PageId::ALL_SETTINGS {
         return preference_keys()
             .into_iter()
-            .map(|k| setting_in(&schema, k))
+            .map(|k| setting_in(schema, k))
             .collect();
     }
     let mut keys: Vec<String> = pages::keys_on(page.id(), false)
@@ -104,12 +119,12 @@ pub fn settings_on(page: PageId) -> Vec<Setting> {
         (per_document(key).is_some_and(|s| s != "schematic"), order)
     };
     keys.sort_by_key(|k| rank(k));
-    keys.into_iter().map(|k| setting_in(&schema, k)).collect()
+    keys.into_iter().map(|k| setting_in(schema, k)).collect()
 }
 
 /// The setting of one key, wherever it is shown.
 pub fn setting(key: &str) -> Setting {
-    setting_in(&preferences::schema(), key.to_owned())
+    setting_in(preferences::schema(), key.to_owned())
 }
 
 /// The Document type section of a key on an Editing page, where each Document type has
@@ -148,7 +163,7 @@ pub fn matches(setting: &Setting, query: &str) -> bool {
 
 fn setting_in(schema: &Value, key: String) -> Setting {
     let node = node(schema, &key);
-    let resolved = resolve(schema, &node);
+    let resolved = resolve(schema, node);
     let description = node["description"]
         .as_str()
         .or_else(|| resolved["description"].as_str())
@@ -173,7 +188,7 @@ fn setting_in(schema: &Value, key: String) -> Setting {
         })
     });
     Setting {
-        kind: kind(schema, &node, &key),
+        kind: kind(schema, node, &key),
         label,
         description,
         heading,
@@ -182,22 +197,22 @@ fn setting_in(schema: &Value, key: String) -> Setting {
 }
 
 /// The schema node of a dotted key, as its parent's `properties` has it.
-fn node(schema: &Value, key: &str) -> Value {
-    let mut node = schema.clone();
+fn node<'s>(schema: &'s Value, key: &str) -> &'s Value {
+    let mut node = schema;
     for segment in key.split('.') {
-        node = resolve(schema, &node)["properties"][segment].clone();
+        node = &resolve(schema, node)["properties"][segment];
     }
     node
 }
 
 /// Follows a `$ref` into `$defs`.
-fn resolve(schema: &Value, node: &Value) -> Value {
+fn resolve<'s>(schema: &'s Value, node: &'s Value) -> &'s Value {
     match node["$ref"]
         .as_str()
         .and_then(|r| r.strip_prefix("#/$defs/"))
     {
-        Some(name) => schema["$defs"][name].clone(),
-        None => node.clone(),
+        Some(name) => &schema["$defs"][name],
+        None => node,
     }
 }
 

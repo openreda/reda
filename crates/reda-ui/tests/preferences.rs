@@ -111,7 +111,7 @@ fn every_schema_key_appears_on_all_settings() {
     }
     let schema = reda_ui::engine::preferences::schema();
     let mut keys = Vec::new();
-    schema_keys(&schema, &schema, "", &mut keys);
+    schema_keys(schema, schema, "", &mut keys);
     assert!(keys.len() > 40, "{keys:?}");
 
     let home = TempDir::new("prefs-all-settings");

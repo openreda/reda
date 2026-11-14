@@ -450,3 +450,28 @@ fn empty_it_shows_recent_items_then_the_documents() {
     assert!(rows[0].contains("recently used"), "{rows:?}");
     assert!(starts(2, "Sheet 1") && starts(3, "Demo"), "{rows:?}");
 }
+
+#[test]
+fn the_list_grows_back_after_a_short_one() {
+    // Empty, the Palette lists the two Documents; `>` then lists every Command, and the
+    // list takes its full height again instead of keeping the two rows' height.
+    let work = TempDir::new("palette-ui-work");
+    let mut h = demo(work.path());
+    h.key_press_modifiers(Modifiers::COMMAND, Key::P);
+    h.run();
+    assert_eq!(row_labels(&h, &["Sheet 1", "Demo"]).len(), 2);
+    h.get_by_role_and_label(Role::TextInput, "Command Palette")
+        .type_text(">");
+    h.run();
+    let input = h
+        .get_by_role_and_label(Role::TextInput, "Command Palette")
+        .rect();
+    // Where the eighth row sits: rows are about 23 points apart.
+    let eighth = egui::pos2(input.center().x, input.bottom() + 8.0 * 23.0);
+    let layer = h.ctx.layer_id_at(eighth).map(|l| l.order);
+    assert_eq!(
+        layer,
+        Some(egui::Order::Foreground),
+        "the list is cut short"
+    );
+}

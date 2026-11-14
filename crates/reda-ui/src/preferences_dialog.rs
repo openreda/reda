@@ -12,6 +12,7 @@
 //! drawn by [`PreferencesDialog::show`] (in `preferences_dialog/draw.rs`).
 
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use reda_engine::command::CommandError;
 use reda_engine::preferences::{self, Preferences, pages};
@@ -72,14 +73,18 @@ impl PageId {
 
     /// The pages the tree lists, in order: each page with settings or content of its own,
     /// or with such a page under it. Pages that later settings fill are left out until
-    /// then.
+    /// then. It only changes with the build, so it is made once.
     pub fn tree() -> Vec<PageId> {
-        let filled: Vec<PageId> = PageId::every()
-            .filter(|p| PageId::OWN_CONTENT.contains(p) || !p.settings().is_empty())
-            .collect();
-        PageId::every()
-            .filter(|p| filled.iter().any(|f| f.is_in(*p)))
-            .collect()
+        static TREE: OnceLock<Vec<PageId>> = OnceLock::new();
+        TREE.get_or_init(|| {
+            let filled: Vec<PageId> = PageId::every()
+                .filter(|p| PageId::OWN_CONTENT.contains(p) || !p.settings().is_empty())
+                .collect();
+            PageId::every()
+                .filter(|p| filled.iter().any(|f| f.is_in(*p)))
+                .collect()
+        })
+        .clone()
     }
 
     /// The page with the tree id `id`, such as `editing.snap`.
@@ -239,7 +244,7 @@ impl PreferencesDialog {
 
     /// Whether `key` differs from its default, which enables its Reset.
     pub fn can_reset(&self, shell: &Shell, key: &str) -> bool {
-        value(shell.preferences(), key) != value(&Preferences::default(), key)
+        value(shell.preferences(), key) != leaf(defaults(), key)
     }
 
     /// The value of `key` now.
@@ -302,9 +307,12 @@ impl PreferencesDialog {
     /// How many settings on `page` (its own, not its sub-pages') differ from their
     /// defaults; on All settings, every changed setting.
     pub fn modified_count(&self, shell: &Shell, page: PageId) -> usize {
+        // Every page's count is drawn each frame: the Preferences are written out once
+        // here rather than once per key.
+        let now = serde_json::to_value(shell.preferences()).expect("Preferences serialise");
         page.keys(false)
             .iter()
-            .filter(|k| self.can_reset(shell, k))
+            .filter(|k| leaf(&now, k) != leaf(defaults(), k))
             .count()
     }
 
@@ -515,6 +523,20 @@ fn as_text(value: &Value) -> String {
         Value::String(s) => s.clone(),
         other => other.to_string(),
     }
+}
+
+/// The defaults as JSON, made once.
+fn defaults() -> &'static Value {
+    static DEFAULTS: OnceLock<Value> = OnceLock::new();
+    DEFAULTS.get_or_init(|| {
+        serde_json::to_value(Preferences::default()).expect("Preferences serialise")
+    })
+}
+
+/// The value at a dotted key of the Preferences as JSON; null when it has none.
+fn leaf(json: &Value, key: &str) -> Value {
+    let pointer = format!("/{}", key.replace('.', "/"));
+    json.pointer(&pointer).cloned().unwrap_or(Value::Null)
 }
 
 fn value(prefs: &Preferences, key: &str) -> Value {
