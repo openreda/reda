@@ -313,7 +313,11 @@ pub fn resolve_in(
     let undo = undo.map(Value::from);
     let active = active.map(Value::from);
     let grid = document.map(|d| json!(shell.grid(d).0));
-    let selectable = document.map(|d| json!(selectable_on(shell, d)));
+    // Every item of every bar is resolved each frame: the lists below, which walk the
+    // whole Document, are only made for params that use them (#280).
+    let selectable = document
+        .filter(|_| mentions(&params, SELECTABLE))
+        .map(|d| json!(selectable_on(shell, d)));
     let cursor = document.and_then(|d| {
         let at = shell.document_tab(d)?.cursor?;
         let at = shell.snap_to_grid(d, at);
@@ -349,6 +353,7 @@ pub fn resolve_in(
         .collect();
     let by_segments = !segments.is_empty() && mentions(&params, SEGMENTS);
     let selected = document
+        .filter(|_| mentions(&params, SELECTION))
         .map(|d| selected_on(shell, d))
         .filter(|s| !s.is_empty() || by_segments)
         .map(|s| json!(s));
