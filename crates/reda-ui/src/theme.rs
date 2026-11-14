@@ -552,6 +552,66 @@ const INK_DARK: Colors = Colors {
     error: rgb(0xff6b6b),
 };
 
+
+// PROTOTYPE round 2: Paper with other accents. (light fill and text, dark text, dark fill,
+// what goes on the dark fill.)
+pub const ACCENTS: [&str; 5] = ["Terracotta", "Blue", "Indigo", "Teal", "Forest"];
+static ACCENT: AtomicU8 = AtomicU8::new(u8::MAX);
+
+pub fn accent_index() -> usize {
+    let mut v = ACCENT.load(Ordering::Relaxed);
+    if v == u8::MAX {
+        let want = std::env::var("REDA_PROTO_ACCENT").unwrap_or_default();
+        v = ACCENTS
+            .iter()
+            .position(|a| a.eq_ignore_ascii_case(&want))
+            .unwrap_or(0) as u8;
+        ACCENT.store(v, Ordering::Relaxed);
+    }
+    v as usize
+}
+
+pub fn set_accent(ctx: &egui::Context, index: usize) {
+    ACCENT.store((index % ACCENTS.len()) as u8, Ordering::Relaxed);
+    ctx.set_style_of(Theme::Dark, style(Theme::Dark));
+    ctx.set_style_of(Theme::Light, style(Theme::Light));
+}
+
+const fn paper_light(accent: u32) -> Colors {
+    Colors {
+        accent: rgb(accent),
+        accent_text: rgb(accent),
+        link: rgb(accent),
+        ..PAPER_LIGHT
+    }
+}
+
+const fn paper_dark(text: u32, fill: u32, on: u32) -> Colors {
+    Colors {
+        accent: rgb(fill),
+        accent_text: rgb(text),
+        link: rgb(text),
+        on_accent: rgb(on),
+        ..PAPER_DARK
+    }
+}
+
+static PAPER_LIGHTS: [Colors; 5] = [
+    PAPER_LIGHT,
+    paper_light(0x1f5fbf),
+    paper_light(0x5145c4),
+    paper_light(0x0f6b66),
+    paper_light(0x2d6a3e),
+];
+
+static PAPER_DARKS: [Colors; 5] = [
+    PAPER_DARK,
+    paper_dark(0x86b4f7, 0x2f6fd0, 0xffffff),
+    paper_dark(0xaca5f7, 0x6257d6, 0xffffff),
+    paper_dark(0x5cc4bb, 0x3fb0a6, 0x0e1716),
+    paper_dark(0x7cc792, 0x5bb277, 0x0e1710),
+];
+
 /// The shadow under popups and menus, and under windows and floating bars.
 fn shadows(theme: Theme) -> (Shadow, Shadow) {
     let dark = theme == Theme::Dark;
@@ -616,8 +676,8 @@ fn colors(theme: Theme) -> &'static Colors {
         (Direction::Current, Theme::Light) => &LIGHT,
         (Direction::Graphite, Theme::Dark) => &GRAPHITE_DARK,
         (Direction::Graphite, Theme::Light) => &GRAPHITE_LIGHT,
-        (Direction::Paper, Theme::Dark) => &PAPER_DARK,
-        (Direction::Paper, Theme::Light) => &PAPER_LIGHT,
+        (Direction::Paper, Theme::Dark) => &PAPER_DARKS[accent_index()],
+        (Direction::Paper, Theme::Light) => &PAPER_LIGHTS[accent_index()],
         (Direction::Ink, Theme::Dark) => &INK_DARK,
         (Direction::Ink, Theme::Light) => &INK_LIGHT,
     }
@@ -911,9 +971,19 @@ fn luminance(c: Color32) -> f64 {
 /// PROTOTYPE: the contrast of each direction's text pairs, for the write-up.
 pub fn contrast_report() -> String {
     let mut out = String::new();
-    for d in [Direction::Graphite, Direction::Paper, Direction::Ink] {
+    for (d, accent) in [
+        (Direction::Graphite, 0),
+        (Direction::Paper, 0),
+        (Direction::Paper, 1),
+        (Direction::Paper, 2),
+        (Direction::Paper, 3),
+        (Direction::Paper, 4),
+        (Direction::Ink, 0),
+    ] {
         let i = DIRECTIONS.iter().position(|x| *x == d).unwrap();
         DIRECTION.store(i as u8, Ordering::Relaxed);
+        ACCENT.store(accent, Ordering::Relaxed);
+        out += &format!("-- accent {}\n", ACCENTS[accent as usize]);
         for theme in [Theme::Light, Theme::Dark] {
             let c = colors(theme);
             let sel = over(c.accent.gamma_multiply(c.selection_alpha), c.surface);
@@ -928,6 +998,7 @@ pub fn contrast_report() -> String {
                 ("accent text/base", c.accent_text, c.panel),
                 ("accent text/surface", c.accent_text, c.surface),
                 ("accent text/hover", c.accent_text, c.hovered),
+                ("accent text/selection", c.accent_text, sel),
                 ("on accent/accent", c.on_accent, c.accent),
                 ("warn/surface", c.warn, c.surface),
                 ("error/surface", c.error, c.surface),

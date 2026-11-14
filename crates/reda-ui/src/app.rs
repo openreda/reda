@@ -1232,6 +1232,9 @@ fn prototype_switcher(ctx: &egui::Context) {
         if i.consume_key(egui::Modifiers::CTRL, egui::Key::F9) {
             flip_density = true;
         }
+        if i.consume_key(egui::Modifiers::NONE, egui::Key::F8) {
+            theme::set_accent(ctx, theme::accent_index() + 1);
+        }
     });
     if std::env::var("REDA_PROTO_SWITCHER").as_deref() != Ok("0") {
         let screen = ctx.content_rect();
@@ -1270,6 +1273,13 @@ fn prototype_switcher(ctx: &egui::Context) {
                             };
                             if ui.add(flat(density)).clicked() {
                                 flip_density = true;
+                            }
+                            if theme::direction() == theme::Direction::Paper {
+                                ui.label("·");
+                                let name = theme::ACCENTS[theme::accent_index()];
+                                if ui.add(flat(&format!("Accent: {name} (F8)"))).clicked() {
+                                    theme::set_accent(ui.ctx(), theme::accent_index() + 1);
+                                }
                             }
                             ui.label("·  F9 / Shift+F9 / Ctrl+F9");
                         });

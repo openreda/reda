@@ -494,10 +494,17 @@ fn directions() {
                     // The statics are read when the window installs its theme.
                     let ctx = egui::Context::default();
                     theme::set_look(&ctx, direction, compact);
+                    let accent = std::env::var("REDA_PROTO_ACCENT").unwrap_or_default();
+                    let index = theme::ACCENTS
+                        .iter()
+                        .position(|a| a.eq_ignore_ascii_case(&accent))
+                        .unwrap_or(0);
+                    theme::set_accent(&ctx, index);
                     let mut h = (scene.show)(&stage);
                     h.run();
                     let image = h.render().unwrap();
-                    let file = format!("{}-{name}-{theme_name}-{density}.png", scene.id);
+                    let tag = if accent.is_empty() { String::new() } else { format!("-{}", accent.to_lowercase()) };
+                    let file = format!("{}-{name}{tag}-{theme_name}-{density}.png", scene.id);
                     image.save(out.join(&file)).unwrap();
                     eprintln!("drew {file}");
                 }
