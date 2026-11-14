@@ -2,6 +2,7 @@
 //! family, drawn from `Tokens` alone.
 
 mod data;
+mod motion;
 mod window;
 
 use egui::{Align, Align2, Color32, Layout, Rect, Sense, Stroke, Ui, UiBuilder, vec2};
@@ -11,7 +12,7 @@ use super::{Tokens, over};
 
 type Page = fn(&mut Ui, &Tokens);
 
-pub const PAGES: [(&str, Page); 7] = [
+pub const PAGES: [(&str, Page); 8] = [
     ("1 · Controls", controls),
     ("2 · Menus and popups", popups),
     ("3 · Window: Title bar, tabs, Docks, status bar", window::page),
@@ -19,6 +20,7 @@ pub const PAGES: [(&str, Page); 7] = [
     ("5 · Dialogs", window::dialogs),
     ("6 · Colour", colour),
     ("7 · Type, text size and typeface", type_page),
+    ("8 · Motion (issue #282): click things; F8 changes the profile", motion::page),
 ];
 
 /// The whole gallery, filling `ui`.

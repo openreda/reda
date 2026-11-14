@@ -8,7 +8,7 @@ use egui::{
     Align2, Color32, Galley, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
-use super::{Text, Tokens, Tone, over};
+use super::{Text, Tokens, Tone, anim, over};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum St {
@@ -20,28 +20,35 @@ pub enum St {
     Disabled,
 }
 
-/// What a widget shows: hover as 0..1 (animated when live), press, keyboard focus.
+/// What a widget shows: hover and press as 0..1 (animated when live, with the motion
+/// profile's timing), keyboard focus.
 pub struct Seen {
     pub hover: f32,
-    pub press: bool,
+    pub press: f32,
     pub focus: bool,
 }
 
 pub fn seen(ui: &Ui, t: &Tokens, response: &Response, st: St) -> Seen {
     match st {
-        St::Live => Seen {
-            hover: ui.ctx().animate_bool_with_time(
-                response.id.with("hover"),
-                response.hovered(),
-                t.motion.fast,
-            ),
-            press: response.is_pointer_button_down_on(),
-            focus: response.has_focus(),
-        },
-        St::Hover => Seen { hover: 1.0, press: false, focus: false },
-        St::Press => Seen { hover: 1.0, press: true, focus: false },
-        St::Focus => Seen { hover: 0.0, press: false, focus: true },
-        St::Rest | St::Disabled => Seen { hover: 0.0, press: false, focus: false },
+        St::Live => {
+            let _ = t;
+            let m = anim::profile();
+            let ctx = ui.ctx();
+            Seen {
+                hover: anim::value(ctx, response.id.with("hover"), response.hovered(), m.hover),
+                press: anim::value(
+                    ctx,
+                    response.id.with("press"),
+                    response.is_pointer_button_down_on(),
+                    m.press,
+                ),
+                focus: response.has_focus(),
+            }
+        }
+        St::Hover => Seen { hover: 1.0, press: 0.0, focus: false },
+        St::Press => Seen { hover: 1.0, press: 1.0, focus: false },
+        St::Focus => Seen { hover: 0.0, press: 0.0, focus: true },
+        St::Rest | St::Disabled => Seen { hover: 0.0, press: 0.0, focus: false },
     }
 }
 
@@ -58,17 +65,23 @@ pub fn stated<R>(ui: &mut Ui, t: &Tokens, st: St, add: impl FnOnce(&mut Ui) -> R
     }
 }
 
+/// 0..1 for a state that is `on` or not: animated when the widget is live.
+fn live(ui: &Ui, st: St, id: egui::Id, on: bool, tr: anim::Tr) -> f32 {
+    if st == St::Live {
+        anim::value(ui.ctx(), id, on, tr)
+    } else {
+        f32::from(u8::from(on))
+    }
+}
+
 fn fade(c: Color32, k: f32) -> Color32 {
     c.gamma_multiply(k)
 }
 
 /// A neutral state overlay on `under`: hover fades in, press replaces it.
 fn state_fill(t: &Tokens, under: Color32, s: &Seen) -> Color32 {
-    let top = if s.press {
-        t.color.fill.press
-    } else {
-        fade(t.color.fill.hover, s.hover)
-    };
+    let top = fade(t.color.fill.hover, s.hover)
+        .lerp_to_gamma(t.color.fill.press, s.press.clamp(0.0, 1.0));
     if under == Color32::TRANSPARENT {
         top
     } else {
@@ -350,9 +363,13 @@ pub fn icon_button(ui: &mut Ui, t: &Tokens, st: St, key: &str, on: bool, size: f
         let side = t.control_height();
         let (rect, response) = ui.allocate_exact_size(Vec2::splat(side), Sense::click());
         let s = seen(ui, t, &response, st);
-        if on {
-            ui.painter()
-                .rect_filled(rect, t.radius.control, t.color.accent.subtle);
+        let k = live(ui, st, response.id.with("on"), on, anim::profile().check);
+        if k > 0.0 {
+            ui.painter().rect_filled(
+                rect,
+                t.radius.control,
+                fade(t.color.accent.subtle, k.clamp(0.0, 1.0)),
+            );
         }
         ui.painter().rect_filled(
             rect,
@@ -570,50 +587,58 @@ fn check_row(
 }
 
 pub fn checkbox(ui: &mut Ui, t: &Tokens, st: St, check: Check, text: &str) -> Response {
+    let id = ui.next_auto_id().with("check");
+    let k = live(ui, st, id, check != Check::Off, anim::profile().check);
     check_row(ui, t, st, text, 16.0, |ui, mark, s| {
         let c = &t.color;
-        if check == Check::Off {
-            ui.painter()
-                .rect_filled(mark, t.radius.mark, c.surface.well);
-            let line = if s.hover > 0.5 {
-                c.text.muted
-            } else {
-                c.stroke.strong
-            };
-            ui.painter().rect_stroke(
+        ui.painter()
+            .rect_filled(mark, t.radius.mark, c.surface.well);
+        let line = if s.hover > 0.5 {
+            c.text.muted
+        } else {
+            c.stroke.strong
+        };
+        ui.painter().rect_stroke(
+            mark,
+            t.radius.mark,
+            Stroke::new(t.hairline, line),
+            StrokeKind::Inside,
+        );
+        if k > 0.0 {
+            // The fill fades in; the mark grows with it (and past it, on a spring).
+            let a = k.clamp(0.0, 1.0);
+            ui.painter().rect_filled(
                 mark,
                 t.radius.mark,
-                Stroke::new(t.hairline, line),
-                StrokeKind::Inside,
+                fade(state_fill(t, c.accent.solid, s), a),
             );
-        } else {
-            ui.painter()
-                .rect_filled(mark, t.radius.mark, state_fill(t, c.accent.solid, s));
-            let g = if check == Check::On {
-                Glyph::Tick
-            } else {
+            let g = if check == Check::Mixed {
                 Glyph::Minus
+            } else {
+                Glyph::Tick
             };
-            glyph(ui, g, mark.center(), 10.0, c.accent.on_solid);
+            glyph(ui, g, mark.center(), 10.0 * k, fade(c.accent.on_solid, a));
         }
     })
 }
 
 pub fn radio(ui: &mut Ui, t: &Tokens, st: St, on: bool, text: &str) -> Response {
+    let id = ui.next_auto_id().with("radio");
+    let k = live(ui, st, id, on, anim::profile().check);
     check_row(ui, t, st, text, 16.0, |ui, mark, s| {
         let c = &t.color;
         let p = ui.painter();
-        if on {
-            p.circle_filled(mark.center(), 8.0, state_fill(t, c.accent.solid, s));
-            p.circle_filled(mark.center(), 3.0, c.accent.on_solid);
+        p.circle_filled(mark.center(), 8.0, c.surface.well);
+        let line = if s.hover > 0.5 {
+            c.text.muted
         } else {
-            p.circle_filled(mark.center(), 8.0, c.surface.well);
-            let line = if s.hover > 0.5 {
-                c.text.muted
-            } else {
-                c.stroke.strong
-            };
-            p.circle_stroke(mark.center(), 7.5, Stroke::new(t.hairline, line));
+            c.stroke.strong
+        };
+        p.circle_stroke(mark.center(), 7.5, Stroke::new(t.hairline, line));
+        if k > 0.0 {
+            let a = k.clamp(0.0, 1.0);
+            p.circle_filled(mark.center(), 8.0, fade(state_fill(t, c.accent.solid, s), a));
+            p.circle_filled(mark.center(), 3.0 * k, fade(c.accent.on_solid, a));
         }
     })
 }
@@ -621,17 +646,12 @@ pub fn radio(ui: &mut Ui, t: &Tokens, st: St, on: bool, text: &str) -> Response 
 /// A switch: for a setting that applies the moment it is flipped.
 pub fn switch(ui: &mut Ui, t: &Tokens, st: St, on: bool, text: &str) -> Response {
     let id = ui.next_auto_id();
-    let k = if st == St::Live {
-        ui.ctx()
-            .animate_bool_with_time(id.with("switch"), on, t.motion.base)
-    } else {
-        f32::from(u8::from(on))
-    };
+    let k = live(ui, st, id.with("switch"), on, anim::profile().switch);
     check_row(ui, t, st, text, 28.0, |ui, mark, s| {
         let c = &t.color;
         let p = ui.painter();
         let off = c.stroke.strong;
-        let mix = |a: u8, b: u8| egui::lerp(f32::from(a)..=f32::from(b), k) as u8;
+        let mix = |a: u8, b: u8| egui::lerp(f32::from(a)..=f32::from(b), k.clamp(0.0, 1.0)) as u8;
         let track = Color32::from_rgb(
             mix(off.r(), c.accent.solid.r()),
             mix(off.g(), c.accent.solid.g()),

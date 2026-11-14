@@ -1,4 +1,4 @@
-//! PROTOTYPE (issue #276): component recipes for the Paper direction. Throwaway.
+//! PROTOTYPE (issues #276, #282): component recipes for the Paper direction, and motion. Throwaway.
 //!
 //! One question: which recipe does each chrome component lock, in light and dark and both
 //! Densities? This module holds a prototype of the `Tokens` value from ADR-0015 (names and
@@ -6,8 +6,10 @@
 //! gallery of every component in every state (`pages`).
 //!
 //! Run: `REDA_PROTO_GALLERY=1 cargo run -p reda-app`, or F10 in the running app.
-//! F9 next page, Shift+F9 light/dark, Ctrl+F9 Density, F7 / Shift+F7 text size, F6 typeface.
+//! F9 next page, Shift+F9 light/dark, Ctrl+F9 Density, F7 / Shift+F7 text size, F6 typeface,
+//! F8 motion profile (issue #282: the Motion page, `pages/motion.rs`, and `anim`).
 
+pub mod anim;
 pub mod pages;
 pub mod widgets;
 
@@ -22,7 +24,8 @@ use egui::{Color32, FontFamily, FontId, Theme};
 // ---------------------------------------------------------------------------------------
 
 static GALLERY: AtomicU8 = AtomicU8::new(u8::MAX);
-static PAGE: AtomicU8 = AtomicU8::new(0);
+// PROTOTYPE (issue #282): the gallery opens on the Motion page.
+static PAGE: AtomicU8 = AtomicU8::new(7);
 static TEXT_SIZE: AtomicU8 = AtomicU8::new(13);
 static FACE: AtomicU8 = AtomicU8::new(0);
 static COMPACT: AtomicU8 = AtomicU8::new(0);
@@ -773,6 +776,10 @@ pub fn switcher(ctx: &egui::Context) {
         if i.consume_key(Modifiers::NONE, Key::F6) {
             next_face = true;
         }
+        // PROTOTYPE (issue #282): F8 cycles the motion profile.
+        if i.consume_key(Modifiers::NONE, Key::F8) {
+            anim::set_profile(anim::profile_index() + 1);
+        }
     });
     if std::env::var("REDA_PROTO_SWITCHER").as_deref() != Ok("0") {
         let screen = ctx.content_rect();
@@ -814,7 +821,12 @@ pub fn switcher(ctx: &egui::Context) {
                             }
                             ui.label("·");
                             next_face |= ui.add(flat(FACES[face()])).clicked();
-                            ui.label("·  F9 page, Shift+F9 theme, Ctrl+F9 Density, F7 size, F6 face, F10 app");
+                            ui.label("·");
+                            let motion = anim::PROFILES[anim::profile_index()].name;
+                            if ui.add(flat(&format!("Motion {motion}"))).clicked() {
+                                anim::set_profile(anim::profile_index() + 1);
+                            }
+                            ui.label("·  F9 page, Shift+F9 theme, Ctrl+F9 Density, F7 size, F6 face, F8 motion, F10 app");
                         });
                     });
             });
