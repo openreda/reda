@@ -13,7 +13,7 @@ fn center(points: impl IntoIterator<Item = Point>) -> Option<Point> {
 
 /// Where a Violation about the whole board sits: the Board Outline's centre, or the
 /// origin when there is no outline.
-pub(crate) fn board_anchor(pcb: &PcbDocument) -> Point {
+pub(crate) fn board_center(pcb: &PcbDocument) -> Point {
     pcb.outline()
         .and_then(|o| center(o.vertices.iter().map(|v| v.point())))
         .unwrap_or(Point::new(Nm::ZERO, Nm::ZERO))
@@ -61,8 +61,7 @@ pub(super) fn complete(board: &Board<'_>, check: DrcCheck, v: &mut Violation) {
     for item in pads.chain(stored) {
         for (layer, shape) in board.copper.item_pieces(item) {
             let envelope = shape.envelope();
-            let corner = |[x, y]: [i64; 2]| Point::new(Nm(x), Nm(y));
-            candidates.push(corner(envelope.lower()).midpoint(corner(envelope.upper())));
+            candidates.push(Point::from(envelope.lower()).midpoint(envelope.upper().into()));
             layers.push(layer);
         }
     }
@@ -104,7 +103,7 @@ pub(super) fn complete(board: &Board<'_>, check: DrcCheck, v: &mut Violation) {
     }
     v.at = Some(
         v.at.or_else(|| candidates.first().copied())
-            .unwrap_or_else(|| board_anchor(pcb)),
+            .unwrap_or_else(|| board_center(pcb)),
     );
     if v.layers.is_empty() {
         if layers.is_empty() {

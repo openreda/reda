@@ -119,6 +119,13 @@ pub struct Point {
     pub y: Nm,
 }
 
+impl From<[i64; 2]> for Point {
+    /// The point at `[x, y]` nm, the raw form the polygon and shape code uses.
+    fn from([x, y]: [i64; 2]) -> Point {
+        Point::new(Nm(x), Nm(y))
+    }
+}
+
 impl Point {
     pub const fn new(x: Nm, y: Nm) -> Point {
         Point { x, y }

@@ -75,7 +75,7 @@ fn current(
     // `out_of_sync` is the last check of the DRC table.
     let sync_violation = state.violation.filter(|_| wanted(DrcCheck::OutOfSync));
     violations.extend(sync_violation.map(|v| {
-        v.located(pcb.uuid, crate::drc::details::board_anchor(pcb))
+        v.located(pcb.uuid, crate::drc::board_center(pcb))
             .on_layers(pcb.copper_layers().map(|l| l.uuid))
     }));
     let presets = crate::rules::presets::job_presets(project, pcb);
@@ -355,8 +355,8 @@ pub struct DrcWaiverTarget {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct DrcWaiveResult {
-    /// The new Waivers: one per distinct fingerprint (check and object set) among the
-    /// selected Violations, in the order each was first selected.
+    /// The new Waivers: one per distinct check and object set among the selected
+    /// Violations, in the order each was first selected.
     pub waivers: Vec<Uuid>,
 }
 

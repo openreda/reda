@@ -191,11 +191,7 @@ fn layer_names(shell: &Shell, v: &Violation) -> String {
 /// The centre of an object's drawing on its open Document's canvas.
 fn object_location(shell: &Shell, document: Option<Uuid>, object: Uuid) -> Option<Point> {
     let tab = shell.document_tab(document?)?;
-    (tab.scene.scene.items_of(object))
-        .filter_map(|i| i.primitive.bounds())
-        .map(|(min, max)| reda_engine::model::geom::Bounds { min, max })
-        .reduce(reda_engine::model::geom::Bounds::union)
-        .map(reda_engine::model::geom::Bounds::center)
+    (tab.scene.scene.object_bounds(object)).map(reda_engine::model::geom::Bounds::center)
 }
 
 fn point_text(p: Point) -> String {

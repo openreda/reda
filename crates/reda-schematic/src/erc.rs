@@ -419,8 +419,8 @@ pub struct ErcWaiverTarget {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ErcWaiveResult {
-    /// The new Waivers: one per distinct fingerprint (check and object set) among the
-    /// selected Violations, in the order each was first selected.
+    /// The new Waivers: one per distinct check and object set among the selected
+    /// Violations, in the order each was first selected.
     pub waivers: Vec<Uuid>,
 }
 

@@ -240,6 +240,16 @@ pub trait CheckKind: Copy + 'static {
 /// of `field => Variant = DefaultSeverity` rows. The field name is the check id that
 /// Violations and Waivers carry.
 macro_rules! severities {
+    // The [`CheckKind`] impl, from the check enum's inherent `ALL` and `id`.
+    (@kind $check:ident) => {
+        impl $crate::check::CheckKind for $check {
+            const ALL: &'static [$check] = $check::ALL;
+
+            fn id(self) -> &'static str {
+                $check::id(self)
+            }
+        }
+    };
     // A table whose first checks are set by the Pin Matrix: they are in the check enum but
     // have no field in the severities struct.
     (
@@ -278,13 +288,7 @@ macro_rules! severities {
             }
         }
 
-        impl $crate::check::CheckKind for $check {
-            const ALL: &'static [$check] = $check::ALL;
-
-            fn id(self) -> &'static str {
-                $check::id(self)
-            }
-        }
+        $crate::check::severities!(@kind $check);
 
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
         $(#[$smeta])*
@@ -358,13 +362,7 @@ macro_rules! severities {
             }
         }
 
-        impl $crate::check::CheckKind for $check {
-            const ALL: &'static [$check] = $check::ALL;
-
-            fn id(self) -> &'static str {
-                $check::id(self)
-            }
-        }
+        $crate::check::severities!(@kind $check);
 
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
         $(#[$smeta])*
@@ -524,11 +522,4 @@ severities! {
     generator_out_of_date => GeneratorOutOfDate = Warning,
     /// A Pin with no name.
     missing_pin_name => MissingPinName = Off,
-}
-
-impl LibraryCheck {
-    /// The check whose id is `id`, such as `off_grid_pin`.
-    pub fn from_id(id: &str) -> Option<LibraryCheck> {
-        LibraryCheck::ALL.iter().copied().find(|c| c.id() == id)
-    }
 }

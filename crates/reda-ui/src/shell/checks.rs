@@ -567,9 +567,6 @@ impl Shell {
     /// Recomputes every open tab's Violation markers, as the Checks Preferences say: a
     /// check with neither Details nor Overlay has none.
     pub(super) fn update_markers(&mut self) {
-        if self.engine.project().is_none() {
-            return;
-        }
         let current = self.messages.current();
         let checks = &self.preferences.values().checks;
         let cap = checks.max_markers as usize;
