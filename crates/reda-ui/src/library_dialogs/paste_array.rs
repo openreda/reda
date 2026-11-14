@@ -298,7 +298,7 @@ impl ParamsDialog for PasteArrayDialog {
                     field(ui, tr!("paste-array-dx"), &mut self.dx);
                     field(ui, tr!("paste-array-dy"), &mut self.dy);
                 });
-                ui.checkbox(
+                crate::theme::checkbox(ui, 
                     &mut self.remove_leading_zeroes,
                     tr!("paste-array-remove-leading-zeroes"),
                 );

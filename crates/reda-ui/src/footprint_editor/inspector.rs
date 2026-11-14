@@ -513,7 +513,7 @@ fn text_properties(ui: &mut Ui, id: Id, fp: Uuid, text: &FootprintText, out: &mu
     ui.end_row();
     ui.label(tr!("footprint-text-visible"));
     let mut visible = text.visible;
-    let check = ui.checkbox(&mut visible, "");
+    let check = crate::theme::checkbox(ui, &mut visible, "");
     check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, tr!("footprint-text-visible")));
     if check.changed() {
         out.push(set("visible", json!(visible)));

@@ -159,7 +159,7 @@ fn readout(ui: &mut Ui, width: f32, text: &str, label: &str) {
 /// A checkbox named `label`; returns the new value when it was clicked.
 fn check(ui: &mut Ui, value: bool, label: &str, hint: Option<&str>) -> Option<bool> {
     let mut v = value;
-    let mut response = ui.checkbox(&mut v, "");
+    let mut response = crate::theme::checkbox(ui, &mut v, "");
     if let Some(hint) = hint {
         response = response.on_hover_text(hint);
     }

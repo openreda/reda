@@ -193,7 +193,7 @@ fn shape_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {
         for c in Corner::ALL {
             let mut on = corners.contains(c);
             let name = corner_name(c);
-            let check = ui.checkbox(&mut on, &name);
+            let check = crate::theme::checkbox(ui, &mut on, &name);
             check.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, name.clone()));
             if check.changed() {
                 out.push(PadEdit::Corner(c, on));

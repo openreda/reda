@@ -119,7 +119,7 @@ impl PreferencesDialog {
                     .desired_width(240.0),
             );
             search.widget_info(|| WidgetInfo::labeled(Role::SearchInput, true, tr!("pref-search")));
-            ui.checkbox(&mut self.modified_only, tr!("pref-modified-only"));
+            crate::theme::checkbox(ui, &mut self.modified_only, tr!("pref-modified-only"));
             let any = self.modified_count(cx.shell, PageId::ALL_SETTINGS) > 0;
             if ui
                 .add_enabled(any, Button::new(tr!("pref-reset-all")))
@@ -361,7 +361,7 @@ impl PreferencesDialog {
                 if key == BRIDGE {
                     on = cx.bridge.is_on();
                 }
-                let response = ui.checkbox(&mut on, "");
+                let response = crate::theme::checkbox(ui, &mut on, "");
                 let label = setting.label.clone();
                 response
                     .widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, label.clone()));
@@ -889,7 +889,7 @@ fn context_label(context: &Context) -> String {
 /// A Library's Active checkbox, named after the Library; true when it was clicked.
 fn active_checkbox(ui: &mut Ui, active: bool, library: &str) -> bool {
     let mut checked = active;
-    let response = ui.checkbox(&mut checked, "");
+    let response = crate::theme::checkbox(ui, &mut checked, "");
     let name = tr!("pref-library-active-named", library = library);
     response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, active, name.clone()));
     let tip = tr!("pref-library-active-tip");

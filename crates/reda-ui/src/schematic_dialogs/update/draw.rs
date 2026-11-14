@@ -157,7 +157,7 @@ impl UpdateDialog {
             }
         });
         for sheet in &mut self.sheets {
-            ui.checkbox(&mut sheet.on, &sheet.name);
+            crate::theme::checkbox(ui, &mut sheet.on, &sheet.name);
         }
         ui.add_space(6.0);
         ui.label(RichText::new(tr!("library-update-parts")).strong());
@@ -285,7 +285,7 @@ impl UpdateDialog {
                 tr!("library-update-setting-preserve-field-visibility"),
             ),
         ] {
-            ui.checkbox(on, key);
+            crate::theme::checkbox(ui, on, key);
         }
         if !self.field_names.is_empty() {
             egui::CollapsingHeader::new(tr!("library-update-setting-fields-to-update"))

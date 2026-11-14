@@ -36,7 +36,7 @@ fn toolbar(ui: &mut Ui, board: &mut BoardSetupDraft) {
         let label = tr!("board-setup-grid-search");
         ui.label(&label);
         field(ui, &label, &mut board.grid_search, 160.0, None);
-        ui.checkbox(&mut board.only_overrides, tr!("board-setup-only-overrides"));
+        crate::theme::checkbox(ui, &mut board.only_overrides, tr!("board-setup-only-overrides"));
         let any = !board.selected_rows.is_empty();
         if ui
             .add_enabled(any, Button::new(tr!("board-setup-copy")))
@@ -452,7 +452,7 @@ fn net_table(ui: &mut Ui, board: &mut BoardSetupDraft) {
                         }
                         for (key, class_name) in &classes {
                             let mut on = member.contains(key);
-                            if ui.checkbox(&mut on, class_name).changed() {
+                            if crate::theme::checkbox(ui, &mut on, class_name).changed() {
                                 toggles.push((uuid, *key));
                             }
                         }

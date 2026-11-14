@@ -491,15 +491,15 @@ pub fn show(ctx: &egui::Context, shell: &mut Shell) {
                     }
                 });
             }
-            ui.checkbox(&mut w.select, tr!("similar-option-select"));
-            ui.checkbox(&mut w.zoom, tr!("similar-option-zoom"));
-            ui.checkbox(&mut w.clear_existing, tr!("similar-option-clear"));
+            crate::theme::checkbox(ui, &mut w.select, tr!("similar-option-select"));
+            crate::theme::checkbox(ui, &mut w.zoom, tr!("similar-option-zoom"));
+            crate::theme::checkbox(ui, &mut w.clear_existing, tr!("similar-option-clear"));
             ui.horizontal(|ui| {
                 ui.radio_value(&mut w.show, Show::Normal, tr!("similar-option-normal"));
                 ui.radio_value(&mut w.show, Show::Dim, tr!("similar-option-dim"));
                 ui.radio_value(&mut w.show, Show::Mask, tr!("similar-option-mask"));
             });
-            ui.checkbox(&mut w.open_properties, tr!("similar-option-properties"));
+            crate::theme::checkbox(ui, &mut w.open_properties, tr!("similar-option-properties"));
             if let Some(error) = &w.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             } else if let Some(found) = w.found {

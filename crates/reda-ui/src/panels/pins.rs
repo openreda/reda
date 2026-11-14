@@ -194,7 +194,7 @@ fn row(
     let is_selected = selected.contains(&pin.uuid);
     let mut on = is_selected;
     let label = tr!("pins-panel-select", pin = pin.number.as_str());
-    let check = ui.checkbox(&mut on, "");
+    let check = crate::theme::checkbox(ui, &mut on, "");
     check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
     if check.changed() {
         let mut objects: Vec<Uuid> = selected.to_vec();
@@ -360,7 +360,7 @@ fn row(
         ui.add_enabled_ui(!locked, |ui| {
             let mut shown = visible;
             let label = name(column);
-            let check = ui.checkbox(&mut shown, "");
+            let check = crate::theme::checkbox(ui, &mut shown, "");
             check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
             if check.changed() {
                 set(column, CellValue::Flag(shown));

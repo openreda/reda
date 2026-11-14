@@ -90,6 +90,11 @@ pub fn top_row(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
 
 /// Menu titles and items a size up from the rest of the UI.
 fn larger(ui: &mut Ui) {
+    if crate::theme::direction() != crate::theme::Direction::Current {
+        // PROTOTYPE: one text size throughout; menus are not a size up.
+        ui.spacing_mut().button_padding = chrome::MENU_PADDING;
+        return;
+    }
     ui.style_mut().override_font_id = Some(egui::FontId::proportional(chrome::MENU_TEXT));
     ui.spacing_mut().button_padding = chrome::MENU_PADDING;
 }
@@ -512,7 +517,7 @@ pub fn active_bar(
         .show(ui.ctx(), |ui| {
             egui::Frame::window(ui.style())
                 .inner_margin(egui::Margin::same(ACTIVE_BAR_MARGIN))
-                .corner_radius(egui::CornerRadius::same(5))
+                .corner_radius(egui::CornerRadius::same(crate::theme::look().bar))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let mut clicked = match grouped {
@@ -605,7 +610,7 @@ pub fn tool_bar(
         .show(ui.ctx(), |ui| {
             egui::Frame::window(ui.style())
                 .inner_margin(egui::Margin::same(ACTIVE_BAR_MARGIN))
-                .corner_radius(egui::CornerRadius::same(5))
+                .corner_radius(egui::CornerRadius::same(crate::theme::look().bar))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
@@ -658,7 +663,7 @@ pub fn tool_bar(
             .show(ui.ctx(), |ui| {
                 egui::Frame::window(ui.style())
                     .inner_margin(egui::Margin::symmetric(6, 2))
-                    .corner_radius(egui::CornerRadius::same(4))
+                    .corner_radius(egui::CornerRadius::same(crate::theme::look().menu))
                     .show(ui, |ui| {
                         let response = ui.label(note);
                         a11y::name(&response, Role::Label, true, note, None, None);

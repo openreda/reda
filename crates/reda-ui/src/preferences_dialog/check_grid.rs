@@ -41,7 +41,7 @@ pub fn show(dialog: &mut PreferencesDialog, ui: &mut Ui, shell: &mut Shell) {
                         for (column, column_title) in &columns {
                             let key = format!("{CHECK_DISPLAY}{check}.{column}");
                             let mut on = dialog.value(shell, &key).as_bool().unwrap_or(false);
-                            let response = ui.checkbox(&mut on, "");
+                            let response = crate::theme::checkbox(ui, &mut on, "");
                             let label = tr!(
                                 "pref-checks-display-cell",
                                 check = title.as_str(),

@@ -78,7 +78,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 let of_kind = || pcb.layers().layers.iter().filter(move |l| l.kind == kind);
                 let mut all = of_kind().all(|l| !layers.hidden.contains(&l.uuid));
                 let title = kind_title(kind);
-                let check = ui.checkbox(&mut all, title.as_str());
+                let check = crate::theme::checkbox(ui, &mut all, title.as_str());
                 let label = tr!("layers-show-kind", kind = title.as_str());
                 check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
                 if check.changed() {
@@ -146,7 +146,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         ui.label(tr!("layers-objects"));
         for kind in VIEW_TYPES {
             let mut visible = !layers.hidden_types.contains(&kind);
-            if ui.checkbox(&mut visible, type_title(kind)).changed() {
+            if crate::theme::checkbox(ui, &mut visible, type_title(kind)).changed() {
                 out.push((
                     "pcb.view.object_type.show".into(),
                     json!({"type": kind, "visible": visible}),
@@ -173,14 +173,14 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             ),
         ] {
             let mut on = value;
-            if ui.checkbox(&mut on, key).changed() {
+            if crate::theme::checkbox(ui, &mut on, key).changed() {
                 out.push(("pcb.view.labels".into(), json!({ param: on })));
             }
         }
         ui.separator();
 
         let mut ratsnest = !layers.ratsnest.hidden;
-        if ui.checkbox(&mut ratsnest, tr!("layers-ratsnest")).changed() {
+        if crate::theme::checkbox(ui, &mut ratsnest, tr!("layers-ratsnest")).changed() {
             out.push(("pcb.ratsnest.show".into(), json!({ "visible": ratsnest })));
         }
         let mut nets: Vec<(&str, Uuid)> = pcb.nets().map(|n| (n.name.as_str(), n.uuid)).collect();

@@ -51,7 +51,8 @@ pub fn icon_button(
         } else {
             Color32::TRANSPARENT
         };
-        ui.painter().rect_filled(rect, CornerRadius::same(3), fill);
+        let radius = CornerRadius::same(crate::theme::look().control.min(8));
+        ui.painter().rect_filled(rect, radius, fill);
         let image = if enabled {
             image
         } else {

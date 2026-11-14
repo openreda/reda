@@ -71,7 +71,7 @@ fn choice<T: PartialEq + Copy>(ui: &mut Ui, label: String, value: &mut T, option
 /// A checkbox's row.
 fn check(ui: &mut Ui, label: String, value: &mut bool) {
     ui.label("");
-    ui.checkbox(value, label);
+    crate::theme::checkbox(ui, value, label);
     ui.end_row();
 }
 

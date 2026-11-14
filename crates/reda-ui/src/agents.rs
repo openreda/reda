@@ -21,7 +21,7 @@ pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) -> bool {
     };
     ui.menu_button(label, |ui| {
         let mut on = bridge.is_on();
-        if ui.checkbox(&mut on, tr!("bridge-switch")).changed() {
+        if crate::theme::checkbox(ui, &mut on, tr!("bridge-switch")).changed() {
             bridge.set_enabled(shell, on);
         }
         if let Some(error) = bridge.error() {

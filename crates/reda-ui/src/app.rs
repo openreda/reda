@@ -238,6 +238,7 @@ impl App {
         let status_height = ctx.data(|d| d.get_temp::<f32>(status_bar_id()));
         let status_height = status_height.unwrap_or(ui.spacing().interact_size.y);
         let status = Panel::bottom("status-bar")
+            .show_separator_line(!theme::look().borderless_bars)
             .show(ui, |ui| {
                 let mut rect = ui.available_rect_before_wrap();
                 rect.set_height(status_height);
@@ -257,6 +258,7 @@ impl App {
         let height = drawn.inner.height();
         ctx.data_mut(|d| d.insert_temp(status_bar_id(), height));
         tab_switcher::show(&ctx, &mut self.shell);
+        prototype_switcher(&ctx);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
             self.call(&id, params);
@@ -933,6 +935,7 @@ impl App {
             document: self.shell.active_document().map(|d| d.document),
         };
         Panel::top("top-row")
+            .show_separator_line(!theme::look().borderless_bars)
             .show(ui, |ui| draw::top_row(ui, &cx, bars))
             .inner
     }
@@ -1207,4 +1210,81 @@ pub fn run(
             ))
         }),
     )
+}
+
+/// PROTOTYPE (issue #272): the floating bar that switches direction, light/dark and
+/// Density. F9 steps the direction, Shift+F9 the theme, Ctrl+F9 the Density. Hidden with
+/// `REDA_PROTO_SWITCHER=0` (the screenshots) and never part of the design under review.
+fn prototype_switcher(ctx: &egui::Context) {
+    use theme::DIRECTIONS;
+    let now = theme::direction();
+    let index = DIRECTIONS.iter().position(|d| *d == now).unwrap();
+    let mut step = 0isize;
+    let mut flip_theme = false;
+    let mut flip_density = false;
+    ctx.input_mut(|i| {
+        if i.consume_key(egui::Modifiers::NONE, egui::Key::F9) {
+            step = 1;
+        }
+        if i.consume_key(egui::Modifiers::SHIFT, egui::Key::F9) {
+            flip_theme = true;
+        }
+        if i.consume_key(egui::Modifiers::CTRL, egui::Key::F9) {
+            flip_density = true;
+        }
+    });
+    if std::env::var("REDA_PROTO_SWITCHER").as_deref() != Ok("0") {
+        let screen = ctx.content_rect();
+        egui::Area::new(egui::Id::NULL.with("prototype-switcher"))
+            .order(egui::Order::Tooltip)
+            .pivot(egui::Align2::CENTER_BOTTOM)
+            .fixed_pos(screen.center_bottom() - egui::vec2(0.0, 40.0))
+            .show(ctx, |ui| {
+                let ink = egui::Color32::from_rgb(0xff, 0xe0, 0x4a);
+                egui::Frame::new()
+                    .fill(egui::Color32::from_rgb(0x11, 0x11, 0x11))
+                    .stroke(egui::Stroke::new(1.0, ink))
+                    .corner_radius(255)
+                    .inner_margin(egui::Margin::symmetric(12, 6))
+                    .show(ui, |ui| {
+                        ui.visuals_mut().override_text_color = Some(ink);
+                        ui.horizontal(|ui| {
+                            let flat = |t: &str| egui::Button::new(t).frame(false);
+                            if ui.add(flat("◀")).clicked() {
+                                step = -1;
+                            }
+                            ui.label(format!("PROTOTYPE  {}", theme::look().name));
+                            if ui.add(flat("▶")).clicked() {
+                                step = 1;
+                            }
+                            ui.label("·");
+                            let dark = ui.ctx().theme() == egui::Theme::Dark;
+                            if ui.add(flat(if dark { "Dark" } else { "Light" })).clicked() {
+                                flip_theme = true;
+                            }
+                            ui.label("·");
+                            let density = if theme::compact() {
+                                "Compact"
+                            } else {
+                                "Comfortable"
+                            };
+                            if ui.add(flat(density)).clicked() {
+                                flip_density = true;
+                            }
+                            ui.label("·  F9 / Shift+F9 / Ctrl+F9");
+                        });
+                    });
+            });
+    }
+    if step != 0 || flip_density {
+        let n = DIRECTIONS.len() as isize;
+        let next = DIRECTIONS[(index as isize + step).rem_euclid(n) as usize];
+        theme::set_look(ctx, next, theme::compact() != flip_density);
+    }
+    if flip_theme {
+        ctx.set_theme(match ctx.theme() {
+            egui::Theme::Dark => egui::ThemePreference::Light,
+            egui::Theme::Light => egui::ThemePreference::Dark,
+        });
+    }
 }

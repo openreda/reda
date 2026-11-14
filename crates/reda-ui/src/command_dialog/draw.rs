@@ -119,7 +119,7 @@ fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
 fn flag_box(ui: &mut Ui, id: Id, flag: &mut Option<bool>, required: bool) -> egui::Response {
     if required {
         let mut on = flag.unwrap_or(false);
-        let response = ui.checkbox(&mut on, "");
+        let response = crate::theme::checkbox(ui, &mut on, "");
         *flag = Some(on);
         return response;
     }

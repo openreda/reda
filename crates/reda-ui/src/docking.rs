@@ -67,9 +67,46 @@ const STRIP: f32 = 24.0;
 /// The side of a button on a collapsed Dock's icon strip.
 const STRIP_BUTTON: f32 = 22.0;
 /// The height of a tab group's tab strip.
-const TAB_STRIP: f32 = 24.0;
+fn tab_strip() -> f32 {
+    theme::tab_strip()
+}
 /// The gap between tab groups, and between the Docks and the centre.
-const GAP: f32 = 3.0;
+fn gap_width() -> f32 {
+    theme::look().gap
+}
+
+/// PROTOTYPE: paints `colour` over the corners of `rect` outside its rounding, so content
+/// that cannot be clipped round (the canvas) still sits in a rounded card.
+fn corner_mask(ui: &Ui, rect: Rect, r: f32, corners: [bool; 4], colour: Color32) {
+    if r <= 0.0 {
+        return;
+    }
+    // nw, ne, se, sw: the corner point and the start angle of its arc.
+    let at = [
+        (rect.left_top(), Vec2::new(1.0, 1.0), std::f32::consts::PI),
+        (rect.right_top(), Vec2::new(-1.0, 1.0), 1.5 * std::f32::consts::PI),
+        (rect.right_bottom(), Vec2::new(-1.0, -1.0), 0.0),
+        (rect.left_bottom(), Vec2::new(1.0, -1.0), 0.5 * std::f32::consts::PI),
+    ];
+    let mut mesh = egui::Mesh::default();
+    for ((p, inward, start), on) in at.into_iter().zip(corners) {
+        if !on {
+            continue;
+        }
+        let centre = p + inward * r;
+        let base = mesh.vertices.len() as u32;
+        mesh.colored_vertex(p, colour);
+        const N: u32 = 12;
+        for i in 0..=N {
+            let a = start + (i as f32 / N as f32) * std::f32::consts::FRAC_PI_2;
+            mesh.colored_vertex(centre + r * Vec2::new(a.cos(), a.sin()), colour);
+        }
+        for i in 0..N {
+            mesh.add_triangle(base, base + 1 + i, base + 2 + i);
+        }
+    }
+    ui.painter().add(mesh);
+}
 /// The margin around a Panel's contents.
 const PANEL_MARGIN: i8 = 6;
 /// The size of a flyout from a collapsed Dock.
@@ -205,6 +242,15 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
     let gap = theme::gap(ui.ctx().theme());
     ui.painter()
         .rect_filled(ui.available_rect_before_wrap(), 0.0, gap);
+    // PROTOTYPE: card looks inset the whole docking area by the gap.
+    let inset = if theme::look().card > 0 {
+        gap_width()
+    } else {
+        0.0
+    };
+    let inner = ui.available_rect_before_wrap().shrink(inset);
+    let ui = &mut ui.new_child(UiBuilder::new().max_rect(inner).id_salt("docking-inset"));
+    ui.set_clip_rect(inner);
     // Space for the Docks and the centre is set aside first, the bottom Dock first since
     // it spans the window. What is in them is drawn after, in layout order (left Dock,
     // centre, right Dock, bottom Dock), which is the order Tab moves keyboard focus in.
@@ -397,7 +443,7 @@ impl Cx<'_, '_> {
         let id = format!("dock-{side}");
         // The gap on the Dock's inner edge is its splitter: it turns the accent while
         // hovered or dragged.
-        let gap = GAP as i8;
+        let gap = gap_width() as i8;
         let none = egui::Margin::ZERO;
         let (panel, margin) = match side {
             DockSide::Left => (egui::Panel::left(id), egui::Margin { right: gap, ..none }),
@@ -410,7 +456,7 @@ impl Cx<'_, '_> {
         let shown = if dock.collapsed {
             panel
                 .resizable(false)
-                .exact_size(STRIP + GAP)
+                .exact_size(STRIP + gap_width())
                 .show(ui, reserve)
         } else {
             let default = if side == DockSide::Bottom {
@@ -419,7 +465,7 @@ impl Cx<'_, '_> {
                 240.0
             };
             let style = ui.style().clone();
-            let splitter = Stroke::new(GAP, theme::accent(ui.ctx().theme()).gamma_multiply(0.6));
+            let splitter = Stroke::new(gap_width().max(2.0), theme::accent(ui.ctx().theme()).gamma_multiply(0.6));
             let widgets = &mut ui.style_mut().visuals.widgets;
             widgets.hovered.fg_stroke = splitter;
             widgets.active.fg_stroke = splitter;
@@ -668,27 +714,87 @@ impl Cx<'_, '_> {
     /// group holding the active Document, which the menus follow, and muted on the others.
     /// Groups have no border: the gaps between them separate them.
     fn group_at(&mut self, ui: &mut Ui, rect: Rect, group: &Group, area: Area) {
-        let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), TAB_STRIP));
+        let look = theme::look();
+        let th = ui.ctx().theme();
+        let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), tab_strip()));
         let body = Rect::from_min_max(egui::pos2(rect.left(), strip.bottom()), rect.max);
         let holds_active_document = self
             .layout
             .active_document()
             .is_some_and(|uuid| group.tabs.contains(&TabKey::Document(uuid)));
-        let bar = theme::tab_bar(ui.ctx().theme(), holds_active_document);
-        ui.painter().rect_filled(strip, 0.0, bar);
-        ui.painter().rect_filled(body, 0.0, ui.visuals().panel_fill);
+        let card = f32::from(look.card);
+        let surface = theme::surface(th);
+        // Which of the card's corners (nw, ne, se, sw) are rounded, and the card's rect.
+        let (card_rect, corners) = match look.tabs {
+            theme::Tabs::Card => (body, [group.active != 0, true, true, true]),
+            _ => (rect, [true; 4]),
+        };
+        let radius = |corners: [bool; 4]| {
+            let r = |on: bool| if on { look.card } else { 0 };
+            egui::CornerRadius {
+                nw: r(corners[0]),
+                ne: r(corners[1]),
+                se: r(corners[2]),
+                sw: r(corners[3]),
+            }
+        };
+        match look.tabs {
+            theme::Tabs::Bar => {
+                let bar = theme::tab_bar(th, holds_active_document);
+                ui.painter().rect_filled(strip, 0.0, bar);
+                ui.painter().rect_filled(body, 0.0, ui.visuals().panel_fill);
+            }
+            theme::Tabs::Raised => {
+                ui.painter().rect_filled(strip, 0.0, ui.visuals().panel_fill);
+                ui.painter().rect_filled(body, 0.0, surface);
+                let y = strip.bottom() - 0.5;
+                ui.painter()
+                    .hline(strip.x_range(), y, Stroke::new(1.0, theme::hairline(th)));
+            }
+            theme::Tabs::Card | theme::Tabs::Capsule => {
+                if let Some(shadow) = theme::card_shadow(th) {
+                    ui.painter().add(shadow.as_shape(card_rect, radius(corners)));
+                }
+                ui.painter().rect_filled(card_rect, radius(corners), surface);
+            }
+        }
+        let focused_group = holds_active_document
+            || self
+                .layout
+                .focus
+                .as_ref()
+                .is_some_and(|tab| group.tabs.contains(tab));
         let clip = ui.clip_rect();
         let builder = UiBuilder::new()
             .max_rect(strip)
-            .layout(egui::Layout::left_to_right(egui::Align::Max))
+            .layout(egui::Layout::left_to_right(match look.tabs {
+                theme::Tabs::Capsule => egui::Align::Center,
+                _ => egui::Align::Max,
+            }))
             .id_salt(("tab-group", group.id.0));
         let mut tabs = Vec::new();
         ui.scope_builder(builder, |ui| {
             ui.set_clip_rect(strip.intersect(clip));
             ui.spacing_mut().item_spacing.x = 2.0;
-            ui.add_space(2.0);
+            ui.add_space(match look.tabs {
+                theme::Tabs::Bar => 2.0,
+                theme::Tabs::Raised => 6.0,
+                theme::Tabs::Card => 0.0,
+                theme::Tabs::Capsule => 11.0,
+            });
+            // The capsule track lies behind the tabs, sized once they are laid out.
+            let track = ui.painter().add(egui::Shape::Noop);
             for (i, tab) in group.tabs.iter().enumerate() {
-                tabs.push(self.tab(ui, tab, i == group.active, area));
+                tabs.push(self.tab(ui, tab, i == group.active, area, focused_group));
+            }
+            if look.tabs == theme::Tabs::Capsule
+                && let (Some(first), Some(last)) = (tabs.first(), tabs.last())
+            {
+                let rect = first.union(*last).expand(3.0);
+                ui.painter().set(
+                    track,
+                    egui::Shape::rect_filled(rect, 255, ui.visuals().extreme_bg_color),
+                );
             }
         });
         self.zones.groups.push(drag::GroupZone {
@@ -715,20 +821,55 @@ impl Cx<'_, '_> {
                 }
             }
         });
+        if card > 0.0 {
+            corner_mask(ui, card_rect, card, corners, theme::gap(th));
+            if let Some(rim) = theme::card_rim(th) {
+                ui.painter().rect_stroke(
+                    card_rect,
+                    radius(corners),
+                    Stroke::new(1.0, rim),
+                    egui::StrokeKind::Inside,
+                );
+            }
+        }
     }
 
     /// Draws a tab on its group's blue bar; returns its rect. The active tab's title and
     /// icon are bright, the others' dimmer; a hovered tab lightens. The active or hovered
     /// tab shows its close button.
-    fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
+    fn tab(
+        &mut self,
+        ui: &mut Ui,
+        tab: &TabKey,
+        active: bool,
+        area: Area,
+        focused_group: bool,
+    ) -> Rect {
         let title = tab_title(self.shell, tab);
         // The PCB tab carries the "out of sync" badge while Sync changes are pending.
         let pending = match tab {
             TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
             _ => 0,
         };
-        let font = egui::TextStyle::Button.resolve(ui.style());
-        let colour = theme::tab_text(active);
+        let look = theme::look();
+        let th = ui.ctx().theme();
+        let neutral = look.tabs != theme::Tabs::Bar;
+        let font = if neutral {
+            let family = if active {
+                theme::medium()
+            } else {
+                egui::FontFamily::Proportional
+            };
+            egui::FontId::new(look.text, family)
+        } else {
+            egui::TextStyle::Button.resolve(ui.style())
+        };
+        let colour = match (neutral, active) {
+            (false, _) => theme::tab_text(active),
+            (true, true) if focused_group => ui.visuals().strong_text_color(),
+            (true, true) => ui.visuals().text_color(),
+            (true, false) => ui.visuals().weak_text_color(),
+        };
         let galley = ui
             .painter()
             .layout_no_wrap(title.clone(), font.clone(), colour);
@@ -744,12 +885,24 @@ impl Cx<'_, '_> {
         });
         // The icon's silhouette in the title's colour: the bar is blue on both themes, and
         // the role colours would be faint on it.
-        let icon = tab_icon_key(self.shell, tab)
-            .and_then(|key| icons::silhouette_image(key, icons::TAB))
-            .map(|i| i.tint(colour));
+        let icon = if neutral {
+            // On a neutral strip the icons keep their role colours.
+            tab_icon(self.shell, tab, th)
+        } else {
+            tab_icon_key(self.shell, tab)
+                .and_then(|key| icons::silhouette_image(key, icons::TAB))
+                .map(|i| i.tint(colour))
+        };
+        let pad = if neutral { 10.0 } else { 8.0 };
+        let height = match look.tabs {
+            theme::Tabs::Bar => tab_strip() - 2.0,
+            theme::Tabs::Raised => tab_strip() - 5.0,
+            theme::Tabs::Card => tab_strip() - 4.0,
+            theme::Tabs::Capsule => tab_strip() - 16.0,
+        };
         // | 8 | icon 4 | title | 4 badge | 4 × 4 |
         let close_size = 14.0;
-        let width = 8.0
+        let width = pad
             + icon.as_ref().map_or(0.0, |_| icons::TAB + 4.0)
             + galley.size().x
             + badge.as_ref().map_or(0.0, |b| 4.0 + b.size().x + 6.0)
@@ -757,7 +910,7 @@ impl Cx<'_, '_> {
             + close_size
             + 4.0;
         let (rect, response) =
-            ui.allocate_exact_size(Vec2::new(width, TAB_STRIP - 2.0), Sense::click_and_drag());
+            ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
         let pointed = ui.rect_contains_pointer(rect);
         let close_rect = Rect::from_center_size(
             egui::pos2(rect.right() - 4.0 - close_size / 2.0, rect.center().y),
@@ -771,26 +924,95 @@ impl Cx<'_, '_> {
             close
         });
         if ui.is_rect_visible(rect) {
-            if active {
-                // White at 15 % behind the active tab, rounded at the top, and a 2 px
-                // white underline across its width.
-                let top = egui::CornerRadius {
-                    nw: 3,
-                    ne: 3,
-                    sw: 0,
-                    se: 0,
-                };
-                ui.painter().rect_filled(rect, top, theme::ACTIVE_TAB_FILL);
-                let line = Rect::from_min_max(
-                    egui::pos2(rect.left(), rect.bottom() - theme::ACTIVE_TAB_UNDERLINE),
-                    rect.max,
-                );
-                ui.painter().rect_filled(line, 0.0, Color32::WHITE);
-            } else if pointed {
-                let hover = Color32::from_white_alpha(20);
-                ui.painter().rect_filled(rect, 3.0, hover);
+            let surface = theme::surface(th);
+            let top = |r: u8| egui::CornerRadius {
+                nw: r,
+                ne: r,
+                sw: 0,
+                se: 0,
+            };
+            let line = Stroke::new(1.0, theme::hairline(th));
+            match look.tabs {
+                theme::Tabs::Bar if active => {
+                    // White at 15 % behind the active tab, rounded at the top, and a 2 px
+                    // white underline across its width.
+                    ui.painter()
+                        .rect_filled(rect, top(3), theme::ACTIVE_TAB_FILL);
+                    let line = Rect::from_min_max(
+                        egui::pos2(rect.left(), rect.bottom() - theme::ACTIVE_TAB_UNDERLINE),
+                        rect.max,
+                    );
+                    ui.painter().rect_filled(line, 0.0, Color32::WHITE);
+                }
+                theme::Tabs::Bar if pointed => {
+                    let hover = Color32::from_white_alpha(20);
+                    ui.painter().rect_filled(rect, 3.0, hover);
+                }
+                theme::Tabs::Raised if active => {
+                    // The body's fill, a hairline round the top and sides, open below; the
+                    // active Document's tab carries a 2 px accent line on top.
+                    let r = look.control;
+                    ui.painter().rect(
+                        rect,
+                        top(r),
+                        surface,
+                        line,
+                        egui::StrokeKind::Inside,
+                    );
+                    let open = Rect::from_min_max(
+                        egui::pos2(rect.left() + 1.0, rect.bottom() - 1.0),
+                        egui::pos2(rect.right() - 1.0, rect.bottom() + 1.0),
+                    );
+                    ui.painter().rect_filled(open, 0.0, surface);
+                    if focused_group {
+                        let mark = Rect::from_min_max(
+                            egui::pos2(rect.left() + f32::from(r), rect.top()),
+                            egui::pos2(rect.right() - f32::from(r), rect.top() + 2.0),
+                        );
+                        ui.painter().rect_filled(mark, 1.0, theme::accent_text(th));
+                    }
+                }
+                theme::Tabs::Card if active => {
+                    // A card joined to the panel below it.
+                    let r = look.card.saturating_sub(2);
+                    let joined = rect.with_max_y(rect.bottom() + 1.0);
+                    ui.painter().rect_filled(joined, top(r), surface);
+                    if let Some(rim) = theme::card_rim(th) {
+                        ui.painter().rect_stroke(
+                            joined,
+                            top(r),
+                            Stroke::new(1.0, rim),
+                            egui::StrokeKind::Inside,
+                        );
+                        let open = Rect::from_min_max(
+                            egui::pos2(rect.left() + 1.0, rect.bottom()),
+                            egui::pos2(rect.right() - 1.0, rect.bottom() + 2.0),
+                        );
+                        ui.painter().rect_filled(open, 0.0, surface);
+                    }
+                }
+                theme::Tabs::Capsule if active => {
+                    // A raised capsule on the track; tinted with the accent in the group
+                    // that holds the active Document.
+                    let fill = if focused_group {
+                        theme::over(ui.visuals().selection.bg_fill, surface)
+                    } else {
+                        ui.visuals().widgets.hovered.weak_bg_fill
+                    };
+                    ui.painter()
+                        .rect(rect, 255, fill, line, egui::StrokeKind::Inside);
+                }
+                _ if pointed => {
+                    let r = match look.tabs {
+                        theme::Tabs::Capsule => 255,
+                        _ => look.control,
+                    };
+                    let hover = ui.visuals().widgets.hovered.weak_bg_fill;
+                    ui.painter().rect_filled(rect.shrink2(Vec2::new(0.0, 2.0)), r, hover);
+                }
+                _ => {}
             }
-            let mut x = rect.left() + 8.0;
+            let mut x = rect.left() + pad;
             if let Some(image) = icon {
                 let at = Rect::from_min_size(
                     egui::pos2(x, rect.center().y - icons::TAB / 2.0),
@@ -813,7 +1035,11 @@ impl Cx<'_, '_> {
                 painter.galley(egui::pos2(x + 3.0, y), badge, badge_text);
             }
             if let Some(close) = &close {
-                let colour = theme::tab_text(close.hovered());
+                let colour = match (neutral, close.hovered()) {
+                    (false, hovered) => theme::tab_text(hovered),
+                    (true, true) => ui.visuals().strong_text_color(),
+                    (true, false) => ui.visuals().weak_text_color(),
+                };
                 painter.text(
                     close_rect.center(),
                     Align2::CENTER_CENTER,
@@ -1181,10 +1407,10 @@ fn split_rect(rect: Rect, axis: Axis, n: usize) -> Vec<Rect> {
         Axis::Horizontal => rect.width(),
         Axis::Vertical => rect.height(),
     };
-    let part = ((length - GAP * (n - 1) as f32) / n as f32).max(0.0);
+    let part = ((length - gap_width() * (n - 1) as f32) / n as f32).max(0.0);
     (0..n)
         .map(|i| {
-            let a = i as f32 * (part + GAP);
+            let a = i as f32 * (part + gap_width());
             match axis {
                 Axis::Horizontal => {
                     Rect::from_x_y_ranges(rect.left() + a..=rect.left() + a + part, rect.y_range())

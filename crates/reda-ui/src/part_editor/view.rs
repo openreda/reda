@@ -144,12 +144,12 @@ fn properties(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invo
                 ui.end_row();
                 ui.label("");
                 let mut in_bom = part.in_bom;
-                ui.checkbox(&mut in_bom, tr!("part-in-bom"));
+                crate::theme::checkbox(ui, &mut in_bom, tr!("part-in-bom"));
                 out.extend(super::set_in_bom(part, in_bom));
                 ui.end_row();
                 ui.label("");
                 let mut in_cpl = part.in_cpl;
-                ui.checkbox(&mut in_cpl, tr!("part-in-cpl"));
+                crate::theme::checkbox(ui, &mut in_cpl, tr!("part-in-cpl"));
                 out.extend(super::set_in_cpl(part, in_cpl));
                 ui.end_row();
                 for key in super::PART_FIELDS {
@@ -576,7 +576,7 @@ fn pin_map(
                 for pad in &loose {
                     let mut on = part.pin_map.unconnected.contains(pad);
                     let text = tr!("part-pad-unconnected", pad = pad.as_str());
-                    if ui.checkbox(&mut on, text).changed() {
+                    if crate::theme::checkbox(ui, &mut on, text).changed() {
                         out.extend(super::set_unconnected(part, pad, on));
                     }
                 }

@@ -332,7 +332,7 @@ pub fn value_field(
 fn mask_link(ui: &mut Ui, board: &mut BoardSetupDraft) {
     let mut linked = board.mask_linked();
     let label = tr!("board-setup-mask-link");
-    if ui.checkbox(&mut linked, &label).changed() {
+    if crate::theme::checkbox(ui, &mut linked, &label).changed() {
         board.set_mask_linked(linked);
     }
 }

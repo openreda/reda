@@ -166,7 +166,7 @@ fn table(
                     row = i + 1,
                     column = tr!("pref-grid-in-cycle")
                 );
-                let response = ui.checkbox(&mut in_cycle, "");
+                let response = crate::theme::checkbox(ui, &mut in_cycle, "");
                 response.widget_info(|| {
                     WidgetInfo::selected(Role::CheckBox, true, in_cycle, label.clone())
                 });

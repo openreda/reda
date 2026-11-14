@@ -91,7 +91,7 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
     ui.label(crate::tr!("snap-palette-hotspots"));
     for &kind in offered(ty) {
         let mut on = !options.hotspots_off.contains(&kind);
-        if ui.checkbox(&mut on, hotspot_label(kind)).changed() {
+        if crate::theme::checkbox(ui, &mut on, hotspot_label(kind)).changed() {
             commands.push((
                 "view.snap.set",
                 json!({"document": document, "hotspots": {hotspot_name(kind): on}}),

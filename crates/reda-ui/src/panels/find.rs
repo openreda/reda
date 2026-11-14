@@ -333,14 +333,14 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
         }
     });
     ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut panel.kinds.designators, tr!("find-kinds-designators"));
-        ui.checkbox(&mut panel.kinds.values, tr!("find-kinds-values"));
-        ui.checkbox(&mut panel.kinds.nets, tr!("find-kinds-nets"));
-        ui.checkbox(&mut panel.kinds.text, tr!("find-kinds-text"));
+        crate::theme::checkbox(ui, &mut panel.kinds.designators, tr!("find-kinds-designators"));
+        crate::theme::checkbox(ui, &mut panel.kinds.values, tr!("find-kinds-values"));
+        crate::theme::checkbox(ui, &mut panel.kinds.nets, tr!("find-kinds-nets"));
+        crate::theme::checkbox(ui, &mut panel.kinds.text, tr!("find-kinds-text"));
     });
     ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut panel.match_case, tr!("find-match-case"));
-        ui.checkbox(&mut panel.whole_word, tr!("find-whole-word"));
+        crate::theme::checkbox(ui, &mut panel.match_case, tr!("find-match-case"));
+        crate::theme::checkbox(ui, &mut panel.whole_word, tr!("find-whole-word"));
     });
     ui.horizontal_wrapped(|ui| {
         ui.selectable_value(&mut panel.syntax, Syntax::Plain, tr!("find-syntax-plain"));
@@ -361,7 +361,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
             tr!("find-scope-selection"),
         );
     });
-    ui.checkbox(&mut panel.mask, tr!("find-mask"));
+    crate::theme::checkbox(ui, &mut panel.mask, tr!("find-mask"));
     if let Some(error) = &panel.error {
         ui.colored_label(ui.visuals().error_fg_color, error);
     } else if panel.searched && panel.results.is_empty() {

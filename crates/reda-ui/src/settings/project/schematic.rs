@@ -264,21 +264,21 @@ impl Page for SchematicPage {
     fn show(&mut self, ui: &mut Ui, _cx: &mut PageCx<'_>) {
         let options = self.options.value_mut();
         heading(ui, tr!("settings-schematic-nets"));
-        ui.checkbox(
+        crate::theme::checkbox(ui, 
             &mut options.allow_ports_to_name_nets,
             tr!("settings-schematic-allow-ports"),
         );
-        ui.checkbox(
+        crate::theme::checkbox(ui, 
             &mut options.power_port_names_priority,
             tr!("settings-schematic-power-priority"),
         );
-        ui.checkbox(
+        crate::theme::checkbox(ui, 
             &mut options.append_sheet_numbers,
             tr!("settings-schematic-append-sheet-numbers"),
         );
 
         heading(ui, tr!("settings-schematic-cross-references"));
-        ui.checkbox(
+        crate::theme::checkbox(ui, 
             &mut options.cross_references,
             tr!("settings-schematic-cross-references-on"),
         );
@@ -322,7 +322,7 @@ impl Page for SchematicPage {
                 });
                 ui.end_row();
             });
-        ui.checkbox(
+        crate::theme::checkbox(ui, 
             &mut options.cross_references_follow_preferences,
             tr!("settings-schematic-follow-preferences"),
         );

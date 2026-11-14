@@ -34,7 +34,7 @@ pub(crate) fn show(ctx: &egui::Context, closing: &mut Closing) -> Option<Answer>
                             }
                             _ => row.title.clone(),
                         };
-                        ui.checkbox(&mut row.ticked, label);
+                        crate::theme::checkbox(ui, &mut row.ticked, label);
                     }
                     (tr!("closing-save-selected"), tr!("closing-dont-save"))
                 }

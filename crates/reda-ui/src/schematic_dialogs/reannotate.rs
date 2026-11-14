@@ -542,7 +542,7 @@ impl ReannotateDialog {
         let mut lock = None;
         ui.horizontal(|ui| {
             ui.strong(tr!("reannotate-preview"));
-            ui.checkbox(&mut self.only_changed, tr!("reannotate-only-changed"));
+            crate::theme::checkbox(ui, &mut self.only_changed, tr!("reannotate-only-changed"));
             ui.label(tr!("reannotate-sort"));
             radios(
                 ui,
@@ -584,7 +584,7 @@ impl ReannotateDialog {
                             };
                             let mut locked = r.locked;
                             let name = tr!("reannotate-lock-row", designator = r.old.clone());
-                            let check = ui.checkbox(&mut locked, tr!("reannotate-lock"));
+                            let check = crate::theme::checkbox(ui, &mut locked, tr!("reannotate-lock"));
                             check.widget_info(|| {
                                 egui::WidgetInfo::selected(
                                     egui::Role::CheckBox,

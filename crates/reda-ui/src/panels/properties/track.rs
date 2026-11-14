@@ -173,7 +173,7 @@ fn net_rows(ui: &mut Ui, block: &NetBlock, units: Units, out: &mut Vec<Out>) {
 
             ui.label(tr!("properties-net-loop-removal"));
             let mut on = info.loop_removal;
-            let response = ui.checkbox(&mut on, "");
+            let response = crate::theme::checkbox(ui, &mut on, "");
             let name = tr!("properties-net-loop-removal");
             response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, name.clone()));
             if response.changed() {

@@ -172,7 +172,7 @@ fn outputs(ui: &mut Ui, draft: &mut JobDraft) {
         (tr!("output-job-reports"), &mut draft.reports),
         (tr!("output-job-schematic-pdf"), &mut draft.schematic_pdf),
     ] {
-        ui.checkbox(value.value_mut(), label);
+        crate::theme::checkbox(ui, value.value_mut(), label);
     }
     ui.add_space(6.0);
     ui.horizontal(|ui| {
