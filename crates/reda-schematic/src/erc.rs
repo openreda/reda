@@ -16,12 +16,12 @@ pub use placement::CONNECTION_GRID;
 use reda_command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_model::{
     Cell, ErcCheck, ErcSettings, MatrixType, Object, Project, Severity, Uuid, Violation, Waiver,
-    apply_waivers,
+    apply_waivers, ran_fully,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::UserName) {
+pub(crate) fn register_all(registry: &mut Registry, user_name: reda_command::UserNameLookup) {
     registry.add(ErcRun);
     registry.add(ErcStale);
     registry.add(ErcSetSeverity);
@@ -244,12 +244,8 @@ pub fn run(
         })
         .filter(in_scope)
         .collect();
-    let waived = apply_waivers(found, waivers(project), p.include_waived, |id| {
-        !partial
-            && ErcCheck::ALL
-                .iter()
-                .any(|c| c.id() == id && project.props().erc.is_on(*c) && wanted(*c))
-    });
+    let ran = ran_fully(partial, |c| project.props().erc.is_on(c) && wanted(c));
+    let waived = apply_waivers(found, waivers(project), p.include_waived, ran);
     Ok(ErcRunResult {
         violations: waived.violations,
         waived: waived.waived,
@@ -401,7 +397,7 @@ impl Command for ErcSetPinMatrix {
 }
 
 pub struct ErcWaive {
-    user_name: reda_command::UserName,
+    user_name: reda_command::UserNameLookup,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -423,7 +419,8 @@ pub struct ErcWaiverTarget {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct ErcWaiveResult {
-    /// The new Waivers, in the order of the selected Violations.
+    /// The new Waivers: one per distinct fingerprint (check and object set) among the
+    /// selected Violations, in the order each was first selected.
     pub waivers: Vec<Uuid>,
 }
 
@@ -443,29 +440,25 @@ impl Command for ErcWaive {
     type Output = ErcWaiveResult;
 
     fn run(&self, cx: &mut Context<'_>, p: ErcWaiveParams) -> Result<ErcWaiveResult, CommandError> {
-        if p.violations.is_empty() {
-            return Err(CommandError::invalid_params(
-                "/violations",
-                "select at least one Violation",
-            ));
-        }
-        let project = cx.project()?;
-        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
-        let violations = check(project, &library);
-        let selected = reda_command::select_waivers(
-            p.violations
-                .iter()
-                .map(|t| (t.check.id(), t.objects.as_slice())),
-            &violations,
-            waivers(project),
-            |v| {
-                v.document.ok_or_else(|| {
-                    CommandError::rejected("no sheet holds this Violation's objects")
-                })
-            },
-        )?;
-        let waivers = reda_command::insert_waivers(cx, selected, p.reason, self.user_name)?;
+        let targets = (p.violations.iter()).map(|t| (t.check.id(), t.objects.as_slice()));
+        let waivers = reda_command::waive(cx, self, targets, p.reason, self.user_name)?;
         Ok(ErcWaiveResult { waivers })
+    }
+}
+
+impl reda_command::WaiveChecks for ErcWaive {
+    fn violations(&self, cx: &Context<'_>) -> Result<Vec<Violation>, CommandError> {
+        let library = |uuids: &[Uuid]| cx.library_parts(uuids);
+        Ok(check(cx.project()?, &library))
+    }
+
+    fn waivers<'p>(&self, project: &'p Project) -> impl Iterator<Item = &'p Waiver> {
+        waivers(project)
+    }
+
+    fn document(&self, _: &Project, violation: &Violation) -> Result<Uuid, CommandError> {
+        (violation.document)
+            .ok_or_else(|| CommandError::rejected("no sheet holds this Violation's objects"))
     }
 }
 

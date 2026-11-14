@@ -124,6 +124,14 @@ impl Point {
         Point { x, y }
     }
 
+    /// The point halfway to `other`, rounded towards negative infinity.
+    pub fn midpoint(self, other: Point) -> Point {
+        Point::new(
+            Nm((self.x.0 + other.x.0).div_euclid(2)),
+            Nm((self.y.0 + other.y.0).div_euclid(2)),
+        )
+    }
+
     /// This point turned counter-clockwise by `angle` about `about` ([`crate::rotate`]).
     pub fn rotated_about(self, about: Point, angle: crate::Millideg) -> Point {
         let (x, y) = crate::rotate((self.x - about.x).0, (self.y - about.y).0, angle);

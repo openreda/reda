@@ -191,21 +191,11 @@ fn layer_names(shell: &Shell, v: &Violation) -> String {
 /// The centre of an object's drawing on its open Document's canvas.
 fn object_location(shell: &Shell, document: Option<Uuid>, object: Uuid) -> Option<Point> {
     let tab = shell.document_tab(document?)?;
-    let (lo, hi) = tab
-        .scene
-        .scene
-        .items_of(object)
+    (tab.scene.scene.items_of(object))
         .filter_map(|i| i.primitive.bounds())
-        .reduce(|(alo, ahi), (blo, bhi)| {
-            (
-                Point::new(alo.x.min(blo.x), alo.y.min(blo.y)),
-                Point::new(ahi.x.max(bhi.x), ahi.y.max(bhi.y)),
-            )
-        })?;
-    Some(Point::new(
-        reda_engine::model::geom::Nm((lo.x.0 + hi.x.0) / 2),
-        reda_engine::model::geom::Nm((lo.y.0 + hi.y.0) / 2),
-    ))
+        .map(|(min, max)| reda_engine::model::geom::Bounds { min, max })
+        .reduce(reda_engine::model::geom::Bounds::union)
+        .map(reda_engine::model::geom::Bounds::center)
 }
 
 fn point_text(p: Point) -> String {

@@ -2662,7 +2662,7 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "waivers": {
-            "description": "The new Waivers, in the order of the selected Violations.",
+            "description": "The new Waivers: one per distinct fingerprint (check and object set) among the\nselected Violations, in the order each was first selected.",
             "items": {
               "format": "uuid",
               "type": "string"
@@ -3710,7 +3710,7 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "waivers": {
-            "description": "The new Waivers, in the order of the selected Violations.",
+            "description": "The new Waivers: one per distinct fingerprint (check and object set) among the\nselected Violations, in the order each was first selected.",
             "items": {
               "format": "uuid",
               "type": "string"

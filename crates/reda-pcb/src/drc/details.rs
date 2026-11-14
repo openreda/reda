@@ -3,30 +3,25 @@
 use super::Board;
 use crate::copper::Item;
 use crate::copper::shape::BoardShape as _;
-use reda_model::geom::{Nm, Point};
-use reda_model::{GraphicShape, LayerKind, Violation, ViolationArg};
+use reda_model::geom::{Bounds, Nm, Point};
+use reda_model::{DrcCheck, GraphicShape, LayerKind, PcbDocument, Violation, ViolationArg};
 
-fn middle(a: Point, b: Point) -> Point {
-    Point::new(
-        Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
-        Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
-    )
-}
+/// The centre of the box around `points`; `None` when there are none.
 fn center(points: impl IntoIterator<Item = Point>) -> Option<Point> {
-    let mut points = points.into_iter();
-    let first = points.next()?;
-    let (lo, hi) = points.fold((first, first), |(lo, hi), p| {
-        (
-            Point::new(lo.x.min(p.x), lo.y.min(p.y)),
-            Point::new(hi.x.max(p.x), hi.y.max(p.y)),
-        )
-    });
-    Some(middle(lo, hi))
+    Bounds::of_points(points).map(Bounds::center)
 }
 
-pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
+/// Where a Violation about the whole board sits: the Board Outline's centre, or the
+/// origin when there is no outline.
+pub(crate) fn board_anchor(pcb: &PcbDocument) -> Point {
+    pcb.outline()
+        .and_then(|o| center(o.vertices.iter().map(|v| v.point())))
+        .unwrap_or(Point::new(Nm::ZERO, Nm::ZERO))
+}
+
+pub(super) fn complete(board: &Board<'_>, check: DrcCheck, v: &mut Violation) {
     // Rule-file problems have no canvas location (checks.md#violations).
-    if matches!(v.check.as_str(), "rule_invalid" | "rule_outside_preset") {
+    if matches!(check, DrcCheck::RuleInvalid | DrcCheck::RuleOutsidePreset) {
         return;
     }
     let pcb = board.pcb;
@@ -66,11 +61,8 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
     for item in pads.chain(stored) {
         for (layer, shape) in board.copper.item_pieces(item) {
             let envelope = shape.envelope();
-            let (lo, hi) = (envelope.lower(), envelope.upper());
-            candidates.push(Point::new(
-                Nm(lo[0] + (hi[0] - lo[0]) / 2),
-                Nm(lo[1] + (hi[1] - lo[1]) / 2),
-            ));
+            let corner = |[x, y]: [i64; 2]| Point::new(Nm(x), Nm(y));
+            candidates.push(corner(envelope.lower()).midpoint(corner(envelope.upper())));
             layers.push(layer);
         }
     }
@@ -78,8 +70,8 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
         if let Some(f) = pcb.footprint(*uuid) {
             candidates.push(f.at);
             if matches!(
-                v.check.as_str(),
-                "courtyard_overlap" | "footprint_outside_board"
+                check,
+                DrcCheck::CourtyardOverlap | DrcCheck::FootprintOutsideBoard
             ) && let Some(l) = pcb.layers().find(LayerKind::Courtyard, Some(f.side))
             {
                 layers.push(l.uuid);
@@ -96,7 +88,7 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
             let (GraphicShape::Line { from, to }
             | GraphicShape::Arc { from, to, .. }
             | GraphicShape::Rect { from, to, .. }) = g.shape;
-            candidates.push(middle(from, to));
+            candidates.push(from.midpoint(to));
             layers.push(g.layer);
         } else if let Some(z) = pcb.zone(*uuid) {
             if let Some(p) = center(pcb.zone_vertices(z).iter().map(|v| v.point())) {
@@ -110,13 +102,10 @@ pub(super) fn complete(board: &Board<'_>, v: &mut Violation) {
             layers.extend(pcb.keepout_layers(k));
         }
     }
-    v.at =
+    v.at = Some(
         v.at.or_else(|| candidates.first().copied())
-            .or_else(|| {
-                pcb.outline()
-                    .and_then(|o| center(o.vertices.iter().map(|v| v.point())))
-            })
-            .or(Some(Point::new(Nm::ZERO, Nm::ZERO)));
+            .unwrap_or_else(|| board_anchor(pcb)),
+    );
     if v.layers.is_empty() {
         if layers.is_empty() {
             layers.extend(pcb.copper_layers().map(|l| l.uuid));

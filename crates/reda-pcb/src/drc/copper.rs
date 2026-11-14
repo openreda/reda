@@ -30,35 +30,55 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
             RuleField::Value,
         )
         .expect("gap has a limit");
-        let pairs: Vec<_> = board
-            .copper
-            .item_pieces(gap.a)
-            .into_iter()
-            .flat_map(|(layer, a)| {
-                board
-                    .copper
-                    .item_pieces(gap.b)
-                    .into_iter()
-                    .filter(move |(l, _)| *l == layer)
-                    .map(move |(_, b)| (layer, a, b))
-            })
-            .filter(|(_, a, b)| a.distance(b) < gap.required.0 as f64)
-            .collect();
-        let pair = pairs
-            .iter()
-            .min_by(|(_, a, b), (_, c, d)| a.distance(b).total_cmp(&c.distance(d)))
-            .expect("gap shares a Layer");
-        let [a, b] = pair.1.closest_points(pair.2);
+        let found = closest_gap(
+            &board.copper.item_pieces(gap.a),
+            &board.copper.item_pieces(gap.b),
+            gap.required,
+        )
+        .expect("gap shares a Layer");
         report.add(DrcCheck::Clearance, |v| {
             v.length(gap.actual, gap.required, Limit::Min, source.rule)
-                .distance_points(a, b)
-                .on_layers(pairs.iter().map(|(layer, _, _)| *layer))
+                .distance_points(found.points[0], found.points[1])
+                .on_layers(found.layers)
                 .arg("required", gap.required)
                 .arg("actual", gap.actual)
                 .objects(item_objects(gap.a))
                 .objects(item_objects(gap.b))
         });
     }
+}
+
+/// Where two items' copper breaks a clearance: the closest points of the nearest pieces
+/// and every shared Layer where they come closer than required.
+#[derive(Debug, PartialEq)]
+struct GapAt {
+    points: [reda_model::geom::Point; 2],
+    layers: Vec<reda_model::Uuid>,
+}
+
+/// The [`GapAt`] of two items' pieces, by Layer, closer than `required` without touching
+/// (touching pieces are a short or a connection, as for [`crate::copper::Copper::gaps`]);
+/// none if no pair is.
+fn closest_gap(
+    a: &[(reda_model::Uuid, &Shape)],
+    b: &[(reda_model::Uuid, &Shape)],
+    required: reda_model::geom::Nm,
+) -> Option<GapAt> {
+    let pairs: Vec<_> = (a.iter())
+        .flat_map(|&(layer, a)| {
+            (b.iter())
+                .filter(move |(l, _)| *l == layer)
+                .map(move |&(_, b)| (layer, a, b))
+        })
+        .filter(|(_, a, b)| !a.touches(b) && a.distance(b) < required.0 as f64)
+        .collect();
+    let (_, a, b) = pairs
+        .iter()
+        .min_by(|(_, a, b), (_, c, d)| a.distance(b).total_cmp(&c.distance(d)))?;
+    Some(GapAt {
+        points: a.closest_points(b),
+        layers: pairs.iter().map(|(layer, _, _)| *layer).collect(),
+    })
 }
 
 /// Copper of two different Nets touching, Zone fills included. Copper on no Net touching a
@@ -238,4 +258,36 @@ fn keepout(board: &Board<'_>, report: &mut Report) {
         }
     }
     super::placement::footprints_in_keepouts(board, report);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GapAt, Shape, closest_gap};
+    use reda_model::Uuid;
+    use reda_model::geom::{Nm, Point};
+
+    fn at(x: i64, y: i64) -> Point {
+        Point::new(Nm(x), Nm(y))
+    }
+
+    #[test]
+    fn touching_pieces_on_one_layer_leave_the_gap_on_another() {
+        let (top, bottom) = (Uuid::from_u128(1), Uuid::from_u128(2));
+        // Two 1 mm discs: overlapping on the top Layer, 0.1 mm apart on the bottom one.
+        let a = Shape::disc(at(0, 0), Nm(1_000_000));
+        let b_top = Shape::disc(at(900_000, 0), Nm(1_000_000));
+        let b_bottom = Shape::disc(at(0, 1_100_000), Nm(1_000_000));
+        let found = closest_gap(
+            &[(top, &a), (bottom, &a)],
+            &[(top, &b_top), (bottom, &b_bottom)],
+            Nm(200_000),
+        );
+        assert_eq!(
+            found,
+            Some(GapAt {
+                points: [at(0, 500_000), at(0, 600_000)],
+                layers: vec![bottom],
+            })
+        );
+    }
 }

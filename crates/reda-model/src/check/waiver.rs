@@ -73,6 +73,16 @@ pub struct Waived {
     pub unmatched: Vec<Uuid>,
 }
 
+/// The `check_ran_fully` of [`apply_waivers`] for a run of the checks of table `C`: a
+/// Waiver's check ran across the whole design when the run was not `partial` and `ran`
+/// (the check is not Off and the run included it) holds for it.
+pub fn ran_fully<C: super::CheckKind>(
+    partial: bool,
+    ran: impl Fn(C) -> bool,
+) -> impl Fn(&str) -> bool {
+    move |id| !partial && C::from_id(id).is_some_and(&ran)
+}
+
 /// Lays `waivers` over a run's `violations`. Waived Violations are dropped unless
 /// `include_waived`, when they stay with their Waiver named. Only Waivers whose check
 /// ran across the whole design can be reported as unmatched. Callers must return false
