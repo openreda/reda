@@ -1263,7 +1263,7 @@ pub fn describe(key: &str) -> Option<String> {
         node = &resolve(node)["properties"][segment];
     }
     let own = node["description"].as_str().map(str::to_owned);
-    own.or_else(|| resolve(&node)["description"].as_str().map(str::to_owned))
+    own.or_else(|| resolve(node)["description"].as_str().map(str::to_owned))
 }
 
 /// The Library check severities of the session's user, reading the file now; the
