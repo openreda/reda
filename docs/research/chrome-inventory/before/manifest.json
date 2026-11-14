@@ -1,0 +1,228 @@
+{
+  "scenes": [
+    {
+      "caption": "",
+      "file": "01-start-dark.png",
+      "id": "01-start",
+      "theme": "dark",
+      "title": "Start page"
+    },
+    {
+      "caption": "",
+      "file": "01-start-light.png",
+      "id": "01-start",
+      "theme": "light",
+      "title": "Start page"
+    },
+    {
+      "caption": "",
+      "file": "02-schematic-dark.png",
+      "id": "02-schematic",
+      "theme": "dark",
+      "title": "Schematic editor"
+    },
+    {
+      "caption": "",
+      "file": "02-schematic-light.png",
+      "id": "02-schematic",
+      "theme": "light",
+      "title": "Schematic editor"
+    },
+    {
+      "caption": "",
+      "file": "03-pcb-dark.png",
+      "id": "03-pcb",
+      "theme": "dark",
+      "title": "PCB editor with Layers"
+    },
+    {
+      "caption": "",
+      "file": "03-pcb-light.png",
+      "id": "03-pcb",
+      "theme": "light",
+      "title": "PCB editor with Layers"
+    },
+    {
+      "caption": "",
+      "file": "04-menu-dark.png",
+      "id": "04-menu",
+      "theme": "dark",
+      "title": "Main menu open"
+    },
+    {
+      "caption": "",
+      "file": "04-menu-light.png",
+      "id": "04-menu",
+      "theme": "light",
+      "title": "Main menu open"
+    },
+    {
+      "caption": "",
+      "file": "05-palette-dark.png",
+      "id": "05-palette",
+      "theme": "dark",
+      "title": "Command Palette"
+    },
+    {
+      "caption": "",
+      "file": "05-palette-light.png",
+      "id": "05-palette",
+      "theme": "light",
+      "title": "Command Palette"
+    },
+    {
+      "caption": "",
+      "file": "06-tab-menu-dark.png",
+      "id": "06-tab-menu",
+      "theme": "dark",
+      "title": "Tab context menu with submenu"
+    },
+    {
+      "caption": "",
+      "file": "06-tab-menu-light.png",
+      "id": "06-tab-menu",
+      "theme": "light",
+      "title": "Tab context menu with submenu"
+    },
+    {
+      "caption": "",
+      "file": "07-collapsed-dock-dark.png",
+      "id": "07-collapsed-dock",
+      "theme": "dark",
+      "title": "Collapsed Dock with a flyout"
+    },
+    {
+      "caption": "",
+      "file": "07-collapsed-dock-light.png",
+      "id": "07-collapsed-dock",
+      "theme": "light",
+      "title": "Collapsed Dock with a flyout"
+    },
+    {
+      "caption": "",
+      "file": "08-preferences-dark.png",
+      "id": "08-preferences",
+      "theme": "dark",
+      "title": "Preferences"
+    },
+    {
+      "caption": "",
+      "file": "08-preferences-light.png",
+      "id": "08-preferences",
+      "theme": "light",
+      "title": "Preferences"
+    },
+    {
+      "caption": "",
+      "file": "09-project-settings-dark.png",
+      "id": "09-project-settings",
+      "theme": "dark",
+      "title": "Project Settings"
+    },
+    {
+      "caption": "",
+      "file": "09-project-settings-light.png",
+      "id": "09-project-settings",
+      "theme": "light",
+      "title": "Project Settings"
+    },
+    {
+      "caption": "",
+      "file": "10-board-setup-dark.png",
+      "id": "10-board-setup",
+      "theme": "dark",
+      "title": "Board Setup"
+    },
+    {
+      "caption": "",
+      "file": "10-board-setup-light.png",
+      "id": "10-board-setup",
+      "theme": "light",
+      "title": "Board Setup"
+    },
+    {
+      "caption": "",
+      "file": "11-output-job-dark.png",
+      "id": "11-output-job",
+      "theme": "dark",
+      "title": "Output Job"
+    },
+    {
+      "caption": "",
+      "file": "11-output-job-light.png",
+      "id": "11-output-job",
+      "theme": "light",
+      "title": "Output Job"
+    },
+    {
+      "caption": "",
+      "file": "12-library-dark.png",
+      "id": "12-library",
+      "theme": "dark",
+      "title": "Library panel and Part editor"
+    },
+    {
+      "caption": "",
+      "file": "12-library-light.png",
+      "id": "12-library",
+      "theme": "light",
+      "title": "Library panel and Part editor"
+    },
+    {
+      "caption": "",
+      "file": "13-messages-dark.png",
+      "id": "13-messages",
+      "theme": "dark",
+      "title": "Messages panel after ERC"
+    },
+    {
+      "caption": "",
+      "file": "13-messages-light.png",
+      "id": "13-messages",
+      "theme": "light",
+      "title": "Messages panel after ERC"
+    },
+    {
+      "caption": "",
+      "file": "14-focus-tab-switcher-dark.png",
+      "id": "14-focus-tab-switcher",
+      "theme": "dark",
+      "title": "Keyboard focus and tab switcher"
+    },
+    {
+      "caption": "",
+      "file": "14-focus-tab-switcher-light.png",
+      "id": "14-focus-tab-switcher",
+      "theme": "light",
+      "title": "Keyboard focus and tab switcher"
+    },
+    {
+      "caption": "",
+      "file": "15-params-form-dark.png",
+      "id": "15-params-form",
+      "theme": "dark",
+      "title": "Command params form (modal)"
+    },
+    {
+      "caption": "",
+      "file": "15-params-form-light.png",
+      "id": "15-params-form",
+      "theme": "light",
+      "title": "Command params form (modal)"
+    },
+    {
+      "caption": "",
+      "file": "16-tooltip-dark.png",
+      "id": "16-tooltip",
+      "theme": "dark",
+      "title": "Tool tooltip"
+    },
+    {
+      "caption": "",
+      "file": "16-tooltip-light.png",
+      "id": "16-tooltip",
+      "theme": "light",
+      "title": "Tool tooltip"
+    }
+  ]
+}
