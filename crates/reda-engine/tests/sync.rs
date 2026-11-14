@@ -720,7 +720,7 @@ fn the_pending_count_is_available_to_the_ui_and_drc() {
 }
 
 #[test]
-fn out_of_sync_sits_at_the_board_anchor_other_markers_fall_back_to() {
+fn out_of_sync_sits_at_the_board_center_other_markers_fall_back_to() {
     let dir = TempDir::new("sync-anchor");
     let mut engine = demo(&dir);
     two_wired_resistors(&mut engine);

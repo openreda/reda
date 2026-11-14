@@ -12,13 +12,15 @@
 
 mod connections;
 mod copper;
-pub(crate) mod details;
+mod details;
 pub(crate) mod edge;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
 pub(crate) mod silkscreen;
 mod zones;
+
+pub(crate) use details::board_center;
 
 use reda_command::Fonts;
 use reda_model::{

@@ -26,9 +26,7 @@ pub fn locate(document: Uuid, scene: &Scene, violation: &Violation) -> Option<Lo
     }
     let at = violation.at?;
     let frame = (violation.objects.iter())
-        .flat_map(|o| scene.items_of(*o))
-        .filter_map(|i| i.primitive.bounds())
-        .map(|(min, max)| Bounds { min, max })
+        .filter_map(|o| scene.object_bounds(*o))
         .fold(Bounds::of_point(at), Bounds::union);
     Some(Location {
         at,
