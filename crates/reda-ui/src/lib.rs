@@ -48,6 +48,7 @@ pub mod pcb;
 pub mod placement;
 pub mod port_partner;
 pub mod preferences_dialog;
+pub mod proto;
 mod projects_panel;
 pub mod properties;
 pub mod recovery;

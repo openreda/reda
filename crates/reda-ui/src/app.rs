@@ -212,10 +212,20 @@ impl App {
         if !self.theme_installed {
             theme::install(&ctx, theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
+            crate::proto::install_fonts(&ctx);
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
             self.theme_installed = true;
+        }
+        // PROTOTYPE (issue #276): F10 swaps the window for the component gallery.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::F10)) {
+            crate::proto::set_gallery(!crate::proto::gallery_on());
+        }
+        if crate::proto::gallery_on() {
+            crate::proto::pages::gallery(ui);
+            crate::proto::switcher(&ctx);
+            return;
         }
         self.apply_preferences(&ctx);
         self.pump_bridge(&ctx);

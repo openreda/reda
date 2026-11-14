@@ -242,10 +242,10 @@ pub fn direction() -> Direction {
     let mut v = DIRECTION.load(Ordering::Relaxed);
     if v == u8::MAX {
         v = match std::env::var("REDA_PROTO_DIRECTION").as_deref() {
-            Ok("paper") => 1,
+            Ok("graphite") => 0,
             Ok("ink") => 2,
             Ok("current") => 3,
-            _ => 0,
+            _ => 1,
         };
         DIRECTION.store(v, Ordering::Relaxed);
     }
@@ -565,7 +565,7 @@ pub fn accent_index() -> usize {
         v = ACCENTS
             .iter()
             .position(|a| a.eq_ignore_ascii_case(&want))
-            .unwrap_or(0) as u8;
+            .unwrap_or(1) as u8;
         ACCENT.store(v, Ordering::Relaxed);
     }
     v as usize
