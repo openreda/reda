@@ -472,6 +472,14 @@ _Avoid_: Layout, compact mode, UI scale, zoom
 How large the application chrome is drawn as a whole, text and icons included. A Preference, independent of Density, of the chrome's text size and of the zoom of any Document's canvas.
 _Avoid_: Zoom, Density, text size
 
+**Icon**:
+A small multi-coloured picture that stands for a Command, Preset, Tool, Panel or kind of Document, wherever that thing appears in the application chrome. Its colours say what the action creates and never change with the state of the control it sits on.
+_Avoid_: Glyph, symbol, pictogram, image
+
+**Glyph**:
+A small one-colour mark that is part of a control's own drawing, such as a chevron, a tick or a tab's close cross. It takes the colour of the control's text, so it follows the control's state.
+_Avoid_: Icon, symbol, mark
+
 **Project Settings**:
 A Project's own settings, such as its title-block properties, ERC severities and Fab Preset copies, which travel with the Project and apply to everyone who opens it.
 _Avoid_: Project options, Project preferences
