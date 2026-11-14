@@ -1,10 +1,10 @@
 # v0.1 application
 
-The window, docking, Projects and settings, canvas rendering, the Keymap and icons, Preferences and per-user state, crash recovery, i18n and accessibility. Crates: `reda-ui` and `reda-app`, plus `reda-render` for the canvas.
+How the application behaves and is arranged: the window, docking, Projects and settings, canvas rendering, the Keymap and icons, Preferences and per-user state, crash recovery, i18n and accessibility. Crates: `reda-ui` and `reda-app`, plus `reda-render` for the canvas. How the chrome looks (colours, sizes, radii, type, motion and each component's recipe) is in [`design-language.md`](design-language.md); this file holds no look values.
 
 ## Window shell
 
-Sources: [How should REDA's main window shell look and behave?](https://github.com/openreda/reda/issues/17), [Should REDA write its own docking layer instead of egui_tiles?](https://github.com/openreda/reda/issues/21), [ADR-0011](../../adr/0011-own-docking-layer.md), [How should floating windows behave on Wayland?](https://github.com/openreda/reda/issues/22), [How is the app shell arranged?](https://github.com/openreda/reda/issues/140) (tried in the [app shell prototype](https://github.com/openreda/reda/tree/prototype/app-shell)).
+Sources: [How should REDA's main window shell look and behave?](https://github.com/openreda/reda/issues/17), [Should REDA write its own docking layer instead of egui_tiles?](https://github.com/openreda/reda/issues/21), [ADR-0011](../../adr/0011-own-docking-layer.md), [How should floating windows behave on Wayland?](https://github.com/openreda/reda/issues/22), [How is the app shell arranged?](https://github.com/openreda/reda/issues/140) (tried in the [app shell prototype](https://github.com/openreda/reda/tree/prototype/app-shell)), [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274), [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md).
 
 - **One window, one Project per instance.**
   - Opening another Project replaces the open one, or starts a second instance.
@@ -28,12 +28,8 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   - Tabs can be dragged between windows.
   - On X11, Windows and macOS, a drop is hit-tested by screen position, with drop buttons and a preview in the target window.
   - **On Wayland** the drop is blind. After a release outside the source window, the first REDA window that sees the pointer takes the tab, at the drop target under the pointer (or at its first group). If no window sees the pointer within about 0.7 s, the tab floats in a new window. There is no cross-window preview, and the compositor places new windows.
-  - **Title bars** are the OS's. Where the compositor draws none, as GNOME does on Wayland, REDA uses winit's Adwaita title bar, so the title shows and double-clicking maximizes.
-  - **Floating windows** have no menus or toolbar. Every shortcut works in them, including undo, and the Palette opens in the main window. This keeps a floating canvas as large as it can be.
-- **The top row:**
-  - One row holds, from the left, the **quick strip** (the toolbar's buttons: Save, Save All, Undo, Redo, the units toggle and the view flip), the menus, the [command field](#command-palette) and, at the far right, the Preferences gear.
-  - The menus and quick strip are larger than the rest of the UI, because they are hit often and from a distance. Menu titles and items are 14.5 with 8 × 4 button padding. Quick strip buttons are 30 px squares holding a 22 px icon.
-  - The leading suite gives the strip and the menus a row each. REDA uses one to leave the height to the canvas.
+  - **Floating windows** have a slim [Title bar](#title-bar) and no menus or toolbar. Every shortcut works in them, including undo, and the Palette opens in the main window. This keeps a floating canvas as large as it can be.
+- **Title bar:** REDA draws its own, merged with the row of menus. See [Title bar](#title-bar) below.
 - **Menus:**
   - Menus and toolbars follow the active Document, which is the last one interacted with in any window.
   - The menus are File, Edit, View, Project, Place, Design, Route, Tools, Window and Help, in the leading suite's order. **Reports** folds into Tools and **Route** shows only on a board.
@@ -45,7 +41,7 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
 - **Active Bar:**
   - An **Active Bar** floats over each canvas with the most-used Tools for that Document type, about five or six of them, flat, then the [Selection Filter](editing.md#selection-filter) and [snap palette](editing.md#cursor-snapping) pop-ups. Undo, Redo, the units toggle and the view flip belong on the quick strip, not the Active Bar.
   - The Preference **Group Tools on the Active Bar** (off) turns it into groups whose face is the last-used Tool, as in the leading suite: Select, Move, Track, Via, Zone and Keepout, Board Outline, Pad, Text, Graphics and Measure on a board, and Select, Move, Wire, Net Label and Port, Power Port, No-Connect, Text and Graphics on a sheet. REDA defaults to flat, because a flat bar shows what it does without opening anything.
-  - The Active Bar sits in a window frame (radius 5, margin 3), 12 px below the canvas top, centred. On a canvas too narrow for it, the Tools that don't fit go into a **More Tools** menu at its end; nothing is clipped.
+  - The Active Bar is a floating bar, 12 px below the canvas top, centred. On a canvas too narrow for it, the Tools that don't fit go into a **More Tools** menu at its end; nothing is clipped.
 - **Tool bars:**
   - The bottom centre of the canvas belongs to the active Tool's bar: the [Routing Bar](#routing-bar) or the [Placement Bar](#placement-bar). A later Tool's bar goes in the same spot, in the same form, so only one shows.
   - Its bottom edge is 36 px above the canvas's, above the grid readout, and a further 24 px up when the [Layer strip](pcb.md#layer-control) shows.
@@ -62,39 +58,15 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   On a Violation marker it starts with Waive and Set severity ([checks](checks.md#messages-panel)).
 - **Messages** stays in the bottom Dock, with its details pane under the list. [Violation Details](checks.md#violation-details) is a non-modal window.
 - **Theme:**
-  - REDA's own dark and light themes, not stock egui. They use slate greys, one blue accent, small corner radii, no shadows, tighter spacing and slightly smaller text. The values are the ones the [main window prototype](https://github.com/openreda/reda/tree/prototype/main-window-shell) settled:
-
-    | Slot | Dark | Light |
-    |---|---|---|
-    | Panel | `#1d2024` | `#eceef1` |
-    | Window | `#23272c` | `#f7f8fa` |
-    | Text field | `#141619` | `#ffffff` |
-    | Faint (collapsed Dock icon strips) | `#24282d` | `#e4e7eb` |
-    | Widget at rest (checkbox fill) | `#2b3036` | `#dfe3e8` |
-    | Hovered | `#343a41` | `#d2d7de` |
-    | Pressed | `#3d444c` | `#c5ccd5` |
-    | Stroke (outlines, separators) | `#383e45` | `#c3c9d1` |
-    | Text | `#c4cad3` | `#2a2f36` |
-    | Strong text (hovered, pressed, selected) | `#eef1f4` | `#0d1014` |
-    | Weak text | `#949ba5` | `#596069` |
-    | Accent | `#3d8fd6` | `#1f6fb8` |
-    | Selection and active button | accent at 55 % | accent at 35 % |
-    | Link | `#4a98dc` | `#1d68ad` |
-    | Gap between groups and Docks | `#141619` | `#c3c9d1` |
-
-    Links are a shade off the accent where the accent itself misses 4.5:1. Text sizes: Body and Button 12.5, Small 10.5, Heading 16, Monospace 11.5. Spacing: button padding 6 × 2, interact height 20, item spacing 6 × 3. Radii: widgets and menus 3, windows 4.
-  - Both themes meet WCAG AA text contrast, measured against what shows through a translucent fill.
-  - **Buttons** are flat until hovered: no fill at rest, the hover colour when hovered, the selection colour (the accent, translucent, under strong text) when active or toggled. A disabled button fades once, icon and all, to about 47 %. Toolbar and Active Bar buttons are 32 px squares holding a 24 px icon, 2 px apart, with radius 3.
-  - **Blue on the active background** ([issue #32](https://github.com/openreda/reda/issues/32)'s follow-up): the icons' general-role blue keeps at least the prototype's contrast on the active button background, 2.0:1 dark and 2.36:1 light. A test enforces this, so a darker or more saturated active colour fails.
+  - REDA's own light and dark themes, each in two [Densities](#preferences). Every colour, size, radius, text style, shadow and transition is specified in the [design language](design-language.md).
   - Default: follow the OS.
 - **Tabs and groups:**
-  - Each tab group's 24 px tab strip is a solid blue bar across the whole group, the same in both themes. The group holding the active Document, which the menus follow, has the full blue `#1f5fbf`. The other groups have a muted blue: `#2b4f7a` dark, `#3f6593` light.
-  - Each tab shows its 16 px icon, its title and any badge. The active tab's title and icon are white, and the other tabs' are `#d6e2f2`. A test keeps both at 4.5:1 or more on both bars. A hovered tab lightens. The out-of-sync badge is a dark-on-amber pill.
-  - The active tab stands out from its bar: white at 15 % behind it, rounded at the top, and a 2 px white underline across its width.
-  - The active or hovered tab shows a × that closes it, and a middle-click on any tab closes it. Closing activates the group's last active tab, as in the leading suite.
-  - Groups have no borders: they sit 3 px apart, and the gaps show the gap colour. The gap at a Dock's inner edge is its splitter, and it turns the accent (at 60 %) while hovered or dragged.
-  - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is a 24 px faint icon strip, with no frame around it.
-- **Status bar:** from the left, all flat buttons:
+  - Each tab group is a card with its tab strip above it. Each tab shows its icon, its title and any badge (modified, out of sync).
+  - The tab of the active Document, which the menus and Commands follow, is marked ([Tabs](design-language.md#tabs)). The mark stays while keyboard focus is in a Panel, and a Panel's tab is never marked.
+  - The front or hovered tab shows a × that closes it, and a middle-click on any tab closes it. Closing activates the group's last active tab, as in the leading suite.
+  - Groups sit a fixed gap apart. The gap at a Dock's inner edge is its splitter.
+  - An expanded Dock has no header. It collapses from the View menu's Docks submenu (Collapse Left, Right or Bottom Dock, the `layout.dock.collapse` Presets), or from Collapse Dock on any of its tabs' menus. A collapsed Dock is an icon strip with flyouts.
+- **Status bar:** from the left, all flat buttons ([look](design-language.md#status-bar)):
   1. "Active: <Document kind>" (Schematic Sheet, PCB Document, Symbol, Footprint, Part)
   2. the cursor's X and Y in the Document's units
   3. [ΔX/ΔY](editing.md#delta) from the last click, unless hidden
@@ -110,9 +82,48 @@ Sources: [How should REDA's main window shell look and behave?](https://github.c
   The prompt shares this one bar, which differs from the leading suite's separate command bar, because a single line fits the fixed-height shell.
   - The cursor on a board is where it last snapped, measured from the Output Origin, in the board's units. On a sheet or Library element it is the pointer's last position, in the units of the grid in force. Values follow the [display precision](editing.md#properties-with-a-selection) Preferences.
 
+### Title bar
+
+Sources: [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274), [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md), [How does a custom title bar work on Wayland, Windows and macOS with winit and eframe 0.37?](https://github.com/openreda/reda/issues/269). Its look is in the [design language](design-language.md#title-bar).
+
+- **REDA draws its own Title bar** on Wayland, Windows and macOS, merged with the row of menus into one row. The chrome is then one continuous surface, and the canvas gains a row of height. The one the operating system draws is always called the system title bar.
+- **Main window,** from the leading end:
+  1. the **quick strip** (Save, Save All, Undo, Redo, the units toggle and the view flip)
+  2. the menus
+  3. the [command field](#command-palette), centred in the window
+  4. the Preferences gear
+  5. the window controls
+
+  There are no Document tabs in it.
+- **The window's title** has no label of its own. At rest the command field reads "Project name — active Document". The OS-level title is still set, for the taskbar and Alt+Tab.
+- **Window controls:**
+  - On macOS, the native traffic lights at the left. The quick strip starts after them.
+  - On Windows and Linux, one REDA-drawn set at the right: minimise, maximise or restore, and close. It does not follow GNOME's button-layout setting.
+- **Dragging:** every empty stretch drags the window. A double-click maximises or restores. A right-click opens the system menu where the platform offers one.
+- **Narrow windows:**
+  - A drag gap is always kept beside the window controls.
+  - The command field shrinks to a minimum, then becomes an icon button.
+  - Then the menus collapse into a single menu button, and the field comes back when that frees the room.
+  - The quick strip and the window controls never collapse.
+- **Floating windows** have a slim Title bar: the window's title at the left, drag space, and the same window controls. They still have no menus or toolbar. On macOS the bar takes the native title-bar height.
+- **States:**
+  - **Maximised:** square window corners, and edge resizing off.
+  - **Tiled:** as maximised on Windows, where the state is known. On Wayland the corners stay round.
+  - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide and, on macOS, the traffic-light inset closes up.
+  - **Inactive window:** the bar's text and window controls go muted.
+- **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds a hit strip inside the window edge.
+- **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
+  - With it on, the row is the same minus the window controls and the dragging. The command field still shows the title, and the window corners are square. Floating windows have the system's title bar and no REDA bar.
+  - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created.
+  - This path keeps winit's Adwaita frame for compositors that draw none, such as GNOME on Wayland.
+- **Accepted gaps,** because REDA uses no `unsafe` and no winit fork (ADR-0014):
+  - Windows: no snap-layouts flyout on the maximise button. Win+arrow and drag-to-snap still work.
+  - GNOME: a 1 px rim in place of a window shadow, and corners that stay round when tiled.
+  - macOS: floating windows keep AppKit's default traffic-light position.
+
 ### Command Palette
 
-- **The command field** sits in the top row, reading "Search Documents, Components, Nets" with its key. Clicking it or pressing `Mod+P` opens the Palette empty, in the field's place at the top of the window. It doesn't dim the window, and a click elsewhere or Esc closes it.
+- **The command field** sits in the [Title bar](#title-bar), centred. At rest it shows the window's title, "Project name — active Document". On focus it becomes the search prompt, "Search Documents, Components, Nets", with its key. Clicking it or pressing `Mod+P` opens the Palette empty, dropped from the field at the top of the window. It doesn't dim the window, and a click elsewhere or Esc closes it.
 - **Scopes,** by first character, as in VS Code. The leading suite has no equivalent:
 
   | Prefix | Searches | Choosing a row |
@@ -417,35 +428,38 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
 
 ## Icons
 
-Sources: [How do Commands get their labels, icons and shortcuts?](https://github.com/openreda/reda/issues/27), [How should REDA's icons look?](https://github.com/openreda/reda/issues/32). The style guide in that second ticket's resolution is the authority for drawing icons.
+Sources: [How do Commands get their labels, icons and shortcuts?](https://github.com/openreda/reda/issues/27), [How should REDA's icons look?](https://github.com/openreda/reda/issues/32), [Do icons change under the new theme, and do the hand-painted glyphs become icons?](https://github.com/openreda/reda/issues/283). The style guide in that second ticket's resolution is the authority for drawing icons.
 
 - **Icon keys:**
   - Commands, Presets and Tools carry a semantic icon key. `reda-ui` maps each key to one SVG.
   - A test fails when a key has no art.
 - **Style:**
   - Line art where colour carries meaning: what already exists is grey, what the action creates is in its role colour, and the points you click are pink dots.
-  - Six role colours: the five of the style guide, plus a yellow for the Board Outline, Board Cutouts and Keepouts, which are not copper. Each SVG is drawn with the dark-theme values, which are swapped for the light-theme values on load. Every role reaches at least 3:1 on its theme's panel.
+  - Six role colours: the five of the style guide, plus a yellow for the Board Outline, Board Cutouts and Keepouts, which are not copper.
+  - Each SVG is drawn with the style guide's hexes, which act as fixed role keys. On load each key is swapped for the theme's value, in both themes ([values](design-language.md#icon-role-colours)). No SVG is edited for a theme, and new art still uses only the style guide's hexes.
+  - Against the style guide's values, the context grey is warmer in both themes and the dark picked-point pink is lighter.
+  - Every role reaches at least 3:1 on the base, card and floating surfaces, at rest, hovered and toggled on, in both themes ([Contrast](design-language.md#contrast)).
   - SVG on a 24 px grid, rendered through `egui_extras` and resvg.
-- **Sizes:**
-  - 24 px on toolbars and the Active Bar
-  - 20 px in menus
-  - 16 px on tabs and Dock strips
+- **Sizes,** at every text size and in both Densities (only UI scale changes them):
+  - 20 px on the Title bar's quick strip, Tool bars, the Active Bar and collapsed Dock strips
+  - 16 px on tabs, rows, buttons with text and menus
 - **State:**
   - State shows on the button, never on the icon's colours. Active shows as an accent background, and hover as a hover background.
-  - Disabled icons are a greyscale copy made on load. The disabled button fades it once, to about 47 %, never twice.
+  - Disabled icons are a greyscale copy made on load. The disabled button fades it once, never twice.
   - Live-state icons, such as the active-Layer swatch, are painted.
+- **Glyphs:** the one-colour marks that are part of a control's own drawing (chevron, tick, cross, close ×, the window controls and the like) are not Icons. They take the control's text colour and are painted by `reda-ui` ([Icons and Glyphs](design-language.md#icons-and-glyphs)). The `search`, `lock` and `close` Icons stay for their Commands only.
 - **Art:**
   - Every key has REDA art drawn to the [issue #32](https://github.com/openreda/reda/issues/32) style guide, listed in `icons/reda.txt` with its provenance; a test fails when a key has no art.
   - A small `xtask` generates the key → `include_image!` table and the set's README from `icons/reda.txt`, and fails when a listed key has no SVG.
   - The README records each icon's provenance: who drew it, any reference or generator, and who cleaned it up.
 - **Third-party notices:**
-  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: Noto Sans, the Hershey font and egui's default UI fonts.
+  - A `THIRD_PARTY_NOTICES` file is generated at release time. Crate licences come from `cargo-about`, a dev tool. A hand-kept list covers vendored data: Noto Sans, the Hershey font, the bundled chrome fonts (Inter and JetBrains Mono) and egui's default UI fonts.
   - It is embedded in the binary and shown under **Help → About → Licences**.
   - A test checks that every vendored asset directory has an entry.
 
 ## Preferences
 
-Source: [What per-user state does REDA keep, and where?](https://github.com/openreda/reda/issues/28).
+Sources: [What per-user state does REDA keep, and where?](https://github.com/openreda/reda/issues/28), [How are theme, Density, text size, typeface and the system title bar presented in the Preferences window?](https://github.com/openreda/reda/issues/284), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [Can REDA read the OS reduced-motion setting on Wayland, Windows and macOS?](https://github.com/openreda/reda/issues/288).
 
 - **The file:**
   - `preferences.toml` holds only the values that differ from the defaults.
@@ -466,7 +480,41 @@ Source: [What per-user state does REDA keep, and where?](https://github.com/open
   - **Reset:** a dot beside each changed setting resets it, and there is **Reset page**, **Reset branch** and **Reset all**. `app.preferences.reset {keys | page | all}` does the same.
   - **All settings:** a last page generated from the schema, with key, value, default, description and the same search, so nothing depends on a hand-written page.
 - **v0.1 settings,** by page. The Symbol editor uses the Schematic pages and the Footprint editor the PCB pages:
-  - **General:** theme dark / light / follow OS (default: follow OS); UI scale, in steps of 75, 85, 100, 115, 125, 150 and 200 % (100 %); reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
+  - **General:** reopen the last Project on start (on); undo depth (an optional cap per Document stack; unlimited by default); `user.name`, the author of [Waivers](checks.md#waivers) (default: the OS user name).
+  - **Appearance:** directly after General. Its keys stay `general.*`: the page is a place in the page tree, not a rename. Four headed groups, each caption one line under its setting:
+
+    | Group | Setting | Key | Control | Caption |
+    |---|---|---|---|---|
+    | Theme | Theme | `general.theme` | Segmented: System · Light · Dark (System) | none |
+    | Size | Density | `general.density` | Segmented: Comfortable · Compact (Comfortable) | "How much room controls and rows get. Text and icons stay the same size." |
+    | Size | Text size | `general.text_size` | Number field with stepper, 11 to 16, suffix "px" (13) | "The size of text only. Icons stay the same size." |
+    | Size | UI scale | `general.ui_scale` | Dropdown: 75, 85, 100, 115, 125, 150 and 200 % (100 %) | "Magnifies everything: text, icons and spacing." |
+    | Fonts | UI font | `general.ui_font` | Dropdown with type-to-filter (the bundled Inter) | none |
+    | Fonts | Monospace font | `general.mono_font` | Dropdown with type-to-filter (the bundled JetBrains Mono) | "Used for the Journal, file names and command text." |
+    | Window | Animate | `general.animate` | Switch (on) | "Off: menus, panels and dialogs appear at once." |
+    | Window | Use the system title bar | `general.system_title_bar` | Check box (off) | see below |
+
+    - **Live:** every setting except the title bar applies to every window on the next frame, so the Preferences window is its own preview and there is no preview pane. A font or text size applies when chosen, not while moving through the list.
+    - **Density** changes the padding and gaps around text, never the size of text or icons, for the whole chrome at once. No Panel or Dock has its own.
+    - **Text size** is the body size in whole pixels. The rest of the type scale moves by the same offset, and icons stay fixed. `app.preferences.set` rejects a value out of range instead of clamping it.
+    - **Text size and UI scale** are independent and multiply. UI scale magnifies everything; text size changes text against its surroundings. The captions are the only thing that tells them apart; there is no diagram.
+    - **Fonts:**
+      - Each key stores a family name, or nothing for the bundled face.
+      - The choice is among installed system fonts, found through REDA's own installed-font index (`reda-app`), which also serves PCB text. No font-database crate is added.
+      - The UI list holds every installed family with a regular face that covers basic Latin. The monospace list holds only fixed-pitch families.
+      - Each list starts with "Default (Inter)" or "Default (JetBrains Mono)", then a rule, then the families in alphabetical order, in plain text. Families are not drawn in their own face.
+      - `app.preferences.set` accepts any family name, because a Preferences file may come from another machine.
+      - **Not installed, or the file fails validation:** REDA uses the bundled face and keeps the stored name. The field shows the name with a warning caption, "“Family” is not installed. REDA is using the default.", and the dropdown lists it marked "not installed".
+      - A font file is validated before it is handed to egui, which would otherwise panic during layout.
+      - What happens when a face lacks a weight, tabular digits or a glyph is in the [design language](design-language.md#type).
+    - **Animate** turns the chrome's transitions on or off ([Motion](design-language.md#motion)). It is separate from the canvas's zoom, flip and Layer-switch animation, under Editing.
+      - While the user has never set it, REDA reads the OS reduced-motion setting at each launch and uses that, on if the read fails. The value is not written to the file.
+      - Once the user flips the switch, their value is stored and the OS setting is ignored.
+      - REDA does not follow the OS setting while running.
+      - The reads need no `unsafe`: `objc2-app-kit` on macOS, the `windows` crate's `UISettings` on Windows, and the settings portal over `zbus` on Linux. All three are already in `Cargo.lock`.
+    - **Use the system title bar** ([Title bar](#title-bar)) is a check box because it does not apply at once.
+      - After a change, a caption appears under it: "Applies the next time REDA starts." There is no Restart button.
+      - Under sway and Hyprland the box is shown ticked and disabled, with the caption "Your desktop draws the title bar for every window." The stored value is left alone, so it is right again on another desktop.
   - **Window & Layouts:** the default Saved Layout; Reset Layout; rename and delete Saved Layouts.
   - **Editing,** from [shared editing](editing.md), each with a value per Document type where it differs:
     - default units mm/mil (mm), and display precision: mm (3 decimals), mil (1)
@@ -591,8 +639,12 @@ Source: [Is the v0.1 UI built to be translated, and which languages ship first?]
 Source: [How do Commands get their labels, icons and shortcuts?](https://github.com/openreda/reda/issues/27).
 
 - **AccessKit:** every icon-only button, tab and Dock icon has its Command or Panel title as its accessible name, with the shortcut in its description.
+- **Contrast:** text meets WCAG AA (4.5:1) in both themes, and icons, the focus ring and the active tab's mark meet 3:1. The rules are the [contrast table](design-language.md#contrast), which a test walks for every colour token.
+- **Colour is never the only signal:** each semantic colour comes with a shape or a word.
+- **Reduced motion:** the **Animate** [Preference](#preferences) starts from the OS reduced-motion setting.
+- **Text size** is a [Preference](#preferences), separate from UI scale.
 - **Focus:**
-  - Focus order follows the layout, and focus is always visible.
+  - Focus order follows the layout, and focus is always visible, as a ring that is never animated.
   - `Ctrl+Tab` / `Ctrl+Shift+Tab` switch tabs in most-recently-used order, through a popup.
   - F6 / Shift+F6 cycle between tab groups and Docks.
 - **Keyboard docking:**

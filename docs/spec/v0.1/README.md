@@ -16,7 +16,8 @@ v0.1 is a tester release, shipped unsigned. Finishing it is released as `0.1.0`.
 | [`sync.md`](sync.md) | Schematic → PCB Sync, write-through edits, cross-select |
 | [`checks.md`](checks.md) | ERC, DRC, design rules, Violations, Waivers |
 | [`outputs.md`](outputs.md) | Output Jobs, Fab Presets, Gerber/Excellon/BOM/CPL, schematic PDF |
-| [`app.md`](app.md) | Window shell, docking, New Project, the Projects panel and settings dialogs, canvas rendering, Keymap, icons, Preferences and per-user state, crash recovery, i18n, accessibility |
+| [`app.md`](app.md) | Window shell, the Title bar, docking, New Project, the Projects panel and settings dialogs, canvas rendering, Keymap, icons, Preferences and per-user state, crash recovery, i18n, accessibility |
+| [`design-language.md`](design-language.md) | How the chrome looks: colour, type, spacing and Density, radius, elevation, motion, icons and Glyphs, each component's recipe, the contrast rules and the token values |
 | [`quality-and-release.md`](quality-and-release.md) | Testing, CI, merge gate, packaging and releases |
 
 ## Constraints that cut across v0.1
