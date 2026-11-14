@@ -427,7 +427,7 @@ The set of shortcuts that map key chords to Commands and Presets, in contexts fr
 _Avoid_: Hotkeys, key bindings (as a whole), accelerators
 
 **Command Palette**:
-The searchable list opened from the keyboard or the command field in the top row, which finds Commands and Presets, Components, Nets and Documents by prefix.
+The searchable list opened from the keyboard or the command field in the Title bar, which finds Commands and Presets, Components, Nets and Documents by prefix.
 _Avoid_: Command bar, quick open, launcher
 
 **Journal**:
@@ -455,6 +455,10 @@ _Avoid_: Sidebar, drawer, edge panel
 **Layout**:
 The arrangement of tabs, splits, Docks and windows in which a user works on a Project; a user can save a Layout under a name and apply it to any Project.
 _Avoid_: Workspace, perspective, arrangement
+
+**Title bar**:
+The row at the top of a window that holds its window controls and, in the main window, the quick strip, the menus and the command field. REDA draws it; the one the operating system draws instead, when a Preference or the desktop asks for it, is the system title bar.
+_Avoid_: Top row, header bar, caption bar, toolbar
 
 **Preferences**:
 A user's own choices about how REDA looks and behaves, such as the theme or repeat placement, which apply to every Project they open and never change a design.
