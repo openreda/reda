@@ -141,17 +141,23 @@ impl Palette {
                     if found.is_empty() {
                         ui.weak(tr!("palette-nothing"));
                     }
-                    ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                        for (i, row) in found.iter().take(SHOWN).enumerate() {
-                            let (target, response) = draw_row(ui, row, i == self.selected, theme);
-                            if target.is_some() {
-                                chosen = target;
+                    // The Area remembers its last size: without a minimum, a list that was short keeps
+                    // its short height when it grows again (#281).
+                    ScrollArea::vertical()
+                        .max_height(360.0)
+                        .min_scrolled_height(360.0)
+                        .show(ui, |ui| {
+                            for (i, row) in found.iter().take(SHOWN).enumerate() {
+                                let (target, response) =
+                                    draw_row(ui, row, i == self.selected, theme);
+                                if target.is_some() {
+                                    chosen = target;
+                                }
+                                if i == self.selected && (up || down) {
+                                    response.scroll_to_me(None);
+                                }
                             }
-                            if i == self.selected && (up || down) {
-                                response.scroll_to_me(None);
-                            }
-                        }
-                    });
+                        });
                 });
             });
         let rect = area.response.rect;
