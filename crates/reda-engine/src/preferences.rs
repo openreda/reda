@@ -18,6 +18,7 @@ pub mod pages;
 
 use std::collections::BTreeSet;
 use std::num::NonZeroU32;
+use std::sync::OnceLock;
 
 use reda_command::{Length, UserDirs};
 use reda_model::{CrossReferenceStyles, LocationStyle, SheetStyle};
@@ -1209,13 +1210,21 @@ impl Preferences {
 }
 
 /// The JSON schema (draft 2020-12) of [`Preferences`], for the Preferences dialog and
-/// agents.
-pub fn schema() -> Value {
-    serde_json::to_value(schemars::schema_for!(Preferences)).expect("schemas are JSON")
+/// agents. It only changes with the build, so it is made once.
+pub fn schema() -> &'static Value {
+    static SCHEMA: OnceLock<Value> = OnceLock::new();
+    SCHEMA.get_or_init(|| {
+        serde_json::to_value(schemars::schema_for!(Preferences)).expect("schemas are JSON")
+    })
 }
 
-/// Every Preference key, dotted (`schematic.repeat_placement`).
+/// Every Preference key, dotted (`schematic.repeat_placement`), in key order. Made once.
 pub fn keys() -> Vec<String> {
+    static KEYS: OnceLock<Vec<String>> = OnceLock::new();
+    KEYS.get_or_init(leaf_keys).clone()
+}
+
+fn leaf_keys() -> Vec<String> {
     fn leaves(value: &Value, prefix: String, out: &mut Vec<String>) {
         match value {
             Value::Object(map) => {
@@ -1240,18 +1249,18 @@ pub fn keys() -> Vec<String> {
 /// The schema's description of one dotted key, if it has one.
 pub fn describe(key: &str) -> Option<String> {
     let schema = schema();
-    let resolve = |node: &Value| -> Value {
+    let resolve = |node: &'static Value| -> &'static Value {
         match node["$ref"]
             .as_str()
             .and_then(|r| r.strip_prefix("#/$defs/"))
         {
-            Some(name) => schema["$defs"][name].clone(),
-            None => node.clone(),
+            Some(name) => &schema["$defs"][name],
+            None => node,
         }
     };
-    let mut node = schema.clone();
+    let mut node = schema;
     for segment in key.split('.') {
-        node = resolve(&node)["properties"][segment].clone();
+        node = &resolve(node)["properties"][segment];
     }
     let own = node["description"].as_str().map(str::to_owned);
     own.or_else(|| resolve(&node)["description"].as_str().map(str::to_owned))
