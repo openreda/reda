@@ -17,7 +17,7 @@ mod pin_matrix;
 mod waiver;
 
 pub use pin_matrix::{Cell, ErcSettings, MatrixType, PinMatrix};
-pub use waiver::{Waived, Waiver, apply_waivers};
+pub use waiver::{Waived, Waiver, apply_waivers, ran_fully};
 
 // A check set to `Off` does not run, so it reports nothing. (Kept out of the doc comment,
 // which is the file schemas' description.)
@@ -144,10 +144,7 @@ impl Violation {
     /// Records the closest points and places the marker midway between them.
     pub fn distance_points(mut self, a: Point, b: Point) -> Self {
         self.points = Some([a, b]);
-        self.at = Some(Point::new(
-            Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
-            Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
-        ));
+        self.at = Some(a.midpoint(b));
         self
     }
 
@@ -225,6 +222,20 @@ impl From<Uuid> for ViolationArg {
     }
 }
 
+/// A check enum: every check of its table, and the id Violations and Waivers carry.
+pub trait CheckKind: Copy + 'static {
+    /// Every check, in the order of its table.
+    const ALL: &'static [Self];
+
+    /// The check id, such as `clearance`.
+    fn id(self) -> &'static str;
+
+    /// The check with id `id`, if the table has one.
+    fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.id() == id)
+    }
+}
+
 /// Defines a check enum and the struct holding one [`Severity`] per check, from one table
 /// of `field => Variant = DefaultSeverity` rows. The field name is the check id that
 /// Violations and Waivers carry.
@@ -264,6 +275,14 @@ macro_rules! severities {
             /// it has no severity of its own.
             pub const fn is_matrix(self) -> bool {
                 matches!(self, $($check::$mvariant)|*)
+            }
+        }
+
+        impl $crate::check::CheckKind for $check {
+            const ALL: &'static [$check] = $check::ALL;
+
+            fn id(self) -> &'static str {
+                $check::id(self)
             }
         }
 
@@ -336,6 +355,14 @@ macro_rules! severities {
                 match self {
                     $($check::$variant => stringify!($field),)*
                 }
+            }
+        }
+
+        impl $crate::check::CheckKind for $check {
+            const ALL: &'static [$check] = $check::ALL;
+
+            fn id(self) -> &'static str {
+                $check::id(self)
             }
         }
 

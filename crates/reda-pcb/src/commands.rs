@@ -58,7 +58,7 @@ pub fn register_all(registry: &mut Registry, sync: SyncCheck) {
 pub fn register_all_with_user(
     registry: &mut Registry,
     sync: SyncCheck,
-    user_name: reda_command::UserName,
+    user_name: reda_command::UserNameLookup,
 ) {
     outline::register_all(registry);
     rules::register_all(registry);

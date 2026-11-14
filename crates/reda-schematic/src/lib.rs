@@ -103,7 +103,7 @@ pub fn register_all(registry: &mut Registry) {
 /// reader that tells which local edits an update removes (it lives in `reda-engine`).
 pub fn register_all_with_user(
     registry: &mut Registry,
-    user_name: reda_command::UserName,
+    user_name: reda_command::UserNameLookup,
     lost_local_edits: LostLocalEdits,
 ) {
     registry.add(ComponentPlace);

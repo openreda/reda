@@ -720,6 +720,28 @@ fn the_pending_count_is_available_to_the_ui_and_drc() {
 }
 
 #[test]
+fn out_of_sync_sits_at_the_board_anchor_other_markers_fall_back_to() {
+    let dir = TempDir::new("sync-anchor");
+    let mut engine = demo(&dir);
+    two_wired_resistors(&mut engine);
+    engine.run_ok(
+        "pcb.board_outline.add_rect",
+        json!({"width": "40mm", "height": "20mm"}),
+    );
+    let marker = |engine: &mut TestEngine| {
+        let run = engine.run_ok("drc.run", json!({"checks": ["out_of_sync"]}));
+        run["violations"][0]["at"].clone()
+    };
+    // The outline's centre, as for a Violation with nothing else to place it by.
+    assert_eq!(
+        marker(&mut engine),
+        json!({"x": 20_000_000, "y": 10_000_000})
+    );
+    engine.run_ok("pcb.board_outline.delete", json!({}));
+    assert_eq!(marker(&mut engine), json!({"x": 0, "y": 0}));
+}
+
+#[test]
 fn net_links_pair_each_synced_schematic_net_with_its_pcb_net() {
     let dir = TempDir::new("sync-links");
     let mut engine = demo(&dir);

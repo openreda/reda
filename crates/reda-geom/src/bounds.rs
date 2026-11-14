@@ -47,10 +47,7 @@ impl Bounds {
 
     /// The centre, rounded towards negative infinity.
     pub fn center(self) -> Point {
-        Point::new(
-            Nm((self.min.x.0 + self.max.x.0).div_euclid(2)),
-            Nm((self.min.y.0 + self.max.y.0).div_euclid(2)),
-        )
+        self.min.midpoint(self.max)
     }
 
     pub fn width(self) -> Nm {

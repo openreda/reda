@@ -12,7 +12,7 @@
 
 mod connections;
 mod copper;
-mod details;
+pub(crate) mod details;
 pub(crate) mod edge;
 pub mod health;
 mod holes;
@@ -109,8 +109,8 @@ pub fn check_only(
     found.sort_by_key(|(check, _)| *check);
     found
         .into_iter()
-        .map(|(_, mut v)| {
-            details::complete(&board, &mut v);
+        .map(|(check, mut v)| {
+            details::complete(&board, check, &mut v);
             v
         })
         .collect()

@@ -379,7 +379,7 @@ fn unit_points(
         for (unit, [graphics, pins, designator]) in boxes {
             let text = designator.filter(|_| location == Location::Designator);
             if let Some(b) = text.or(graphics).or(pins) {
-                out.insert(unit, center(b));
+                out.insert(unit, b.center());
             }
         }
     }
@@ -390,13 +390,6 @@ fn unit_points(
         }
     }
     out
-}
-
-fn center(b: Bounds) -> Point {
-    Point::new(
-        Nm(b.min.x.0 + (b.max.x.0 - b.min.x.0) / 2),
-        Nm(b.min.y.0 + (b.max.y.0 - b.min.y.0) / 2),
-    )
 }
 
 /// Every placed Unit with its sheet, in Document order. Units inside Sheet Instances
