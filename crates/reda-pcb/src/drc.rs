@@ -20,6 +20,8 @@ pub(crate) mod placement;
 pub(crate) mod silkscreen;
 mod zones;
 
+pub(crate) use details::board_center;
+
 use reda_command::Fonts;
 use reda_model::{
     DrcCheck, DrcSeverities, LayerKind, PcbDocument, Severity, Uuid, Violation, ZoneFills,
@@ -109,8 +111,8 @@ pub fn check_only(
     found.sort_by_key(|(check, _)| *check);
     found
         .into_iter()
-        .map(|(_, mut v)| {
-            details::complete(&board, &mut v);
+        .map(|(check, mut v)| {
+            details::complete(&board, check, &mut v);
             v
         })
         .collect()

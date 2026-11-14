@@ -4,7 +4,10 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Registry, Unavailable,
 };
-use reda_model::{DrcCheck, InDocument, Object, Project, Severity, Uuid, Violation, apply_waivers};
+use reda_model::{
+    DrcCheck, InDocument, Object, Project, Severity, Uuid, Violation, Waiver, apply_waivers,
+    ran_fully,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +23,7 @@ use scope::Scope;
 pub(super) fn register_all(
     registry: &mut Registry,
     sync: SyncCheck,
-    user_name: reda_command::UserName,
+    user_name: reda_command::UserNameLookup,
 ) {
     registry.add(DrcRun { sync });
     registry.add(DrcStale { sync });
@@ -72,17 +75,8 @@ fn current(
     // `out_of_sync` is the last check of the DRC table.
     let sync_violation = state.violation.filter(|_| wanted(DrcCheck::OutOfSync));
     violations.extend(sync_violation.map(|v| {
-        v.located(
-            pcb.uuid,
-            pcb.outline().and_then(|o| o.vertices.first()).map_or(
-                reda_model::geom::Point::new(
-                    reda_model::geom::Nm::ZERO,
-                    reda_model::geom::Nm::ZERO,
-                ),
-                |v| v.point(),
-            ),
-        )
-        .on_layers(pcb.copper_layers().map(|l| l.uuid))
+        v.located(pcb.uuid, crate::drc::board_center(pcb))
+            .on_layers(pcb.copper_layers().map(|l| l.uuid))
     }));
     let presets = crate::rules::presets::job_presets(project, pcb);
     if wanted(DrcCheck::RuleOutsidePreset) {
@@ -241,14 +235,11 @@ pub fn run(
     let found = (checked.violations.into_iter())
         .filter(|v| scope.contains(pcb, v))
         .collect();
-    let waived = apply_waivers(found, pcb.waivers(), p.include_waived, |id| {
-        !partial
-            && DrcCheck::ALL.iter().any(|c| {
-                c.id() == id
-                    && pcb.setup().severities.get(*c) != Severity::Off
-                    && p.checks.as_ref().is_none_or(|only| only.contains(c))
-            })
+    let ran = ran_fully(partial, |c: DrcCheck| {
+        pcb.setup().severities.get(c) != Severity::Off
+            && p.checks.as_ref().is_none_or(|only| only.contains(&c))
     });
+    let waived = apply_waivers(found, pcb.waivers(), p.include_waived, ran);
     Ok(DrcRunResult {
         violations: waived.violations,
         waived: waived.waived,
@@ -342,7 +333,7 @@ impl Command for DrcSetSeverity {
 
 pub struct DrcWaive {
     sync: SyncCheck,
-    user_name: reda_command::UserName,
+    user_name: reda_command::UserNameLookup,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -364,7 +355,8 @@ pub struct DrcWaiverTarget {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct DrcWaiveResult {
-    /// The new Waivers, in the order of the selected Violations.
+    /// The new Waivers: one per distinct check and object set among the selected
+    /// Violations, in the order each was first selected.
     pub waivers: Vec<Uuid>,
 }
 
@@ -388,24 +380,26 @@ impl Command for DrcWaive {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: DrcWaiveParams) -> Result<DrcWaiveResult, CommandError> {
-        if p.violations.is_empty() {
-            return Err(CommandError::invalid_params(
-                "/violations",
-                "select at least one Violation",
-            ));
-        }
-        let violations = current(cx.project()?, cx.fonts(), self.sync, None)?.violations;
-        let board = pcb(cx)?;
-        let selected = reda_command::select_waivers(
-            p.violations
-                .iter()
-                .map(|t| (t.check.id(), t.objects.as_slice())),
-            &violations,
-            board.waivers(),
-            |_| Ok(board.uuid),
-        )?;
-        let waivers = reda_command::insert_waivers(cx, selected, p.reason, self.user_name)?;
+        let targets = (p.violations.iter()).map(|t| (t.check.id(), t.objects.as_slice()));
+        let waivers = reda_command::waive(cx, self, targets, p.reason, self.user_name)?;
         Ok(DrcWaiveResult { waivers })
+    }
+}
+
+impl reda_command::WaiveChecks for DrcWaive {
+    fn violations(&self, cx: &Context<'_>) -> Result<Vec<Violation>, CommandError> {
+        Ok(current(cx.project()?, cx.fonts(), self.sync, None)?.violations)
+    }
+
+    fn waivers<'p>(&self, project: &'p Project) -> impl Iterator<Item = &'p Waiver> {
+        project.pcb().into_iter().flat_map(|pcb| pcb.waivers())
+    }
+
+    fn document(&self, project: &Project, _: &Violation) -> Result<Uuid, CommandError> {
+        project
+            .pcb()
+            .map(|pcb| pcb.uuid)
+            .ok_or_else(|| CommandError::unavailable(super::NO_PCB))
     }
 }
 

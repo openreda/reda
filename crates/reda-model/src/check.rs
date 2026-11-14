@@ -17,7 +17,7 @@ mod pin_matrix;
 mod waiver;
 
 pub use pin_matrix::{Cell, ErcSettings, MatrixType, PinMatrix};
-pub use waiver::{Waived, Waiver, apply_waivers};
+pub use waiver::{Waived, Waiver, apply_waivers, ran_fully};
 
 // A check set to `Off` does not run, so it reports nothing. (Kept out of the doc comment,
 // which is the file schemas' description.)
@@ -144,10 +144,7 @@ impl Violation {
     /// Records the closest points and places the marker midway between them.
     pub fn distance_points(mut self, a: Point, b: Point) -> Self {
         self.points = Some([a, b]);
-        self.at = Some(Point::new(
-            Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
-            Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
-        ));
+        self.at = Some(a.midpoint(b));
         self
     }
 
@@ -225,10 +222,34 @@ impl From<Uuid> for ViolationArg {
     }
 }
 
+/// A check enum: every check of its table, and the id Violations and Waivers carry.
+pub trait CheckKind: Copy + 'static {
+    /// Every check, in the order of its table.
+    const ALL: &'static [Self];
+
+    /// The check id, such as `clearance`.
+    fn id(self) -> &'static str;
+
+    /// The check with id `id`, if the table has one.
+    fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.id() == id)
+    }
+}
+
 /// Defines a check enum and the struct holding one [`Severity`] per check, from one table
 /// of `field => Variant = DefaultSeverity` rows. The field name is the check id that
 /// Violations and Waivers carry.
 macro_rules! severities {
+    // The [`CheckKind`] impl, from the check enum's inherent `ALL` and `id`.
+    (@kind $check:ident) => {
+        impl $crate::check::CheckKind for $check {
+            const ALL: &'static [$check] = $check::ALL;
+
+            fn id(self) -> &'static str {
+                $check::id(self)
+            }
+        }
+    };
     // A table whose first checks are set by the Pin Matrix: they are in the check enum but
     // have no field in the severities struct.
     (
@@ -266,6 +287,8 @@ macro_rules! severities {
                 matches!(self, $($check::$mvariant)|*)
             }
         }
+
+        $crate::check::severities!(@kind $check);
 
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
         $(#[$smeta])*
@@ -338,6 +361,8 @@ macro_rules! severities {
                 }
             }
         }
+
+        $crate::check::severities!(@kind $check);
 
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
         $(#[$smeta])*
@@ -497,11 +522,4 @@ severities! {
     generator_out_of_date => GeneratorOutOfDate = Warning,
     /// A Pin with no name.
     missing_pin_name => MissingPinName = Off,
-}
-
-impl LibraryCheck {
-    /// The check whose id is `id`, such as `off_grid_pin`.
-    pub fn from_id(id: &str) -> Option<LibraryCheck> {
-        LibraryCheck::ALL.iter().copied().find(|c| c.id() == id)
-    }
 }

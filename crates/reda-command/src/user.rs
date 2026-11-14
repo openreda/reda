@@ -37,9 +37,9 @@ impl UserDirs {
     }
 }
 
-/// Supplies the name recorded on new Waivers. The engine resolves Preferences; domain
+/// Looks up the user's name, which new Waivers record. The engine resolves Preferences; domain
 /// crates can also be registered alone, in which case they use the OS user name.
-pub type UserName = fn(Option<&UserDirs>) -> String;
+pub type UserNameLookup = fn(Option<&UserDirs>) -> String;
 
 pub fn os_user_name(_dirs: Option<&UserDirs>) -> String {
     std::env::var("USER")

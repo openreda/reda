@@ -1,19 +1,71 @@
-//! Shared preparation and insertion for ERC and DRC's atomic Waiver Commands.
+//! The batch-waive body that ERC's and DRC's Waiver Commands share.
 
-use reda_model::{InDocument, Object, Severity, Uuid, Violation, Waiver};
+use reda_model::{InDocument, Object, Project, Severity, Uuid, Violation, Waiver};
 
-use crate::{CommandError, Context, UserName};
+use crate::{CommandError, Context, UserNameLookup};
 
-/// Validate every target against current results before allocating any ids or editing.
-/// Domains run their checks and resolve the Document that owns each Violation.
-pub fn select_waivers<'a>(
-    targets: impl IntoIterator<Item = (&'a str, &'a [Uuid])>,
-    violations: &[Violation],
-    existing: impl Iterator<Item = &'a Waiver>,
-    mut document: impl FnMut(&Violation) -> Result<Uuid, CommandError>,
+/// What a check domain supplies to [`waive`].
+pub trait WaiveChecks {
+    /// The current Violations, ignoring Waivers.
+    fn violations(&self, cx: &Context<'_>) -> Result<Vec<Violation>, CommandError>;
+
+    /// The Waivers the domain already stores.
+    fn waivers<'p>(&self, project: &'p Project) -> impl Iterator<Item = &'p Waiver>;
+
+    /// The Document that stores the Waiver of `violation`.
+    fn document(&self, project: &Project, violation: &Violation) -> Result<Uuid, CommandError>;
+}
+
+/// Waives the current Violations `targets` names (each a check id and exactly its objects)
+/// with one reason, author and creation time, in the caller's transaction, so as one undo
+/// step that rolls back whole. Every target is checked against the current results before
+/// anything is inserted. Targets that share a fingerprint (such as both ends of a dangling
+/// Wire) get one Waiver. Returns the new Waivers, one per distinct fingerprint, in the
+/// order each was first selected.
+pub fn waive<'t>(
+    cx: &mut Context<'_>,
+    checks: &impl WaiveChecks,
+    targets: impl IntoIterator<Item = (&'t str, &'t [Uuid])>,
+    reason: String,
+    user_name: UserNameLookup,
+) -> Result<Vec<Uuid>, CommandError> {
+    let targets: Vec<_> = targets.into_iter().collect();
+    if targets.is_empty() {
+        return Err(CommandError::invalid_params(
+            "/violations",
+            "select at least one Violation",
+        ));
+    }
+    let selected = select(cx, checks, targets)?;
+    let author = user_name(cx.user_dirs());
+    let created = cx.now().0;
+    let mut waivers = Vec::with_capacity(selected.len());
+    for (document, violation) in selected {
+        let waiver = Waiver::of(
+            cx.new_id(),
+            &violation,
+            author.clone(),
+            created,
+            reason.clone(),
+        );
+        waivers.push(waiver.uuid);
+        cx.tx()?
+            .insert(Object::Waiver(InDocument::new(document, waiver)))?;
+    }
+    Ok(waivers)
+}
+
+/// The current Violation each target names, with the Document to store its Waiver in,
+/// one per fingerprint.
+fn select(
+    cx: &Context<'_>,
+    checks: &impl WaiveChecks,
+    targets: Vec<(&str, &[Uuid])>,
 ) -> Result<Vec<(Uuid, Violation)>, CommandError> {
-    let existing: Vec<_> = existing.collect();
-    let mut selected = Vec::new();
+    let violations = checks.violations(cx)?;
+    let project = cx.project()?;
+    let existing: Vec<&Waiver> = checks.waivers(project).collect();
+    let mut selected: Vec<(Uuid, Violation)> = Vec::new();
     for (check, objects) in targets {
         let probe = Violation::new(check, Severity::Error).objects(objects.to_vec());
         let candidate = Waiver::of(Uuid::from_u128(0), &probe, "", 0, "");
@@ -30,44 +82,10 @@ pub fn select_waivers<'a>(
                 "a Waiver already waives this Violation",
             ));
         }
-        // Several results may have one fingerprint (such as both dangling Wire ends).
         if selected.iter().any(|(_, v)| candidate.matches(v)) {
             continue;
         }
-        selected.push((document(violation)?, violation.clone()));
-    }
-    if selected.is_empty() {
-        return Err(CommandError::invalid_params(
-            "/violations",
-            "select at least one Violation",
-        ));
+        selected.push((checks.document(project, violation)?, violation.clone()));
     }
     Ok(selected)
-}
-
-/// Insert a fully validated selection in the caller's transaction, with shared metadata.
-/// The transaction records one history entry for each affected Document and rolls back
-/// all insertions if any step fails.
-pub fn insert_waivers(
-    cx: &mut Context<'_>,
-    selected: Vec<(Uuid, Violation)>,
-    reason: String,
-    user_name: UserName,
-) -> Result<Vec<Uuid>, CommandError> {
-    let author = user_name(cx.user_dirs());
-    let created = cx.now().0;
-    let mut waivers = Vec::new();
-    for (document, violation) in selected {
-        let waiver = Waiver::of(
-            cx.new_id(),
-            &violation,
-            author.clone(),
-            created,
-            reason.clone(),
-        );
-        waivers.push(waiver.uuid);
-        cx.tx()?
-            .insert(Object::Waiver(InDocument::new(document, waiver)))?;
-    }
-    Ok(waivers)
 }

@@ -78,10 +78,7 @@ pub fn findings(pcb: &PcbDocument) -> Vec<Finding> {
                 check: DrcCheck::MicroSegment,
                 objects: vec![track.uuid],
                 remove: track.uuid,
-                at: Point::new(
-                    Nm(a.x.0 + (b.x.0 - a.x.0) / 2),
-                    Nm(a.y.0 + (b.y.0 - a.y.0) / 2),
-                ),
+                at: a.midpoint(b),
                 layers: vec![track.layer],
                 length: Some((Nm(length.round() as i64), max, limit.rule)),
             });

@@ -119,9 +119,24 @@ pub struct Point {
     pub y: Nm,
 }
 
+impl From<[i64; 2]> for Point {
+    /// The point at `[x, y]` nm, the raw form the polygon and shape code uses.
+    fn from([x, y]: [i64; 2]) -> Point {
+        Point::new(Nm(x), Nm(y))
+    }
+}
+
 impl Point {
     pub const fn new(x: Nm, y: Nm) -> Point {
         Point { x, y }
+    }
+
+    /// The point halfway to `other`, rounded towards negative infinity.
+    pub fn midpoint(self, other: Point) -> Point {
+        Point::new(
+            Nm((self.x.0 + other.x.0).div_euclid(2)),
+            Nm((self.y.0 + other.y.0).div_euclid(2)),
+        )
     }
 
     /// This point turned counter-clockwise by `angle` about `about` ([`crate::rotate`]).

@@ -273,10 +273,7 @@ pub(crate) fn gap(a: &Area, b: &Area) -> Option<(f64, [Point; 2], bool)> {
         return Some((ea.distance(&eb).max(0.0), ea.closest_points(&eb), false));
     }
     if let Some((lo, hi)) = bounds(&overlap) {
-        let mid = Point::new(
-            reda_model::geom::Nm(lo[0] + (hi[0] - lo[0]) / 2),
-            reda_model::geom::Nm(lo[1] + (hi[1] - lo[1]) / 2),
-        );
+        let mid = Point::from(lo).midpoint(hi.into());
         return Some((0.0, [mid, mid], true));
     }
     None

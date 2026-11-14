@@ -311,6 +311,14 @@ impl Scene {
         self.items.iter().filter(move |i| i.object == object)
     }
 
+    /// The box around everything drawing `object`; `None` when nothing draws it.
+    pub fn object_bounds(&self, object: Uuid) -> Option<reda_model::geom::Bounds> {
+        (self.items_of(object))
+            .filter_map(|i| i.primitive.bounds())
+            .map(|(min, max)| reda_model::geom::Bounds { min, max })
+            .reduce(reda_model::geom::Bounds::union)
+    }
+
     pub(crate) fn push(
         &mut self,
         object: Uuid,

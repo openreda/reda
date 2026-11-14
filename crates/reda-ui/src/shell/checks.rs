@@ -239,8 +239,7 @@ impl Shell {
         {
             let location = self.messages.entry(key).and_then(|e| {
                 let tab = self.document_tab(document)?;
-                let project = self.engine.project()?;
-                messages::locate(project, document, &tab.scene.scene, &e.violation)
+                messages::locate(document, &tab.scene.scene, &e.violation)
             });
             // As the shared highlight Preference says: select, zoom, dim.
             self.show_result(document, &objects, location.map(|l| l.frame), true);
@@ -568,9 +567,6 @@ impl Shell {
     /// Recomputes every open tab's Violation markers, as the Checks Preferences say: a
     /// check with neither Details nor Overlay has none.
     pub(super) fn update_markers(&mut self) {
-        let Some(project) = self.engine.project() else {
-            return;
-        };
         let current = self.messages.current();
         let checks = &self.preferences.values().checks;
         let cap = checks.max_markers as usize;
@@ -589,7 +585,7 @@ impl Shell {
                     if !display.details && !display.overlay {
                         return None;
                     }
-                    let location = messages::locate(project, tab.document, &tab.scene.scene, v)?;
+                    let location = messages::locate(tab.document, &tab.scene.scene, v)?;
                     let stale = match key {
                         LineKey::Violation(kind, _) => {
                             self.messages.run(kind).is_some_and(|r| r.stale)

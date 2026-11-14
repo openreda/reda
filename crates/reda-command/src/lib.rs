@@ -44,7 +44,7 @@ pub use registry::{Registry, Settle, scope_key};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
 pub use units::{Angle, AreaValue, CopperThickness, Length};
-pub use user::{UserDirs, UserName, os_user_name};
+pub use user::{UserDirs, UserNameLookup, os_user_name};
 pub use view::ViewState;
 
-pub use waivers::{insert_waivers, select_waivers};
+pub use waivers::{WaiveChecks, waive};
