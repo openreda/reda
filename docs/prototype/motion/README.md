@@ -68,9 +68,11 @@ the canvas (its zoom, flip and Layer-switch animation is its own Preference).
   `Ui::with_visual_transform` and `Ui::multiply_opacity`: the popup is painted once at
   its final place and the frame's shapes are moved. No second layout.
 - A closing transition means the thing is still painted after it is closed. Here the
-  popups are painted by the page, so that is free. egui's own menus and `Area` popups
-  stop painting the frame they close, so in the build an animated close needs REDA's own
-  popup widget. An animated open does not.
+  popups are painted by the page, so that is free. In egui 0.37 an `Area` can fade in and
+  a `Window` can fade in and out, with egui's own timing; the popup and menu containers
+  have no fade setting. So in the build, a menu that closes with a transition, or opens
+  with the profile's timing, travel or scale, needs REDA's own popup widget. This was
+  read from egui's source, not tried.
 - A spring makes the value pass 1, so opacity and colour mixes have to clamp it.
 
 ## The frames
