@@ -570,3 +570,68 @@ fn every_scene_renders_in_both_themes() {
     )
     .unwrap();
 }
+
+/// PROTOTYPE (#276): reproduces the Command Palette list collapsing to two rows.
+#[test]
+fn palette_repro() {
+    let out = PathBuf::from(std::env::var_os("REDA_SHOWCASE_OUT").expect("REDA_SHOWCASE_OUT"));
+    std::fs::create_dir_all(&out).unwrap();
+    let stage = Stage::new("light");
+    let mut h = blinky_schematic(&stage);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::P);
+    h.run();
+    h.render().unwrap().save(out.join("repro-1-open.png")).unwrap();
+    h.get_by_role_and_label(Role::TextInput, "Command Palette").type_text(">zoom fit");
+    h.run();
+    h.render().unwrap().save(out.join("repro-2-narrow.png")).unwrap();
+    for _ in 0..8 {
+        h.key_press(egui::Key::Backspace);
+        h.run();
+    }
+    h.render().unwrap().save(out.join("repro-3-wide.png")).unwrap();
+}
+
+/// PROTOTYPE (#276): how long a frame of a scene takes, per direction.
+#[test]
+fn frame_times() {
+    use reda_ui::theme::{self, Direction};
+    for (name, direction) in [("paper", Direction::Paper), ("current", Direction::Current)] {
+        for (scene, show) in [
+            ("schematic", schematic_selected as fn(&Stage) -> Harness<'static, App>),
+            ("preferences", preferences_window),
+            ("project-settings", project_settings),
+            ("board-setup", board_setup),
+        ] {
+            let stage = Stage::new("light");
+            let ctx = egui::Context::default();
+            theme::set_look(&ctx, direction, false);
+            let mut h = show(&stage);
+            h.run();
+            let start = std::time::Instant::now();
+            for _ in 0..30 {
+                h.step();
+            }
+            let ui = start.elapsed() / 30;
+            let start = std::time::Instant::now();
+            for _ in 0..5 {
+                h.render().unwrap();
+            }
+            let draw = start.elapsed() / 5;
+            eprintln!("{name:8} {scene:17} ui {ui:?}  render {draw:?}");
+        }
+    }
+}
+
+#[test]
+fn schema_time() {
+    let start = std::time::Instant::now();
+    for _ in 0..10 {
+        std::hint::black_box(preferences::schema());
+    }
+    eprintln!("preferences::schema(): {:?} per call", start.elapsed() / 10);
+    let start = std::time::Instant::now();
+    for _ in 0..10 {
+        std::hint::black_box(preferences::keys());
+    }
+    eprintln!("preferences::keys(): {:?} per call", start.elapsed() / 10);
+}

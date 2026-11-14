@@ -141,7 +141,12 @@ impl Palette {
                     if found.is_empty() {
                         ui.weak(tr!("palette-nothing"));
                     }
-                    ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                    // The Area remembers its last size, so a list that was short once would squeeze
+                    // a longer one into egui's 64px minimum: ask for the full height instead.
+                    ScrollArea::vertical()
+                        .max_height(360.0)
+                        .min_scrolled_height(360.0)
+                        .show(ui, |ui| {
                         for (i, row) in found.iter().take(SHOWN).enumerate() {
                             let (target, response) = draw_row(ui, row, i == self.selected, theme);
                             if target.is_some() {
