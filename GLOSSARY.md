@@ -460,6 +460,14 @@ _Avoid_: Workspace, perspective, arrangement
 A user's own choices about how REDA looks and behaves, such as the theme or repeat placement, which apply to every Project they open and never change a design.
 _Avoid_: Settings, options, config
 
+**Density**:
+How much room the application chrome gives its controls and rows: Comfortable, the default, or Compact. A Preference that changes the padding and gaps around text, never the size of text or icons, and applies to every window at once.
+_Avoid_: Layout, compact mode, UI scale, zoom
+
+**UI scale**:
+How large the application chrome is drawn as a whole, text and icons included. A Preference, independent of Density, of the chrome's text size and of the zoom of any Document's canvas.
+_Avoid_: Zoom, Density, text size
+
 **Project Settings**:
 A Project's own settings, such as its title-block properties, ERC severities and Fab Preset copies, which travel with the Project and apply to everyone who opens it.
 _Avoid_: Project options, Project preferences
