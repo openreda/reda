@@ -63,7 +63,7 @@ pub struct Frame {
 }
 
 /// The size a side Dock and the bottom Dock open at, until the user drags them.
-const SIDE_DOCK: f32 = 256.0;
+const SIDE_DOCK: f32 = 288.0;
 const BOTTOM_DOCK: f32 = 220.0;
 /// Where egui cannot open OS windows: the size a floating window opens at inside the
 /// main window, and how much of the main window a settings window leaves free.

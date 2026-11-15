@@ -6,55 +6,59 @@ use reda_engine::preferences::CheckDisplays;
 use serde_json::json;
 
 use super::PreferencesDialog;
+use crate::settings::layout;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets::{self, Column};
 
 /// The prefix of the grid's keys.
 pub const CHECK_DISPLAY: &str = "checks.display.";
 
+/// The most the grid takes of the page's height before it scrolls.
+const LIST_HEIGHT: f32 = 320.0;
+
 /// Draws the grid; a ticked box sets its Preference at once.
 pub fn show(dialog: &mut PreferencesDialog, ui: &mut Ui, shell: &mut Shell) {
-    ui.add_space(12.0);
-    ui.strong(tr!("pref-checks-display"));
-    ui.label(tr!("pref-checks-display-intro"));
-    ui.add_space(4.0);
+    layout::group(ui, &tr!("pref-checks-display"));
+    layout::text(ui, tr!("pref-checks-display-intro"));
     let columns = [
         ("details", tr!("pref-checks-display-details")),
         ("overlay", tr!("pref-checks-display-overlay")),
     ];
     egui::ScrollArea::vertical()
         .id_salt("preferences-check-display")
-        .max_height(320.0)
+        .max_height(LIST_HEIGHT)
         .show(ui, |ui| {
-            egui::Grid::new("preferences-check-display-grid")
-                .striped(true)
-                .num_columns(3)
-                .show(ui, |ui| {
-                    ui.strong(tr!("pref-checks-display-check"));
-                    for (_, title) in &columns {
-                        ui.strong(title.as_str());
-                    }
-                    ui.end_row();
+            widgets::table("preferences-check-display-grid")
+                .columns([Column::auto(), Column::auto(), Column::auto()])
+                .show(ui, |table| {
+                    table.header(|h| {
+                        h.text(tr!("pref-checks-display-check"));
+                        for (_, title) in &columns {
+                            h.text(title.as_str());
+                        }
+                    });
                     for check in CheckDisplays::checks() {
                         let title = crate::messages::check_title(check);
-                        ui.label(title.as_str());
-                        for (column, column_title) in &columns {
-                            let key = format!("{CHECK_DISPLAY}{check}.{column}");
-                            let mut on = dialog.value(shell, &key).as_bool().unwrap_or(false);
-                            let response = ui.checkbox(&mut on, "");
-                            let label = tr!(
-                                "pref-checks-display-cell",
-                                check = title.as_str(),
-                                column = column_title.as_str()
-                            );
-                            response.widget_info(|| {
-                                WidgetInfo::selected(Role::CheckBox, true, on, label.clone())
-                            });
-                            if response.changed() {
-                                let _ = dialog.set(shell, &key, json!(on));
+                        table.row(|row| {
+                            row.text(title.as_str());
+                            for (column, column_title) in &columns {
+                                let key = format!("{CHECK_DISPLAY}{check}.{column}");
+                                let mut on = dialog.value(shell, &key).as_bool().unwrap_or(false);
+                                let response = row.ui(|ui| ui.add(widgets::checkbox(&mut on, "")));
+                                let label = tr!(
+                                    "pref-checks-display-cell",
+                                    check = title.as_str(),
+                                    column = column_title.as_str()
+                                );
+                                response.widget_info(|| {
+                                    WidgetInfo::selected(Role::CheckBox, true, on, label.clone())
+                                });
+                                if response.changed() {
+                                    let _ = dialog.set(shell, &key, json!(on));
+                                }
                             }
-                        }
-                        ui.end_row();
+                        });
                     }
                 });
         });
