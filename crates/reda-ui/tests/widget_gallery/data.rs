@@ -240,7 +240,7 @@ pub fn marks(ui: &mut Ui) {
 pub fn picker(ui: &mut Ui) {
     ui.set_width(NARROW);
     let mut colour = BLUE;
-    widgets::color_picker(ui, egui::Id::new("gallery-picker"), &mut colour);
+    widgets::color_picker(ui, egui::Id::NULL.with("gallery-picker"), &mut colour);
 }
 
 /// Badges and counts: a pill of small text on each tone's subtle tint, tallies with
