@@ -6,7 +6,7 @@
 //! `dialog.rs`: a card takes `elevation.card`, what floats over the window takes
 //! `elevation.popup`, and a dialog or window takes `elevation.window`.
 
-use egui::{Align2, Frame, Rect, Sense, Stroke, Ui, Vec2, pos2, vec2};
+use egui::{Align2, Color32, Frame, Mesh, Rect, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
 use super::paint;
 use crate::theme::{Tokens, TokensExt as _};
@@ -28,6 +28,58 @@ pub fn card_frame(t: &Tokens) -> Frame {
         .corner_radius(t.radius.card)
         .shadow(t.elevation.card)
         .inner_margin(t.space.panel)
+}
+
+/// Paints a card that fills `rect`, for content placed by hand: the soft shadow, the
+/// surface and the rim. A tab group's body is one.
+pub fn paint_card(ui: &Ui, t: &Tokens, rect: Rect) {
+    let p = ui.painter();
+    p.add(t.elevation.card.as_shape(rect, t.radius.card));
+    p.rect(
+        rect,
+        t.radius.card,
+        t.color.surface.card,
+        rim(t),
+        StrokeKind::Inside,
+    );
+}
+
+/// Rounds what was painted square inside the card `rect`, such as a GPU canvas, which
+/// cannot be clipped round: paints the window's base over the card's corners outside its
+/// radius, then the rim again over the content's edge.
+pub fn mask_card_corners(ui: &Ui, t: &Tokens, rect: Rect) {
+    corner_masks(ui, rect, t.radius.card, t.color.surface.base);
+    ui.painter()
+        .rect_stroke(rect, t.radius.card, rim(t), StrokeKind::Inside);
+}
+
+/// The four wedges between `rect`'s square corners and its corners rounded by `radius`,
+/// filled with `color`.
+fn corner_masks(ui: &Ui, rect: Rect, radius: f32, color: Color32) {
+    use std::f32::consts::{FRAC_PI_2, PI};
+    /// Segments per quarter circle.
+    const STEPS: u32 = 12;
+    // Each corner, the way into the rect from it, and the angle its arc starts at.
+    let corners = [
+        (rect.left_top(), vec2(1.0, 1.0), PI),
+        (rect.right_top(), vec2(-1.0, 1.0), 1.5 * PI),
+        (rect.right_bottom(), vec2(-1.0, -1.0), 0.0),
+        (rect.left_bottom(), vec2(1.0, -1.0), FRAC_PI_2),
+    ];
+    let mut mesh = Mesh::default();
+    for (corner, inward, start) in corners {
+        let centre = corner + inward * radius;
+        let first = mesh.vertices.len() as u32;
+        mesh.colored_vertex(corner, color);
+        for step in 0..=STEPS {
+            let a = start + step as f32 / STEPS as f32 * FRAC_PI_2;
+            mesh.colored_vertex(centre + radius * vec2(a.cos(), a.sin()), color);
+        }
+        for step in 0..STEPS {
+            mesh.add_triangle(first, first + 1 + step, first + 2 + step);
+        }
+    }
+    ui.painter().add(mesh);
 }
 
 /// A floating surface: a bar on the canvas, a hint, anything that floats over the window

@@ -175,6 +175,9 @@ impl Widget for TextField<'_> {
                     edited.request_focus();
                 }
                 s.focus = edited.has_focus();
+                if s.focus {
+                    paint::draws_focus(ui.ctx(), edited.id);
+                }
                 s.hover = edited.hovered() || response.hovered();
                 response = edited;
             } else if self.text.is_empty() {

@@ -1,5 +1,5 @@
-//! REDA's own painted chrome, shared by the toolbar, the Active Bar and the Dock icon
-//! strips: square icon buttons and bar separators (docs/spec/v0.1/app.md#window-shell).
+//! REDA's own painted chrome, shared by the toolbar and the Active Bar:
+//! square icon buttons and bar separators (docs/spec/v0.1/app.md#window-shell).
 //!
 //! The button itself is the REDA Icon button (`widgets::icon_button`); what is left here
 //! are the sizes of the bars that are not converted yet.

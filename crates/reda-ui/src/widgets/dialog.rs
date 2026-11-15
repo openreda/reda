@@ -38,6 +38,18 @@ pub fn dialog_frame(t: &Tokens) -> Frame {
         .inner_margin(t.space.dialog)
 }
 
+/// The frame of a window of REDA's drawn inside another, where there are no OS windows
+/// to open: the window's base with a rim, the window radius and shadow, and the card gap
+/// from its content to its edge.
+pub fn window_frame(t: &Tokens) -> Frame {
+    Frame::new()
+        .fill(t.color.surface.base)
+        .stroke(Stroke::new(t.stroke.hairline, t.color.stroke.hairline))
+        .corner_radius(t.radius.window)
+        .shadow(t.elevation.window)
+        .inner_margin(super::CARD_GAP)
+}
+
 /// Lays `surface.scrim` over the whole window on `layer`: what a modal dialog sits over.
 /// Paint it before the dialog, on the dialog's own layer, so it is under the frame.
 pub fn scrim(ctx: &Context, layer: LayerId) {
@@ -109,7 +121,9 @@ pub fn window<'open>(id: Id, title: impl Into<String>) -> Window<'open> {
         open: None,
         closable: false,
         resizable: false,
+        frame: None,
         width: None,
+        size: None,
         min_size: None,
         default_pos: None,
         fixed_pos: None,
@@ -125,7 +139,9 @@ pub struct Window<'open> {
     open: Option<&'open mut bool>,
     closable: bool,
     resizable: bool,
+    frame: Option<Frame>,
     width: Option<f32>,
+    size: Option<Vec2>,
     min_size: Option<Vec2>,
     default_pos: Option<Pos2>,
     fixed_pos: Option<Pos2>,
@@ -166,6 +182,18 @@ impl<'open> Window<'open> {
     /// The width it opens at.
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    /// Its frame, instead of the dialog's.
+    pub fn frame(mut self, frame: Frame) -> Self {
+        self.frame = Some(frame);
+        self
+    }
+
+    /// The size it opens at, for a window whose content fills it.
+    pub fn size(mut self, size: Vec2) -> Self {
+        self.size = Some(size);
         self
     }
 
@@ -217,13 +245,16 @@ impl<'open> Window<'open> {
             .movable(false)
             .title_bar(false)
             .collapsible(false)
-            .frame(dialog_frame(&t))
+            .frame(self.frame.unwrap_or_else(|| dialog_frame(&t)))
             .resizable(self.resizable);
         if let Some(order) = self.order {
             window = window.order(order);
         }
         if let Some(width) = self.width {
             window = window.default_width(width);
+        }
+        if let Some(size) = self.size {
+            window = window.default_size(size);
         }
         if let Some(size) = self.min_size {
             window = window.min_size(size);

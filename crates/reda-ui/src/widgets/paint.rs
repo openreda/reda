@@ -35,11 +35,17 @@ pub(super) struct Seen {
 
 pub(super) fn seen(response: &Response, state: State) -> Seen {
     match state {
-        State::Live => Seen {
-            hover: response.hovered(),
-            press: response.is_pointer_button_down_on(),
-            focus: response.has_focus(),
-        },
+        State::Live => {
+            let focus = response.has_focus();
+            if focus {
+                draws_focus(&response.ctx, response.id);
+            }
+            Seen {
+                hover: response.hovered(),
+                press: response.is_pointer_button_down_on(),
+                focus,
+            }
+        }
         State::Hover => Seen {
             hover: true,
             press: false,
@@ -61,6 +67,23 @@ pub(super) fn seen(response: &Response, state: State) -> Seen {
             focus: false,
         },
     }
+}
+
+/// Notes that the widget `id`, which holds keyboard focus, draws its own focus mark this
+/// frame, so the window's fallback ring ([`crate::a11y::focus_ring`]) leaves it alone.
+pub(super) fn draws_focus(ctx: &egui::Context, id: egui::Id) {
+    let frame = ctx.cumulative_frame_nr();
+    ctx.data_mut(|d| d.insert_temp(own_focus_id(), (frame, id)));
+}
+
+/// Whether the widget `id` drew its own focus mark this frame.
+pub fn drew_focus(ctx: &egui::Context, id: egui::Id) -> bool {
+    let frame = ctx.cumulative_frame_nr();
+    ctx.data(|d| d.get_temp::<(u64, egui::Id)>(own_focus_id())) == Some((frame, id))
+}
+
+fn own_focus_id() -> egui::Id {
+    egui::Id::NULL.with("reda-widget-draws-focus")
 }
 
 /// Runs `add` in a disabled `Ui` when the state is forced to disabled. A disabled `Ui`

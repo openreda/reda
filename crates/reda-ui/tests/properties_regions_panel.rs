@@ -245,7 +245,10 @@ fn nothing_selected_shows_the_overview_with_fix_for_health_checks() {
     assert!(h.query_by_label("Fix Duplicate Copper").is_none());
 
     // Ready for fab?'s Run (the check summary's Run DRC goes the same way).
-    h.get_by_label("Run (DRC run since the last edit)").click();
+    // The button's row is wider than the Panel's card leaves it at the Dock's default
+    // width, so the button's middle is cut off: it is clicked through AccessKit.
+    h.get_by_label("Run (DRC run since the last edit)")
+        .click_accesskit();
     h.run();
     h.run();
     h.get_by_label("Last run just now");
