@@ -6,16 +6,16 @@ REDA's own icons, MIT like the repo: one SVG per semantic icon key (docs/spec/v0
 
 ## Role colours
 
-The icons use only these colours, written as the dark-theme value; reda-ui swaps each for its light-theme value on load (`ROLES` in `src/icons.rs`). Each reaches at least 3:1 on its theme's panel.
+The icons use only these six colours, written as fixed role keys; on load reda-ui swaps each key for its theme's value (`ROLE_KEYS` in `src/icons.rs`, `color.icon` in the theme's tokens). The values are listed in docs/spec/v0.1/design-language.md#icon-role-colours, and each reaches at least 3:1 on the theme's surfaces, at rest, hovered and toggled on.
 
-| Role | Dark (in file) | Light |
-|---|---|---|
-| Existing / context (pins, pads, frames, the thing acted on) | `#8a93a0` | `#727984` |
-| Created, schematic (Wire, Net Label, Power Port…) | `#2fb36b` | `#228a51` |
-| Created, PCB copper (Track, Via, Zone, Pad…) | `#e08a2e` | `#ac6921` |
-| Created, general (file, edit, view, selection, checks) | `#3d8fd6` | `#347dbc` |
-| Picked point | `#ec4f7a` | `#d2456c` |
-| Created, board edge and keepout (Board Outline, Board Cutout, Keepout) | `#d4c03c` | `#8a7a12` |
+| Role | Key in the SVG |
+|---|---|
+| Existing / context (pins, pads, frames, the thing acted on) | `#8a93a0` |
+| Created, schematic (Wire, Net Label, Power Port…) | `#2fb36b` |
+| Created, PCB copper (Track, Via, Zone, Pad…) | `#e08a2e` |
+| Created, general (file, edit, view, selection, checks) | `#3d8fd6` |
+| Picked point | `#ec4f7a` |
+| Created, board edge and keepout (Board Outline, Board Cutout, Keepout) | `#d4c03c` |
 
 ## Provenance
 

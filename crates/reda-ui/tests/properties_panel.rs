@@ -110,6 +110,8 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
         )
     );
 
+    h.get_by_label("Not Fitted").scroll_to_me();
+    h.run();
     h.get_by_label("Not Fitted").click();
     h.run();
     assert_eq!(
@@ -120,6 +122,8 @@ fn the_panel_follows_the_selection_and_edits_all_selected_components() {
         )
     );
 
+    h.get_by_label("Show MPN on the sheet").scroll_to_me();
+    h.run();
     h.get_by_label("Show MPN on the sheet").click();
     h.run();
     assert_eq!(

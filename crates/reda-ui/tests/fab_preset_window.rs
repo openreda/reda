@@ -43,11 +43,17 @@ fn open_settings(h: &mut Harness<'static, App>) {
 }
 
 fn page(h: &mut Harness<'static, App>, title: &str) {
+    h.get_by_role_and_label(Role::TreeItem, title)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TreeItem, title).click();
     h.run();
 }
 
 fn choose(h: &mut Harness<'static, App>, label: &str, option: &str) {
+    h.get_by_role_and_label(Role::ComboBox, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ComboBox, label).click();
     h.run();
     h.get_all_by_label(option).last().unwrap().click();
@@ -55,6 +61,9 @@ fn choose(h: &mut Harness<'static, App>, label: &str, option: &str) {
 }
 
 fn retype(h: &mut Harness<'static, App>, label: &str, text: &str) {
+    h.get_by_role_and_label(Role::TextInput, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, label).click();
     h.run();
     h.key_press_modifiers(Modifiers::COMMAND, Key::A);
@@ -155,10 +164,18 @@ fn a_user_presets_pages_in_preferences_write_its_file_at_once() {
         .click();
     h.run();
     h.get_by_role_and_label(Role::TreeItem, "Fab Presets")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::TreeItem, "Fab Presets")
         .click();
     h.run();
     h.get_by_role_and_label(Role::Button, "Edit the pages of My JLC")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Edit the pages of My JLC")
         .click();
+    h.run();
+    h.get_by_label("Drill").scroll_to_me();
     h.run();
     h.get_by_label("Drill").click();
     h.run();
@@ -172,11 +189,16 @@ fn a_user_presets_pages_in_preferences_write_its_file_at_once() {
     };
     assert_eq!(read().gerber.slot_command, SlotCommand::G85);
 
+    h.get_by_label("Packaging").scroll_to_me();
+    h.run();
     h.get_by_label("Packaging").click();
     h.run();
     h.get_by_label("Put the BOM and CPL inside the zip").click();
     h.run();
     assert!(read().zip_assembly);
+    h.get_by_role_and_label(Role::Button, "Reset Page to Source")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Reset Page to Source")
         .click();
     h.run();

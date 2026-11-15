@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use egui::containers::menu::menu_style;
 use egui::{
-    Align2, Button, Color32, Id, Key, Modifiers, Popup, PopupKind, Rect, Response, Role, Sense,
+    Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Response, Role, Sense,
     SetOpenCommand, Stroke, Ui, UiBuilder, Vec2, ViewportBuilder, ViewportId,
 };
 use reda_engine::model::{DocumentKind, Uuid};
@@ -38,8 +38,9 @@ use crate::projects_panel::{self, ProjectsAction};
 use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
+use crate::theme::{self, TokensExt as _};
+use crate::tr;
 use crate::{a11y, keymap};
-use crate::{theme, tr};
 use windows::{WindowView, Zones};
 
 /// What one frame of the docking layer asks for.
@@ -201,10 +202,10 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
         focus_request,
         settings,
     };
-    // What no group covers shows as the gaps between them.
-    let gap = theme::gap(ui.ctx().theme());
+    // What no group covers shows as the gaps between them: the window's base.
+    let base = ui.tokens().color.surface.base;
     ui.painter()
-        .rect_filled(ui.available_rect_before_wrap(), 0.0, gap);
+        .rect_filled(ui.available_rect_before_wrap(), 0.0, base);
     // Space for the Docks and the centre is set aside first, the bottom Dock first since
     // it spans the window. What is in them is drawn after, in layout order (left Dock,
     // centre, right Dock, bottom Dock), which is the order Tab moves keyboard focus in.
@@ -414,20 +415,23 @@ impl Cx<'_, '_> {
                 .show(ui, reserve)
         } else {
             let default = if side == DockSide::Bottom {
-                160.0
+                220.0
             } else {
-                240.0
+                256.0
             };
-            let style = ui.style().clone();
-            let splitter = Stroke::new(GAP, theme::accent(ui.ctx().theme()).gamma_multiply(0.6));
+            // The gap at the Dock's inner edge is its splitter, which shows the accent
+            // while hovered or dragged. The strokes go back as they were after the panel.
+            let splitter = Stroke::new(GAP, ui.tokens().color.accent.text);
             let widgets = &mut ui.style_mut().visuals.widgets;
+            let before = (widgets.hovered.fg_stroke, widgets.active.fg_stroke);
             widgets.hovered.fg_stroke = splitter;
             widgets.active.fg_stroke = splitter;
             let shown = panel
                 .resizable(true)
                 .default_size(default)
                 .show(ui, reserve);
-            ui.set_style(style);
+            let widgets = &mut ui.style_mut().visuals.widgets;
+            (widgets.hovered.fg_stroke, widgets.active.fg_stroke) = before;
             shown
         };
         self.zones.docks.push((side, shown.response.rect));
@@ -647,8 +651,8 @@ impl Cx<'_, '_> {
 
     fn node(&mut self, ui: &mut Ui, node: &Node, area: Area) {
         let rect = ui.available_rect_before_wrap();
-        let gap = theme::gap(ui.ctx().theme());
-        ui.painter().rect_filled(rect, 0.0, gap);
+        let base = ui.tokens().color.surface.base;
+        ui.painter().rect_filled(rect, 0.0, base);
         self.node_at(ui, rect, node, area);
     }
 
@@ -663,20 +667,15 @@ impl Cx<'_, '_> {
         }
     }
 
-    /// Draws a tab group into `rect`: its tab strip, a solid blue bar across the group, then
-    /// its active tab's contents on the panel colour. The bar is the full accent on the
-    /// group holding the active Document, which the menus follow, and muted on the others.
-    /// Groups have no border: the gaps between them separate them.
+    /// Draws a tab group into `rect`: its tab strip on the window's base, then its front
+    /// tab's contents on the card colour, which the front tab shares. Groups have no
+    /// border: the gaps between them separate them.
     fn group_at(&mut self, ui: &mut Ui, rect: Rect, group: &Group, area: Area) {
         let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), TAB_STRIP));
         let body = Rect::from_min_max(egui::pos2(rect.left(), strip.bottom()), rect.max);
-        let holds_active_document = self
-            .layout
-            .active_document()
-            .is_some_and(|uuid| group.tabs.contains(&TabKey::Document(uuid)));
-        let bar = theme::tab_bar(ui.ctx().theme(), holds_active_document);
-        ui.painter().rect_filled(strip, 0.0, bar);
-        ui.painter().rect_filled(body, 0.0, ui.visuals().panel_fill);
+        let surface = ui.tokens().color.surface;
+        ui.painter().rect_filled(strip, 0.0, surface.base);
+        ui.painter().rect_filled(body, 0.0, surface.card);
         let clip = ui.clip_rect();
         let builder = UiBuilder::new()
             .max_rect(strip)
@@ -717,9 +716,11 @@ impl Cx<'_, '_> {
         });
     }
 
-    /// Draws a tab on its group's blue bar; returns its rect. The active tab's title and
-    /// icon are bright, the others' dimmer; a hovered tab lightens. The active or hovered
-    /// tab shows its close button.
+    /// Draws a tab on its group's strip; returns its rect. The front tab is a card joined
+    /// to the group's body, and the active Document's tab adds the accent line along its
+    /// top edge: the menus and Commands act on that Document. Back tabs sit on the base in
+    /// muted text, and a hovered one takes the hover fill. The front or hovered tab shows
+    /// its close button.
     fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
         let title = tab_title(self.shell, tab);
         // The PCB tab carries the "out of sync" badge while Sync changes are pending.
@@ -727,14 +728,21 @@ impl Cx<'_, '_> {
             TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
             _ => 0,
         };
+        let t = ui.tokens();
         let font = egui::TextStyle::Button.resolve(ui.style());
-        let colour = theme::tab_text(active);
+        let colour = if active {
+            t.color.text.primary
+        } else {
+            t.color.text.muted
+        };
+        let active_document = active
+            && matches!(tab, TabKey::Document(uuid) if self.layout.active_document() == Some(*uuid));
         let galley = ui
             .painter()
             .layout_no_wrap(title.clone(), font.clone(), colour);
-        // The badge is a dark-on-amber pill, legible on either blue.
-        let badge_text = Color32::from_rgb(0x14, 0x16, 0x19);
-        let badge_fill = Color32::from_rgb(0xe8, 0xa3, 0x3d);
+        // The badge is a pill in the warning solid.
+        let badge_text = t.color.warning.on_solid;
+        let badge_fill = t.color.warning.solid;
         let badge = (pending > 0).then(|| {
             ui.painter().layout_no_wrap(
                 tr!("tab-out-of-sync-badge", count = pending),
@@ -742,11 +750,9 @@ impl Cx<'_, '_> {
                 badge_text,
             )
         });
-        // The icon's silhouette in the title's colour: the bar is blue on both themes, and
-        // the role colours would be faint on it.
+        // The icon keeps its role colours on every tab, front or back.
         let icon = tab_icon_key(self.shell, tab)
-            .and_then(|key| icons::silhouette_image(key, icons::TAB))
-            .map(|i| i.tint(colour));
+            .and_then(|key| icons::image(key, icons::TAB, ui.ctx().theme(), true));
         // | 8 | icon 4 | title | 4 badge | 4 × 4 |
         let close_size = 14.0;
         let width = 8.0
@@ -772,23 +778,23 @@ impl Cx<'_, '_> {
         });
         if ui.is_rect_visible(rect) {
             if active {
-                // White at 15 % behind the active tab, rounded at the top, and a 2 px
-                // white underline across its width.
+                // The front tab is the card's colour, rounded at the top.
                 let top = egui::CornerRadius {
                     nw: 3,
                     ne: 3,
                     sw: 0,
                     se: 0,
                 };
-                ui.painter().rect_filled(rect, top, theme::ACTIVE_TAB_FILL);
-                let line = Rect::from_min_max(
-                    egui::pos2(rect.left(), rect.bottom() - theme::ACTIVE_TAB_UNDERLINE),
-                    rect.max,
-                );
-                ui.painter().rect_filled(line, 0.0, Color32::WHITE);
+                ui.painter().rect_filled(rect, top, t.color.surface.card);
+                if active_document {
+                    let line = Rect::from_min_max(
+                        rect.min,
+                        egui::pos2(rect.right(), rect.top() + t.stroke.accent_line),
+                    );
+                    ui.painter().rect_filled(line, 0.0, t.color.accent.text);
+                }
             } else if pointed {
-                let hover = Color32::from_white_alpha(20);
-                ui.painter().rect_filled(rect, 3.0, hover);
+                ui.painter().rect_filled(rect, 3.0, t.color.fill.hover);
             }
             let mut x = rect.left() + 8.0;
             if let Some(image) = icon {
@@ -813,7 +819,11 @@ impl Cx<'_, '_> {
                 painter.galley(egui::pos2(x + 3.0, y), badge, badge_text);
             }
             if let Some(close) = &close {
-                let colour = theme::tab_text(close.hovered());
+                let colour = if close.hovered() {
+                    t.color.text.primary
+                } else {
+                    t.color.text.muted
+                };
                 painter.text(
                     close_rect.center(),
                     Align2::CENTER_CENTER,

@@ -129,14 +129,23 @@ fn edit_part_opens_the_part_editor_which_links_to_its_symbol_and_footprints() {
     let (home, work) = (TempDir::new("wf-edit-home"), TempDir::new("wf-edit"));
     let mut h = harness(&home, &work);
     h.get_by_role_and_label(Role::TextInput, "Search Parts")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Search Parts")
         .click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Search Parts")
         .type_text("Resistor");
     h.run();
+    h.get_by_role_and_label(Role::ListItem, "Resistor")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ListItem, "Resistor").click();
     h.run();
     let from = journal_len(&h);
+    h.get_by_role_and_label(Role::Button, "Edit Part")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Edit Part").click();
     h.run();
     let ids: Vec<_> = entries_since(&h, from);
@@ -156,6 +165,9 @@ fn edit_part_opens_the_part_editor_which_links_to_its_symbol_and_footprints() {
 
     let from = journal_len(&h);
     h.get_by_role_and_label(Role::Button, "Edit RESC1005X40N")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Edit RESC1005X40N")
         .click();
     h.run();
     assert_eq!(
@@ -172,6 +184,9 @@ fn edit_part_opens_the_part_editor_which_links_to_its_symbol_and_footprints() {
         .unwrap();
     h.run();
     let from = journal_len(&h);
+    h.get_by_role_and_label(Role::Button, "Edit Symbol")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Edit Symbol").click();
     h.run();
     assert_eq!(

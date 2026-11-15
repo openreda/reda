@@ -3,11 +3,11 @@
 //!
 //! A button is flat until hovered; an active or toggled one shows the selection's accent,
 //! a hovered one the hover background. A disabled one shows the icon's greyscale copy,
-//! faded once by the theme's [`DISABLED_ALPHA`].
+//! faded once by the theme's `opacity.disabled`.
 
 use egui::{Color32, CornerRadius, Image, Rect, Response, Sense, Stroke, Ui, Vec2};
 
-use crate::theme::DISABLED_ALPHA;
+use crate::theme::TokensExt as _;
 
 /// The side of a toolbar or Active Bar button: a 24 px icon with 4 px around it.
 pub const BAR_BUTTON: f32 = 32.0;
@@ -55,7 +55,8 @@ pub fn icon_button(
         let image = if enabled {
             image
         } else {
-            image.tint(Color32::from_white_alpha((DISABLED_ALPHA * 255.0) as u8))
+            let alpha = ui.tokens().opacity.disabled;
+            image.tint(Color32::from_white_alpha((alpha * 255.0) as u8))
         };
         image.paint_at(ui, Rect::from_center_size(rect.center(), Vec2::splat(icon)));
     }

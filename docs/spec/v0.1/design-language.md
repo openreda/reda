@@ -6,7 +6,7 @@ This file describes the target look. It was written ahead of the build, so `reda
 
 Sources, all tickets of the [theme baseline map](https://github.com/openreda/reda/issues/266): [Which visual direction does the chrome take?](https://github.com/openreda/reda/issues/272), [Where does colour carry meaning in the chrome?](https://github.com/openreda/reda/issues/273), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [How are theme tokens structured and enforced in reda-ui?](https://github.com/openreda/reda/issues/275) and [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md), [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276), [Which transitions does the chrome animate, and with which timing?](https://github.com/openreda/reda/issues/282), [Do icons change under the new theme, and do the hand-painted glyphs become icons?](https://github.com/openreda/reda/issues/283), [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274) and [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md), [Where does the design-language spec live, and what does it replace?](https://github.com/openreda/reda/issues/285). Where two of them disagree, the later resolution wins, and this file follows it.
 
-**Who is the authority.** This file is the authority for intent: which token does which job, and what each component is made of. The `Tokens` value in `reda-ui` is the authority for values. The tables under [Values](#values) are copied from it, by hand until `Tokens` lands on main and by an `xtask` afterwards ([Keeping the values in step](#keeping-the-values-in-step)).
+**Who is the authority.** This file is the authority for intent: which token does which job, and what each component is made of. The `Tokens` value in `reda-ui` is the authority for values. The tables under [Values](#values) are generated from it by `cargo xtask tokens` ([Keeping the values in step](#keeping-the-values-in-step)).
 
 ## Scope
 
@@ -55,7 +55,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
   | `motion` | fixed | fast, base |
 
 - **Heights are not tokens.** They are computed from line height plus padding ([Space and Density](#space-and-density)).
-- **Rust field names** may differ in detail from the names here (the prototype used `ty` for `type`). The first build slice fixes them, and the generated tables then show the real ones.
+- **Rust field names** follow the names here, with these differences: the `type` family is `ty` (`type` is a keyword), stroke widths are `stroke.hairline`, `stroke.accent_line` and `stroke.focus_ring` (the colours are `color.stroke.*`), icon sizes are `icon.small` and `icon.bar`, and the fixed dimensions of single components (the rows without a token name under [Fixed values](#fixed-values)) are the `metric` family. The `size` family is added by the first slice that needs a width.
 
 ## Colour
 
@@ -400,8 +400,13 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 | The accent line and the focus ring | base, card and floating | 3:1 |
 | The white Glyph | `color.close_hover` | 4.5:1 |
 | Each icon role colour | base, card and floating, at rest, hovered and toggled on | 3:1 |
+| `touch` | base, card and floating | 3:1 |
+| `stroke.strong` | base, card, floating and `surface.well` | 1.5:1 |
+| `surface.floating` | base and card under `surface.scrim` | 1.25:1 |
+| `stroke.hairline` | base, card and floating | 1.15:1 |
 
-- That is 129 rules per theme before the icon rows, which add six roles × nine grounds. None fail with the values below.
+- That is 129 rules per theme before the icon rows, which add six roles × nine grounds, and the last four rows, which add twelve. None fail with the values below.
+- The last four rows are there so that every colour token has a rule. They are floors for things that are meant to be quiet (an outline, a hairline, a dialog over the dimmed window), not text ratios.
 - An icon's momentary pressed state is exempt.
 - The icon rule replaces the earlier test of the blue on the active button background.
 
@@ -424,9 +429,10 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 
 ## Values
 
-The tables in this section are the values of `Tokens`. Until `Tokens` is on main they are copied by hand from the resolution of [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276) and its prototype; the tickets on motion and icons supply the last two tables.
+The tables in this section are the values of `Tokens`, generated from it. They began as the resolution of [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276) and its prototype; the tickets on motion and icons supplied the motion and icon tables.
 
-<!-- tokens:begin (hand-copied for now; to be generated by `cargo xtask` from `Tokens`. Do not reword the tables: the first build slice must reproduce them exactly.) -->
+<!-- tokens:begin -->
+<!-- Generated from `Tokens` (crates/reda-ui/src/theme) by `cargo xtask tokens`. Do not edit between the markers. -->
 
 ### Colour values
 
@@ -598,9 +604,9 @@ Offset x / y, blur, colour. Spread is zero.
 
 ### Keeping the values in step
 
-- An `xtask` generates the tables between the two markers from `Tokens`, and CI fails when the region is stale. This follows the icon set's README.
+- `cargo xtask tokens` generates the tables between the two markers from `Tokens`. A test beside the tokens (`crates/reda-ui/src/theme/tables.rs`) fails when the region is stale, so CI does too. This follows the icon set's README.
 - Code is the authority for values, and this file for intent. A value changes in `Tokens`, and the tables follow.
-- The first build slice, which lands `Tokens`, switches the region to generated and must reproduce the hand-copied tables exactly.
+- The region was first written by hand. The first generated version reproduced it exactly.
 
 ## Images
 

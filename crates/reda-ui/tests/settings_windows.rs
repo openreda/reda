@@ -69,6 +69,10 @@ impl Fixture {
     }
 
     fn type_into(&mut self, field: &str, text: &str) {
+        self.h
+            .get_by_role_and_label(Role::TextInput, field)
+            .scroll_to_me();
+        self.h.run();
         self.h.get_by_role_and_label(Role::TextInput, field).click();
         self.h.run();
         self.h
@@ -78,6 +82,10 @@ impl Fixture {
     }
 
     fn click(&mut self, label: &str) {
+        self.h
+            .get_by_role_and_label(Role::Button, label)
+            .scroll_to_me();
+        self.h.run();
         self.h.get_by_role_and_label(Role::Button, label).click();
         self.h.run();
     }
@@ -278,7 +286,12 @@ fn the_quit_prompt_lists_unapplied_windows_and_applies_a_ticked_one_before_savin
 fn reset_to_defaults_shows_the_page_defaults_as_pending_edits_until_apply() {
     let mut f = Fixture::new("sw-reset");
     f.open_project_settings();
+    f.h.get_by_role_and_label(Role::TreeItem, "ERC")
+        .scroll_to_me();
+    f.h.run();
     f.h.get_by_role_and_label(Role::TreeItem, "ERC").click();
+    f.h.run();
+    f.h.get_by_label("Single-Pin Net: Off").scroll_to_me();
     f.h.run();
     f.h.get_by_label("Single-Pin Net: Off").click();
     f.h.run();

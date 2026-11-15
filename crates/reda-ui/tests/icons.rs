@@ -88,12 +88,15 @@ fn the_set_matches_its_table_and_readme() {
 }
 
 #[test]
-fn the_light_theme_swaps_the_role_colours() {
+fn each_theme_swaps_the_role_keys_for_its_role_colours() {
     let dark = r##"<svg><path stroke="#8a93a0"/><path stroke="#2fb36b"/><path stroke="#e08a2e"/><path stroke="#3d8fd6"/><circle fill="#EC4F7A"/><path stroke="#d4c03c"/></svg>"##;
-    assert_eq!(icons::recolour(dark, Theme::Dark, true), dark);
+    assert_eq!(
+        icons::recolour(dark, Theme::Dark, true),
+        r##"<svg><path stroke="#96918a"/><path stroke="#2fb36b"/><path stroke="#e08a2e"/><path stroke="#3d8fd6"/><circle fill="#ef5a82"/><path stroke="#d4c03c"/></svg>"##
+    );
     assert_eq!(
         icons::recolour(dark, Theme::Light, true),
-        r##"<svg><path stroke="#727984"/><path stroke="#228a51"/><path stroke="#ac6921"/><path stroke="#347dbc"/><circle fill="#d2456c"/><path stroke="#8a7a12"/></svg>"##
+        r##"<svg><path stroke="#79766e"/><path stroke="#228a51"/><path stroke="#ac6921"/><path stroke="#347dbc"/><circle fill="#d2456c"/><path stroke="#8a7a12"/></svg>"##
     );
 }
 
@@ -101,7 +104,7 @@ fn the_light_theme_swaps_the_role_colours() {
 fn disabled_icons_are_a_greyscale_copy_that_the_disabled_button_fades_once() {
     // Each colour becomes its luminance pulled 40 % toward mid grey: #3d8fd6 has luminance
     // 130.7, which pulls to 129.6; white pulls to 204.2. The copy is not faded itself: the
-    // disabled button fades it, once, to about 47 % (the theme's disabled_alpha).
+    // disabled button fades it, once, to 45 % (the theme's `opacity.disabled`).
     let svg = r##"<svg stroke="#3d8fd6"><path fill="#fff"/></svg>"##;
     assert_eq!(
         icons::recolour(svg, Theme::Dark, false),
@@ -135,8 +138,8 @@ fn a_silhouette_makes_every_colour_white_and_keeps_none() {
 
 #[test]
 fn icons_use_only_the_role_colours_and_plain_shapes() {
-    let roles: Vec<String> = icons::role_colours()
-        .map(|(dark, _)| format!("#{:02x}{:02x}{:02x}", dark.r(), dark.g(), dark.b()))
+    let roles: Vec<String> = icons::role_keys()
+        .map(|key| format!("#{:02x}{:02x}{:02x}", key.r(), key.g(), key.b()))
         .collect();
     let list = std::fs::read_to_string(icons_dir().join("reda.txt")).unwrap();
     let keys = list

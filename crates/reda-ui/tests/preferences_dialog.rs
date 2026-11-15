@@ -48,6 +48,9 @@ fn open_preferences(h: &mut Harness<'static, App>) {
 }
 
 fn page(h: &mut Harness<'static, App>, title: &str) {
+    h.get_by_role_and_label(Role::TreeItem, title)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TreeItem, title).click();
     h.run();
 }
@@ -58,6 +61,8 @@ fn last_journal_id(h: &Harness<'static, App>) -> String {
 }
 
 fn type_into(h: &mut Harness<'static, App>, role: Role, field: &str, text: &str) {
+    h.get_by_role_and_label(role, field).scroll_to_me();
+    h.run();
     h.get_by_role_and_label(role, field).click();
     h.run();
     h.get_by_role_and_label(role, field).type_text(text);
@@ -410,8 +415,12 @@ fn page_tree_labels_are_left_aligned() {
     open_preferences(&mut h);
     // Short and long titles start at the row's padding, not centred in the row.
     for title in ["General", "Keyboard Shortcuts", "Schematic"] {
+        h.get_by_role_and_label(Role::TreeItem, title)
+            .scroll_to_me();
+        h.run();
         let indent = tree_label_indent(&h, title);
-        assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
+        // A page title sits one control padding into its row.
+        assert!(indent <= 12.0, "{title:?} starts {indent} pt into its row");
     }
 }
 
@@ -440,6 +449,9 @@ fn the_libraries_page_has_a_grid_of_library_check_severities_with_reset() {
     );
 
     h.get_by_role_and_label(Role::ComboBox, "Missing Courtyard")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Missing Courtyard")
         .click();
     h.run();
     h.get_all_by_label("Error").last().unwrap().click();
@@ -451,6 +463,9 @@ fn the_libraries_page_has_a_grid_of_library_check_severities_with_reset() {
         reda_ui::engine::model::Severity::Error
     );
 
+    h.get_by_role_and_label(Role::ComboBox, "Missing Pin Name")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ComboBox, "Missing Pin Name")
         .click();
     h.run();

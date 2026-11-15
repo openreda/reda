@@ -98,12 +98,20 @@ impl Fixture {
     }
 
     fn click(&mut self, label: &str) {
+        self.h
+            .get_all_by_label(label)
+            .last()
+            .unwrap()
+            .scroll_to_me();
+        self.h.run();
         self.h.get_all_by_label(label).last().unwrap().click();
         // A menu or a new tab's scroll area can take a few frames to settle.
         self.h.run_steps(8);
     }
 
     fn click_role(&mut self, role: Role, label: &str) {
+        self.h.get_by_role_and_label(role, label).scroll_to_me();
+        self.h.run();
         self.h.get_by_role_and_label(role, label).click();
         self.h.run();
     }
@@ -183,7 +191,8 @@ fn page_two_shows_the_field_grid_and_reject_selected_keeps_the_value() {
         "schematic.dialog.open",
         json!({"dialog": "update_from_library"}),
     );
-    f.h.run();
+    // The dialog grows to its content over a few frames.
+    f.h.run_steps(8);
     f.h.get_by_role_and_label(Role::CheckBox, "R_10k");
     f.h.get_by_role_and_label(Role::CheckBox, "Full Replace");
     f.click("Next");
@@ -288,14 +297,23 @@ fn project_settings_summarise_the_saved_settings_and_reset_them() {
     f.h.state_mut().open_project_settings();
     f.h.run();
     f.h.get_by_role_and_label(Role::TreeItem, "Schematic")
+        .scroll_to_me();
+    f.h.run();
+    f.h.get_by_role_and_label(Role::TreeItem, "Schematic")
         .click();
     f.h.run();
     f.h.get_by_label("Update from Library");
     f.h.get_by_label("Locally edited values: Take the new default");
     f.h.get_by_role_and_label(Role::Button, "Reset Update from Library Settings")
+        .scroll_to_me();
+    f.h.run();
+    f.h.get_by_role_and_label(Role::Button, "Reset Update from Library Settings")
         .click();
     f.h.run();
     f.h.get_by_label("Cleared on Apply.");
+    f.h.get_by_role_and_label(Role::Button, "Apply")
+        .scroll_to_me();
+    f.h.run();
     f.h.get_by_role_and_label(Role::Button, "Apply").click();
     f.h.run();
     let saved = (f.h.state().shell().engine().project())

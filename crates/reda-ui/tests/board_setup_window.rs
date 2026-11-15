@@ -41,6 +41,9 @@ fn open_board_setup(h: &mut Harness<'static, App>, _project: &str) {
 }
 
 fn page(h: &mut Harness<'static, App>, title: &str) {
+    h.get_by_role_and_label(Role::TreeItem, title)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TreeItem, title).click();
     h.run();
 }
@@ -58,6 +61,9 @@ fn pcb(h: &Harness<'static, App>) -> PcbDocument {
 
 /// Replaces the text of the field announced as `label` with `text`.
 fn retype(h: &mut Harness<'static, App>, label: &str, text: &str) {
+    h.get_by_role_and_label(Role::TextInput, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, label).click();
     h.run();
     h.key_press_modifiers(Modifiers::COMMAND, Key::A);
@@ -75,6 +81,9 @@ fn value(h: &Harness<'static, App>, label: &str) -> String {
 
 /// Picks `option` from the drop-down announced as `label`.
 fn choose(h: &mut Harness<'static, App>, label: &str, option: &str) {
+    h.get_by_role_and_label(Role::ComboBox, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ComboBox, label).click();
     h.run();
     h.get_all_by_label(option).last().unwrap().click();
@@ -169,7 +178,11 @@ fn mod_z_inside_board_setup_steps_back_through_pending_edits_first() {
     let mut h = harness(home.path(), work.path(), "Win");
     open_board_setup(&mut h, "Win");
     page(&mut h, "DRC");
+    h.get_by_label("Courtyard Overlap: Off").scroll_to_me();
+    h.run();
     h.get_by_label("Courtyard Overlap: Off").click();
+    h.run();
+    h.get_by_label("Clearance: Warning").scroll_to_me();
     h.run();
     h.get_by_label("Clearance: Warning").click();
     h.run();

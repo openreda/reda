@@ -103,6 +103,8 @@ pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> (Option<Invocation>, f
         for menu in &bars.menus {
             let response = ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
                 larger(ui);
+                // An item is its text plus the menu's own padding, not a control's height.
+                ui.spacing_mut().interact_size.y = 0.0;
                 menu_items(ui, cx, &menu.items, &mut clicked);
             });
             end = response.response.rect.right();
@@ -145,7 +147,16 @@ fn command_field(
     }
     let at = Rect::from_center_size(egui::pos2(centre, y), Vec2::new(width, chrome::QUICK_ICON));
     crate::palette::remember_command_field(ui.ctx(), at);
-    let response = ui.put(at, button).on_hover_text(&item.title);
+    // The field is as tall as the quick strip's icons, whatever a control's own height.
+    let response = ui
+        .scope(|ui| {
+            let spacing = ui.spacing_mut();
+            spacing.interact_size.y = at.height();
+            spacing.button_padding.y = 0.0;
+            ui.put(at, button)
+        })
+        .inner
+        .on_hover_text(&item.title);
     response.clicked().then_some(item.run.ok()).flatten()
 }
 
