@@ -8,11 +8,13 @@ use reda_ui::widgets::{self, BadgeTone, Column, RowLook, Selection, Sorted, Stat
 use crate::kit;
 
 /// The size the page is snapshotted at.
-pub const SIZE: Vec2 = vec2(1280.0, 1150.0);
+pub const SIZE: Vec2 = vec2(1280.0, 1380.0);
 /// The width of a state column, and of a row in one.
 const COLUMN: f32 = 168.0;
 /// The width of the cards that hold one list, tree or form.
 const NARROW: f32 = 280.0;
+/// The width of the card that holds the badges, as wide as the marks' card above it.
+const BADGES: f32 = 376.0;
 /// The width of the cards that hold a table.
 const WIDE: f32 = 560.0;
 
@@ -236,7 +238,7 @@ pub fn marks(ui: &mut Ui) {
 /// their status mark, the filter toggles of a list's header on and off and in their
 /// states, and count pills.
 pub fn badges(ui: &mut Ui) {
-    ui.set_width(NARROW);
+    ui.set_width(BADGES);
     ui.horizontal_wrapped(|ui| {
         for (tone, name) in BadgeTone::ALL {
             ui.add(widgets::badge(name).tone(tone));

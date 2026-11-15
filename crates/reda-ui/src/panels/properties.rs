@@ -604,7 +604,10 @@ fn placing_section(ui: &mut Ui, placing: &Placing) -> Vec<(&'static str, Value)>
                 .map_or_else(|| uuid.to_string(), |f| f.footprint.name.clone())
         };
         let selected = current.map_or_else(|| tr!("properties-no-footprint"), name);
+        let width = value_width(ui);
         let response = widgets::dropdown("properties-placing-footprint", selected)
+            .width(width)
+            .max_width(width)
             .show(ui, |ui| {
                 for f in &placing.copy.footprints {
                     let uuid = f.footprint.uuid;
@@ -648,24 +651,30 @@ fn component_section(
     widgets::form("properties-component").show(ui, |ui| {
         for row in &component.fields {
             let label = field_label(&row.name);
-            if let Some(text) = text_field(ui, &row.name, &label, &row.value, row.editable) {
+            // Edited from the board, which fields show on the sheet is not set here.
+            let on_sheet = component.footprints.is_empty();
+            let mut visible = None;
+            let typed = text_field_then(ui, &row.name, &label, &row.value, row.editable, |ui| {
+                if !on_sheet {
+                    return;
+                }
+                let mixed = row.visible == Shared::Mixed;
+                let mut shown = row.visible.same().copied().unwrap_or(false);
+                let check = widgets::checkbox(&mut shown, "").indeterminate(mixed);
+                let response = ui.add(check);
+                let name = tr!("properties-show-field", field = label.clone());
+                response.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, name.clone()));
+                if response
+                    .tooltip(tr!("properties-show-field-hint"))
+                    .clicked()
+                {
+                    visible = Some(shown);
+                }
+            });
+            if let Some(text) = typed {
                 edits.push(Edit::Field(row.name.clone(), text));
             }
-            // Edited from the board, which fields show on the sheet is not set here.
-            if !component.footprints.is_empty() {
-                ui.end_row();
-                continue;
-            }
-            let mixed = row.visible == Shared::Mixed;
-            let mut shown = row.visible.same().copied().unwrap_or(false);
-            let check = widgets::checkbox(&mut shown, "").indeterminate(mixed);
-            let response = ui.add(check);
-            let name = tr!("properties-show-field", field = label.clone());
-            response.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, name.clone()));
-            if response
-                .tooltip(tr!("properties-show-field-hint"))
-                .clicked()
-            {
+            if let Some(shown) = visible {
                 edits.push(Edit::Visible(row.name.clone(), shown));
             }
             ui.end_row();
@@ -759,7 +768,10 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
     let enabled = !component.alternates.is_empty();
     let response = ui
         .add_enabled_ui(enabled, |ui| {
+            let width = value_width(ui);
             widgets::dropdown("properties-footprint", selected)
+                .width(width)
+                .max_width(width)
                 .show(ui, |ui| {
                     for alternate in &component.alternates {
                         let current =
@@ -795,7 +807,10 @@ fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
     };
     widgets::form("properties-net-class").show(ui, |ui| {
         ui.add(widgets::form_name(tr!("properties-net-class")));
+        let width = value_width(ui);
         let response = widgets::dropdown("properties-net-class", selected)
+            .width(width)
+            .max_width(width)
             .show(ui, |ui| {
                 for (uuid, name) in &class.classes {
                     let member = class.class.same().is_some_and(|c| c.contains(uuid));
@@ -823,6 +838,14 @@ struct Draft {
     committed: Option<String>,
 }
 
+/// The width of a value's control in a form: what the row has left, less the room of a
+/// box after it (a Component's fields have one), so every value of the Panel is as wide
+/// and none runs past the Dock.
+pub(super) fn value_width(ui: &Ui) -> f32 {
+    let left = ui.available_width() - widgets::MARK - ui.tokens().space.gap;
+    left.clamp(MIN_FIELD_WIDTH, FIELD_WIDTH)
+}
+
 /// A labelled one-line field for a value that may be mixed. It returns the new text when
 /// the user commits an edit (Enter or leaving the field); Escape puts the value back.
 fn text_field(
@@ -831,6 +854,19 @@ fn text_field(
     label: &str,
     value: &Shared<String>,
     enabled: bool,
+) -> Option<String> {
+    text_field_then(ui, key, label, value, enabled, |_| ())
+}
+
+/// [`text_field`] with whatever `after` adds beside the field, in the same cell of the
+/// form: a Component field's box for showing it on the sheet.
+fn text_field_then(
+    ui: &mut Ui,
+    key: &str,
+    label: &str,
+    value: &Shared<String>,
+    enabled: bool,
+    after: impl FnOnce(&mut Ui),
 ) -> Option<String> {
     let id = Id::NULL.with(("properties-field", key));
     let shown = value.same().cloned();
@@ -844,17 +880,19 @@ fn text_field(
         };
     }
     let label = ui.add(widgets::form_name(label));
-    // The field takes what the row has left, less the room of a box after it (a
-    // Component's fields have one), so every field of the Panel is as wide.
-    let t = ui.tokens();
-    let left = ui.available_width() - widgets::MARK - t.space.gap;
     let mut edit = widgets::text_field(&mut draft.text)
         .id(id)
-        .width(left.clamp(MIN_FIELD_WIDTH, FIELD_WIDTH));
+        .width(value_width(ui));
     if shown.is_none() {
         edit = edit.hint(MIXED);
     }
-    let response = ui.add_enabled(enabled, edit).labelled_by(label.id);
+    let response = ui
+        .horizontal(|ui| {
+            let response = ui.add_enabled(enabled, edit).labelled_by(label.id);
+            after(ui);
+            response
+        })
+        .inner;
     if response.changed() {
         draft.committed = None;
     }

@@ -58,10 +58,8 @@ pub const NET_COLOURS: [&str; 12] = [
 const PALETTE_ROW: usize = 6;
 /// The width of the palette's field for a typed colour.
 const HEX_WIDTH: f32 = 80.0;
-/// The Zones table's fixed columns: the drag handle, a Zone's Net and its area.
+/// The width of a Zone row's drag handle.
 const GRIP_WIDTH: f32 = 10.0;
-const ZONE_NET_WIDTH: f32 = 56.0;
-const ZONE_AREA_WIDTH: f32 = 72.0;
 
 /// A dragged Zone row: the Zone and its Layer.
 #[derive(Clone, Copy)]
@@ -250,6 +248,7 @@ fn nets(
                     let mut shown = row.ratsnest;
                     let check = ui.add(widgets::checkbox(&mut shown, ""));
                     check.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, shown, &label));
+                    ui.add_space(ui.tokens().space.gap / 2.0);
                     let picked = swatch(ui, row.uuid, net, row.color.as_deref());
                     (check.changed().then_some(shown), picked)
                 });
@@ -462,15 +461,13 @@ fn zones(
     let selection = shell.selection();
     let mut clicked = None;
     let mut dropped = None;
-    // Every Layer's table has the same fixed columns, so they line up: the drag handle,
-    // the shelve box, the stale mark, the name, the Net and the area.
+    // The drag handle, the shelve box and the stale mark share the first column, so the
+    // name has the room; then the name, the Net and the area.
     let columns = [
-        Column::fixed(GRIP_WIDTH),
-        Column::fixed(widgets::MARK),
-        Column::fixed(widgets::glyph::BOX),
+        Column::auto(),
         Column::fill(),
-        Column::fixed(ZONE_NET_WIDTH),
-        Column::fixed(ZONE_AREA_WIDTH).number(),
+        Column::auto(),
+        Column::auto().number(),
     ];
     for layer in layers {
         let title = pcb
@@ -493,19 +490,31 @@ fn zones(
                         zone: zone.uuid,
                     };
                     let id = Id::NULL.with(("nav-zone-drag", zone.uuid));
-                    let grip = cells.ui(|ui| {
-                        ui.dnd_drag_source(id, drag, |ui| {
-                            let size = egui::vec2(GRIP_WIDTH, widgets::glyph::BOX);
-                            let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-                            grip_lines(ui, rect);
-                        })
-                        .response
+                    let shelve = cells.ui(|ui| {
+                        let grip = ui
+                            .dnd_drag_source(id, drag, |ui| {
+                                let size = egui::vec2(GRIP_WIDTH, widgets::glyph::BOX);
+                                let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+                                grip_lines(ui, rect);
+                            })
+                            .response;
+                        let label = tr!("nav-zone-drag", zone = z);
+                        grip.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+                        let small = ui.tokens().space.gap / 2.0;
+                        ui.add_space(small);
+                        let mut shelved = zone.shelved;
+                        let label = tr!("nav-zone-shelve", zone = z);
+                        let check = ui
+                            .add(widgets::checkbox(&mut shelved, ""))
+                            .tooltip(tr!("nav-zone-shelve-hint"));
+                        check.widget_info(|| {
+                            WidgetInfo::selected(Role::CheckBox, true, shelved, &label)
+                        });
+                        ui.add_space(small);
+                        stale_marker(ui, zone.state == FillState::Stale, z);
+                        check.changed().then_some(shelved)
                     });
-                    let label = tr!("nav-zone-drag", zone = z);
-                    grip.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
-                    let label = tr!("nav-zone-shelve", zone = z);
-                    let hint = tr!("nav-zone-shelve-hint");
-                    if let Some(shelve) = check(cells, zone.shelved, &label, Some(&hint)) {
+                    if let Some(shelve) = shelve {
                         let id = if shelve {
                             "pcb.zone.shelve"
                         } else {
@@ -513,7 +522,6 @@ fn zones(
                         };
                         out.push((id.to_owned(), json!({ "zones": [zone.uuid] })));
                     }
-                    stale_marker(cells, zone.state == FillState::Stale, z);
                     cells.text(z);
                     let net = zone
                         .net
@@ -588,13 +596,14 @@ fn grip_lines(ui: &Ui, rect: Rect) {
     }
 }
 
-/// The stale mark: a warning mark while the Zone needs refilling, else an empty cell.
-fn stale_marker(row: &mut widgets::TableRow<'_>, stale: bool, zone: &str) {
+/// The stale mark: a warning mark while the Zone needs refilling, else a blank of the
+/// same size.
+fn stale_marker(ui: &mut Ui, stale: bool, zone: &str) {
     if !stale {
-        row.empty();
+        ui.allocate_exact_size(egui::Vec2::splat(widgets::glyph::BOX), Sense::hover());
         return;
     }
-    let response = row.status(Status::Warning);
+    let response = ui.add(widgets::status_mark(Status::Warning));
     let label = tr!("nav-zone-stale", zone = zone);
     response.widget_info(|| WidgetInfo::labeled(Role::Group, true, &label));
     response.tooltip(label);

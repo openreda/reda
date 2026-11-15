@@ -10,10 +10,14 @@ use reda_engine::preferences::Units;
 use reda_engine::render::Rgba;
 use serde_json::json;
 
-use super::{Out, parse_length, region, text_field};
+use super::{Out, parse_length, region, text_field, value_width};
+
+/// The least width of a Track's Net dropdown, beside its pick button.
+const MIN_NET_WIDTH: f32 = 60.0;
 use crate::properties::track::{NetBlock, TrackEdit, TrackProperties, net_block};
 use crate::properties::{MIXED, Shared};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Tooltip as _};
 
@@ -80,7 +84,10 @@ fn track_rows(
             Shared::Same(l) => TrackProperties::name_in(&track.layers, l),
             Shared::Mixed => MIXED.to_owned(),
         };
+        let width = value_width(ui);
         let response = widgets::dropdown("properties-track-layer", selected)
+            .width(width)
+            .max_width(width)
             .show(ui, |ui| {
                 for (uuid, name) in &track.layers {
                     let on = track.layer.same() == Some(uuid);
@@ -101,7 +108,13 @@ fn track_rows(
                 Shared::Same(None) => tr!("properties-track-no-net"),
                 Shared::Mixed => MIXED.to_owned(),
             };
+            // The Net and its pick button share the value's width.
+            let pick = widgets::button(tr!("properties-track-pick-net"));
+            let gap = ui.tokens().space.gap;
+            let width = (value_width(ui) - pick.width(ui) - gap).max(MIN_NET_WIDTH);
             let response = widgets::dropdown("properties-track-net", selected)
+                .width(width)
+                .max_width(width)
                 .show(ui, |ui| {
                     let none = track.net.same() == Some(&None);
                     let no_net = widgets::choice(none, tr!("properties-track-no-net"));
@@ -120,7 +133,7 @@ fn track_rows(
             response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, name.clone()));
             let waiting = !shell.net_pick().is_empty();
             let pick = ui
-                .add(widgets::button(tr!("properties-track-pick-net")).on(waiting))
+                .add(pick.on(waiting))
                 .tooltip(tr!("properties-track-pick-net-hint"));
             if pick.clicked() {
                 let tracks = if waiting {

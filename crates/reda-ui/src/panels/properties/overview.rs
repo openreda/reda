@@ -181,7 +181,8 @@ fn status(ui: &mut Ui, ok: bool) {
 
 fn ready(ui: &mut Ui, lines: &[FabLine], out: &mut Vec<Out>) {
     for line in lines {
-        ui.horizontal(|ui| {
+        // A line's button goes under its text where the Dock is too narrow for both.
+        ui.horizontal_wrapped(|ui| {
             status(ui, line.ok);
             let count = line.count.unwrap_or(0) as i64;
             let text = match line.item {

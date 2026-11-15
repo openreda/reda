@@ -272,7 +272,8 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
         .selected
         .and_then(|s| entries.iter().find(|e| e.uuid == s))
         .cloned();
-    ui.horizontal(|ui| {
+    // The buttons wrap where the Dock is too narrow for the three.
+    ui.horizontal_wrapped(|ui| {
         // Edit opens the chosen element in its editor (a Part's links to its Symbol and
         // Footprints); New makes an element or a Library, imports a Part, generates a
         // Footprint or makes a Project Library.
@@ -387,7 +388,7 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
         .libraries()
         .map(|l| (l.info.uuid, l.info.name.clone()))
         .collect();
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let all = tr!("library-all-libraries");
         // In Library mode the editor's Library is the one listed.
         let shown = matches!(mode, Mode::Place(_));

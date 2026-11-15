@@ -33,6 +33,7 @@ pub fn dropdown(id_salt: impl egui::AsIdSalt, selected_text: impl Into<String>) 
         id_salt: IdSalt::new(id_salt),
         text: selected_text.into(),
         width: None,
+        max_width: None,
         state: State::Live,
     }
 }
@@ -42,6 +43,7 @@ pub struct Dropdown {
     id_salt: IdSalt,
     text: String,
     width: Option<f32>,
+    max_width: Option<f32>,
     state: State,
 }
 
@@ -51,7 +53,7 @@ fn closed(
     t: &Tokens,
     state: State,
     text: &str,
-    min_width: Option<f32>,
+    (min_width, max_width): (Option<f32>, Option<f32>),
     open: bool,
 ) -> Response {
     paint::stated(ui, state, |ui| {
@@ -59,6 +61,8 @@ fn closed(
         let needed =
             paint::width(ui, &t.ty.body, text) + PART_GAP + glyph::BOX + 2.0 * t.space.control_x;
         let width = min_width.unwrap_or(DROPDOWN_WIDTH).max(needed);
+        // A dropdown held to a width cuts its text with an ellipsis.
+        let width = max_width.map_or(width, |max| width.min(max));
         let size = vec2(width, t.control_height());
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
         let enabled = ui.is_enabled();
@@ -95,6 +99,13 @@ impl Dropdown {
         self
     }
 
+    /// The most the dropdown grows to: a longer text is cut with an ellipsis. For a
+    /// dropdown in a column that must fit a Panel.
+    pub fn max_width(mut self, width: f32) -> Self {
+        self.max_width = Some(width);
+        self
+    }
+
     pub fn forced(mut self, state: State) -> Self {
         self.state = state;
         self
@@ -106,7 +117,8 @@ impl Dropdown {
         let t = ui.tokens();
         let popup_id = ui.make_persistent_id(self.id_salt).with("popup");
         let open = Popup::is_id_open(ui.ctx(), popup_id);
-        let response = closed(ui, &t, self.state, &self.text, self.width, open);
+        let widths = (self.width, self.max_width);
+        let response = closed(ui, &t, self.state, &self.text, widths, open);
         let height = LIST_HEIGHT;
         let inner = super::menu(&response)
             .id(popup_id)
@@ -257,7 +269,7 @@ impl FilterDropdown {
         let id = ui.make_persistent_id(self.id_salt);
         let popup_id = id.with("popup");
         let was_open = Popup::is_id_open(ui.ctx(), popup_id);
-        let response = closed(ui, &t, self.state, &self.text, self.width, was_open);
+        let response = closed(ui, &t, self.state, &self.text, (self.width, None), was_open);
         let height = LIST_HEIGHT;
         let mut filtering: Filtering = if was_open {
             ui.data(|d| d.get_temp(id)).unwrap_or_default()
