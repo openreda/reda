@@ -211,6 +211,7 @@ impl App {
     pub fn ui(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
         if !self.theme_installed {
+            theme::fonts::set_source(&ctx, self.shell.font_source());
             theme::install(&ctx, theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale

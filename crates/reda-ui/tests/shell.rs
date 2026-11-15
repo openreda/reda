@@ -163,6 +163,8 @@ struct FakeFonts {
     asked: Mutex<Vec<String>>,
 }
 
+impl reda_ui::shell::FontSource for FakeFonts {}
+
 impl InstalledFonts for FakeFonts {
     fn load(&self, family: &str) -> Option<FontFace> {
         self.asked.lock().unwrap().push(family.to_owned());

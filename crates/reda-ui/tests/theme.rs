@@ -1,10 +1,13 @@
-//! The theme: `Tokens` built from light/dark, Density, text size and families, read through
+//! The theme: `Tokens` built from light/dark, Density, text size and fonts, read through
 //! `ui.tokens()`; egui's `Style` generated from them; and following the OS by default.
 //! The contrast rules and the spec's value tables are tested beside the tokens, in
 //! `src/theme/`.
 
+use std::sync::Arc;
+
 use egui::{Color32, FontFamily, TextStyle, Theme, ThemePreference};
 use reda_ui::engine::preferences;
+use reda_ui::theme::fonts::{self, Choice, Face, Family, Invalid, Outcome};
 use reda_ui::theme::{self, Density, Families, Settings, Tokens, TokensExt as _};
 
 fn tokens(theme: Theme, density: Density, text_size: u8) -> Tokens {
@@ -153,28 +156,28 @@ fn the_type_scale_moves_with_the_text_size_and_line_height_is_a_token() {
 #[test]
 fn each_weight_is_a_family_of_its_own() {
     let name = |n: &str| FontFamily::Name(n.into());
-    let settings = Settings {
-        families: Families {
-            regular: name("ui"),
-            medium: name("ui-medium"),
-            semibold: name("ui-semibold"),
-            numeric: name("ui-numeric"),
-            mono: name("mono"),
+    let t = Tokens::new(Theme::Dark, &Settings::default()).ty;
+    assert_eq!(t.small.family, name("reda-ui-regular"));
+    assert_eq!(t.body.family, name("reda-ui-regular"));
+    assert_eq!(t.body_strong.family, name("reda-ui-medium"));
+    assert_eq!(t.title.family, name("reda-ui-semibold"));
+    assert_eq!(t.heading.family, name("reda-ui-semibold"));
+    assert_eq!(t.mono.family, name("reda-mono"));
+    assert_eq!(t.numeric.family, name("reda-ui-numeric"));
+    assert_eq!(t.numeric_small.family, name("reda-ui-numeric"));
+    // The names are the same whatever is chosen: the fonts behind them change.
+    let chosen = Settings {
+        fonts: Choice {
+            ui: Some("DejaVu Sans".to_owned()),
+            mono: Some("DejaVu Sans Mono".to_owned()),
         },
         ..Settings::default()
     };
-    let t = Tokens::new(Theme::Dark, &settings).ty;
-    assert_eq!(t.small.family, name("ui"));
-    assert_eq!(t.body.family, name("ui"));
-    assert_eq!(t.body_strong.family, name("ui-medium"));
-    assert_eq!(t.title.family, name("ui-semibold"));
-    assert_eq!(t.heading.family, name("ui-semibold"));
-    assert_eq!(t.mono.family, name("mono"));
-    assert_eq!(t.numeric.family, name("ui-numeric"));
-    assert_eq!(t.numeric_small.family, name("ui-numeric"));
-    // Until fonts are bundled, every weight is egui's own family.
-    let t = Tokens::new(Theme::Dark, &Settings::default()).ty;
+    assert_eq!(Tokens::new(Theme::Dark, &chosen).ty, t);
+    // A context with no REDA fonts takes egui's own families.
+    let t = Tokens::with_families(Theme::Dark, &Settings::default(), &Families::egui()).ty;
     assert_eq!(t.title.family, FontFamily::Proportional);
+    assert_eq!(t.numeric.family, FontFamily::Proportional);
     assert_eq!(t.mono.family, FontFamily::Monospace);
 }
 
@@ -301,10 +304,166 @@ fn installing_the_theme_sets_both_variants_and_the_preference() {
 fn the_tokens_are_the_defaults_before_the_theme_is_installed() {
     let ctx = egui::Context::default();
     ctx.set_theme(Theme::Light);
+    // No fonts are installed either, so the text styles name egui's own families.
     assert_eq!(
         *ctx.tokens(),
-        Tokens::new(Theme::Light, &Settings::default())
+        Tokens::with_families(Theme::Light, &Settings::default(), &Families::egui())
     );
+    assert_eq!(fonts::report(&ctx), None);
+}
+
+/// The width of `text` in a text style, on `ctx`.
+fn width(ctx: &egui::Context, style: impl Fn(&Tokens) -> theme::Text, text: &str) -> f32 {
+    let mut width = 0.0;
+    let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let job = style(&ui.tokens()).job(text, Color32::WHITE);
+        width = ui.fonts_mut(|f| f.layout_job(job)).size().x;
+    });
+    output.textures_delta.clear();
+    width
+}
+
+#[test]
+fn installing_the_theme_installs_the_bundled_faces() {
+    let ctx = egui::Context::default();
+    theme::install(&ctx, ThemePreference::Dark);
+    let report = fonts::report(&ctx).expect("fonts are installed with the theme");
+    assert_eq!(
+        (report.ui, report.mono),
+        (Outcome::Bundled, Outcome::Bundled)
+    );
+    assert_eq!(report.weights, [400, 500, 600]);
+    // Each weight is a different face: heavier text runs wider.
+    let text = "Minimum clearance";
+    let regular = width(&ctx, |t| t.ty.body.clone(), text);
+    let medium = width(&ctx, |t| t.ty.body_strong.clone(), text);
+    let semibold = width(&ctx, |t| t.ty.title.clone(), text);
+    assert!(
+        regular < medium && medium < semibold,
+        "{regular} {medium} {semibold}"
+    );
+    // Numbers line up in the numeric styles and not in running text.
+    let ones = width(&ctx, |t| t.ty.numeric.clone(), "1111");
+    let eights = width(&ctx, |t| t.ty.numeric.clone(), "8888");
+    assert_eq!(ones, eights);
+    let ones = width(&ctx, |t| t.ty.body.clone(), "1111");
+    let eights = width(&ctx, |t| t.ty.body.clone(), "8888");
+    assert!(ones < eights);
+    // The monospace style is fixed-pitch.
+    let narrow = width(&ctx, |t| t.ty.mono.clone(), "iiii");
+    let wide = width(&ctx, |t| t.ty.mono.clone(), "MMMM");
+    assert_eq!(narrow, wide);
+}
+
+/// Installed fonts served from REDA's own font files under other names.
+struct Machine;
+
+fn font_file(file: &str) -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fonts")
+        .join(file)
+}
+
+impl fonts::Source for Machine {
+    fn family(&self, name: &str) -> Option<Family> {
+        let face = |file: &str, weight, fixed_pitch| Face {
+            file: font_file(file),
+            index: 0,
+            weight,
+            weight_axis: None,
+            width: 5,
+            italic: false,
+            fixed_pitch,
+            latin: true,
+        };
+        let faces = match name.to_lowercase().as_str() {
+            // A family with one weight.
+            "plain" => vec![face("inter/Inter-Regular.ttf", 400, false)],
+            "fixed" => vec![face(
+                "jetbrains-mono/JetBrainsMonoNL-Regular.ttf",
+                400,
+                true,
+            )],
+            // Indexed, but the file is not a font.
+            "broken" => vec![face("inter/OFL.txt", 400, false)],
+            _ => return None,
+        };
+        Some(Family {
+            name: name.to_owned(),
+            faces,
+        })
+    }
+
+    fn read(&self, face: &Face) -> Option<Arc<[u8]>> {
+        std::fs::read(&face.file).ok().map(Arc::from)
+    }
+}
+
+fn with_fonts(ui: &str, mono: &str) -> Settings {
+    Settings {
+        fonts: Choice {
+            ui: Some(ui.to_owned()),
+            mono: Some(mono.to_owned()),
+        },
+        ..Settings::default()
+    }
+}
+
+#[test]
+fn a_chosen_family_is_resolved_by_name_and_a_missing_weight_is_not_faked() {
+    let ctx = egui::Context::default();
+    fonts::set_source(&ctx, Arc::new(Machine));
+    theme::install(&ctx, ThemePreference::Dark);
+    theme::set(&ctx, &with_fonts("Plain", "Fixed"));
+    let report = fonts::report(&ctx).unwrap();
+    assert_eq!(
+        (report.ui, report.mono),
+        (Outcome::Installed, Outcome::Installed)
+    );
+    // "Plain" has only a regular face: medium and semibold are drawn with it, as it is.
+    assert_eq!(report.weights, [400, 400, 400]);
+    let text = "Minimum clearance";
+    let regular = width(&ctx, |t| t.ty.body.clone(), text);
+    assert_eq!(width(&ctx, |t| t.ty.body_strong.clone(), text), regular);
+    assert_eq!(width(&ctx, |t| t.ty.title.clone(), text), regular);
+    // Its digits are not one width, so numbers stay in the bundled tabular face.
+    assert!(!report.numeric_is_chosen);
+    let ones = width(&ctx, |t| t.ty.numeric.clone(), "1111");
+    assert_eq!(ones, width(&ctx, |t| t.ty.numeric.clone(), "8888"));
+}
+
+#[test]
+fn a_missing_family_or_a_rejected_file_falls_back_to_the_bundled_face() {
+    let bundled = egui::Context::default();
+    theme::install(&bundled, ThemePreference::Dark);
+    let text = "Minimum clearance 0123";
+    let expected = [
+        width(&bundled, |t| t.ty.body.clone(), text),
+        width(&bundled, |t| t.ty.title.clone(), text),
+        width(&bundled, |t| t.ty.mono.clone(), text),
+    ];
+
+    let ctx = egui::Context::default();
+    fonts::set_source(&ctx, Arc::new(Machine));
+    theme::install(&ctx, ThemePreference::Dark);
+    // Neither is installed; then the UI family's file is not a font.
+    for (ui, outcome) in [
+        ("Nowhere Sans", Outcome::NotInstalled),
+        ("Broken", Outcome::Rejected(Invalid::NotAFont)),
+    ] {
+        theme::set(&ctx, &with_fonts(ui, "Nowhere Mono"));
+        let report = fonts::report(&ctx).unwrap();
+        assert_eq!(report.ui, outcome);
+        assert_eq!(report.mono, Outcome::NotInstalled);
+        assert!(report.ui.fell_back() && report.mono.fell_back());
+        // The window draws on, in the bundled faces.
+        let drawn = [
+            width(&ctx, |t| t.ty.body.clone(), text),
+            width(&ctx, |t| t.ty.title.clone(), text),
+            width(&ctx, |t| t.ty.mono.clone(), text),
+        ];
+        assert_eq!(drawn, expected, "{ui}");
+    }
 }
 
 #[test]

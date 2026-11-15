@@ -10,6 +10,7 @@ use egui::epaint::Shadow;
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Color32, FontFamily, FontId, Theme};
 
+use super::fonts;
 use super::palette::{self, Hue, Palette, Soft, Tint};
 
 /// How much room the chrome gives its controls and rows. It changes paddings and gaps and
@@ -33,9 +34,23 @@ pub struct Families {
     pub mono: FontFamily,
 }
 
-impl Default for Families {
-    /// egui's own proportional and monospace families, for every weight.
-    fn default() -> Self {
+impl Families {
+    /// REDA's named families. [`fonts`] binds them to the bundled or the chosen faces;
+    /// the names are the same whatever is chosen.
+    pub fn named() -> Families {
+        let name = |n: &str| FontFamily::Name(n.into());
+        Families {
+            regular: name(fonts::REGULAR),
+            medium: name(fonts::MEDIUM),
+            semibold: name(fonts::SEMIBOLD),
+            numeric: name(fonts::NUMERIC),
+            mono: name(fonts::MONO),
+        }
+    }
+
+    /// egui's own proportional and monospace families for every weight: all that a
+    /// context has before REDA's fonts are installed on it.
+    pub fn egui() -> Families {
         Families {
             regular: FontFamily::Proportional,
             medium: FontFamily::Proportional,
@@ -52,7 +67,9 @@ pub struct Settings {
     pub density: Density,
     /// The body text size in whole pixels, [`Settings::TEXT_SIZES`]; clamped into it.
     pub text_size: u8,
-    pub families: Families,
+    /// The chosen UI and monospace families, by name. [`set`](super::set) resolves them
+    /// against the installed fonts; the bundled faces stand in for what is missing.
+    pub fonts: fonts::Choice,
 }
 
 impl Settings {
@@ -66,7 +83,7 @@ impl Default for Settings {
         Settings {
             density: Density::default(),
             text_size: Settings::DEFAULT_TEXT_SIZE,
-            families: Families::default(),
+            fonts: fonts::Choice::default(),
         }
     }
 }
@@ -661,7 +678,15 @@ const STATUS_BAR_PAD: f32 = 8.0;
 const FLOATING_BAR_PAD: f32 = 12.0;
 
 impl Tokens {
+    /// The tokens for `theme` and `settings`, with text in REDA's named families. Which
+    /// faces those are is settled when the fonts are installed ([`set`](super::set)).
     pub fn new(theme: Theme, settings: &Settings) -> Tokens {
+        Tokens::with_families(theme, settings, &Families::named())
+    }
+
+    /// The same tokens with text in `families`. A context that has no REDA fonts yet
+    /// (a bare `egui::Context` in a test) takes [`Families::egui`].
+    pub fn with_families(theme: Theme, settings: &Settings, families: &Families) -> Tokens {
         let p = palette(theme);
         let (lo, hi) = Settings::TEXT_SIZES.into_inner();
         let body = f32::from(settings.text_size.clamp(lo, hi));
@@ -676,7 +701,7 @@ impl Tokens {
                 window,
             },
             space: space(settings.density),
-            ty: type_scale(body, &settings.families),
+            ty: type_scale(body, families),
             radius: Radius {
                 mark: 4.0,
                 row: 6.0,

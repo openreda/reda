@@ -1,6 +1,6 @@
 [package]
 name = "reda-xtask"
-description = "Developer chores run as `cargo xtask`: regenerating reda-ui's icon tables and the design-language spec's token tables, and drawing and assembling the website. Never shipped."
+description = "Developer chores run as `cargo xtask`: regenerating reda-ui's icon tables and the design-language spec's token tables and the bundled tabular font, and drawing and assembling the website. Never shipped."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

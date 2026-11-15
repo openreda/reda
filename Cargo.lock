@@ -3435,6 +3435,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "skrifa",
  "toml_edit",
  "unic-langid",
 ]

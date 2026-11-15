@@ -47,14 +47,12 @@ pub fn caption(ui: &mut Ui, text: &str) {
     ui.label(t.ty.small.rich(text).color(t.color.text.muted));
 }
 
+/// A row of a state grid: its name, and how to draw it in a state.
+pub type Row<'a> = (&'a str, &'a mut dyn FnMut(&mut Ui, State));
+
 /// A grid of rows, each drawn once per state. `rows` gives a row's name and how to draw
 /// it in a state.
-pub fn states(
-    ui: &mut Ui,
-    id: &str,
-    column: f32,
-    rows: &mut [(&str, &mut dyn FnMut(&mut Ui, State))],
-) {
+pub fn states(ui: &mut Ui, id: &str, column: f32, rows: &mut [Row<'_>]) {
     let t = ui.tokens();
     Grid::new(id)
         .num_columns(STATES.len() + 1)
