@@ -6,7 +6,7 @@ use egui::style::{HandleShape, ScrollStyle};
 use egui::{CornerRadius, Margin, Stroke, TextStyle, Theme, Visuals};
 
 use super::{Tokens, over};
-use crate::widgets::{MARK, SLIDER_RAIL, glyph, pending};
+use crate::widgets::{MARK, SLIDER_RAIL, TREE_INDENT, glyph};
 
 /// The scrollbar's thumb, at rest and hovered. The scrollbar is egui's own, so its recipe
 /// is the `ScrollStyle` below.
@@ -100,7 +100,7 @@ pub fn style(t: &Tokens) -> egui::Style {
     s.menu_margin = Margin::same(whole(t.space.menu) as i8);
     s.window_margin = Margin::same(whole(t.space.dialog) as i8);
     s.icon_width = MARK;
-    s.indent = pending::TREE_INDENT;
+    s.indent = TREE_INDENT;
     s.slider_rail_height = SLIDER_RAIL;
     // A thin thumb with no track, which widens when hovered. The content keeps clear of
     // the widened thumb, so a control at the trailing edge is never under it.

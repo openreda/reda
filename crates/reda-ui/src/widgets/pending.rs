@@ -8,10 +8,6 @@
 
 /// Between cards, and from cards to the window edge.
 pub const CARD_GAP: f32 = 6.0;
-/// The side of a data colour's swatch.
-pub const SWATCH: f32 = 14.0;
-/// A tree's indent per level.
-pub const TREE_INDENT: f32 = 16.0;
 /// The width of one window control in the Title bar.
 pub const WINDOW_CONTROL: f32 = 46.0;
 /// The drag gap kept beside the window controls.

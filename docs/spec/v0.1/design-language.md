@@ -338,6 +338,7 @@ Each recipe below names the tokens a component uses per state. They are locked a
 - **Number columns** are right-aligned in the numeric style.
 - **Severity** is a shape and a colour. A waived row is muted.
 - **Selection** as in [Selection and window focus](#selection-and-window-focus).
+- **A drop target** (a row something dragged would drop on) is the accent subtle tint inside a 2 px accent line.
 - **Swatches** for data colours are 14 px squares with the mark radius and a neutral rim.
 - **Badges and counts** are pills in small text on a tone's subtle tint.
 - **Scrollbars** are a 4 px muted thumb with no track, widening to 8 px when hovered.

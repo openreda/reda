@@ -11,6 +11,9 @@
 //! ui.add(widgets::checkbox(&mut visible, "Visible"));
 //! ```
 //!
+//! The data widgets work the same way: `widgets::list_row`, `tree_row`, `table`,
+//! `section_header` and `section`, `form` with `form_row`, `status_mark` and `swatch`.
+//!
 //! Every control draws rest, hover, press, keyboard focus and disabled, and selected and
 //! invalid where they apply. Disabled comes from the `Ui` (`ui.add_enabled(false, ..)`).
 //! [`State`] forces one state, for the gallery that snapshots them side by side
@@ -24,13 +27,18 @@ mod button;
 mod check;
 mod dropdown;
 mod field;
+mod form;
 pub mod glyph;
+mod mark;
 mod menu;
 mod paint;
 pub mod pending;
 mod range;
+mod row;
+mod section;
 mod segmented;
 mod stepper;
+mod table;
 
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
@@ -43,9 +51,14 @@ pub use dropdown::{
     filter_dropdown,
 };
 pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_field};
+pub use form::{Form, FormName, form, form_name, form_row};
 pub use glyph::{Glyph, GlyphMark, glyph};
+pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_rgb};
 pub use menu::menu_item;
 pub use paint::State;
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
+pub use row::{Row, RowResponse, Selection, TREE_INDENT, list_row, rows, tree_row};
+pub use section::{Section, SectionHeader, SectionResponse, section, section_header};
 pub use segmented::{Segmented, segmented};
 pub use stepper::{STEPPER_WIDTH, StepperField, stepper_field};
+pub use table::{COLUMN_GAP, Column, RowLook, Sorted, Table, TableBody, TableRow, table};

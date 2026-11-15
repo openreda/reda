@@ -70,18 +70,24 @@ fn contents(ui: &mut Ui, shell: &Shell, key: LineKey, actions: &mut Vec<Action>)
     ui.separator();
     ui.label(RichText::new(tr!("details-objects")).strong());
     let layers = layer_names(shell, v);
-    egui::Grid::new("violation-details-objects")
-        .striped(true)
-        .num_columns(3)
-        .show(ui, |ui| {
+    let columns = [
+        widgets::Column::auto(),
+        widgets::Column::auto(),
+        widgets::Column::auto().number(),
+    ];
+    widgets::table("violation-details-objects")
+        .columns(columns)
+        .show(ui, |table| {
             for (object, name) in object_links(shell, entry.document, &v.objects) {
-                if ui.add(widgets::link(name.as_str())).clicked() {
-                    actions.push(Action::GoToObject(entry.document, object));
-                }
-                ui.label(layers.as_str());
-                let at = object_location(shell, entry.document, object).or(v.at);
-                ui.label(at.map_or_else(|| "—".to_owned(), point_text));
-                ui.end_row();
+                table.row(|row| {
+                    let link = row.ui(|ui| ui.add(widgets::link(name.as_str())));
+                    if link.clicked() {
+                        actions.push(Action::GoToObject(entry.document, object));
+                    }
+                    row.text(layers.as_str());
+                    let at = object_location(shell, entry.document, object).or(v.at);
+                    row.text(at.map_or_else(|| "—".to_owned(), point_text));
+                });
             }
         });
     ui.horizontal(|ui| {
