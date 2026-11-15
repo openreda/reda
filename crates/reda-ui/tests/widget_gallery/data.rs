@@ -39,6 +39,7 @@ pub fn page(ui: &mut Ui) {
         });
         ui.vertical(|ui| {
             kit::section(ui, "Tree (Projects)", tree);
+            kit::section(ui, "Colour picker", picker);
         });
         ui.vertical(|ui| {
             kit::section(ui, "Section headers and form-field rows", properties);
@@ -232,6 +233,14 @@ pub fn marks(ui: &mut Ui) {
         ui.add(widgets::swatch(card));
         kit::caption(ui, "the last is the card's own colour");
     });
+}
+
+/// The colour picker a swatch button opens, drawn in place: the field of saturation and
+/// brightness, the hues, and the colour as text with its copy button.
+pub fn picker(ui: &mut Ui) {
+    ui.set_width(NARROW);
+    let mut colour = BLUE;
+    widgets::color_picker(ui, egui::Id::new("gallery-picker"), &mut colour);
 }
 
 /// Badges and counts: a pill of small text on each tone's subtle tint, tallies with

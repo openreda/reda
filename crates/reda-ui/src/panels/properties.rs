@@ -60,7 +60,11 @@ pub enum Out {
 
 /// Draws the panel for the Shell's selection; returns what its clicks and edits ask for.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
-    let focused = shell.panel_focused(crate::layout::PanelId::Properties);
+    // The units key goes where the layout's focus is, not where selections look live.
+    let focused = shell.layout().focus
+        == Some(crate::layout::TabKey::Panel(
+            crate::layout::PanelId::Properties,
+        ));
     let toggle = focused && ui.input_mut(take_units_toggle);
     let mut out = content(ui, shell);
     if toggle {

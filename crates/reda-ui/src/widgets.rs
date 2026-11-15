@@ -59,7 +59,9 @@ pub use button::{
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
-pub use color::{ColorButton, PICKER_WIDTH, color_button, data_color};
+pub use color::{
+    ColorButton, PICKER_FIELD, PICKER_HUE, PICKER_WIDTH, color_button, color_picker, data_color,
+};
 pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window, window_frame};
 pub use drop::{DROP_BUTTON, DropPart, drag_chip, drop_button, drop_preview};
 pub use dropdown::{

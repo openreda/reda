@@ -128,6 +128,7 @@ The warning solid is a real amber with dark text on it. The other solids carry w
 
 - **A selected row** is the accent subtle tint with ordinary text. It is not accent-coloured text and not a solid fill with white text.
 - **Only one place shows a live blue selection.** In a Panel that does not hold keyboard focus, the selected row is `fill.selected_unfocused`.
+  - The Panel that holds it, for this, is the one in use: the Panel last pressed in or moved into with the keyboard, and otherwise the tab the layout focuses. A press on a row never leaves that row looking unfocused, whether or not its Panel takes the layout's focus.
 - **When REDA's window is in the background,** the active tab's accent line and the live selection tint go neutral. In the Title bar, text and window-control Glyphs go muted. Nothing else dims, and no surface changes.
 
 ### Other colour sources
@@ -346,7 +347,7 @@ Each recipe below names the tokens a component uses per state. They are locked a
 - **A drop target** (a row something dragged would drop on) is the accent subtle tint inside a 2 px accent line.
 - **Swatches** for data colours are 14 px squares with the mark radius and a neutral rim.
   - Something with no colour set (a Net without one) shows the same square, hollow, with a slash.
-  - A swatch that edits its colour is a button that opens the colour picker.
+  - A swatch that edits its colour is a button that opens the colour picker: a field of saturation and brightness, a strip of hues, and the colour as `#rrggbb` to type, with a copy button.
 - **Badges and counts** are pills in small text on a tone's subtle tint.
   - A badge names a state or a tally, and can lead with the status mark of its tone. Without a tone it is muted text on the neutral control fill.
   - A count is a number alone on the neutral fill, in tabular digits.

@@ -177,6 +177,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
         Vec::new()
     };
     let focus_request = shell.take_focus_request();
+    shell.forget_stale_tab_use();
+    // The widget the keyboard moved to since last frame, if it moved: its tab is in use.
+    let focused = ui.memory(|m| m.focused());
+    let last_id = Id::NULL.with("docking-focused-widget");
+    let last: Option<Id> = ui.data(|d| d.get_temp(last_id)).flatten();
+    ui.data_mut(|d| d.insert_temp(last_id, focused));
+    let focus_moved = focused.filter(|id| Some(*id) != last);
     let dirty = shell.engine().dirty_scopes();
     // Cards keep the card gap from the window's side edges. Above them is the top row
     // and below them the status bar, both on the base.
@@ -195,6 +202,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
             dock_edges: true,
         },
         focus_request,
+        focus_moved,
         settings,
     };
     // What no group covers shows as the gaps between them: the window's base.
@@ -311,6 +319,8 @@ struct Cx<'a, 'b> {
     /// The tab whose button takes the keyboard focus this frame, after F6 or the tab
     /// switcher moved focus to it.
     focus_request: Option<TabKey>,
+    /// The widget that took the keyboard focus since last frame, if it moved.
+    focus_moved: Option<Id>,
     settings: &'a mut SettingsContent<'b>,
 }
 
@@ -904,7 +914,30 @@ impl Cx<'_, '_> {
         }
     }
 
+    /// Notes `tab` as the one in use when a pointer button goes down on its content,
+    /// `rect`, or the keyboard moved to a widget in it: its selected rows are the live
+    /// ones (`Shell::panel_focused`). It does not move the layout's focus.
+    fn note_use(&mut self, ui: &Ui, rect: Rect, tab: &TabKey) {
+        let here =
+            |p: egui::Pos2| rect.contains(p) && ui.ctx().layer_id_at(p) == Some(ui.layer_id());
+        let pressed = ui.input(|i| {
+            i.pointer
+                .any_pressed()
+                .then(|| i.pointer.interact_pos())
+                .flatten()
+        });
+        let tabbed = self
+            .focus_moved
+            .and_then(|id| ui.ctx().read_response(id))
+            .filter(|r| r.layer_id == ui.layer_id())
+            .map(|r| r.rect.center());
+        if pressed.is_some_and(here) || tabbed.is_some_and(|p| rect.contains(p)) {
+            self.shell.note_tab_used(tab);
+        }
+    }
+
     fn content(&mut self, ui: &mut Ui, tab: &TabKey) {
+        self.note_use(ui, ui.available_rect_before_wrap(), tab);
         match tab {
             TabKey::Start => {
                 if let Some(action) = start_page::show(ui, self.recent) {

@@ -20,12 +20,46 @@ impl Shell {
         }
     }
 
-    /// Whether `panel` holds keyboard focus: its tab is the one last activated (by a
-    /// click on the tab, F6, the tab switcher, or a press on a Panel that takes focus).
-    /// Only then do its selected rows show the live selection tint
-    /// (docs/spec/v0.1/design-language.md#selection-and-window-focus).
+    /// Whether `panel` is the Panel in use: the one whose selected rows show the live
+    /// selection tint (docs/spec/v0.1/design-language.md#selection-and-window-focus).
+    ///
+    /// It is the tab the user last pressed in or moved the keyboard into
+    /// ([`Shell::note_tab_used`]), and otherwise the layout's focus (a tab activated by a
+    /// click on it, F6 or the tab switcher). This is only how selections look: which
+    /// tab the layout focuses, and so which undo stack and menus a key reaches, is not
+    /// changed by a press in a Panel that does not take focus.
     pub fn panel_focused(&self, panel: PanelId) -> bool {
-        self.layout().focus == Some(TabKey::Panel(panel))
+        let focus = &self.layout().focus;
+        let used = match &self.used_tab {
+            Some(used) if used.settling > 0 || used.focus == *focus => Some(&used.tab),
+            _ => focus.as_ref(),
+        };
+        used == Some(&TabKey::Panel(panel))
+    }
+
+    /// Notes that the user pressed in `tab`'s content, or moved the keyboard into it.
+    pub fn note_tab_used(&mut self, tab: &TabKey) {
+        self.used_tab = Some(UsedTab {
+            tab: tab.clone(),
+            focus: self.layout().focus.clone(),
+            settling: USE_SETTLES_IN,
+        });
+    }
+
+    /// Forgets the tab last used once the layout's focus has moved since: the layout's
+    /// focus then says which Panel is in use. A use just noted is kept, with the
+    /// focus as the press left it (a click on a Find result opens its sheet, and the
+    /// result clicked stays the live one). Called once a frame, before the tabs draw.
+    pub fn forget_stale_tab_use(&mut self) {
+        let focus = self.layout().focus.clone();
+        match &mut self.used_tab {
+            Some(used) if used.settling > 0 => {
+                used.settling -= 1;
+                used.focus = focus;
+            }
+            Some(used) if used.focus != focus => self.used_tab = None,
+            _ => {}
+        }
     }
 
     /// The tab switcher (Ctrl+Tab), while it is open.

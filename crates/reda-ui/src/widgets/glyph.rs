@@ -55,11 +55,13 @@ pub enum Glyph {
     SortDown,
     /// The snap palette: a grid of dots with a ring on the one snapped to.
     Snap,
+    /// Copy to the clipboard: one sheet over another.
+    Copy,
 }
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 20] = [
+    pub const ALL: [(Glyph, &'static str); 21] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -80,6 +82,7 @@ impl Glyph {
         (Glyph::SortUp, "sort ascending"),
         (Glyph::SortDown, "sort descending"),
         (Glyph::Snap, "snap"),
+        (Glyph::Copy, "copy"),
     ];
 
     /// Paints the Glyph with its box centred on `center`, in `color`.
@@ -168,6 +171,12 @@ impl Glyph {
             Glyph::SortDown => {
                 open(&[(8.0, 3.5), (8.0, 12.5)]);
                 open(&[(4.5, 9.0), (8.0, 12.5), (11.5, 9.0)]);
+            }
+            Glyph::Copy => {
+                // The sheet in front, and the two edges of the one behind that show.
+                let front = Rect::from_min_max(at((6.5, 6.5)), at((12.5, 12.5)));
+                painter.rect_stroke(front, WINDOW_CORNER, pen, egui::StrokeKind::Middle);
+                open(&[(3.5, 9.5), (3.5, 3.5), (9.5, 3.5)]);
             }
             Glyph::Snap => {
                 for x in [2.5, 8.0, 13.5] {

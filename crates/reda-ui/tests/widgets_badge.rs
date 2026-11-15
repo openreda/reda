@@ -110,13 +110,73 @@ fn a_filter_badge_is_a_toggle_that_says_whether_it_is_on() {
 }
 
 #[test]
-fn a_colour_button_is_a_named_swatch() {
-    // The picker itself is egui's, and is not opened here: its copy button is a
-    // character REDA's fonts do not have, which a test harness refuses to draw.
-    let h = harness(Density::Comfortable);
+fn a_colour_button_is_a_named_swatch_that_opens_the_picker() {
+    let mut h = harness(Density::Comfortable);
     let button = h.get_by_role_and_label(Role::Button, "Colour of Top Copper");
     assert_eq!(button.rect().size(), egui::Vec2::splat(widgets::SWATCH));
+    assert!(h.query_by_label("Hue").is_none(), "the picker is closed");
+    button.click();
+    h.run();
+    // The picker: the field, the hues, the colour as text and the copy button. Opening
+    // it changes nothing.
+    h.get_by_role_and_label(Role::Slider, "Saturation and brightness");
+    h.get_by_role_and_label(Role::Slider, "Hue");
+    h.get_by_role_and_label(Role::TextInput, "Colour as #rrggbb");
+    h.get_by_role_and_label(Role::Button, "Copy colour");
     assert_eq!(h.state().recolours, 0);
+    h.key_press(egui::Key::Escape);
+    h.run();
+    assert!(h.query_by_label("Hue").is_none(), "Escape closes it");
+}
+
+#[test]
+fn the_picker_changes_the_colour_from_its_hues_its_field_and_what_is_typed() {
+    let mut h = harness(Density::Comfortable);
+    h.get_by_label("Colour of Top Copper").click();
+    h.run();
+    let red = h.state().colour;
+    // The middle of the hue strip is cyan: the red goes, the saturation stays.
+    h.get_by_label("Hue").click();
+    h.run();
+    let cyan = h.state().colour;
+    assert!(cyan.r() < cyan.g() && cyan.r() < cyan.b(), "{cyan:?}");
+    assert!(h.state().recolours > 0);
+    // The middle of the field is half the saturation and half the brightness.
+    h.get_by_label("Saturation and brightness").click();
+    h.run();
+    let dull = h.state().colour;
+    assert!(dull.g() < cyan.g() && dull.r() > cyan.r(), "{dull:?}");
+    // A colour typed as #rrggbb is taken once it reads as one.
+    let field = h.get_by_role_and_label(Role::TextInput, "Colour as #rrggbb");
+    field.focus();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Colour as #rrggbb")
+        .set_text_value_accesskit("#12ab");
+    h.run();
+    assert_eq!(h.state().colour, dull, "half a colour changes nothing");
+    h.get_by_role_and_label(Role::TextInput, "Colour as #rrggbb")
+        .set_text_value_accesskit("#12ab56");
+    h.run();
+    assert_eq!(h.state().colour, widgets::data_color(0x12, 0xab, 0x56));
+    assert_ne!(h.state().colour, red);
+}
+
+#[test]
+fn the_pickers_copy_button_puts_the_colour_on_the_clipboard_and_leaves_it_as_it_is() {
+    let mut h = harness(Density::Comfortable);
+    h.get_by_label("Colour of Top Copper").click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Copy colour").click();
+    // One frame: the copy is in the output of the frame the click lands in.
+    h.step();
+    assert_eq!(h.state().recolours, 0);
+    let copied = h
+        .output()
+        .platform_output
+        .commands
+        .iter()
+        .any(|c| matches!(c, egui::OutputCommand::CopyText(text) if text == "#c83434"));
+    assert!(copied, "{:?}", h.output().platform_output.commands);
 }
 
 #[test]
