@@ -11,6 +11,7 @@
 #[cfg(test)]
 mod contrast;
 pub mod fonts;
+pub mod motion;
 mod palette;
 mod style;
 #[cfg(test)]
@@ -108,14 +109,24 @@ impl TokensExt for egui::Ui {
 }
 
 /// Rebuilds the tokens of both themes from `settings` and generates egui's styles from
-/// them. Called again whenever Density, the text size or a font changes.
+/// them. Called again whenever Density, the text size, a font or Animate changes.
 ///
 /// The chosen font families are resolved by name against the context's installed fonts
 /// ([`fonts::set_source`]); [`fonts::report`] tells what became of them. The first call
-/// on a context must come before the pass lays out text ([`fonts::apply`]).
+/// on a context must come before the pass lays out text ([`fonts::apply`]). An unset
+/// `animate` follows the OS setting read at launch ([`motion::system::remember`]).
 pub fn set(ctx: &egui::Context, settings: &Settings) {
     fonts::apply(ctx, &settings.fonts);
-    let installed = Installed::new(settings);
+    ctx.add_plugin(motion::Plugin);
+    let settings = Settings {
+        animate: Some(
+            settings
+                .animate
+                .unwrap_or_else(|| motion::system::remembered(ctx)),
+        ),
+        ..settings.clone()
+    };
+    let installed = Installed::new(&settings);
     ctx.set_style_of(Theme::Dark, style(&installed.dark));
     ctx.set_style_of(Theme::Light, style(&installed.light));
     ctx.data_mut(|d| d.insert_temp(installed_id(), installed));
@@ -130,8 +141,8 @@ pub fn preference(prefs: &Preferences) -> egui::ThemePreference {
     }
 }
 
-/// What the Appearance Preferences ask of the tokens: Density, the text size and the two
-/// font families.
+/// What the Appearance Preferences ask of the tokens: Density, the text size, the two
+/// font families and Animate.
 pub fn settings(prefs: &Preferences) -> Settings {
     let general = &prefs.general;
     Settings {
@@ -144,6 +155,7 @@ pub fn settings(prefs: &Preferences) -> Settings {
             ui: general.ui_font.clone(),
             mono: general.mono_font.clone(),
         },
+        animate: general.animate,
     }
 }
 

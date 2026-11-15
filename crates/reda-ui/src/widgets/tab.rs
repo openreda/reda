@@ -16,7 +16,7 @@ use egui::{
 use super::button::{ICON_GAP, paint_icon};
 use super::glyph::{self, Glyph};
 use super::paint::{self, State};
-use crate::theme::{Tokens, TokensExt as _};
+use crate::theme::{Tokens, TokensExt as _, motion};
 
 /// How far the first tab of a strip stands in from its card's edge.
 pub const TAB_INSET: f32 = 6.0;
@@ -205,7 +205,11 @@ impl<'a> Tab<'a> {
             p.with_clip_rect(rect.with_max_y(rect.bottom() + t.stroke.hairline))
                 .rect_stroke(open, top, rim, StrokeKind::Inside);
             join_tab(ui, t, rect);
-            if self.kind == TabKind::Active {
+            // The accent line fades in on the tab that becomes active, and leaves the
+            // last one at once. What the tab holds swaps at once.
+            let active = self.kind == TabKind::Active;
+            let line = motion::toggle(ui.ctx(), response.id.with("accent"), active, t.motion.tab_line);
+            if active || line > 0.0 {
                 let focused = self
                     .window_focused
                     .unwrap_or_else(|| ui.input(|i| i.focused));
@@ -214,11 +218,11 @@ impl<'a> Tab<'a> {
                 } else {
                     c.stroke.strong
                 };
-                p.rect_filled(accent_line(t, rect), under_corners(t), ink);
+                p.rect_filled(accent_line(t, rect), under_corners(t), ink.gamma_multiply(line));
             }
-        } else if pointed {
+        } else if pointed || s.hover_fill > 0.0 {
             let fill = paint::state_fill(t, Color32::TRANSPARENT, s);
-            let fill = if fill == Color32::TRANSPARENT {
+            let fill = if fill == Color32::TRANSPARENT && pointed {
                 c.fill.hover
             } else {
                 fill

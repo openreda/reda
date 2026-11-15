@@ -9,7 +9,7 @@ use egui::{
 };
 
 use super::paint::{self, State};
-use crate::theme::TokensExt as _;
+use crate::theme::{TokensExt as _, motion};
 
 /// The height of a progress bar's rail.
 pub const PROGRESS_RAIL: f32 = 6.0;
@@ -95,6 +95,9 @@ impl Widget for Progress {
                 Outcome::Error => t.color.error.solid,
             };
             ui.painter().rect_filled(rect, round, t.color.fill.control);
+            // The bar catches up with its value; the value read out is the real one.
+            let id = response.id.with("shown");
+            let fraction = motion::follow(ui.ctx(), id, fraction, t.motion.progress);
             if fraction > 0.0 {
                 // Never narrower than its own round ends.
                 let done = (width * fraction).max(PROGRESS_RAIL);
