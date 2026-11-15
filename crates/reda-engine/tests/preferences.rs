@@ -741,7 +741,10 @@ fn animate_is_unset_until_the_user_flips_it_and_unset_is_never_written() {
             "app.preferences.set",
             json!({"key": "general.animate", "value": on}),
         );
-        assert_eq!(read_prefs(home.path()), format!("[general]\nanimate = {on}\n"));
+        assert_eq!(
+            read_prefs(home.path()),
+            format!("[general]\nanimate = {on}\n")
+        );
         assert_eq!(get(home.path(), "general.animate")["value"], on);
     }
 
@@ -753,11 +756,12 @@ fn animate_is_unset_until_the_user_flips_it_and_unset_is_never_written() {
     assert_eq!(get(home.path(), "general.animate")["value"], Value::Null);
     assert!(!read_prefs(home.path()).contains("animate"));
     assert_eq!(
-        engine.run_err(
-            "app.preferences.set",
-            json!({"key": "general.animate", "value": "sometimes"}),
-        )
-        .code,
+        engine
+            .run_err(
+                "app.preferences.set",
+                json!({"key": "general.animate", "value": "sometimes"}),
+            )
+            .code,
         ErrorCode::InvalidParams
     );
 }

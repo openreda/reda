@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use egui::emath::TSTransform;
 use egui::layers::ShapeIdx;
-use egui::{Align2, Color32, Galley, Pos2, Rect, Response, Shape, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{
+    Align2, Color32, Galley, Pos2, Rect, Response, Shape, Stroke, StrokeKind, Ui, pos2, vec2,
+};
 
 use crate::theme::{Text, Tokens, TokensExt as _, motion, over};
 
@@ -130,7 +132,11 @@ pub(super) fn state_fill(t: &Tokens, under: Color32, s: Seen) -> Color32 {
     if hover <= 0.0 && press <= 0.0 {
         return under;
     }
-    let top = mix(t.color.fill.hover.gamma_multiply(hover), t.color.fill.press, press);
+    let top = mix(
+        t.color.fill.hover.gamma_multiply(hover),
+        t.color.fill.press,
+        press,
+    );
     if under == Color32::TRANSPARENT {
         top
     } else {

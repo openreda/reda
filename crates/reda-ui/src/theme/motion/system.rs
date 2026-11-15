@@ -153,8 +153,7 @@ mod platform {
     use super::Read;
 
     pub fn read() -> Read {
-        let settings =
-            windows::UI::ViewManagement::UISettings::new().map_err(|e| e.to_string())?;
+        let settings = windows::UI::ViewManagement::UISettings::new().map_err(|e| e.to_string())?;
         let enabled = settings.AnimationsEnabled().map_err(|e| e.to_string())?;
         Ok(!enabled)
     }

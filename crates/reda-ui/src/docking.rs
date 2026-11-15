@@ -22,6 +22,7 @@ use egui::{
 use reda_engine::model::{DocumentKind, Scope, Uuid};
 use serde_json::{Value, json};
 
+use self::windows::{WindowView, Zones};
 use crate::bars;
 use crate::bars::draw::{self, Invocation};
 use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
@@ -40,7 +41,6 @@ use crate::theme::{self, TokensExt as _, motion};
 use crate::tr;
 use crate::widgets::{self, CARD_GAP, Glyph, TabKind, Tooltip as _};
 use crate::{a11y, keymap};
-use self::windows::{WindowView, Zones};
 
 /// What one frame of the docking layer asks for.
 #[derive(Default)]
@@ -523,9 +523,10 @@ impl Cx<'_, '_> {
             ui.set_clip_rect(clip);
             ui.multiply_opacity(open);
             let groups = &self.layout.dock(side).groups;
-            for (group, part) in groups
-                .iter()
-                .zip(split_rect(expanded, Axis::Vertical, groups.len()))
+            for (group, part) in
+                groups
+                    .iter()
+                    .zip(split_rect(expanded, Axis::Vertical, groups.len()))
             {
                 self.group_at(ui, part, group, Area::Dock(side));
             }

@@ -78,6 +78,11 @@ impl InstalledFonts for Machine {
 
 /// The window with the Preferences open on Appearance.
 fn appearance(home: &Path) -> Harness<'static, App> {
+    appearance_on(home, true)
+}
+
+/// The same, on an OS whose reduced-motion setting is `!os_allows_motion`.
+fn appearance_on(home: &Path, os_allows_motion: bool) -> Harness<'static, App> {
     let engine = Engine::builder()
         .user_dirs(Some(UserDirs::under(home)))
         .starter_library(None)
@@ -86,7 +91,12 @@ fn appearance(home: &Path) -> Harness<'static, App> {
     let shell = Shell::new(engine).with_fonts(Arc::new(Machine));
     let mut h = Harness::builder()
         .with_size([1400.0, 900.0])
-        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+        // A dropdown's list arrives in 90 ms: six steps of a 60 Hz frame.
+        .with_max_steps(8)
+        .build_ui_state(
+            |ui, app: &mut App| app.ui(ui),
+            App::new(shell).with_os_motion(os_allows_motion),
+        );
     h.run();
     h.state_mut().open_preferences(Some(PageId::APPEARANCE));
     h.run();
@@ -139,6 +149,7 @@ fn appearance_follows_general_and_takes_theme_and_ui_scale_from_it() {
             "general.ui_scale",
             "general.ui_font",
             "general.mono_font",
+            "general.animate",
         ]
     );
     let general = on(PageId::GENERAL);
@@ -171,8 +182,48 @@ fn the_page_has_its_groups_in_order_with_each_setting_under_its_own() {
         top(&h, "Fonts"),
         top(&h, "UI font"),
         top(&h, "Monospace font"),
+        top(&h, "Window"),
+        top(&h, "Animate"),
     ];
     assert!(order.is_sorted_by(|a, b| a < b), "{order:?}");
+}
+
+fn animate_switch(h: &Harness<'static, App>) -> bool {
+    h.get_by_role_and_label(Role::Switch, "Animate")
+        .accesskit_node()
+        .toggled()
+        .map(|t| t == egui::accesskit::Toggled::True)
+        .expect("a switch says whether it is on")
+}
+
+#[test]
+fn animate_shows_the_os_setting_while_unset_and_a_flip_stores_it() {
+    let home = TempDir::new("appearance-animate");
+    // The OS asks for reduced motion: unset, the switch is off and nothing animates.
+    let mut h = appearance_on(home.path(), false);
+    assert_eq!(general(&h).animate, None);
+    assert!(!animate_switch(&h));
+    assert!(!h.ctx.tokens().motion.animate);
+    h.get_by_role_and_label(Role::Switch, "Animate")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Switch, "Animate").click();
+    h.run();
+    assert_eq!(general(&h).animate, Some(true));
+    assert!(animate_switch(&h));
+    assert!(h.ctx.tokens().motion.animate, "it applies live");
+    h.get_by_role_and_label(Role::Switch, "Animate").click();
+    h.run();
+    assert_eq!(general(&h).animate, Some(false));
+    assert!(!h.ctx.tokens().motion.animate);
+}
+
+#[test]
+fn animate_unset_on_an_os_that_allows_motion_is_on() {
+    let home = TempDir::new("appearance-animate-os");
+    let h = appearance_on(home.path(), true);
+    assert!(animate_switch(&h));
+    assert!(h.ctx.tokens().motion.animate);
 }
 
 #[test]

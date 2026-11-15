@@ -208,7 +208,12 @@ impl<'a> Tab<'a> {
             // The accent line fades in on the tab that becomes active, and leaves the
             // last one at once. What the tab holds swaps at once.
             let active = self.kind == TabKind::Active;
-            let line = motion::toggle(ui.ctx(), response.id.with("accent"), active, t.motion.tab_line);
+            let line = motion::toggle(
+                ui.ctx(),
+                response.id.with("accent"),
+                active,
+                t.motion.tab_line,
+            );
             if active || line > 0.0 {
                 let focused = self
                     .window_focused
@@ -218,7 +223,11 @@ impl<'a> Tab<'a> {
                 } else {
                     c.stroke.strong
                 };
-                p.rect_filled(accent_line(t, rect), under_corners(t), ink.gamma_multiply(line));
+                p.rect_filled(
+                    accent_line(t, rect),
+                    under_corners(t),
+                    ink.gamma_multiply(line),
+                );
             }
         } else if pointed || s.hover_fill > 0.0 {
             let fill = paint::state_fill(t, Color32::TRANSPARENT, s);

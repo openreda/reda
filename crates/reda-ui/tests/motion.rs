@@ -33,7 +33,9 @@ fn form(ui: &mut Ui, f: &mut Form) {
     if f.dialog {
         let shown = modal::Dialog::new(Id::NULL.with("motion-dialog"), "Confirm")
             .show(ui.ctx(), |ui| ui.label("Sure?"));
-        f.dialog_rect = ui.ctx().memory(|m| m.area_rect(Id::NULL.with("motion-dialog")));
+        f.dialog_rect = ui
+            .ctx()
+            .memory(|m| m.area_rect(Id::NULL.with("motion-dialog")));
         let _ = shown;
     }
 }
@@ -81,7 +83,11 @@ fn shapes(h: &Harness<'_, Form>) -> Vec<(Shape, TSTransform)> {
     }
     let mut out = Vec::new();
     for clipped in &h.output().shapes {
-        flat(&clipped.shape, clipped.transform_after_tessellation, &mut out);
+        flat(
+            &clipped.shape,
+            clipped.transform_after_tessellation,
+            &mut out,
+        );
     }
     out
 }
@@ -91,7 +97,9 @@ fn knob_x(h: &Harness<'_, Form>) -> f32 {
     shapes(h)
         .into_iter()
         .find_map(|(s, _)| match s {
-            Shape::Circle(c) if c.fill == Color32::WHITE && c.radius == widgets::SWITCH_KNOB / 2.0 => {
+            Shape::Circle(c)
+                if c.fill == Color32::WHITE && c.radius == widgets::SWITCH_KNOB / 2.0 =>
+            {
                 Some(c.center.x)
             }
             _ => None,
@@ -156,7 +164,10 @@ fn a_switch_slides_its_knob_in_140_ms_eased_out_and_back() {
     assert_eq!(knob_x(&h), off, "it starts where it was");
     at(&mut h, 1.07);
     let x = knob_x(&h);
-    assert!(near(x, off + 0.875 * (on - off), 0.05), "half way in time, 87.5 % there: {x}");
+    assert!(
+        near(x, off + 0.875 * (on - off), 0.05),
+        "half way in time, 87.5 % there: {x}"
+    );
     at(&mut h, 1.1401);
     assert_eq!(knob_x(&h), on);
     // Back, in the same time.
@@ -178,13 +189,20 @@ fn a_hover_fill_comes_at_once_and_fades_out_linearly_in_90_ms() {
     assert_eq!(fill_over(&h, save), Some(rest));
     h.get_by_role_and_label(Role::Button, "Save").hover();
     at(&mut h, 1.0);
-    assert_eq!(fill_over(&h, save), Some(over(t.color.fill.hover, rest)), "at once");
+    assert_eq!(
+        fill_over(&h, save),
+        Some(over(t.color.fill.hover, rest)),
+        "at once"
+    );
     h.hover_at(pos2(700.0, 500.0));
     at(&mut h, 2.0);
     at(&mut h, 2.045);
     let half = over(t.color.fill.hover.gamma_multiply(0.5), rest);
     let fill = fill_over(&h, save).unwrap();
-    assert!(close(fill, half), "{fill:?} is not half the hover fill {half:?}");
+    assert!(
+        close(fill, half),
+        "{fill:?} is not half the hover fill {half:?}"
+    );
     at(&mut h, 2.0901);
     assert_eq!(fill_over(&h, save), Some(rest));
 }
@@ -248,7 +266,10 @@ fn a_tooltip_waits_500_ms_then_travels_in_and_the_next_one_comes_at_once() {
     // egui hands the tooltip over between two widgets in a frame: no time passes.
     at(&mut h, 1.7);
     h.get_by_label("Place Part");
-    assert_eq!(tip(&h, "Place Part").map(|(_, t)| t), Some(TSTransform::IDENTITY));
+    assert_eq!(
+        tip(&h, "Place Part").map(|(_, t)| t),
+        Some(TSTransform::IDENTITY)
+    );
     // egui draws any area at age 0 transparent; a millisecond on it is whole, where the
     // first tooltip's fade had barely begun.
     at(&mut h, 1.701);
@@ -273,18 +294,28 @@ fn a_dialog_grows_from_97_percent_in_140_ms_and_fades_out_in_90_after_it_closes(
     let opacity = |h: &Harness<'_, Form>| dialog(h).iter().map(|(_, f, _)| f.a()).max();
     let first = dialog(&h);
     assert!(!first.is_empty());
-    assert!(first.iter().all(|(_, _, t)| near(t.scaling, 0.97, 1e-4)), "{first:?}");
+    assert!(
+        first.iter().all(|(_, _, t)| near(t.scaling, 0.97, 1e-4)),
+        "{first:?}"
+    );
     assert_eq!(opacity(&h), Some(0), "and transparent");
     at(&mut h, 1.07);
     let (_, _, t) = dialog(&h)[0];
     assert!(near(t.scaling, 0.97 + 0.03 * 0.875, 1e-4), "{t:?}");
     at(&mut h, 1.1401);
-    assert!(dialog(&h).iter().all(|(_, _, t)| *t == TSTransform::IDENTITY));
+    assert!(
+        dialog(&h)
+            .iter()
+            .all(|(_, _, t)| *t == TSTransform::IDENTITY)
+    );
     assert_eq!(opacity(&h), Some(255));
     // Closed: no longer drawn by its owner, it fades out where it was.
     h.state_mut().dialog = false;
     at(&mut h, 2.0);
-    assert!(h.query_by_label("Sure?").is_none(), "it takes no input while it leaves");
+    assert!(
+        h.query_by_label("Sure?").is_none(),
+        "it takes no input while it leaves"
+    );
     assert_eq!(opacity(&h), Some(255));
     at(&mut h, 2.045);
     let alpha = opacity(&h).unwrap();
@@ -313,7 +344,11 @@ fn with_animate_off_nothing_moves() {
     h.get_by_role_and_label(Role::Button, "Edit").click();
     at(&mut h, 4.0);
     at(&mut h, 4.0);
-    assert!(floating_frames(&h).iter().all(|(_, _, t)| *t == TSTransform::IDENTITY));
+    assert!(
+        floating_frames(&h)
+            .iter()
+            .all(|(_, _, t)| *t == TSTransform::IDENTITY)
+    );
     h.key_press(Key::Escape);
     at(&mut h, 4.5);
     // A dialog is there at once, whole, and gone at once.

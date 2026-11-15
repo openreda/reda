@@ -90,9 +90,15 @@ fn the_crisp_tokens_are_two_durations_one_easing_and_leave_faster() {
     // Immediate: hover arriving, a press arriving, and selection.
     assert_eq!(m.hover.enter, 0.0);
     assert_eq!(m.press.enter, 0.0);
-    assert_eq!((m.selected_row.enter, m.selected_row.leave), (0.0, Some(0.0)));
+    assert_eq!(
+        (m.selected_row.enter, m.selected_row.leave),
+        (0.0, Some(0.0))
+    );
     // 4 px of travel on arrival, 8 for a flyout; a dialog grows from 97 %.
-    assert_eq!((m.travel, m.flyout_travel, m.dialog_scale), (4.0, 8.0, 0.97));
+    assert_eq!(
+        (m.travel, m.flyout_travel, m.dialog_scale),
+        (4.0, 8.0, 0.97)
+    );
     assert_eq!((m.tooltip_wait, m.tooltip_chain), (0.5, 0.4));
 }
 
@@ -111,9 +117,15 @@ fn with_animate_off_every_transition_is_at_once_but_the_tooltip_still_waits() {
         ..Settings::default()
     };
     assert_eq!(Tokens::new(egui::Theme::Dark, &off).motion, m);
-    assert_eq!(Tokens::new(egui::Theme::Dark, &Settings::default()).motion, crisp());
+    assert_eq!(
+        Tokens::new(egui::Theme::Dark, &Settings::default()).motion,
+        crisp()
+    );
     // egui's own transitions (popup fade-in, scrollbar) go with it.
-    assert_eq!(super::super::style(&Tokens::new(egui::Theme::Dark, &off)).animation_time, 0.0);
+    assert_eq!(
+        super::super::style(&Tokens::new(egui::Theme::Dark, &off)).animation_time,
+        0.0
+    );
     let on = super::super::style(&Tokens::new(egui::Theme::Dark, &Settings::default()));
     assert_eq!(on.animation_time, 0.09);
     assert_eq!(on.interaction.tooltip_delay, 0.5);
@@ -177,7 +189,9 @@ fn a_hover_fill_arrives_at_once_and_fades_out_linearly_in_90_ms() {
 fn what_is_first_seen_on_is_on_without_a_transition() {
     let ctx = warm();
     let mut v = 0.0;
-    let out = frame(&ctx, 0.0, |ctx| v = toggle(ctx, Id::NULL.with("ticked"), true, crisp().toggle));
+    let out = frame(&ctx, 0.0, |ctx| {
+        v = toggle(ctx, Id::NULL.with("ticked"), true, crisp().toggle)
+    });
     assert_eq!(v, 1.0);
     assert!(!repaints(&out));
 }
@@ -245,7 +259,13 @@ const MARK: Color32 = Color32::from_rgb(200, 40, 40);
 
 /// A frame at `time` that draws a 100 × 50 rect at (100, 100) on `layer` when `shown`,
 /// as a dialog does; returns that rect as painted (place and alpha), if painted.
-fn layer_frame(ctx: &Context, time: f64, shown: bool, look: Look, tr: Transition) -> Option<(Rect, u8)> {
+fn layer_frame(
+    ctx: &Context,
+    time: f64,
+    shown: bool,
+    look: Look,
+    tr: Transition,
+) -> Option<(Rect, u8)> {
     let id = LayerId::new(Order::Foreground, Id::NULL.with("test-layer"));
     let out = frame(ctx, time, |ctx| {
         if shown {
@@ -301,7 +321,10 @@ fn a_dialog_grows_from_97_percent_around_its_centre() {
     let (rect, _) = layer_frame(&ctx, 0.0, true, look, m.dialog).unwrap();
     assert!((rect.width() - 97.0).abs() < 0.01, "{rect:?}");
     assert!((rect.center() - home.center()).length() < 0.01);
-    assert_eq!(layer_frame(&ctx, 0.14, true, look, m.dialog), Some((home, 255)));
+    assert_eq!(
+        layer_frame(&ctx, 0.14, true, look, m.dialog),
+        Some((home, 255))
+    );
 }
 
 #[test]
@@ -311,7 +334,10 @@ fn a_layer_with_animate_off_is_there_at_once_and_gone_at_once() {
     let m = still();
     let look = Look::travel(vec2(0.0, -m.travel));
     let home = Rect::from_min_size(pos2(100.0, 100.0), vec2(100.0, 50.0));
-    assert_eq!(layer_frame(&ctx, 0.0, true, look, m.dialog), Some((home, 255)));
+    assert_eq!(
+        layer_frame(&ctx, 0.0, true, look, m.dialog),
+        Some((home, 255))
+    );
     assert_eq!(layer_frame(&ctx, 1.0, false, look, m.dialog), None);
 }
 
