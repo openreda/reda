@@ -2,7 +2,7 @@
 //! panel; see [`crate::properties::annotation`] and
 //! [`crate::properties::footprint_edit`].
 
-use egui::{Grid, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
     ArrowPosition, DimensionFormat, DimensionTextPosition, DimensionUnits, FootprintLayer, PadKind,
@@ -131,7 +131,7 @@ fn combo<T: Clone + PartialEq>(
     value: &Shared<T>,
     options: &[(T, String)],
 ) -> Option<T> {
-    ui.label(label);
+    ui.add(widgets::form_name(label));
     let shown = match value {
         Shared::Same(v) => options
             .iter()
@@ -181,42 +181,40 @@ fn text_style(
     units: Units,
 ) -> Vec<TextStyleEdit> {
     let mut edits = Vec::new();
-    Grid::new("properties-text-style")
-        .num_columns(2)
-        .show(ui, |ui| {
-            let mut families: Vec<(String, String)> =
-                fonts.iter().map(|f| (f.clone(), f.clone())).collect();
-            if let Shared::Same(f) = &rows.font
-                && !fonts.contains(f)
-            {
-                families.insert(0, (f.clone(), f.clone()));
-            }
-            if let Some(f) = combo(
-                ui,
-                "text-font",
-                &tr!("properties-text-font"),
-                &rows.font,
-                &families,
-            ) {
-                edits.push(TextStyleEdit::Font(f));
-            }
-            let h = [
-                (TextHJustify::Left, tr!("properties-justify-left")),
-                (TextHJustify::Center, tr!("properties-justify-center")),
-                (TextHJustify::Right, tr!("properties-justify-right")),
-            ];
-            if let Some(h) = combo(ui, "text-h", &tr!("properties-text-h"), &rows.h, &h) {
-                edits.push(TextStyleEdit::H(h));
-            }
-            let v = [
-                (TextVJustify::Top, tr!("properties-justify-top")),
-                (TextVJustify::Center, tr!("properties-justify-center")),
-                (TextVJustify::Bottom, tr!("properties-justify-bottom")),
-            ];
-            if let Some(v) = combo(ui, "text-v", &tr!("properties-text-v"), &rows.v, &v) {
-                edits.push(TextStyleEdit::V(v));
-            }
-        });
+    widgets::form("properties-text-style").show(ui, |ui| {
+        let mut families: Vec<(String, String)> =
+            fonts.iter().map(|f| (f.clone(), f.clone())).collect();
+        if let Shared::Same(f) = &rows.font
+            && !fonts.contains(f)
+        {
+            families.insert(0, (f.clone(), f.clone()));
+        }
+        if let Some(f) = combo(
+            ui,
+            "text-font",
+            &tr!("properties-text-font"),
+            &rows.font,
+            &families,
+        ) {
+            edits.push(TextStyleEdit::Font(f));
+        }
+        let h = [
+            (TextHJustify::Left, tr!("properties-justify-left")),
+            (TextHJustify::Center, tr!("properties-justify-center")),
+            (TextHJustify::Right, tr!("properties-justify-right")),
+        ];
+        if let Some(h) = combo(ui, "text-h", &tr!("properties-text-h"), &rows.h, &h) {
+            edits.push(TextStyleEdit::H(h));
+        }
+        let v = [
+            (TextVJustify::Top, tr!("properties-justify-top")),
+            (TextVJustify::Center, tr!("properties-justify-center")),
+            (TextVJustify::Bottom, tr!("properties-justify-bottom")),
+        ];
+        if let Some(v) = combo(ui, "text-v", &tr!("properties-text-v"), &rows.v, &v) {
+            edits.push(TextStyleEdit::V(v));
+        }
+    });
     if let Some(m) = check(ui, &tr!("properties-text-mirrored"), &rows.mirrored) {
         edits.push(TextStyleEdit::Mirrored(m));
     }
@@ -240,41 +238,39 @@ fn text_style(
         };
         edits.push(TextStyleEdit::Frame(on.then_some(frame)));
     }
-    Grid::new("properties-text-boxes")
-        .num_columns(2)
-        .show(ui, |ui| {
-            if let Shared::Same(Some(margin)) = rows.knockout
-                && let Some(m) = length(
-                    ui,
-                    "text-knockout-margin",
-                    &tr!("properties-text-knockout-margin"),
-                    Shared::Same(margin),
-                    units,
-                )
-            {
-                edits.push(TextStyleEdit::Knockout(Some(m)));
+    widgets::form("properties-text-boxes").show(ui, |ui| {
+        if let Shared::Same(Some(margin)) = rows.knockout
+            && let Some(m) = length(
+                ui,
+                "text-knockout-margin",
+                &tr!("properties-text-knockout-margin"),
+                Shared::Same(margin),
+                units,
+            )
+        {
+            edits.push(TextStyleEdit::Knockout(Some(m)));
+        }
+        if let Shared::Same(Some(frame)) = rows.frame {
+            if let Some(w) = length(
+                ui,
+                "text-frame-width",
+                &tr!("properties-text-frame-width"),
+                Shared::Same(frame.width),
+                units,
+            ) {
+                edits.push(TextStyleEdit::Frame(Some(TextFrame { width: w, ..frame })));
             }
-            if let Shared::Same(Some(frame)) = rows.frame {
-                if let Some(w) = length(
-                    ui,
-                    "text-frame-width",
-                    &tr!("properties-text-frame-width"),
-                    Shared::Same(frame.width),
-                    units,
-                ) {
-                    edits.push(TextStyleEdit::Frame(Some(TextFrame { width: w, ..frame })));
-                }
-                if let Some(h) = length(
-                    ui,
-                    "text-frame-height",
-                    &tr!("properties-text-frame-height"),
-                    Shared::Same(frame.height),
-                    units,
-                ) {
-                    edits.push(TextStyleEdit::Frame(Some(TextFrame { height: h, ..frame })));
-                }
+            if let Some(h) = length(
+                ui,
+                "text-frame-height",
+                &tr!("properties-text-frame-height"),
+                Shared::Same(frame.height),
+                units,
+            ) {
+                edits.push(TextStyleEdit::Frame(Some(TextFrame { height: h, ..frame })));
             }
-        });
+        }
+    });
     edits
 }
 
@@ -283,151 +279,149 @@ fn dimension(ui: &mut Ui, rows: &DimensionRows) -> Vec<DimensionEdit> {
     if let [label] = &rows.labels[..] {
         ui.label(tr!("properties-dimension-value", value = label.as_str()));
     }
-    Grid::new("properties-dimension")
-        .num_columns(2)
-        .show(ui, |ui| {
-            let units = [
-                (
-                    DimensionUnits::Automatic,
-                    tr!("properties-dimension-units-automatic"),
-                ),
-                (DimensionUnits::Mm, "mm".to_owned()),
-                (DimensionUnits::Cm, "cm".to_owned()),
-                (DimensionUnits::Mil, "mil".to_owned()),
-                (DimensionUnits::In, "in".to_owned()),
-            ];
-            if let Some(u) = combo(
-                ui,
-                "dim-units",
-                &tr!("properties-dimension-units"),
-                &rows.units,
-                &units,
-            ) {
-                edits.push(DimensionEdit::Units(u));
+    widgets::form("properties-dimension").show(ui, |ui| {
+        let units = [
+            (
+                DimensionUnits::Automatic,
+                tr!("properties-dimension-units-automatic"),
+            ),
+            (DimensionUnits::Mm, "mm".to_owned()),
+            (DimensionUnits::Cm, "cm".to_owned()),
+            (DimensionUnits::Mil, "mil".to_owned()),
+            (DimensionUnits::In, "in".to_owned()),
+        ];
+        if let Some(u) = combo(
+            ui,
+            "dim-units",
+            &tr!("properties-dimension-units"),
+            &rows.units,
+            &units,
+        ) {
+            edits.push(DimensionEdit::Units(u));
+        }
+        let precision: Vec<(u8, String)> = (0..=6).map(|p| (p, p.to_string())).collect();
+        if let Some(p) = combo(
+            ui,
+            "dim-precision",
+            &tr!("properties-dimension-precision"),
+            &rows.precision,
+            &precision,
+        ) {
+            edits.push(DimensionEdit::Precision(p));
+        }
+        let formats = [
+            (
+                DimensionFormat::None,
+                tr!("properties-dimension-format-none"),
+            ),
+            (DimensionFormat::Value, "12.70".to_owned()),
+            (DimensionFormat::ValueUnit, "12.70mm".to_owned()),
+            (DimensionFormat::ValueBracketedUnit, "12.70 (mm)".to_owned()),
+        ];
+        if let Some(f) = combo(
+            ui,
+            "dim-format",
+            &tr!("properties-dimension-format"),
+            &rows.format,
+            &formats,
+        ) {
+            edits.push(DimensionEdit::Format(f));
+        }
+        for (key, label, value, prefix) in [
+            (
+                "dim-prefix",
+                tr!("properties-dimension-prefix"),
+                &rows.prefix,
+                true,
+            ),
+            (
+                "dim-suffix",
+                tr!("properties-dimension-suffix"),
+                &rows.suffix,
+                false,
+            ),
+        ] {
+            if let Some(text) = text_field(ui, key, &label, value, true) {
+                edits.push(if prefix {
+                    DimensionEdit::Prefix(text)
+                } else {
+                    DimensionEdit::Suffix(text)
+                });
             }
-            let precision: Vec<(u8, String)> = (0..=6).map(|p| (p, p.to_string())).collect();
-            if let Some(p) = combo(
-                ui,
-                "dim-precision",
-                &tr!("properties-dimension-precision"),
-                &rows.precision,
-                &precision,
-            ) {
-                edits.push(DimensionEdit::Precision(p));
-            }
-            let formats = [
-                (
-                    DimensionFormat::None,
-                    tr!("properties-dimension-format-none"),
-                ),
-                (DimensionFormat::Value, "12.70".to_owned()),
-                (DimensionFormat::ValueUnit, "12.70mm".to_owned()),
-                (DimensionFormat::ValueBracketedUnit, "12.70 (mm)".to_owned()),
-            ];
-            if let Some(f) = combo(
-                ui,
-                "dim-format",
-                &tr!("properties-dimension-format"),
-                &rows.format,
-                &formats,
-            ) {
-                edits.push(DimensionEdit::Format(f));
-            }
-            for (key, label, value, prefix) in [
-                (
-                    "dim-prefix",
-                    tr!("properties-dimension-prefix"),
-                    &rows.prefix,
-                    true,
-                ),
-                (
-                    "dim-suffix",
-                    tr!("properties-dimension-suffix"),
-                    &rows.suffix,
-                    false,
-                ),
-            ] {
-                if let Some(text) = text_field(ui, key, &label, value, true) {
-                    edits.push(if prefix {
-                        DimensionEdit::Prefix(text)
-                    } else {
-                        DimensionEdit::Suffix(text)
-                    });
-                }
-                ui.end_row();
-            }
-            let mut positions = vec![
-                (
-                    DimensionTextPosition::Automatic,
-                    tr!("properties-dimension-text-automatic"),
-                ),
-                (
-                    DimensionTextPosition::Center,
-                    tr!("properties-justify-center"),
-                ),
-                (DimensionTextPosition::Top, tr!("properties-justify-top")),
-                (
-                    DimensionTextPosition::Bottom,
-                    tr!("properties-justify-bottom"),
-                ),
-                (DimensionTextPosition::Left, tr!("properties-justify-left")),
-                (
-                    DimensionTextPosition::Right,
-                    tr!("properties-justify-right"),
-                ),
-                (
-                    DimensionTextPosition::InsideLeft,
-                    tr!("properties-dimension-text-inside-left"),
-                ),
-                (
-                    DimensionTextPosition::InsideRight,
-                    tr!("properties-dimension-text-inside-right"),
-                ),
-                (
-                    DimensionTextPosition::Unidirectional,
-                    tr!("properties-dimension-text-unidirectional"),
-                ),
-            ];
-            if let Shared::Same(manual @ DimensionTextPosition::Manual(_)) = rows.text_position {
-                positions.push((manual, tr!("properties-dimension-text-manual")));
-            }
-            if let Some(t) = combo(
-                ui,
-                "dim-text",
-                &tr!("properties-dimension-text-position"),
-                &rows.text_position,
-                &positions,
-            ) {
-                edits.push(DimensionEdit::TextPosition(t));
-            }
-            let arrows = [
-                (
-                    ArrowPosition::Inside,
-                    tr!("properties-dimension-arrows-inside"),
-                ),
-                (
-                    ArrowPosition::Outside,
-                    tr!("properties-dimension-arrows-outside"),
-                ),
-            ];
-            if let Some(a) = combo(
-                ui,
-                "dim-arrows",
-                &tr!("properties-dimension-arrows"),
-                &rows.arrow_position,
-                &arrows,
-            ) {
-                edits.push(DimensionEdit::ArrowPosition(a));
-            }
-        });
+            ui.end_row();
+        }
+        let mut positions = vec![
+            (
+                DimensionTextPosition::Automatic,
+                tr!("properties-dimension-text-automatic"),
+            ),
+            (
+                DimensionTextPosition::Center,
+                tr!("properties-justify-center"),
+            ),
+            (DimensionTextPosition::Top, tr!("properties-justify-top")),
+            (
+                DimensionTextPosition::Bottom,
+                tr!("properties-justify-bottom"),
+            ),
+            (DimensionTextPosition::Left, tr!("properties-justify-left")),
+            (
+                DimensionTextPosition::Right,
+                tr!("properties-justify-right"),
+            ),
+            (
+                DimensionTextPosition::InsideLeft,
+                tr!("properties-dimension-text-inside-left"),
+            ),
+            (
+                DimensionTextPosition::InsideRight,
+                tr!("properties-dimension-text-inside-right"),
+            ),
+            (
+                DimensionTextPosition::Unidirectional,
+                tr!("properties-dimension-text-unidirectional"),
+            ),
+        ];
+        if let Shared::Same(manual @ DimensionTextPosition::Manual(_)) = rows.text_position {
+            positions.push((manual, tr!("properties-dimension-text-manual")));
+        }
+        if let Some(t) = combo(
+            ui,
+            "dim-text",
+            &tr!("properties-dimension-text-position"),
+            &rows.text_position,
+            &positions,
+        ) {
+            edits.push(DimensionEdit::TextPosition(t));
+        }
+        let arrows = [
+            (
+                ArrowPosition::Inside,
+                tr!("properties-dimension-arrows-inside"),
+            ),
+            (
+                ArrowPosition::Outside,
+                tr!("properties-dimension-arrows-outside"),
+            ),
+        ];
+        if let Some(a) = combo(
+            ui,
+            "dim-arrows",
+            &tr!("properties-dimension-arrows"),
+            &rows.arrow_position,
+            &arrows,
+        ) {
+            edits.push(DimensionEdit::ArrowPosition(a));
+        }
+    });
     edits
 }
 
 fn pad(ui: &mut Ui, rows: &PadRows, units: Units) -> Vec<PadEdit> {
     let mut edits = Vec::new();
     let p = &rows.pad;
-    Grid::new("properties-pad").num_columns(2).show(ui, |ui| {
-        ui.label(tr!("properties-pad-number"));
+    widgets::form("properties-pad").show(ui, |ui| {
+        ui.add(widgets::form_name(tr!("properties-pad-number")));
         ui.label(&p.number);
         ui.end_row();
         let kinds = [
@@ -575,30 +569,28 @@ fn graphics(ui: &mut Ui, rows: &FootprintGraphics, units: Units) -> Vec<GraphicE
                 edits.push(GraphicEdit::Delete(g.uuid));
             }
         });
-        Grid::new(("properties-graphic", i))
-            .num_columns(2)
-            .show(ui, |ui| {
-                let key = format!("graphic-{i}-layer");
-                if let Some(l) = combo(
-                    ui,
-                    &key,
-                    &tr!("properties-graphic-layer"),
-                    &Shared::Same(g.layer),
-                    &layers,
-                ) {
-                    edits.push(GraphicEdit::Layer(g.uuid, l));
-                }
-                let key = format!("graphic-{i}-width");
-                if let Some(w) = length(
-                    ui,
-                    &key,
-                    &tr!("properties-width"),
-                    Shared::Same(g.width),
-                    units,
-                ) {
-                    edits.push(GraphicEdit::Width(g.uuid, w));
-                }
-            });
+        widgets::form(("properties-graphic", i)).show(ui, |ui| {
+            let key = format!("graphic-{i}-layer");
+            if let Some(l) = combo(
+                ui,
+                &key,
+                &tr!("properties-graphic-layer"),
+                &Shared::Same(g.layer),
+                &layers,
+            ) {
+                edits.push(GraphicEdit::Layer(g.uuid, l));
+            }
+            let key = format!("graphic-{i}-width");
+            if let Some(w) = length(
+                ui,
+                &key,
+                &tr!("properties-width"),
+                Shared::Same(g.width),
+                units,
+            ) {
+                edits.push(GraphicEdit::Width(g.uuid, w));
+            }
+        });
     }
     edits
 }

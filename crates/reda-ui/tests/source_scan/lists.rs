@@ -213,6 +213,31 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
         pattern: "Tooltip::for_",
         instead: "the `widgets::Tooltip` methods",
     },
+    // The data widgets (`widgets/row.rs`, `table.rs`, `section.rs`, `form.rs`).
+    StockWidget {
+        pattern: "selectable_label(",
+        instead: "`widgets::list_row` or `widgets::tree_row`, `widgets::choice` in a dropdown, or `widgets::button(..).on(..)` for a toggle",
+    },
+    StockWidget {
+        pattern: "selectable_value(",
+        instead: "`widgets::list_row` or `widgets::tree_row`, `widgets::choice_value` in a dropdown, or `widgets::segmented`",
+    },
+    StockWidget {
+        pattern: "Button::selectable",
+        instead: "`widgets::list_row` or `widgets::tree_row`",
+    },
+    StockWidget {
+        pattern: "CollapsingHeader",
+        instead: "`widgets::section`, or `widgets::section_header` when the caller keeps the open state",
+    },
+    StockWidget {
+        pattern: "ui.collapsing(",
+        instead: "`widgets::section`",
+    },
+    StockWidget {
+        pattern: "Grid::new",
+        instead: "`widgets::form` with `widgets::form_row` for names and values, or `widgets::table`",
+    },
 ];
 
 /// Files not yet converted, sorted. The scan skips a listed file and fails once it is

@@ -393,8 +393,8 @@ fn fixed_values(out: &mut String, t: &Tokens) {
                 num(w::SWITCH_KNOB)
             ),
         ),
-        ("Swatch", num(p::SWATCH)),
-        ("Tree indent per level", num(p::TREE_INDENT)),
+        ("Swatch", num(w::SWATCH)),
+        ("Tree indent per level", num(w::TREE_INDENT)),
         ("Window control width", num(p::WINDOW_CONTROL)),
         ("Drag gap kept beside the window controls", num(p::DRAG_GAP)),
         (

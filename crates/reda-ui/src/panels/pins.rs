@@ -7,7 +7,7 @@
 
 pub mod rows;
 
-use egui::{Grid, Id, Role, ScrollArea, Ui, WidgetInfo};
+use egui::{Id, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{InsideEdge, LibraryElement, OutsideEdge, Pin, PinType, Symbol, Uuid};
 use serde_json::json;
 
@@ -148,19 +148,20 @@ fn symbol_table(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invo
         .id_salt(id)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            Grid::new(id.with("grid"))
-                .striped(true)
-                .num_columns(PinColumn::ALL.len() + 2)
-                .show(ui, |ui| {
-                    ui.label("");
-                    ui.label("");
-                    for column in PinColumn::ALL {
-                        heading(ui, shell, &panel.sort, column);
-                    }
-                    ui.end_row();
+            // A select box, a jump button, then a cell per column.
+            let columns = (0..PinColumn::ALL.len() + 2).map(|_| widgets::Column::auto());
+            widgets::table(id.with("grid"))
+                .columns(columns)
+                .show(ui, |table| {
+                    table.header(|h| {
+                        h.empty();
+                        h.empty();
+                        for column in PinColumn::ALL {
+                            heading(h, shell, &panel.sort, column);
+                        }
+                    });
                     for pin in sorted(&s, &panel.sort) {
-                        row(ui, &s, pin, &selected, locked, out);
-                        ui.end_row();
+                        table.row(|cells| row(cells, &s, pin, &selected, locked, out));
                     }
                 });
         });
@@ -168,24 +169,24 @@ fn symbol_table(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invo
 }
 
 /// A column heading: a button that sorts by it, marked with its place in the sort.
-fn heading(ui: &mut Ui, shell: &mut Shell, sort: &Sort, column: PinColumn) {
+fn heading(h: &mut widgets::TableRow<'_>, shell: &mut Shell, sort: &Sort, column: PinColumn) {
     let title = i18n::translate(column.title_key(), &[]);
-    let text = match sort.rank(column) {
-        Some((i, true)) => format!("{title} ^{}", i + 1),
-        Some((i, false)) => format!("{title} v{}", i + 1),
-        None => title.clone(),
-    };
+    let several = sort.keys.len() > 1;
+    let sorted = sort.rank(column).map(|(i, ascending)| widgets::Sorted {
+        ascending,
+        rank: several.then_some(i + 1),
+    });
     let label = tr!("pins-panel-sort", column = title.as_str());
-    let b = ui.add(widgets::button(text).flat());
+    let b = h.sort(title, sorted);
     b.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
+    let add = b.ctx.input(|i| i.modifiers.shift);
     if b.tooltip(tr!("pins-panel-sort-hint")).clicked() {
-        let add = ui.input(|i| i.modifiers.shift);
         sort_by(shell, column, add);
     }
 }
 
 fn row(
-    ui: &mut Ui,
+    cells: &mut widgets::TableRow<'_>,
     s: &Symbol,
     pin: &Pin,
     selected: &[Uuid],
@@ -195,7 +196,7 @@ fn row(
     let is_selected = selected.contains(&pin.uuid);
     let mut on = is_selected;
     let label = tr!("pins-panel-select", pin = pin.number.as_str());
-    let check = ui.add(widgets::checkbox(&mut on, ""));
+    let check = cells.ui(|ui| ui.add(widgets::checkbox(&mut on, "")));
     check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
     if check.changed() {
         let mut objects: Vec<Uuid> = selected.to_vec();
@@ -206,7 +207,7 @@ fn row(
         }
         out.push(("selection.set".to_owned(), json!({ "objects": objects })));
     }
-    let jump = ui.add(widgets::button(tr!("pins-panel-jump")).flat());
+    let jump = cells.ui(|ui| ui.add(widgets::button(tr!("pins-panel-jump")).flat()));
     let label = tr!("pins-panel-jump-to", pin = pin.number.as_str());
     jump.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
     if jump.clicked() {
@@ -223,7 +224,7 @@ fn row(
         )
     };
     let cell_id = |column: PinColumn| Id::NULL.with(("pin-cell", pin.uuid, column.title_key()));
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         if let Some(v) = text_cell(
             ui,
             cell_id(PinColumn::Number),
@@ -234,7 +235,7 @@ fn row(
             set(PinColumn::Number, CellValue::Text(v));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         if let Some(v) = text_cell(
             ui,
             cell_id(PinColumn::Name),
@@ -245,7 +246,7 @@ fn row(
             set(PinColumn::Name, CellValue::Text(v));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let options: Vec<(PinType, String)> = PinType::ALL
             .iter()
             .map(|t| (*t, pin_type_name(*t)))
@@ -260,7 +261,7 @@ fn row(
             set(PinColumn::Type, CellValue::Type(t));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let options: Vec<(Uuid, String)> =
             (s.units.iter()).map(|u| (u.uuid, u.name.clone())).collect();
         if let Some(u) = combo(
@@ -273,7 +274,7 @@ fn row(
             set(PinColumn::Unit, CellValue::Unit(u));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let options: Vec<(PinSide, String)> = (PinSide::ALL.iter())
             .map(|side| (*side, i18n::translate(side.title_key(), &[])))
             .collect();
@@ -288,7 +289,7 @@ fn row(
             set(PinColumn::Side, CellValue::Side(side));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let shown = rows::mil(pin.length);
         if let Some(v) = text_cell(
             ui,
@@ -301,7 +302,7 @@ fn row(
             set(PinColumn::Length, CellValue::Length(length));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let label = name(PinColumn::Description);
         let typed = text_cell(
             ui,
@@ -314,7 +315,7 @@ fn row(
             set(PinColumn::Description, CellValue::Text(v));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let options = vec![
             (None, tr!("pin-decoration-none")),
             (Some(InsideEdge::Clock), tr!("pin-decoration-clock")),
@@ -330,7 +331,7 @@ fn row(
             set(PinColumn::InsideEdge, CellValue::InsideEdge(d));
         }
     });
-    ui.add_enabled_ui(!locked, |ui| {
+    cells.ui_enabled(!locked, |ui| {
         let options = vec![
             (None, tr!("pin-decoration-none")),
             (Some(OutsideEdge::Dot), tr!("pin-decoration-dot")),
@@ -358,7 +359,7 @@ fn row(
         (PinColumn::NameVisible, pin.name_visible),
         (PinColumn::NumberVisible, pin.number_visible),
     ] {
-        ui.add_enabled_ui(!locked, |ui| {
+        cells.ui_enabled(!locked, |ui| {
             let mut shown = visible;
             let label = name(column);
             let check = ui.add(widgets::checkbox(&mut shown, ""));

@@ -17,6 +17,7 @@
 //! reviewer is shown.
 
 mod controls;
+mod data;
 mod kit;
 mod popups;
 mod sheets;
@@ -175,6 +176,13 @@ page_snapshots!("popups", popups::SIZE, popups::page:
     popups_light_compact => Light, Compact;
     popups_dark_comfortable => Dark, Comfortable;
     popups_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("data", data::SIZE, data::page:
+    data_light_comfortable => Light, Comfortable;
+    data_light_compact => Light, Compact;
+    data_dark_comfortable => Dark, Comfortable;
+    data_dark_compact => Dark, Compact;
 );
 
 /// Close-ups for a reviewer: written only when `REDA_GALLERY_OUT` is set, compared with

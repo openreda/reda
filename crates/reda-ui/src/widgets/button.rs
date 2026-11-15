@@ -145,7 +145,7 @@ impl Widget for Button<'_> {
 
 /// The Icon `key` centred on `at`: its role colours when enabled, its greyscale copy when
 /// not (the disabled `Ui` fades it once, with its button).
-fn paint_icon(ui: &Ui, key: &str, at: egui::Pos2, size: f32, enabled: bool) {
+pub(super) fn paint_icon(ui: &Ui, key: &str, at: egui::Pos2, size: f32, enabled: bool) {
     if let Some(image) = crate::icons::image(key, size, ui.ctx().theme(), enabled) {
         image.paint_at(ui, Rect::from_center_size(at, Vec2::splat(size)));
     }

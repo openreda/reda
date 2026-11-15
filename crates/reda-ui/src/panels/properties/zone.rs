@@ -3,7 +3,7 @@
 //! Keepout Tool is active, that Tool's options, which its Preference keeps for the next
 //! shape (docs/spec/v0.1/pcb.md#creating-zones).
 
-use egui::{Grid, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::{Object, PourOver, Restriction};
 use reda_engine::preferences::{KeepoutToolShape, Units};
 use serde_json::{Value, json};
@@ -35,55 +35,51 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
         Tool::Zone => {
             let values = shell.preferences().pcb.zone.tool.clone();
             let units = shell.board_view().units;
-            Grid::new("properties-zone-tool")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    for (name, value) in [
-                        ("clearance", values.clearance),
-                        ("min_width", values.min_width),
-                    ] {
-                        let shown = value
-                            .map(|v| crate::pcb::view::format_length(v.nm(), units))
-                            .unwrap_or_default();
-                        let label = match name {
-                            "clearance" => tr!("properties-clearance"),
-                            _ => tr!("properties-min-width"),
-                        };
-                        let key = format!("zone-tool-{name}");
-                        if let Some(text) = text_field(ui, &key, &label, &Shared::Same(shown), true)
-                        {
-                            let value = if text.trim().is_empty() {
-                                Value::Null
-                            } else {
-                                json!(with_unit(&text, units, false))
-                            };
-                            out.push(set(&format!("zone.tool.{name}"), value));
-                        }
-                        ui.end_row();
-                    }
-                    let pour = pour_over(ui, "zone-tool", &Shared::Same(values.pour_over));
-                    if let Some(p) = pour {
-                        out.push(set("zone.tool.pour_over", json!(p)));
-                    }
-                    ui.end_row();
-                    let area =
-                        crate::panels::navigator::format_area(values.min_island_area.0, units);
-                    let label = tr!("properties-min-island-area");
-                    if let Some(text) =
-                        text_field(ui, "zone-tool-island", &label, &Shared::Same(area), true)
-                    {
-                        let text = if text.trim().is_empty() {
-                            "0"
+            widgets::form("properties-zone-tool").show(ui, |ui| {
+                for (name, value) in [
+                    ("clearance", values.clearance),
+                    ("min_width", values.min_width),
+                ] {
+                    let shown = value
+                        .map(|v| crate::pcb::view::format_length(v.nm(), units))
+                        .unwrap_or_default();
+                    let label = match name {
+                        "clearance" => tr!("properties-clearance"),
+                        _ => tr!("properties-min-width"),
+                    };
+                    let key = format!("zone-tool-{name}");
+                    if let Some(text) = text_field(ui, &key, &label, &Shared::Same(shown), true) {
+                        let value = if text.trim().is_empty() {
+                            Value::Null
                         } else {
-                            text.trim()
+                            json!(with_unit(&text, units, false))
                         };
-                        out.push(set(
-                            "zone.tool.min_island_area",
-                            json!(with_unit(text, units, true)),
-                        ));
+                        out.push(set(&format!("zone.tool.{name}"), value));
                     }
                     ui.end_row();
-                });
+                }
+                let pour = pour_over(ui, "zone-tool", &Shared::Same(values.pour_over));
+                if let Some(p) = pour {
+                    out.push(set("zone.tool.pour_over", json!(p)));
+                }
+                ui.end_row();
+                let area = crate::panels::navigator::format_area(values.min_island_area.0, units);
+                let label = tr!("properties-min-island-area");
+                if let Some(text) =
+                    text_field(ui, "zone-tool-island", &label, &Shared::Same(area), true)
+                {
+                    let text = if text.trim().is_empty() {
+                        "0"
+                    } else {
+                        text.trim()
+                    };
+                    out.push(set(
+                        "zone.tool.min_island_area",
+                        json!(with_unit(text, units, true)),
+                    ));
+                }
+                ui.end_row();
+            });
             let mut on = values.remove_unconnected;
             if ui
                 .add(widgets::checkbox(
@@ -205,7 +201,7 @@ fn pour_over(ui: &mut Ui, salt: &str, value: &Shared<PourOver>) -> Option<PourOv
         (PourOver::None, tr!("properties-pour-over-none")),
     ];
     let label = tr!("properties-pour-over");
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     let shown = match value {
         Shared::Mixed => crate::properties::MIXED.to_owned(),
         Shared::Same(v) => choices
@@ -262,17 +258,15 @@ pub(super) fn zones_section(ui: &mut Ui, shell: &Shell, out: &mut Vec<(&'static 
             .flat_map(|l| &l.zones)
             .find(|r| r.uuid == zone.uuid)
         {
-            Grid::new("properties-zone-areas")
-                .num_columns(2)
-                .show(ui, |ui| {
-                    let format = crate::panels::navigator::format_area;
-                    ui.weak(tr!("properties-outline-area"));
-                    ui.label(format(row.outline_area, units));
-                    ui.end_row();
-                    ui.weak(tr!("properties-filled-area"));
-                    ui.label(format(row.filled_area, units));
-                    ui.end_row();
-                });
+            widgets::form("properties-zone-areas").show(ui, |ui| {
+                let format = crate::panels::navigator::format_area;
+                ui.add(widgets::form_name(tr!("properties-outline-area")));
+                ui.label(format(row.outline_area, units));
+                ui.end_row();
+                ui.add(widgets::form_name(tr!("properties-filled-area")));
+                ui.label(format(row.filled_area, units));
+                ui.end_row();
+            });
         }
     }
     if let [zone] = &zones[..]
@@ -293,15 +287,13 @@ pub(super) fn zones_section(ui: &mut Ui, shell: &Shell, out: &mut Vec<(&'static 
             .collect()
     };
     let mut commands = Vec::new();
-    Grid::new("properties-zone-pour")
-        .num_columns(2)
-        .show(ui, |ui| {
-            let pour = Shared::of(zones.iter().map(|z| z.pour_over)).unwrap_or(Shared::Mixed);
-            if let Some(p) = pour_over(ui, "zones", &pour) {
-                commands = each("pour_over", json!(p));
-            }
-            ui.end_row();
-        });
+    widgets::form("properties-zone-pour").show(ui, |ui| {
+        let pour = Shared::of(zones.iter().map(|z| z.pour_over)).unwrap_or(Shared::Mixed);
+        if let Some(p) = pour_over(ui, "zones", &pour) {
+            commands = each("pour_over", json!(p));
+        }
+        ui.end_row();
+    });
     let remove = Shared::of(zones.iter().map(|z| z.remove_unconnected)).unwrap_or(Shared::Mixed);
     let mut on = remove.same().copied().unwrap_or(false);
     if ui

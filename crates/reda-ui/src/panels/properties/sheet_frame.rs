@@ -3,7 +3,7 @@
 //! and the sheet's drawing number and revision. Each change is one
 //! `schematic.sheet.set_frame`; the title block's other fields show read-only.
 
-use egui::{Grid, Ui};
+use egui::Ui;
 use reda_engine::model::{FrameSize, Orientation, Project, SheetSize, Uuid};
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
@@ -66,13 +66,13 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
         params["document"] = json!(document);
         out.push(Out::Run("schematic.sheet.set_frame", params));
     };
-    Grid::new("properties-sheet").num_columns(2).show(ui, |ui| {
-        ui.weak(tr!("properties-sheet-name"));
+    widgets::form("properties-sheet").show(ui, |ui| {
+        ui.add(widgets::form_name(tr!("properties-sheet-name")));
         ui.label(name);
         ui.end_row();
 
         // Paper size: a standard one, or Custom with its width and height.
-        ui.weak(tr!("properties-sheet-size"));
+        ui.add(widgets::form_name(tr!("properties-sheet-size")));
         let shown = match frame.size {
             FrameSize::Standard(size) => size_name(size).to_owned(),
             FrameSize::Custom { .. } => tr!("properties-sheet-custom"),
@@ -123,7 +123,7 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
             ui.end_row();
         }
 
-        ui.weak(tr!("properties-sheet-orientation"));
+        ui.add(widgets::form_name(tr!("properties-sheet-orientation")));
         ui.vertical(|ui| {
             for (orientation, label) in [
                 (Orientation::Landscape, tr!("properties-sheet-landscape")),
@@ -137,7 +137,7 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
         });
         ui.end_row();
 
-        ui.weak(tr!("properties-sheet-frame"));
+        ui.add(widgets::form_name(tr!("properties-sheet-frame")));
         ui.vertical(|ui| {
             let mut zones = frame.border_zones;
             if ui
@@ -192,7 +192,7 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
         }
 
         let mut row = |name: String, value: String| {
-            ui.weak(name);
+            ui.add(widgets::form_name(name));
             ui.label(value);
             ui.end_row();
         };

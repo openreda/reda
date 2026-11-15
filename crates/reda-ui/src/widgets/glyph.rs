@@ -50,11 +50,14 @@ pub enum Glyph {
     Funnel,
     /// A Warning. It and [`Glyph::Cross`] take the semantic colours.
     Warning,
+    /// A table column sorted ascending, and descending.
+    SortUp,
+    SortDown,
 }
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 17] = [
+    pub const ALL: [(Glyph, &'static str); 19] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -72,6 +75,8 @@ impl Glyph {
         (Glyph::Lock, "lock"),
         (Glyph::Funnel, "funnel"),
         (Glyph::Warning, "warning"),
+        (Glyph::SortUp, "sort ascending"),
+        (Glyph::SortDown, "sort descending"),
     ];
 
     /// Paints the Glyph with its box centred on `center`, in `color`.
@@ -152,6 +157,14 @@ impl Glyph {
                 closed(&[(8.0, 3.0), (13.5, 12.5), (2.5, 12.5)]);
                 open(&[(8.0, 6.75), (8.0, 9.0)]);
                 painter.circle_filled(at((8.0, 10.75)), STROKE / 2.0, color);
+            }
+            Glyph::SortUp => {
+                open(&[(8.0, 12.5), (8.0, 3.5)]);
+                open(&[(4.5, 7.0), (8.0, 3.5), (11.5, 7.0)]);
+            }
+            Glyph::SortDown => {
+                open(&[(8.0, 3.5), (8.0, 12.5)]);
+                open(&[(4.5, 9.0), (8.0, 12.5), (11.5, 9.0)]);
             }
         }
     }

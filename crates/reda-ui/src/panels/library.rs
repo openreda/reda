@@ -258,10 +258,12 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
             if entries.is_empty() {
                 ui.weak(tr!("library-no-parts"));
             }
-            for entry in &entries {
-                let status = statuses.get(&entry.uuid).copied();
-                out.extend(row(ui, panel, mode, target, entry, status));
-            }
+            widgets::rows(ui, |ui| {
+                for entry in &entries {
+                    let status = statuses.get(&entry.uuid).copied();
+                    out.extend(row(ui, panel, mode, target, entry, status));
+                }
+            });
         });
     ui.separator();
     let chosen = panel
@@ -432,12 +434,10 @@ fn row(
     let mut out = Vec::new();
     let chosen = panel.selected == Some(entry.uuid);
     let label = entry.label(mode);
+    // The Library Status sits at the row's trailing end, and the row takes the rest.
+    let across = egui::Layout::right_to_left(egui::Align::Center);
     let response = ui
-        .horizontal(|ui| {
-            let response = ui
-                .selectable_label(chosen, entry.text(mode))
-                .interact(Sense::click_and_drag());
-            response.widget_info(|| WidgetInfo::selected(Role::ListItem, true, chosen, &label));
+        .with_layout(across, |ui| {
             if let Some(status) = status.filter(|s| s.placed > 0) {
                 let text = status.text();
                 let shown = ui
@@ -452,6 +452,11 @@ fn row(
                     out.push(Do::update(entry.uuid));
                 }
             }
+            let row = widgets::list_row(entry.text(mode))
+                .selected(chosen)
+                .sense(Sense::click_and_drag());
+            let response = ui.add(row);
+            response.widget_info(|| WidgetInfo::selected(Role::ListItem, true, chosen, &label));
             response
         })
         .inner;
