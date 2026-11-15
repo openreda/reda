@@ -177,3 +177,22 @@ impl Startup {
 fn startup_id() -> egui::Id {
     egui::Id::NULL.with("reda-title-bar-startup")
 }
+
+impl Startup {
+    /// Keeps on `ctx` that the main window was built as this start asks, so the floating
+    /// windows it opens are built and decorated the same way ([`Startup::window`]).
+    pub fn remember_window(self, ctx: &egui::Context) {
+        ctx.data_mut(|d| d.insert_temp(window_id(), self));
+    }
+
+    /// The start the main window was built with, if the app built it as the platform
+    /// does; `None` for a window drawn under the system title bar whatever the start
+    /// (a test harness).
+    pub fn window(ctx: &egui::Context) -> Option<Startup> {
+        ctx.data(|d| d.get_temp(window_id()))
+    }
+}
+
+fn window_id() -> egui::Id {
+    egui::Id::NULL.with("reda-title-bar-window")
+}

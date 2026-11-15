@@ -370,7 +370,7 @@ impl Cx<'_, '_> {
             .with_min_inner_size(WINDOW_MIN);
         // Built like the main window: undecorated, with REDA's slim bar, unless the system
         // title bar is in force.
-        let startup = crate::title_bar::Startup::recalled(ctx);
+        let startup = crate::title_bar::Startup::window(ctx);
         if let Some(startup) = startup {
             builder = crate::title_bar::viewport(startup, builder);
         }

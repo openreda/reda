@@ -250,6 +250,9 @@ impl App {
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
             self.title_bar.remember(&ctx);
+            if self.window_chrome {
+                self.title_bar.remember_window(&ctx);
+            }
             self.theme_installed = true;
         }
         self.apply_preferences(&ctx);
