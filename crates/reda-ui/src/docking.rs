@@ -15,18 +15,16 @@ pub mod windows;
 
 use std::collections::BTreeMap;
 
-use egui::containers::menu::menu_style;
 use egui::{
-    Align2, Button, Id, Key, Modifiers, Popup, PopupKind, Rect, Response, Role, Sense,
-    SetOpenCommand, Stroke, Ui, UiBuilder, Vec2, ViewportBuilder, ViewportId,
+    Align2, Id, Key, Modifiers, Popup, Rect, Response, Role, Ui, UiBuilder, Vec2, ViewportBuilder,
+    ViewportId,
 };
-use reda_engine::model::{DocumentKind, Uuid};
+use reda_engine::model::{DocumentKind, Scope, Uuid};
 use serde_json::{Value, json};
 
 use crate::bars;
 use crate::bars::draw::{self, Invocation};
 use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
-use crate::chrome;
 use crate::icons;
 use crate::journal_panel::{self, JournalAction};
 use crate::layout::{
@@ -40,7 +38,7 @@ use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::theme::{self, TokensExt as _};
 use crate::tr;
-use crate::widgets::{self, Glyph};
+use crate::widgets::{self, CARD_GAP, Glyph, TabKind, Tooltip as _};
 use crate::{a11y, keymap};
 use windows::{WindowView, Zones};
 
@@ -64,16 +62,15 @@ pub struct Frame {
     pub keys: Vec<(String, Value)>,
 }
 
-/// The size of a collapsed Dock's icon strip.
-const STRIP: f32 = 24.0;
-/// The side of a button on a collapsed Dock's icon strip.
-const STRIP_BUTTON: f32 = 22.0;
-/// The height of a tab group's tab strip.
-const TAB_STRIP: f32 = 24.0;
-/// The gap between tab groups, and between the Docks and the centre.
-const GAP: f32 = 3.0;
-/// The margin around a Panel's contents.
-const PANEL_MARGIN: i8 = 6;
+/// The size a side Dock and the bottom Dock open at, until the user drags them.
+const SIDE_DOCK: f32 = 256.0;
+const BOTTOM_DOCK: f32 = 220.0;
+/// Where egui cannot open OS windows: the size a floating window opens at inside the
+/// main window, and how much of the main window a settings window leaves free.
+const EMBEDDED_WINDOW: Vec2 = Vec2::new(480.0, 320.0);
+const EMBEDDED_MARGIN: f32 = 40.0;
+/// The smallest a floating window can be made.
+const WINDOW_MIN: Vec2 = Vec2::new(240.0, 160.0);
 /// The size of a flyout from a collapsed Dock.
 const FLYOUT: Vec2 = Vec2::new(280.0, 320.0);
 /// The size a floating window opens at.
@@ -126,17 +123,8 @@ pub fn panel_title(panel: PanelId) -> String {
     }
 }
 
-/// A tab's 16 px icon: its Panel's, its Document type's, or the Start page's.
-pub(crate) fn tab_icon(
-    shell: &Shell,
-    tab: &TabKey,
-    theme: egui::Theme,
-) -> Option<egui::Image<'static>> {
-    icons::image(tab_icon_key(shell, tab)?, icons::TAB, theme, true)
-}
-
 /// The icon key of `tab`: its Panel's, its Document type's, or the Start page's.
-fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
+pub(crate) fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
     Some(match tab {
         TabKey::Start => icons::START_PAGE,
         TabKey::Panel(panel) => icons::panel_icon(*panel),
@@ -189,13 +177,19 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
         Vec::new()
     };
     let focus_request = shell.take_focus_request();
+    let dirty = shell.engine().dirty_scopes();
+    // Cards keep the card gap from the window's side edges. Above them is the top row
+    // and below them the status bar, both on the base.
+    let window = ui.available_rect_before_wrap();
+    let area = window.shrink2(Vec2::new(CARD_GAP, 0.0));
     let mut cx = Cx {
         shell,
         layout: &layout,
         recent: &recent,
         frame: Frame::default(),
+        dirty,
         zones: Zones {
-            area: ui.available_rect_before_wrap(),
+            area,
             groups: Vec::new(),
             docks: Vec::new(),
             dock_edges: true,
@@ -205,31 +199,10 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
     };
     // What no group covers shows as the gaps between them: the window's base.
     let base = ui.tokens().color.surface.base;
-    ui.painter()
-        .rect_filled(ui.available_rect_before_wrap(), 0.0, base);
-    // Space for the Docks and the centre is set aside first, the bottom Dock first since
-    // it spans the window. What is in them is drawn after, in layout order (left Dock,
-    // centre, right Dock, bottom Dock), which is the order Tab moves keyboard focus in.
-    let mut docks = Vec::new();
-    for side in [DockSide::Bottom, DockSide::Left, DockSide::Right] {
-        if let Some(rect) = cx.reserve_dock(ui, side) {
-            docks.push((side, rect));
-        }
-    }
-    let centre = egui::CentralPanel::default()
-        .frame(egui::Frame::NONE)
-        .show(ui, reserve)
-        .inner;
-    let dock_at = |side| docks.iter().find(|(s, _)| *s == side).map(|(_, r)| *r);
-    if let Some(rect) = dock_at(DockSide::Left) {
-        cx.dock(ui, DockSide::Left, rect);
-    }
-    cx.node_at(ui, centre, &layout.centre, Area::Centre);
-    for side in [DockSide::Right, DockSide::Bottom] {
-        if let Some(rect) = dock_at(side) {
-            cx.dock(ui, side, rect);
-        }
-    }
+    ui.painter().rect_filled(window, 0.0, base);
+    ui.advance_cursor_after_rect(window);
+    let builder = UiBuilder::new().max_rect(area).id_salt("docking-area");
+    ui.scope_builder(builder, |ui| cx.main_window(ui));
     let ctx = ui.ctx().clone();
     // Where egui cannot open OS windows (as in tests), floating windows float inside the
     // main window and share its drop zones.
@@ -239,23 +212,23 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
             // A settings window opens centred, as large as it opens natively where the main
             // window has room for that.
             let screen = ctx.content_rect();
-            let (size, at) = match opening_size(&layout, window.id) {
-                size if size == SETTINGS_WINDOW => (
-                    size.min(screen.size() - Vec2::splat(40.0)),
-                    Some(screen.center()),
-                ),
-                _ => (Vec2::new(480.0, 320.0), None),
+            let settings = opening_size(&layout, window.id) == SETTINGS_WINDOW;
+            let size = if settings {
+                SETTINGS_WINDOW.min(screen.size() - Vec2::splat(EMBEDDED_MARGIN))
+            } else {
+                EMBEDDED_WINDOW
             };
-            let mut floating = egui::Window::new(window_title(cx.shell, &layout, window.id));
-            if let Some(at) = at {
-                floating = floating.pivot(Align2::CENTER_CENTER).default_pos(at);
+            let id = Id::NULL.with(("floating-window", window.id.0));
+            let mut floating = widgets::window(id, window_title(cx.shell, &layout, window.id))
+                .frame(widgets::window_frame(&ctx.tokens()))
+                .size(size)
+                .resizable(true);
+            if settings {
+                floating = floating.centred();
             }
-            floating
-                .id(Id::NULL.with(("floating-window", window.id.0)))
-                .default_size(size)
-                .show(&ctx, |ui| {
-                    cx.node(ui, &window.root, Area::Window(window.id));
-                });
+            floating.show(&ctx, |ui| {
+                cx.node(ui, &window.root, Area::Window(window.id));
+            });
         }
     }
     let view = WindowView {
@@ -276,6 +249,37 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
     }
     drag::retain(&ctx, &live);
     cx.frame
+}
+
+impl Cx<'_, '_> {
+    /// Draws the main window's Docks and centre into `ui`.
+    fn main_window(&mut self, ui: &mut Ui) {
+        let cx = self;
+        let layout = cx.layout;
+        // Space for the Docks and the centre is set aside first, the bottom Dock first since
+        // it spans the window. What is in them is drawn after, in layout order (left Dock,
+        // centre, right Dock, bottom Dock), which is the order Tab moves keyboard focus in.
+        let mut docks = Vec::new();
+        for side in [DockSide::Bottom, DockSide::Left, DockSide::Right] {
+            if let Some(rect) = cx.reserve_dock(ui, side) {
+                docks.push((side, rect));
+            }
+        }
+        let centre = egui::CentralPanel::default()
+            .frame(egui::Frame::NONE)
+            .show(ui, reserve)
+            .inner;
+        let dock_at = |side| docks.iter().find(|(s, _)| *s == side).map(|(_, r)| *r);
+        if let Some(rect) = dock_at(DockSide::Left) {
+            cx.dock(ui, DockSide::Left, rect);
+        }
+        cx.node_at(ui, centre, &layout.centre, Area::Centre);
+        for side in [DockSide::Right, DockSide::Bottom] {
+            if let Some(rect) = dock_at(side) {
+                cx.dock(ui, side, rect);
+            }
+        }
+    }
 }
 
 /// A floating window's title: its active tab's, after the app's name.
@@ -299,6 +303,8 @@ struct Cx<'a, 'b> {
     shell: &'a mut Shell,
     layout: &'a Layout,
     recent: &'a [RecentProject],
+    /// What has changes not yet saved: those tabs show the modified dot.
+    dirty: Vec<Scope>,
     frame: Frame,
     /// Where a dragged tab can be dropped, as drawn this frame.
     zones: Zones,
@@ -333,15 +339,24 @@ impl Cx<'_, '_> {
         let mut builder = ViewportBuilder::default()
             .with_title(window_title(self.shell, self.layout, window.id))
             .with_inner_size(size)
-            .with_min_inner_size([240.0, 160.0]);
+            .with_min_inner_size(WINDOW_MIN);
         let saved = window.rect.map(|r| egui::pos2(r.x as f32, r.y as f32));
         if let Some(at) = drag::placement(ctx, self.layout, window.id).or(saved) {
             builder = builder.with_position(at);
         }
         ctx.show_viewport_immediate(viewport, builder, |ui, _| {
             let ctx = ui.ctx().clone();
+            // Cards keep the card gap from the window's edges; the tab strip is at its top.
+            let gap = CARD_GAP as i8;
+            let margin = egui::Margin {
+                left: gap,
+                right: gap,
+                top: 0,
+                bottom: gap,
+            };
+            let base = ui.tokens().color.surface.base;
             let area = egui::CentralPanel::default()
-                .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
+                .frame(egui::Frame::new().fill(base).inner_margin(margin))
                 .show(ui, |ui| {
                     let area = ui.available_rect_before_wrap();
                     self.zones = Zones::empty(area);
@@ -397,9 +412,8 @@ impl Cx<'_, '_> {
             return None;
         }
         let id = format!("dock-{side}");
-        // The gap on the Dock's inner edge is its splitter: it turns the accent while
-        // hovered or dragged.
-        let gap = GAP as i8;
+        // The gap on the Dock's inner edge is its splitter.
+        let gap = CARD_GAP as i8;
         let none = egui::Margin::ZERO;
         let (panel, margin) = match side {
             DockSide::Left => (egui::Panel::left(id), egui::Margin { right: gap, ..none }),
@@ -412,28 +426,17 @@ impl Cx<'_, '_> {
         let shown = if dock.collapsed {
             panel
                 .resizable(false)
-                .exact_size(STRIP + GAP)
+                .exact_size(ui.tokens().control_height() + CARD_GAP)
                 .show(ui, reserve)
         } else {
             let default = if side == DockSide::Bottom {
-                220.0
+                BOTTOM_DOCK
             } else {
-                256.0
+                SIDE_DOCK
             };
-            // The gap at the Dock's inner edge is its splitter, which shows the accent
-            // while hovered or dragged. The strokes go back as they were after the panel.
-            let splitter = Stroke::new(GAP, ui.tokens().color.accent.text);
-            let widgets = &mut ui.style_mut().visuals.widgets;
-            let before = (widgets.hovered.fg_stroke, widgets.active.fg_stroke);
-            widgets.hovered.fg_stroke = splitter;
-            widgets.active.fg_stroke = splitter;
-            let shown = panel
-                .resizable(true)
-                .default_size(default)
-                .show(ui, reserve);
-            let widgets = &mut ui.style_mut().visuals.widgets;
-            (widgets.hovered.fg_stroke, widgets.active.fg_stroke) = before;
-            shown
+            // It shows the accent while dragged.
+            let panel = panel.resizable(true).default_size(default);
+            widgets::splitter(ui, CARD_GAP, |ui| panel.show(ui, reserve))
         };
         self.zones.docks.push((side, shown.response.rect));
         Some(shown.inner)
@@ -444,8 +447,7 @@ impl Cx<'_, '_> {
     fn dock(&mut self, ui: &mut Ui, side: DockSide, rect: Rect) {
         let dock = self.layout.dock(side);
         if dock.collapsed {
-            ui.painter()
-                .rect_filled(rect, 0.0, ui.visuals().faint_bg_color);
+            // The strip is on the base, with no frame.
             let builder = UiBuilder::new()
                 .max_rect(rect)
                 .id_salt(("dock-strip", side.to_string()));
@@ -469,28 +471,19 @@ impl Cx<'_, '_> {
         }
     }
 
+    /// A collapsed Dock's strip: the button that expands the Dock, then a 20 px Icon
+    /// button per tab. The Icon of the open flyout is on.
     fn icon_strip(&mut self, ui: &mut Ui, side: DockSide) {
-        let mut add = |ui: &mut Ui| {
-            ui.spacing_mut().item_spacing = Vec2::splat(2.0);
-            ui.add_space(1.0);
-            let size = match side {
-                DockSide::Bottom => Vec2::new(18.0, STRIP_BUTTON),
-                _ => Vec2::new(STRIP_BUTTON, 18.0),
-            };
-            let (rect, expand) = ui.allocate_exact_size(size, Sense::click());
-            let colour = if expand.hovered() {
-                ui.visuals().strong_text_color()
-            } else {
-                ui.visuals().text_color()
-            };
+        widgets::dock_strip(ui, side == DockSide::Bottom, |ui| {
             // The chevron points the way the Dock opens.
             let chevron = match side {
                 DockSide::Left => Glyph::ChevronRight,
                 DockSide::Right => Glyph::ChevronLeft,
                 DockSide::Bottom => Glyph::ChevronUp,
             };
-            chevron.paint(ui.painter(), rect.center(), colour);
-            let expand = expand.on_hover_text(tr!("dock-expand"));
+            let expand = ui
+                .add(widgets::glyph_button(chevron))
+                .tooltip(tr!("dock-expand"));
             a11y::name(&expand, Role::Button, true, &tr!("dock-expand"), None, None);
             if expand.clicked() {
                 self.run(
@@ -502,19 +495,17 @@ impl Cx<'_, '_> {
                 for tab in &group.tabs {
                     let title = tab_title(self.shell, tab);
                     let open = self.layout.flyout.as_ref() == Some(tab);
-                    let icon = match tab_icon(self.shell, tab, ui.ctx().theme()) {
-                        Some(image) => {
-                            chrome::icon_button(ui, image, icons::TAB, STRIP_BUTTON, open, true)
+                    let icon = match tab_icon_key(self.shell, tab) {
+                        Some(key) => ui.add(widgets::icon_button(key).bar().on(open)),
+                        None => {
+                            let initial = title.chars().take(1).collect::<String>();
+                            ui.add(widgets::button(initial).flat().on(open))
                         }
-                        None => ui.add(Button::selectable(
-                            open,
-                            title.chars().take(1).collect::<String>(),
-                        )),
                     };
                     if self.focus_request.as_ref() == Some(tab) {
                         icon.request_focus();
                     }
-                    let icon = icon.on_hover_text(&title);
+                    let icon = icon.tooltip(&title);
                     let shortcut = tab_shortcut(ui.ctx(), self.shell, tab);
                     a11y::name(&icon, Role::Button, true, &title, None, shortcut.as_deref());
                     if icon.clicked() {
@@ -527,12 +518,7 @@ impl Cx<'_, '_> {
                     }
                 }
             }
-        };
-        if side == DockSide::Bottom {
-            ui.horizontal_centered(|ui| add(ui));
-        } else {
-            ui.vertical_centered(|ui| add(ui));
-        }
+        });
     }
 
     /// Runs the editor of `document`'s type on this frame's canvas input. Returns the
@@ -689,15 +675,14 @@ impl Cx<'_, '_> {
         }
     }
 
-    /// Draws a tab group into `rect`: its tab strip on the window's base, then its front
-    /// tab's contents on the card colour, which the front tab shares. Groups have no
-    /// border: the gaps between them separate them.
+    /// Draws a tab group into `rect`: its tab strip on the window's base, then its card,
+    /// which the front tab is joined to, with the front tab's contents. The gaps between
+    /// groups separate them.
     fn group_at(&mut self, ui: &mut Ui, rect: Rect, group: &Group, area: Area) {
-        let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), TAB_STRIP));
-        let body = Rect::from_min_max(egui::pos2(rect.left(), strip.bottom()), rect.max);
-        let surface = ui.tokens().color.surface;
-        ui.painter().rect_filled(strip, 0.0, surface.base);
-        ui.painter().rect_filled(body, 0.0, surface.card);
+        let t = ui.tokens();
+        let strip = Rect::from_min_size(rect.min, Vec2::new(rect.width(), t.tab_height()));
+        let body = rect.with_min_y(strip.bottom());
+        widgets::paint_card(ui, &t, body);
         let clip = ui.clip_rect();
         let builder = UiBuilder::new()
             .max_rect(strip)
@@ -705,13 +690,16 @@ impl Cx<'_, '_> {
             .id_salt(("tab-group", group.id.0));
         let mut tabs = Vec::new();
         ui.scope_builder(builder, |ui| {
-            ui.set_clip_rect(strip.intersect(clip));
-            ui.spacing_mut().item_spacing.x = 2.0;
-            ui.add_space(2.0);
-            for (i, tab) in group.tabs.iter().enumerate() {
-                tabs.push(self.tab(ui, tab, i == group.active, area));
-            }
+            // The front tab reaches one hairline into the card, over its rim.
+            let reach = strip.with_max_y(strip.bottom() + t.stroke.hairline);
+            ui.set_clip_rect(reach.intersect(clip));
+            widgets::tab_strip(ui, |ui| {
+                for (i, tab) in group.tabs.iter().enumerate() {
+                    tabs.push(self.tab(ui, tab, i == group.active, area));
+                }
+            });
         });
+        let front = tabs.get(group.active).copied();
         self.zones.groups.push(drag::GroupZone {
             group: group.id,
             rect,
@@ -724,13 +712,21 @@ impl Cx<'_, '_> {
         ui.scope_builder(builder, |ui| {
             ui.set_clip_rect(body.intersect(clip));
             match group.active_tab() {
-                // Panels and the Start page keep a margin; Documents fill the group.
+                // Panels and the Start page keep the card's padding.
                 Some(tab @ (TabKey::Panel(_) | TabKey::Start | TabKey::Settings(_))) => {
                     egui::Frame::new()
-                        .inner_margin(PANEL_MARGIN)
+                        .inner_margin(t.space.panel)
                         .show(ui, |ui| self.content(ui, tab));
                 }
-                Some(tab) => self.content(ui, tab),
+                // Documents fill the card. A canvas cannot be clipped round, so the
+                // card's corners are masked over it and its rim drawn again.
+                Some(tab) => {
+                    self.content(ui, tab);
+                    widgets::mask_card_corners(ui, &t, body);
+                    if let Some(front) = front {
+                        widgets::join_tab(ui, &t, front);
+                    }
+                }
                 None => {
                     ui.centered_and_justified(|ui| ui.weak(tr!("document-area-empty")));
                 }
@@ -750,111 +746,29 @@ impl Cx<'_, '_> {
             TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
             _ => 0,
         };
-        let t = ui.tokens();
-        let font = egui::TextStyle::Button.resolve(ui.style());
-        let colour = if active {
-            t.color.text.primary
-        } else {
-            t.color.text.muted
-        };
         let active_document = active
             && matches!(tab, TabKey::Document(uuid) if self.layout.active_document() == Some(*uuid));
-        let galley = ui
-            .painter()
-            .layout_no_wrap(title.clone(), font.clone(), colour);
-        // The badge is a pill in the warning solid.
-        let badge_text = t.color.warning.on_solid;
-        let badge_fill = t.color.warning.solid;
-        let badge = (pending > 0).then(|| {
-            ui.painter().layout_no_wrap(
-                tr!("tab-out-of-sync-badge", count = pending),
-                egui::TextStyle::Small.resolve(ui.style()),
-                badge_text,
-            )
-        });
-        // The icon keeps its role colours on every tab, front or back.
-        let icon = tab_icon_key(self.shell, tab)
-            .and_then(|key| icons::image(key, icons::TAB, ui.ctx().theme(), true));
-        // | 8 | icon 4 | title | 4 badge | 4 × 4 |
-        let close_size = 14.0;
-        let width = 8.0
-            + icon.as_ref().map_or(0.0, |_| icons::TAB + 4.0)
-            + galley.size().x
-            + badge.as_ref().map_or(0.0, |b| 4.0 + b.size().x + 6.0)
-            + 4.0
-            + close_size
-            + 4.0;
-        let (rect, response) =
-            ui.allocate_exact_size(Vec2::new(width, TAB_STRIP - 2.0), Sense::click_and_drag());
-        let pointed = ui.rect_contains_pointer(rect);
-        let close_rect = Rect::from_center_size(
-            egui::pos2(rect.right() - 4.0 - close_size / 2.0, rect.center().y),
-            Vec2::splat(close_size),
-        );
-        let close = (active || pointed).then(|| {
-            let close = ui.interact(close_rect, response.id.with("close"), Sense::click());
+        let kind = match (active_document, active) {
+            (true, _) => TabKind::Active,
+            (false, true) => TabKind::Front,
+            (false, false) => TabKind::Back,
+        };
+        let modified = matches!(tab, TabKey::Document(uuid)
+            if self.dirty.contains(&Scope::Document(*uuid))
+                || self.dirty.contains(&Scope::Element(*uuid)));
+        let shown = widgets::tab(&title)
+            .icon(tab_icon_key(self.shell, tab))
+            .kind(kind)
+            .modified(modified)
+            .out_of_sync(pending > 0)
+            .show(ui);
+        let response = shown.response;
+        let close = shown.close.map(|close| {
             let name = tr!("tab-close", tab = title.as_str());
-            let close = close.on_hover_text(&name);
+            let close = close.tooltip(&name);
             a11y::name(&close, Role::Button, true, &name, None, None);
             close
         });
-        if ui.is_rect_visible(rect) {
-            if active {
-                // The front tab is the card's colour, rounded at the top.
-                let top = egui::CornerRadius {
-                    nw: 3,
-                    ne: 3,
-                    sw: 0,
-                    se: 0,
-                };
-                ui.painter().rect_filled(rect, top, t.color.surface.card);
-                if active_document {
-                    let line = Rect::from_min_max(
-                        rect.min,
-                        egui::pos2(rect.right(), rect.top() + t.stroke.accent_line),
-                    );
-                    ui.painter().rect_filled(line, 0.0, t.color.accent.text);
-                }
-            } else if pointed {
-                ui.painter().rect_filled(rect, 3.0, t.color.fill.hover);
-            }
-            let mut x = rect.left() + 8.0;
-            if let Some(image) = icon {
-                let at = Rect::from_min_size(
-                    egui::pos2(x, rect.center().y - icons::TAB / 2.0),
-                    Vec2::splat(icons::TAB),
-                );
-                image.paint_at(ui, at);
-                x += icons::TAB + 4.0;
-            }
-            let painter = ui.painter();
-            let text_y = rect.center().y - galley.size().y / 2.0;
-            let title_width = galley.size().x;
-            painter.galley(egui::pos2(x, text_y), galley, colour);
-            x += title_width + 4.0;
-            if let Some(badge) = badge {
-                let y = rect.center().y - badge.size().y / 2.0;
-                let pill = Rect::from_min_size(egui::pos2(x, y), badge.size())
-                    .expand2(Vec2::new(3.0, 1.0))
-                    .translate(Vec2::new(3.0, 0.0));
-                painter.rect_filled(pill, 3.0, badge_fill);
-                painter.galley(egui::pos2(x + 3.0, y), badge, badge_text);
-            }
-            if let Some(close) = &close {
-                let colour = if close.hovered() {
-                    t.color.text.primary
-                } else {
-                    t.color.text.muted
-                };
-                painter.text(
-                    close_rect.center(),
-                    Align2::CENTER_CENTER,
-                    "×",
-                    egui::FontId::proportional(13.0),
-                    colour,
-                );
-            }
-        }
         // A middle-click on any tab closes it.
         if close.as_ref().is_some_and(Response::clicked) || response.middle_clicked() {
             self.run("layout.tab.close", json!({"tab": tab.to_string()}));
@@ -866,6 +780,11 @@ impl Cx<'_, '_> {
         } else {
             title.clone()
         };
+        if pending > 0 {
+            response
+                .clone()
+                .tooltip(tr!("status-out-of-sync", count = pending));
+        }
         a11y::name(
             &response,
             Role::Tab,
@@ -874,11 +793,6 @@ impl Cx<'_, '_> {
             Some(active),
             shortcut.as_deref(),
         );
-        if pending > 0 {
-            response
-                .clone()
-                .on_hover_text(tr!("status-out-of-sync", count = pending));
-        }
         if self.focus_request.as_ref() == Some(tab) {
             response.request_focus();
         }
@@ -900,16 +814,15 @@ impl Cx<'_, '_> {
             });
         let by_key = !response.secondary_clicked()
             && (pressed || ui.data(|d| d.get_temp::<bool>(by_key_id).unwrap_or(false)));
-        let popup = if by_key {
-            Popup::from_response(&response)
-                .kind(PopupKind::Menu)
-                .layout(egui::Layout::top_down_justified(egui::Align::Min))
-                .style(menu_style)
-                .open_memory(pressed.then_some(SetOpenCommand::Bool(true)))
+        let shown = if by_key {
+            let mut menu = widgets::menu_below(&response);
+            if pressed {
+                menu = menu.open();
+            }
+            menu.show(|ui| self.tab_menu(ui, tab, area)).is_some()
         } else {
-            Popup::context_menu(&response)
+            widgets::context_menu(&response, |ui| self.tab_menu(ui, tab, area)).is_some()
         };
-        let shown = popup.show(|ui| self.tab_menu(ui, tab, area)).is_some();
         ui.data_mut(|d| d.insert_temp(by_key_id, by_key && shown));
         response.rect
     }
@@ -918,7 +831,7 @@ impl Cx<'_, '_> {
     /// layout would refuse is greyed out, with the reason on hover.
     fn tab_menu(&mut self, ui: &mut Ui, tab: &TabKey, area: Area) {
         let param = tab.to_string();
-        ui.menu_button(tr!("tab-menu-move-to"), |ui| {
+        widgets::menu_button(tr!("tab-menu-move-to")).show(ui, |ui| {
             for (side, label) in [
                 (DockSide::Left, tr!("tab-menu-left-dock")),
                 (DockSide::Right, tr!("tab-menu-right-dock")),
@@ -969,10 +882,10 @@ impl Cx<'_, '_> {
 
     /// A menu item that closes the menu when clicked; `refused` greys it out.
     fn item(&mut self, ui: &mut Ui, label: String, refused: Option<String>) -> bool {
-        let response = ui.add_enabled(refused.is_none(), Button::new(label));
+        let response = ui.add_enabled(refused.is_none(), widgets::menu_item(label));
         let clicked = response.clicked();
         if let Some(reason) = refused {
-            response.on_disabled_hover_text(reason);
+            response.disabled_tooltip(reason);
         }
         if clicked {
             ui.close();
@@ -1206,17 +1119,25 @@ fn refusal(
     action(&mut copy).err().map(|e| e.message)
 }
 
-/// `rect` cut into `n` equal parts along `axis`, a [`GAP`] apart.
+/// `rect` cut into `n` equal parts along `axis`, a card gap apart, on whole points.
 fn split_rect(rect: Rect, axis: Axis, n: usize) -> Vec<Rect> {
     let n = n.max(1);
     let length = match axis {
         Axis::Horizontal => rect.width(),
         Axis::Vertical => rect.height(),
     };
-    let part = ((length - GAP * (n - 1) as f32) / n as f32).max(0.0);
+    let part = ((length - CARD_GAP * (n - 1) as f32) / n as f32)
+        .floor()
+        .max(0.0);
     (0..n)
         .map(|i| {
-            let a = i as f32 * (part + GAP);
+            let a = i as f32 * (part + CARD_GAP);
+            // The last part takes what the rounding left.
+            let part = if i + 1 == n {
+                (length - a).max(0.0)
+            } else {
+                part
+            };
             match axis {
                 Axis::Horizontal => {
                     Rect::from_x_y_ranges(rect.left() + a..=rect.left() + a + part, rect.y_range())

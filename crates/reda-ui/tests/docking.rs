@@ -588,9 +588,12 @@ fn near(a: egui::Rect, b: egui::Rect) -> bool {
     (a.min - b.min).length() < 0.6 && (a.max - b.max).length() < 0.6
 }
 
-/// The 2 px strip along the top edge of `tab`.
+/// The 2 px strip along the top edge of `tab`, between its 10 px rounded corners.
 fn top_line(tab: egui::Rect) -> egui::Rect {
-    egui::Rect::from_min_max(tab.min, egui::pos2(tab.right(), tab.top() + 2.0))
+    egui::Rect::from_min_max(
+        egui::pos2(tab.left() + 10.0, tab.top()),
+        egui::pos2(tab.right() - 10.0, tab.top() + 2.0),
+    )
 }
 
 #[test]
