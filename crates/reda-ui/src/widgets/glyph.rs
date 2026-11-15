@@ -44,6 +44,8 @@ pub enum Glyph {
     Restore,
     /// The search glass at the leading end of a search field.
     Search,
+    /// The one menu button the menus collapse into in a narrow Title bar.
+    Menu,
     /// The lock toggle in list headers and rows.
     Lock,
     /// The filter toggle in list headers.
@@ -57,7 +59,7 @@ pub enum Glyph {
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 19] = [
+    pub const ALL: [(Glyph, &'static str); 20] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -72,6 +74,7 @@ impl Glyph {
         (Glyph::Maximise, "maximise"),
         (Glyph::Restore, "restore"),
         (Glyph::Search, "search"),
+        (Glyph::Menu, "menu"),
         (Glyph::Lock, "lock"),
         (Glyph::Funnel, "funnel"),
         (Glyph::Warning, "warning"),
@@ -132,6 +135,11 @@ impl Glyph {
             Glyph::Search => {
                 painter.circle_stroke(at((7.0, 7.0)), 3.75, pen);
                 open(&[(9.75, 9.75), (12.75, 12.75)]);
+            }
+            Glyph::Menu => {
+                for y in [4.5, 8.0, 11.5] {
+                    open(&[(3.5, y), (12.5, y)]);
+                }
             }
             Glyph::Lock => {
                 let body = Rect::from_min_max(at((4.5, 7.5)), at((11.5, 12.5)));

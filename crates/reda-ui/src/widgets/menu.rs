@@ -343,6 +343,17 @@ pub fn menu_bar<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> InnerResponse
     })
 }
 
+/// The width a [`menu_bar`] of these titles takes: each title's text with the control
+/// padding at both sides, the titles `BAR_GAP` apart.
+pub fn menu_titles_width<'a>(ui: &Ui, titles: impl IntoIterator<Item = &'a str>) -> f32 {
+    let t = ui.tokens();
+    let widths: Vec<f32> = titles
+        .into_iter()
+        .map(|title| paint::width(ui, &t.ty.body, title) + 2.0 * t.space.control_x)
+        .collect();
+    widths.iter().sum::<f32>() + BAR_GAP * widths.len().saturating_sub(1) as f32
+}
+
 /// The id under which a menu bar remembers its open menu, when `ui` is directly in one.
 fn bar_memory(ui: &Ui) -> Option<Id> {
     if is_in_menu(ui) {
@@ -362,6 +373,7 @@ pub fn menu_button(text: impl Into<String>) -> MenuButton<'static> {
     MenuButton {
         text: text.into(),
         icon: None,
+        muted: false,
         state: State::Live,
     }
 }
@@ -370,6 +382,7 @@ pub fn menu_button(text: impl Into<String>) -> MenuButton<'static> {
 pub struct MenuButton<'a> {
     text: String,
     icon: Option<&'a str>,
+    muted: bool,
     state: State,
 }
 
@@ -386,8 +399,16 @@ impl<'a> MenuButton<'a> {
         MenuButton {
             icon: Some(key),
             text: self.text,
+            muted: self.muted,
             state: self.state,
         }
+    }
+
+    /// The title in muted text: a Title bar's menus while the window is in the
+    /// background.
+    pub fn muted(mut self, muted: bool) -> Self {
+        self.muted = muted;
+        self
     }
 
     pub fn forced(mut self, state: State) -> Self {
@@ -459,7 +480,11 @@ impl<'a> MenuButton<'a> {
             let fill = paint::state_fill(&t, under, s);
             ui.painter().rect_filled(rect, t.radius.control, fill);
             let inner = rect.shrink2(vec2(t.space.control_x, 0.0));
-            let ink = c.text.primary;
+            let ink = if self.muted {
+                c.text.muted
+            } else {
+                c.text.primary
+            };
             paint::text_in(ui, inner, Align2::LEFT_CENTER, &t.ty.body, &self.text, ink);
             if place == Place::Alone {
                 let at = pos2(inner.right() - glyph::BOX / 2.0, rect.center().y);

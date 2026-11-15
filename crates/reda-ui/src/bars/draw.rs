@@ -1,5 +1,5 @@
-//! Draws bars from their data: the top row (quick strip, menus, command field and the
-//! Preferences gear) and the Active Bar. Drawing never
+//! Draws bars from their data: the menus and the quick strip, which the Title bar
+//! (`crate::title_bar`) places, and the Active Bar. Drawing never
 //! runs anything; each function returns the `(id, params)` of a clicked item, which the
 //! window runs through the Shell.
 
@@ -46,128 +46,51 @@ impl Cx<'_> {
     }
 }
 
-/// The top row: from the left the quick strip (`bars.toolbar`), the menus, the command
-/// field and, at the far right, the Preferences gear. One row, so the canvas keeps the
-/// height a second one would take.
-pub fn top_row(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
-    ui.horizontal(|ui| {
-        let row = ui.max_rect();
-        let quick = icon_row_sized(
-            ui,
-            cx,
-            &bars.toolbar,
-            chrome::QUICK_BUTTON,
-            chrome::QUICK_ICON,
-        );
-        if !bars.toolbar.is_empty() {
-            chrome::bar_separator(ui, chrome::QUICK_ICON);
-        }
-        // The menus centre on the quick strip's row.
-        let strip = ui.min_rect();
-        let y = strip.center().y;
-        let menus = Rect::from_x_y_ranges(ui.cursor().left()..=row.right(), strip.y_range());
-        let (menu, menus_end) = ui
-            .scope_builder(
-                egui::UiBuilder::new()
-                    .max_rect(menus)
-                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
-                |ui| {
-                    // The menu bar's row is as tall as the strip, its titles centred in it.
-                    ui.spacing_mut().interact_size.y = strip.height();
-                    menu_bar(ui, cx, bars)
-                },
-            )
-            .inner;
-        let gear_at = Rect::from_center_size(
-            egui::pos2(row.right() - chrome::QUICK_BUTTON / 2.0, y),
-            Vec2::splat(chrome::QUICK_BUTTON),
-        );
-        let field = command_field(ui, cx, menus_end..=gear_at.left(), row.center().x, y);
-        let gear = gear(ui, cx, gear_at);
-        quick.or(menu).or(field).or(gear)
-    })
-    .inner
-}
-
-/// The menu bar of `bars`; returns the item clicked and where the last menu title ends.
-pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> (Option<Invocation>, f32) {
+/// The menu bar of `bars`, its titles muted when `muted` (the window in the background);
+/// returns the item clicked.
+pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars, muted: bool) -> Option<Invocation> {
     let mut clicked = None;
-    let mut end = ui.cursor().left();
     widgets::menu_bar(ui, |ui| {
         for menu in &bars.menus {
             let title = i18n::translate(&menu.title, &[]);
-            let shown = widgets::menu_button(title).show(ui, |ui| {
+            widgets::menu_button(title).muted(muted).show(ui, |ui| {
                 menu_items(ui, cx, &menu.items, &mut clicked);
             });
-            end = shown.response.rect.right();
         }
-    });
-    (clicked, end)
-}
-
-/// The command field's place: a field reading what the Palette searches, with its key.
-/// It is left out while the row has no room for it between the menus and the gear.
-fn command_field(
-    ui: &mut Ui,
-    cx: &Cx<'_>,
-    room: std::ops::RangeInclusive<f32>,
-    centre: f32,
-    y: f32,
-) -> Option<Invocation> {
-    const WIDTH: f32 = 360.0;
-    const NARROWEST: f32 = 160.0;
-    const GAP: f32 = 12.0;
-    let (left, right) = (room.start() + GAP, room.end() - GAP);
-    let width = WIDTH.min(right - left);
-    if width < NARROWEST {
-        return None;
-    }
-    let centre = centre.clamp(left + width / 2.0, right - width / 2.0);
-    let action = Action {
-        id: "top_row.command_field".to_owned(),
-        binding: super::Binding::Preset("app.dialog.open:palette".to_owned()),
-        title: None,
-        icon: None,
-    };
-    let item = resolve_for(cx.shell, &action, cx.document);
-    let mut button =
-        Button::new(egui::RichText::new(crate::tr!("command-field-placeholder")).weak())
-            .fill(ui.visuals().extreme_bg_color)
-            .truncate();
-    if let Some(shortcut) = cx.shortcut(ui, &action) {
-        button = button.right_text(egui::RichText::new(shortcut).weak());
-    }
-    let at = Rect::from_center_size(egui::pos2(centre, y), Vec2::new(width, chrome::QUICK_ICON));
-    crate::palette::remember_command_field(ui.ctx(), at);
-    // The field is as tall as the quick strip's icons, whatever a control's own height.
-    let response = ui
-        .scope(|ui| {
-            let spacing = ui.spacing_mut();
-            spacing.interact_size.y = at.height();
-            spacing.button_padding.y = 0.0;
-            ui.put(at, button)
-        })
-        .inner
-        .on_hover_text(&item.title);
-    response.clicked().then_some(item.run.ok()).flatten()
-}
-
-/// The Preferences gear at the far right of the top row, at `at`.
-fn gear(ui: &mut Ui, cx: &Cx<'_>, at: Rect) -> Option<Invocation> {
-    let action = Action {
-        id: "top_row.preferences".to_owned(),
-        binding: super::Binding::Preset("app.dialog.open:preferences".to_owned()),
-        title: None,
-        icon: None,
-    };
-    let mut clicked = None;
-    ui.scope_builder(egui::UiBuilder::new().max_rect(at), |ui| {
-        clicked = icon_button_for(ui, cx, &action, chrome::QUICK_BUTTON, chrome::QUICK_ICON);
     });
     clicked
 }
 
-fn submenu(ui: &mut Ui, cx: &Cx<'_>, menu: &Menu, clicked: &mut Option<Invocation>) {
+/// The Title bar's quick strip: a row of Icon buttons `side` points square holding
+/// `icon`-point Icons, as on the Active Bar.
+pub fn quick_strip(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    items: &[Item],
+    side: f32,
+    icon: f32,
+) -> Option<Invocation> {
+    icon_row_sized(ui, cx, items, side, icon)
+}
+
+/// One Icon button for `action`, with its tooltip and AccessKit name: the Title bar's
+/// Preferences gear.
+pub fn action_button(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    action: &Action,
+    side: f32,
+    icon: f32,
+) -> Option<Invocation> {
+    icon_button_for(ui, cx, action, side, icon)
+}
+
+/// The key bound to `action` where `cx` draws, as the platform writes it.
+pub fn shortcut(ui: &Ui, cx: &Cx<'_>, action: &Action) -> Option<String> {
+    cx.shortcut(ui, action)
+}
+
+pub(crate) fn submenu(ui: &mut Ui, cx: &Cx<'_>, menu: &Menu, clicked: &mut Option<Invocation>) {
     widgets::menu_button(i18n::translate(&menu.title, &[])).show(ui, |ui| {
         menu_items(ui, cx, &menu.items, clicked);
     });

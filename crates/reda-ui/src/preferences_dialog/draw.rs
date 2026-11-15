@@ -371,6 +371,9 @@ impl PreferencesDialog {
         if let Some(warning) = self.appearance_warning(ui, cx, setting) {
             layout::caption_warning(ui, indent, warning);
         }
+        if let Some(caption) = self.appearance_caption(ui, cx, setting) {
+            layout::caption(ui, indent, caption);
+        }
         if let Some(caption) = schema::caption(&setting.key) {
             layout::caption(ui, indent, caption);
         }

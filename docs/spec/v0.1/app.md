@@ -95,7 +95,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
   5. the window controls
 
   There are no Document tabs in it.
-- **The window's title** has no label of its own. At rest the command field reads "Project name — active Document". The OS-level title is still set, for the taskbar and Alt+Tab.
+- **The window's title** has no label of its own. At rest the command field reads "Project name — active Document", or the Project name alone while no Document is open. With no Project open it reads "Search commands", in muted text. The OS-level title is still set, for the taskbar and Alt+Tab.
 - **Window controls:**
   - On macOS, the native traffic lights at the left. The quick strip starts after them.
   - On Windows and Linux, one REDA-drawn set at the right: minimise, maximise or restore, and close. It does not follow GNOME's button-layout setting.
@@ -111,7 +111,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
   - **Tiled:** as maximised on Windows, where the state is known. On Wayland the corners stay round.
   - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide and, on macOS, the traffic-light inset closes up.
   - **Inactive window:** the bar's text and window controls go muted.
-- **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds a hit strip inside the window edge.
+- **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds an invisible hit strip inside the window edge: 6 px along the edges and 12 px at the corners. It is off while the window is maximised.
 - **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
   - With it on, the row is the same minus the window controls and the dragging. The command field still shows the title, and the window corners are square. Floating windows have the system's title bar and no REDA bar.
   - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created.

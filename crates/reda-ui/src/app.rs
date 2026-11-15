@@ -39,7 +39,7 @@ use crate::start_page::StartAction;
 use crate::theme::TokensExt as _;
 use crate::user_preferences::Watcher;
 use crate::widgets::{self, Tooltip as _};
-use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
+use crate::{a11y, crash, keymap, tab_switcher, theme, title_bar, tr};
 
 /// How many targets the Palette remembers as recent.
 const RECENT: usize = 8;
@@ -63,6 +63,9 @@ pub struct App {
     /// wake from the thread never adds frames.
     watch_preferences: bool,
     window_title: String,
+    /// How the Title bar was set up at the start: **Use the system title bar** applies
+    /// on restart.
+    title_bar: title_bar::Startup,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
@@ -99,7 +102,9 @@ impl App {
     pub fn new(shell: Shell) -> App {
         let crash_report = (shell.engine().user_dirs())
             .and_then(|dirs| crash::unseen(&crash::reports_dir(dirs)).pop());
+        let title_bar = title_bar::Startup::of(shell.preferences());
         App {
+            title_bar,
             crash_report,
             shell,
             files: FileDialogs::default(),
@@ -198,6 +203,11 @@ impl App {
         &mut self.shell
     }
 
+    /// How the Title bar was set up when the window started.
+    pub fn title_bar_startup(&self) -> title_bar::Startup {
+        self.title_bar
+    }
+
     /// The closing and quitting prompts' state.
     pub fn closing(&self) -> &Closing {
         &self.closing
@@ -215,6 +225,7 @@ impl App {
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
+            self.title_bar.remember(&ctx);
             self.theme_installed = true;
         }
         self.apply_preferences(&ctx);
@@ -914,8 +925,8 @@ impl App {
         }
     }
 
-    /// The top row for the active Document's type, drawn from the bar data files. Returns
-    /// the item clicked, if any.
+    /// The Title bar for the active Document's type, drawn from the bar data files.
+    /// Returns the item clicked, if any.
     fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let scale = preferences::nearest_ui_scale(f64::from(ui.ctx().zoom_factor()));
@@ -943,9 +954,9 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        Panel::top("top-row")
-            .show(ui, |ui| draw::top_row(ui, &cx, bars))
-            .inner
+        // Every window still has the system title bar above REDA's: the platform slices
+        // give the bar its window controls and dragging.
+        title_bar::show(ui, &cx, bars, title_bar::Chrome::SYSTEM).run
     }
 
     /// Carries out what the view Commands asked of the window.
