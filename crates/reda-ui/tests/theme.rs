@@ -259,7 +259,8 @@ fn the_egui_style_is_generated_from_the_tokens() {
             assert_eq!(TextStyle::Small.resolve(&style), t.ty.small.font_id());
             assert_eq!(TextStyle::Heading.resolve(&style), t.ty.heading.font_id());
             assert_eq!(TextStyle::Monospace.resolve(&style), t.ty.mono.font_id());
-            assert_eq!(style.animation_time, t.motion.base);
+            // egui's own fades (popups, scroll bars) take a menu's time.
+            assert_eq!(style.animation_time, t.motion.menu.enter);
         }
     }
 }
