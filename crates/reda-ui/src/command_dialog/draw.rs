@@ -10,6 +10,7 @@ use serde_json::Value;
 use super::{Field, Input, Outcome, ParamForm, ParamsDialog};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 impl ParamsDialog for ParamForm {
     fn command(&self) -> &str {
@@ -50,16 +51,17 @@ impl ParamsDialog for ParamForm {
                     for note in self.notes() {
                         ui.colored_label(ui.visuals().warn_fg_color, note);
                     }
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        let run =
-                            ui.add_enabled(ready.is_some(), egui::Button::new(tr!("form-run")));
+                    crate::modal::buttons(ui, |ui| {
+                        let run = ui.add_enabled(
+                            ready.is_some(),
+                            widgets::button(tr!("form-run")).primary(),
+                        );
                         if ready.is_none() {
                             run.on_disabled_hover_text(tr!("form-fix-fields"));
                         } else if run.clicked() {
                             outcome = Outcome::Run(ready.clone().unwrap_or(Value::Null));
                         }
-                        if ui.button(tr!("dialog-cancel")).clicked() {
+                        if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                             outcome = Outcome::Cancel;
                         }
                     });

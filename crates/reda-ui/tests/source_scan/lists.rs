@@ -127,6 +127,92 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
         pattern: "ProgressBar::",
         instead: "`widgets::progress`",
     },
+    // The popups and containers (`widgets/menu.rs`, `tooltip.rs`, `dialog.rs`,
+    // `surface.rs`).
+    StockWidget {
+        pattern: "ui.menu_button(",
+        instead: "`widgets::menu_button`",
+    },
+    StockWidget {
+        pattern: "MenuBar::",
+        instead: "`widgets::menu_bar`",
+    },
+    StockWidget {
+        pattern: "MenuButton::",
+        instead: "`widgets::menu_button`",
+    },
+    StockWidget {
+        pattern: "SubMenuButton::",
+        instead: "`widgets::menu_button` inside a menu",
+    },
+    StockWidget {
+        pattern: "SubMenu::",
+        instead: "`widgets::menu_button` inside a menu",
+    },
+    StockWidget {
+        pattern: ".context_menu(",
+        instead: "`widgets::context_menu`",
+    },
+    StockWidget {
+        pattern: "Popup::menu(",
+        instead: "`widgets::menu`",
+    },
+    StockWidget {
+        pattern: "Popup::context_menu(",
+        instead: "`widgets::context_menu`",
+    },
+    StockWidget {
+        pattern: "Frame::menu(",
+        instead: "`widgets::menu`, or `widgets::menu_frame` for one drawn in place",
+    },
+    StockWidget {
+        pattern: "Frame::popup(",
+        instead: "`widgets::menu`, `widgets::floating_frame` or the `widgets::Tooltip` methods",
+    },
+    StockWidget {
+        pattern: "Frame::window(",
+        instead: "`widgets::window`, or `widgets::floating_frame` for a bar on the canvas",
+    },
+    StockWidget {
+        pattern: "Frame::group(",
+        instead: "`widgets::card_frame`",
+    },
+    StockWidget {
+        pattern: "Window::new",
+        instead: "`widgets::window`, or `modal::Dialog` for a modal one",
+    },
+    StockWidget {
+        pattern: "Modal::new",
+        instead: "`modal::Dialog`",
+    },
+    StockWidget {
+        pattern: ".on_hover_text(",
+        instead: "`.tooltip(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: ".on_hover_text_at_pointer(",
+        instead: "`.tooltip(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: ".on_hover_ui(",
+        instead: "`.tooltip_ui(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: ".on_hover_ui_at_pointer(",
+        instead: "`.tooltip_ui(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: ".on_disabled_hover_text(",
+        instead: "`.disabled_tooltip(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: ".on_disabled_hover_ui(",
+        instead: "`.disabled_tooltip_ui(..)` of `widgets::Tooltip`",
+    },
+    StockWidget {
+        pattern: "Tooltip::for_",
+        instead: "the `widgets::Tooltip` methods",
+    },
     // The data widgets (`widgets/row.rs`, `table.rs`, `section.rs`, `form.rs`).
     StockWidget {
         pattern: "selectable_label(",
@@ -180,7 +266,6 @@ pub const UNCONVERTED: &[&str] = &[
     "library_dialogs/paste_array.rs",
     "library_dialogs/to_library.rs",
     "library_dialogs/wizard.rs",
-    "modal.rs",
     "new_project.rs",
     "palette/draw.rs",
     "panels/find.rs",

@@ -18,7 +18,7 @@ use crate::i18n;
 use crate::library_dialogs::{PasteMapping, PasteOutcome};
 use crate::shell::Shell;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// The Pins Panel's view state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -180,7 +180,7 @@ fn heading(h: &mut widgets::TableRow<'_>, shell: &mut Shell, sort: &Sort, column
     let b = h.sort(title, sorted);
     b.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
     let add = b.ctx.input(|i| i.modifiers.shift);
-    if b.on_hover_text(tr!("pins-panel-sort-hint")).clicked() {
+    if b.tooltip(tr!("pins-panel-sort-hint")).clicked() {
         sort_by(shell, column, add);
     }
 }
@@ -382,7 +382,7 @@ fn text_cell(ui: &mut Ui, id: Id, name: &str, value: &str, width: f32) -> Option
     let response = if value.is_empty() {
         response
     } else {
-        response.on_hover_text(value)
+        response.tooltip(value)
     };
     if response.has_focus() {
         ui.data_mut(|d| d.insert_temp(id, text.clone()));

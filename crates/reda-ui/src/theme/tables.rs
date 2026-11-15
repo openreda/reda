@@ -381,7 +381,7 @@ fn fixed_values(out: &mut String, t: &Tokens) {
         ),
         (
             "Gap between cards, and from cards to the window edge",
-            num(p::CARD_GAP),
+            num(w::CARD_GAP),
         ),
         ("Check box and radio mark", num(w::MARK)),
         (

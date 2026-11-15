@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Asks for the words of text the Text Tool is placing.
 pub struct TextDialog {
@@ -61,17 +62,17 @@ impl ParamsDialog for TextDialog {
             if let Some(error) = &self.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            ui.horizontal(|ui| {
+            crate::modal::buttons(ui, |ui| {
                 let place = ui.add_enabled(
                     self.params().is_some(),
-                    egui::Button::new(tr!("schematic-text-place")),
+                    widgets::button(tr!("schematic-text-place")).primary(),
                 );
                 if (place.clicked() || enter)
                     && let Some(params) = self.params()
                 {
                     outcome = Outcome::Run(params);
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     outcome = Outcome::Cancel;
                 }
             });

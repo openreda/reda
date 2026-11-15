@@ -27,10 +27,8 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
     if !on_sheet || shell.tool() != Tool::Wire || !wire.options_open {
         return out;
     }
-    egui::Window::new(tr!("auto-wire-title"))
-        .id(egui::Id::NULL.with(("auto-wire-options", document)))
-        .collapsible(false)
-        .resizable(false)
+    let id = egui::Id::NULL.with(("auto-wire-options", document));
+    widgets::window(id, tr!("auto-wire-title"))
         .fixed_pos(rect.left_top() + egui::vec2(12.0, 48.0))
         .show(ui.ctx(), |ui| {
             let mut seconds = wire.timeout_ms as f64 / 1000.0;

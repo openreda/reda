@@ -245,7 +245,8 @@ fn page_two_compares_the_local_edits_it_removes_over_the_original() {
         "schematic.dialog.open",
         json!({"dialog": "update_from_library"}),
     );
-    f.h.run();
+    // The dialog takes a few frames to grow to its content.
+    f.h.run_steps(8);
     f.click("Next");
     f.h.get_by_label("Local Pad edits this removes");
     f.h.get_by_role_and_label(Role::Image, "Edited Pads over the original");

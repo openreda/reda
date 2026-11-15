@@ -17,6 +17,7 @@ use crate::i18n;
 use crate::icons;
 use crate::keymap;
 use crate::shell::Shell;
+use crate::widgets::{self, Tooltip as _};
 
 /// A clicked item: the Command or Preset id and its params.
 pub type Invocation = (String, Value);
@@ -88,26 +89,17 @@ pub fn top_row(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> Option<Invocation> {
     .inner
 }
 
-/// Menu titles and items a size up from the rest of the UI.
-fn larger(ui: &mut Ui) {
-    ui.style_mut().override_font_id = Some(egui::FontId::proportional(chrome::MENU_TEXT));
-    ui.spacing_mut().button_padding = chrome::MENU_PADDING;
-}
-
 /// The menu bar of `bars`; returns the item clicked and where the last menu title ends.
 pub fn menu_bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars) -> (Option<Invocation>, f32) {
     let mut clicked = None;
     let mut end = ui.cursor().left();
-    egui::MenuBar::new().ui(ui, |ui| {
-        larger(ui);
+    widgets::menu_bar(ui, |ui| {
         for menu in &bars.menus {
-            let response = ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
-                larger(ui);
-                // An item is its text plus the menu's own padding, not a control's height.
-                ui.spacing_mut().interact_size.y = 0.0;
+            let title = i18n::translate(&menu.title, &[]);
+            let shown = widgets::menu_button(title).show(ui, |ui| {
                 menu_items(ui, cx, &menu.items, &mut clicked);
             });
-            end = response.response.rect.right();
+            end = shown.response.rect.right();
         }
     });
     (clicked, end)
@@ -176,7 +168,7 @@ fn gear(ui: &mut Ui, cx: &Cx<'_>, at: Rect) -> Option<Invocation> {
 }
 
 fn submenu(ui: &mut Ui, cx: &Cx<'_>, menu: &Menu, clicked: &mut Option<Invocation>) {
-    ui.menu_button(i18n::translate(&menu.title, &[]), |ui| {
+    widgets::menu_button(i18n::translate(&menu.title, &[])).show(ui, |ui| {
         menu_items(ui, cx, &menu.items, clicked);
     });
 }
@@ -187,37 +179,29 @@ pub(crate) fn menu_items(
     items: &[Item],
     clicked: &mut Option<Invocation>,
 ) {
-    let theme = ui.ctx().theme();
     for item in items {
         match item {
-            Item::Separator => {
-                ui.separator();
-            }
+            Item::Separator => widgets::menu_separator(ui),
             Item::Submenu(menu) => submenu(ui, cx, menu, clicked),
             Item::Action(action) => {
                 let item = resolve_for(cx.shell, action, cx.document);
                 let enabled = item.run.is_ok();
-                let image = icons::image(&item.icon, icons::MENU, theme, enabled);
-                // Button::new keeps the icon at its size; Button::image_and_text would
-                // shrink it to the text height.
-                let mut button = match image {
-                    Some(image) => Button::new((image, item.title.clone())),
-                    None => Button::new(item.title.clone()),
-                }
-                .selected(cx.is_checked(&item));
+                let mut row = widgets::menu_item(item.title.clone())
+                    .icon(&item.icon)
+                    .checked(cx.is_checked(&item));
                 if let Some(shortcut) = cx.shortcut(ui, action) {
-                    button = button.shortcut_text(shortcut);
+                    row = row.shortcut(shortcut);
                 }
-                let response = ui.add_enabled(enabled, button);
+                let response = ui.add_enabled(enabled, row);
                 match &item.run {
                     Ok(run) => {
-                        if response.on_hover_text(&item.description).clicked() {
+                        if response.tooltip(&item.description).clicked() {
                             *clicked = Some(run.clone());
                             ui.close();
                         }
                     }
                     Err(reason) => {
-                        response.on_disabled_hover_text(reason);
+                        response.disabled_tooltip(reason);
                     }
                 }
             }
@@ -267,12 +251,12 @@ fn icon_row_sized(
                         let response = chrome::icon_button(ui, image, icon, side, checked, true)
                             .on_hover_text(&title);
                         a11y::name(&response, Role::Button, true, &title, None, None);
-                        egui::Popup::menu(&response).show(|ui| {
+                        widgets::menu(&response).show(|ui| {
                             menu_items(ui, cx, &menu.items, &mut inner);
                         });
                     }
                     None => {
-                        ui.menu_button(title, |ui| {
+                        widgets::menu_button(title).show(ui, |ui| {
                             menu_items(ui, cx, &menu.items, &mut inner);
                         });
                     }
@@ -575,7 +559,7 @@ fn more_tools(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> {
     let response = ui.add(button).on_hover_text(&title);
     a11y::name(&response, Role::Button, true, &title, None, None);
     let mut clicked = None;
-    egui::Popup::menu(&response).show(|ui| {
+    widgets::menu(&response).show(|ui| {
         menu_items(ui, cx, items, &mut clicked);
     });
     clicked

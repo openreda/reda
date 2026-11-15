@@ -566,6 +566,127 @@ fn snapshot_of_a_board_and_the_layers_panel() {
 }
 
 /// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
+/// Opens the Project at `file` on its PCB, with two Free Pads, a Track and a Via on it.
+fn open_a_small_board(h: &mut Harness<'static, App>, file: &Path) {
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let (pcb, top) = (pcb.uuid, pcb.copper_layers().next().unwrap().uuid);
+    for x in ["0mm", "6mm"] {
+        shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind": "smd", "at": {"x": x, "y": 0}, "width": "2mm", "height": "1.2mm"}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": top, "points": [{"x": "6mm", "y": 0}, {"x": "6mm", "y": "5mm"},
+                                            {"x": "12mm", "y": "5mm"}], "width": "0.3mm"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.via.add", json!({"at": {"x": "12mm", "y": "5mm"}}))
+        .unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+}
+
+/// Collapses the Dock on `dock` and opens its Panel `panel` as a flyout.
+fn open_flyout(h: &mut Harness<'static, App>, dock: &str, panel: &str) {
+    let shell = h.state_mut().shell_mut();
+    shell.run("panel.show", json!({"panel": panel})).unwrap();
+    shell
+        .run(
+            "layout.dock.collapse",
+            json!({"dock": dock, "collapsed": true}),
+        )
+        .unwrap();
+    shell
+        .run("layout.tab.activate", json!({"tab": panel}))
+        .unwrap();
+}
+
+/// A board with the right Dock collapsed to its strip and the Layers panel open as a
+/// flyout beside it.
+#[test]
+fn snapshot_of_an_open_dock_flyout() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("flyout");
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "light");
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    open_a_small_board(&mut h, &file);
+    open_flyout(&mut h, "right", "layers");
+    h.run();
+    h.snapshot("dock_flyout_light");
+}
+
+/// The open flyout in the window, for a reviewer: each Dock's, in light and dark and both
+/// Densities, at twice the size. Written only when `REDA_GALLERY_OUT` is set; nothing
+/// compares them.
+#[test]
+fn dock_flyout_approval_sheets() {
+    use reda_ui::theme::{self, Density, Settings};
+    let Some(out) = std::env::var_os("REDA_GALLERY_OUT") else {
+        return;
+    };
+    if snapshot_skip_reason().is_some() {
+        return;
+    }
+    let out = PathBuf::from(out);
+    std::fs::create_dir_all(&out).unwrap();
+    let folder = snapshot_folder("flyout-sheets");
+    let file = make_project(&folder, "Board");
+    for theme in ["light", "dark"] {
+        for (density, density_name) in [
+            (Density::Comfortable, "comfortable"),
+            (Density::Compact, "compact"),
+        ] {
+            for (dock, panel) in [
+                ("right", "layers"),
+                ("left", "projects"),
+                ("bottom", "messages"),
+            ] {
+                let home = TempDir::new("app-home");
+                set_theme(home.path(), theme);
+                let render_state = egui_kittest::wgpu::create_render_state(
+                    egui_kittest::wgpu::default_wgpu_setup(),
+                    egui_wgpu::RendererOptions::PREDICTABLE,
+                );
+                reda_ui::install_canvas(&render_state, 1);
+                let app = App::new(Shell::new(engine_in(home.path())));
+                let mut h = Harness::builder()
+                    .with_size([1000.0, 620.0])
+                    .with_pixels_per_point(2.0)
+                    .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
+                        render_state,
+                    ))
+                    .build_ui_state(|ui, app: &mut App| app.ui(ui), app);
+                h.run();
+                // The Appearance page is not built yet: Density is set as it will set it.
+                let settings = Settings {
+                    density,
+                    ..Settings::default()
+                };
+                theme::set(&h.ctx, &settings);
+                open_a_small_board(&mut h, &file);
+                open_flyout(&mut h, dock, panel);
+                h.run();
+                let image = h.render().expect("the window renders");
+                let name = format!("flyout_{dock}_{theme}_{density_name}.png");
+                image.save(out.join(name)).unwrap();
+            }
+        }
+    }
+}
+
 fn icon_sheet_snapshot(theme: egui::Theme) {
     if let Some(why) = snapshot_skip_reason() {
         if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {

@@ -161,10 +161,8 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
         return out;
     }
     let prefs: BreakWirePreferences = shell.preferences().schematic.break_wire.clone();
-    egui::Window::new(tr!("break-wire-title"))
-        .id(egui::Id::NULL.with(("break-wire-options", document)))
-        .collapsible(false)
-        .resizable(false)
+    let id = egui::Id::NULL.with(("break-wire-options", document));
+    widgets::window(id, tr!("break-wire-title"))
         .fixed_pos(rect.left_top() + egui::vec2(12.0, 48.0))
         .show(ui.ctx(), |ui| {
             ui.strong(tr!("pref-schematic-break-wire-cutting-length"));

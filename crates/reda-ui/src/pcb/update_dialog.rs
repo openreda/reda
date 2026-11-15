@@ -15,6 +15,7 @@ use serde_json::json;
 use crate::schematic_dialogs::update::{describe_change, edited_copy, local_edits_compare};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// One Footprint instance of the preview.
 #[derive(Clone, Debug, PartialEq)]
@@ -202,14 +203,13 @@ impl BoardUpdateDialog {
             if let Some(error) = &self.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
+            crate::modal::buttons(ui, |ui| {
                 let any = self.rows.iter().any(|r| r.included);
                 result.0 = ui
-                    .add_enabled(any, egui::Button::new(tr!("library-update-apply")))
+                    .add_enabled(any, widgets::button(tr!("library-update-apply")).primary())
                     .on_disabled_hover_text(tr!("library-update-none-ticked"))
                     .clicked();
-                result.1 = ui.button(tr!("dialog-cancel")).clicked();
+                result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
         });
         if let Some(instance) = clicked {

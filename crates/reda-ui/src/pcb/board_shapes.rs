@@ -53,8 +53,11 @@ pub fn retry_dialog(ctx: &egui::Context, shell: &mut Shell) {
             .width(360.0)
             .show(ctx, |ui| {
                 ui.label(tr!("loop-gap-body", reason = message.as_str()));
-                ui.horizontal(|ui| {
-                    if ui.add(widgets::button(tr!("loop-gap-retry"))).clicked() {
+                crate::modal::buttons(ui, |ui| {
+                    if ui
+                        .add(widgets::button(tr!("loop-gap-retry")).primary())
+                        .clicked()
+                    {
                         answer = Some(true);
                     }
                     if ui.add(widgets::button(tr!("loop-gap-cancel"))).clicked() {

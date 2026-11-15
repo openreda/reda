@@ -3,10 +3,11 @@
 
 use std::path::PathBuf;
 
-use egui::{Button, Id, ProgressBar, RichText, ScrollArea, Ui};
+use egui::{Id, ProgressBar, RichText, ScrollArea, Ui};
 
 use super::{JobRunner, JobStatus, RunOutcome, RunReport};
 use crate::tr;
+use crate::widgets;
 
 /// What the user did in the report.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,19 +30,16 @@ pub fn show_progress(ctx: &egui::Context, run: &JobRunner) -> bool {
         ui.add_space(6.0);
         ui.add(ProgressBar::new(step.fraction).show_percentage());
         ui.weak(&step.message);
-        ui.add_space(6.0);
-        // A row as tall as its buttons: a right-to-left layout of its own would centre
-        // them in the whole height the dialog offers.
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let cancelling = run.cancelling();
-                let label = if cancelling {
-                    tr!("output-job-cancelling")
-                } else {
-                    tr!("dialog-cancel")
-                };
-                cancel = ui.add_enabled(!cancelling, Button::new(label)).clicked();
-            })
+        crate::modal::buttons(ui, |ui| {
+            let cancelling = run.cancelling();
+            let label = if cancelling {
+                tr!("output-job-cancelling")
+            } else {
+                tr!("dialog-cancel")
+            };
+            cancel = ui
+                .add_enabled(!cancelling, widgets::button(label))
+                .clicked();
         });
     });
     cancel
@@ -134,20 +132,17 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
             list(ui, tr!("output-job-blockers"), &report.blockers, true);
             list(ui, tr!("output-job-warnings"), &report.warnings, false);
         });
-        ui.add_space(8.0);
-        // A row as tall as its buttons: a right-to-left layout of its own would centre
-        // them in the whole height the dialog offers.
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button(tr!("output-job-close")).clicked() {
-                    action = Some(ReportAction::Close);
-                }
-                if let RunOutcome::Written { destination, .. } = &report.outcome
-                    && ui.button(tr!("output-job-show-zip")).clicked()
-                {
-                    action = Some(ReportAction::ShowFolder(destination.clone()));
-                }
-            })
+        crate::modal::buttons(ui, |ui| {
+            if ui.add(widgets::button(tr!("output-job-close"))).clicked() {
+                action = Some(ReportAction::Close);
+            }
+            if let RunOutcome::Written { destination, .. } = &report.outcome
+                && ui
+                    .add(widgets::button(tr!("output-job-show-zip")))
+                    .clicked()
+            {
+                action = Some(ReportAction::ShowFolder(destination.clone()));
+            }
         });
     });
     if action.is_none() && modal.should_close() {

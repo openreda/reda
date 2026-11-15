@@ -1,16 +1,18 @@
 //! Modal dialogs with a movable, resizable frame.
 //!
-//! egui's stock modal is fixed in the middle of the window. A [`Dialog`] opens centred at
-//! its default size like one, and blocks the rest of the window the same way (a backdrop,
-//! and nothing under it takes input), but it can be moved by its title and resized by its
-//! edges, down to a minimum its content still fits. Its height follows its content: as
-//! the dialog narrows, wrapped text reflows and the dialog grows taller; lists scroll in
-//! their own scroll areas.
+//! A [`Dialog`] is the dialog frame of [`crate::widgets::window`] over the scrim: it
+//! opens centred at its default size and blocks the rest of the window (nothing under the
+//! scrim takes input), and it can be moved by its title and resized by its edges, down
+//! to a minimum its content still fits. Its height follows its content: as the dialog
+//! narrows, wrapped text reflows and the dialog grows taller; lists scroll in their own
+//! scroll areas.
+//!
+//! End a dialog's content with [`buttons`]: every dialog's buttons are in that one row.
 
-use egui::{Align2, Color32, Context, Id, LayerId, Order, Rect, Ui, Vec2};
+use egui::{Context, Id, LayerId, Order, Ui, Vec2};
 
-/// The backdrop's colour, as egui's stock modal has it.
-const BACKDROP: Color32 = Color32::from_black_alpha(100);
+use crate::widgets;
+
 /// The smallest a dialog can be resized to, unless it asks for more.
 pub const MIN_SIZE: Vec2 = Vec2::new(240.0, 120.0);
 /// How far outside its frame a press still counts as on the dialog (its resize edges).
@@ -56,33 +58,21 @@ impl Dialog {
     /// Shows the dialog for one frame.
     pub fn show<T>(self, ctx: &Context, content: impl FnOnce(&mut Ui) -> T) -> DialogResponse<T> {
         let layer = self.layer();
-        let screen = ctx.content_rect();
         let is_top = ctx.memory(|m| m.top_modal_layer()) == Some(layer);
         let any_popup_open = egui::Popup::is_any_open(ctx);
         ctx.memory_mut(|m| m.set_modal_layer(layer));
-        // The backdrop goes first on the dialog's own layer, so it is under the frame.
-        ctx.layer_painter(layer).rect_filled(screen, 0.0, BACKDROP);
-        let window = egui::Window::new(self.title)
-            .id(self.id)
+        // The scrim goes first on the dialog's own layer, so it is under the frame.
+        widgets::scrim(ctx, layer);
+        let shown = widgets::window(self.id, self.title)
             .order(Order::Foreground)
-            .collapsible(false)
+            .closable()
             .resizable(true)
-            .constrain(true)
-            .pivot(Align2::CENTER_CENTER)
-            .default_pos(screen.center())
-            .default_width(self.width)
-            .min_size(self.min_size);
-        let shown = window.show(ctx, |ui| {
-            let inner = content(ui);
-            // Room for the resize grip, so it never sits on the last row's buttons.
-            ui.add_space(ui.visuals().resize_corner_size);
-            inner
-        });
-        let (rect, inner) = match shown {
-            Some(shown) => (shown.response.rect, shown.inner),
-            None => (Rect::NOTHING, None),
-        };
-        let inner = inner.expect("dialogs do not collapse");
+            .centred()
+            .width(self.width)
+            .min_size(self.min_size)
+            .show(ctx, content)
+            .expect("a dialog without an open flag is always shown");
+        let (rect, inner, closed) = (shown.response.rect, shown.inner, shown.close_clicked);
         let outside = ctx.input(|i| {
             i.pointer.any_click()
                 && i.pointer
@@ -92,6 +82,7 @@ impl Dialog {
         DialogResponse {
             ctx: ctx.clone(),
             inner,
+            closed,
             clicked_outside: is_top && !any_popup_open && outside,
             escape: is_top && !any_popup_open,
         }
@@ -103,18 +94,40 @@ pub struct DialogResponse<T> {
     ctx: Context,
     /// What the content returned.
     pub inner: T,
+    closed: bool,
     clicked_outside: bool,
     escape: bool,
 }
 
 impl<T> DialogResponse<T> {
-    /// Whether the dialog should close: a click outside it, or Escape while it is the
-    /// topmost dialog and no popup is open.
+    /// Whether the dialog should close: its close ×, a click outside it, or Escape while
+    /// it is the topmost dialog and no popup is open.
     pub fn should_close(&self) -> bool {
-        self.clicked_outside
+        self.closed
+            || self.clicked_outside
             || (self.escape
                 && self
                     .ctx
                     .input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)))
     }
+}
+
+/// A dialog's button row: right-aligned, with one spacing, the primary button last.
+///
+/// The row runs from the trailing edge, so add the buttons from last to first: the
+/// primary button (or the destructive confirm), then Cancel, then any other.
+pub fn buttons<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+    widgets::button_row(ui, add)
+}
+
+/// Gives `response` the keyboard when its dialog opens: the Cancel of a destructive
+/// confirm, so that Enter does not destroy anything.
+pub fn focus_on_open(response: &egui::Response) {
+    let id = response.id.with("focus-on-open");
+    let pass = response.ctx.cumulative_pass_nr();
+    let seen: Option<u64> = response.ctx.data(|d| d.get_temp(id));
+    if seen.is_none_or(|seen| seen + 1 < pass) {
+        response.request_focus();
+    }
+    response.ctx.data_mut(|d| d.insert_temp(id, pass));
 }

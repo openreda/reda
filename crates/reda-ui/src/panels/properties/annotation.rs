@@ -19,7 +19,7 @@ use crate::properties::footprint_edit::{FootprintGraphics, GraphicEdit, PadEdit,
 use crate::properties::{MIXED, Shared};
 use crate::shell::Shell;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// Draws the regions the selection has, pushing what their edits run onto `out`.
 pub(super) fn show(
@@ -520,7 +520,7 @@ fn graphics(ui: &mut Ui, rows: &FootprintGraphics, units: Units) -> Vec<GraphicE
         let name = tr!("properties-graphics-lock");
         let lock = ui
             .add(widgets::glyph_button(widgets::Glyph::Lock).on(!unlocked))
-            .on_hover_text(tr!("properties-graphics-lock-hint"));
+            .tooltip(tr!("properties-graphics-lock-hint"));
         lock.widget_info(|| WidgetInfo::selected(Role::Button, true, !unlocked, &name));
         if lock.clicked() {
             edits.push(GraphicEdit::Unlock(!unlocked));

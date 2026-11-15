@@ -21,6 +21,7 @@ use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::panels::pins::pin_type_name;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 pub const COMMAND: &str = "library.symbol.generate";
 
@@ -159,15 +160,17 @@ impl SymbolWizardDialog {
         if let Some(error) = &self.error {
             ui.colored_label(ui.visuals().error_fg_color, error);
         }
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            let run = ui.add_enabled(ready.is_some(), egui::Button::new(tr!("wizard-run")));
+        crate::modal::buttons(ui, |ui| {
+            let run = ui.add_enabled(
+                ready.is_some(),
+                widgets::button(tr!("wizard-run")).primary(),
+            );
             if run.clicked()
                 && let Some(params) = ready
             {
                 outcome = Outcome::Run(params.clone());
             }
-            if ui.button(tr!("dialog-cancel")).clicked() {
+            if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                 outcome = Outcome::Cancel;
             }
         });

@@ -235,24 +235,23 @@ pub fn dialog(ctx: &egui::Context, shell: &Shell) -> Option<(String, Value)> {
             "delete-dimensions-body",
             count = pending.dimensions.len()
         ));
-        ui.horizontal(|ui| {
+        crate::modal::buttons(ui, |ui| {
             if ui
-                .add(widgets::button(tr!("delete-dimensions-too")))
+                .add(widgets::button(tr!("delete-dimensions-too")).danger())
                 .clicked()
             {
                 out = answer(Answer::DeleteDimensions);
+            }
+            let cancel = ui.add(widgets::button(tr!("delete-dimensions-cancel")));
+            crate::modal::focus_on_open(&cancel);
+            if cancel.clicked() {
+                out = answer(Answer::Cancel);
             }
             if ui
                 .add(widgets::button(tr!("delete-dimensions-keep")))
                 .clicked()
             {
                 out = answer(Answer::KeepDimensions);
-            }
-            if ui
-                .add(widgets::button(tr!("delete-dimensions-cancel")))
-                .clicked()
-            {
-                out = answer(Answer::Cancel);
             }
         });
     });

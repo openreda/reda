@@ -38,7 +38,7 @@ use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::theme::TokensExt as _;
 use crate::user_preferences::Watcher;
-use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
+use crate::{a11y, crash, keymap, tab_switcher, theme, tr, widgets};
 
 /// How many targets the Palette remembers as recent.
 const RECENT: usize = 8;
@@ -782,10 +782,11 @@ impl App {
                 file = file.as_str(),
                 name = name.as_str()
             ));
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                relink = ui.button(tr!("relink-anyway")).clicked();
-                close = ui.button(tr!("dialog-cancel")).clicked();
+            crate::modal::buttons(ui, |ui| {
+                relink = ui
+                    .add(widgets::button(tr!("relink-anyway")).primary())
+                    .clicked();
+                close = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
         });
         if relink {
@@ -846,8 +847,9 @@ impl App {
                 .width(420.0)
                 .show(ctx, |ui| {
                     ui.label(notice);
-                    ui.add_space(8.0);
-                    close = ui.button(tr!("notice-ok")).clicked();
+                    crate::modal::buttons(ui, |ui| {
+                        close = ui.add(widgets::button(tr!("notice-ok"))).clicked();
+                    });
                 });
         if close || modal.should_close() {
             self.notice = None;

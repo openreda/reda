@@ -29,17 +29,19 @@ pub fn show(ctx: &Context, shell: &Shell) -> Vec<Action> {
 
 fn details_window(ctx: &Context, shell: &Shell, actions: &mut Vec<Action>) {
     let mut open = true;
-    egui::Window::new(tr!("details-title"))
-        .id(egui::Id::NULL.with("violation-details"))
-        .open(&mut open)
-        .resizable(true)
-        .default_width(380.0)
-        .show(ctx, |ui| match shell.details_line() {
-            Some(key) => contents(ui, shell, key, actions),
-            None => {
-                ui.weak(tr!("details-gone"));
-            }
-        });
+    widgets::window(
+        egui::Id::NULL.with("violation-details"),
+        tr!("details-title"),
+    )
+    .open(&mut open)
+    .resizable(true)
+    .width(380.0)
+    .show(ctx, |ui| match shell.details_line() {
+        Some(key) => contents(ui, shell, key, actions),
+        None => {
+            ui.weak(tr!("details-gone"));
+        }
+    });
     if !open {
         actions.push(Action::CloseDetails);
     }
@@ -210,11 +212,8 @@ fn waive_window(ctx: &Context, shell: &Shell, actions: &mut Vec<Action>) {
         return;
     };
     let mut open = true;
-    egui::Window::new(tr!("waive-title"))
-        .id(egui::Id::NULL.with("waive-window"))
+    widgets::window(egui::Id::NULL.with("waive-window"), tr!("waive-title"))
         .open(&mut open)
-        .collapsible(false)
-        .resizable(false)
         .show(ctx, |ui| {
             ui.label(tr!("waive-intro", count = prompt.violations.len()));
             let mut reason = prompt.reason.clone();
@@ -227,8 +226,9 @@ fn waive_window(ctx: &Context, shell: &Shell, actions: &mut Vec<Action>) {
                     actions.push(Action::WaiveReason(reason.clone()));
                 }
             });
-            ui.horizontal(|ui| {
-                if ui.add(widgets::button(tr!("messages-waive"))).clicked() {
+            widgets::button_row(ui, |ui| {
+                let waive = widgets::button(tr!("messages-waive")).primary();
+                if ui.add(waive).clicked() {
                     actions.push(Action::FinishWaive(true));
                 }
                 if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {

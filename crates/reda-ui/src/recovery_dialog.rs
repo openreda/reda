@@ -8,6 +8,7 @@ use egui::{Id, RichText};
 
 use crate::recovery::{Choice, Prompt};
 use crate::tr;
+use crate::widgets;
 
 /// What the recovery prompt asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -70,16 +71,18 @@ pub(crate) fn recovery(ctx: &egui::Context, prompt: &Prompt) -> Option<RecoveryA
                     });
                 });
             }
-            ui.separator();
-            ui.horizontal(|ui| {
+            crate::modal::buttons(ui, |ui| {
                 let any = prompt.rows.iter().any(|r| r.choice == Choice::Restore);
                 if ui
-                    .add_enabled(any, egui::Button::new(tr!("recovery-restore-all")))
+                    .add_enabled(any, widgets::button(tr!("recovery-restore-all")).primary())
                     .clicked()
                 {
                     action = Some(RecoveryAction::RestoreAll);
                 }
-                if ui.button(tr!("recovery-discard-all")).clicked() {
+                if ui
+                    .add(widgets::button(tr!("recovery-discard-all")))
+                    .clicked()
+                {
                     action = Some(RecoveryAction::DiscardAll);
                 }
             });
@@ -103,19 +106,19 @@ pub(crate) fn crash(ctx: &egui::Context, report: &std::path::Path) -> Option<Cra
         .show(ctx, |ui| {
             ui.label(tr!("crash-intro"));
             ui.monospace(report.display().to_string());
-            ui.horizontal(|ui| {
-                if ui.button(tr!("crash-open-folder")).clicked() {
-                    action = Some(CrashAction::OpenFolder);
-                }
+            crate::modal::buttons(ui, |ui| {
                 if ui
-                    .button(tr!("crash-report-github"))
+                    .add(widgets::button(tr!("crash-report-github")).primary())
                     .on_hover_text(tr!("crash-report-github-hint"))
                     .clicked()
                 {
                     action = Some(CrashAction::ReportOnGitHub);
                 }
-                if ui.button(tr!("crash-dismiss")).clicked() {
+                if ui.add(widgets::button(tr!("crash-dismiss"))).clicked() {
                     action = Some(CrashAction::Dismiss);
+                }
+                if ui.add(widgets::button(tr!("crash-open-folder"))).clicked() {
+                    action = Some(CrashAction::OpenFolder);
                 }
             });
         });

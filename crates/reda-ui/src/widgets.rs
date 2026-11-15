@@ -25,6 +25,7 @@
 
 mod button;
 mod check;
+mod dialog;
 mod dropdown;
 mod field;
 mod form;
@@ -38,7 +39,9 @@ mod row;
 mod section;
 mod segmented;
 mod stepper;
+mod surface;
 mod table;
+mod tooltip;
 
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
@@ -46,6 +49,7 @@ pub use button::{
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window};
 pub use dropdown::{
     Choice, ChoiceRow, Dropdown, FilterDropdown, Picked, choice, choice_value, dropdown,
     filter_dropdown,
@@ -54,11 +58,18 @@ pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_f
 pub use form::{Form, FormName, form, form_name, form_row};
 pub use glyph::{Glyph, GlyphMark, glyph};
 pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_rgb};
-pub use menu::menu_item;
+pub use menu::{
+    Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_button, menu_frame,
+    menu_is_open, menu_item, menu_separator,
+};
 pub use paint::State;
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
 pub use row::{Row, RowResponse, Selection, TREE_INDENT, list_row, rows, tree_row};
 pub use section::{Section, SectionHeader, SectionResponse, section, section_header};
 pub use segmented::{Segmented, segmented};
 pub use stepper::{STEPPER_WIDTH, StepperField, stepper_field};
+pub use surface::{CARD_GAP, card_frame, floating_frame, flyout_frame, flyout_title};
 pub use table::{COLUMN_GAP, Column, RowLook, Sorted, Table, TableBody, TableRow, table};
+pub use tooltip::{
+    KeyChip, TOOLTIP_WIDTH, Tooltip, TooltipText, key_chip, tooltip_contents, tooltip_frame,
+};

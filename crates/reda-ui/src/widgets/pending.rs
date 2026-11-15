@@ -6,8 +6,6 @@
 //! and deletes them from this one, and the spec's table generator
 //! (`theme/tables.rs`) follows the move.
 
-/// Between cards, and from cards to the window edge.
-pub const CARD_GAP: f32 = 6.0;
 /// The width of one window control in the Title bar.
 pub const WINDOW_CONTROL: f32 = 46.0;
 /// The drag gap kept beside the window controls.

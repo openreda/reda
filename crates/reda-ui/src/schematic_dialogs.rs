@@ -26,7 +26,7 @@ use crate::bars::{Request, request};
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 pub use cross::ConvertCrossDialog;
 pub use library::LibraryDialog;
@@ -256,14 +256,12 @@ pub fn pdf_file_name(shell: &Shell) -> String {
 /// The two buttons that end a dialog: the action (greyed with `why` as its tooltip when
 /// it cannot run) and Cancel. Returns (action clicked, cancel clicked).
 fn buttons(ui: &mut egui::Ui, action: &str, enabled: bool, why: &str) -> (bool, bool) {
-    ui.separator();
-    ui.horizontal(|ui| {
+    crate::modal::buttons(ui, |ui| {
         let run = ui
-            .add_enabled(enabled, widgets::button(action))
-            .on_disabled_hover_text(why)
+            .add_enabled(enabled, widgets::button(action).primary())
+            .disabled_tooltip(why)
             .clicked();
         let cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
         (run, cancel)
     })
-    .inner
 }
