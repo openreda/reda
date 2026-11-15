@@ -356,7 +356,8 @@ fn type_values(out: &mut String) {
 fn fixed_values(out: &mut String, t: &Tokens) {
     out.push_str("### Fixed values\n\n");
     head(out, &["Token", "Value"]);
-    let m = &t.metric;
+    use super::style::{SCROLLBAR, SCROLLBAR_HOVER};
+    use crate::widgets::{self as w, glyph, pending as p};
     let pair = |a: f32, b: f32| format!("{}, {}", num(a), num(b));
     let rows: [(&str, String); 23] = [
         ("`radius.mark`", num(t.radius.mark)),
@@ -373,53 +374,54 @@ fn fixed_values(out: &mut String, t: &Tokens) {
             "Icon size: quick strip, Tool bars, Active Bar, Dock strips",
             num(t.icon.bar),
         ),
-        ("Glyph box and stroke", pair(m.glyph, m.glyph_stroke)),
+        ("Glyph box and stroke", pair(glyph::BOX, glyph::STROKE)),
         (
             "`opacity.disabled`",
             format!("{:.0} %", t.opacity.disabled * 100.0),
         ),
         (
             "Gap between cards, and from cards to the window edge",
-            num(m.card_gap),
+            num(p::CARD_GAP),
         ),
-        ("Check box and radio mark", num(m.mark)),
+        ("Check box and radio mark", num(w::MARK)),
         (
             "Switch track and knob",
             format!(
                 "{} × {}, {}",
-                num(m.switch_track.x),
-                num(m.switch_track.y),
-                num(m.switch_knob)
+                num(w::SWITCH_TRACK.x),
+                num(w::SWITCH_TRACK.y),
+                num(w::SWITCH_KNOB)
             ),
         ),
-        ("Swatch", num(m.swatch)),
-        ("Tree indent per level", num(m.tree_indent)),
-        ("Window control width", num(m.window_control)),
-        ("Drag gap kept beside the window controls", num(m.drag_gap)),
+        ("Swatch", num(p::SWATCH)),
+        ("Tree indent per level", num(p::TREE_INDENT)),
+        ("Window control width", num(p::WINDOW_CONTROL)),
+        ("Drag gap kept beside the window controls", num(p::DRAG_GAP)),
         (
             "Command field width",
             format!(
                 "{} to {}",
-                num(m.command_field_min),
-                num(m.command_field_max)
+                num(p::COMMAND_FIELD_MIN),
+                num(p::COMMAND_FIELD_MAX)
             ),
         ),
         (
             "Scrollbar thumb, at rest and hovered",
-            pair(m.scrollbar, m.scrollbar_hover),
+            pair(SCROLLBAR, SCROLLBAR_HOVER),
         ),
         (
             "Progress rail and slider rail",
-            pair(m.progress_rail, m.slider_rail),
+            pair(w::PROGRESS_RAIL, w::SLIDER_RAIL),
         ),
     ];
     for (name, value) in &rows {
         row(out, &[name, value]);
     }
     out.push_str(
-        "\nThe rows without a token name are dimensions of single components. Each is a \
-         token all the same (stroke widths in `stroke`, icon sizes in `icon`, the rest in \
-         `metric`), since a recipe holds no numbers of its own.\n\n",
+        "\nThe rows without a token name are dimensions of single components that no setting \
+         changes. Stroke widths and icon sizes are tokens (`stroke`, `icon`). The rest are \
+         named constants beside their recipe in `widgets`, such as `widgets::SWITCH_TRACK`, \
+         not `Tokens` entries; the scrollbar's are beside the generated `Style`.\n\n",
     );
 }
 

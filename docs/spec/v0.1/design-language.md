@@ -34,7 +34,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
 - **Three layers:**
   - a **palette** of raw hexes, private to `theme`;
   - **tokens**, named by job and never by value (there is no `grey_300` and no `space_8`);
-  - **recipes** in `widgets`: each component's choice of tokens per state. A recipe holds no numbers of its own.
+  - **recipes** in `widgets`: each component's choice of tokens per state. A recipe holds no numbers of its own, apart from named constants for the dimensions that no setting changes ([Fixed values](#fixed-values)).
 - **egui's `Style` is generated** from `Tokens` by `theme::style(tokens)`, so stock and third-party widgets (the file dialog) get sensible defaults. Outside `theme` and `widgets`, code does not read `ui.visuals()` or `ui.spacing()`.
 - **Components are REDA widgets,** thin builders on stable egui such as `widgets::button(..).primary()` and `widgets::text_field(..)`. egui's `experimental` widget themes stay off.
 - **Each family follows one setting,** and no token depends on two:
@@ -55,7 +55,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
   | `motion` | fixed | fast, base |
 
 - **Heights are not tokens.** They are computed from line height plus padding ([Space and Density](#space-and-density)).
-- **Rust field names** follow the names here, with these differences: the `type` family is `ty` (`type` is a keyword), stroke widths are `stroke.hairline`, `stroke.accent_line` and `stroke.focus_ring` (the colours are `color.stroke.*`), icon sizes are `icon.small` and `icon.bar`, and the fixed dimensions of single components (the rows without a token name under [Fixed values](#fixed-values)) are the `metric` family. The `size` family is added by the first slice that needs a width.
+- **Rust field names** follow the names here, with these differences: the `type` family is `ty` (`type` is a keyword), stroke widths are `stroke.hairline`, `stroke.accent_line` and `stroke.focus_ring` (the colours are `color.stroke.*`), icon sizes are `icon.small` and `icon.bar`, and the fixed dimensions of single components (the rows without a token name under [Fixed values](#fixed-values)) are not tokens: each is a named constant beside its recipe in `widgets`. The `size` family is added by the first slice that needs a width.
 
 ## Colour
 
@@ -559,7 +559,7 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | Scrollbar thumb, at rest and hovered | 4, 8 |
 | Progress rail and slider rail | 6, 4 |
 
-The rows without a token name are dimensions of single components. Each is a token all the same (stroke widths in `stroke`, icon sizes in `icon`, the rest in `metric`), since a recipe holds no numbers of its own.
+The rows without a token name are dimensions of single components that no setting changes. Stroke widths and icon sizes are tokens (`stroke`, `icon`). The rest are named constants beside their recipe in `widgets`, such as `widgets::SWITCH_TRACK`, not `Tokens` entries; the scrollbar's are beside the generated `Style`.
 
 ### Elevation values
 

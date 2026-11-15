@@ -1007,7 +1007,7 @@ impl App {
                 let t = ui.tokens();
                 let spacing = ui.spacing_mut();
                 spacing.interact_size.y = t.status_bar_height();
-                spacing.button_padding = egui::vec2(t.metric.status_bar_pad, 0.0);
+                spacing.button_padding = egui::vec2(t.status_bar_height() - t.ty.small.line, 0.0);
                 // Its text is the small style.
                 ui.style_mut().override_text_style = Some(egui::TextStyle::Small);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

@@ -90,7 +90,6 @@ fn density_changes_the_thirteen_paddings_and_through_them_the_heights() {
     // Nothing else moves.
     assert_eq!(a.ty, b.ty);
     assert_eq!(a.radius, b.radius);
-    assert_eq!(a.metric, b.metric);
     assert_eq!(a.color, b.color);
 }
 

@@ -406,39 +406,6 @@ pub struct IconSize {
     pub bar: f32,
 }
 
-/// Fixed dimensions of single components, so that a recipe holds no number of its own.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct Metric {
-    /// The box a Glyph is drawn in, and the width of its strokes.
-    pub glyph: f32,
-    pub glyph_stroke: f32,
-    /// Between cards, and from cards to the window edge.
-    pub card_gap: f32,
-    /// A check box's or a radio's mark.
-    pub mark: f32,
-    pub switch_track: egui::Vec2,
-    pub switch_knob: f32,
-    /// A data colour's swatch.
-    pub swatch: f32,
-    /// A tree's indent per level.
-    pub tree_indent: f32,
-    /// The width of one window control in the Title bar.
-    pub window_control: f32,
-    /// The drag gap kept beside the window controls.
-    pub drag_gap: f32,
-    pub command_field_min: f32,
-    pub command_field_max: f32,
-    /// A scrollbar's thumb, at rest and hovered.
-    pub scrollbar: f32,
-    pub scrollbar_hover: f32,
-    pub progress_rail: f32,
-    pub slider_rail: f32,
-    /// Added to the small line for the status bar's height, and to the body line for a
-    /// floating window's bar: neither follows Density.
-    pub status_bar_pad: f32,
-    pub floating_bar_pad: f32,
-}
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Opacity {
     /// Applied once to a whole disabled widget, icon included.
@@ -511,7 +478,6 @@ pub struct Tokens {
     pub radius: Radius,
     pub stroke: StrokeWidth,
     pub icon: IconSize,
-    pub metric: Metric,
     pub opacity: Opacity,
     pub motion: Motion,
 }
@@ -689,6 +655,11 @@ fn motion() -> Motion {
     }
 }
 
+/// Added to the small line for the status bar's height, and to the body line for a
+/// floating window's bar: neither follows Density.
+const STATUS_BAR_PAD: f32 = 8.0;
+const FLOATING_BAR_PAD: f32 = 12.0;
+
 impl Tokens {
     pub fn new(theme: Theme, settings: &Settings) -> Tokens {
         let p = palette(theme);
@@ -723,26 +694,6 @@ impl Tokens {
                 small: 16.0,
                 bar: 20.0,
             },
-            metric: Metric {
-                glyph: 16.0,
-                glyph_stroke: 1.5,
-                card_gap: 6.0,
-                mark: 16.0,
-                switch_track: egui::vec2(28.0, 16.0),
-                switch_knob: 12.0,
-                swatch: 14.0,
-                tree_indent: 16.0,
-                window_control: 46.0,
-                drag_gap: 48.0,
-                command_field_min: 180.0,
-                command_field_max: 420.0,
-                scrollbar: 4.0,
-                scrollbar_hover: 8.0,
-                progress_rail: 6.0,
-                slider_rail: 4.0,
-                status_bar_pad: 8.0,
-                floating_bar_pad: 12.0,
-            },
             opacity: Opacity { disabled: 0.45 },
             motion: motion(),
         }
@@ -769,11 +720,11 @@ impl Tokens {
 
     /// The status bar, which ignores Density.
     pub fn status_bar_height(&self) -> f32 {
-        self.ty.small.line + self.metric.status_bar_pad
+        self.ty.small.line + STATUS_BAR_PAD
     }
 
     /// A floating window's bar, which ignores Density.
     pub fn floating_bar_height(&self) -> f32 {
-        self.ty.body.line + self.metric.floating_bar_pad
+        self.ty.body.line + FLOATING_BAR_PAD
     }
 }

@@ -6,6 +6,12 @@ use egui::style::{HandleShape, ScrollStyle};
 use egui::{CornerRadius, Margin, Stroke, TextStyle, Theme, Visuals};
 
 use super::{Tokens, over};
+use crate::widgets::{MARK, SLIDER_RAIL, glyph, pending};
+
+/// The scrollbar's thumb, at rest and hovered. The scrollbar is egui's own, so its recipe
+/// is the `ScrollStyle` below.
+pub(super) const SCROLLBAR: f32 = 4.0;
+pub(super) const SCROLLBAR_HOVER: f32 = 8.0;
 
 /// egui takes radii and margins as whole points.
 fn whole(points: f32) -> u8 {
@@ -39,7 +45,7 @@ fn visuals(t: &Tokens) -> Visuals {
     // A selection is the accent's subtle tint under ordinary text.
     v.selection.bg_fill = c.accent.subtle;
     v.selection.stroke = Stroke::new(t.stroke.hairline, c.text.primary);
-    v.text_cursor.stroke = Stroke::new(t.metric.glyph_stroke, c.accent.text);
+    v.text_cursor.stroke = Stroke::new(glyph::STROKE, c.accent.text);
     v.striped = false;
     v.slider_trailing_fill = true;
     v.handle_shape = HandleShape::Circle;
@@ -93,15 +99,15 @@ pub fn style(t: &Tokens) -> egui::Style {
     s.interact_size.y = t.control_height();
     s.menu_margin = Margin::same(whole(t.space.menu) as i8);
     s.window_margin = Margin::same(whole(t.space.dialog) as i8);
-    s.icon_width = t.metric.mark;
-    s.indent = t.metric.tree_indent;
-    s.slider_rail_height = t.metric.slider_rail;
+    s.icon_width = MARK;
+    s.indent = pending::TREE_INDENT;
+    s.slider_rail_height = SLIDER_RAIL;
     // A thin thumb with no track, which widens when hovered. The content keeps clear of
     // the widened thumb, so a control at the trailing edge is never under it.
     s.scroll = ScrollStyle {
-        bar_width: t.metric.scrollbar_hover,
-        floating_width: t.metric.scrollbar,
-        floating_allocated_width: t.metric.scrollbar_hover,
+        bar_width: SCROLLBAR_HOVER,
+        floating_width: SCROLLBAR,
+        floating_allocated_width: SCROLLBAR_HOVER,
         dormant_background_opacity: 0.0,
         active_background_opacity: 0.0,
         interact_background_opacity: 0.0,
