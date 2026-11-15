@@ -13,6 +13,7 @@ use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The Import part dialog's state.
 pub struct ImportDialog {
@@ -152,11 +153,12 @@ impl ParamsDialog for ImportDialog {
                 if let Some(error) = &self.error {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
+                crate::modal::buttons(ui, |ui| {
                     let params = self.params();
-                    let run =
-                        ui.add_enabled(params.is_some(), egui::Button::new(tr!("import-run")));
+                    let run = ui.add_enabled(
+                        params.is_some(),
+                        widgets::button(tr!("import-run")).primary(),
+                    );
                     if let Some(params) = params {
                         if run.clicked() {
                             outcome = Outcome::Run(params);
@@ -164,7 +166,7 @@ impl ParamsDialog for ImportDialog {
                     } else {
                         run.on_disabled_hover_text(tr!("import-needs"));
                     }
-                    if ui.button(tr!("dialog-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;
                     }
                 });

@@ -40,7 +40,7 @@ use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::theme::{self, TokensExt as _};
 use crate::tr;
-use crate::widgets::Glyph;
+use crate::widgets::{self, Glyph};
 use crate::{a11y, keymap};
 use windows::{WindowView, Zones};
 
@@ -629,22 +629,43 @@ impl Cx<'_, '_> {
         draw::active_bar(ui, &cx, bars::for_document(Some(kind)), id, rect)
     }
 
+    /// The open flyout of the collapsed Dock on `side`: the Dock's card, floating beside
+    /// its strip and as long as it, a card gap away.
     fn flyout(&mut self, ui: &mut Ui, side: DockSide, strip: Rect, tab: &TabKey) {
-        let (pos, pivot) = match side {
-            DockSide::Left => (strip.right_top(), Align2::LEFT_TOP),
-            DockSide::Right => (strip.left_top(), Align2::RIGHT_TOP),
-            DockSide::Bottom => (strip.left_top(), Align2::LEFT_BOTTOM),
+        let t = ui.tokens();
+        let gap = widgets::CARD_GAP;
+        let along = Vec2::new(FLYOUT.x, strip.height());
+        let (pos, pivot, outer) = match side {
+            DockSide::Left => (
+                strip.right_top() + Vec2::new(gap, 0.0),
+                Align2::LEFT_TOP,
+                along,
+            ),
+            DockSide::Right => (
+                strip.left_top() - Vec2::new(gap, 0.0),
+                Align2::RIGHT_TOP,
+                along,
+            ),
+            DockSide::Bottom => (
+                strip.left_top() - Vec2::new(0.0, gap),
+                Align2::LEFT_BOTTOM,
+                Vec2::new(strip.width(), FLYOUT.y),
+            ),
         };
+        let frame = widgets::flyout_frame(&t);
+        let inner = outer - frame.total_margin().sum();
         egui::Area::new(Id::NULL.with(("dock-flyout", side.to_string())))
             .order(egui::Order::Foreground)
             .fixed_pos(pos)
             .pivot(pivot)
             .show(ui.ctx(), |ui| {
-                egui::Frame::popup(ui.style()).show(ui, |ui| {
-                    ui.set_min_size(FLYOUT);
-                    ui.set_max_size(FLYOUT);
-                    ui.strong(tab_title(self.shell, tab));
-                    ui.separator();
+                frame.show(ui, |ui| {
+                    ui.set_min_size(inner);
+                    ui.set_max_size(inner);
+                    // A Panel too long for the card is cut at its padding.
+                    ui.set_clip_rect(ui.max_rect().intersect(ui.clip_rect()));
+                    let title = tab_title(self.shell, tab);
+                    widgets::flyout_title(ui, tab_icon_key(self.shell, tab), &title);
                     self.content(ui, tab);
                 });
             });

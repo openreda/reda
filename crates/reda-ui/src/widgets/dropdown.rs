@@ -2,15 +2,15 @@
 //! (docs/spec/v0.1/design-language.md#fields).
 //!
 //! Closed, a dropdown is filled like a button, with a chevron Glyph at its trailing end.
-//! Its list is a popup of rows: the row radius inside the popup radius, `fill.hover`
-//! under the pointer, and a tick in the leading column of the chosen row.
+//! Its list is a menu (`menu.rs`): the same popup and the same rows, with a tick in the
+//! leading column of the chosen row. Up and Down move through the rows.
 //!
 //! The filterable dropdown is for long lists (the installed fonts): its popup starts
 //! with a search field that has the keyboard, and typing narrows the rows.
 
 use egui::{
-    Align2, Color32, Frame, IdSalt, InnerResponse, Key, Popup, PopupCloseBehavior, Response, Role,
-    ScrollArea, Sense, Stroke, Ui, Widget, WidgetInfo, pos2, vec2,
+    Align2, IdSalt, InnerResponse, Key, Popup, Response, Role, ScrollArea, Sense, Ui, WidgetInfo,
+    pos2, vec2,
 };
 
 use super::glyph::{self, Glyph};
@@ -23,8 +23,6 @@ pub const DROPDOWN_WIDTH: f32 = 100.0;
 pub const LIST_HEIGHT: f32 = 200.0;
 /// Between a dropdown's text and its chevron, and a row's tick column and its text.
 const PART_GAP: f32 = 6.0;
-/// The height a rule between rows takes.
-const RULE_HEIGHT: f32 = 9.0;
 /// Between the search field of a filterable dropdown and its rows.
 const FILTER_GAP: f32 = 4.0;
 
@@ -90,17 +88,6 @@ fn closed(
     })
 }
 
-/// The popup a list is shown in: `surface.floating`, the popup radius and shadow, with
-/// the `menu` padding around the rows.
-fn popup_frame(t: &Tokens) -> Frame {
-    Frame::new()
-        .fill(t.color.surface.floating)
-        .stroke(Stroke::new(t.stroke.hairline, t.color.stroke.hairline))
-        .corner_radius(t.radius.popup)
-        .shadow(t.elevation.popup)
-        .inner_margin(t.space.menu)
-}
-
 impl Dropdown {
     /// The least width; the dropdown grows to fit its text.
     pub fn width(mut self, width: f32) -> Self {
@@ -121,13 +108,10 @@ impl Dropdown {
         let open = Popup::is_id_open(ui.ctx(), popup_id);
         let response = closed(ui, &t, self.state, &self.text, self.width, open);
         let height = LIST_HEIGHT;
-        let inner = Popup::menu(&response)
+        let inner = super::menu(&response)
             .id(popup_id)
             .width(response.rect.width())
-            .frame(popup_frame(&t))
             .show(|ui| {
-                ui.set_min_width(ui.available_width());
-                ui.spacing_mut().item_spacing.y = 0.0;
                 ScrollArea::vertical()
                     .max_height(height)
                     .show(ui, rows)
@@ -143,16 +127,13 @@ impl Dropdown {
     }
 }
 
-/// One row of a dropdown's list. `selected` shows the tick.
+/// One row of a dropdown's list: a menu item. `selected` shows the tick.
 pub fn choice(selected: bool, text: impl Into<String>) -> ChoiceRow {
-    ChoiceRow {
-        selected,
-        text: text.into(),
-        note: String::new(),
-        lit: false,
-        state: State::Live,
-    }
+    super::menu_item(text).checked(selected)
 }
+
+/// A dropdown's row is a menu's item.
+pub type ChoiceRow = super::MenuItem<'static>;
 
 /// A row that sets `current` to `value` when clicked, and shows the tick when they are
 /// equal. The response is marked changed when the click changed `current`.
@@ -168,93 +149,6 @@ pub fn choice_value<T: PartialEq>(
         response.mark_changed();
     }
     response
-}
-
-#[must_use = "add it with ui.add"]
-pub struct ChoiceRow {
-    selected: bool,
-    text: String,
-    note: String,
-    lit: bool,
-    state: State,
-}
-
-impl ChoiceRow {
-    /// Muted text at the trailing end, such as "not installed".
-    pub fn note(mut self, note: impl Into<String>) -> Self {
-        self.note = note.into();
-        self
-    }
-
-    pub fn forced(mut self, state: State) -> Self {
-        self.state = state;
-        self
-    }
-}
-
-impl Widget for ChoiceRow {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let t = ui.tokens();
-        paint::stated(ui, self.state, |ui| {
-            let c = &t.color;
-            let note = if self.note.is_empty() {
-                0.0
-            } else {
-                t.space.gap + paint::width(ui, &t.ty.body, &self.note)
-            };
-            let needed = 2.0 * t.space.row_x
-                + glyph::BOX
-                + PART_GAP
-                + paint::width(ui, &t.ty.body, &self.text)
-                + note;
-            let size = vec2(ui.available_width().max(needed), t.row_height());
-            let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-            let enabled = ui.is_enabled();
-            response.widget_info(|| {
-                WidgetInfo::selected(Role::Button, enabled, self.selected, &self.text)
-            });
-            if !ui.is_rect_visible(rect) {
-                return response;
-            }
-            let mut s = paint::seen(&response, self.state);
-            s.hover |= self.lit;
-            let fill = paint::state_fill(&t, Color32::TRANSPARENT, s);
-            ui.painter().rect_filled(rect, t.radius.row, fill);
-            let inner = rect.shrink2(vec2(t.space.row_x, 0.0));
-            if self.selected {
-                let at = pos2(inner.left() + glyph::BOX / 2.0, rect.center().y);
-                Glyph::Tick.paint(ui.painter(), at, c.text.primary);
-            }
-            let label = inner.with_min_x(inner.left() + glyph::BOX + PART_GAP);
-            let ink = c.text.primary;
-            paint::text_in(ui, label, Align2::LEFT_CENTER, &t.ty.body, &self.text, ink);
-            if !self.note.is_empty() {
-                let ink = c.text.muted;
-                paint::text_in(ui, label, Align2::RIGHT_CENTER, &t.ty.body, &self.note, ink);
-            }
-            if s.focus {
-                // Inside the row, so the popup's edge does not clip it.
-                ui.painter().rect_stroke(
-                    rect,
-                    t.radius.row,
-                    Stroke::new(t.stroke.focus_ring, c.stroke.focus_ring),
-                    egui::StrokeKind::Inside,
-                );
-            }
-            response
-        })
-    }
-}
-
-/// A hairline between rows, inset by `row_x`.
-fn rule(ui: &mut Ui, t: &Tokens) {
-    let size = vec2(ui.available_width(), RULE_HEIGHT);
-    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
-    ui.painter().hline(
-        rect.shrink2(vec2(t.space.row_x, 0.0)).x_range(),
-        rect.center().y,
-        Stroke::new(t.stroke.hairline, t.color.stroke.hairline),
-    );
 }
 
 /// One entry of a filterable dropdown.
@@ -371,14 +265,11 @@ impl FilterDropdown {
             Filtering::default()
         };
         let mut picked = None;
-        let shown = Popup::menu(&response)
+        let shown = super::menu(&response)
             .id(popup_id)
             .width(response.rect.width())
-            .frame(popup_frame(&t))
-            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+            .stay_open()
             .show(|ui| {
-                ui.set_min_width(ui.available_width());
-                ui.spacing_mut().item_spacing.y = 0.0;
                 let before = filtering.typed.clone();
                 let field = ui.add(
                     super::text_field(&mut filtering.typed)
@@ -429,8 +320,8 @@ impl FilterDropdown {
                     }
                     for (row, index) in matches.iter().enumerate() {
                         let entry = &choices[*index];
-                        let mut line = choice(selected == Some(*index), entry.text);
-                        line.note = entry.note.to_owned();
+                        let mut line =
+                            choice(selected == Some(*index), entry.text).note(entry.note);
                         line.lit = row == filtering.lit;
                         let line = ui.add(line);
                         if (down || up) && row == filtering.lit {
@@ -440,7 +331,7 @@ impl FilterDropdown {
                             picked = Some(*index);
                         }
                         if entry.rule_below && needle.is_empty() && row < last {
-                            rule(ui, &t);
+                            super::menu_separator(ui);
                         }
                     }
                 });

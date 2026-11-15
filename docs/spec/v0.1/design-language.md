@@ -202,7 +202,7 @@ Values: [Fixed values](#fixed-values) and [Elevation values](#elevation-values).
 - **Stroke widths:** a 1 px hairline, a 2 px accent line, a 2 px focus ring.
 - **Three shadows:**
   - `elevation.card`: the 1 px soft shadow under a card.
-  - `elevation.popup`: menus, popups, tooltips and floating bars.
+  - `elevation.popup`: menus, popups, tooltips, floating bars and Dock flyouts.
   - `elevation.window`: dialogs, the Command Palette and windows.
 - **Whole points only.** egui takes radii, margins and shadow offsets as whole points.
 - **Cards around a canvas** are rounded by painting corner masks over it. The canvas itself cannot be clipped round.
@@ -321,7 +321,10 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 - An expanded Dock is a column of cards with no header.
 - A collapsed Dock is a strip of 20 px Icon buttons on the base, with no frame. The Icon of the open flyout is on.
-- A flyout is the Dock's card floating over the window beside its strip. The gallery did not draw one open; the slice that restyles Docks fixes its shadow.
+- A flyout is the Dock's card floating over the window beside its strip:
+  - the card's surface, rim, radius and `panel` padding, under `elevation.popup` because it floats;
+  - a card gap from the strip, and as long as the strip (a bottom Dock's is as wide as its strip);
+  - a title row first: the Panel's Icon and its name in the `title` style. The strip shows Icons only, so the flyout names what it holds.
 - The gap at a Dock's inner edge is its splitter. It shows the accent while dragged.
 
 ### Panels
@@ -346,7 +349,7 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 - **A dialog:** `surface.floating`, window radius, `elevation.window`, `dialog` padding.
   - A title row in the `title` style with a close ×.
-  - Buttons right-aligned, with the one primary button last.
+  - Buttons right-aligned in one row, `gap` apart and `section` below the content, with the one primary button last. Cancel comes before it, and any third choice before Cancel.
   - A destructive confirm starts with keyboard focus on Cancel.
 - **Modals** sit over `surface.scrim`.
 - **Form rows:** the label at the left and the control at the right, `stack` apart, with sections `section` apart. A caption is one line of small muted text under its setting.
@@ -354,7 +357,7 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 ### Tooltips
 
-- A popup holding either a name and a key chip, or a title and a sentence in small muted text.
+- A popup holding either a name and a key chip, or a title and a sentence in small muted text. It is smaller than a menu: the control radius and a control's padding.
 - **A key chip** is small muted text on `fill.control` with the mark radius.
 
 ### Status bar

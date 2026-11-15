@@ -308,7 +308,10 @@ fn no_menu_is_built_in_code() {
     for file in rust_files(&src) {
         let text = std::fs::read_to_string(&file).unwrap();
         let renderer = file.ends_with("bars/draw.rs");
-        if (!renderer && text.contains("MenuBar")) || text.contains("tr!(\"menu-") {
+        // The REDA menu bar widget wraps egui's; only the renderer uses it.
+        let widget = file.ends_with("widgets/menu.rs");
+        let bar = !widget && (text.contains("MenuBar") || text.contains("widgets::menu_bar"));
+        if (!renderer && bar) || text.contains("tr!(\"menu-") {
             offenders.push(file.display().to_string());
         }
     }
@@ -784,19 +787,15 @@ fn the_top_row_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes
     assert_eq!((save_all.width(), save_all.height()), (30.0, 30.0));
     let save = rect(&h, "Save");
     assert!(save.right() <= save_all.left(), "Save comes first");
-    // Menu titles are 14.5 text with 8 × 4 padding.
+    // Menu titles are body text with the control padding at each side.
+    let t = reda_ui::theme::TokensExt::tokens(&h.ctx);
     let text = h.ctx.fonts_mut(|f| {
-        f.layout_no_wrap(
-            "File".to_owned(),
-            egui::FontId::proportional(14.5),
-            egui::Color32::WHITE,
-        )
-        .size()
+        f.layout_job(t.ty.body.job("File", egui::Color32::WHITE))
+            .size()
     });
     let menu = rect(&h, "File");
-    assert_eq!(menu.width(), text.x + 16.0);
-    // A title is as tall as the row, so it is padded at least 4 above and below.
-    assert!(text.y + 8.0 <= 30.0);
+    assert_eq!(menu.width(), text.x + 2.0 * t.space.control_x);
+    // A title is as tall as a control: its line plus the control padding above and below.
     assert_eq!(menu.height(), 30.0);
     // One row: the quick strip, then the menus, the command field and the gear.
     let field = h

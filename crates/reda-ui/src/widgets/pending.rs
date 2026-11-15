@@ -6,8 +6,6 @@
 //! and deletes them from this one, and the spec's table generator
 //! (`theme/tables.rs`) follows the move.
 
-/// Between cards, and from cards to the window edge.
-pub const CARD_GAP: f32 = 6.0;
 /// The side of a data colour's swatch.
 pub const SWATCH: f32 = 14.0;
 /// A tree's indent per level.

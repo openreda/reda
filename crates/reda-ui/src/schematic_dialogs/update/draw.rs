@@ -15,6 +15,7 @@ use super::{Page, UpdateDialog, edited_footprint};
 use crate::schematic_dialogs::replace::Outcome;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// What a click on page 2 asks for, done once the frame is drawn.
 enum Click {
@@ -91,33 +92,35 @@ impl UpdateDialog {
             if let Some(error) = &self.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            ui.add_space(6.0);
-            ui.horizontal(|ui| match self.page {
+            crate::modal::buttons(ui, |ui| match self.page {
                 Page::Setup => {
                     let ready = self.sheets.iter().any(|s| s.on)
                         && self.parts.iter().any(|p| p.on)
                         && !self.aspects.is_empty();
                     if ui
-                        .add_enabled(ready, egui::Button::new(tr!("library-update-next")))
+                        .add_enabled(ready, widgets::button(tr!("library-update-next")).primary())
                         .on_disabled_hover_text(tr!("library-update-next-why"))
                         .clicked()
                     {
                         clicks.push(Click::Next);
                     }
-                    result.1 = ui.button(tr!("dialog-cancel")).clicked();
+                    result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
                 }
                 Page::Preview => {
-                    if ui.button(tr!("library-update-back")).clicked() {
-                        clicks.push(Click::Back);
-                    }
                     result.0 = ui
                         .add_enabled(
                             self.can_apply(),
-                            egui::Button::new(tr!("library-update-apply")),
+                            widgets::button(tr!("library-update-apply")).primary(),
                         )
                         .on_disabled_hover_text(tr!("library-update-none-ticked"))
                         .clicked();
-                    result.1 = ui.button(tr!("dialog-cancel")).clicked();
+                    result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
+                    if ui
+                        .add(widgets::button(tr!("library-update-back")))
+                        .clicked()
+                    {
+                        clicks.push(Click::Back);
+                    }
                 }
             });
         });

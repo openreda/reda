@@ -182,8 +182,9 @@ pub fn menu(ctx: &egui::Context, shell: &mut Shell) -> Option<(String, Value)> {
                         ));
                     }
                 }
-                ui.separator();
-                cancel = ui.add(widgets::menu_item(tr!("dialog-cancel"))).clicked();
+                crate::modal::buttons(ui, |ui| {
+                    cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
+                });
             });
     if out.is_none() && (cancel || response.should_close()) {
         dismiss(shell);

@@ -5,6 +5,7 @@ use egui::{Id, Ui};
 use serde_json::{Value, json};
 
 use crate::tr;
+use crate::widgets;
 
 /// The board a new Project starts with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,16 +136,18 @@ impl NewProjectForm {
                                 ui.end_row();
                             }
                         });
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
+                    crate::modal::buttons(ui, |ui| {
                         let ready = self.params().is_some();
                         if ui
-                            .add_enabled(ready, egui::Button::new(tr!("new-project-create")))
+                            .add_enabled(
+                                ready,
+                                widgets::button(tr!("new-project-create")).primary(),
+                            )
                             .clicked()
                         {
                             action = FormAction::Create;
                         }
-                        if ui.button(tr!("dialog-cancel")).clicked() {
+                        if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                             action = FormAction::Cancel;
                         }
                     });

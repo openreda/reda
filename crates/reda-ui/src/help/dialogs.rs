@@ -6,6 +6,7 @@ use reda_engine::Engine;
 
 use super::{NOTICES, UpdateCheck, take_checks, version};
 use crate::tr;
+use crate::widgets;
 
 /// The open Help windows. The App keeps one and calls [`Dialogs::show`] every frame.
 #[derive(Default)]
@@ -65,7 +66,6 @@ fn about(ctx: &egui::Context, page: &mut AboutPage, version: &str) -> bool {
                 }
                 AboutPage::Licences => licences(ui),
             }
-            ui.add_space(8.0);
             close_button(ui)
         });
     modal.inner || modal.should_close()
@@ -97,7 +97,6 @@ fn update(ctx: &egui::Context, check: &Result<UpdateCheck, String>) -> bool {
                 Ok(check) => check,
                 Err(why) => {
                     ui.label(tr!("update-failed", why = why.as_str()));
-                    ui.add_space(8.0);
                     return close_button(ui);
                 }
             };
@@ -119,15 +118,13 @@ fn update(ctx: &egui::Context, check: &Result<UpdateCheck, String>) -> bool {
                     ui.label(tr!("update-current", latest = latest));
                 }
             }
-            ui.add_space(8.0);
             close_button(ui)
         });
     modal.inner || modal.should_close()
 }
 
 fn close_button(ui: &mut Ui) -> bool {
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-        ui.button(tr!("help-close")).clicked()
+    crate::modal::buttons(ui, |ui| {
+        ui.add(widgets::button(tr!("help-close"))).clicked()
     })
-    .inner
 }

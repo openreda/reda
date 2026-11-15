@@ -282,7 +282,7 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
         {
             out.push(Do::open(entry.uuid));
         }
-        ui.menu_button(tr!("library-new"), |ui| {
+        widgets::menu_button(tr!("library-new")).show(ui, |ui| {
             out.extend(new_menu(ui, shell, panel.library).map(Do::Out));
         });
         if ui.add(widgets::button(tr!("library-refresh"))).clicked() {
@@ -324,7 +324,7 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
             picked = Some(Action::Call("library.element.new".into(), params));
         }
     }
-    ui.separator();
+    widgets::menu_separator(ui);
     if ui
         .add(widgets::menu_item(tr!("library-new-library")))
         .clicked()
@@ -340,7 +340,7 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
             with_library(json!({})),
         ));
     }
-    ui.separator();
+    widgets::menu_separator(ui);
     if ui
         .add(widgets::menu_item(tr!("library-import-part")))
         .clicked()
@@ -350,7 +350,7 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
             with_library(json!({})),
         ));
     }
-    ui.menu_button(tr!("library-generate"), |ui| {
+    widgets::menu_button(tr!("library-generate")).show(ui, |ui| {
         for id in reda_engine::library::GENERATORS {
             let title = shell.engine().registry().get(id).map_or_else(
                 || id.to_owned(),
@@ -455,7 +455,7 @@ fn row(
             response
         })
         .inner;
-    response.context_menu(|ui| {
+    widgets::context_menu(&response, |ui| {
         out.extend(menu::show(ui, entry, target, status));
     });
     let place_here = entry

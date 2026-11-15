@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 pub const COMMAND: &str = "library.paste_array";
 
@@ -309,16 +310,17 @@ impl ParamsDialog for PasteArrayDialog {
                 if let Some(error) = &self.error {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    let paste =
-                        ui.add_enabled(params.is_ok(), egui::Button::new(tr!("paste-array-run")));
+                crate::modal::buttons(ui, |ui| {
+                    let paste = ui.add_enabled(
+                        params.is_ok(),
+                        widgets::button(tr!("paste-array-run")).primary(),
+                    );
                     if paste.clicked()
                         && let Ok(params) = params
                     {
                         outcome = Outcome::Run(params);
                     }
-                    if ui.button(tr!("dialog-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;
                     }
                 });

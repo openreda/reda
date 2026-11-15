@@ -18,6 +18,7 @@
 
 mod controls;
 mod kit;
+mod popups;
 mod sheets;
 
 use egui::{Theme, Vec2};
@@ -167,6 +168,13 @@ page_snapshots!("controls", controls::SIZE, controls::page:
     controls_light_compact => Light, Compact;
     controls_dark_comfortable => Dark, Comfortable;
     controls_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("popups", popups::SIZE, popups::page:
+    popups_light_comfortable => Light, Comfortable;
+    popups_light_compact => Light, Compact;
+    popups_dark_comfortable => Dark, Comfortable;
+    popups_dark_compact => Dark, Compact;
 );
 
 /// Close-ups for a reviewer: written only when `REDA_GALLERY_OUT` is set, compared with

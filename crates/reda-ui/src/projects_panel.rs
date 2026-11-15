@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// What the panel asks of the window.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -523,14 +524,18 @@ impl Tree<'_> {
                 name = entry.title.as_str(),
                 count = count
             ));
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                if ui.button(tr!("projects-delete-sheet")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("projects-delete-sheet")).danger())
+                    .clicked()
+                {
                     self.commands
                         .push(("document.delete", json!({"document": sheet})));
                     close = true;
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                let cancel = ui.add(widgets::button(tr!("dialog-cancel")));
+                crate::modal::focus_on_open(&cancel);
+                if cancel.clicked() {
                     close = true;
                 }
             });

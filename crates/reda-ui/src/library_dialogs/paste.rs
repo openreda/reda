@@ -10,6 +10,7 @@ use reda_engine::library::wizard::WizardPin;
 use reda_engine::library::wizard::paste::{Column, Delimiter, PasteTable};
 
 use crate::tr;
+use crate::widgets;
 
 /// The sub-dialog's state: the pasted text and the table made of it.
 #[derive(Clone, Debug, PartialEq)]
@@ -145,15 +146,14 @@ impl PasteMapping {
             ui.colored_label(ui.visuals().error_fg_color, why);
         }
         let mut outcome = PasteOutcome::Open;
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            let run = ui.add_enabled(pins.is_ok(), egui::Button::new(apply));
+        crate::modal::buttons(ui, |ui| {
+            let run = ui.add_enabled(pins.is_ok(), widgets::button(apply).primary());
             if run.clicked()
                 && let Ok(pins) = pins
             {
                 outcome = PasteOutcome::Apply(pins);
             }
-            if ui.button(tr!("dialog-cancel")).clicked() {
+            if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                 outcome = PasteOutcome::Cancel;
             }
         });

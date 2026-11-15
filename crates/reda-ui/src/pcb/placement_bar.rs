@@ -27,6 +27,7 @@ use crate::shell::Shell;
 use crate::snap::Guide;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets;
 
 /// Whether the Placement Bar shows: in Select or Move, with only Footprints selected, or
 /// a Footprint move or queue in flight.
@@ -210,23 +211,25 @@ pub fn dialogs(ctx: &egui::Context, shell: &mut Shell) -> Option<Invocation> {
                             }
                         }
                     });
-                ui.horizontal(|ui| {
+                crate::modal::buttons(ui, |ui| {
                     let enabled = picked.is_some();
-                    for (label, jump) in [
-                        (tr!("place-choose-jump"), true),
-                        (tr!("place-choose-to-cursor"), false),
-                    ] {
-                        if ui.add_enabled(enabled, egui::Button::new(&label)).clicked()
-                            && let Some(f) = picked
-                        {
-                            out = Some((
-                                "pcb.place.pick_up".to_owned(),
-                                json!({"footprint": f, "jump": jump}),
-                            ));
-                        }
-                    }
-                    if ui.button(tr!("place-choose-cancel")).clicked() {
+                    let jump = widgets::button(tr!("place-choose-jump")).primary();
+                    let jump = ui.add_enabled(enabled, jump).clicked();
+                    if ui
+                        .add(widgets::button(tr!("place-choose-cancel")))
+                        .clicked()
+                    {
                         close = true;
+                    }
+                    let to_cursor = widgets::button(tr!("place-choose-to-cursor"));
+                    let to_cursor = ui.add_enabled(enabled, to_cursor).clicked();
+                    if (jump || to_cursor)
+                        && let Some(f) = picked
+                    {
+                        out = Some((
+                            "pcb.place.pick_up".to_owned(),
+                            json!({"footprint": f, "jump": jump}),
+                        ));
                     }
                 });
             });
@@ -261,11 +264,22 @@ fn confirm_dialog(ctx: &egui::Context, locked: usize, unroute: bool) -> Option<I
         .width(320.0)
         .show(ctx, |ui| {
             ui.label(body);
-            ui.horizontal(|ui| {
-                if ui.button(proceed).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                // Unrouting removes copper, so it is the destructive confirm.
+                let confirm = widgets::button(proceed);
+                let confirm = if unroute {
+                    confirm.danger()
+                } else {
+                    confirm.primary()
+                };
+                if ui.add(confirm).clicked() {
                     out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": true})));
                 }
-                if ui.button(cancel).clicked() {
+                let cancel = ui.add(widgets::button(cancel));
+                if unroute {
+                    crate::modal::focus_on_open(&cancel);
+                }
+                if cancel.clicked() {
                     out = Some(("pcb.place.confirm".to_owned(), json!({"proceed": false})));
                 }
             });

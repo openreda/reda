@@ -1,5 +1,6 @@
-//! Close-ups for a reviewer, at twice the size: the three controls that the component
-//! gallery never drew, in every state and live with the list open. Written to
+//! Close-ups for a reviewer, at twice the size: the open Dock flyout, and the three
+//! controls that the component gallery never drew, in every state and live with the
+//! list open. Written to
 //! `REDA_GALLERY_OUT`; nothing compares them.
 
 use egui::{Role, Ui, vec2};
@@ -71,6 +72,13 @@ fn form(ui: &mut Ui, form: &mut Form) {
 pub fn write_all() {
     for variant in Variant::ALL {
         let name = variant.name();
+
+        // The open Dock flyout beside its strip.
+        let mut h = harness(variant, vec2(400.0, 370.0), SCALE, |ui| {
+            crate::popups::strip_and_flyout(ui, false, crate::popups::FLYOUT);
+        });
+        h.run();
+        keep(&mut h, &format!("gallery_flyout_{name}"));
 
         // Every state, forced side by side.
         let mut h = harness(variant, vec2(1580.0, 700.0), SCALE, |ui| {

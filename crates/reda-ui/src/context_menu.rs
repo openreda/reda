@@ -45,6 +45,7 @@ use crate::canvas::CanvasInputs;
 use crate::messages::{CheckKind, LineKey};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The sections in the order the menu shows them: the spec's order. `object` and
 /// `document` share the first slot; `violation` comes before it on a Violation marker.
@@ -368,7 +369,7 @@ pub fn canvas(ui: &Ui, shell: &mut Shell, document: Uuid, ty: DocumentType, inpu
     }
     let target: Target = ui.data(|d| d.get_temp(id)).unwrap_or_default();
     let mut clicked: Option<Invocation> = None;
-    input.response.context_menu(|ui| {
+    widgets::context_menu(&input.response, |ui| {
         let checked = BTreeMap::new();
         let cx = draw::Cx {
             shell,
@@ -377,12 +378,12 @@ pub fn canvas(ui: &Ui, shell: &mut Shell, document: Uuid, ty: DocumentType, inpu
         };
         for (i, entry) in shown(shell, document, ty, &target).iter().enumerate() {
             if i > 0 {
-                ui.separator();
+                widgets::menu_separator(ui);
             }
             match entry {
                 Shown::Items(items) => draw::menu_items(ui, &cx, items, &mut clicked),
                 Shown::Submenu(title, items) => {
-                    ui.menu_button(title.as_str(), |ui| {
+                    widgets::menu_button(title.as_str()).show(ui, |ui| {
                         draw::menu_items(ui, &cx, items, &mut clicked);
                     });
                 }

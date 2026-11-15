@@ -7,6 +7,7 @@ use egui::{Id, Ui};
 use crate::bridge::Bridge;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The status-bar indicator: whether agents can connect and how many are. Its menu turns
 /// the bridge on and off and forgets allowed agents. Returns whether "Agent Settings…"
@@ -75,11 +76,14 @@ pub fn ask(ctx: &egui::Context, bridge: &mut Bridge, shell: &mut Shell) {
                 agent = agent.name.as_str(),
                 source = agent.source.label()
             ));
-            ui.horizontal(|ui| {
-                if ui.button(tr!("bridge-allow")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("bridge-allow")).primary())
+                    .clicked()
+                {
                     answer = Some(true);
                 }
-                if ui.button(tr!("bridge-deny")).clicked() {
+                if ui.add(widgets::button(tr!("bridge-deny"))).clicked() {
                     answer = Some(false);
                 }
             });

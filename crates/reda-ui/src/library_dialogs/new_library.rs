@@ -13,6 +13,7 @@ use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Who a new Library is registered for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -176,19 +177,18 @@ impl ParamsDialog for NewLibraryDialog {
                     if let Some(error) = &self.error {
                         ui.colored_label(ui.visuals().error_fg_color, error);
                     }
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
+                    crate::modal::buttons(ui, |ui| {
                         let params = self.params();
                         let run = ui.add_enabled(
                             params.is_some(),
-                            egui::Button::new(tr!("new-library-create")),
+                            widgets::button(tr!("new-library-create")).primary(),
                         );
                         if let Some(params) = params
                             && run.clicked()
                         {
                             outcome = Outcome::Run(params);
                         }
-                        if ui.button(tr!("dialog-cancel")).clicked() {
+                        if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                             outcome = Outcome::Cancel;
                         }
                     });

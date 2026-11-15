@@ -5,6 +5,7 @@ use egui::Id;
 
 use crate::closing::{Answer, Ask, Closing, Item};
 use crate::tr;
+use crate::widgets;
 
 /// Draws the open prompt, if any; returns the answer clicked. Escape (or a click outside)
 /// is Cancel.
@@ -42,16 +43,15 @@ pub(crate) fn show(ctx: &egui::Context, closing: &mut Closing) -> Option<Answer>
             if let Some(error) = &error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            ui.separator();
-            ui.horizontal(|ui| {
-                if ui.button(save).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui.add(widgets::button(save).primary()).clicked() {
                     answer = Some(Answer::Save);
                 }
-                if ui.button(dont_save).clicked() {
-                    answer = Some(Answer::DontSave);
-                }
-                if ui.button(tr!("closing-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("closing-cancel"))).clicked() {
                     answer = Some(Answer::Cancel);
+                }
+                if ui.add(widgets::button(dont_save)).clicked() {
+                    answer = Some(Answer::DontSave);
                 }
             });
         });

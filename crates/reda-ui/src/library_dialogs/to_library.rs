@@ -13,6 +13,7 @@ use serde_json::{Value, json};
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 pub const COPY: &str = "library.element.copy";
 pub const EXTRACT: &str = "library.extract_from_project";
@@ -122,16 +123,16 @@ impl ParamsDialog for ToLibraryDialog {
                 if let Some(error) = &self.error {
                     ui.colored_label(ui.visuals().error_fg_color, error);
                 }
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
+                crate::modal::buttons(ui, |ui| {
                     let params = self.params();
-                    let run = ui.add_enabled(params.is_some(), egui::Button::new(&self.run));
+                    let run =
+                        ui.add_enabled(params.is_some(), widgets::button(&self.run).primary());
                     if let Some(params) = params
                         && run.clicked()
                     {
                         outcome = Outcome::Run(params);
                     }
-                    if ui.button(tr!("dialog-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;
                     }
                 });

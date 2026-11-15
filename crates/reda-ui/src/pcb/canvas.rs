@@ -15,6 +15,7 @@ use crate::canvas::{CanvasInputs, RubberBand};
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets;
 
 /// How near a click counts as on an object, in points.
 const PICK_POINTS: f64 = 5.0;
@@ -216,11 +217,14 @@ fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
             if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 place = true;
             }
-            ui.horizontal(|ui| {
-                if ui.button(tr!("pcb-text-place")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("pcb-text-place")).primary())
+                    .clicked()
+                {
                     place = true;
                 }
-                if ui.button(tr!("pcb-text-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("pcb-text-cancel"))).clicked() {
                     cancel = true;
                 }
             });
@@ -381,15 +385,18 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
                     });
                     ui.end_row();
                 });
-            ui.horizontal(|ui| {
-                if ui.button(tr!("pcb-outline-create")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("pcb-outline-create")).primary())
+                    .clicked()
+                {
                     let units = shell.board_view().units;
                     create = Some(json!({
                         "width": with_unit(&form.width, units),
                         "height": with_unit(&form.height, units),
                     }));
                 }
-                if ui.button(tr!("pcb-outline-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("pcb-outline-cancel"))).clicked() {
                     close = true;
                 }
             });

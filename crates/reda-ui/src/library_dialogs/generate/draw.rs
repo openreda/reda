@@ -7,6 +7,7 @@ use super::{GenerateDialog, Preview, Section, Shown, callouts};
 use crate::command_dialog::{Input, Outcome};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut Shell) -> Outcome {
     let preview = dialog.preview(shell);
@@ -58,13 +59,12 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
             if let Some(error) = &dialog.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
             }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
+            crate::modal::buttons(ui, |ui| {
                 let label = match dialog.regenerating {
                     Some(_) => tr!("generate-regenerate-run"),
                     None => tr!("generate-run"),
                 };
-                let run = ui.add_enabled(ready.is_some(), egui::Button::new(label));
+                let run = ui.add_enabled(ready.is_some(), widgets::button(label).primary());
                 match &ready {
                     Some(params) if run.clicked() => outcome = Outcome::Run(params.clone()),
                     Some(_) => {}
@@ -72,7 +72,7 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
                         run.on_disabled_hover_text(tr!("form-fix-fields"));
                     }
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     outcome = Outcome::Cancel;
                 }
             });

@@ -311,6 +311,7 @@ command-view-theme-set-light-title = Light
 ## Dialogs
 
 dialog-cancel = Cancel
+dialog-close-window = Close window
 dialog-open-project-title = Open Project
 dialog-project-filter = REDA Project
 dialog-location-title = Choose Where to Create the Project

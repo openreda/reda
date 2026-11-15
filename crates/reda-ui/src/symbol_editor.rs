@@ -44,6 +44,7 @@ use crate::panels::pins::PinSide;
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets::Tooltip as _;
 
 /// A Document point in nm, y up.
 type P = (f64, f64);
@@ -261,7 +262,7 @@ pub fn hover_text(shell: &Shell, symbol: Uuid) -> Option<String> {
 /// Shows [`hover_text`] as a tooltip over the canvas `response`.
 pub(crate) fn hover_tip(shell: &Shell, symbol: Uuid, response: &egui::Response) {
     if let Some(text) = hover_text(shell, symbol) {
-        response.clone().on_hover_text(text);
+        response.clone().tooltip(text);
     }
 }
 

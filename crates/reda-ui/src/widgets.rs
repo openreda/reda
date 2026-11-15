@@ -22,6 +22,7 @@
 
 mod button;
 mod check;
+mod dialog;
 mod dropdown;
 mod field;
 pub mod glyph;
@@ -31,6 +32,8 @@ pub mod pending;
 mod range;
 mod segmented;
 mod stepper;
+mod surface;
+mod tooltip;
 
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
@@ -38,14 +41,22 @@ pub use button::{
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window};
 pub use dropdown::{
     Choice, ChoiceRow, Dropdown, FilterDropdown, Picked, choice, choice_value, dropdown,
     filter_dropdown,
 };
 pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_field};
 pub use glyph::{Glyph, GlyphMark, glyph};
-pub use menu::menu_item;
+pub use menu::{
+    Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_button, menu_frame,
+    menu_is_open, menu_item, menu_separator,
+};
 pub use paint::State;
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
 pub use segmented::{Segmented, segmented};
 pub use stepper::{STEPPER_WIDTH, StepperField, stepper_field};
+pub use surface::{CARD_GAP, card_frame, floating_frame, flyout_frame, flyout_title};
+pub use tooltip::{
+    KeyChip, TOOLTIP_WIDTH, Tooltip, TooltipText, key_chip, tooltip_contents, tooltip_frame,
+};
