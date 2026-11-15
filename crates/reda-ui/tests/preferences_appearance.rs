@@ -139,6 +139,7 @@ fn appearance_follows_general_and_takes_theme_and_ui_scale_from_it() {
             "general.ui_scale",
             "general.ui_font",
             "general.mono_font",
+            "general.system_title_bar",
         ]
     );
     let general = on(PageId::GENERAL);
@@ -171,6 +172,8 @@ fn the_page_has_its_groups_in_order_with_each_setting_under_its_own() {
         top(&h, "Fonts"),
         top(&h, "UI font"),
         top(&h, "Monospace font"),
+        top(&h, "Window"),
+        top(&h, SYSTEM_TITLE_BAR),
     ];
     assert!(order.is_sorted_by(|a, b| a < b), "{order:?}");
 }
@@ -512,4 +515,77 @@ fn the_search_shows_an_appearance_setting_with_its_own_control() {
     segment(&mut h, "Compact");
     assert_eq!(h.ctx.tokens().density, Density::Compact);
     h.get_by_label(DENSITY_CAPTION);
+}
+
+const SYSTEM_TITLE_BAR: &str = "Use the system title bar";
+const RESTART_NOTE: &str = "Applies the next time REDA starts.";
+
+/// Scrolls the system title bar's check box into view.
+fn title_bar_box(h: &mut Harness<'static, App>) {
+    h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR)
+        .scroll_to_me();
+    h.run();
+}
+
+#[test]
+fn the_system_title_bar_is_a_check_box_that_is_stored_and_notes_the_restart() {
+    let home = TempDir::new("appearance-title-bar");
+    let mut h = appearance(home.path());
+    title_bar_box(&mut h);
+    assert!(!general(&h).system_title_bar, "off by default");
+    // Nothing changed yet: no note.
+    assert!(h.query_by_label(RESTART_NOTE).is_none());
+    h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR)
+        .click();
+    h.run();
+    assert!(general(&h).system_title_bar);
+    let stored = preferences::load(&UserDirs::under(home.path())).values;
+    assert!(stored.general.system_title_bar);
+    // It applies on restart, so the row says so, under the check box.
+    title_bar_box(&mut h);
+    assert!(top(&h, SYSTEM_TITLE_BAR) < top(&h, RESTART_NOTE));
+    // Back to what REDA started with: nothing is waiting for a restart.
+    h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR)
+        .click();
+    h.run();
+    assert!(!general(&h).system_title_bar);
+    assert!(h.query_by_label(RESTART_NOTE).is_none());
+}
+
+#[test]
+fn a_title_bar_stored_before_the_start_is_in_force_without_a_note() {
+    let home = TempDir::new("appearance-title-bar-stored");
+    stored(home.path(), "general.system_title_bar", json!(true));
+    let mut h = appearance(home.path());
+    title_bar_box(&mut h);
+    let node = h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR);
+    assert_eq!(
+        node.accesskit_node().toggled(),
+        Some(egui::accesskit::Toggled::True)
+    );
+    assert!(h.query_by_label(RESTART_NOTE).is_none());
+    assert!(h.state().title_bar_startup().system_title_bar());
+}
+
+#[test]
+fn a_forced_system_title_bar_shows_ticked_and_disabled_with_its_reason() {
+    let home = TempDir::new("appearance-title-bar-forced");
+    let mut h = appearance(home.path());
+    // What the Wayland slice detects before the window is created (sway, Hyprland).
+    reda_ui::title_bar::Startup {
+        preference: false,
+        forced: true,
+    }
+    .remember(&h.ctx);
+    h.run();
+    title_bar_box(&mut h);
+    let node = h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR);
+    assert_eq!(
+        node.accesskit_node().toggled(),
+        Some(egui::accesskit::Toggled::True)
+    );
+    assert!(node.accesskit_node().is_disabled());
+    h.get_by_label("Your desktop draws the title bar for every window.");
+    // The stored value is left alone.
+    assert!(!general(&h).system_title_bar);
 }

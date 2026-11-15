@@ -779,6 +779,7 @@ fn the_appearance_page_holds_the_look_and_stays_under_general_keys() {
         [
             "general.density",
             "general.mono_font",
+            "general.system_title_bar",
             "general.text_size",
             "general.theme",
             "general.ui_font",
