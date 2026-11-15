@@ -283,6 +283,33 @@ impl Cx<'_, '_> {
     }
 }
 
+/// The slim Title bar at the top of a floating window REDA decorates itself: the window's
+/// title, drag space and, where REDA draws them, the window controls, which act on that
+/// window. None under the system title bar.
+fn floating_bar(ui: &mut Ui, title: &str, chrome: crate::title_bar::Chrome) {
+    if !chrome.controls && !chrome.drags {
+        return;
+    }
+    let ctx = ui.ctx().clone();
+    let height = crate::title_bar::floating_bar_height(&ui.tokens());
+    egui::Panel::top("floating-bar")
+        .frame(egui::Frame::NONE)
+        .show_separator_line(false)
+        .resizable(false)
+        .exact_size(height)
+        .show(ui, |ui| {
+            let bar = widgets::floating_bar(title)
+                .height(height)
+                .leading_inset(chrome.leading_inset)
+                .controls(chrome.controls)
+                .drags(chrome.drags)
+                .maximised(chrome.maximised)
+                .show(ui);
+            // Only the main window's system menu is in reach.
+            let _ = crate::title_bar::drive(&ctx, chrome, bar.action, &bar.response);
+        });
+}
+
 /// A floating window's title: its active tab's, after the app's name.
 fn window_title(shell: &Shell, layout: &Layout, window: WindowId) -> String {
     match first_group(layout, window).and_then(|g| g.active_tab()) {
@@ -337,16 +364,27 @@ impl Cx<'_, '_> {
             .map_or(opening_size(self.layout, window.id), |r| {
                 egui::vec2(r.width as f32, r.height as f32)
             });
+        let title = window_title(self.shell, self.layout, window.id);
         let mut builder = ViewportBuilder::default()
-            .with_title(window_title(self.shell, self.layout, window.id))
+            .with_title(title.clone())
             .with_inner_size(size)
             .with_min_inner_size(WINDOW_MIN);
+        // Built like the main window, with REDA's slim bar, unless the system title bar
+        // is in force.
+        let startup = crate::title_bar::Startup::decorating(ctx);
+        if let Some(startup) = startup {
+            builder = crate::title_bar::viewport(startup, builder);
+        }
         let saved = window.rect.map(|r| egui::pos2(r.x as f32, r.y as f32));
         if let Some(at) = drag::placement(ctx, self.layout, window.id).or(saved) {
             builder = builder.with_position(at);
         }
         ctx.show_viewport_immediate(viewport, builder, |ui, _| {
             let ctx = ui.ctx().clone();
+            let chrome = startup.map_or(crate::title_bar::Chrome::SYSTEM, |startup| {
+                crate::title_bar::chrome_for(&ctx, startup)
+            });
+            floating_bar(ui, &title, chrome);
             // Cards keep the card gap from the window's edges; the tab strip is at its top.
             let gap = CARD_GAP as i8;
             let margin = egui::Margin {
