@@ -285,6 +285,9 @@ fn a_changed_setting_gets_a_dot_and_its_page_a_count() {
         "an unchanged setting has no dot"
     );
     h.get_by_role_and_label(Role::CheckBox, "Optimize Wires")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Optimize Wires")
         .click();
     h.run();
     assert!(!h.state().shell().preferences().schematic.optimize_wires);

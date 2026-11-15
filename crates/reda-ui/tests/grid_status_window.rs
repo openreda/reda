@@ -336,6 +336,8 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
         .click();
     h.run();
     assert_eq!(rows(&h).len(), 5);
+    h.get_by_label("Restore shipped presets").scroll_to_me();
+    h.run();
     let restore = h.get_by_label("Restore shipped presets");
     restore.click();
     h.run();
