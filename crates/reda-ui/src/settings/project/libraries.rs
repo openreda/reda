@@ -8,9 +8,16 @@ use reda_engine::library::normalise_library_path;
 use reda_engine::model::Project;
 use serde_json::json;
 
-use crate::settings::{Draft, Page, PageCx, Problem, Step, field};
+use crate::settings::{Draft, Page, PageCx, Problem, Step, field, layout};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
+
+/// A Library path.
+const PATH_WIDTH: f32 = 360.0;
+/// The New Library name.
+const NAME_WIDTH: f32 = 200.0;
 
 /// The Library paths as typed, one row each.
 #[derive(Clone, Debug, Default)]
@@ -136,12 +143,13 @@ impl Page for LibrariesPage {
     }
 
     fn show(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
-        ui.weak(tr!("settings-libraries-note"));
-        ui.add_space(4.0);
+        let t = ui.tokens();
+        layout::muted(ui, tr!("settings-libraries-note"));
+        ui.add_space(t.space.stack);
         let mut remove = None;
         let count = self.rows.value().len();
         if count == 0 {
-            ui.weak(tr!("projects-no-libraries"));
+            layout::muted(ui, tr!("projects-no-libraries"));
         }
         for i in 0..count {
             let problem = cx.problem(&format!("path/{i}")).cloned();
@@ -151,11 +159,11 @@ impl Page for LibrariesPage {
                     ui,
                     &label,
                     &mut self.rows.value_mut()[i],
-                    360.0,
+                    PATH_WIDTH,
                     problem.as_ref(),
                 );
                 let row = tr!("settings-library-remove", number = i + 1);
-                let button = ui.button(tr!("projects-remove"));
+                let button = ui.add(widgets::button(tr!("projects-remove")));
                 button.widget_info(|| {
                     egui::WidgetInfo::labeled(egui::Role::Button, true, row.clone())
                 });
@@ -168,26 +176,32 @@ impl Page for LibrariesPage {
             self.remove(i);
         }
         ui.horizontal(|ui| {
-            if ui.button(tr!("settings-library-add-path")).clicked() {
+            if ui
+                .add(widgets::button(tr!("settings-library-add-path")))
+                .clicked()
+            {
                 self.add("");
             }
-            if ui.button(tr!("projects-add-folder")).clicked() {
+            if ui
+                .add(widgets::button(tr!("projects-add-folder")))
+                .clicked()
+            {
                 cx.pick_folder();
             }
         });
         ui.horizontal(|ui| {
             let label = tr!("settings-library-new-name");
             let response = ui.add(
-                egui::TextEdit::singleline(&mut self.new_name)
-                    .hint_text(label.clone())
-                    .desired_width(200.0),
+                widgets::text_field(&mut self.new_name)
+                    .hint(label.clone())
+                    .width(NAME_WIDTH),
             );
             response.widget_info(|| {
                 egui::WidgetInfo::labeled(egui::Role::TextInput, true, label.clone())
             });
             let create = ui.add_enabled(
                 !self.new_name.trim().is_empty(),
-                egui::Button::new(tr!("settings-library-new")),
+                widgets::button(tr!("settings-library-new")),
             );
             if create.clicked() {
                 let name = std::mem::take(&mut self.new_name);
@@ -196,10 +210,10 @@ impl Page for LibrariesPage {
         });
         match &self.created {
             Some(Ok(path)) => {
-                ui.weak(tr!("settings-library-created", path = path.as_str()));
+                layout::muted(ui, tr!("settings-library-created", path = path.as_str()));
             }
             Some(Err(why)) => {
-                ui.colored_label(ui.visuals().error_fg_color, why);
+                layout::error(ui, why);
             }
             None => {}
         }

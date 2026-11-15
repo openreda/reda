@@ -1,7 +1,7 @@
 //! Drawing a settings window into its tab: the page tree, the shown page and the buttons,
 //! plus the field helpers pages use to flag invalid values inline.
 
-use egui::{Button, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 
 use std::path::PathBuf;
 
@@ -11,8 +11,9 @@ use super::fab_preset::PresetPage;
 use super::layout::{self, Content, TreeRow};
 use super::{Buttons, FileRequest, Problem, SettingsDialog};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// What a frame of the dialog asks of the window.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -100,6 +101,54 @@ pub fn problem_label(ui: &mut Ui, problem: &Problem) {
     ui.add(widgets::invalid_message(problem.message.as_str()));
 }
 
+/// Body text in the strong weight: a heading inside a page, a name that leads a row.
+pub fn strong(ui: &mut Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.body_strong.rich(text).color(t.color.text.primary))
+}
+
+/// Monospace text: a file name, a hash, a stored value.
+pub fn mono(ui: &mut Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.mono.rich(text).color(t.color.text.primary))
+}
+
+/// One of a row of exclusive choices, drawn as a toggle that is on while `chosen` and
+/// announced as a radio button named `name` ("Clearance: Error").
+pub fn choice_toggle(ui: &mut Ui, chosen: bool, label: &str, name: &str) -> egui::Response {
+    let enabled = ui.is_enabled();
+    let response = ui.add(widgets::button(label).on(chosen));
+    response.widget_info(|| WidgetInfo::selected(Role::RadioButton, enabled, chosen, name));
+    response
+}
+
+/// A dropdown of `options` (value and text) setting `value`, at least `width` wide and
+/// announced as `label`.
+pub fn dropdown<T: PartialEq + Clone>(
+    ui: &mut Ui,
+    id_salt: impl egui::AsIdSalt,
+    label: &str,
+    value: &mut T,
+    options: &[(T, String)],
+    width: f32,
+) -> egui::Response {
+    let shown = options
+        .iter()
+        .find(|(v, _)| v == value)
+        .map(|(_, text)| text.clone())
+        .unwrap_or_default();
+    let response = widgets::dropdown(id_salt, shown)
+        .width(width)
+        .show(ui, |ui| {
+            for (option, text) in options {
+                widgets::choice_value(ui, value, option.clone(), text.as_str());
+            }
+        })
+        .response;
+    response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label));
+    response
+}
+
 /// One frame of a settings dialog in the shared layout: what the layout draws, and what
 /// the frame's buttons asked for.
 struct Shown<'a> {
@@ -170,32 +219,37 @@ impl Content for Shown<'_> {
     fn buttons(&mut self, ui: &mut Ui) {
         let dialog = &mut *self.dialog;
         let reason = (!dialog.can_ok()).then(|| tr!("settings-invalid"));
-        let enabled = |ui: &mut Ui, on: bool, label: String| {
-            let button = ui.add_enabled(on, Button::new(label));
+        let t = ui.tokens();
+        let enabled = |ui: &mut Ui, on: bool, button: widgets::Button<'_>| {
+            let button = ui.add_enabled(on, button);
             if let Some(reason) = &reason {
-                button.clone().on_disabled_hover_text(reason);
+                button.clone().disabled_tooltip(reason);
             }
             button.clicked()
         };
         match dialog.buttons {
             Buttons::OkCancelApply => {
-                self.apply = enabled(ui, dialog.can_apply(), tr!("settings-apply"));
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                let apply = widgets::button(tr!("settings-apply"));
+                self.apply = enabled(ui, dialog.can_apply(), apply);
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     self.outcome = Outcome::Closed;
                 }
-                self.ok = enabled(ui, dialog.can_ok(), tr!("settings-ok"));
+                let ok = widgets::button(tr!("settings-ok")).primary();
+                self.ok = enabled(ui, dialog.can_ok(), ok);
                 if dialog.run.is_some() {
-                    ui.add_space(12.0);
-                    if enabled(ui, dialog.can_ok(), tr!("output-job-run")) {
+                    ui.add_space(t.space.section - t.space.gap);
+                    let run = widgets::button(tr!("output-job-run"));
+                    if enabled(ui, dialog.can_ok(), run) {
                         dialog.run = Some(true);
                     }
                 }
             }
             Buttons::ApplyClose => {
-                if ui.button(tr!("settings-close")).clicked() {
+                if ui.add(widgets::button(tr!("settings-close"))).clicked() {
                     self.outcome = Outcome::Closed;
                 }
-                self.apply = enabled(ui, dialog.can_apply(), tr!("settings-apply"));
+                let apply = widgets::button(tr!("settings-apply")).primary();
+                self.apply = enabled(ui, dialog.can_apply(), apply);
             }
         }
     }

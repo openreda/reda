@@ -5,14 +5,19 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use egui::{Button, Ui};
+use egui::Ui;
 use reda_engine::model::{Project, Uuid};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::settings::{Page, PageCx, Problem, Step, field};
+use crate::settings::{Page, PageCx, Problem, Step, field, layout, mono, strong};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column};
+
+/// The name field of Save as User Preset.
+const NAME_WIDTH: f32 = 200.0;
 
 /// One Project copy of a Fab Preset.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -124,16 +129,25 @@ impl FabPresetsPage {
 
     fn copy(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>, copy: &PresetCopy) {
         ui.horizontal(|ui| {
-            ui.strong(&copy.name);
+            strong(ui, &copy.name);
             if self.updating(copy.uuid) {
-                ui.weak(tr!("settings-preset-will-update"));
-                if ui.button(tr!("settings-preset-keep")).clicked() {
+                layout::muted(ui, tr!("settings-preset-will-update"));
+                if ui
+                    .add(widgets::button(tr!("settings-preset-keep")))
+                    .clicked()
+                {
                     self.keep(copy.uuid);
                 }
-            } else if ui.button(tr!("settings-preset-update")).clicked() {
+            } else if ui
+                .add(widgets::button(tr!("settings-preset-update")))
+                .clicked()
+            {
                 self.preview_update(cx.shell, copy.uuid);
             }
-            if ui.button(tr!("settings-preset-save-user")).clicked() {
+            if ui
+                .add(widgets::button(tr!("settings-preset-save-user")))
+                .clicked()
+            {
                 self.saving.insert(copy.uuid, copy.name.clone());
             }
         });
@@ -142,13 +156,12 @@ impl FabPresetsPage {
             let mut cancel = false;
             ui.horizontal(|ui| {
                 let label = tr!("settings-preset-user-name");
-                ui.label(&label);
-                field(ui, &label, name, 200.0, None);
+                layout::text(ui, &label);
+                field(ui, &label, name, NAME_WIDTH, None);
                 let ready = !name.trim().is_empty();
-                save = ui
-                    .add_enabled(ready, Button::new(tr!("settings-preset-save")))
-                    .clicked();
-                cancel = ui.button(tr!("dialog-cancel")).clicked();
+                let save_button = widgets::button(tr!("settings-preset-save")).primary();
+                save = ui.add_enabled(ready, save_button).clicked();
+                cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
             if save {
                 let name = name.clone();
@@ -168,43 +181,41 @@ impl FabPresetsPage {
         };
         let mut accept = false;
         let mut cancel = false;
-        egui::Frame::group(ui.style()).show(ui, |ui| {
+        let t = ui.tokens();
+        widgets::card_frame(&t).show(ui, |ui| {
             match &preview.changes {
                 Err(error) => {
-                    ui.colored_label(
-                        ui.visuals().error_fg_color,
-                        tr!("settings-preset-no-source", error = error.as_str()),
-                    );
+                    let text = tr!("settings-preset-no-source", error = error.as_str());
+                    layout::error(ui, text);
                 }
                 Ok(changes) if changes.is_empty() => {
-                    ui.label(tr!("settings-preset-up-to-date"));
+                    layout::text(ui, tr!("settings-preset-up-to-date"));
                 }
                 Ok(changes) => {
-                    ui.label(tr!("settings-preset-preview"));
-                    egui::Grid::new("settings-preset-diff")
-                        .num_columns(3)
-                        .striped(true)
-                        .spacing([12.0, 4.0])
-                        .show(ui, |ui| {
-                            ui.strong(tr!("settings-preset-field"));
-                            ui.strong(tr!("settings-preset-project"));
-                            ui.strong(tr!("settings-preset-source"));
-                            ui.end_row();
+                    layout::text(ui, tr!("settings-preset-preview"));
+                    widgets::table("settings-preset-diff")
+                        .columns([Column::auto(); 3])
+                        .show(ui, |table| {
+                            table.header(|h| {
+                                h.text(tr!("settings-preset-field"));
+                                h.text(tr!("settings-preset-project"));
+                                h.text(tr!("settings-preset-source"));
+                            });
                             for c in changes {
-                                ui.monospace(&c.field);
-                                ui.monospace(short(&c.project));
-                                ui.monospace(short(&c.source));
-                                ui.end_row();
+                                table.row(|row| {
+                                    row.ui(|ui| mono(ui, &c.field));
+                                    row.ui(|ui| mono(ui, short(&c.project)));
+                                    row.ui(|ui| mono(ui, short(&c.source)));
+                                });
                             }
                         });
                 }
             }
-            ui.horizontal(|ui| {
+            widgets::button_row(ui, |ui| {
                 let changes = preview.changes.as_ref().is_ok_and(|c| !c.is_empty());
-                accept = ui
-                    .add_enabled(changes, Button::new(tr!("settings-preset-confirm")))
-                    .clicked();
-                cancel = ui.button(tr!("dialog-cancel")).clicked();
+                let confirm = widgets::button(tr!("settings-preset-confirm")).primary();
+                accept = ui.add_enabled(changes, confirm).clicked();
+                cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
         });
         if accept {
@@ -283,21 +294,22 @@ impl Page for FabPresetsPage {
     }
 
     fn show(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
+        let t = ui.tokens();
         if self.copies.is_empty() {
-            ui.weak(tr!("settings-preset-none"));
+            layout::muted(ui, tr!("settings-preset-none"));
         }
         for copy in self.copies.clone() {
             self.copy(ui, cx, &copy);
-            ui.add_space(6.0);
+            ui.add_space(t.space.stack);
         }
         if let Some(status) = &self.status {
             if status.ok {
-                ui.label(&status.message);
+                layout::text(ui, &status.message);
             } else {
-                ui.colored_label(ui.visuals().error_fg_color, &status.message);
+                layout::error(ui, &status.message);
             }
         }
-        ui.add_space(6.0);
-        ui.weak(tr!("settings-preset-note"));
+        ui.add_space(t.space.section);
+        layout::muted(ui, tr!("settings-preset-note"));
     }
 }
