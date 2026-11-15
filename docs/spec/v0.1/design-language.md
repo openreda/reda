@@ -412,13 +412,13 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 
 ## Enforcement and tests
 
-- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration.
+- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets, files not yet converted) are in `lists.rs` there.
   - **Banned outside the exempt modules:**
     - colours: `Color32::from_*` and named constants, `gamma_multiply`, `linear_multiply`, hex literals;
     - egui style access: `ui.visuals()`, `ui.spacing()`, `ui.style()` and their `_mut` forms, `ctx.set_style*`, `set_visuals*`;
     - sizes with a numeric literal: `add_space(<n>)`, `CornerRadius`, `Margin`, `Stroke::new(<n>, ..)`, `FontId::new`, `.size(<n>)`, `Shadow`, and a literal `vec2` in spacing and min-size calls;
     - a raw stock widget once its REDA widget exists (`ui.button(`, `Button::new`, `TextEdit::`, `ui.checkbox(` and so on).
-  - **Allowed everywhere:** zero, and arithmetic on token values.
+  - **Allowed everywhere:** zero (`Color32::TRANSPARENT` counts as zero), and arithmetic on token values.
   - **Exempt modules:** `theme/`, `widgets/` and the on-canvas drawing modules, listed by path in the test.
   - **Marker:** `// theme-exempt: <reason>` exempts the next line. A marker with no reason fails, and the test prints the total.
   - **During the migration** the test carries a list of files not yet converted. A listed file is skipped, an unlisted file must be clean, and a clean file still on the list fails. New files are never listed.
