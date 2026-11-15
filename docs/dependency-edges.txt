@@ -122,4 +122,5 @@ reda-ui -> serde_json
 reda-ui -> skrifa
 reda-ui -> toml_edit
 reda-ui -> unic-langid
+reda-ui -> winit [cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
 reda-xtask -> serde_json

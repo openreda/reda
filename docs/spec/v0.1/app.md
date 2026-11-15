@@ -114,7 +114,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
 - **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds an invisible hit strip inside the window edge: 6 px along the edges and 12 px at the corners. It is off while the window is maximised.
 - **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
   - With it on, the row is the same minus the window controls and the dragging. The command field still shows the title, and the window corners are square. Floating windows have the system's title bar and no REDA bar.
-  - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created.
+  - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created. It is also forced on under X11, where the window manager decorates every window: on Linux REDA draws its own Title bar under Wayland only.
   - This path keeps winit's Adwaita frame for compositors that draw none, such as GNOME on Wayland.
 - **Accepted gaps,** because REDA uses no `unsafe` and no winit fork (ADR-0014):
   - Windows: no snap-layouts flyout on the maximise button. Win+arrow and drag-to-snap still work.
