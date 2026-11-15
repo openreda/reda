@@ -207,6 +207,17 @@ pub struct General {
     /// Scales the whole user interface: one of the steps in [`UI_SCALES`].
     #[schemars(schema_with = "ui_scale_schema")]
     pub ui_scale: f64,
+    /// How much room controls and rows get. Text and icons stay the same size.
+    pub density: Density,
+    /// The size of body text in whole pixels, 11 to 16. The rest of the type scale moves
+    /// with it; icons stay the same size.
+    #[schemars(range(min = 11, max = 16))]
+    pub text_size: u8,
+    /// The installed font family of the user interface. Unset means the bundled Inter.
+    pub ui_font: Option<String>,
+    /// The installed fixed-pitch font family of the Journal, file names and command
+    /// text. Unset means the bundled JetBrains Mono.
+    pub mono_font: Option<String>,
     /// Reopen the last Project when REDA starts.
     pub reopen_last_project: bool,
     /// The most undo steps kept per Document. Unset means unlimited.
@@ -214,6 +225,22 @@ pub struct General {
     /// The Saved Layout new Projects start from. Unset means REDA's Default Layout.
     pub default_layout: Option<String>,
 }
+
+/// How much room the chrome gives its controls and rows
+/// (docs/spec/v0.1/design-language.md#space-and-density).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Density {
+    #[default]
+    Comfortable,
+    Compact,
+}
+
+/// The body text sizes `general.text_size` takes, in pixels.
+pub const TEXT_SIZES: std::ops::RangeInclusive<u8> = 11..=16;
+
+/// The body text size when none is set.
+pub const DEFAULT_TEXT_SIZE: u8 = 13;
 
 /// The UI scale steps, 75 to 200 %: the only values `general.ui_scale` takes.
 pub const UI_SCALES: [f64; 7] = [0.75, 0.85, 1.0, 1.15, 1.25, 1.5, 2.0];
@@ -253,6 +280,10 @@ impl Default for General {
         General {
             theme: Theme::FollowOs,
             ui_scale: 1.0,
+            density: Density::Comfortable,
+            text_size: DEFAULT_TEXT_SIZE,
+            ui_font: None,
+            mono_font: None,
             reopen_last_project: true,
             undo_depth: None,
             default_layout: None,
@@ -1175,6 +1206,24 @@ impl Preferences {
                 "general.ui_scale",
                 format!("{scale} is not a UI scale step (0.75, 0.85, 1, 1.15, 1.25, 1.5 or 2)"),
             ));
+        }
+        let size = self.general.text_size;
+        if !TEXT_SIZES.contains(&size) {
+            return Err((
+                "general.text_size",
+                format!("{size} is not a text size from 11 to 16"),
+            ));
+        }
+        for (key, font) in [
+            ("general.ui_font", &self.general.ui_font),
+            ("general.mono_font", &self.general.mono_font),
+        ] {
+            if font.as_ref().is_some_and(|f| f.trim().is_empty()) {
+                return Err((
+                    key,
+                    "a font family needs a name; unset it for the bundled face".to_owned(),
+                ));
+            }
         }
         let multiple = self.schematic.break_wire.grid_multiple;
         if !BreakWirePreferences::GRID_MULTIPLES.contains(&multiple) {
