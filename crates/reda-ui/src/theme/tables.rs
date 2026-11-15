@@ -357,9 +357,10 @@ fn fixed_values(out: &mut String, t: &Tokens) {
     out.push_str("### Fixed values\n\n");
     head(out, &["Token", "Value"]);
     use super::style::{SCROLLBAR, SCROLLBAR_HOVER};
-    use crate::widgets::{self as w, glyph, pending as p};
+    use crate::title_bar as tb;
+    use crate::widgets::{self as w, glyph};
     let pair = |a: f32, b: f32| format!("{}, {}", num(a), num(b));
-    let rows: [(&str, String); 23] = [
+    let rows: [(&str, String); 24] = [
         ("`radius.mark`", num(t.radius.mark)),
         ("`radius.row`", num(t.radius.row)),
         ("`radius.control`", num(t.radius.control)),
@@ -395,14 +396,21 @@ fn fixed_values(out: &mut String, t: &Tokens) {
         ),
         ("Swatch", num(w::SWATCH)),
         ("Tree indent per level", num(w::TREE_INDENT)),
-        ("Window control width", num(p::WINDOW_CONTROL)),
-        ("Drag gap kept beside the window controls", num(p::DRAG_GAP)),
+        ("Window control width", num(w::WINDOW_CONTROL)),
+        (
+            "Drag gap kept beside the window controls",
+            num(tb::DRAG_GAP),
+        ),
+        (
+            "Edge-resize strip, on edges and at corners",
+            pair(tb::RESIZE_EDGE, tb::RESIZE_CORNER),
+        ),
         (
             "Command field width",
             format!(
                 "{} to {}",
-                num(p::COMMAND_FIELD_MIN),
-                num(p::COMMAND_FIELD_MAX)
+                num(w::COMMAND_FIELD_MIN),
+                num(w::COMMAND_FIELD_MAX)
             ),
         ),
         (

@@ -195,6 +195,7 @@ pub struct IconButton<'a> {
     enabled: bool,
     icon: IconPx,
     side: Option<f32>,
+    muted: bool,
     state: State,
 }
 
@@ -206,8 +207,16 @@ impl<'a> IconButton<'a> {
             enabled: true,
             icon: IconPx::Small,
             side: None,
+            muted: false,
             state: State::Live,
         }
+    }
+
+    /// A Glyph in muted text: a Title bar's Glyphs while the window is in the
+    /// background. An Icon keeps its role colours.
+    pub fn muted(mut self, muted: bool) -> Self {
+        self.muted = muted;
+        self
     }
 
     /// On: the active Tool, a switch that is set, an open flyout.
@@ -290,7 +299,12 @@ impl Widget for IconButton<'_> {
                 Art::Key(key) => crate::icons::image(key, icon, ui.ctx().theme(), enabled),
                 Art::Image(image) => Some(image),
                 Art::Glyph(glyph) => {
-                    glyph.paint(&painter, rect.center(), t.color.text.primary);
+                    let ink = if self.muted {
+                        t.color.text.muted
+                    } else {
+                        t.color.text.primary
+                    };
+                    glyph.paint(&painter, rect.center(), ink);
                     None
                 }
             };

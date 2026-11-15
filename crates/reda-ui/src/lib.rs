@@ -67,6 +67,7 @@ pub mod status_bar;
 pub mod symbol_editor;
 mod tab_switcher;
 pub mod theme;
+pub mod title_bar;
 mod tool_preview;
 pub mod tools;
 mod user_preferences;

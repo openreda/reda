@@ -22,6 +22,7 @@ mod kit;
 mod popups;
 mod sheets;
 mod shell;
+mod title_bar;
 
 use egui::{Theme, Vec2};
 use egui_kittest::Harness;
@@ -191,6 +192,13 @@ page_snapshots!("shell", shell::SIZE, shell::page:
     shell_light_compact => Light, Compact;
     shell_dark_comfortable => Dark, Comfortable;
     shell_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("title_bar", title_bar::SIZE, title_bar::page:
+    title_bar_light_comfortable => Light, Comfortable;
+    title_bar_light_compact => Light, Compact;
+    title_bar_dark_comfortable => Dark, Comfortable;
+    title_bar_dark_compact => Dark, Compact;
 );
 
 /// Close-ups for a reviewer: written only when `REDA_GALLERY_OUT` is set, compared with

@@ -21,12 +21,15 @@
 //! [`State`] forces one state, for the gallery that snapshots them side by side
 //! (`tests/widget_gallery.rs`).
 //!
+//! The Title bar's recipes are here too: `command_field`, `window_controls` and the slim
+//! `floating_bar` of a floating window.
+//!
 //! Dimensions that no setting changes (the 28 × 16 switch track, the 16 px mark) are
-//! named constants beside their recipe, not `Tokens` entries. Those of recipes that are
-//! not built yet wait in [`pending`].
+//! named constants beside their recipe, not `Tokens` entries.
 
 mod button;
 mod check;
+mod command_field;
 mod dialog;
 mod drop;
 mod dropdown;
@@ -36,7 +39,6 @@ pub mod glyph;
 mod mark;
 mod menu;
 mod paint;
-pub mod pending;
 mod range;
 mod row;
 mod section;
@@ -48,6 +50,7 @@ mod surface;
 mod tab;
 mod table;
 mod tooltip;
+mod window_bar;
 
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
@@ -55,6 +58,7 @@ pub use button::{
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use command_field::{COMMAND_FIELD_MAX, COMMAND_FIELD_MIN, CommandField, command_field};
 pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window, window_frame};
 pub use drop::{DROP_BUTTON, DropPart, drag_chip, drop_button, drop_preview};
 pub use dropdown::{
@@ -67,7 +71,7 @@ pub use glyph::{Glyph, GlyphMark, glyph};
 pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_rgb};
 pub use menu::{
     Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_below, menu_button, menu_frame,
-    menu_is_open, menu_item, menu_separator,
+    menu_is_open, menu_item, menu_separator, menu_titles_width,
 };
 pub use paint::{State, drew_focus};
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
@@ -88,4 +92,8 @@ pub use tab::{
 pub use table::{COLUMN_GAP, Column, RowLook, Sorted, Table, TableBody, TableRow, table};
 pub use tooltip::{
     KeyChip, TOOLTIP_WIDTH, Tooltip, TooltipText, key_chip, tooltip_contents, tooltip_frame,
+};
+pub use window_bar::{
+    FloatingBar, FloatingBarResponse, WINDOW_CONTROL, WindowAction, WindowControl, WindowControls,
+    floating_bar, window_control, window_controls,
 };

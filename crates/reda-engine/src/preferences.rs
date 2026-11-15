@@ -221,6 +221,9 @@ pub struct General {
     /// Animate the chrome's transitions: menus, panels and dialogs. Unset means the OS
     /// reduced-motion setting, read each time REDA starts.
     pub animate: Option<bool>,
+    /// Use the title bar the operating system draws instead of REDA's own window
+    /// controls and dragging. Applied the next time REDA starts.
+    pub system_title_bar: bool,
     /// Reopen the last Project when REDA starts.
     pub reopen_last_project: bool,
     /// The most undo steps kept per Document. Unset means unlimited.
@@ -288,6 +291,7 @@ impl Default for General {
             ui_font: None,
             mono_font: None,
             animate: None,
+            system_title_bar: false,
             reopen_last_project: true,
             undo_depth: None,
             default_layout: None,

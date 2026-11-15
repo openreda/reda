@@ -14,6 +14,7 @@ use crate::preferences_dialog::{Kind, PageId, PreferencesDialog, Setting};
 use crate::settings::layout;
 use crate::theme::fonts::{self, Outcome};
 use crate::theme::motion;
+use crate::title_bar;
 use crate::tr;
 use crate::widgets;
 
@@ -23,6 +24,7 @@ const TEXT_SIZE: &str = "general.text_size";
 const UI_FONT: &str = "general.ui_font";
 const MONO_FONT: &str = "general.mono_font";
 const ANIMATE: &str = "general.animate";
+const SYSTEM_TITLE_BAR: &str = "general.system_title_bar";
 
 /// The page's groups, in order: the catalogue id of each heading and the keys under it.
 /// A key the Preferences do not have yet is skipped, and a group with nothing to show
@@ -34,10 +36,7 @@ const GROUPS: &[(&str, &[&str])] = &[
         &[DENSITY, TEXT_SIZE, "general.ui_scale"],
     ),
     ("pref-appearance-fonts", &[UI_FONT, MONO_FONT]),
-    (
-        "pref-appearance-window",
-        &[ANIMATE, "general.system_title_bar"],
-    ),
+    ("pref-appearance-window", &[ANIMATE, SYSTEM_TITLE_BAR]),
 ];
 
 /// The order of the theme's segments: System · Light · Dark.
@@ -108,6 +107,7 @@ impl PreferencesDialog {
             TEXT_SIZE => self.text_size(ui, cx, setting),
             UI_FONT | MONO_FONT => self.font(ui, cx, setting),
             ANIMATE => self.animate(ui, cx, setting),
+            SYSTEM_TITLE_BAR => self.system_title_bar(ui, cx, setting),
             _ => return false,
         }
         true
@@ -140,6 +140,42 @@ impl PreferencesDialog {
         if response.changed() {
             let _ = self.set(cx.shell, ANIMATE, json!(on));
         }
+    }
+
+    /// The caption under **Use the system title bar**: why it cannot be changed where
+    /// the desktop forces it, or that a change waits for the next start.
+    pub(super) fn appearance_caption(
+        &self,
+        ui: &Ui,
+        cx: &Cx<'_>,
+        setting: &Setting,
+    ) -> Option<String> {
+        if setting.key != SYSTEM_TITLE_BAR {
+            return None;
+        }
+        let start = title_bar::Startup::recalled(ui.ctx())?;
+        if start.forced {
+            return Some(tr!("pref-general-system-title-bar-forced"));
+        }
+        let stored = self.value(cx.shell, SYSTEM_TITLE_BAR).as_bool();
+        (stored.unwrap_or_default() != start.preference)
+            .then(|| tr!("pref-general-system-title-bar-restart"))
+    }
+
+    /// **Use the system title bar**: a check box, shown ticked and disabled where the
+    /// desktop forces the system title bar, with the stored value left alone.
+    fn system_title_bar(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting) {
+        let forced = title_bar::Startup::recalled(ui.ctx()).is_some_and(|s| s.forced);
+        if !forced {
+            self.editor(ui, cx, setting);
+            return;
+        }
+        let label = setting.label.clone();
+        ui.add_enabled_ui(false, |ui| {
+            let response = ui.add(widgets::checkbox(&mut true, ""));
+            response
+                .widget_info(|| WidgetInfo::selected(Role::CheckBox, false, true, label.clone()));
+        });
     }
 
     /// A segmented control over the setting's choices: it applies when clicked.
