@@ -398,14 +398,14 @@ What the Title bar holds and how it behaves is in [app.md](app.md#window-shell) 
 - **Height** follows Density: 40 px Comfortable, 36 px Compact at 13 px text.
 - **Quick strip:** 20 px Icon buttons of the control height, 2 px apart.
 - **Menus:** flat buttons in body text.
-- **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room.
+- **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room. At rest it shows "Project name — active Document" in body text; with no Project open it shows "Search commands" in muted text. Where it cannot be centred it moves aside before it shrinks.
 - **Window controls** (Windows and Linux): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
 - **macOS:** the native traffic lights at the left, vertically centred. The quick strip starts after their 78 px inset.
-- **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
+- **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls while the bar drags the window; with the system title bar the gear keeps only the bar's 6 px padding. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
 - **Inactive window:** text and window-control Glyphs go muted.
 - **Window corners** take the window radius. They are square when the window is maximised or uses the system title bar.
 - **Floating windows:** a 32 px bar on the base with the window's title at the left in body text, and the same window controls. On macOS the bar takes the native title-bar height.
-- **Edge-resize strip:** an invisible hit strip inside the window edge on Windows and Wayland, off while maximised. Its width is not set here: the Title bar slice picks it.
+- **Edge-resize strip:** an invisible hit strip inside the window edge on Windows and Wayland, off while maximised: 6 px along the edges and 12 px at the corners, along each of the two edges that meet there.
 
 ## Contrast
 
@@ -578,6 +578,7 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | Tree indent per level | 16 |
 | Window control width | 46 |
 | Drag gap kept beside the window controls | 48 |
+| Edge-resize strip, on edges and at corners | 6, 12 |
 | Command field width | 180 to 420 |
 | Scrollbar thumb, at rest and hovered | 4, 8 |
 | Progress rail and slider rail | 6, 4 |

@@ -218,6 +218,9 @@ pub struct General {
     /// The installed fixed-pitch font family of the Journal, file names and command
     /// text. Unset means the bundled JetBrains Mono.
     pub mono_font: Option<String>,
+    /// Use the title bar the operating system draws instead of REDA's own window
+    /// controls and dragging. Applied the next time REDA starts.
+    pub system_title_bar: bool,
     /// Reopen the last Project when REDA starts.
     pub reopen_last_project: bool,
     /// The most undo steps kept per Document. Unset means unlimited.
@@ -284,6 +287,7 @@ impl Default for General {
             text_size: DEFAULT_TEXT_SIZE,
             ui_font: None,
             mono_font: None,
+            system_title_bar: false,
             reopen_last_project: true,
             undo_depth: None,
             default_layout: None,
