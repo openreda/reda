@@ -3438,6 +3438,7 @@ dependencies = [
  "skrifa",
  "toml_edit",
  "unic-langid",
+ "winit",
 ]
 
 [[package]]

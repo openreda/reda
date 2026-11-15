@@ -66,6 +66,15 @@ pub struct App {
     /// How the Title bar was set up at the start: **Use the system title bar** applies
     /// on restart.
     title_bar: title_bar::Startup,
+    /// The window was built as `title_bar` asks ([`App::with_title_bar`]), so REDA draws
+    /// the platform's window chrome. Off for a window made with [`App::new`] alone, such as
+    /// a test harness's, which draws the bar as under the system title bar.
+    window_chrome: bool,
+    /// The window's surface is transparent, for the corners REDA rounds itself.
+    transparent: bool,
+    /// Where the bar was right-clicked this frame, in logical pixels, for the system
+    /// window menu.
+    window_menu: Option<egui::Pos2>,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
@@ -105,6 +114,9 @@ impl App {
         let title_bar = title_bar::Startup::of(shell.preferences());
         App {
             title_bar,
+            window_chrome: false,
+            transparent: false,
+            window_menu: None,
             crash_report,
             shell,
             files: FileDialogs::default(),
@@ -174,6 +186,18 @@ impl App {
     }
 
     /// Lets the window free the GPU state of canvases whose tabs close.
+    /// The window as REDA built it at the start, from `startup`
+    /// ([`title_bar::Startup::detect`] and [`title_bar::viewport`]): the Title bar gets the
+    /// platform's window controls, dragging, edge resizing and corners unless the system
+    /// title bar is in force.
+    pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
+        self.title_bar = startup;
+        self.window_chrome = true;
+        let options = title_bar::viewport(startup, egui::ViewportBuilder::default());
+        self.transparent = options.transparent == Some(true);
+        self
+    }
+
     pub fn with_render_state(mut self, render_state: egui_wgpu::RenderState) -> App {
         self.render_state = Some(render_state);
         self
@@ -243,7 +267,12 @@ impl App {
         }
         tab_switcher::release(&ctx, &mut self.shell);
 
-        let clicked = self.bars(ui);
+        let chrome = if self.window_chrome {
+            title_bar::chrome_for(&ctx, self.title_bar)
+        } else {
+            title_bar::Chrome::SYSTEM
+        };
+        let clicked = self.bars(ui, chrome);
         // The status bar's space is set aside before the docking layer's, but what is in
         // it is drawn after, so keyboard focus reaches it last, as it sits in the window.
         let t = ui.tokens();
@@ -251,8 +280,15 @@ impl App {
         // The status bar is on the base, with no rule above it. Its items bring their own
         // padding; with the card gap beside them their text lines up inside the cards.
         let gap = widgets::CARD_GAP as i8;
+        // A window REDA rounds itself shows its bottom corners through the status bar.
+        let corner = chrome.corner.round() as u8;
         let frame = egui::Frame::new()
             .fill(t.color.surface.base)
+            .corner_radius(egui::CornerRadius {
+                sw: corner,
+                se: corner,
+                ..egui::CornerRadius::ZERO
+            })
             .inner_margin(egui::Margin::symmetric(gap, 0));
         let status = Panel::bottom("status-bar")
             .frame(frame)
@@ -275,6 +311,7 @@ impl App {
             .id_salt("status-bar-content");
         ui.scope_builder(builder, |ui| self.status_bar(ui));
         tab_switcher::show(&ctx, &mut self.shell);
+        title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
             self.call(&id, params);
@@ -927,7 +964,7 @@ impl App {
 
     /// The Title bar for the active Document's type, drawn from the bar data files.
     /// Returns the item clicked, if any.
-    fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
+    fn bars(&mut self, ui: &mut Ui, chrome: title_bar::Chrome) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let scale = preferences::nearest_ui_scale(f64::from(ui.ctx().zoom_factor()));
         let mut checked = BTreeMap::from([
@@ -954,9 +991,11 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        // Every window still has the system title bar above REDA's: the platform slices
-        // give the bar its window controls and dragging.
-        title_bar::show(ui, &cx, bars, title_bar::Chrome::SYSTEM).run
+        let outcome = title_bar::show(ui, &cx, bars, chrome);
+        let ctx = ui.ctx();
+        let menu = title_bar::drive(ctx, chrome, outcome.window, &outcome.background);
+        self.window_menu = menu.map(|p| (p.to_vec2() * ctx.zoom_factor()).to_pos2());
+        outcome.run
     }
 
     /// Carries out what the view Commands asked of the window.
@@ -1154,8 +1193,19 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         App::ui(self, ui);
+        if let Some(at) = self.window_menu.take() {
+            title_bar::show_window_menu(frame, at);
+        }
+    }
+
+    /// A transparent window shows nothing where REDA paints nothing: its round corners.
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if self.transparent {
+            return [0.0; 4];
+        }
+        visuals.panel_fill.to_normalized_gamma_f32()
     }
 
     /// The window closes: the view state is saved, and the open Project's Recovery
@@ -1203,11 +1253,15 @@ pub fn run(
     fonts: Arc<dyn InstalledFonts>,
     open: Option<PathBuf>,
 ) -> eframe::Result {
+    // Read before the window is created: the system title bar Preference applies on
+    // restart, and a desktop that decorates every window forces it.
+    let startup = title_bar::Startup::detect(&preferences::current(engine.user_dirs()));
+    let viewport = egui::ViewportBuilder::default()
+        .with_title(tr!("window-title"))
+        .with_inner_size([1280.0, 800.0])
+        .with_min_inner_size([480.0, 320.0]);
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title(tr!("window-title"))
-            .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([480.0, 320.0]),
+        viewport: title_bar::viewport(startup, viewport),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
@@ -1231,6 +1285,7 @@ pub fn run(
             let bridge = Bridge::start(&shell);
             Ok(Box::new(
                 App::new(shell)
+                    .with_title_bar(startup)
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
                     .watching_preferences()
