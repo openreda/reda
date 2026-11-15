@@ -1,45 +1,63 @@
 //! The Net Classes page: the grid (a bold Default row, then the classes in rank order,
 //! dragged to re-rank) and the Net table.
 
-use egui::{
-    Button, Checkbox, Event, Key, Modifiers, Rect, RichText, Role, Sense, Stroke, TextEdit, Ui,
-    WidgetInfo, vec2,
-};
+use egui::{Event, Key, Modifiers, Rect, Role, Sense, Stroke, Ui, WidgetInfo, pos2, vec2};
 use reda_engine::model::Uuid;
 
 use super::super::model::{
     BoardSetupDraft, ClassKey, GRID_FIELDS, GRID_KINDS, RuleField, class_field, kind_name,
 };
 use super::{LENGTH_WIDTH, no_pcb};
-use crate::settings::{PageCx, field};
-use crate::tr;
 
-const CELL_WIDTH: f32 = 64.0;
+/// The pattern field of Assign by pattern.
+const PATTERN_WIDTH: f32 = LENGTH_WIDTH * 1.5;
+use crate::settings::{PageCx, field, layout, strong};
+use crate::theme::TokensExt as _;
+use crate::tr;
+use crate::widgets::{self, Column, RowLook, Selection, Tooltip as _};
+
+/// A value cell of the grid: room for a value such as `0.125` and the field's padding.
+const CELL_WIDTH: f32 = 80.0;
+/// The grip at the start of a row.
 const HANDLE: f32 = 18.0;
+/// How far apart the grip's three lines are.
+const GRIP_GAP: f32 = 4.0;
+/// The search field over the grid.
+const SEARCH_WIDTH: f32 = 160.0;
+/// A class's name in the grid.
+const NAME_WIDTH: f32 = 120.0;
+/// A class's comment on one rule kind.
+const COMMENT_WIDTH: f32 = 90.0;
+/// The Net table's filter.
+const FILTER_WIDTH: f32 = 200.0;
+/// A Net's Net Classes dropdown.
+const CLASSES_WIDTH: f32 = 180.0;
 
 /// The Net Classes page: the grid, then the Net table.
 pub fn net_classes_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
     if no_pcb(ui, board) {
         return;
     }
+    let t = ui.tokens();
     toolbar(ui, board);
-    ui.add_space(4.0);
+    ui.add_space(t.space.stack);
     class_grid(ui, cx, board);
     grid_keys(ui, board);
-    ui.weak(tr!("board-setup-grid-note"));
-    ui.add_space(12.0);
+    layout::muted(ui, tr!("board-setup-grid-note"));
+    ui.add_space(t.space.section);
     net_table(ui, board);
 }
 
 fn toolbar(ui: &mut Ui, board: &mut BoardSetupDraft) {
     ui.horizontal_wrapped(|ui| {
         let label = tr!("board-setup-grid-search");
-        ui.label(&label);
-        field(ui, &label, &mut board.grid_search, 160.0, None);
-        ui.checkbox(&mut board.only_overrides, tr!("board-setup-only-overrides"));
+        layout::text(ui, &label);
+        field(ui, &label, &mut board.grid_search, SEARCH_WIDTH, None);
+        let only = tr!("board-setup-only-overrides");
+        ui.add(widgets::checkbox(&mut board.only_overrides, only));
         let any = !board.selected_rows.is_empty();
         if ui
-            .add_enabled(any, Button::new(tr!("board-setup-copy")))
+            .add_enabled(any, widgets::button(tr!("board-setup-copy")))
             .clicked()
         {
             ui.ctx().copy_text(board.copy_rows());
@@ -47,19 +65,22 @@ fn toolbar(ui: &mut Ui, board: &mut BoardSetupDraft) {
         // Pasting from the button needs the clipboard's text, which egui hands over only
         // as a paste event; the button asks for one.
         if ui
-            .add_enabled(any, Button::new(tr!("board-setup-paste")))
+            .add_enabled(any, widgets::button(tr!("board-setup-paste")))
             .clicked()
         {
             ui.ctx()
                 .send_viewport_cmd(egui::ViewportCommand::RequestPaste);
         }
         if ui
-            .add_enabled(any, Button::new(tr!("board-setup-clear")))
+            .add_enabled(any, widgets::button(tr!("board-setup-clear")))
             .clicked()
         {
             board.clear_rows();
         }
-        if ui.button(tr!("board-setup-add-class")).clicked() {
+        if ui
+            .add(widgets::button(tr!("board-setup-add-class")))
+            .clicked()
+        {
             board.add_class();
         }
     });
@@ -88,27 +109,34 @@ fn grid_keys(ui: &mut Ui, board: &mut BoardSetupDraft) {
 /// A row's grip: click selects it (Ctrl adds, Shift extends), dragging a class re-ranks
 /// it.
 fn handle(ui: &mut Ui, selected: bool, label: &str, draggable: bool) -> egui::Response {
+    let t = ui.tokens();
     let sense = if draggable {
         Sense::click_and_drag()
     } else {
         Sense::click()
     };
-    let (rect, response) = ui.allocate_exact_size(vec2(HANDLE, 20.0), sense);
-    let visuals = ui.style().interact_selectable(&response, selected);
+    let (rect, response) = ui.allocate_exact_size(vec2(HANDLE, t.control_height()), sense);
+    let grip = rect.shrink2(vec2(0.0, (rect.height() - HANDLE) / 2.0));
     if selected {
         ui.painter()
-            .rect_filled(rect, 2.0, ui.visuals().selection.bg_fill);
+            .rect_filled(grip, t.radius.mark, t.color.accent.subtle);
+    } else if response.hovered() {
+        ui.painter()
+            .rect_filled(grip, t.radius.mark, t.color.fill.hover);
     }
     if draggable {
-        // Three grip lines, painted: the UI font lacks a grip glyph.
-        let stroke = Stroke::new(1.5, visuals.fg_stroke.color);
-        for dy in [-4.0, 0.0, 4.0] {
+        // Three grip lines, painted: the Glyph set has no grip.
+        let ink = if response.hovered() || selected {
+            t.color.text.primary
+        } else {
+            t.color.text.muted
+        };
+        let stroke = Stroke::new(widgets::glyph::STROKE, ink);
+        let inset = GRIP_GAP;
+        for dy in [-GRIP_GAP, 0.0, GRIP_GAP] {
             let y = rect.center().y + dy;
             ui.painter().line_segment(
-                [
-                    egui::pos2(rect.left() + 4.0, y),
-                    egui::pos2(rect.right() - 4.0, y),
-                ],
+                [pos2(rect.left() + inset, y), pos2(rect.right() - inset, y)],
                 stroke,
             );
         }
@@ -129,28 +157,18 @@ fn cell(
     hint: &str,
     problem: Option<&crate::settings::Problem>,
 ) -> bool {
-    let response = ui
-        .scope(|ui| {
-            if problem.is_some() {
-                let error = ui.visuals().error_fg_color;
-                let widgets = &mut ui.visuals_mut().widgets;
-                for w in [&mut widgets.inactive, &mut widgets.hovered] {
-                    w.bg_stroke = Stroke::new(1.5, error);
-                }
-            }
-            ui.add(
-                TextEdit::singleline(value)
-                    .hint_text(hint)
-                    .desired_width(CELL_WIDTH),
-            )
-        })
-        .inner;
+    let response = ui.add(
+        widgets::text_field(value)
+            .hint(hint)
+            .width(CELL_WIDTH)
+            .invalid(problem.is_some()),
+    );
     let label = label.to_owned();
     response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label.clone()));
     let changed = response.changed();
     // The message is too wide for a cell: it shows on hover, and the cell is red.
     if let Some(problem) = problem {
-        response.on_hover_text(&problem.message);
+        response.tooltip(&problem.message);
     }
     changed
 }
@@ -186,128 +204,165 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
     let mut clicked: Option<(ClassKey, Modifiers)> = None;
     let mut drag_start: Option<ClassKey> = None;
     let mut drag_end = false;
-    let mut delete = None;
-    egui::Grid::new("board-setup-class-grid")
-        .striped(true)
-        .spacing([6.0, 4.0])
+    let mut delete_key = None;
+    let fields = |kind| {
+        GRID_FIELDS
+            .iter()
+            .filter(move |f: &&RuleField| f.rule().0 == kind)
+    };
+    let count = 4 + GRID_KINDS
+        .iter()
+        .map(|&kind| 2 + fields(kind).count())
+        .sum::<usize>();
+    let columns = std::iter::once(Column::fixed(HANDLE))
+        .chain(std::iter::repeat_n(Column::auto(), count - 1));
+    // The grid is wider than the page: it scrolls sideways on its own, so the notes
+    // under it wrap at the page's width.
+    egui::ScrollArea::horizontal()
+        .id_salt("board-setup-class-grid-scroll")
         .show(ui, |ui| {
-            // Two header rows: each kind's name over its group, then the columns.
-            ui.label("");
-            ui.label("");
-            for kind in GRID_KINDS {
-                ui.strong(kind_name(kind));
-                for _ in GRID_FIELDS.iter().filter(|f| f.rule().0 == kind) {
-                    ui.label("");
-                }
-                ui.label("");
-            }
-            ui.end_row();
-            ui.label("");
-            ui.strong(tr!("board-setup-net-class"));
-            for kind in GRID_KINDS {
-                ui.label(RichText::new(tr!("board-setup-on")).small());
-                for f in GRID_FIELDS.iter().filter(|f| f.rule().0 == kind) {
-                    ui.label(RichText::new(column_name(*f)).small());
-                }
-                ui.label(RichText::new(tr!("board-setup-comment")).small());
-            }
-            ui.label("");
-            ui.end_row();
-            for key in rows {
-                let default = key == ClassKey::Default;
-                let name = if default {
-                    tr!("board-setup-default-class-name")
-                } else {
-                    board.class_name(key).to_owned()
-                };
-                let selected = board.selected_rows.contains(&key);
-                let label = if default {
-                    tr!("board-setup-select-row", class = name.as_str())
-                } else {
-                    tr!("board-setup-drag-row", class = name.as_str())
-                };
-                let grip = handle(ui, selected, &label, !default);
-                row_rects.push((key, grip.rect));
-                if grip.clicked() {
-                    clicked = Some((key, ui.input(|i| i.modifiers)));
-                }
-                if grip.drag_started() {
-                    drag_start = Some(key);
-                }
-                if grip.drag_stopped() {
-                    drag_end = true;
-                }
-                if default {
-                    ui.label(RichText::new(&name).strong());
-                } else {
-                    let label = tr!("board-setup-class-name", number = number(key));
-                    let problem = cx.problem(&class_field(key, "name"));
-                    if let Some(value) = board.class_name_mut(key) {
-                        field(ui, &label, value, 120.0, problem);
-                    }
-                }
-                for kind in GRID_KINDS {
-                    let rule = kind_name(kind);
-                    if board.has_record(key, kind) {
-                        let mut on = board.enabled(key, kind);
-                        let label = tr!(
-                            "board-setup-enabled",
-                            class = name.as_str(),
-                            rule = rule.as_str()
-                        );
-                        let r = ui.add(Checkbox::without_text(&mut on));
-                        r.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, &label));
-                        if r.changed() {
-                            board.set_enabled(key, kind, on);
+            widgets::table("board-setup-class-grid")
+                .columns(columns)
+                .show(ui, |table| {
+                    // Two header rows: each kind's name over its group, then the columns.
+                    table.row(|row| {
+                        row.empty();
+                        row.empty();
+                        for kind in GRID_KINDS {
+                            row.ui(|ui| group_heading(ui, &kind_name(kind)));
+                            for _ in fields(kind) {
+                                row.empty();
+                            }
+                            row.empty();
                         }
-                    } else {
-                        ui.label("");
-                    }
-                    for &f in GRID_FIELDS.iter().filter(|f| f.rule().0 == kind) {
-                        let label = tr!(
-                            "board-setup-override",
-                            class = name.as_str(),
-                            rule = f.name()
-                        );
-                        let problem_field = if default {
-                            f.problem_field()
+                        row.empty();
+                        row.empty();
+                    });
+                    table.header(|h| {
+                        h.empty();
+                        h.text(tr!("board-setup-net-class"));
+                        for kind in GRID_KINDS {
+                            h.text(tr!("board-setup-on"));
+                            for f in fields(kind) {
+                                h.text(column_name(*f));
+                            }
+                            h.text(tr!("board-setup-comment"));
+                        }
+                        h.empty();
+                        h.empty();
+                    });
+                    for key in rows {
+                        let default = key == ClassKey::Default;
+                        let name = if default {
+                            tr!("board-setup-default-class-name")
                         } else {
-                            class_field(key, &f.id())
+                            board.class_name(key).to_owned()
                         };
-                        let problem = cx.problem(&problem_field);
-                        let hint = board.inherited(key, f);
-                        let mut text = board.cell(key, f).to_owned();
-                        if cell(ui, &label, &mut text, &hint, problem) {
-                            board.type_cell(key, f, &text);
-                        }
+                        let selected = board.selected_rows.contains(&key);
+                        let label = if default {
+                            tr!("board-setup-select-row", class = name.as_str())
+                        } else {
+                            tr!("board-setup-drag-row", class = name.as_str())
+                        };
+                        table.row(|row| {
+                            row.ui(|ui| {
+                                let grip = handle(ui, selected, &label, !default);
+                                row_rects.push((key, grip.rect));
+                                if grip.clicked() {
+                                    clicked = Some((key, ui.input(|i| i.modifiers)));
+                                }
+                                if grip.drag_started() {
+                                    drag_start = Some(key);
+                                }
+                                if grip.drag_stopped() {
+                                    drag_end = true;
+                                }
+                            });
+                            if default {
+                                row.ui(|ui| strong(ui, &name));
+                            } else {
+                                let label = tr!("board-setup-class-name", number = number(key));
+                                let problem = cx.problem(&class_field(key, "name"));
+                                row.ui(|ui| {
+                                    if let Some(value) = board.class_name_mut(key) {
+                                        field(ui, &label, value, NAME_WIDTH, problem);
+                                    }
+                                });
+                            }
+                            for kind in GRID_KINDS {
+                                let rule = kind_name(kind);
+                                if board.has_record(key, kind) {
+                                    let mut on = board.enabled(key, kind);
+                                    let label = tr!(
+                                        "board-setup-enabled",
+                                        class = name.as_str(),
+                                        rule = rule.as_str()
+                                    );
+                                    let r = row.ui(|ui| ui.add(widgets::checkbox(&mut on, "")));
+                                    r.widget_info(|| {
+                                        WidgetInfo::selected(Role::CheckBox, true, on, &label)
+                                    });
+                                    if r.changed() {
+                                        board.set_enabled(key, kind, on);
+                                    }
+                                } else {
+                                    row.empty();
+                                }
+                                for &f in fields(kind) {
+                                    let label = tr!(
+                                        "board-setup-override",
+                                        class = name.as_str(),
+                                        rule = f.name()
+                                    );
+                                    let problem_field = if default {
+                                        f.problem_field()
+                                    } else {
+                                        class_field(key, &f.id())
+                                    };
+                                    let problem = cx.problem(&problem_field);
+                                    let hint = board.inherited(key, f);
+                                    let mut text = board.cell(key, f).to_owned();
+                                    if row.ui(|ui| cell(ui, &label, &mut text, &hint, problem)) {
+                                        board.type_cell(key, f, &text);
+                                    }
+                                }
+                                if board.has_record(key, kind) {
+                                    let label = tr!(
+                                        "board-setup-comment-of",
+                                        class = name.as_str(),
+                                        rule = rule.as_str()
+                                    );
+                                    row.ui(|ui| {
+                                        if let Some(comment) = board.comment_mut(key, kind) {
+                                            field(ui, &label, comment, COMMENT_WIDTH, None);
+                                        }
+                                    });
+                                } else {
+                                    row.empty();
+                                }
+                            }
+                            row.ui(|ui| {
+                                let delete = widgets::button(tr!("board-setup-delete"));
+                                if default {
+                                    let b = ui.add_enabled(false, delete);
+                                    b.disabled_tooltip(tr!("board-setup-default-class"));
+                                } else {
+                                    let title =
+                                        tr!("board-setup-delete-class", number = number(key));
+                                    let b = ui.add(delete);
+                                    b.widget_info(|| {
+                                        WidgetInfo::labeled(Role::Button, true, &title)
+                                    });
+                                    if b.clicked() {
+                                        delete_key = Some(key);
+                                    }
+                                }
+                            });
+                            let shown = board.shown_row(key);
+                            row.ui(|ui| super::show_button(ui, cx, &name, shown));
+                        });
                     }
-                    if board.has_record(key, kind) {
-                        let label = tr!(
-                            "board-setup-comment-of",
-                            class = name.as_str(),
-                            rule = rule.as_str()
-                        );
-                        if let Some(comment) = board.comment_mut(key, kind) {
-                            field(ui, &label, comment, 90.0, None);
-                        }
-                    } else {
-                        ui.label("");
-                    }
-                }
-                if default {
-                    let b = ui.add_enabled(false, Button::new(tr!("board-setup-delete")));
-                    b.on_disabled_hover_text(tr!("board-setup-default-class"));
-                } else {
-                    let title = tr!("board-setup-delete-class", number = number(key));
-                    let b = ui.button(tr!("board-setup-delete"));
-                    b.widget_info(|| WidgetInfo::labeled(Role::Button, true, &title));
-                    if b.clicked() {
-                        delete = Some(key);
-                    }
-                }
-                super::show_button(ui, cx, &name, board.shown_row(key));
-                ui.end_row();
-            }
+                });
         });
     if let Some((key, modifiers)) = clicked {
         select_row(board, key, modifiers);
@@ -333,8 +388,9 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                 .or_else(|| classes.last().map(|(_, r)| r.bottom() + 2.0));
             if let Some(y) = y {
                 let x = ui.min_rect().x_range();
-                ui.painter()
-                    .hline(x, y, Stroke::new(2.0, ui.visuals().selection.stroke.color));
+                let t = ui.tokens();
+                let line = Stroke::new(t.stroke.accent_line, t.color.accent.text);
+                ui.painter().hline(x, y, line);
             }
             if drag_end {
                 board.move_class(key, index);
@@ -344,10 +400,23 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
             ui.data_mut(|d| d.remove::<ClassKey>(drag_id));
         }
     }
-    if let Some(key) = delete {
+    if let Some(key) = delete_key {
         board.delete_class(key);
         board.selected_rows.remove(&key);
     }
+}
+
+/// A rule kind's name over its group of columns. It takes no width, so the column under
+/// it stays as narrow as its check box, and the name runs on over the group.
+fn group_heading(ui: &mut Ui, text: &str) {
+    let t = ui.tokens();
+    let ink = t.color.text.primary;
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), t.ty.body_strong.font_id(), ink);
+    let (rect, _) = ui.allocate_exact_size(vec2(0.0, galley.size().y), Sense::hover());
+    let at = pos2(rect.left(), rect.center().y - galley.size().y / 2.0);
+    ui.painter().galley(at.round(), galley, ink);
 }
 
 /// Click selects one row, Ctrl+click adds or removes one, Shift+click selects a range.
@@ -375,29 +444,27 @@ fn select_row(board: &mut BoardSetupDraft, key: ClassKey, modifiers: Modifiers) 
 /// The Net table: Net → Net Classes, filterable, with multi-select, **New Class** from
 /// the selection and **Assign by pattern…**.
 fn net_table(ui: &mut Ui, board: &mut BoardSetupDraft) {
-    ui.strong(tr!("board-setup-nets"));
+    strong(ui, tr!("board-setup-nets"));
     ui.horizontal_wrapped(|ui| {
         let label = tr!("board-setup-filter");
-        ui.label(&label);
-        field(ui, &label, &mut board.net_filter, 200.0, None);
+        layout::text(ui, &label);
+        field(ui, &label, &mut board.net_filter, FILTER_WIDTH, None);
         let any = !board.selected_nets.is_empty();
-        if ui
-            .add_enabled(
-                any,
-                Button::new(tr!("board-setup-new-class-from-selection")),
-            )
-            .clicked()
-        {
+        let new_class = widgets::button(tr!("board-setup-new-class-from-selection"));
+        if ui.add_enabled(any, new_class).clicked() {
             board.new_class_from_selection();
         }
-        if ui.button(tr!("board-setup-assign-pattern")).clicked() {
+        if ui
+            .add(widgets::button(tr!("board-setup-assign-pattern")))
+            .clicked()
+        {
             let first = board.live_classes().next().map(|c| c.key());
             board.pattern_form = Some((String::new(), first));
         }
     });
     pattern_form(ui, board);
     if board.nets().is_empty() {
-        ui.weak(tr!("board-setup-no-nets"));
+        layout::muted(ui, tr!("board-setup-no-nets"));
         return;
     }
     let classes: Vec<(ClassKey, String)> = board
@@ -429,38 +496,45 @@ fn net_table(ui: &mut Ui, board: &mut BoardSetupDraft) {
     let order: Vec<Uuid> = nets.iter().map(|n| n.0).collect();
     let mut toggles = Vec::new();
     let mut clicked = None;
-    egui::Grid::new("board-setup-nets")
-        .num_columns(2)
-        .striped(true)
-        .spacing([12.0, 4.0])
-        .show(ui, |ui| {
+    let focused = ui.input(|i| i.focused);
+    let modifiers = ui.input(|i| i.modifiers);
+    widgets::table("board-setup-nets")
+        .columns([Column::auto(), Column::auto()])
+        .show(ui, |table| {
             for (uuid, name, member, current) in nets {
                 let selected = board.selected_nets.contains(&uuid);
-                if ui.selectable_label(selected, &name).clicked() {
-                    clicked = Some((uuid, ui.input(|i| i.modifiers)));
-                }
+                let selection = match (selected, focused) {
+                    (false, _) => Selection::None,
+                    (true, true) => Selection::Live,
+                    (true, false) => Selection::Unfocused,
+                };
                 let label = tr!("board-setup-class-of", net = name.as_str());
-                let combo = egui::ComboBox::from_id_salt(("board-setup-net", uuid))
-                    .selected_text(current)
-                    .width(180.0)
-                    .show_ui(ui, |ui| {
-                        if ui
-                            .selectable_label(member.is_empty(), &default_name)
-                            .clicked()
-                        {
-                            toggles.push((uuid, ClassKey::Default));
-                        }
-                        for (key, class_name) in &classes {
-                            let mut on = member.contains(key);
-                            if ui.checkbox(&mut on, class_name).changed() {
-                                toggles.push((uuid, *key));
-                            }
-                        }
+                let row = table.row_with(RowLook::selected(selection), |row| {
+                    row.text(&name);
+                    row.ui(|ui| {
+                        let combo = widgets::dropdown(("board-setup-net", uuid), current)
+                            .width(CLASSES_WIDTH)
+                            .show(ui, |ui| {
+                                let none = widgets::choice(member.is_empty(), &default_name);
+                                if ui.add(none).clicked() {
+                                    toggles.push((uuid, ClassKey::Default));
+                                }
+                                for (key, class_name) in &classes {
+                                    let on = member.contains(key);
+                                    let item = widgets::choice(on, class_name);
+                                    if ui.add(item).clicked() {
+                                        toggles.push((uuid, *key));
+                                    }
+                                }
+                            });
+                        combo
+                            .response
+                            .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
                     });
-                combo
-                    .response
-                    .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
-                ui.end_row();
+                });
+                if row.clicked() {
+                    clicked = Some((uuid, modifiers));
+                }
             }
         });
     for (net, key) in toggles {
@@ -495,33 +569,32 @@ fn pattern_form(ui: &mut Ui, board: &mut BoardSetupDraft) {
         .map(|c| (c.key(), c.name().to_owned()))
         .collect();
     let (mut assign, mut cancel) = (false, false);
-    egui::Frame::group(ui.style()).show(ui, |ui| {
+    let t = ui.tokens();
+    widgets::card_frame(&t).show(ui, |ui| {
         ui.horizontal_wrapped(|ui| {
             let label = tr!("board-setup-pattern");
-            ui.label(&label);
-            field(ui, &label, &mut pattern, LENGTH_WIDTH * 1.5, None);
+            layout::text(ui, &label);
+            field(ui, &label, &mut pattern, PATTERN_WIDTH, None);
             let label = tr!("board-setup-pattern-class");
-            ui.label(&label);
+            layout::text(ui, &label);
             let shown = class
                 .and_then(|k| classes.iter().find(|(c, _)| *c == k))
                 .map_or(String::new(), |(_, n)| n.clone());
-            let combo = egui::ComboBox::from_id_salt("board-setup-pattern-class")
-                .selected_text(shown)
-                .show_ui(ui, |ui| {
-                    for (key, name) in &classes {
-                        ui.selectable_value(&mut class, Some(*key), name);
-                    }
-                });
+            let combo = widgets::dropdown("board-setup-pattern-class", shown).show(ui, |ui| {
+                for (key, name) in &classes {
+                    widgets::choice_value(ui, &mut class, Some(*key), name);
+                }
+            });
             combo
                 .response
                 .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &label));
             let ready = class.is_some() && !pattern.trim().is_empty();
             assign = ui
-                .add_enabled(ready, Button::new(tr!("board-setup-assign")))
+                .add_enabled(ready, widgets::button(tr!("board-setup-assign")))
                 .clicked();
-            cancel = ui.button(tr!("dialog-cancel")).clicked();
+            cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
         });
-        ui.weak(tr!("board-setup-pattern-note"));
+        layout::muted(ui, tr!("board-setup-pattern-note"));
     });
     board.pattern_form = Some((pattern.clone(), class));
     if assign && let Some(key) = class {

@@ -1,16 +1,33 @@
 //! Drawing a Fab Preset page into a settings window or the Preferences window.
 
-use egui::{Button, ComboBox, Grid, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::{
     BomLayout, BottomPosition, BottomRotation, Column, ColumnSource, CplUnits, FileNaming,
     FileOrigin, LayerFileName, NotFittedBom, PasteExpansion, SlotCommand,
 };
 
 use super::{Field, PresetEditor, PresetPage};
-use crate::settings::field;
+use crate::settings::{dropdown, field, layout, strong};
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column as TableColumn, Tooltip as _};
 
-const FIELD_WIDTH: f32 = 220.0;
+/// A typed value or a dropdown in a page's rows.
+const FIELD_WIDTH: f32 = 320.0;
+/// A file name rule's Layer.
+const LAYER_WIDTH: f32 = 140.0;
+/// A file name rule's name.
+const FILE_NAME_WIDTH: f32 = 180.0;
+/// A column's source.
+const SOURCE_WIDTH: f32 = 130.0;
+/// The Field a column takes its value from.
+const SOURCE_FIELD_WIDTH: f32 = 120.0;
+/// A column's header.
+const HEADER_WIDTH: f32 = 160.0;
+/// The designator separator.
+const SEPARATOR_WIDTH: f32 = 60.0;
+/// A mount or side value.
+const VALUE_WIDTH: f32 = 100.0;
 
 /// Draws `page` of the preset in `editor`.
 pub fn page(ui: &mut Ui, editor: &mut PresetEditor, page: PresetPage) {
@@ -27,15 +44,18 @@ pub fn page(ui: &mut Ui, editor: &mut PresetEditor, page: PresetPage) {
 
 /// A grid of label and value rows.
 fn rows(ui: &mut Ui, id: &str, add: impl FnOnce(&mut Ui)) {
-    Grid::new(id)
-        .num_columns(2)
-        .spacing([12.0, 6.0])
-        .show(ui, add);
+    widgets::form(id).show(ui, add);
+}
+
+/// A heading between a page's rows, in the name column.
+fn subheading(ui: &mut Ui, text: String) {
+    strong(ui, text);
+    ui.end_row();
 }
 
 /// A typed field's row.
 fn typed(ui: &mut Ui, editor: &mut PresetEditor, f: Field, label: String) {
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     let mut text = editor.text(f);
     let problem = editor.problem(f);
     let response = field(ui, &label, &mut text, FIELD_WIDTH, problem.as_ref());
@@ -47,47 +67,32 @@ fn typed(ui: &mut Ui, editor: &mut PresetEditor, f: Field, label: String) {
 
 /// A drop-down's row.
 fn choice<T: PartialEq + Copy>(ui: &mut Ui, label: String, value: &mut T, options: &[(T, String)]) {
-    ui.label(&label);
-    let shown = options
-        .iter()
-        .find(|(v, _)| v == value)
-        .map(|(_, l)| l.clone())
-        .unwrap_or_default();
-    let combo = ComboBox::from_id_salt(&label)
-        .selected_text(shown)
-        .width(FIELD_WIDTH)
-        .show_ui(ui, |ui| {
-            for (option, text) in options {
-                ui.selectable_value(value, *option, text);
-            }
-        });
-    let announced = label.clone();
-    combo
-        .response
-        .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, announced.clone()));
+    ui.add(widgets::form_name(&label));
+    dropdown(ui, label.as_str(), &label, value, options, FIELD_WIDTH);
     ui.end_row();
 }
 
 /// A checkbox's row.
 fn check(ui: &mut Ui, label: String, value: &mut bool) {
     ui.label("");
-    ui.checkbox(value, label);
+    ui.add(widgets::checkbox(value, label));
     ui.end_row();
 }
 
 /// A value shown read-only, where another page sets it.
 fn read_only(ui: &mut Ui, label: String, value: String, set_on: String) {
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     ui.horizontal(|ui| {
-        ui.strong(value);
-        ui.weak(set_on);
+        strong(ui, value);
+        layout::muted(ui, set_on);
     });
     ui.end_row();
 }
 
 fn note(ui: &mut Ui, text: String) {
-    ui.add_space(6.0);
-    ui.weak(text);
+    let t = ui.tokens();
+    ui.add_space(t.space.stack);
+    layout::muted(ui, text);
 }
 
 fn origin_options() -> [(FileOrigin, String); 2] {
@@ -106,7 +111,7 @@ fn origin_text(origin: FileOrigin) -> String {
 }
 
 fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
-    ui.label(tr!("preset-rules-intro"));
+    layout::text(ui, tr!("preset-rules-intro"));
     rows(ui, "preset-rules", |ui| {
         for (f, label) in [
             (Field::Clearance, tr!("preset-clearance")),
@@ -121,8 +126,7 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
         ] {
             typed(ui, editor, f, label);
         }
-        ui.strong(tr!("preset-preferred"));
-        ui.end_row();
+        subheading(ui, tr!("preset-preferred"));
         for (f, label) in [
             (Field::PreferredTrackWidth, tr!("preset-preferred-track")),
             (
@@ -133,8 +137,7 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
         ] {
             typed(ui, editor, f, label);
         }
-        ui.strong(tr!("preset-mask-paste"));
-        ui.end_row();
+        subheading(ui, tr!("preset-mask-paste"));
         typed(ui, editor, Field::MaskTop, tr!("preset-mask-top"));
         typed(ui, editor, Field::MaskBottom, tr!("preset-mask-bottom"));
         let mask = &mut editor.value_mut().rules.mask_expansion;
@@ -169,8 +172,7 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
 
 fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
     rows(ui, "preset-stackup", |ui| {
-        ui.strong(tr!("preset-seeds"));
-        ui.end_row();
+        subheading(ui, tr!("preset-seeds"));
         typed(
             ui,
             editor,
@@ -178,8 +180,7 @@ fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
             tr!("preset-seed-thickness"),
         );
         typed(ui, editor, Field::SeedCopper, tr!("preset-seed-copper"));
-        ui.strong(tr!("preset-suggestions"));
-        ui.end_row();
+        subheading(ui, tr!("preset-suggestions"));
         for (f, label) in [
             (Field::SuggestThickness, tr!("preset-suggest-thickness")),
             (Field::SuggestCopper, tr!("preset-suggest-copper")),
@@ -214,7 +215,7 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
             &origin_options(),
         );
         ui.label("");
-        ui.weak(tr!("preset-file-origin-note"));
+        layout::muted(ui, tr!("preset-file-origin-note"));
         ui.end_row();
         check(
             ui,
@@ -222,50 +223,51 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
             &mut g.outline_on_every_plot,
         );
     });
-    ui.add_space(6.0);
-    ui.strong(tr!("preset-file-names"));
+    let t = ui.tokens();
+    ui.add_space(t.space.section);
+    strong(ui, tr!("preset-file-names"));
     file_names(ui, &mut g.file_names);
 }
 
 fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {
     let mut remove = None;
-    Grid::new("preset-file-names")
-        .num_columns(3)
-        .spacing([8.0, 4.0])
-        .show(ui, |ui| {
-            ui.weak(tr!("preset-layer"));
-            ui.weak(tr!("preset-file-name"));
-            ui.end_row();
+    widgets::table("preset-file-names")
+        .columns([TableColumn::auto(); 3])
+        .show(ui, |table| {
+            table.header(|h| {
+                h.text(tr!("preset-layer"));
+                h.text(tr!("preset-file-name"));
+                h.empty();
+            });
             for (i, row) in names.iter_mut().enumerate() {
                 let n = i + 1;
-                field(
-                    ui,
-                    &tr!("preset-layer-of", n = n),
-                    &mut row.layer,
-                    140.0,
-                    None,
-                );
-                field(
-                    ui,
-                    &tr!("preset-file-name-of", n = n),
-                    &mut row.name,
-                    180.0,
-                    None,
-                );
-                if ui
-                    .button(tr!("preset-remove"))
-                    .on_hover_text(tr!("preset-remove-name", n = n))
-                    .clicked()
-                {
-                    remove = Some(i);
-                }
-                ui.end_row();
+                table.row(|cells| {
+                    cells.ui(|ui| {
+                        let label = tr!("preset-layer-of", n = n);
+                        field(ui, &label, &mut row.layer, LAYER_WIDTH, None)
+                    });
+                    cells.ui(|ui| {
+                        let label = tr!("preset-file-name-of", n = n);
+                        field(ui, &label, &mut row.name, FILE_NAME_WIDTH, None)
+                    });
+                    let clicked = cells.ui(|ui| {
+                        ui.add(widgets::button(tr!("preset-remove")))
+                            .tooltip(tr!("preset-remove-name", n = n))
+                            .clicked()
+                    });
+                    if clicked {
+                        remove = Some(i);
+                    }
+                });
             }
         });
     if let Some(i) = remove {
         names.remove(i);
     }
-    if ui.button(tr!("preset-add-file-name")).clicked() {
+    if ui
+        .add(widgets::button(tr!("preset-add-file-name")))
+        .clicked()
+    {
         names.push(LayerFileName {
             layer: String::new(),
             name: String::new(),
@@ -324,82 +326,75 @@ fn sources() -> Vec<(ColumnSource, String)> {
 fn columns(ui: &mut Ui, id: &str, columns: &mut Vec<Column>) {
     let options = sources();
     let mut action: Option<(usize, i8)> = None;
-    Grid::new(id)
-        .num_columns(5)
-        .spacing([8.0, 4.0])
-        .show(ui, |ui| {
-            ui.weak(tr!("preset-source"));
-            ui.weak(tr!("preset-header"));
-            ui.end_row();
+    widgets::table(id)
+        .columns([TableColumn::auto(); 5])
+        .show(ui, |table| {
+            table.header(|h| {
+                h.text(tr!("preset-source"));
+                h.text(tr!("preset-header"));
+                h.empty();
+                h.empty();
+                h.empty();
+            });
             let count = columns.len();
             for (i, column) in columns.iter_mut().enumerate() {
                 let n = i + 1;
-                ui.horizontal(|ui| {
-                    let label = tr!("preset-source-of", n = n);
-                    let is_field = matches!(column.source, ColumnSource::Field(_));
-                    let shown = if is_field {
-                        tr!("preset-source-field")
-                    } else {
-                        options
-                            .iter()
-                            .find(|(s, _)| *s == column.source)
-                            .map(|(_, t)| t.clone())
-                            .unwrap_or_default()
-                    };
-                    let combo = ComboBox::from_id_salt((id, "source", i))
-                        .selected_text(shown)
-                        .width(130.0)
-                        .show_ui(ui, |ui| {
-                            for (source, text) in &options {
-                                ui.selectable_value(&mut column.source, source.clone(), text);
-                            }
-                            if ui
-                                .selectable_label(is_field, tr!("preset-source-field"))
-                                .clicked()
-                                && !is_field
-                            {
-                                column.source = ColumnSource::Field(column.header.clone());
-                            }
+                table.row(|cells| {
+                    cells.ui(|ui| {
+                        let label = tr!("preset-source-of", n = n);
+                        let is_field = matches!(column.source, ColumnSource::Field(_));
+                        let shown = if is_field {
+                            tr!("preset-source-field")
+                        } else {
+                            options
+                                .iter()
+                                .find(|(s, _)| *s == column.source)
+                                .map(|(_, t)| t.clone())
+                                .unwrap_or_default()
+                        };
+                        let combo = widgets::dropdown((id, "source", i), shown)
+                            .width(SOURCE_WIDTH)
+                            .show(ui, |ui| {
+                                for (source, text) in &options {
+                                    let source = source.clone();
+                                    widgets::choice_value(ui, &mut column.source, source, text);
+                                }
+                                let by_field =
+                                    widgets::choice(is_field, tr!("preset-source-field"));
+                                if ui.add(by_field).clicked() && !is_field {
+                                    column.source = ColumnSource::Field(column.header.clone());
+                                }
+                            });
+                        combo.response.widget_info(|| {
+                            WidgetInfo::labeled(Role::ComboBox, true, label.clone())
                         });
-                    combo
-                        .response
-                        .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-                    if let ColumnSource::Field(name) = &mut column.source {
-                        field(ui, &tr!("preset-field-of", n = n), name, 90.0, None);
+                        if let ColumnSource::Field(name) = &mut column.source {
+                            let label = tr!("preset-field-of", n = n);
+                            field(ui, &label, name, SOURCE_FIELD_WIDTH, None);
+                        }
+                    });
+                    cells.ui(|ui| {
+                        let label = tr!("preset-header-of", n = n);
+                        field(ui, &label, &mut column.header, HEADER_WIDTH, None)
+                    });
+                    let small = |ui: &mut Ui, on: bool, text: String, hint: String| {
+                        ui.add_enabled(on, widgets::button(text))
+                            .tooltip(hint)
+                            .clicked()
+                    };
+                    let up = tr!("preset-up-of", n = n);
+                    if cells.ui(|ui| small(ui, i > 0, tr!("preset-up"), up)) {
+                        action = Some((i, -1));
+                    }
+                    let down = tr!("preset-down-of", n = n);
+                    if cells.ui(|ui| small(ui, i + 1 < count, tr!("preset-down"), down)) {
+                        action = Some((i, 1));
+                    }
+                    let remove = tr!("preset-remove-of", n = n);
+                    if cells.ui(|ui| small(ui, true, tr!("preset-remove"), remove)) {
+                        action = Some((i, 0));
                     }
                 });
-                field(
-                    ui,
-                    &tr!("preset-header-of", n = n),
-                    &mut column.header,
-                    160.0,
-                    None,
-                );
-                let small = |ui: &mut Ui, on: bool, text: String, hint: String| {
-                    ui.add_enabled(on, Button::new(text))
-                        .on_hover_text(hint)
-                        .clicked()
-                };
-                if small(ui, i > 0, tr!("preset-up"), tr!("preset-up-of", n = n)) {
-                    action = Some((i, -1));
-                }
-                if small(
-                    ui,
-                    i + 1 < count,
-                    tr!("preset-down"),
-                    tr!("preset-down-of", n = n),
-                ) {
-                    action = Some((i, 1));
-                }
-                if small(
-                    ui,
-                    true,
-                    tr!("preset-remove"),
-                    tr!("preset-remove-of", n = n),
-                ) {
-                    action = Some((i, 0));
-                }
-                ui.end_row();
             }
         });
     match action {
@@ -410,19 +405,20 @@ fn columns(ui: &mut Ui, id: &str, columns: &mut Vec<Column>) {
         Some((i, _)) => columns.swap(i, i + 1),
         None => {}
     }
-    if ui.button(tr!("preset-add-column")).clicked() {
+    if ui.add(widgets::button(tr!("preset-add-column"))).clicked() {
         columns.push(Column::new("", ColumnSource::Value));
     }
 }
 
 fn bom(ui: &mut Ui, editor: &mut PresetEditor) {
-    ui.strong(tr!("preset-columns"));
+    let t = ui.tokens();
+    strong(ui, tr!("preset-columns"));
     columns(
         ui,
         "preset-bom-columns",
         &mut editor.value_mut().bom.columns,
     );
-    ui.add_space(6.0);
+    ui.add_space(t.space.section);
     rows(ui, "preset-bom", |ui| {
         let b = &mut editor.value_mut().bom;
         choice(
@@ -442,8 +438,14 @@ fn bom(ui: &mut Ui, editor: &mut PresetEditor) {
         typed(ui, editor, Field::LineStep, tr!("preset-line-step"));
         let b = &mut editor.value_mut().bom;
         let label = tr!("preset-designator-separator");
-        ui.label(&label);
-        field(ui, &label, &mut b.designator_separator, 60.0, None);
+        ui.add(widgets::form_name(&label));
+        field(
+            ui,
+            &label,
+            &mut b.designator_separator,
+            SEPARATOR_WIDTH,
+            None,
+        );
         ui.end_row();
         choice(
             ui,
@@ -466,8 +468,8 @@ fn bom(ui: &mut Ui, editor: &mut PresetEditor) {
             (tr!("preset-mount-smt"), &mut b.mount_values.smt),
             (tr!("preset-mount-tht"), &mut b.mount_values.tht),
         ] {
-            ui.label(&label);
-            field(ui, &label, value, 100.0, None);
+            ui.add(widgets::form_name(&label));
+            field(ui, &label, value, VALUE_WIDTH, None);
             ui.end_row();
         }
     });
@@ -479,16 +481,17 @@ fn cpl(ui: &mut Ui, editor: &mut PresetEditor) {
     let origin = preset.gerber.file_origin;
     let mount = preset.bom.mount_values.clone();
     let c = &mut preset.cpl;
-    ui.strong(tr!("preset-columns"));
+    let t = ui.tokens();
+    strong(ui, tr!("preset-columns"));
     columns(ui, "preset-cpl-columns", &mut c.columns);
-    ui.add_space(6.0);
+    ui.add_space(t.space.section);
     rows(ui, "preset-cpl", |ui| {
         for (label, value) in [
             (tr!("preset-side-top"), &mut c.side_values.top),
             (tr!("preset-side-bottom"), &mut c.side_values.bottom),
         ] {
-            ui.label(&label);
-            field(ui, &label, value, 100.0, None);
+            ui.add(widgets::form_name(&label));
+            field(ui, &label, value, VALUE_WIDTH, None);
             ui.end_row();
         }
         choice(
