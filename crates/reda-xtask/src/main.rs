@@ -11,6 +11,9 @@ Usage:
   cargo xtask tokens
       Regenerates the value tables of docs/spec/v0.1/design-language.md, between its
       tokens markers, from reda-ui's `Tokens`.
+  cargo xtask fonts
+      Regenerates crates/reda-ui/fonts/inter/Inter-Tabular.ttf, the bundled Inter with
+      tabular digits baked in, from Inter-Regular.ttf.
   cargo xtask showcase --out <dir> [--version <version>]
       Draws the website's screenshots with the real window on Mesa's llvmpipe (the
       reda-ui `showcase` test), in the dark and light themes, into <dir> with a
@@ -28,6 +31,8 @@ fn main() -> ExitCode {
         ["icons"] => reda_xtask::icons::regenerate(&ui).map(|n| format!("listed {n} icons")),
         ["tokens"] => reda_xtask::tokens::regenerate(&root)
             .map(|spec| format!("regenerated the token tables in {spec}")),
+        ["fonts"] => reda_xtask::fonts::regenerate(&root)
+            .map(|font| format!("regenerated {font} from Inter-Regular.ttf")),
         ["showcase", rest @ ..] => options(rest, &["--out"], &["--version"]).and_then(|o| {
             let out = PathBuf::from(o[0].unwrap());
             reda_xtask::showcase::render(&root, &out, o[1])
@@ -58,7 +63,7 @@ fn main() -> ExitCode {
                 })
             })
         }
-        _ => Err("expected `icons`, `tokens`, `showcase` or `site`".to_owned()),
+        _ => Err("expected `icons`, `tokens`, `fonts`, `showcase` or `site`".to_owned()),
     };
     match result {
         Ok(done) => {

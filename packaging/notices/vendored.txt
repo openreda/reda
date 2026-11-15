@@ -21,9 +21,21 @@ Used for: outline text, and characters the Hershey font lacks.
 Licence: SIL Open Font License 1.1
 Text: crates/reda-text/fonts/noto-sans/OFL.txt
 
+== Inter ==
+Directory: crates/reda-ui/fonts/inter
+Used for: the window's UI text, in regular, medium and semibold. Inter-Tabular.ttf is a modified version made by REDA: Inter Regular with the glyphs of its tabular-figures feature (tnum) as the default ones in its character map, for numbers that must line up.
+Licence: SIL Open Font License 1.1. Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+Text: crates/reda-ui/fonts/inter/OFL.txt
+
+== JetBrains Mono ==
+Directory: crates/reda-ui/fonts/jetbrains-mono
+Used for: the window's monospace text (the Journal, file names, command and key text). The file is JetBrains Mono NL Regular, the build without ligatures, unmodified.
+Licence: SIL Open Font License 1.1. Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+Text: crates/reda-ui/fonts/jetbrains-mono/OFL.txt
+
 == egui's default UI fonts (crate epaint_default_fonts) ==
 Directory: packaging/notices/eframe-fonts
-Used for: the window's UI text: Ubuntu Light, Hack, Noto Emoji and the emoji-icon-font subset that egui bundles. The licence texts here are copied unmodified from epaint_default_fonts 0.37.0.
+Used for: characters the window's own fonts (Inter and JetBrains Mono) lack, and egui's symbols and emoji: Ubuntu Light, Hack, Noto Emoji and the emoji-icon-font subset that egui bundles. The licence texts here are copied unmodified from epaint_default_fonts 0.37.0.
 Licence: Ubuntu Font Licence 1.0 (Ubuntu Light), SIL Open Font License 1.1 (Noto Emoji), MIT (Hack, emoji-icon-font)
 Text: packaging/notices/eframe-fonts/UFL.txt
 Text: packaging/notices/eframe-fonts/OFL.txt

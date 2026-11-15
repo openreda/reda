@@ -20,6 +20,8 @@ rfd.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The font reader egui itself uses: validates a font file before egui gets it.
+skrifa.workspace = true
 toml_edit.workspace = true
 unic-langid.workspace = true
 
