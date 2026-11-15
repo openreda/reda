@@ -76,6 +76,7 @@ fn the_dialog_opens_from_the_file_menu_and_lists_every_page() {
     open_preferences(&mut h);
     for title in [
         "General",
+        "Appearance",
         "Editing",
         "Snap",
         "Schematic",
@@ -114,9 +115,8 @@ fn the_theme_switches_live() {
     let home = TempDir::new("pref-dialog-theme");
     let mut h = harness(home.path());
     open_preferences(&mut h);
-    h.get_by_role_and_label(Role::ComboBox, "Theme").click();
-    h.run();
-    h.get_by_label("Light").click();
+    page(&mut h, "Appearance");
+    h.get_by_role_and_label(Role::RadioButton, "Light").click();
     h.run();
     assert_eq!(last_journal_id(&h), "app.preferences.set");
     assert_eq!(
@@ -139,6 +139,7 @@ fn the_ui_scale_switches_live() {
     let home = TempDir::new("pref-dialog-scale");
     let mut h = harness(home.path());
     open_preferences(&mut h);
+    page(&mut h, "Appearance");
     // A list of the steps, 75 to 200 %.
     h.get_by_role_and_label(Role::ComboBox, "UI scale").click();
     h.run();

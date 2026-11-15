@@ -38,6 +38,7 @@ fn the_tree_lists_the_pages_with_settings_and_indents_sub_pages() {
         .collect();
     let expect = [
         (0, "General"),
+        (0, "Appearance"),
         (0, "Window & Layouts"),
         (0, "Editing"),
         (1, "Snap"),

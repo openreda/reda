@@ -1241,6 +1241,36 @@ fn snapshot_of_the_preferences_general_page() {
     preferences_snapshot(None, "preferences_general_dark");
 }
 
+/// The Preferences window on its Appearance page, as `theme` and `density` draw it.
+fn appearance_snapshot(theme: &str, density: &str, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    h.state_mut()
+        .open_preferences(Some(reda_ui::preferences_dialog::PageId::APPEARANCE));
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page() {
+    appearance_snapshot("dark", "comfortable", "preferences_appearance_dark");
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page_in_light_and_compact() {
+    appearance_snapshot("light", "compact", "preferences_appearance_light_compact");
+}
+
 #[test]
 fn snapshot_of_the_keyboard_shortcuts_page() {
     preferences_snapshot(

@@ -22,8 +22,11 @@ use crate::theme::{self, TokensExt as _};
 use crate::tr;
 use crate::widgets::{self, Column, Tooltip as _};
 
+mod appearance;
 mod pages;
 mod shortcuts_page;
+
+pub(super) use appearance::FontLists;
 
 /// The least width of the label column. It grows to the widest label shown.
 const LABEL_WIDTH: f32 = 230.0;
@@ -244,6 +247,7 @@ impl PreferencesDialog {
 
     fn page_content(&mut self, ui: &mut Ui, cx: &mut Cx<'_>) {
         match self.page {
+            PageId::APPEARANCE => self.appearance(ui, cx),
             PageId::LIBRARIES => self.libraries(ui, cx),
             PageId::FAB_PRESETS => self.fab_presets(ui, cx),
             PageId::AGENTS => self.agents(ui, cx),
@@ -354,11 +358,22 @@ impl PreferencesDialog {
     }
 
     /// One setting: the reset dot when it is changed, its label (described on hover) in a
-    /// column `label` wide, and its editor.
+    /// column `label` wide and its control, then its caption if it has one.
     fn setting_row(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting, label: f32) {
         self.row(ui, cx, setting, label, |dialog, ui, cx| {
-            dialog.editor(ui, cx, setting);
+            // The Appearance settings have controls of their own, wherever they show.
+            if !dialog.appearance_control(ui, cx, setting) {
+                dialog.editor(ui, cx, setting);
+            }
         });
+        let t = ui.tokens();
+        let indent = DOT_WIDTH + t.space.gap;
+        if let Some(warning) = self.appearance_warning(ui, cx, setting) {
+            layout::caption_warning(ui, indent, warning);
+        }
+        if let Some(caption) = schema::caption(&setting.key) {
+            layout::caption(ui, indent, caption);
+        }
     }
 
     /// A setting's row with a control of the caller's: the reset dot, the label and

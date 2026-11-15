@@ -199,6 +199,29 @@ pub fn muted(ui: &mut Ui, text: impl Into<String>) -> egui::Response {
     ui.label(t.ty.body.rich(text).color(t.color.text.muted))
 }
 
+/// A caption: one line of small muted text under a setting, `indent` in from the page's
+/// edge so it starts where the setting's label does.
+pub fn caption(ui: &mut Ui, indent: f32, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    let text = t.ty.small.rich(text).color(t.color.text.muted);
+    indented(ui, indent, text)
+}
+
+/// A caption that warns: the setting is not doing what it says.
+pub fn caption_warning(ui: &mut Ui, indent: f32, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    let text = t.ty.small.rich(text).color(t.color.warning.text);
+    indented(ui, indent, text)
+}
+
+fn indented(ui: &mut Ui, indent: f32, text: egui::RichText) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.add_space(indent);
+        ui.add(egui::Label::new(text).extend())
+    })
+    .inner
+}
+
 /// Something that went wrong, in the error tone.
 pub fn error(ui: &mut Ui, text: impl Into<String>) -> egui::Response {
     let t = ui.tokens();

@@ -757,7 +757,10 @@ fn a_text_size_out_of_range_is_rejected_not_clamped() {
 #[test]
 fn a_text_size_out_of_range_in_the_file_warns_and_falls_back() {
     let home = TempDir::new("prefs-text-size-file");
-    write_prefs(home.path(), "[general]\ntext_size = 40\ndensity = \"compact\"\n");
+    write_prefs(
+        home.path(),
+        "[general]\ntext_size = 40\ndensity = \"compact\"\n",
+    );
     let out = test_engine_in(home.path()).run_ok("app.preferences.get", json!({}));
     assert_eq!(out["values"]["general"]["text_size"], 13);
     assert_eq!(out["values"]["general"]["density"], "compact");
@@ -782,14 +785,21 @@ fn the_appearance_page_holds_the_look_and_stays_under_general_keys() {
             "general.ui_scale",
         ]
     );
-    assert!(!pages::keys_on("general", false).iter().any(|k| k == "general.theme"));
+    assert!(
+        !pages::keys_on("general", false)
+            .iter()
+            .any(|k| k == "general.theme")
+    );
     // Reset page takes the page's keys, whatever their section.
     let home = TempDir::new("prefs-appearance-reset");
     write_prefs(
         home.path(),
         "[general]\ntheme = \"dark\"\ntext_size = 12\nreopen_last_project = false\n",
     );
-    let out = test_engine_in(home.path())
-        .run_ok("app.preferences.reset", json!({"page": "appearance"}));
-    assert_eq!(out, json!({"reset": ["general.text_size", "general.theme"]}));
+    let out =
+        test_engine_in(home.path()).run_ok("app.preferences.reset", json!({"page": "appearance"}));
+    assert_eq!(
+        out,
+        json!({"reset": ["general.text_size", "general.theme"]})
+    );
 }
