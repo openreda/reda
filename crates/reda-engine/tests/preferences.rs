@@ -685,3 +685,121 @@ fn the_old_hud_delta_key_reads_as_the_status_bars_delta() {
     let loaded = reda_engine::preferences::parse("[editing.hud]\ndelta = false\n");
     assert!(!loaded.values.editing.delta, "{:?}", loaded.warnings);
 }
+
+#[test]
+fn density_text_size_and_fonts_are_stored_and_loaded_with_the_others() {
+    let home = TempDir::new("prefs-appearance");
+    let mut engine = test_engine_in(home.path());
+    let out = engine.run_ok("app.preferences.get", json!({}));
+    let general = &out["values"]["general"];
+    assert_eq!(general["density"], "comfortable");
+    assert_eq!(general["text_size"], 13);
+    assert_eq!(general["ui_font"], Value::Null);
+    assert_eq!(general["mono_font"], Value::Null);
+
+    for (key, value) in [
+        ("general.density", json!("compact")),
+        ("general.text_size", json!(15)),
+        // Any family name is accepted: the file may come from another machine.
+        ("general.ui_font", json!("Nowhere Sans")),
+        ("general.mono_font", json!("Nowhere Mono")),
+    ] {
+        engine.run_ok("app.preferences.set", json!({"key": key, "value": value}));
+    }
+    assert_eq!(
+        read_prefs(home.path()),
+        "[general]\ndensity = \"compact\"\ntext_size = 15\nui_font = \"Nowhere Sans\"\nmono_font = \"Nowhere Mono\"\n"
+    );
+    // Another run reads them back.
+    let out = test_engine_in(home.path()).run_ok("app.preferences.get", json!({}));
+    let general = &out["values"]["general"];
+    assert_eq!(general["density"], "compact");
+    assert_eq!(general["text_size"], 15);
+    assert_eq!(general["ui_font"], "Nowhere Sans");
+    assert_eq!(general["mono_font"], "Nowhere Mono");
+    assert_eq!(out["warnings"], json!([]));
+
+    // Unsetting a font goes back to the bundled face and leaves the file.
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "general.ui_font", "value": null}),
+    );
+    assert_eq!(get(home.path(), "general.ui_font")["value"], Value::Null);
+}
+
+#[test]
+fn a_text_size_out_of_range_is_rejected_not_clamped() {
+    let home = TempDir::new("prefs-text-size");
+    let mut engine = test_engine_in(home.path());
+    for size in [10, 17, 0, 200] {
+        let err = engine.run_err(
+            "app.preferences.set",
+            json!({"key": "general.text_size", "value": size}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams, "{size}");
+    }
+    assert!(!prefs_file(home.path()).exists(), "nothing was written");
+    for size in [11, 16] {
+        engine.run_ok(
+            "app.preferences.set",
+            json!({"key": "general.text_size", "value": size}),
+        );
+        assert_eq!(get(home.path(), "general.text_size")["value"], size);
+    }
+    // A blank family name is no family.
+    let err = engine.run_err(
+        "app.preferences.set",
+        json!({"key": "general.ui_font", "value": "  "}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn a_text_size_out_of_range_in_the_file_warns_and_falls_back() {
+    let home = TempDir::new("prefs-text-size-file");
+    write_prefs(
+        home.path(),
+        "[general]\ntext_size = 40\ndensity = \"compact\"\n",
+    );
+    let out = test_engine_in(home.path()).run_ok("app.preferences.get", json!({}));
+    assert_eq!(out["values"]["general"]["text_size"], 13);
+    assert_eq!(out["values"]["general"]["density"], "compact");
+    let warnings = out["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert!(warnings[0].as_str().unwrap().contains("general.text_size"));
+}
+
+#[test]
+fn the_appearance_page_holds_the_look_and_stays_under_general_keys() {
+    use reda_engine::preferences::pages;
+    let ids: Vec<&str> = pages::PAGES.iter().map(|p| p.id).collect();
+    assert_eq!(&ids[..2], ["general", "appearance"]);
+    assert_eq!(
+        pages::keys_on("appearance", false),
+        [
+            "general.density",
+            "general.mono_font",
+            "general.text_size",
+            "general.theme",
+            "general.ui_font",
+            "general.ui_scale",
+        ]
+    );
+    assert!(
+        !pages::keys_on("general", false)
+            .iter()
+            .any(|k| k == "general.theme")
+    );
+    // Reset page takes the page's keys, whatever their section.
+    let home = TempDir::new("prefs-appearance-reset");
+    write_prefs(
+        home.path(),
+        "[general]\ntheme = \"dark\"\ntext_size = 12\nreopen_last_project = false\n",
+    );
+    let out =
+        test_engine_in(home.path()).run_ok("app.preferences.reset", json!({"page": "appearance"}));
+    assert_eq!(
+        out,
+        json!({"reset": ["general.text_size", "general.theme"]})
+    );
+}

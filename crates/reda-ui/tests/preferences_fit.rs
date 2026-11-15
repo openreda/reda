@@ -16,12 +16,12 @@ use reda_ui::engine::command::UserDirs;
 use reda_ui::engine::preferences;
 use reda_ui::preferences_dialog::PageId;
 use reda_ui::shell::Shell;
-use reda_ui::theme::{self, Density, Settings};
 use serde_json::json;
 
-fn harness(home: &Path, theme: &str) -> Harness<'static, App> {
+fn harness(home: &Path, theme: &str, density: &str) -> Harness<'static, App> {
     let dirs = UserDirs::under(home);
     preferences::set(&dirs, "general.theme", json!(theme)).unwrap();
+    preferences::set(&dirs, "general.density", json!(density)).unwrap();
     // A changed setting, so a page has its count and a row its reset dot.
     preferences::set(&dirs, "user.name", json!("REDA Author")).unwrap();
     preferences::set(&dirs, "libraries.paths", json!(["/libs/a-user-library"])).unwrap();
@@ -142,16 +142,10 @@ fn misfits_down_the_page(h: &mut Harness<'static, App>) -> Vec<String> {
     wrong
 }
 
-fn check(theme: &str, density: Density) {
+fn check(theme: &str, density: &str) {
     let home = TempDir::new("prefs-fit");
-    let mut h = harness(home.path(), theme);
+    let mut h = harness(home.path(), theme, density);
     h.state_mut().open_preferences(None);
-    h.run();
-    let settings = Settings {
-        density,
-        ..Settings::default()
-    };
-    theme::set(&h.ctx, &settings);
     h.run();
     // The window opens at 1000 × 680; its title row, tab strip and padding take the rest.
     let size = window(&h).size();
@@ -194,27 +188,27 @@ fn check(theme: &str, density: Density) {
     }
     assert!(
         wrong.is_empty(),
-        "{theme} {density:?}: text does not fit:\n{}",
+        "{theme} {density}: text does not fit:\n{}",
         wrong.join("\n")
     );
 }
 
 #[test]
 fn every_page_fits_its_text_in_dark_comfortable() {
-    check("dark", Density::Comfortable);
+    check("dark", "comfortable");
 }
 
 #[test]
 fn every_page_fits_its_text_in_dark_compact() {
-    check("dark", Density::Compact);
+    check("dark", "compact");
 }
 
 #[test]
 fn every_page_fits_its_text_in_light_comfortable() {
-    check("light", Density::Comfortable);
+    check("light", "comfortable");
 }
 
 #[test]
 fn every_page_fits_its_text_in_light_compact() {
-    check("light", Density::Compact);
+    check("light", "compact");
 }

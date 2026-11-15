@@ -206,7 +206,7 @@ impl<'a> MenuItem<'a> {
     }
 
     /// Any muted text at the trailing end, such as "not installed". It is not part of
-    /// the item's name.
+    /// the item's name: a screen reader gets it as the item's description.
     pub fn note(mut self, note: impl Into<String>) -> Self {
         self.trailing = note.into();
         self.keyed = false;
@@ -256,6 +256,12 @@ impl Widget for MenuItem<'_> {
                     None => WidgetInfo::labeled(Role::Button, enabled, name),
                 }
             });
+            // A note is not the item's name, but it is read out as its description.
+            if !self.keyed && !self.trailing.is_empty() {
+                ui.ctx().accesskit_node_builder(response.id, |node| {
+                    node.set_description(self.trailing.clone());
+                });
+            }
             // A pointer click closes the menu from the popup; so does Enter on an item,
             // unless the menu stays open on clicks.
             if response.clicked()

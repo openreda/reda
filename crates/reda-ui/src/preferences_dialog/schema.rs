@@ -54,7 +54,13 @@ pub struct Choice {
 /// Where each page's settings come first; other keys of a section follow in key order.
 const ORDER: &[&str] = &[
     "general.theme",
+    "general.density",
+    "general.text_size",
     "general.ui_scale",
+    "general.ui_font",
+    "general.mono_font",
+    "general.animate",
+    "general.system_title_bar",
     "general.reopen_last_project",
     "general.undo_depth",
     "general.default_layout",
@@ -282,6 +288,12 @@ fn check_title(key: &str) -> Option<String> {
 fn catalogue(key: &str) -> Option<String> {
     let id = format!("pref-{}", key.replace(['.', '_'], "-"));
     i18n::has_key(&id).then(|| i18n::translate(&id, &[]))
+}
+
+/// The one-line caption under a setting, where the catalogue has one
+/// (`pref-<key>-caption`).
+pub fn caption(key: &str) -> Option<String> {
+    catalogue(&format!("{key}.caption"))
 }
 
 /// A description as a label: without its closing full stop. A missing one falls back to

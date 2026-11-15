@@ -1241,6 +1241,40 @@ fn snapshot_of_the_preferences_general_page() {
     preferences_snapshot(None, "preferences_general_dark");
 }
 
+/// The Preferences window on its Appearance page, as `theme` and `density` draw it, in
+/// a window with room for all of it. With `ui_font`, a family this machine lacks.
+fn appearance_snapshot(theme: &str, density: &str, ui_font: Option<&str>, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), theme);
+    let dirs = UserDirs::under(home.path());
+    preferences::set(&dirs, "general.density", json!(density)).unwrap();
+    preferences::set(&dirs, "general.ui_font", json!(ui_font)).unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.set_size(egui::vec2(1100.0, 820.0));
+    h.run();
+    h.state_mut()
+        .open_preferences(Some(reda_ui::preferences_dialog::PageId::APPEARANCE));
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page() {
+    appearance_snapshot("dark", "comfortable", None, "preferences_appearance_dark");
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page_in_light_and_compact() {
+    appearance_snapshot(
+        "light",
+        "compact",
+        Some("Fira Sans"),
+        "preferences_appearance_light_compact",
+    );
+}
+
 #[test]
 fn snapshot_of_the_keyboard_shortcuts_page() {
     preferences_snapshot(
