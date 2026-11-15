@@ -118,6 +118,9 @@ impl PreferencesDialog {
         setting: &Setting,
     ) -> Option<String> {
         let key = setting.key.as_str();
+        if !matches!(key, UI_FONT | MONO_FONT) {
+            return None;
+        }
         let family = self.value(cx.shell, key).as_str()?.to_owned();
         fell_back(ui, key).then(|| tr!("pref-font-not-installed", family = family.as_str()))
     }

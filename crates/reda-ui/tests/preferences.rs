@@ -186,7 +186,7 @@ fn each_page_counts_its_modified_settings_and_modified_only_hides_the_rest() {
     let schematic = PageId::from_id("schematic").unwrap();
     assert_eq!(dialog.modified_count(&shell, wires), 2);
     assert_eq!(dialog.modified_count(&shell, schematic), 0);
-    assert_eq!(dialog.modified_count(&shell, PageId::GENERAL), 1);
+    assert_eq!(dialog.modified_count(&shell, PageId::APPEARANCE), 1);
     assert_eq!(dialog.modified_count(&shell, PageId::ALL_SETTINGS), 3);
 
     dialog.modified_only = true;
@@ -196,7 +196,7 @@ fn each_page_counts_its_modified_settings_and_modified_only_hides_the_rest() {
         .map(|p| p.title())
         .collect();
     // A branch stays listed above its modified sub-page.
-    assert_eq!(titles, ["General", "Schematic", "Wires", "All settings"]);
+    assert_eq!(titles, ["Appearance", "Schematic", "Wires", "All settings"]);
     let rows: Vec<String> = dialog
         .rows(&shell, wires)
         .into_iter()

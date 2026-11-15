@@ -427,6 +427,8 @@ fn a_chosen_font_that_is_not_installed_falls_back_and_the_list_says_so() {
     assert_eq!(general(&h).ui_font.as_deref(), Some("Nowhere Sans"));
     h.get_by_label("“Nowhere Sans” is not installed. REDA is using the default.");
     h.get_by_label("“Broken” is not installed. REDA is using the default.");
+    // Only the fonts are warned about.
+    assert_eq!(h.query_all_by_label_contains("is not installed").count(), 2);
     assert_eq!(
         h.get_by_role_and_label(Role::ComboBox, "UI font")
             .accesskit_node()
