@@ -72,9 +72,9 @@ fn window_with_step(step: f32) -> Window {
     let h = Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        // The side Docks open 16 px wider each than they first did, and the cards stand
+        // The side Docks open 48 px wider each than they first did, and the cards stand
         // 6 px apart and from the window's edges: the canvas keeps its width.
-        .with_size([1050.0, 1400.0])
+        .with_size([1114.0, 1400.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
         h,

@@ -636,7 +636,7 @@ fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
     let file = make_project(work.path(), "Narrow");
     let app = App::new(Shell::new(engine_in(home.path())));
     let mut h = Harness::builder()
-        .with_size([720.0, 640.0])
+        .with_size([784.0, 640.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), app);
     h.run();
     h.state_mut().shell_mut().open_project(&file).unwrap();
