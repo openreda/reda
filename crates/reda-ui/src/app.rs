@@ -208,7 +208,9 @@ impl App {
         let ctx = ui.ctx().clone();
         if !self.theme_installed {
             theme::fonts::set_source(&ctx, self.shell.font_source());
-            theme::install(&ctx, theme::preference(self.shell.preferences()));
+            // The first frame is drawn as the Preferences ask, fonts included.
+            theme::set(&ctx, &theme::settings(self.shell.preferences()));
+            ctx.set_theme(theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
@@ -707,8 +709,9 @@ impl App {
         }
     }
 
-    /// Notices another instance's change to `preferences.toml`, and applies the theme and
-    /// UI scale whenever the Preferences change.
+    /// Notices another instance's change to `preferences.toml`, and applies the theme,
+    /// Density, text size, fonts and UI scale whenever the Preferences change. The tokens
+    /// belong to the egui context, so every window follows on its next frame.
     fn apply_preferences(&mut self, ctx: &egui::Context) {
         if self.watch_preferences
             && self.preferences_watcher.is_none()
@@ -726,6 +729,7 @@ impl App {
         }
         let prefs = self.shell.preferences();
         ctx.set_theme(theme::preference(prefs));
+        theme::set(ctx, &theme::settings(prefs));
         let scale = prefs.general.ui_scale as f32;
         if (ctx.zoom_factor() - scale).abs() > f32::EPSILON {
             ctx.set_zoom_factor(scale);

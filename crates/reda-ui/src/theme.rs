@@ -130,6 +130,23 @@ pub fn preference(prefs: &Preferences) -> egui::ThemePreference {
     }
 }
 
+/// What the Appearance Preferences ask of the tokens: Density, the text size and the two
+/// font families.
+pub fn settings(prefs: &Preferences) -> Settings {
+    let general = &prefs.general;
+    Settings {
+        density: match general.density {
+            preferences::Density::Comfortable => Density::Comfortable,
+            preferences::Density::Compact => Density::Compact,
+        },
+        text_size: general.text_size,
+        fonts: fonts::Choice {
+            ui: general.ui_font.clone(),
+            mono: general.mono_font.clone(),
+        },
+    }
+}
+
 /// Installs the bundled fonts, the tokens and both themes' styles on `ctx`, in Comfortable
 /// at the default text size, and picks light or dark by `preference`.
 pub fn install(ctx: &egui::Context, preference: egui::ThemePreference) {

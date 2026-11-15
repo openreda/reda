@@ -29,6 +29,7 @@ const fn under(parent: &'static str, id: &'static str) -> Page {
 /// Every page, in tree order: each branch's child pages follow it.
 pub const PAGES: &[Page] = &[
     top("general"),
+    top("appearance"),
     top("window"),
     top("editing"),
     under("editing", "editing.snap"),
@@ -66,6 +67,12 @@ pub fn page_of(key: &str) -> &'static str {
         ("editing", name) if name.starts_with("highlight.") => "editing.highlight",
         ("editing", _) => "editing",
         ("general", "default_layout") => "window",
+        // Appearance is a place in the tree, not a rename: its keys stay `general.*`.
+        (
+            "general",
+            "theme" | "density" | "text_size" | "ui_scale" | "ui_font" | "mono_font" | "animate"
+            | "system_title_bar",
+        ) => "appearance",
         ("schematic" | "pcb", "default_units" | "repeat_placement") => "editing",
         ("schematic" | "pcb", "electrical_snap" | "hotspots_off" | "snap_distance") => {
             "editing.snap"
