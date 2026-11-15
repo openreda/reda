@@ -1,12 +1,14 @@
 //! The collapsible section header of a Panel, and the section that keeps its own open
 //! state (docs/spec/v0.1/design-language.md#panels).
 
-use egui::{Align2, Rect, Response, Role, Sense, Ui, Vec2, Widget, WidgetInfo, pos2, vec2};
+use egui::{
+    Align2, Rect, Response, Role, Sense, Ui, UiBuilder, Vec2, Widget, WidgetInfo, pos2, vec2,
+};
 
 use super::glyph::{self, Glyph};
 use super::paint::{self, State};
 use super::row::{CHEVRON_PULL, Selection, TREE_INDENT, ground};
-use crate::theme::TokensExt as _;
+use crate::theme::{TokensExt as _, motion};
 
 /// A section header: a row with a chevron, the title in the `title` style and a muted
 /// count. A click says the section should open or close; the caller keeps the state (or
@@ -76,12 +78,22 @@ impl Widget for SectionHeader {
                 pos2(left - CHEVRON_PULL, rect.center().y - glyph::BOX / 2.0),
                 Vec2::splat(glyph::BOX),
             );
-            let glyph = if self.open {
-                Glyph::ChevronDown
-            } else {
-                Glyph::ChevronRight
+            // The chevron turns from right to down as the section opens.
+            let turn = match self.state {
+                State::Live => {
+                    let id = response.id.with("turn");
+                    motion::toggle(ui.ctx(), id, self.open, t.motion.section)
+                }
+                _ => f32::from(u8::from(self.open)),
             };
-            glyph.paint(ui.painter(), chevron.center(), c.text.muted);
+            let at = chevron.center();
+            if turn >= 1.0 {
+                Glyph::ChevronDown.paint(ui.painter(), at, c.text.muted);
+            } else {
+                paint::turned(ui, at, turn * std::f32::consts::FRAC_PI_2, || {
+                    Glyph::ChevronRight.paint(ui.painter(), at, c.text.muted);
+                });
+            }
             let left = left + TREE_INDENT;
             let mut right = rect.right() - t.space.row_x;
             if let Some(count) = &self.count {
@@ -160,7 +172,42 @@ impl Section {
             open = !open;
             ui.data_mut(|d| d.insert_persisted(id, open));
         }
-        let body = open.then(|| body(ui));
+        let t = ui.tokens();
+        let shown = motion::toggle(ui.ctx(), id.with("reveal"), open, t.motion.section);
+        // While it closes the body is still drawn, but gives nothing back.
+        let body = if shown > 0.0 {
+            let inner = reveal(ui, id, shown, body);
+            open.then_some(inner)
+        } else {
+            None
+        };
         SectionResponse { header, body }
     }
+}
+
+/// Draws a section's `body` with the top `shown` of it revealed (0 to 1): laid out in
+/// full, clipped, and taking only that much room. The full height is kept from the last
+/// frame drawn, so a section that opens for the first time is revealed from its first
+/// frame's height.
+fn reveal<R>(ui: &mut Ui, id: egui::Id, shown: f32, body: impl FnOnce(&mut Ui) -> R) -> R {
+    let height_id = id.with("height");
+    let top = ui.available_rect_before_wrap();
+    let builder = UiBuilder::new().id_salt((id, "body")).max_rect(top);
+    let mut child = ui.new_child(builder);
+    let full: Option<f32> = ui.data(|d| d.get_temp(height_id));
+    if shown < 1.0 {
+        let room = full.unwrap_or(0.0) * shown;
+        let clip = Rect::from_min_size(top.min, vec2(top.width(), room));
+        child.set_clip_rect(child.clip_rect().intersect(clip));
+    }
+    let inner = body(&mut child);
+    let used = child.min_rect();
+    ui.data_mut(|d| d.insert_temp(height_id, used.height()));
+    let room = if shown < 1.0 {
+        used.height() * shown
+    } else {
+        used.height()
+    };
+    ui.advance_cursor_after_rect(Rect::from_min_size(used.min, vec2(used.width(), room)));
+    inner
 }

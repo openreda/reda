@@ -830,7 +830,8 @@ fn the_gear_opens_preferences_and_the_command_field_the_palette() {
     h.run();
     h.get_by_role_and_label(Role::Button, "Preferences…")
         .click();
-    h.run();
+    // The Preferences window grows in for 140 ms: nine 60 Hz frames.
+    h.run_steps(10);
     assert_eq!(
         journal_ids(&h).last().unwrap(),
         "app.dialog.open:preferences"
