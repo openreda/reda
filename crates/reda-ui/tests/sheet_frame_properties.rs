@@ -96,7 +96,13 @@ fn the_sheet_region_sets_size_orientation_zones_and_title_block() {
 fn a_custom_size_takes_a_width_and_height_and_the_sheet_its_own_numbers() {
     let (home, work) = (TempDir::new("sfp-home"), TempDir::new("sfp-work"));
     let mut h = harness(&home, &work);
+    h.get_by_role_and_label(Role::ComboBox, "Size")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ComboBox, "Size").click();
+    h.run();
+    // The list of sizes scrolls inside its popup.
+    h.get_by_label("Custom").scroll_to_me();
     h.run();
     h.get_by_label("Custom").click();
     h.run();

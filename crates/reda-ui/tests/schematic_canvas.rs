@@ -976,9 +976,9 @@ fn left_to_right_rectangle_encloses_and_right_to_left_touches() {
         "right to left selects what it touches"
     );
     for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        let t = reda_ui::theme::Tokens::new(theme, &Default::default());
         assert_ne!(
-            reda_ui::theme::selection_box(theme, true),
-            reda_ui::theme::selection_box(theme, false),
+            t.color.touch, t.color.accent.text,
             "each direction has its own colour"
         );
     }

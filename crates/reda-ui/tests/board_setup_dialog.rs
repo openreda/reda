@@ -60,6 +60,9 @@ fn disabled(h: &Harness<'static, App>, label: &str) -> bool {
 }
 
 fn page(h: &mut Harness<'static, App>, title: &str) {
+    h.get_by_role_and_label(Role::TreeItem, title)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TreeItem, title).click();
     h.run();
 }
@@ -116,6 +119,8 @@ fn an_invalid_rule_disables_ok_until_fixed_and_ok_commits_one_batch() {
     h.run();
 
     page(&mut h, "DRC");
+    h.get_by_label("Courtyard Overlap: Off").scroll_to_me();
+    h.run();
     h.get_by_label("Courtyard Overlap: Off").click();
     h.run();
     page(&mut h, "Net Classes");
@@ -169,7 +174,8 @@ fn page_tree_labels_are_left_aligned() {
     open_board_setup(&mut h, "Dlg");
     for title in ["Clearance", "Vias", "Board Edge", "DRC"] {
         let indent = tree_label_indent(&h, title);
-        assert!(indent < 10.0, "{title:?} starts {indent} pt into its row");
+        // A page title sits one control padding into its row.
+        assert!(indent <= 12.0, "{title:?} starts {indent} pt into its row");
     }
 }
 
@@ -220,6 +226,9 @@ fn value(h: &Harness<'static, App>, label: &str) -> String {
 }
 
 fn type_into(h: &mut Harness<'static, App>, label: &str, text: &str) {
+    h.get_by_role_and_label(Role::TextInput, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, label).click();
     h.run();
     h.key_press(Key::End);

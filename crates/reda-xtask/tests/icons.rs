@@ -33,7 +33,12 @@ fn icons_list_their_provenance() {
 
     let text = readme(&owned);
     assert!(text.contains("REDA's own icons, MIT"), "{text}");
-    assert!(text.contains("| `#2fb36b` | `#228a51` |"), "{text}");
+    // The role keys the SVG files are drawn with; their values per theme are tokens.
+    assert!(text.contains("Power Port…) | `#2fb36b` |"), "{text}");
+    assert!(
+        text.contains("design-language.md#icon-role-colours"),
+        "{text}"
+    );
     assert!(
         text.contains("| `wire` | Claude (Opus 5.5), hand-written SVG | none | none |"),
         "{text}"

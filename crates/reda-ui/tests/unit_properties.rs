@@ -65,6 +65,8 @@ fn place_picks_up_an_unplaced_unit_and_a_click_places_it() {
     run(&mut h, "panel.show:properties", json!({}));
     h.run();
     h.get_by_label_contains("Unit A");
+    h.get_by_label("Place Unit B").scroll_to_me();
+    h.run();
     h.get_by_label("Place Unit B").click();
     h.run();
     let (id, params) = last_entry(&h);
@@ -123,6 +125,8 @@ fn reset_position_puts_a_moved_field_back_on_autoposition() {
         json!({"objects": [placed["unit"]]}),
     );
     run(&mut h, "panel.show:properties", json!({}));
+    h.run();
+    h.get_by_label("Reset position of Value").scroll_to_me();
     h.run();
     h.get_by_label("Reset position of Value").click();
     h.run();

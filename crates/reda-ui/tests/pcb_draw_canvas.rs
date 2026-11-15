@@ -54,7 +54,7 @@ fn window() -> Window {
         .run("layout.tab.activate", json!({"tab": pcb.to_string()}))
         .unwrap();
     let h = Harness::builder()
-        .with_size([1000.0, 900.0])
+        .with_size([1200.0, 900.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
         h,

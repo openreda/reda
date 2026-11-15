@@ -6,6 +6,8 @@
 
 use egui::{Context, Id, Order, Response, Role, Stroke, StrokeKind, WidgetInfo};
 
+use crate::theme::TokensExt as _;
+
 /// Names `response` for AccessKit: `role`, `name`, whether it is enabled, and, for a
 /// tab or a toggle, whether it is `selected`. Its description is `shortcut`, the key that
 /// runs it, or none.
@@ -76,7 +78,7 @@ pub fn focus_ring(ctx: &Context) {
     let Some(response) = ctx.read_response(id) else {
         return;
     };
-    let accent = crate::theme::accent(ctx.theme());
+    let t = ctx.tokens();
     // An Area of its own, so the ring's layer is ordered over the window's.
     egui::Area::new(Id::NULL.with("focus-ring"))
         .order(Order::Foreground)
@@ -86,8 +88,8 @@ pub fn focus_ring(ctx: &Context) {
             let painter = ui.painter().with_clip_rect(ctx.content_rect());
             painter.rect_stroke(
                 response.rect.expand(1.0),
-                2.0,
-                Stroke::new(2.0, accent),
+                t.radius.mark,
+                Stroke::new(t.stroke.focus_ring, t.color.stroke.focus_ring),
                 StrokeKind::Outside,
             );
         });

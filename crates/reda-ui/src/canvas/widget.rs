@@ -18,6 +18,7 @@ use super::gpu::{CanvasFrame, paint};
 use super::interact::{BoxMode, Pointer, pointer};
 use crate::bars::DocumentType;
 use crate::shell::DocumentTab;
+use crate::theme::TokensExt as _;
 use crate::tr;
 
 /// The grid dots' radius in points.
@@ -381,7 +382,13 @@ fn overlay(ui: &Ui, input: &CanvasInputs, overlay: &Overlay, palette: &Palette) 
     }) = overlay.rubber_band
     {
         let band = Rect::from_two_pos(input.screen_point(a), input.screen_point(b));
-        let color = crate::theme::selection_box(ui.ctx().theme(), mode == BoxMode::Touch);
+        // The accent when the box encloses (dragged left to right), green when it touches
+        // (right to left), so the two directions read apart at a glance.
+        let t = ui.tokens();
+        let color = match mode {
+            BoxMode::Enclose => t.color.accent.text,
+            BoxMode::Touch => t.color.touch,
+        };
         painter.rect_filled(band, 0.0, color.gamma_multiply(0.12));
         let stroke = Stroke::new(1.0, color);
         match mode {

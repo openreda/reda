@@ -178,7 +178,13 @@ fn a_cell_edit_on_a_selected_row_changes_every_selected_row_in_one_step() {
     let uuid = new_symbol(&mut shell, "Gate", &[("1", "A"), ("2", "B"), ("3", "Y")]);
     let mut h = harness(shell);
     h.get_by_role_and_label(Role::CheckBox, "Select Pin 1")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Select Pin 1")
         .click();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Select Pin 2")
+        .scroll_to_me();
     h.run();
     h.get_by_role_and_label(Role::CheckBox, "Select Pin 2")
         .click();
@@ -209,6 +215,9 @@ fn a_cell_edit_on_a_selected_row_changes_every_selected_row_in_one_step() {
     // An unselected row's edit is its own: the decoration and the description.
     pick(&mut h, "3 Outside edge", "Inversion dot");
     h.get_by_role_and_label(Role::TextInput, "3 Description")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "3 Description")
         .click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "3 Description")
@@ -223,6 +232,9 @@ fn a_cell_edit_on_a_selected_row_changes_every_selected_row_in_one_step() {
     assert!(pin_by_number(&s, "1").description.is_empty());
 
     // Jump to Pin selects it alone.
+    h.get_by_role_and_label(Role::Button, "Jump to Pin 3")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Jump to Pin 3")
         .click();
     h.run();

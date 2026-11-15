@@ -314,23 +314,31 @@ fn the_layers_panel_has_a_group_eye_per_kind_and_set_buttons_and_mod_click_pins(
             "a group eye for {kind}"
         );
     }
+    w.h.get_by_label("Show all Copper Layers").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show all Copper Layers").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.layer.show_kind");
     let hidden = &shell(&w).board_view().layers.hidden;
     assert!(hidden.contains(&top) && hidden.contains(&bottom));
     assert_eq!(hidden.len(), 2, "only copper");
+    w.h.get_by_label("Show all Copper Layers").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show all Copper Layers").click();
     w.h.run();
     assert!(shell(&w).board_view().layers.hidden.is_empty());
 
     // The set buttons apply a set in one click.
+    w.h.get_by_label("Top").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Top").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.layer_set.apply");
     assert!(shell(&w).board_view().layers.hidden.contains(&bottom));
 
     // Mod+click on an eye pins the Layer.
+    w.h.get_by_label("Show Board Outline").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show Board Outline")
         .click_modifiers(Modifiers::COMMAND);
     w.h.run();
@@ -339,6 +347,8 @@ fn the_layers_panel_has_a_group_eye_per_kind_and_set_buttons_and_mod_click_pins(
     assert!(shell(&w).board_view().layers.pinned.contains(&outline));
 
     // Mod+click on a Layer's name highlights its content, as on a chip.
+    w.h.get_by_label("Top Copper").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Top Copper")
         .click_modifiers(Modifiers::COMMAND);
     w.h.run();

@@ -593,7 +593,7 @@ fn icon_sheet_snapshot(theme: egui::Theme) {
         "move",
     ];
     let mut h = Harness::builder()
-        .with_size([400.0, 172.0])
+        .with_size([420.0, 220.0])
         .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
             render_state,
         ))
@@ -966,10 +966,17 @@ fn board_setup_snapshot(page: &str, name: &str) {
     if page != "Clearance" {
         // A page showing the invalid override is flagged in the tree.
         let flagged = format!("{page} (has invalid values)");
-        match h.query_by_role_and_label(Role::TreeItem, &flagged) {
-            Some(item) => item.click(),
-            None => h.get_by_role_and_label(Role::TreeItem, page).click(),
-        }
+        let item =
+            |h: &Harness<'static, App>| match h.query_by_role_and_label(Role::TreeItem, &flagged) {
+                Some(_) => flagged.clone(),
+                None => page.to_owned(),
+            };
+        // The last pages of the tree are below its fold.
+        let label = item(&h);
+        h.get_by_role_and_label(Role::TreeItem, &label)
+            .scroll_to_me();
+        h.run();
+        h.get_by_role_and_label(Role::TreeItem, &label).click();
     }
     h.run();
     h.snapshot(name);
