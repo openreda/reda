@@ -64,6 +64,17 @@ pub fn menu(anchor: &Response) -> Menu<'_> {
     }
 }
 
+/// A menu hung below `anchor` that a click does not open: open it with [`Menu::open`],
+/// as a key does. It closes like any menu.
+pub fn menu_below(anchor: &Response) -> Menu<'_> {
+    Menu {
+        popup: Popup::from_response(anchor)
+            .kind(egui::PopupKind::Menu)
+            .layout(egui::Layout::top_down_justified(egui::Align::Min)),
+        fill: false,
+    }
+}
+
 /// The context menu of `response`: opened by a secondary click on it, at the pointer.
 pub fn context_menu<R>(
     response: &Response,

@@ -239,6 +239,11 @@ impl<'a> Row<'a> {
         self.lead(Lead::Swatch(color))
     }
 
+    /// The swatch of a data colour given as red, green and blue.
+    pub fn swatch_rgb(self, r: u8, g: u8, b: u8) -> Self {
+        self.swatch(Color32::from_rgb(r, g, b))
+    }
+
     fn lead(self, lead: Lead<'_>) -> Row<'_> {
         Row {
             lead: Some(lead),

@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 
 use egui::{
-    Color32, Context, CursorIcon, Id, LayerId, Order, Pos2, Rect, RichText, Role, Sense, Stroke,
-    StrokeKind, Ui, UiBuilder, Vec2, ViewportCommand, ViewportId, WidgetInfo, vec2,
+    Context, CursorIcon, Id, LayerId, Order, Pos2, Rect, Role, Sense, Ui, UiBuilder, Vec2,
+    ViewportCommand, ViewportId, WidgetInfo, vec2,
 };
 use serde_json::Value;
 
@@ -19,16 +19,23 @@ use super::windows::{self, BlindDrop, Placements, Release, WindowView};
 use crate::layout::{
     DockSide, DropOutcome, DropTarget, GroupId, Layout, SplitSide, TabKey, WindowId,
 };
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, DropPart};
 
 /// The size of a drop-target button.
-const BUTTON: f32 = 28.0;
+const BUTTON: f32 = widgets::DROP_BUTTON;
 /// The distance between the centres of neighbouring drop-target buttons.
 const STEP: f32 = 32.0;
 /// How far a Dock-edge button sits in from its window edge.
 const EDGE: f32 = 22.0;
 /// The size of a Dock preview where the Dock is not shown yet.
 const DOCK_SIZE: f32 = 240.0;
+/// Where the refusal's reason and the dragged tab's chip sit from the pointer, and the
+/// most room the reason takes.
+const REASON_AT: Vec2 = vec2(14.0, 18.0);
+const REASON_ROOM: Vec2 = vec2(320.0, 80.0);
+const CHIP_AT: Vec2 = vec2(12.0, -32.0);
 
 /// Where a new window's top-left corner goes from the pointer that dropped its tab, so
 /// the pointer lands on its tab strip.
@@ -400,63 +407,38 @@ fn overlay(
         Id::NULL.with("dock-drop-overlay"),
         UiBuilder::new().layer_id(layer).max_rect(zones.area),
     );
-    let accent = ui.visuals().selection.bg_fill;
-    let refused = ui.visuals().error_fg_color;
+    let t = ui.tokens();
 
     // The preview first, so the buttons stay readable over it.
     let hovered = plan.as_ref().map(|(t, _)| *t);
     if let Some((target, plan)) = &plan
         && let Some(rect) = zones.preview(*target)
+        && plan.outcome != DropOutcome::Unchanged
     {
-        let colour = match plan.outcome {
-            DropOutcome::Refused(_) => refused,
-            _ => accent,
-        };
-        if plan.outcome != DropOutcome::Unchanged {
-            ui.painter().rect(
-                rect.shrink(2.0),
-                4.0,
-                colour.gamma_multiply(0.2),
-                Stroke::new(2.0, colour),
-                StrokeKind::Inside,
-            );
-        }
+        let refused = matches!(plan.outcome, DropOutcome::Refused(_));
+        widgets::drop_preview(ui.painter(), &t, rect, refused);
     }
     for (i, b) in buttons.iter().enumerate() {
-        draw_button(&mut ui, i, b, hovered == Some(b.target), accent);
+        draw_button(&mut ui, i, b, hovered == Some(b.target));
     }
     if let Some((_, plan)) = &plan
         && let DropOutcome::Refused(reason) = &plan.outcome
     {
         let text = tr!("drop-refused", reason = reason.as_str());
-        let at = Rect::from_min_size(p + vec2(14.0, 18.0), vec2(320.0, 80.0));
+        let at = Rect::from_min_size(p + REASON_AT, REASON_ROOM);
         ui.scope_builder(UiBuilder::new().max_rect(at), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                ui.label(RichText::new(text).color(refused));
+            widgets::tooltip_frame(&t).show(ui, |ui| {
+                ui.label(t.ty.body.rich(text).color(t.color.error.text));
             });
         });
     }
     // The tab's title follows the pointer.
-    let galley = ui.painter().layout_no_wrap(
-        title(tab),
-        egui::TextStyle::Button.resolve(ui.style()),
-        ui.visuals().strong_text_color(),
-    );
-    let chip = Rect::from_min_size(p + vec2(12.0, -24.0), galley.size() + vec2(12.0, 6.0));
-    ui.painter().rect(
-        chip,
-        3.0,
-        ui.visuals().window_fill,
-        Stroke::new(1.0, accent),
-        StrokeKind::Inside,
-    );
-    ui.painter()
-        .galley(chip.min + vec2(6.0, 3.0), galley, Color32::PLACEHOLDER);
+    widgets::drag_chip(&ui, &t, p + CHIP_AT, &title(tab));
 }
 
 /// A drop-target button: a square with a mark for where the tab would go. It has an
 /// accessible name, so tests and screen readers can find it.
-fn draw_button(ui: &mut Ui, i: usize, b: &Button, on: bool, accent: Color32) {
+fn draw_button(ui: &mut Ui, i: usize, b: &Button, on: bool) {
     let response = ui.interact(
         b.rect,
         Id::NULL.with(("dock-drop-target", i)),
@@ -464,41 +446,17 @@ fn draw_button(ui: &mut Ui, i: usize, b: &Button, on: bool, accent: Color32) {
     );
     let label = b.label.clone();
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
-    let fill = ui.visuals().window_fill;
-    let painter = ui.painter();
-    painter.rect(
-        b.rect,
-        4.0,
-        if on { accent } else { fill },
-        Stroke::new(1.0, accent),
-        StrokeKind::Inside,
-    );
-    let inner = b.rect.shrink(6.0);
-    let mark = match b.target {
-        DropTarget::Split {
-            side: SplitSide::Left,
-            ..
-        }
-        | DropTarget::Dock(DockSide::Left) => inner.with_max_x(inner.center().x),
-        DropTarget::Split {
-            side: SplitSide::Right,
-            ..
-        }
-        | DropTarget::Dock(DockSide::Right) => inner.with_min_x(inner.center().x),
-        DropTarget::Split {
-            side: SplitSide::Up,
-            ..
-        } => inner.with_max_y(inner.center().y),
-        DropTarget::Split {
-            side: SplitSide::Down,
-            ..
-        }
-        | DropTarget::Dock(DockSide::Bottom) => inner.with_min_y(inner.center().y),
-        DropTarget::Group { .. } => inner.shrink(3.0),
+    let part = match b.target {
+        DropTarget::Split { side, .. } => match side {
+            SplitSide::Left => DropPart::Left,
+            SplitSide::Right => DropPart::Right,
+            SplitSide::Up => DropPart::Up,
+            SplitSide::Down => DropPart::Down,
+        },
+        DropTarget::Dock(DockSide::Left) => DropPart::Left,
+        DropTarget::Dock(DockSide::Right) => DropPart::Right,
+        DropTarget::Dock(DockSide::Bottom) => DropPart::Down,
+        DropTarget::Group { .. } => DropPart::Whole,
     };
-    painter.rect_filled(
-        mark,
-        2.0,
-        if on { fill } else { accent.gamma_multiply(0.6) },
-    );
+    widgets::drop_button(ui.painter(), &ui.tokens(), b.rect, part, on);
 }

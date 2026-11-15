@@ -38,15 +38,11 @@ use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
 use crate::theme::TokensExt as _;
 use crate::user_preferences::Watcher;
-use crate::{a11y, crash, keymap, tab_switcher, theme, tr, widgets};
+use crate::widgets::{self, Tooltip as _};
+use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
 
 /// How many targets the Palette remembers as recent.
 const RECENT: usize = 8;
-
-/// Where the window remembers its status bar row's height between frames.
-fn status_bar_id() -> egui::Id {
-    egui::Id::NULL.with("status-bar-height")
-}
 
 /// The REDA window.
 pub struct App {
@@ -237,12 +233,21 @@ impl App {
         let clicked = self.bars(ui);
         // The status bar's space is set aside before the docking layer's, but what is in
         // it is drawn after, so keyboard focus reaches it last, as it sits in the window.
-        let status_height = ctx.data(|d| d.get_temp::<f32>(status_bar_id()));
-        let status_height = status_height.unwrap_or(ui.spacing().interact_size.y);
+        let t = ui.tokens();
+        let status_height = t.status_bar_height();
+        // The status bar is on the base, with no rule above it. Its items bring their own
+        // padding; with the card gap beside them their text lines up inside the cards.
+        let gap = widgets::CARD_GAP as i8;
+        let frame = egui::Frame::new()
+            .fill(t.color.surface.base)
+            .inner_margin(egui::Margin::symmetric(gap, 0));
         let status = Panel::bottom("status-bar")
+            .frame(frame)
+            .show_separator_line(false)
+            .resizable(false)
+            .exact_size(status_height)
             .show(ui, |ui| {
-                let mut rect = ui.available_rect_before_wrap();
-                rect.set_height(status_height);
+                let rect = ui.max_rect();
                 ui.advance_cursor_after_rect(rect);
                 rect
             })
@@ -255,9 +260,7 @@ impl App {
         let builder = UiBuilder::new()
             .max_rect(status)
             .id_salt("status-bar-content");
-        let drawn = ui.scope_builder(builder, |ui| self.status_bar(ui));
-        let height = drawn.inner.height();
-        ctx.data_mut(|d| d.insert_temp(status_bar_id(), height));
+        ui.scope_builder(builder, |ui| self.status_bar(ui));
         tab_switcher::show(&ctx, &mut self.shell);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
@@ -998,59 +1001,48 @@ impl App {
         }
     }
 
-    /// Draws the status bar; returns the rect its row took. From the left: the active
+    /// Draws the status bar. From the left: the active
     /// Document's segments ([`crate::status_bar`]), the notes, then at the right the
     /// out-of-sync badge, the bridge indicator and the Panels button.
-    fn status_bar(&mut self, ui: &mut Ui) -> egui::Rect {
+    fn status_bar(&mut self, ui: &mut Ui) {
         let mut clicked = Vec::new();
-        let rect = ui
-            .horizontal(|ui| {
-                // The status bar ignores Density: its height is its own, and its items
-                // take no control padding above or below.
-                let t = ui.tokens();
-                let spacing = ui.spacing_mut();
-                spacing.interact_size.y = t.status_bar_height();
-                spacing.button_padding = egui::vec2(t.status_bar_height() - t.ty.small.line, 0.0);
-                // Its text is the small style.
-                ui.style_mut().override_text_style = Some(egui::TextStyle::Small);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    self.panels_button(ui);
-                    if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
-                        self.open_preferences(Some(PageId::AGENTS));
+        let t = ui.tokens();
+        widgets::status_bar(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.panels_button(ui);
+                if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
+                    self.open_preferences(Some(PageId::AGENTS));
+                }
+                let pending = self.shell.out_of_sync();
+                if pending > 0 {
+                    let badge = widgets::status_item(tr!("status-out-of-sync", count = pending))
+                        .tone(widgets::Status::Warning);
+                    if ui
+                        .add(badge)
+                        .tooltip(tr!("status-out-of-sync-hint"))
+                        .clicked()
+                    {
+                        self.open_change_list();
                     }
-                    let pending = self.shell.out_of_sync();
-                    if pending > 0 {
-                        let badge = egui::RichText::new(tr!("status-out-of-sync", count = pending))
-                            .color(ui.visuals().warn_fg_color);
+                }
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    clicked = crate::status_bar::show(ui, &self.shell);
+                    let first = self.shell.active_document().is_none();
+                    if self.shell.zones_need_refill() {
+                        ui.add_space(widgets::STATUS_ITEM_PAD);
+                        let note = t.ty.small.rich(tr!("status-zones-stale"));
+                        ui.label(note.color(t.color.warning.text));
                         if ui
-                            .add(egui::Button::new(badge).frame(false))
-                            .on_hover_text(tr!("status-out-of-sync-hint"))
+                            .add(widgets::status_item(tr!("status-zones-refill")))
                             .clicked()
                         {
-                            self.open_change_list();
+                            let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
                         }
                     }
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        clicked = crate::status_bar::show(ui, &self.shell);
-                        let first = self.shell.active_document().is_none();
-                        let notes = self.shell.zones_need_refill()
-                            || self.shell.message().is_some()
-                            || self.shell.note().is_some();
-                        if !first && notes {
-                            ui.separator();
-                        }
-                        if self.shell.zones_need_refill() {
-                            ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
-                            if ui.small_button(tr!("status-zones-refill")).clicked() {
-                                let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
-                            }
-                        }
-                        self.status_message(ui, first);
-                    });
+                    self.status_message(ui, first);
                 });
-            })
-            .response
-            .rect;
+            });
+        });
         for out in clicked {
             match out {
                 crate::status_bar::Out::Run(id, params) => {
@@ -1059,29 +1051,40 @@ impl App {
                 crate::status_bar::Out::Call(id, params) => self.call(&id, params),
             }
         }
-        rect
     }
 
     /// The status bar's error or note with its Dismiss button, or "Ready" when the bar
     /// shows nothing else (`idle`).
     fn status_message(&mut self, ui: &mut Ui, idle: bool) {
+        let t = ui.tokens();
         match (self.shell.message(), self.shell.note()) {
             (Some(message), _) => {
-                let message = message.to_owned();
-                ui.colored_label(ui.visuals().error_fg_color, message);
-                if ui.small_button(tr!("status-dismiss")).clicked() {
+                let message = t.ty.small.rich(message).color(t.color.error.text);
+                ui.add_space(widgets::STATUS_ITEM_PAD);
+                ui.label(message);
+                if ui
+                    .add(widgets::status_item(tr!("status-dismiss")))
+                    .clicked()
+                {
                     self.shell.dismiss_message();
                 }
             }
             (None, Some(note)) => {
-                ui.label(note.to_owned());
-                if ui.small_button(tr!("status-dismiss")).clicked() {
+                let note = t.ty.small.rich(note).color(t.color.text.muted);
+                ui.add_space(widgets::STATUS_ITEM_PAD);
+                ui.label(note);
+                if ui
+                    .add(widgets::status_item(tr!("status-dismiss")))
+                    .clicked()
+                {
                     self.shell.dismiss_note();
                 }
             }
             (None, None) => {
                 if idle {
-                    ui.weak(tr!("status-ready"));
+                    let ready = t.ty.small.rich(tr!("status-ready"));
+                    ui.add_space(widgets::STATUS_ITEM_PAD);
+                    ui.label(ready.color(t.color.text.muted));
                 }
             }
         }
@@ -1089,7 +1092,8 @@ impl App {
 
     /// The Panels button: shows any Panel, reopening a closed one in its usual Dock.
     fn panels_button(&mut self, ui: &mut Ui) {
-        ui.menu_button(tr!("status-panels"), |ui| {
+        let button = ui.add(widgets::status_item(tr!("status-panels")));
+        widgets::menu(&button).show(|ui| {
             let closed = self.shell.layout().closed_panels();
             for panel in PanelId::ALL {
                 let title = panel_title(panel);
@@ -1098,7 +1102,7 @@ impl App {
                 } else {
                     title
                 };
-                if ui.button(label).clicked() {
+                if ui.add(widgets::menu_item(label)).clicked() {
                     let _ = self
                         .shell
                         .run_reporting(&format!("panel.show:{}", panel.id()), json!({}));
