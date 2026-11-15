@@ -41,6 +41,8 @@ pub struct PageId(&'static str);
 
 impl PageId {
     pub const GENERAL: PageId = PageId("general");
+    /// Theme, Density, text size, UI scale and fonts. Its keys stay `general.*`.
+    pub const APPEARANCE: PageId = PageId("appearance");
     pub const LIBRARIES: PageId = PageId("libraries");
     pub const FAB_PRESETS: PageId = PageId("fab_presets");
     pub const AGENTS: PageId = PageId("agents");
@@ -172,6 +174,9 @@ pub struct PreferencesDialog {
     pub shortcuts: Shortcuts,
     /// The user Fab Preset whose pages are open on the Fab Presets page.
     preset_pages: Option<UserPresetPages>,
+    /// The installed families the font dropdowns offer, listed the first time one is
+    /// drawn.
+    font_lists: Option<draw::FontLists>,
 }
 
 impl Default for PreferencesDialog {
@@ -192,6 +197,7 @@ impl PreferencesDialog {
             new_library_path: String::new(),
             shortcuts: Shortcuts::default(),
             preset_pages: None,
+            font_lists: None,
         }
     }
 
