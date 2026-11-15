@@ -174,9 +174,9 @@ impl Glyph {
             }
             Glyph::Copy => {
                 // The sheet in front, and the two edges of the one behind that show.
-                let front = Rect::from_min_max(at((6.5, 6.5)), at((12.5, 12.5)));
-                painter.rect_stroke(front, WINDOW_CORNER, pen, egui::StrokeKind::Middle);
-                open(&[(3.5, 9.5), (3.5, 3.5), (9.5, 3.5)]);
+                let front = Rect::from_min_max(at((5.5, 5.5)), at((13.5, 13.5)));
+                painter.rect_stroke(front, SHEET_CORNER, pen, egui::StrokeKind::Middle);
+                open(&[(2.5, 10.0), (2.5, 2.5), (10.0, 2.5)]);
             }
             Glyph::Snap => {
                 for x in [2.5, 8.0, 13.5] {
@@ -190,6 +190,8 @@ impl Glyph {
     }
 }
 
+/// The corner of the copy Glyph's sheet.
+const SHEET_CORNER: f32 = 1.0;
 /// The ring on the snap Glyph's middle dot.
 const SNAP_RING: f32 = 3.5;
 /// The modified dot is a filled disc, not a stroke.
