@@ -382,13 +382,6 @@ fn the_stock_widget_table_bans_what_it_lists_and_nothing_before_it_is_listed() {
 }
 
 #[test]
-fn the_stock_widget_table_starts_empty() {
-    // Each widget slice adds its patterns when its REDA widget lands; this one adds none.
-    // Delete this test with the first entry.
-    assert!(crate::lists::STOCK_WIDGETS.is_empty());
-}
-
-#[test]
 fn a_marker_with_a_reason_exempts_the_next_line_only() {
     let source = "// theme-exempt: a Layer's own colour is data\nlet a = Color32::from_rgb(r, g, b);\nlet b = Color32::from_rgb(r, g, b);";
     let scan = scan(source, &[]);

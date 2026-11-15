@@ -24,9 +24,9 @@ use reda_engine::preferences::{self, Preferences};
 
 pub use style::style;
 pub use tokens::{
-    Colors, Density, Easing, Elevation, Families, Fill, IconColor, IconSize, Metric, Motion,
-    Opacity, Radius, Settings, Space, StrokeColor, StrokeWidth, Surface, Text, TextColor, Tokens,
-    Tone, Transition, Type,
+    Colors, Density, Easing, Elevation, Families, Fill, IconColor, IconSize, Motion, Opacity,
+    Radius, Settings, Space, StrokeColor, StrokeWidth, Surface, Text, TextColor, Tokens, Tone,
+    Transition, Type,
 };
 
 /// `top`, which may be translucent, laid over `under`: how a hover or press fill goes over

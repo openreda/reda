@@ -8,6 +8,7 @@ use reda_engine::model::{Project, Uuid};
 use serde_json::{Value, json};
 
 use crate::tr;
+use crate::widgets;
 
 /// What the Unit rows show for the one Unit selected.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -79,7 +80,7 @@ pub fn section(
         for name in &rows.unplaced {
             ui.horizontal(|ui| {
                 ui.weak(tr!("properties-unit-unplaced", unit = name.clone()));
-                let button = ui.button(tr!("properties-unit-place"));
+                let button = ui.add(widgets::button(tr!("properties-unit-place")));
                 let label = tr!("properties-unit-place-named", unit = name.clone());
                 button.widget_info(|| {
                     egui::WidgetInfo::labeled(egui::Role::Button, true, label.clone())
@@ -98,7 +99,7 @@ pub fn section(
         ui.horizontal(|ui| {
             let label = field_label(field);
             ui.weak(tr!("properties-field-moved", field = label.clone()));
-            let button = ui.button(tr!("properties-field-reset"));
+            let button = ui.add(widgets::button(tr!("properties-field-reset")));
             let name = tr!("properties-field-reset-named", field = label);
             button
                 .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, name.clone()));

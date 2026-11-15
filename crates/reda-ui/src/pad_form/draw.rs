@@ -1,7 +1,7 @@
 //! Drawing the Pad rows of [`super`]: a two-column grid, each row labelled for
 //! accessibility, giving back the edits made this frame.
 
-use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
+use egui::{Grid, Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
     ConnectionStyle, Corner, Corners, HoleTolerance, Pad, PadKind, PadShape, Paste, Side,
@@ -14,6 +14,7 @@ use super::{
 };
 use crate::element_editor::text_field;
 use crate::tr;
+use crate::widgets;
 
 const FIELD_WIDTH: f32 = 110.0;
 
@@ -193,7 +194,7 @@ fn shape_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {
         for c in Corner::ALL {
             let mut on = corners.contains(c);
             let name = corner_name(c);
-            let check = ui.checkbox(&mut on, &name);
+            let check = ui.add(widgets::checkbox(&mut on, &name));
             check.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, name.clone()));
             if check.changed() {
                 out.push(PadEdit::Corner(c, on));
@@ -500,11 +501,10 @@ impl Row<'_> {
     ) -> Option<T> {
         self.ui.label(label);
         let mut value = current;
-        let response = ComboBox::from_id_salt(self.id.with(key))
-            .selected_text(name(current))
-            .show_ui(self.ui, |ui| {
+        let response = widgets::dropdown(self.id.with(key), name(current))
+            .show(self.ui, |ui| {
                 for v in all {
-                    ui.selectable_value(&mut value, *v, name(*v));
+                    widgets::choice_value(ui, &mut value, *v, name(*v));
                 }
             })
             .response;

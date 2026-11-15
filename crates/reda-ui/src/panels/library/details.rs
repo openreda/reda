@@ -2,7 +2,7 @@
 //! with a picker for the alternates), "Used in Project: N", and Where Used with what it
 //! found.
 
-use egui::{ComboBox, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::library::{ElementKind, LibraryIndex};
 use reda_engine::model::{Part, Project};
 use serde_json::Value;
@@ -10,6 +10,7 @@ use serde_json::Value;
 use super::rows::Entry;
 use super::{Do, LibraryPanel, Placing, place, preview};
 use crate::tr;
+use crate::widgets;
 
 /// Draws the details of `entry`, placing into `target`.
 pub(super) fn show(
@@ -46,7 +47,7 @@ pub(super) fn show(
         ui.label(tr!("library-used-in-project", count = used));
     }
     let label = tr!("library-where-used");
-    if ui.button(&label).clicked() {
+    if ui.add(widgets::button(&label)).clicked() {
         out.push(Do::WhereUsed(entry.uuid));
     }
     if let Some((element, found)) = &panel.where_used
@@ -101,7 +102,7 @@ fn unit_tabs(ui: &mut Ui, panel: &mut LibraryPanel, symbol: &reda_engine::model:
         ui.horizontal(|ui| {
             for (i, unit) in symbol.units.iter().enumerate() {
                 let label = tr!("library-unit", unit = unit.name.clone());
-                let tab = ui.selectable_label(panel.unit == i, &unit.name);
+                let tab = ui.add(widgets::button(&unit.name).on(panel.unit == i));
                 tab.widget_info(|| {
                     WidgetInfo::selected(Role::Tab, true, panel.unit == i, label.clone())
                 });
@@ -149,11 +150,12 @@ fn part_previews(
     if !footprints.is_empty() {
         panel.footprint = panel.footprint.min(footprints.len() - 1);
         let label = tr!("library-footprint");
-        let response = ComboBox::from_id_salt("library-footprint")
-            .selected_text(&footprints[panel.footprint].name)
-            .show_ui(ui, |ui| {
+        let response = widgets::dropdown("library-footprint", &footprints[panel.footprint].name)
+            .show(ui, |ui| {
                 for (i, f) in footprints.iter().enumerate() {
-                    if ui.selectable_label(panel.footprint == i, &f.name).clicked()
+                    if ui
+                        .add(widgets::choice(panel.footprint == i, &f.name))
+                        .clicked()
                         && panel.footprint != i
                     {
                         panel.footprint = i;

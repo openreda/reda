@@ -17,6 +17,7 @@ use reda_engine::model::Uuid;
 
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
+use crate::widgets;
 
 pub use generate::{
     Axis, Callout, GenerateDialog, Generated, GeneratorForm, Preview, Row, Section, Shown, Side,
@@ -102,12 +103,11 @@ fn library_picker(ui: &mut egui::Ui, shell: &mut Shell, id: egui::Id, library: &
     let shown = library
         .and_then(|l| libraries.iter().find(|(u, _)| *u == l))
         .map_or_else(|| crate::tr!("library-target-none"), |(_, n)| n.clone());
-    egui::ComboBox::from_id_salt(id)
-        .selected_text(shown)
+    widgets::dropdown(id, shown)
         .width(260.0)
-        .show_ui(ui, |ui| {
+        .show(ui, |ui| {
             for (uuid, name) in &libraries {
-                ui.selectable_value(library, Some(*uuid), name);
+                widgets::choice_value(ui, library, Some(*uuid), name);
             }
         })
         .response

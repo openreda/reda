@@ -26,6 +26,7 @@ use crate::bars::{Request, request};
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 pub use cross::ConvertCrossDialog;
 pub use library::LibraryDialog;
@@ -258,10 +259,10 @@ fn buttons(ui: &mut egui::Ui, action: &str, enabled: bool, why: &str) -> (bool, 
     ui.separator();
     ui.horizontal(|ui| {
         let run = ui
-            .add_enabled(enabled, egui::Button::new(action))
+            .add_enabled(enabled, widgets::button(action))
             .on_disabled_hover_text(why)
             .clicked();
-        let cancel = ui.button(tr!("dialog-cancel")).clicked();
+        let cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
         (run, cancel)
     })
     .inner

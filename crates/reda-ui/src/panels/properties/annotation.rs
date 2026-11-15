@@ -2,7 +2,7 @@
 //! panel; see [`crate::properties::annotation`] and
 //! [`crate::properties::footprint_edit`].
 
-use egui::{Checkbox, ComboBox, Grid, Role, Ui, WidgetInfo};
+use egui::{Grid, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
     ArrowPosition, DimensionFormat, DimensionTextPosition, DimensionUnits, FootprintLayer, PadKind,
@@ -19,6 +19,7 @@ use crate::properties::footprint_edit::{FootprintGraphics, GraphicEdit, PadEdit,
 use crate::properties::{MIXED, Shared};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Draws the regions the selection has, pushing what their edits run onto `out`.
 pub(super) fn show(
@@ -139,12 +140,11 @@ fn combo<T: Clone + PartialEq>(
         Shared::Mixed => MIXED.to_owned(),
     };
     let mut picked = None;
-    let response = ComboBox::from_id_salt(("properties-combo", key))
-        .selected_text(shown)
-        .show_ui(ui, |ui| {
+    let response = widgets::dropdown(("properties-combo", key), shown)
+        .show(ui, |ui| {
             for (option, title) in options {
                 let on = value.same() == Some(option);
-                if ui.selectable_label(on, title).clicked() && !on {
+                if ui.add(widgets::choice(on, title)).clicked() && !on {
                     picked = Some(option.clone());
                 }
             }
@@ -159,7 +159,7 @@ fn combo<T: Clone + PartialEq>(
 /// A checkbox for a value that may be mixed; returns the new value when clicked.
 fn check(ui: &mut Ui, label: &str, value: &Shared<bool>) -> Option<bool> {
     let mut on = value.same().copied().unwrap_or(false);
-    let response = ui.add(Checkbox::new(&mut on, label));
+    let response = ui.add(widgets::checkbox(&mut on, label));
     response.clicked().then_some(on)
 }
 
@@ -524,12 +524,8 @@ fn graphics(ui: &mut Ui, rows: &FootprintGraphics, units: Units) -> Vec<GraphicE
     };
     ui.horizontal(|ui| {
         let name = tr!("properties-graphics-lock");
-        let button = match crate::icons::silhouette_image("lock", 14.0) {
-            Some(icon) => egui::Button::image(icon),
-            None => egui::Button::new(&name),
-        };
         let lock = ui
-            .add(button.selected(!unlocked))
+            .add(widgets::glyph_button(widgets::Glyph::Lock).on(!unlocked))
             .on_hover_text(tr!("properties-graphics-lock-hint"));
         lock.widget_info(|| WidgetInfo::selected(Role::Button, true, !unlocked, &name));
         if lock.clicked() {
@@ -574,7 +570,7 @@ fn graphics(ui: &mut Ui, rows: &FootprintGraphics, units: Units) -> Vec<GraphicE
                 n = i + 1,
                 shape = shape_name(&g.shape)
             ));
-            let delete = ui.button(tr!("properties-graphic-delete"));
+            let delete = ui.add(widgets::button(tr!("properties-graphic-delete")));
             if delete.clicked() {
                 edits.push(GraphicEdit::Delete(g.uuid));
             }

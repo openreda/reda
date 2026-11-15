@@ -40,6 +40,7 @@ use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
 use crate::theme::{self, TokensExt as _};
 use crate::tr;
+use crate::widgets::Glyph;
 use crate::{a11y, keymap};
 use windows::{WindowView, Zones};
 
@@ -483,12 +484,12 @@ impl Cx<'_, '_> {
                 ui.visuals().text_color()
             };
             // The chevron points the way the Dock opens.
-            let towards = match side {
-                DockSide::Left => Vec2::new(1.0, 0.0),
-                DockSide::Right => Vec2::new(-1.0, 0.0),
-                DockSide::Bottom => Vec2::new(0.0, -1.0),
+            let chevron = match side {
+                DockSide::Left => Glyph::ChevronRight,
+                DockSide::Right => Glyph::ChevronLeft,
+                DockSide::Bottom => Glyph::ChevronUp,
             };
-            chevron(ui, rect.center(), towards, colour);
+            chevron.paint(ui.painter(), rect.center(), colour);
             let expand = expand.on_hover_text(tr!("dock-expand"));
             a11y::name(&expand, Role::Button, true, &tr!("dock-expand"), None, None);
             if expand.clicked() {
@@ -1205,17 +1206,6 @@ fn split_rect(rect: Rect, axis: Axis, n: usize) -> Vec<Rect> {
             }
         })
         .collect()
-}
-
-/// A small chevron centred on `at`, pointing `towards` (a unit vector).
-fn chevron(ui: &Ui, at: egui::Pos2, towards: Vec2, colour: egui::Color32) {
-    let across = Vec2::new(-towards.y, towards.x);
-    let (tip, back) = (at + towards * 2.0, at - towards * 2.0);
-    let stroke = Stroke::new(1.5, colour);
-    ui.painter()
-        .line_segment([back + across * 3.5, tip], stroke);
-    ui.painter()
-        .line_segment([tip, back - across * 3.5], stroke);
 }
 
 /// Whether the tab `uuid` is an open Symbol's.

@@ -490,7 +490,6 @@ fn pin_map(
     ui.weak(tr!("part-pin-map-hint"));
     let probed = super::probed_pins(shell, part, symbol.as_ref());
     let mut hovered: Option<String> = None;
-    let red = ui.visuals().error_fg_color;
     ui.add_enabled_ui(!locked, |ui| {
         Grid::new(id.with("pin-map"))
             .num_columns(3 + footprints.len())
@@ -541,19 +540,15 @@ fn pin_map(
                         }
                         let field = id.with(("pads", row.number.as_str(), i));
                         let (typed, response) = crate::element_editor::text_field_with(
-                            ui, field, &label, &cell.text, 110.0,
+                            ui,
+                            field,
+                            &label,
+                            &cell.text,
+                            110.0,
+                            !cell.marks.is_empty(),
                         );
                         if let Some(typed) = typed {
                             out.extend(super::set_pin_pads(part, &row.number, &typed));
-                        }
-                        let rect = response.rect;
-                        if !cell.marks.is_empty() {
-                            ui.painter().rect_stroke(
-                                rect,
-                                2.0,
-                                egui::Stroke::new(1.5, red),
-                                egui::StrokeKind::Inside,
-                            );
                         }
                         over |= response.hovered();
                     }
