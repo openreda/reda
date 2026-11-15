@@ -485,7 +485,7 @@ The tables in this section are the values of `Tokens`, generated from it. They b
 | Picked point | `#ec4f7a` | `#d2456c` | `#ef5a82` |
 | Board edge and Keepout | `#d4c03c` | `#8a7a12` | `#d4c03c` |
 
-The dark picked-point value is the one closest to `#ec4f7a` that the contrast test accepts; `#ef5a82` was computed, not run.
+The dark picked-point value is the one closest to `#ec4f7a` that the contrast test accepts.
 
 ### Space values
 
@@ -559,7 +559,7 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | Scrollbar thumb, at rest and hovered | 4, 8 |
 | Progress rail and slider rail | 6, 4 |
 
-The rows without a token name are dimensions the gallery drew as plain numbers. The first build slice gives each a token, since a recipe holds no numbers of its own.
+The rows without a token name are dimensions of single components. Each is a token all the same (stroke widths in `stroke`, icon sizes in `icon`, the rest in `metric`), since a recipe holds no numbers of its own.
 
 ### Elevation values
 

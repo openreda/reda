@@ -1008,6 +1008,8 @@ impl App {
                 let spacing = ui.spacing_mut();
                 spacing.interact_size.y = t.status_bar_height();
                 spacing.button_padding = egui::vec2(t.metric.status_bar_pad, 0.0);
+                // Its text is the small style.
+                ui.style_mut().override_text_style = Some(egui::TextStyle::Small);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     self.panels_button(ui);
                     if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {

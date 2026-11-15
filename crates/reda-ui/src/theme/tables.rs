@@ -224,7 +224,7 @@ fn icon_roles(out: &mut String, light: &Tokens, dark: &Tokens) {
     }
     out.push_str(
         "\nThe dark picked-point value is the one closest to `#ec4f7a` that the contrast test \
-         accepts; `#ef5a82` was computed, not run.\n\n",
+         accepts.\n\n",
     );
 }
 
@@ -417,9 +417,9 @@ fn fixed_values(out: &mut String, t: &Tokens) {
         row(out, &[name, value]);
     }
     out.push_str(
-        "\nThe rows without a token name are dimensions the gallery drew as plain numbers. \
-         The first build slice gives each a token, since a recipe holds no numbers of its \
-         own.\n\n",
+        "\nThe rows without a token name are dimensions of single components. Each is a \
+         token all the same (stroke widths in `stroke`, icon sizes in `icon`, the rest in \
+         `metric`), since a recipe holds no numbers of its own.\n\n",
     );
 }
 
