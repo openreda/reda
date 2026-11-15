@@ -22,6 +22,7 @@ use crate::grid;
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets;
 use crate::working_state::{SnapMode, WorkingState};
 
 /// The status bar's readout of the active Document; all `None` with no Document active.
@@ -213,50 +214,47 @@ fn hovered(shell: &Shell, document: Uuid) -> Option<String> {
     })
 }
 
-/// A flat status bar button whose screen reader name is `name`.
-fn button(ui: &mut Ui, text: &str, name: String) -> egui::Response {
-    let response = ui.add(
-        egui::Button::new(text)
-            .frame(false)
-            .min_size(egui::vec2(12.0, 0.0)),
-    );
+/// A flat status bar item whose screen reader name is `name`.
+fn item(ui: &mut Ui, item: widgets::StatusItem, name: String) -> egui::Response {
+    let response = ui.add(item);
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
     response
 }
 
-/// Draws segments 1 to 7 for the active Document, left to right, with a separator after
-/// each shown one; returns what was clicked. Nothing with no Document active.
+/// Draws segments 1 to 7 for the active Document, left to right; returns what was
+/// clicked. Nothing with no Document active. Coordinates, deltas and the grid are in the
+/// numeric style.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     let mut out = Vec::new();
     let Some(document) = shell.active_document().map(|t| t.document) else {
         return out;
     };
     let readout = readout(shell);
+    let text = |text: &str| widgets::status_item(text);
+    let number = |text: &str| widgets::status_item(text).numeric();
     if let Some(kind) = &readout.kind {
-        button(ui, kind, kind.clone());
+        item(ui, text(kind), kind.clone());
     }
     if let Some(cursor) = &readout.cursor {
-        ui.separator();
-        button(ui, cursor, tr!("status-cursor-name", at = cursor.as_str()));
+        let name = tr!("status-cursor-name", at = cursor.as_str());
+        item(ui, number(cursor), name);
     }
     if let Some(delta) = &readout.delta {
-        ui.separator();
-        button(ui, delta, tr!("status-delta-name", delta = delta.as_str()));
+        let name = tr!("status-delta-name", delta = delta.as_str());
+        item(ui, number(delta), name);
     }
     if let Some(grid_text) = &readout.grid {
-        ui.separator();
-        let face = button(ui, grid_text, grid_text.clone());
-        egui::Popup::menu(&face).show(|ui| grid_menu(ui, shell, document, &mut out));
+        let face = item(ui, number(grid_text), grid_text.clone());
+        widgets::menu(&face).show(|ui| grid_menu(ui, shell, document, &mut out));
     }
     if let (Some(snap), Some(ty)) = (&readout.snap, bars::document_type(shell, document)) {
-        ui.separator();
         let mode = if snap.is_empty() {
             tr!("snap-mode-off")
         } else {
             snap.clone()
         };
         let name = tr!("status-snap", mode = mode);
-        if button(ui, snap, name).clicked() {
+        if item(ui, text(snap), name).clicked() {
             let offered = SnapMode::offered(ty);
             let now = shell
                 .engine()
@@ -273,19 +271,18 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         }
     }
     if readout.layer.is_some() {
-        ui.separator();
         let mut calls = Vec::new();
         crate::pcb::layer_control::status_swatch(ui, shell, &mut calls);
         out.extend(calls.into_iter().map(|(id, p)| Out::Call(id, p)));
     }
     if let Some(prompt) = &readout.prompt {
-        ui.separator();
-        button(ui, prompt, prompt.clone());
+        item(ui, text(prompt), prompt.clone());
     }
     out
 }
 
-/// The grid menu: the type's rows, Custom… and the visible grid's switch.
+/// The grid menu: the type's rows, Custom… and the visible grid's switch. The grid in
+/// force and a visible grid are ticked.
 fn grid_menu(ui: &mut Ui, shell: &Shell, document: Uuid, out: &mut Vec<Out>) {
     let grids = shell.grids();
     let project = shell.engine().elements();
@@ -293,10 +290,8 @@ fn grid_menu(ui: &mut Ui, shell: &Shell, document: Uuid, out: &mut Vec<Out>) {
     let custom = grids.is_custom(document);
     for row in grids.rows(project, document) {
         let pitch = row.snap.0;
-        if ui
-            .selectable_label(!custom && pitch == current, grid::label(pitch))
-            .clicked()
-        {
+        let row = widgets::menu_item(grid::label(pitch)).checked(!custom && pitch == current);
+        if ui.add(row).clicked() {
             out.push(Out::Run(
                 "view.grid.set".into(),
                 json!({"document": document, "grid": pitch}),
@@ -304,25 +299,21 @@ fn grid_menu(ui: &mut Ui, shell: &Shell, document: Uuid, out: &mut Vec<Out>) {
             ui.close();
         }
     }
-    ui.separator();
-    if ui
-        .selectable_label(custom, tr!("status-grid-custom"))
-        .clicked()
-    {
+    widgets::menu_separator(ui);
+    let row = widgets::menu_item(tr!("status-grid-custom")).checked(custom);
+    if ui.add(row).clicked() {
         out.push(Out::Call(
             "view.grid.custom".into(),
             json!({"document": document}),
         ));
         ui.close();
     }
-    let mut shown = grids.visible(project, document).shown;
-    if ui
-        .checkbox(&mut shown, tr!("status-grid-visible"))
-        .changed()
-    {
+    let shown = grids.visible(project, document).shown;
+    let row = widgets::menu_item(tr!("status-grid-visible")).checked(shown);
+    if ui.add(row).clicked() {
         out.push(Out::Run(
             "view.grid.show".into(),
-            json!({"document": document, "visible": shown}),
+            json!({"document": document, "visible": !shown}),
         ));
     }
 }

@@ -6,6 +6,7 @@ use egui::{Id, Ui};
 
 use crate::bridge::Bridge;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
@@ -20,26 +21,31 @@ pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) -> bool {
         (true, 0) => tr!("bridge-indicator-on"),
         (true, count) => tr!("bridge-indicator-connected", count = count),
     };
-    ui.menu_button(label, |ui| {
+    let t = ui.tokens();
+    let face = ui.add(widgets::status_item(label));
+    widgets::menu(&face).stay_open().show(|ui| {
         let mut on = bridge.is_on();
-        if ui.checkbox(&mut on, tr!("bridge-switch")).changed() {
+        if ui
+            .add(widgets::checkbox(&mut on, tr!("bridge-switch")))
+            .changed()
+        {
             bridge.set_enabled(shell, on);
         }
         if let Some(error) = bridge.error() {
-            ui.colored_label(
-                ui.visuals().error_fg_color,
-                tr!("bridge-error", error = error),
-            );
+            let error = tr!("bridge-error", error = error);
+            ui.label(t.ty.body.rich(error).color(t.color.error.text));
         }
+        let heading = |ui: &mut Ui, text: String| {
+            widgets::menu_separator(ui);
+            ui.label(t.ty.small.rich(text).color(t.color.text.muted));
+        };
         if !agents.is_empty() {
-            ui.separator();
-            ui.weak(tr!("bridge-connected"));
+            heading(ui, tr!("bridge-connected"));
             for agent in &agents {
                 ui.label(format!("{} ({})", agent.name, agent.source.label()));
             }
         }
-        ui.separator();
-        ui.weak(tr!("bridge-allowed"));
+        heading(ui, tr!("bridge-allowed"));
         let allowed = bridge.allowed(shell);
         if allowed.is_empty() {
             ui.label(tr!("bridge-none-allowed"));
@@ -47,13 +53,16 @@ pub fn indicator(ui: &mut Ui, bridge: &mut Bridge, shell: &mut Shell) -> bool {
         for name in allowed {
             ui.horizontal(|ui| {
                 ui.label(name.as_str());
-                if ui.small_button(tr!("bridge-forget")).clicked() {
+                if ui
+                    .add(widgets::button(tr!("bridge-forget")).flat())
+                    .clicked()
+                {
                     bridge.forget_agent(shell, &name);
                 }
             });
         }
-        ui.separator();
-        if ui.button(tr!("bridge-settings")).clicked() {
+        widgets::menu_separator(ui);
+        if ui.add(widgets::menu_item(tr!("bridge-settings"))).clicked() {
             settings = true;
             ui.close();
         }

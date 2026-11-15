@@ -152,6 +152,9 @@ impl Widget for StepperField<'_> {
                     .saturating_add(steps.saturating_mul(self.step))
                     .clamp(lo, hi);
                 s.focus = edited.has_focus();
+                if s.focus {
+                    paint::draws_focus(ui.ctx(), edited.id);
+                }
                 s.hover = edited.hovered() || response.hovered();
                 response = edited;
             } else {

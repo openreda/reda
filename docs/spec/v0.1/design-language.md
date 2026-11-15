@@ -308,24 +308,26 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 ### Tabs
 
-- **The front tab** of a group is a card joined to its panel: `surface.card`, with no line between tab and panel.
-- **The active Document's tab** adds the 2 px accent line along its top edge and the `body_strong` style. The line means "menus and Commands act on this Document". It stays while keyboard focus is in a Panel, and a Panel's tab never gets one.
+- **A tab group** is a strip of tabs on the base over a card. The first tab starts 6 px in from the card's edge.
+- **The front tab** of a group is a card joined to its panel: `surface.card`, with no line between tab and panel. Its top corners are the card radius less 2.
+- **The active Document's tab** adds the 2 px accent line along its top edge, between the rounded corners, and the `body_strong` style. The line means "menus and Commands act on this Document". It stays while keyboard focus is in a Panel, and a Panel's tab never gets one.
 - **Back tabs** sit on the base in muted text, with `fill.hover` as a rounded pill when hovered.
 - Each tab shows its 16 px Icon in role colours, its title, and then:
   - a **modified dot,** which gives way to the close × on hover;
   - the **close ×** on the front or hovered tab;
   - the **out-of-sync badge:** a warning triangle in the warning solid.
 - Padding is `tab_x` × `tab_y`.
+- **While a tab is dragged,** the place it would land is a drop target: the accent subtle tint inside a 2 px accent line, with the card radius. The drop-target button under the pointer is drawn the same way. A drop the layout would refuse shows the error tone instead, with the reason beside the pointer.
 
 ### Docks
 
 - An expanded Dock is a column of cards with no header.
-- A collapsed Dock is a strip of 20 px Icon buttons on the base, with no frame. The Icon of the open flyout is on.
+- A collapsed Dock is a strip of 20 px Icon buttons on the base, with no frame, one control wide. Its first button, a chevron, expands the Dock. The Icon of the open flyout is on.
 - A flyout is the Dock's card floating over the window beside its strip:
   - the card's surface, rim, radius and `panel` padding, under `elevation.popup` because it floats;
   - a card gap from the strip, and as long as the strip (a bottom Dock's is as wide as its strip);
   - a title row first: the Panel's Icon and its name in the `title` style. The strip shows Icons only, so the flyout names what it holds.
-- The gap at a Dock's inner edge is its splitter. It shows the accent while dragged.
+- The gap at a Dock's inner edge is its splitter. It shows `fill.hover` while hovered and the accent while dragged.
 
 ### Panels
 
@@ -369,7 +371,8 @@ Each recipe below names the tokens a component uses per state. They are locked a
 ### Status bar
 
 - On the base, with no rule above it. Small muted text, with the numeric style for coordinates and deltas.
-- Its items are flat buttons.
+- Its items are flat buttons with the row radius, side by side with no separators. A note may take a semantic colour's `text` strength.
+- The active Layer's item shows the Layer's swatch before its name.
 
 ### Command Palette
 

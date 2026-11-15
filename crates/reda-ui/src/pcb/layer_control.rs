@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 use super::view_commands::LAYER_SETS;
 use crate::panels::layers::layer_name;
 use crate::shell::Shell;
-use crate::{theme, tr};
+use crate::{theme, tr, widgets};
 
 /// A Command for the window to run (one lacking params opens its dialog).
 pub type Invocation = (String, Value);
@@ -168,16 +168,38 @@ pub fn status_swatch(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
     };
     let name = layer_name(pcb, active);
     let label = tr!("status-layer", layer = name.as_str());
-    let face = chip(ui, shell, active, &name, label, false);
-    egui::Popup::menu(&face).show(|ui| {
-        ui.set_min_width(160.0);
+    // On the status bar it is one of the bar's items: flat, in small text, with the
+    // Layer's swatch. Its menu lists the Layers as rows.
+    let [r, g, b] = layer_rgb(ui, shell, active);
+    let face = ui.add(widgets::status_item(name.as_str()).swatch_rgb(r, g, b));
+    face.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
+    widgets::menu(&face).width(STATUS_MENU_WIDTH).show(|ui| {
         for layer in ordered(pcb) {
             let name = layer_name(pcb, layer);
             let label = tr!("layer-chip", layer = name.as_str());
-            let r = chip(ui, shell, layer, &name, label, layer.uuid == active.uuid);
+            let chosen = layer.uuid == active.uuid;
+            let [r, g, b] = layer_rgb(ui, shell, layer);
+            let row = widgets::list_row(name.as_str())
+                .swatch_rgb(r, g, b)
+                .selected(chosen);
+            let r = ui.add(row);
+            r.widget_info(|| WidgetInfo::selected(Role::Button, true, chosen, label.clone()));
             chip_clicked(ui, &r, layer.uuid, out);
         }
     });
+}
+
+/// The width of the status bar swatch's menu.
+const STATUS_MENU_WIDTH: f32 = 160.0;
+
+/// The red, green and blue `layer` is drawn in on the canvas, in the theme of `ui`.
+fn layer_rgb(ui: &Ui, shell: &Shell, layer: &Layer) -> [u8; 3] {
+    let canvas_theme = theme::canvas_theme(ui.ctx().theme());
+    let palette = shell.palette().palette(canvas_theme);
+    let [r, g, b, _] = palette
+        .color(ColorKey::Board(BoardColor::layer(layer.kind, layer.side)))
+        .0;
+    [r, g, b]
 }
 
 /// The strip: a row along the canvas bottom with the Layer sets button and a chip per
@@ -271,11 +293,7 @@ fn chip(
             egui::StrokeKind::Inside,
         );
     }
-    let canvas_theme = theme::canvas_theme(ui.ctx().theme());
-    let palette = shell.palette().palette(canvas_theme);
-    let [r, g, b, _] = palette
-        .color(ColorKey::Board(BoardColor::layer(layer.kind, layer.side)))
-        .0;
+    let [r, g, b] = layer_rgb(ui, shell, layer);
     let square = Rect::from_center_size(
         rect.left_center() + vec2(5.0 + SQUARE / 2.0, 0.0),
         Vec2::splat(SQUARE),
