@@ -6,10 +6,20 @@ use egui::{Color32, Pos2, Rect, Role, Sense, Shape as Paint, Stroke, Ui, Vec2, W
 use reda_engine::model::geom::{Millideg, Nm, Point};
 use reda_engine::model::{Footprint, FootprintLayer, PadShape, Shape, Symbol, Uuid};
 
+use crate::theme::{Text, TokensExt as _};
 use crate::tr;
+use crate::widgets;
 
 const HEIGHT: f32 = 120.0;
 const MARGIN: f32 = 8.0;
+/// The copper of a Footprint preview's Pads: a Layer's colour, the same in both themes.
+const COPPER: Color32 = widgets::data_color(0xc8, 0x8a, 0x2e);
+/// The least side a Pad is given when it is looked for under the pointer.
+const MIN_PAD: f32 = 4.0;
+/// The radius of the ring on a probed Pin's end.
+const PIN_RING: f32 = 4.0;
+/// The sizes a preview's text is kept between, however the drawing is scaled.
+const TEXT_SIZES: std::ops::RangeInclusive<f32> = 6.0..=14.0;
 
 /// Fits Document points (nm, y up) into a screen rect.
 pub(crate) struct Fit {
@@ -104,11 +114,19 @@ fn canvas_sized(ui: &mut Ui, label: String, height: f32) -> (Rect, egui::Painter
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     response.widget_info(|| WidgetInfo::labeled(Role::Image, true, label.clone()));
     let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 4.0, ui.visuals().extreme_bg_color);
+    let t = ui.tokens();
+    painter.rect_filled(rect, t.radius.mark, t.color.surface.well);
     (rect, painter)
 }
 
-fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke, fill: bool) {
+/// How a preview's shapes are drawn: the line, and the text style a text is scaled from.
+struct Ink<'a> {
+    stroke: Stroke,
+    text: &'a Text,
+}
+
+fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, ink: &Ink<'_>, fill: bool) {
+    let stroke = ink.stroke;
     match shape {
         Shape::Line { start, end } => {
             painter.line_segment([fit.pos(*start), fit.pos(*end)], stroke);
@@ -157,12 +175,14 @@ fn draw_shape(painter: &egui::Painter, fit: &Fit, shape: &Shape, stroke: Stroke,
             }
         }
         Shape::Text { at, text, size, .. } => {
-            let px = fit.len(*size).clamp(6.0, 14.0);
+            // The text follows the drawing's scale, within what can be read.
+            let mut font = ink.text.font_id();
+            font.size = fit.len(*size).clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end());
             painter.text(
                 fit.pos(*at),
                 egui::Align2::CENTER_CENTER,
                 reda_engine::model::text::display(text),
-                egui::FontId::proportional(px),
+                font,
                 stroke.color,
             );
         }
@@ -201,26 +221,30 @@ fn symbol_drawn(ui: &mut Ui, symbol: &Symbol, unit: Option<Uuid>, lit: &[String]
         return;
     };
     let fit = Fit::new(rect, lo, hi);
-    let ink = ui.visuals().text_color();
-    let stroke = Stroke::new(1.5, ink);
+    let t = ui.tokens();
+    let ink = Ink {
+        stroke: Stroke::new(widgets::glyph::STROKE, t.color.text.primary),
+        text: &t.ty.small,
+    };
     for g in &graphics {
-        draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
+        draw_shape(&painter, &fit, &g.shape, &ink, g.fill);
     }
-    let pin_colour = ui.visuals().weak_text_color();
-    let lit_colour = ui.visuals().selection.stroke.color;
+    let pin_colour = t.color.text.muted;
+    let lit_colour = t.color.accent.text;
     for pin in &pins {
         let on = lit.contains(&pin.number);
         let (width, colour) = if on {
-            (3.0, lit_colour)
+            (t.stroke.accent_line + t.stroke.hairline, lit_colour)
         } else {
-            (1.0, pin_colour)
+            (t.stroke.hairline, pin_colour)
         };
         painter.line_segment(
             [fit.pos(pin.at), fit.pos(pin_end(pin))],
             Stroke::new(width, colour),
         );
         if on {
-            painter.circle_stroke(fit.pos(pin.at), 4.0, Stroke::new(1.5, lit_colour));
+            let ring = Stroke::new(widgets::glyph::STROKE, lit_colour);
+            painter.circle_stroke(fit.pos(pin.at), PIN_RING, ring);
         }
     }
 }
@@ -233,7 +257,8 @@ pub fn footprint_probed(ui: &mut Ui, footprint: &Footprint, lit: &[String]) -> O
         .ctx()
         .pointer_hover_pos()
         .filter(|p| painter.clip_rect().contains(*p));
-    let ring = ui.visuals().selection.stroke.color;
+    let t = ui.tokens();
+    let ring = Stroke::new(t.stroke.accent_line, t.color.accent.text);
     let mut hovered = None;
     for pad in &footprint.pads {
         let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
@@ -244,14 +269,11 @@ pub fn footprint_probed(ui: &mut Ui, footprint: &Footprint, lit: &[String]) -> O
         };
         let centre = pad.outline().center + pad.at;
         let c = fit.pos(centre.rotated_about(pad.at, pad.rotation));
-        let r = Rect::from_center_size(c, Vec2::new(fit.len(w), fit.len(h)).max(Vec2::splat(4.0)));
+        let size = Vec2::new(fit.len(w), fit.len(h)).max(Vec2::splat(MIN_PAD));
+        let r = Rect::from_center_size(c, size);
         if lit.contains(&pad.number) {
-            painter.rect_stroke(
-                r.expand(2.0),
-                2.0,
-                Stroke::new(2.0, ring),
-                egui::StrokeKind::Outside,
-            );
+            let around = r.expand(t.stroke.accent_line);
+            painter.rect_stroke(around, t.radius.mark, ring, egui::StrokeKind::Outside);
         }
         if pointer.is_some_and(|p| r.contains(p)) && !pad.number.is_empty() {
             hovered = Some(pad.number.clone());
@@ -261,11 +283,10 @@ pub fn footprint_probed(ui: &mut Ui, footprint: &Footprint, lit: &[String]) -> O
 }
 
 fn layer_colour(ui: &Ui, layer: FootprintLayer) -> Color32 {
+    let t = ui.tokens();
     match layer {
-        FootprintLayer::SilkscreenTop | FootprintLayer::SilkscreenBottom => {
-            ui.visuals().text_color()
-        }
-        _ => ui.visuals().weak_text_color(),
+        FootprintLayer::SilkscreenTop | FootprintLayer::SilkscreenBottom => t.color.text.primary,
+        _ => t.color.text.muted,
     }
 }
 
@@ -294,7 +315,8 @@ pub(crate) fn footprint_fitted(
     let (rect, painter) = canvas_sized(ui, tr!("library-footprint-preview"), height);
     let (lo, hi) = bounds.0?;
     let fit = Fit::with_margin(rect, lo, hi, margin);
-    let copper = Color32::from_rgb(0xc8, 0x8a, 0x2e);
+    let t = ui.tokens();
+    let copper = COPPER;
     for pad in &footprint.pads {
         let quarter = (pad.rotation.0 / 90_000).rem_euclid(2) == 1;
         let (w, h) = if quarter {
@@ -318,13 +340,16 @@ pub(crate) fn footprint_fitted(
             painter.circle_filled(
                 fit.pos(pad.at),
                 fit.len(hole.width) / 2.0,
-                ui.visuals().extreme_bg_color,
+                t.color.surface.well,
             );
         }
     }
     for g in &footprint.graphics {
-        let stroke = Stroke::new(1.0, layer_colour(ui, g.layer));
-        draw_shape(&painter, &fit, &g.shape, stroke, g.fill);
+        let ink = Ink {
+            stroke: Stroke::new(t.stroke.hairline, layer_colour(ui, g.layer)),
+            text: &t.ty.small,
+        };
+        draw_shape(&painter, &fit, &g.shape, &ink, g.fill);
     }
     Some((painter, fit))
 }

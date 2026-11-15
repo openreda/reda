@@ -1,9 +1,9 @@
 //! The data page: list and tree rows in every state, a list, a tree, section headers with
-//! form-field rows, tables, status marks and swatches.
+//! form-field rows, tables, status marks, swatches, and badges and counts.
 
 use egui::{Color32, Ui, Vec2, vec2};
 use reda_ui::theme::TokensExt as _;
-use reda_ui::widgets::{self, Column, RowLook, Selection, Sorted, State, Status};
+use reda_ui::widgets::{self, BadgeTone, Column, RowLook, Selection, Sorted, State, Status};
 
 use crate::kit;
 
@@ -33,6 +33,7 @@ pub fn page(ui: &mut Ui) {
         ui.vertical(|ui| {
             kit::section(ui, "List (Layers)", list);
             kit::section(ui, "Status marks and swatches", marks);
+            kit::section(ui, "Badges and counts", badges);
         });
         ui.vertical(|ui| {
             kit::section(ui, "Tree (Projects)", tree);
@@ -228,6 +229,41 @@ pub fn marks(ui: &mut Ui) {
         let card = t.color.surface.card;
         ui.add(widgets::swatch(card));
         kit::caption(ui, "the last is the card's own colour");
+    });
+}
+
+/// Badges and counts: a pill of small text on each tone's subtle tint, tallies with
+/// their status mark, the filter toggles of a list's header on and off and in their
+/// states, and count pills.
+pub fn badges(ui: &mut Ui) {
+    ui.set_width(NARROW);
+    ui.horizontal_wrapped(|ui| {
+        for (tone, name) in BadgeTone::ALL {
+            ui.add(widgets::badge(name).tone(tone));
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.add(widgets::badge("3 Errors").status(Status::Error));
+        ui.add(widgets::badge("12 Warnings").status(Status::Warning));
+        ui.add(widgets::badge("Clean").status(Status::Success));
+        ui.add(widgets::badge("2 waived").status(Status::Off));
+    });
+    ui.horizontal_wrapped(|ui| {
+        let filter = |on: bool, state: State| {
+            let badge = widgets::badge("3 Errors").status(Status::Error);
+            badge.filter(on).forced(state)
+        };
+        ui.add(filter(true, State::Rest));
+        ui.add(filter(true, State::Hover));
+        ui.add(filter(true, State::Focus));
+        ui.add(filter(false, State::Rest));
+        ui.add(filter(false, State::Disabled));
+    });
+    ui.horizontal(|ui| {
+        for count in [3, 12, 128, 1024] {
+            ui.add(widgets::count_pill(count));
+        }
+        kit::caption(ui, "counts");
     });
 }
 

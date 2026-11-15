@@ -8,7 +8,7 @@ use egui::{
 
 use super::glyph::Glyph;
 use super::paint::{self, State};
-use crate::theme::TokensExt as _;
+use crate::theme::{Text, Tokens, TokensExt as _};
 
 /// Between a button's icon and its label.
 pub const ICON_GAP: f32 = 6.0;
@@ -88,6 +88,29 @@ impl<'a> Button<'a> {
         self.state = state;
         self
     }
+
+    /// The width the button takes in `ui`: for a neighbour that fills what the button
+    /// leaves of a row.
+    pub fn width(&self, ui: &Ui) -> f32 {
+        let t = ui.tokens();
+        let text = paint::width(ui, self.style(&t), &self.text);
+        text + self.icon_width(&t) + 2.0 * t.space.control_x
+    }
+
+    fn style<'t>(&self, t: &'t Tokens) -> &'t Text {
+        match self.kind {
+            Kind::Primary | Kind::Danger => &t.ty.body_strong,
+            Kind::Filled | Kind::Flat => &t.ty.body,
+        }
+    }
+
+    fn icon_width(&self, t: &Tokens) -> f32 {
+        if self.icon.is_some() {
+            t.icon.small + ICON_GAP
+        } else {
+            0.0
+        }
+    }
 }
 
 impl Widget for Button<'_> {
@@ -95,19 +118,9 @@ impl Widget for Button<'_> {
         let t = ui.tokens();
         paint::stated(ui, self.state, |ui| {
             let c = &t.color;
-            let style = match self.kind {
-                Kind::Primary | Kind::Danger => &t.ty.body_strong,
-                Kind::Filled | Kind::Flat => &t.ty.body,
-            };
-            let icon_width = if self.icon.is_some() {
-                t.icon.small + ICON_GAP
-            } else {
-                0.0
-            };
-            let size = vec2(
-                paint::width(ui, style, &self.text) + icon_width + 2.0 * t.space.control_x,
-                t.control_height(),
-            );
+            let style = self.style(&t);
+            let icon_width = self.icon_width(&t);
+            let size = vec2(self.width(ui), t.control_height());
             let (rect, response) = ui.allocate_exact_size(size, Sense::click());
             let enabled = ui.is_enabled();
             response.widget_info(|| match self.on {

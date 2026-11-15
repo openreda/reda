@@ -12,7 +12,8 @@
 //! ```
 //!
 //! The data widgets work the same way: `widgets::list_row`, `tree_row`, `table`,
-//! `section_header` and `section`, `form` with `form_row`, `status_mark` and `swatch`.
+//! `section_header` and `section`, `form` with `form_row`, `status_mark`, `swatch`,
+//! `badge` and `count_pill`.
 //!
 //! Every control draws rest, hover, press, keyboard focus and disabled, and selected and
 //! invalid where they apply. Disabled comes from the `Ui` (`ui.add_enabled(false, ..)`).
@@ -23,8 +24,10 @@
 //! named constants beside their recipe, not `Tokens` entries. Those of recipes that are
 //! not built yet wait in [`pending`].
 
+mod badge;
 mod button;
 mod check;
+mod color;
 mod dialog;
 mod dropdown;
 mod field;
@@ -43,12 +46,14 @@ mod surface;
 mod table;
 mod tooltip;
 
+pub use badge::{BADGE_PAD_X, BADGE_PAD_Y, Badge, BadgeTone, badge, count_pill};
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
 };
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use color::{ColorButton, PICKER_WIDTH, color_button, data_color};
 pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window};
 pub use dropdown::{
     Choice, ChoiceRow, Dropdown, FilterDropdown, Picked, choice, choice_value, dropdown,
@@ -57,7 +62,7 @@ pub use dropdown::{
 pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_field};
 pub use form::{Form, FormName, form, form_name, form_row};
 pub use glyph::{Glyph, GlyphMark, glyph};
-pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_rgb};
+pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_none, swatch_rgb};
 pub use menu::{
     Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_button, menu_frame,
     menu_is_open, menu_item, menu_separator,

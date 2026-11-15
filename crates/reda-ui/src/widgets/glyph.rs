@@ -53,11 +53,13 @@ pub enum Glyph {
     /// A table column sorted ascending, and descending.
     SortUp,
     SortDown,
+    /// The snap palette: a grid of dots with a ring on the one snapped to.
+    Snap,
 }
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 19] = [
+    pub const ALL: [(Glyph, &'static str); 20] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -77,6 +79,7 @@ impl Glyph {
         (Glyph::Warning, "warning"),
         (Glyph::SortUp, "sort ascending"),
         (Glyph::SortDown, "sort descending"),
+        (Glyph::Snap, "snap"),
     ];
 
     /// Paints the Glyph with its box centred on `center`, in `color`.
@@ -166,10 +169,20 @@ impl Glyph {
                 open(&[(8.0, 3.5), (8.0, 12.5)]);
                 open(&[(4.5, 9.0), (8.0, 12.5), (11.5, 9.0)]);
             }
+            Glyph::Snap => {
+                for x in [2.5, 8.0, 13.5] {
+                    for y in [2.5, 8.0, 13.5] {
+                        painter.circle_filled(at((x, y)), STROKE / 2.0, color);
+                    }
+                }
+                painter.circle_stroke(at((8.0, 8.0)), SNAP_RING, pen);
+            }
         }
     }
 }
 
+/// The ring on the snap Glyph's middle dot.
+const SNAP_RING: f32 = 3.5;
 /// The modified dot is a filled disc, not a stroke.
 const DOT_RADIUS: f32 = 3.0;
 /// The corner of the boxes inside the window-control and lock Glyphs.

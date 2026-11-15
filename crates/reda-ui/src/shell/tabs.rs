@@ -3,6 +3,7 @@
 //! (re-centre, previous view, jumps).
 
 use super::*;
+use crate::layout::PanelId;
 
 impl Shell {
     pub(super) fn focus_state(&mut self) -> &mut layout::focus::Focus {
@@ -17,6 +18,14 @@ impl Shell {
         if let Some(tab) = self.layout().focus.clone() {
             self.focus_state().used(&tab);
         }
+    }
+
+    /// Whether `panel` holds keyboard focus: its tab is the one last activated (by a
+    /// click on the tab, F6, the tab switcher, or a press on a Panel that takes focus).
+    /// Only then do its selected rows show the live selection tint
+    /// (docs/spec/v0.1/design-language.md#selection-and-window-focus).
+    pub fn panel_focused(&self, panel: PanelId) -> bool {
+        self.layout().focus == Some(TabKey::Panel(panel))
     }
 
     /// The tab switcher (Ctrl+Tab), while it is open.

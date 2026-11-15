@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use egui::{Color32, ComboBox, Grid, Id, Role, Sense, Ui, Vec2, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::{DocumentKind, Severity, Uuid};
 use reda_engine::preferences::GridStyle;
 use reda_engine::preferences::Units;
@@ -20,7 +20,9 @@ use crate::properties::overview::{
     BoardFigures, CheckSummary, FabAction, FabItem, FabLine, ready_for_fab,
 };
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Status, Tooltip as _};
 
 pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     let Some(document) = shell.active_document().map(|d| d.document) else {
@@ -79,7 +81,7 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     )
                 };
                 ui.horizontal(|ui| {
-                    ui.weak(label);
+                    ui.add(widgets::form_name(label));
                     ui.label(value);
                 });
             });
@@ -115,7 +117,7 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     } else {
                         ("project_settings", tr!("properties-link-project-settings"))
                     };
-                    if ui.link(title).clicked() {
+                    if ui.add(widgets::link(title)).clicked() {
                         out.push(Out::Run(
                             "app.settings.open",
                             json!({ "settings": settings }),
@@ -152,42 +154,29 @@ fn units(shell: &Shell, board: bool, document: Uuid) -> Units {
     }
 }
 
-/// A coloured dot for a severity, painted (the UI font has no bullet glyph).
-pub(super) fn severity_dot(ui: &mut Ui, severity: Severity) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::splat(10.0), Sense::hover());
-    let color = match severity {
-        Severity::Error => ui.visuals().error_fg_color,
-        Severity::Warning => ui.visuals().warn_fg_color,
-        Severity::Off => ui.visuals().weak_text_color(),
-    };
-    ui.painter().circle_filled(rect.center(), 4.0, color);
+/// The status a severity shows as.
+pub(super) fn severity_status(severity: Severity) -> Status {
+    match severity {
+        Severity::Error => Status::Error,
+        Severity::Warning => Status::Warning,
+        Severity::Off => Status::Off,
+    }
 }
 
-/// An OK tick or a `!`, painted.
+/// The mark of a severity: its shape in its colour.
+pub(super) fn severity_dot(ui: &mut Ui, severity: Severity) {
+    ui.add(widgets::status_mark(severity_status(severity)));
+}
+
+/// An OK tick or a warning mark, read out as "OK" or "!".
 fn status(ui: &mut Ui, ok: bool) {
-    let (rect, response) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
-    let name = if ok { "OK" } else { "!" };
-    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, name));
-    let c = rect.center();
-    let painter = ui.painter();
-    if ok {
-        let stroke = egui::Stroke::new(2.0, Color32::from_rgb(60, 170, 90));
-        painter.add(egui::Shape::line(
-            vec![
-                c + Vec2::new(-4.0, 0.0),
-                c + Vec2::new(-1.0, 3.5),
-                c + Vec2::new(4.5, -4.0),
-            ],
-            stroke,
-        ));
+    let (status, name) = if ok {
+        (Status::Success, "OK")
     } else {
-        let color = ui.visuals().warn_fg_color;
-        painter.line_segment(
-            [c + Vec2::new(0.0, -5.0), c + Vec2::new(0.0, 1.5)],
-            egui::Stroke::new(2.0, color),
-        );
-        painter.circle_filled(c + Vec2::new(0.0, 4.5), 1.2, color);
-    }
+        (Status::Warning, "!")
+    };
+    let response = ui.add(widgets::status_mark(status));
+    response.widget_info(|| WidgetInfo::labeled(Role::Label, true, name));
 }
 
 fn ready(ui: &mut Ui, lines: &[FabLine], out: &mut Vec<Out>) {
@@ -215,7 +204,7 @@ fn ready(ui: &mut Ui, lines: &[FabLine], out: &mut Vec<Out>) {
             };
             // Named for its line: other panels have a "Run" or a "Show" of their own.
             let name = format!("{button} ({text})");
-            let response = ui.small_button(button);
+            let response = ui.add(widgets::button(button));
             response.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
             if response.clicked() {
                 out.push(match action {
@@ -229,11 +218,9 @@ fn ready(ui: &mut Ui, lines: &[FabLine], out: &mut Vec<Out>) {
 
 fn board_figures(ui: &mut Ui, figures: &BoardFigures, units: Units) {
     let info = &figures.info;
-    Grid::new("properties-board").num_columns(2).show(ui, |ui| {
+    widgets::form("properties-board").show(ui, |ui| {
         let mut row = |name: String, value: String| {
-            ui.weak(name);
-            ui.label(value);
-            ui.end_row();
+            widgets::form_row(ui, name, |ui| ui.label(value));
         };
         if let (Some(w), Some(h)) = (info.width, info.height) {
             row(
@@ -282,11 +269,10 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
         })
         .collect();
     let mut picked = current;
-    let response = ComboBox::from_id_salt("properties-grid")
-        .selected_text(crate::grid::label(current))
-        .show_ui(ui, |ui| {
+    let response = widgets::dropdown("properties-grid", crate::grid::label(current))
+        .show(ui, |ui| {
             for g in &presets {
-                ui.selectable_value(&mut picked, *g, crate::grid::label(*g));
+                widgets::choice_value(ui, &mut picked, *g, crate::grid::label(*g));
             }
         })
         .response;
@@ -301,10 +287,8 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
     // The visible grid: on or off for this Document, and its style (a Preference).
     let visible = shell.grids().visible(shell.engine().elements(), document);
     let mut shown = visible.shown;
-    if ui
-        .checkbox(&mut shown, tr!("properties-grid-visible"))
-        .changed()
-    {
+    let visible_box = widgets::checkbox(&mut shown, tr!("properties-grid-visible"));
+    if ui.add(visible_box).changed() {
         out.push(Out::Run(
             "view.grid.show",
             json!({"document": document, "visible": shown}),
@@ -315,11 +299,10 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
         GridStyle::Dots => tr!("properties-grid-dots"),
         GridStyle::Lines => tr!("properties-grid-lines"),
     };
-    let response = ComboBox::from_id_salt("properties-grid-style")
-        .selected_text(title(style))
-        .show_ui(ui, |ui| {
+    let response = widgets::dropdown("properties-grid-style", title(style))
+        .show(ui, |ui| {
             for s in [GridStyle::Dots, GridStyle::Lines] {
-                ui.selectable_value(&mut style, s, title(s));
+                widgets::choice_value(ui, &mut style, s, title(s));
             }
         })
         .response;
@@ -337,12 +320,12 @@ fn grid(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<O
 fn other(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<Out>) {
     let current = units(shell, board, document);
     ui.horizontal(|ui| {
-        ui.weak(tr!("layers-units"));
-        for (units, title) in [(Units::Mm, "mm"), (Units::Mil, "mil")] {
-            let response = ui.add_enabled(board, egui::Button::selectable(current == units, title));
-            if response.clicked() && current != units {
-                out.push(Out::Run("view.units.toggle", json!({})));
-            }
+        ui.add(widgets::form_name(tr!("layers-units")));
+        let mut picked = current;
+        let options = [(Units::Mm, "mm"), (Units::Mil, "mil")];
+        let switch = ui.add_enabled(board, widgets::segmented(&mut picked, &options));
+        if switch.changed() {
+            out.push(Out::Run("view.units.toggle", json!({})));
         }
     });
 }
@@ -351,35 +334,42 @@ fn other(ui: &mut Ui, shell: &Shell, board: bool, document: Uuid, out: &mut Vec<
 /// and the health checks with **Fix**.
 fn check_summary(ui: &mut Ui, summary: &CheckSummary, out: &mut Vec<Out>) {
     let name = summary.kind.id().to_uppercase();
+    let t = ui.tokens();
     ui.horizontal(|ui| {
-        ui.strong(name.clone());
+        ui.label(t.ty.body_strong.rich(name.clone()));
         let last = match summary.ran_at {
             None => tr!("properties-checks-never"),
             Some(at) => ago(at),
         };
         ui.label(last);
         if summary.stale {
-            ui.colored_label(ui.visuals().warn_fg_color, tr!("properties-checks-stale"));
+            ui.colored_label(t.color.warning.text, tr!("properties-checks-stale"));
         }
     });
-    ui.horizontal(|ui| {
-        severity_dot(ui, Severity::Error);
-        ui.label(tr!(
-            "properties-checks-errors",
-            count = summary.errors as i64
-        ));
-        severity_dot(ui, Severity::Warning);
-        ui.label(tr!(
+    // The tallies are badges: on its severity's tint while there is something to count.
+    ui.horizontal_wrapped(|ui| {
+        let tally = |text: String, count: usize, status: Status| {
+            let badge = widgets::badge(text);
+            if count > 0 {
+                badge.status(status)
+            } else {
+                badge
+            }
+        };
+        let errors = tr!("properties-checks-errors", count = summary.errors as i64);
+        ui.add(tally(errors, summary.errors, Status::Error));
+        let warnings = tr!(
             "properties-checks-warnings",
             count = summary.warnings as i64
-        ));
-        ui.weak(tr!(
+        );
+        ui.add(tally(warnings, summary.warnings, Status::Warning));
+        ui.add(widgets::badge(tr!(
             "properties-checks-waived",
             count = summary.waived as i64
-        ));
+        )));
     });
     let run = tr!("properties-checks-run", check = name);
-    if ui.button(run).clicked() {
+    if ui.add(widgets::button(run)).clicked() {
         out.push(Out::Messages(Action::Run(summary.kind)));
     }
     if summary.health.is_empty() {
@@ -391,8 +381,8 @@ fn check_summary(ui: &mut Ui, summary: &CheckSummary, out: &mut Vec<Out>) {
             let title = crate::messages::check_title(line.check.id());
             ui.label(format!("{title} ({})", line.count));
             let fix = ui
-                .small_button(tr!("properties-checks-fix"))
-                .on_hover_text(tr!("properties-checks-fix-hint", check = title.clone()));
+                .add(widgets::button(tr!("properties-checks-fix")))
+                .tooltip(tr!("properties-checks-fix-hint", check = title.clone()));
             let label = tr!("properties-checks-fix-named", check = title);
             fix.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
             if fix.clicked() {
