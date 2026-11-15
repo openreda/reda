@@ -13,8 +13,9 @@ use reda_engine::model::{LocationStyle, NotFittedDisplay, Project, SchematicOpti
 use serde_json::{Map, Value, json};
 
 use crate::schematic_dialogs::reannotate_labels;
-use crate::settings::{Draft, Page, PageCx, Problem, Step};
+use crate::settings::{Draft, Page, PageCx, Problem, Step, choice_toggle, layout};
 use crate::tr;
+use crate::widgets;
 
 /// The Schematic page's drafts.
 #[derive(Clone, Debug)]
@@ -264,72 +265,74 @@ impl Page for SchematicPage {
     fn show(&mut self, ui: &mut Ui, _cx: &mut PageCx<'_>) {
         let options = self.options.value_mut();
         heading(ui, tr!("settings-schematic-nets"));
-        ui.checkbox(
+        check(
+            ui,
             &mut options.allow_ports_to_name_nets,
             tr!("settings-schematic-allow-ports"),
         );
-        ui.checkbox(
+        check(
+            ui,
             &mut options.power_port_names_priority,
             tr!("settings-schematic-power-priority"),
         );
-        ui.checkbox(
+        check(
+            ui,
             &mut options.append_sheet_numbers,
             tr!("settings-schematic-append-sheet-numbers"),
         );
 
         heading(ui, tr!("settings-schematic-cross-references"));
-        ui.checkbox(
+        check(
+            ui,
             &mut options.cross_references,
             tr!("settings-schematic-cross-references-on"),
         );
         let follow = options.cross_references_follow_preferences;
-        egui::Grid::new("settings-schematic-styles")
-            .num_columns(2)
-            .spacing([12.0, 6.0])
-            .show(ui, |ui| {
-                ui.add_enabled_ui(!follow, |ui| {
-                    ui.label(tr!("settings-schematic-sheet-style"));
-                });
-                ui.add_enabled_ui(!follow, |ui| {
-                    let styles = &mut options.cross_reference_styles;
-                    choice(
-                        ui,
-                        tr!("settings-schematic-sheet-style"),
-                        &mut styles.sheet,
-                        &[
-                            (SheetStyle::None, tr!("settings-schematic-style-none")),
-                            (SheetStyle::Name, tr!("settings-schematic-sheet-name")),
-                            (SheetStyle::Number, tr!("settings-schematic-sheet-number")),
-                        ],
-                    );
-                });
-                ui.end_row();
-                ui.add_enabled_ui(!follow, |ui| {
-                    ui.label(tr!("settings-schematic-location-style"));
-                });
-                ui.add_enabled_ui(!follow, |ui| {
-                    let styles = &mut options.cross_reference_styles;
-                    choice(
-                        ui,
-                        tr!("settings-schematic-location-style"),
-                        &mut styles.location,
-                        &[
-                            (LocationStyle::None, tr!("settings-schematic-style-none")),
-                            (LocationStyle::Zone, tr!("settings-schematic-location-zone")),
-                            (LocationStyle::Xy, tr!("settings-schematic-location-xy")),
-                        ],
-                    );
-                });
-                ui.end_row();
+        widgets::form("settings-schematic-styles").show(ui, |ui| {
+            ui.add_enabled_ui(!follow, |ui| {
+                ui.add(widgets::form_name(tr!("settings-schematic-sheet-style")));
             });
-        ui.checkbox(
+            ui.add_enabled_ui(!follow, |ui| {
+                let styles = &mut options.cross_reference_styles;
+                choice(
+                    ui,
+                    tr!("settings-schematic-sheet-style"),
+                    &mut styles.sheet,
+                    &[
+                        (SheetStyle::None, tr!("settings-schematic-style-none")),
+                        (SheetStyle::Name, tr!("settings-schematic-sheet-name")),
+                        (SheetStyle::Number, tr!("settings-schematic-sheet-number")),
+                    ],
+                );
+            });
+            ui.end_row();
+            ui.add_enabled_ui(!follow, |ui| {
+                ui.add(widgets::form_name(tr!("settings-schematic-location-style")));
+            });
+            ui.add_enabled_ui(!follow, |ui| {
+                let styles = &mut options.cross_reference_styles;
+                choice(
+                    ui,
+                    tr!("settings-schematic-location-style"),
+                    &mut styles.location,
+                    &[
+                        (LocationStyle::None, tr!("settings-schematic-style-none")),
+                        (LocationStyle::Zone, tr!("settings-schematic-location-zone")),
+                        (LocationStyle::Xy, tr!("settings-schematic-location-xy")),
+                    ],
+                );
+            });
+            ui.end_row();
+        });
+        check(
+            ui,
             &mut options.cross_references_follow_preferences,
             tr!("settings-schematic-follow-preferences"),
         );
 
         heading(ui, tr!("settings-schematic-assembly"));
         ui.horizontal(|ui| {
-            ui.label(tr!("settings-schematic-not-fitted"));
+            layout::text(ui, tr!("settings-schematic-not-fitted"));
             choice(
                 ui,
                 tr!("settings-schematic-not-fitted"),
@@ -371,22 +374,19 @@ impl Page for SchematicPage {
 }
 
 fn heading(ui: &mut Ui, text: String) {
-    ui.add_space(6.0);
-    ui.strong(text);
+    layout::group(ui, &text);
 }
 
-/// A row of selectable buttons, one per choice. The accessible name of each is
-/// "<group>: <choice>".
+fn check(ui: &mut Ui, value: &mut bool, text: String) {
+    ui.add(widgets::checkbox(value, text));
+}
+
+/// A row of toggles, one per choice. The accessible name of each is "<group>: <choice>".
 fn choice<T: Copy + PartialEq>(ui: &mut Ui, group: String, value: &mut T, choices: &[(T, String)]) {
     ui.horizontal(|ui| {
         for (option, label) in choices {
-            let chosen = *value == *option;
-            let button = ui.add(egui::Button::selectable(chosen, label));
             let name = format!("{group}: {label}");
-            button.widget_info(|| {
-                egui::WidgetInfo::selected(egui::Role::RadioButton, ui.is_enabled(), chosen, &name)
-            });
-            if button.clicked() {
+            if choice_toggle(ui, *value == *option, label, &name).clicked() {
                 *value = *option;
             }
         }
@@ -396,17 +396,17 @@ fn choice<T: Copy + PartialEq>(ui: &mut Ui, group: String, value: &mut T, choice
 /// A read-only summary with its Reset button. Returns whether Reset was clicked.
 fn summary(ui: &mut Ui, lines: Option<&[String]>, pending: bool, reset: String) -> bool {
     let Some(lines) = lines else {
-        ui.weak(tr!("settings-schematic-none-saved"));
+        layout::muted(ui, tr!("settings-schematic-none-saved"));
         return false;
     };
     ui.indent(reset.as_str(), |ui| {
         for line in lines {
-            ui.label(line);
+            layout::text(ui, line);
         }
     });
     if pending {
-        ui.weak(tr!("settings-schematic-reset-pending"));
+        layout::muted(ui, tr!("settings-schematic-reset-pending"));
         return false;
     }
-    ui.button(reset).clicked()
+    ui.add(widgets::button(reset)).clicked()
 }

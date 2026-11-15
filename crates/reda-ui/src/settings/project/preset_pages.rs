@@ -10,8 +10,9 @@ use reda_engine::model::{Project, Uuid};
 use serde_json::json;
 
 use crate::settings::fab_preset::{self, PresetEditor, PresetPage};
-use crate::settings::{Page, PageCx, Problem, Step};
+use crate::settings::{Page, PageCx, Problem, Step, layout};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
 
 /// One page of one Project copy.
@@ -119,11 +120,15 @@ impl Page for CopyPage {
 
     fn show(&mut self, ui: &mut Ui, _cx: &mut PageCx<'_>) {
         if !self.present {
-            ui.weak(tr!("settings-preset-gone"));
+            layout::muted(ui, tr!("settings-preset-gone"));
             return;
         }
-        ui.weak(tr!("settings-preset-copy-of", name = self.name.as_str()));
-        ui.add_space(4.0);
+        let t = ui.tokens();
+        layout::muted(
+            ui,
+            tr!("settings-preset-copy-of", name = self.name.as_str()),
+        );
+        ui.add_space(t.space.stack);
         fab_preset::draw::page(ui, &mut self.editor.borrow_mut(), self.page);
     }
 }
