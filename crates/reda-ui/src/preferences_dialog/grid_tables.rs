@@ -3,15 +3,20 @@
 //! Visible and In cycle, then Add row, under **Restore shipped presets**. Each table is one
 //! Preference (`editing.grid.<type>.<imperial|metric>`), written whole on every edit.
 
-use egui::{Role, TextEdit, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::command::Length;
 use reda_engine::model::geom::Nm;
 use reda_engine::preferences::GridRow;
 use serde_json::Value;
 
 use super::PreferencesDialog;
+use crate::settings::layout;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets::{self, Column as TableColumn};
+
+/// The width of a cell's field.
+const CELL_WIDTH: f32 = 96.0;
 
 /// The prefix of the tables' keys.
 pub const GRID_TABLES: &[&str] = &[
@@ -36,16 +41,14 @@ enum Column {
 
 /// Draws Restore shipped presets, then every table.
 pub fn show(dialog: &mut PreferencesDialog, ui: &mut Ui, shell: &mut Shell) {
-    ui.add_space(12.0);
-    ui.strong(tr!("pref-grid-tables"));
-    ui.label(tr!("pref-grid-tables-intro"));
-    ui.add_space(4.0);
+    layout::group(ui, &tr!("pref-grid-tables"));
+    layout::text(ui, tr!("pref-grid-tables-intro"));
     let keys: Vec<String> = ["schematic", "symbol", "pcb", "footprint"]
         .iter()
         .flat_map(|t| ["imperial", "metric"].map(|u| format!("editing.grid.{t}.{u}")))
         .collect();
     let changed = keys.iter().any(|k| dialog.can_reset(shell, k));
-    let restore = ui.add_enabled(changed, egui::Button::new(tr!("pref-grid-restore")));
+    let restore = ui.add_enabled(changed, widgets::button(tr!("pref-grid-restore")));
     if restore.clicked() {
         dialog.texts.retain(|k, _| !is_table(k));
         let _ = dialog.reset_keys(shell, &keys);
@@ -62,8 +65,7 @@ pub fn show(dialog: &mut PreferencesDialog, ui: &mut Ui, shell: &mut Shell) {
             ("metric", tr!("pref-grid-metric")),
         ] {
             let key = format!("editing.grid.{ty}.{unit}");
-            ui.add_space(6.0);
-            ui.label(egui::RichText::new(format!("{title} · {unit_title}")).strong());
+            layout::group(ui, &format!("{title} · {unit_title}"));
             table(dialog, ui, shell, &key, &title, &unit_title, range);
         }
     }
@@ -104,101 +106,103 @@ fn table(
     }
     columns.push((Column::Visible, tr!("pref-grid-visible")));
     let mut edited: Option<Vec<GridRow>> = None;
-    egui::Grid::new(("preferences-grid-table", key))
-        .striped(true)
-        .num_columns(columns.len() + 2)
-        .show(ui, |ui| {
-            for (_, name) in &columns {
-                ui.strong(name.as_str());
-            }
-            ui.strong(tr!("pref-grid-in-cycle"));
-            ui.end_row();
+    widgets::table(("preferences-grid-table", key))
+        .columns(vec![TableColumn::auto(); columns.len() + 2])
+        .show(ui, |table| {
+            table.header(|h| {
+                for (_, name) in &columns {
+                    h.text(name.as_str());
+                }
+                h.text(tr!("pref-grid-in-cycle"));
+                h.empty();
+            });
             for (i, row) in rows.iter().enumerate() {
-                for (column, name) in &columns {
-                    let value = match column {
-                        Column::Snap => Some(row.snap.0),
-                        Column::Range => row.range.map(|r| r.0),
-                        Column::Visible => Some(row.visible.0),
-                    };
-                    let cell = format!("{key}[{i}].{}", *column as u8);
-                    let mut text = dialog
-                        .texts
-                        .get(&cell)
-                        .cloned()
-                        .unwrap_or_else(|| value.map(cell_text).unwrap_or_default());
+                table.row(|cells| {
+                    for (column, name) in &columns {
+                        let value = match column {
+                            Column::Snap => Some(row.snap.0),
+                            Column::Range => row.range.map(|r| r.0),
+                            Column::Visible => Some(row.visible.0),
+                        };
+                        let cell = format!("{key}[{i}].{}", *column as u8);
+                        let mut text = dialog
+                            .texts
+                            .get(&cell)
+                            .cloned()
+                            .unwrap_or_else(|| value.map(cell_text).unwrap_or_default());
+                        let label = tr!(
+                            "pref-grid-cell",
+                            table = format!("{title} {unit}"),
+                            row = i + 1,
+                            column = name.as_str()
+                        );
+                        let response =
+                            cells.ui(|ui| ui.add(widgets::text_field(&mut text).width(CELL_WIDTH)));
+                        response.widget_info(|| {
+                            WidgetInfo::labeled(Role::TextInput, true, label.clone())
+                        });
+                        if response.changed() {
+                            dialog.texts.insert(cell.clone(), text.clone());
+                        }
+                        if response.lost_focus() {
+                            let parsed = Nm::parse(text.trim()).ok().filter(|n| n.0 > 0);
+                            if let Some(nm) = parsed {
+                                dialog.texts.remove(&cell);
+                                let mut new = rows.clone();
+                                let r = &mut new[i];
+                                match column {
+                                    // A new Snap keeps Visible equal to it when it was.
+                                    Column::Snap => {
+                                        if r.visible == r.snap {
+                                            r.visible = Length(nm);
+                                        }
+                                        r.snap = Length(nm);
+                                    }
+                                    Column::Range => r.range = Some(Length(nm)),
+                                    Column::Visible => r.visible = Length(nm),
+                                }
+                                edited = Some(new);
+                            }
+                        }
+                    }
+                    let mut in_cycle = row.in_cycle;
                     let label = tr!(
                         "pref-grid-cell",
                         table = format!("{title} {unit}"),
                         row = i + 1,
-                        column = name.as_str()
+                        column = tr!("pref-grid-in-cycle")
                     );
-                    let response = ui.add(TextEdit::singleline(&mut text).desired_width(70.0));
-                    response
-                        .widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label.clone()));
+                    let response = cells.ui(|ui| ui.add(widgets::checkbox(&mut in_cycle, "")));
+                    response.widget_info(|| {
+                        WidgetInfo::selected(Role::CheckBox, true, in_cycle, label.clone())
+                    });
                     if response.changed() {
-                        dialog.texts.insert(cell.clone(), text.clone());
-                    }
-                    if response.lost_focus() {
-                        let parsed = Nm::parse(text.trim()).ok().filter(|n| n.0 > 0);
-                        if let Some(nm) = parsed {
-                            dialog.texts.remove(&cell);
-                            let mut new = rows.clone();
-                            let r = &mut new[i];
-                            match column {
-                                // A new Snap keeps Visible equal to it when it was.
-                                Column::Snap => {
-                                    if r.visible == r.snap {
-                                        r.visible = Length(nm);
-                                    }
-                                    r.snap = Length(nm);
-                                }
-                                Column::Range => r.range = Some(Length(nm)),
-                                Column::Visible => r.visible = Length(nm),
-                            }
-                            edited = Some(new);
-                        }
-                    }
-                }
-                let mut in_cycle = row.in_cycle;
-                let label = tr!(
-                    "pref-grid-cell",
-                    table = format!("{title} {unit}"),
-                    row = i + 1,
-                    column = tr!("pref-grid-in-cycle")
-                );
-                let response = ui.checkbox(&mut in_cycle, "");
-                response.widget_info(|| {
-                    WidgetInfo::selected(Role::CheckBox, true, in_cycle, label.clone())
-                });
-                if response.changed() {
-                    let mut new = rows.clone();
-                    new[i].in_cycle = in_cycle;
-                    edited = Some(new);
-                }
-                ui.horizontal(|ui| {
-                    let remove = ui.small_button(tr!("pref-remove"));
-                    let name = tr!(
-                        "pref-grid-remove-row",
-                        table = format!("{title} {unit}"),
-                        row = i + 1
-                    );
-                    remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-                    if remove.clicked() && rows.len() > 1 {
                         let mut new = rows.clone();
-                        new.remove(i);
+                        new[i].in_cycle = in_cycle;
                         edited = Some(new);
                     }
-                    if row.range_warning() {
-                        ui.colored_label(
-                            ui.visuals().warn_fg_color,
-                            tr!("pref-grid-range-warning"),
+                    cells.ui(|ui| {
+                        let remove = ui.add(widgets::button(tr!("pref-remove")).flat());
+                        let name = tr!(
+                            "pref-grid-remove-row",
+                            table = format!("{title} {unit}"),
+                            row = i + 1
                         );
-                    }
+                        remove
+                            .widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+                        if remove.clicked() && rows.len() > 1 {
+                            let mut new = rows.clone();
+                            new.remove(i);
+                            edited = Some(new);
+                        }
+                        if row.range_warning() {
+                            layout::warning(ui, tr!("pref-grid-range-warning"));
+                        }
+                    });
                 });
-                ui.end_row();
             }
         });
-    let add = ui.small_button(tr!("pref-grid-add-row"));
+    let add = ui.add(widgets::button(tr!("pref-grid-add-row")));
     let name = tr!("pref-grid-add-row-to", table = format!("{title} {unit}"));
     add.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
     if add.clicked()
