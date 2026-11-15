@@ -1,15 +1,18 @@
 //! Drawing the Change List: the toolbar, the tree grid (a header per group with a fold
-//! arrow, a count and a tick-all box, then a row per change with its tick, Kind, Target,
+//! chevron, a count and a tick-all box, then a row per change with its tick, Kind, Target,
 //! From → To and Status) and the rows' context menu.
 
-use egui::{
-    Button, Checkbox, Color32, Key, RichText, Role, Sense, Stroke, TextEdit, Ui, WidgetInfo,
-};
+use egui::{Key, Role, Ui, WidgetInfo};
 use reda_engine::sync::{GroupKind, Status};
 
 use super::{ChangeListPage, describe, group_title};
-use crate::settings::{FileRequest, PageCx};
+use crate::settings::{FileRequest, PageCx, layout, strong};
+use crate::theme::{Tokens, TokensExt as _};
 use crate::tr;
+use crate::widgets::{self, Column, Glyph, RowLook, Selection, TableBody};
+
+/// The filter field in the toolbar.
+const FILTER_WIDTH: f32 = 180.0;
 
 /// What the context menu of a row asked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,51 +27,55 @@ enum MenuAction {
 
 impl ChangeListPage {
     pub(super) fn draw(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
+        let t = ui.tokens();
         if self.stale {
-            ui.colored_label(ui.visuals().warn_fg_color, tr!("change-list-stale"));
+            layout::warning(ui, tr!("change-list-stale"));
         }
         if let Some(block) = &self.list.duplicate_nets {
-            ui.colored_label(
-                ui.visuals().error_fg_color,
-                tr!("change-list-blocked", message = block.message.as_str()),
-            );
+            let message = block.message.as_str();
+            layout::error(ui, tr!("change-list-blocked", message = message));
         }
         self.toolbar(ui);
-        ui.add_space(4.0);
+        ui.add_space(t.space.stack);
         if self.list.count == 0 {
-            ui.label(tr!("change-list-in-sync"));
+            layout::text(ui, tr!("change-list-in-sync"));
         } else {
-            ui.label(tr!(
-                "change-list-summary",
-                ticked = self.ticked_count(),
-                count = self.list.count
-            ));
+            layout::text(
+                ui,
+                tr!(
+                    "change-list-summary",
+                    ticked = self.ticked_count(),
+                    count = self.list.count
+                ),
+            );
         }
         if let Some(notice) = &self.notice {
-            ui.weak(notice);
+            layout::muted(ui, notice);
         }
-        ui.add_space(4.0);
+        ui.add_space(t.space.stack);
         let mut show = None;
-        egui::Grid::new("change-list-grid")
-            .num_columns(5)
-            .spacing([12.0, 4.0])
-            .striped(true)
-            .show(ui, |ui| {
-                ui.label("");
-                ui.strong(tr!("change-list-column-kind"));
-                ui.strong(tr!("change-list-column-target"));
-                ui.horizontal(|ui| {
-                    ui.strong(tr!("change-list-column-from"));
-                    arrow(ui);
-                    ui.strong(tr!("change-list-column-to"));
+        let focused = ui.input(|i| i.focused);
+        let modifiers = ui.input(|i| i.modifiers);
+        widgets::table("change-list-grid")
+            .columns([Column::auto(); 5])
+            .show(ui, |table| {
+                table.header(|h| {
+                    h.empty();
+                    h.text(tr!("change-list-column-kind"));
+                    h.text(tr!("change-list-column-target"));
+                    h.ui(|ui| {
+                        let ink = t.color.text.muted;
+                        ui.label(t.ty.small.rich(tr!("change-list-column-from")).color(ink));
+                        ui.add(widgets::glyph(Glyph::Arrow).color(ink));
+                        ui.label(t.ty.small.rich(tr!("change-list-column-to")).color(ink));
+                    });
+                    h.text(tr!("change-list-column-status"));
                 });
-                ui.strong(tr!("change-list-column-status"));
-                ui.end_row();
                 for group in self.groups() {
-                    self.group_header(ui, group);
+                    self.group_header(table, group);
                     if self.is_expanded(group) {
                         for id in self.rows_of(group) {
-                            if let Some(asked) = self.row(ui, &id) {
+                            if let Some(asked) = self.row(table, &id, focused, modifiers, &t) {
                                 show = Some(asked);
                             }
                         }
@@ -88,36 +95,35 @@ impl ChangeListPage {
         ui.horizontal(|ui| {
             let label = tr!("change-list-filter");
             let filter = ui.add(
-                TextEdit::singleline(&mut self.filter)
-                    .hint_text(label.clone())
-                    .desired_width(180.0),
+                widgets::text_field(&mut self.filter)
+                    .hint(label.clone())
+                    .width(FILTER_WIDTH),
             );
             filter.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label.clone()));
             let mut only = self.only_problems;
-            if ui
-                .checkbox(&mut only, tr!("change-list-only-problems"))
-                .changed()
-            {
+            let only_problems = widgets::checkbox(&mut only, tr!("change-list-only-problems"));
+            if ui.add(only_problems).changed() {
                 self.set_only_problems(only);
             }
-            if ui.button(tr!("change-list-expand-all")).clicked() {
+            let button = |ui: &mut Ui, label: String| ui.add(widgets::button(label)).clicked();
+            if button(ui, tr!("change-list-expand-all")) {
                 self.expand_all();
             }
-            if ui.button(tr!("change-list-collapse-all")).clicked() {
+            if button(ui, tr!("change-list-collapse-all")) {
                 self.collapse_all();
             }
-            if ui.button(tr!("change-list-include-all")).clicked() {
+            if button(ui, tr!("change-list-include-all")) {
                 self.include_all();
             }
-            if ui.button(tr!("change-list-exclude-all")).clicked() {
+            if button(ui, tr!("change-list-exclude-all")) {
                 self.exclude_all();
             }
         });
     }
 
-    /// A group's header row: the fold arrow and the tick-all box, then the title with its
-    /// count.
-    fn group_header(&mut self, ui: &mut Ui, group: GroupKind) {
+    /// A group's header row: the fold chevron and the tick-all box, then the title with
+    /// its count.
+    fn group_header(&mut self, table: &mut TableBody<'_>, group: GroupKind) {
         let title = group_title(group);
         let excluded = self.excluded();
         let tickable: Vec<String> = (self.rows_of(group).into_iter())
@@ -125,38 +131,58 @@ impl ChangeListPage {
             .collect();
         let all = tickable.iter().all(|id| !excluded.contains(id));
         let none = tickable.iter().all(|id| excluded.contains(id));
-        ui.horizontal(|ui| {
-            let expanded = self.is_expanded(group);
-            if fold_arrow(ui, expanded, &title).clicked() {
-                self.set_expanded(group, !expanded);
-            }
-            let mut check = all && !tickable.is_empty();
-            let response = ui.add_enabled(
-                !tickable.is_empty(),
-                Checkbox::without_text(&mut check).indeterminate(!all && !none),
-            );
-            response.widget_info(|| {
-                WidgetInfo::selected(
-                    Role::CheckBox,
-                    true,
-                    all,
-                    tr!("change-list-tick-group", group = title.as_str()),
+        let expanded = self.is_expanded(group);
+        let count = self.group_count(group);
+        let (mut fold, mut tick) = (false, None);
+        table.row(|row| {
+            row.ui(|ui| {
+                if fold_button(ui, expanded, &title).clicked() {
+                    fold = true;
+                }
+                let mut check = all && !tickable.is_empty();
+                let response = ui.add_enabled(
+                    !tickable.is_empty(),
+                    widgets::checkbox(&mut check, "").indeterminate(!all && !none),
+                );
+                response.widget_info(|| {
+                    WidgetInfo::selected(
+                        Role::CheckBox,
+                        true,
+                        all,
+                        tr!("change-list-tick-group", group = title.as_str()),
+                    )
+                });
+                if response.clicked() {
+                    tick = Some(check);
+                }
+            });
+            row.ui(|ui| {
+                strong(
+                    ui,
+                    tr!("change-list-group", group = title.as_str(), count = count),
                 )
             });
-            if response.clicked() {
-                self.set_kind(group, check);
-            }
+            row.empty();
+            row.empty();
+            row.empty();
         });
-        ui.strong(tr!(
-            "change-list-group",
-            group = title.as_str(),
-            count = self.group_count(group)
-        ));
-        ui.end_row();
+        if fold {
+            self.set_expanded(group, !expanded);
+        }
+        if let Some(check) = tick {
+            self.set_kind(group, check);
+        }
     }
 
     /// One change's row. Returns its id when its menu asked to Show it.
-    fn row(&mut self, ui: &mut Ui, id: &str) -> Option<String> {
+    fn row(
+        &mut self,
+        table: &mut TableBody<'_>,
+        id: &str,
+        focused: bool,
+        modifiers: egui::Modifiers,
+        t: &Tokens,
+    ) -> Option<String> {
         let cells = self.cells(id)?;
         let pending = self.change(id).cloned();
         let applied = pending.is_none();
@@ -166,43 +192,67 @@ impl ChangeListPage {
         let problem = change.is_problem();
         let mut ticked = !applied && self.is_ticked(id);
         let text = describe(&change, &self.pcb_nets);
-        let weak = ui.visuals().weak_text_color();
-        let mut asked = None;
-        ui.horizontal(|ui| {
-            ui.add_space(18.0);
-            let response =
-                ui.add_enabled(!problem && !applied, Checkbox::without_text(&mut ticked));
-            let label = text.clone();
-            response
-                .widget_info(|| WidgetInfo::selected(Role::CheckBox, true, ticked, label.clone()));
-            if response.clicked() {
-                self.set_ticked(id, ticked);
-            }
-        });
-        // The Kind cell selects the row and carries its menu.
-        let mut kind = RichText::new(cells.kind);
-        if applied {
-            kind = kind.color(weak);
-        }
         let selected = self.is_selected(id);
-        let response = ui.add(Button::selectable(selected, kind));
+        let selection = match (selected, focused) {
+            (false, _) => Selection::None,
+            (true, true) => Selection::Live,
+            (true, false) => Selection::Unfocused,
+        };
+        let mut tick = false;
+        let response = table.row_with(RowLook::selected(selection), |row| {
+            row.ui(|ui| {
+                ui.add_space(widgets::TREE_INDENT);
+                let response =
+                    ui.add_enabled(!problem && !applied, widgets::checkbox(&mut ticked, ""));
+                let label = text.clone();
+                response.widget_info(|| {
+                    WidgetInfo::selected(Role::CheckBox, true, ticked, label.clone())
+                });
+                tick = response.clicked();
+            });
+            let plain = |row: &mut widgets::TableRow<'_>, text: String| {
+                if applied {
+                    row.muted(text);
+                } else {
+                    row.text(text);
+                }
+            };
+            plain(row, cells.kind.clone());
+            plain(row, cells.target.clone());
+            plain(row, cells.from_to.clone());
+            let ink = match change.status {
+                _ if applied => t.color.text.muted,
+                Status::Ok => t.color.text.primary,
+                Status::Note => t.color.warning.text,
+                Status::Problem => t.color.error.text,
+            };
+            row.ui(|ui| {
+                if applied {
+                    ui.add(widgets::glyph(Glyph::Tick).color(ink));
+                }
+                ui.label(t.ty.body.rich(cells.status.clone()).color(ink));
+            });
+        });
         let name = tr!(
             "change-list-row",
             row = text.as_str(),
             status = cells.status.as_str()
         );
         response.widget_info(|| WidgetInfo::selected(Role::Row, true, selected, name.clone()));
+        if tick {
+            self.set_ticked(id, ticked);
+        }
         if response.clicked() {
-            let modifiers = ui.input(|i| i.modifiers);
             self.select(id, modifiers);
         }
         if response.secondary_clicked() && !selected {
             self.select(id, egui::Modifiers::NONE);
         }
-        response.context_menu(|ui| {
+        let mut asked = None;
+        widgets::context_menu(&response, |ui| {
             let can = !applied && !problem;
             let mut item = |ui: &mut Ui, on: bool, label: String, action: MenuAction| {
-                if ui.add_enabled(on, Button::new(label)).clicked() {
+                if ui.add_enabled(on, widgets::menu_item(label)).clicked() {
                     asked = Some(action);
                     ui.close();
                 }
@@ -232,38 +282,9 @@ impl ChangeListPage {
                 MenuAction::ExcludeKind,
             );
             item(ui, can, tr!("change-list-invert"), MenuAction::Invert);
-            ui.separator();
+            widgets::menu_separator(ui);
             item(ui, true, tr!("change-list-show"), MenuAction::Show);
         });
-        let colour = |ui: &Ui| {
-            if applied {
-                Some(weak)
-            } else {
-                ui.visuals().override_text_color
-            }
-        };
-        let plain = |ui: &mut Ui, text: String| {
-            let mut text = RichText::new(text);
-            if let Some(c) = colour(ui) {
-                text = text.color(c);
-            }
-            ui.label(text);
-        };
-        plain(ui, cells.target);
-        plain(ui, cells.from_to);
-        ui.horizontal(|ui| {
-            if applied {
-                check_mark(ui, weak);
-            }
-            let colour = match change.status {
-                _ if applied => weak,
-                Status::Ok => ui.visuals().text_color(),
-                Status::Note => ui.visuals().warn_fg_color,
-                Status::Problem => ui.visuals().error_fg_color,
-            };
-            ui.label(RichText::new(cells.status).color(colour));
-        });
-        ui.end_row();
         match asked {
             Some(MenuAction::Include) => self.include_selected(),
             Some(MenuAction::Exclude) => self.exclude_selected(),
@@ -278,67 +299,26 @@ impl ChangeListPage {
 
     /// The footer's Export button, left of Apply and Close.
     pub(super) fn draw_footer(&mut self, ui: &mut Ui) -> Option<FileRequest> {
-        ui.button(tr!("change-list-export"))
+        ui.add(widgets::button(tr!("change-list-export")))
             .clicked()
             .then_some(FileRequest::ExportChangeList)
     }
 }
 
-/// A group's fold arrow, painted (the UI font has no triangle glyphs).
-fn fold_arrow(ui: &mut Ui, expanded: bool, title: &str) -> egui::Response {
-    let size = egui::vec2(14.0, ui.spacing().interact_size.y);
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    let label = if expanded {
-        tr!("change-list-collapse-group", group = title)
+/// A group's fold chevron, announced as "Collapse <group>" or "Expand <group>".
+fn fold_button(ui: &mut Ui, expanded: bool, title: &str) -> egui::Response {
+    let (glyph, label) = if expanded {
+        (
+            Glyph::ChevronDown,
+            tr!("change-list-collapse-group", group = title),
+        )
     } else {
-        tr!("change-list-expand-group", group = title)
+        (
+            Glyph::ChevronRight,
+            tr!("change-list-expand-group", group = title),
+        )
     };
+    let response = ui.add(widgets::glyph_button(glyph));
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
-    let colour = ui.style().interact(&response).fg_stroke.color;
-    let c = rect.center();
-    let points = if expanded {
-        vec![
-            c + egui::vec2(-4.0, -2.0),
-            c + egui::vec2(4.0, -2.0),
-            c + egui::vec2(0.0, 3.0),
-        ]
-    } else {
-        vec![
-            c + egui::vec2(-2.0, -4.0),
-            c + egui::vec2(3.0, 0.0),
-            c + egui::vec2(-2.0, 4.0),
-        ]
-    };
-    ui.painter()
-        .add(egui::Shape::convex_polygon(points, colour, Stroke::NONE));
     response
-}
-
-/// The From → To header's arrow, painted (the UI font has no arrow glyph).
-fn arrow(ui: &mut Ui) {
-    let colour = ui.visuals().strong_text_color();
-    let (rect, _) = ui.allocate_exact_size(egui::vec2(14.0, 12.0), Sense::hover());
-    let y = rect.center().y;
-    let (l, r) = (rect.left() + 1.0, rect.right() - 1.0);
-    let stroke = Stroke::new(1.2, colour);
-    ui.painter()
-        .line_segment([egui::pos2(l, y), egui::pos2(r, y)], stroke);
-    ui.painter().line(
-        vec![
-            egui::pos2(r - 4.0, y - 4.0),
-            egui::pos2(r, y),
-            egui::pos2(r - 4.0, y + 4.0),
-        ],
-        stroke,
-    );
-}
-
-/// The Applied tick, painted.
-fn check_mark(ui: &mut Ui, colour: Color32) {
-    let (rect, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), Sense::hover());
-    let at = |x: f32, y: f32| rect.left_top() + egui::vec2(x, y);
-    ui.painter().line(
-        vec![at(2.0, 6.5), at(5.0, 9.5), at(10.5, 2.5)],
-        Stroke::new(1.5, colour),
-    );
 }

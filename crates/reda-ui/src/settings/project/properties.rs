@@ -7,6 +7,10 @@ use serde_json::{Map, Value};
 
 use crate::settings::{Draft, Page, PageCx, Problem, Step, field};
 use crate::tr;
+use crate::widgets;
+
+/// A title block field.
+const FIELD_WIDTH: f32 = 280.0;
 
 /// The fields of the Properties page, as typed.
 #[derive(Clone, Debug, Default)]
@@ -73,21 +77,19 @@ impl Page for PropertiesPage {
     }
 
     fn show(&mut self, ui: &mut Ui, cx: &mut PageCx<'_>) {
-        egui::Grid::new("settings-properties")
-            .num_columns(2)
-            .spacing([12.0, 8.0])
-            .show(ui, |ui| {
-                for (label, draft, field_name) in [
-                    (tr!("settings-title"), &mut self.title, "title"),
-                    (tr!("settings-revision"), &mut self.revision, "revision"),
-                    (tr!("settings-date"), &mut self.date, "date"),
-                    (tr!("settings-author"), &mut self.author, "author"),
-                    (tr!("settings-company"), &mut self.company, "company"),
-                ] {
-                    ui.label(&label);
-                    field(ui, &label, draft.value_mut(), 280.0, cx.problem(field_name));
-                    ui.end_row();
-                }
-            });
+        widgets::form("settings-properties").show(ui, |ui| {
+            for (label, draft, field_name) in [
+                (tr!("settings-title"), &mut self.title, "title"),
+                (tr!("settings-revision"), &mut self.revision, "revision"),
+                (tr!("settings-date"), &mut self.date, "date"),
+                (tr!("settings-author"), &mut self.author, "author"),
+                (tr!("settings-company"), &mut self.company, "company"),
+            ] {
+                ui.add(widgets::form_name(&label));
+                let problem = cx.problem(field_name);
+                field(ui, &label, draft.value_mut(), FIELD_WIDTH, problem);
+                ui.end_row();
+            }
+        });
     }
 }

@@ -1,7 +1,7 @@
 //! Drawing Board Setup's rule pages and DRC page; the Net Classes page is in
 //! [`grid`].
 
-use egui::{Button, ComboBox, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::{DrcCheck, Limit, Severity, SilkMaskMode, ZoneNameScheme};
 
 use super::length::mm;
@@ -10,9 +10,12 @@ use super::model::{
     class_field, connection_value_name, kind_name, style_name, target_name,
 };
 use super::{DrcPage, Rule, Section};
-use crate::settings::{PageCx, Problem, field};
+use crate::settings::layout;
+use crate::settings::{PageCx, Problem, choice_toggle, field, strong};
 use crate::show_on_board::Shown;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column};
 
 mod actions;
 mod grid;
@@ -22,7 +25,12 @@ pub use grid::net_classes_page;
 pub use stackup::stackup_page;
 
 const SEVERITIES: [Severity; 3] = [Severity::Error, Severity::Warning, Severity::Off];
-const LENGTH_WIDTH: f32 = 90.0;
+/// A length field: room for a value such as `-0.125` in the body text.
+const LENGTH_WIDTH: f32 = 96.0;
+/// The Zone naming scheme's dropdown: the longest scheme fits.
+const ZONE_SCHEME_WIDTH: f32 = 220.0;
+/// The silkscreen-to-mask mode's dropdown.
+const SILK_MODE_WIDTH: f32 = 180.0;
 
 fn severity_name(severity: Severity) -> String {
     match severity {
@@ -76,15 +84,12 @@ fn severity_choice(ui: &mut Ui, board: &mut BoardSetupDraft, check: DrcCheck) {
         for severity in SEVERITIES {
             let label = severity_name(severity);
             let chosen = board.severity(check) == severity;
-            let button = ui.add(Button::selectable(chosen, &label));
             let accessible = tr!(
                 "board-setup-severity-choice",
                 check = name.as_str(),
-                severity = label
+                severity = label.as_str()
             );
-            button
-                .widget_info(|| WidgetInfo::selected(Role::RadioButton, true, chosen, &accessible));
-            if button.clicked() {
+            if choice_toggle(ui, chosen, &label, &accessible).clicked() {
                 board.set_severity(check, severity);
             }
         }
@@ -95,7 +100,7 @@ fn no_pcb(ui: &mut Ui, board: &BoardSetupDraft) -> bool {
     if board.has_pcb() {
         return false;
     }
-    ui.weak(tr!("board-setup-no-pcb"));
+    layout::muted(ui, tr!("board-setup-no-pcb"));
     true
 }
 
@@ -117,20 +122,22 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
     if no_pcb(ui, board) {
         return;
     }
+    let t = ui.tokens();
     actions::rule_actions(ui, cx, board, Some(rule));
     if rule == Rule::ZoneConnections {
-        ui.add_space(8.0);
+        ui.add_space(t.space.stack);
         zone_scheme(ui, board);
     }
     for (i, section) in rule.sections().iter().enumerate() {
-        ui.add_space(if i == 0 { 6.0 } else { 14.0 });
-        if let Some(heading) = section_heading(rule, i, section) {
-            ui.heading(heading);
+        match section_heading(rule, i, section) {
+            Some(heading) => layout::group(ui, &heading),
+            None => ui.add_space(t.space.section),
         }
+        ui.add_space(t.space.stack);
         section_ui(ui, cx, section, board);
     }
-    ui.add_space(8.0);
-    ui.weak(tr!("board-setup-units"));
+    ui.add_space(t.space.section);
+    layout::muted(ui, tr!("board-setup-units"));
 }
 
 /// A section's heading: its check's name on a page with several, else what it is about.
@@ -147,44 +154,41 @@ fn section_heading(rule: Rule, i: usize, section: &Section) -> Option<String> {
 }
 
 fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut BoardSetupDraft) {
+    let t = ui.tokens();
     let salt = section.fields[0];
-    egui::Grid::new(("board-setup-rule", salt))
-        .num_columns(3)
-        .spacing([12.0, 8.0])
-        .show(ui, |ui| {
-            for &f in section.fields {
-                if f == RuleField::PastePercent {
-                    continue;
-                }
-                if f == RuleField::PasteExpansion {
-                    paste(ui, cx, board);
-                    ui.end_row();
-                    continue;
-                }
-                let label = f.board_wide_label();
-                ui.label(&label);
-                let problem = cx.problem(&f.problem_field());
-                let mut text = board.rule(f).to_owned();
-                ui.horizontal(|ui| {
-                    value_field(ui, f, &label, &mut text, false, problem);
-                    if f == RuleField::MaskTop {
-                        mask_link(ui, board);
-                    }
-                });
-                if text != board.rule(f) {
-                    board.set_rule(f, text);
-                }
-                match limit_text(board, f) {
-                    Some(text) => ui.weak(text),
-                    None => ui.label(""),
-                };
-                ui.end_row();
+    widgets::form(("board-setup-rule", salt)).show(ui, |ui| {
+        for &f in section.fields {
+            if f == RuleField::PastePercent {
+                continue;
             }
-            if section.check == Some(DrcCheck::SilkToMask) {
-                silk_mode(ui, board);
+            if f == RuleField::PasteExpansion {
+                paste(ui, cx, board);
                 ui.end_row();
+                continue;
             }
-        });
+            let label = f.board_wide_label();
+            ui.add(widgets::form_name(&label));
+            let problem = cx.problem(&f.problem_field());
+            let mut text = board.rule(f).to_owned();
+            ui.horizontal(|ui| {
+                value_field(ui, f, &label, &mut text, false, problem);
+                if f == RuleField::MaskTop {
+                    mask_link(ui, board);
+                }
+                if let Some(limit) = limit_text(board, f) {
+                    layout::muted(ui, limit);
+                }
+            });
+            if text != board.rule(f) {
+                board.set_rule(f, text);
+            }
+            ui.end_row();
+        }
+        if section.check == Some(DrcCheck::SilkToMask) {
+            silk_mode(ui, board);
+            ui.end_row();
+        }
+    });
     let kind = section.fields[0].rule().0;
     let what = tr!("board-setup-board-wide-kind", kind = kind_name(kind));
     show_button(
@@ -193,55 +197,64 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
         &what,
         board.shown(kind, ClassKey::Default).into_iter().collect(),
     );
-    ui.add_space(6.0);
+    ui.add_space(t.space.section);
     let overrides = section.fields;
     let classes: Vec<(ClassKey, String)> = board
         .live_classes()
         .map(|c| (c.key(), c.name().to_owned()))
         .collect();
-    ui.strong(tr!("board-setup-overrides"));
+    strong(ui, tr!("board-setup-overrides"));
     if classes.is_empty() {
-        ui.weak(tr!("board-setup-no-classes"));
+        layout::muted(ui, tr!("board-setup-no-classes"));
     } else {
-        egui::Grid::new(("board-setup-overrides", salt))
-            .num_columns(2 + overrides.len())
-            .striped(true)
-            .spacing([12.0, 6.0])
+        let columns = std::iter::repeat_n(Column::auto(), 2 + overrides.len());
+        // A table of many values is wider than the page: it scrolls sideways on its own.
+        egui::ScrollArea::horizontal()
+            .id_salt(("board-setup-overrides-scroll", salt))
             .show(ui, |ui| {
-                ui.strong(tr!("board-setup-net-class"));
-                ui.label("");
-                for f in overrides {
-                    ui.strong(column_name(*f));
-                }
-                ui.end_row();
-                for (key, name) in classes {
-                    ui.label(&name);
-                    let what = tr!(
-                        "board-setup-override",
-                        class = name.as_str(),
-                        rule = kind_name(kind)
-                    );
-                    show_button(ui, cx, &what, board.shown(kind, key).into_iter().collect());
-                    for &f in overrides {
-                        let label = tr!(
-                            "board-setup-override",
-                            class = name.as_str(),
-                            rule = f.name()
-                        );
-                        let problem = cx.problem(&class_field(key, &f.id()));
-                        if let Some(value) = board.class_override_mut(key, f) {
-                            value_field(ui, f, &label, value, true, problem);
+                widgets::table(("board-setup-overrides", salt))
+                    .columns(columns)
+                    .show(ui, |table| {
+                        table.header(|h| {
+                            h.text(tr!("board-setup-net-class"));
+                            h.empty();
+                            for f in overrides {
+                                h.text(column_name(*f));
+                            }
+                        });
+                        for (key, name) in classes {
+                            table.row(|row| {
+                                row.text(&name);
+                                let what = tr!(
+                                    "board-setup-override",
+                                    class = name.as_str(),
+                                    rule = kind_name(kind)
+                                );
+                                let shown = board.shown(kind, key).into_iter().collect();
+                                row.ui(|ui| show_button(ui, cx, &what, shown));
+                                for &f in overrides {
+                                    let label = tr!(
+                                        "board-setup-override",
+                                        class = name.as_str(),
+                                        rule = f.name()
+                                    );
+                                    let problem = cx.problem(&class_field(key, &f.id()));
+                                    row.ui(|ui| {
+                                        if let Some(value) = board.class_override_mut(key, f) {
+                                            value_field(ui, f, &label, value, true, problem);
+                                        }
+                                    });
+                                }
+                            });
                         }
-                    }
-                    ui.end_row();
-                }
+                    });
             });
     }
-    ui.weak(tr!("board-setup-overrides-note"));
+    layout::muted(ui, tr!("board-setup-overrides-note"));
     if let Some(check) = section.check {
-        ui.add_space(4.0);
+        ui.add_space(t.space.stack);
         ui.horizontal(|ui| {
-            ui.label(tr!("board-setup-severity", check = check_name(check)));
+            layout::text(ui, tr!("board-setup-severity", check = check_name(check)));
             severity_choice(ui, board, check);
         });
     }
@@ -252,7 +265,7 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
 pub fn show_button(ui: &mut Ui, cx: &mut PageCx<'_>, what: &str, shown: Vec<Shown>) {
     let label = tr!("board-setup-show-of", what = what);
     let on = !shown.is_empty();
-    let button = ui.add_enabled(on, Button::new(tr!("board-setup-show")));
+    let button = ui.add_enabled(on, widgets::button(tr!("board-setup-show")));
     button.widget_info(|| WidgetInfo::labeled(Role::Button, on, &label));
     if button.clicked() {
         cx.shell.show_on_board(&shown);
@@ -286,7 +299,7 @@ pub fn value_field(
         }
         ValueKind::Flag if !inherit => {
             let mut on = value == "true";
-            let response = ui.add(egui::Checkbox::without_text(&mut on));
+            let response = ui.add(widgets::checkbox(&mut on, ""));
             response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, label));
             if response.changed() {
                 *value = on.to_string();
@@ -306,15 +319,14 @@ pub fn value_field(
         other => other.to_owned(),
     };
     let mut chosen = value.clone();
-    let combo = ComboBox::from_id_salt(("board-setup-value", label))
-        .selected_text(shown(value))
+    let combo = widgets::dropdown(("board-setup-value", label), shown(value))
         .width(LENGTH_WIDTH)
-        .show_ui(ui, |ui| {
+        .show(ui, |ui| {
             if inherit {
-                ui.selectable_value(&mut chosen, String::new(), shown(""));
+                widgets::choice_value(ui, &mut chosen, String::new(), shown(""));
             }
             for option in options {
-                ui.selectable_value(&mut chosen, (*option).to_owned(), shown(option));
+                widgets::choice_value(ui, &mut chosen, (*option).to_owned(), shown(option));
             }
         });
     combo
@@ -332,25 +344,21 @@ pub fn value_field(
 fn mask_link(ui: &mut Ui, board: &mut BoardSetupDraft) {
     let mut linked = board.mask_linked();
     let label = tr!("board-setup-mask-link");
-    if ui.checkbox(&mut linked, &label).changed() {
+    if ui.add(widgets::checkbox(&mut linked, label)).changed() {
         board.set_mask_linked(linked);
     }
 }
 
 /// The paste expansion: absolute or a percentage, then the value.
 fn paste(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
-    let label = tr!("board-setup-paste-mode");
-    ui.label(&label);
+    ui.add(widgets::form_name(tr!("board-setup-paste-mode")));
     ui.horizontal(|ui| {
         let mut mode = board.paste_mode();
         for (m, name) in [
             (PasteMode::Absolute, tr!("board-setup-paste-absolute")),
             (PasteMode::Percent, tr!("board-setup-paste-percent-mode")),
         ] {
-            let chosen = mode == m;
-            let button = ui.add(Button::selectable(chosen, &name));
-            button.widget_info(|| WidgetInfo::selected(Role::RadioButton, true, chosen, &name));
-            if button.clicked() {
+            if choice_toggle(ui, mode == m, &name, &name).clicked() {
                 mode = m;
             }
         }
@@ -365,14 +373,13 @@ fn paste(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
         let problem = cx.problem(&f.problem_field());
         value_field(ui, f, &label, board.rule_mut(f), false, problem);
     });
-    ui.label("");
 }
 
 /// The board's Zone naming scheme.
 fn zone_scheme(ui: &mut Ui, board: &mut BoardSetupDraft) {
     let label = tr!("board-setup-zone-scheme");
     ui.horizontal(|ui| {
-        ui.label(&label);
+        layout::text(ui, &label);
         let mut scheme = board.zone_name_scheme();
         let name = |s: ZoneNameScheme| {
             serde_json::to_value(s)
@@ -380,17 +387,16 @@ fn zone_scheme(ui: &mut Ui, board: &mut BoardSetupDraft) {
                 .and_then(|v| v.as_str().map(str::to_owned))
                 .unwrap_or_default()
         };
-        let combo = ComboBox::from_id_salt("board-setup-zone-scheme")
-            .selected_text(name(scheme))
-            .width(220.0)
-            .show_ui(ui, |ui| {
+        let combo = widgets::dropdown("board-setup-zone-scheme", name(scheme))
+            .width(ZONE_SCHEME_WIDTH)
+            .show(ui, |ui| {
                 for s in [
                     ZoneNameScheme::NetLxxPxxx,
                     ZoneNameScheme::LxxNetPxxx,
                     ZoneNameScheme::NetLayernamePxxx,
                     ZoneNameScheme::LayernameNetPxxx,
                 ] {
-                    ui.selectable_value(&mut scheme, s, name(s));
+                    widgets::choice_value(ui, &mut scheme, s, name(s));
                 }
             });
         combo
@@ -400,24 +406,23 @@ fn zone_scheme(ui: &mut Ui, board: &mut BoardSetupDraft) {
             board.set_zone_name_scheme(scheme);
         }
     });
-    ui.weak(tr!("board-setup-zone-scheme-note"));
+    layout::muted(ui, tr!("board-setup-zone-scheme-note"));
 }
 
 /// What `silk_to_mask` measures silkscreen against.
 fn silk_mode(ui: &mut Ui, board: &mut BoardSetupDraft) {
     let label = tr!("board-setup-silk-mode");
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     let name = |mode: SilkMaskMode| match mode {
         SilkMaskMode::ExposedCopper => tr!("board-setup-silk-mode-copper"),
         SilkMaskMode::MaskOpening => tr!("board-setup-silk-mode-opening"),
     };
     let mut mode = board.silk_mode();
-    let combo = ComboBox::from_id_salt("board-setup-silk-mode")
-        .selected_text(name(mode))
-        .width(180.0)
-        .show_ui(ui, |ui| {
+    let combo = widgets::dropdown("board-setup-silk-mode", name(mode))
+        .width(SILK_MODE_WIDTH)
+        .show(ui, |ui| {
             for m in [SilkMaskMode::ExposedCopper, SilkMaskMode::MaskOpening] {
-                ui.selectable_value(&mut mode, m, name(m));
+                widgets::choice_value(ui, &mut mode, m, name(m));
             }
         });
     combo
@@ -433,30 +438,26 @@ pub fn drc_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
     if no_pcb(ui, board) {
         return;
     }
-    egui::Grid::new("board-setup-drc")
-        .num_columns(3)
-        .min_col_width(200.0)
-        .spacing([12.0, 6.0])
-        .show(ui, |ui| {
+    let t = ui.tokens();
+    widgets::table("board-setup-drc")
+        .columns([Column::auto(), Column::auto(), Column::auto()])
+        .show(ui, |table| {
             for &check in DrcCheck::ALL {
-                ui.label(check_name(check));
-                severity_choice(ui, board, check);
-                match DrcPage::VALUES.iter().find(|(c, _)| *c == check) {
-                    Some(&(_, f)) => {
-                        ui.horizontal(|ui| {
+                table.row(|row| {
+                    row.text(check_name(check));
+                    row.ui(|ui| severity_choice(ui, board, check));
+                    match DrcPage::VALUES.iter().find(|(c, _)| *c == check) {
+                        Some(&(_, f)) => row.ui(|ui| {
                             let label = f.board_wide_label();
-                            ui.label(&label);
+                            layout::text(ui, &label);
                             let problem = cx.problem(&f.problem_field());
                             field(ui, &label, board.rule_mut(f), LENGTH_WIDTH, problem);
-                        });
+                        }),
+                        None => row.empty(),
                     }
-                    None => {
-                        ui.label("");
-                    }
-                }
-                ui.end_row();
+                });
             }
         });
-    ui.add_space(6.0);
-    ui.weak(tr!("board-setup-units"));
+    ui.add_space(t.space.section);
+    layout::muted(ui, tr!("board-setup-units"));
 }

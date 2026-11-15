@@ -4,14 +4,25 @@
 
 use std::collections::BTreeSet;
 
-use egui::{Button, RichText, Role, Sense, Ui, Vec2, WidgetInfo};
+use egui::{Label, Rect, Role, Sense, Ui, Vec2, WidgetInfo, pos2, vec2};
 use reda_engine::model::{
     Cell, ErcCheck, ErcSeverities, MatrixType, PinMatrix, PinType, PortDirection, Project, Severity,
 };
 use serde_json::json;
 
-use crate::settings::{Draft, Page, PageCx, Problem, Step};
+use crate::settings::{Draft, Page, PageCx, Problem, Step, choice_toggle, layout, strong};
+use crate::theme::{self, Tokens, TokensExt as _};
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
+
+/// A Pin Matrix cell.
+const CELL: f32 = 20.0;
+/// Between the Pin Matrix's cells.
+const CELL_GAP: f32 = 2.0;
+/// The dot on a cell that differs from its default.
+const DOT_RADIUS: f32 = 2.0;
+/// The window width from which the checks and the Pin Matrix sit side by side.
+const SIDE_BY_SIDE: f32 = 1100.0;
 
 /// The severity of every ERC check, as chosen.
 #[derive(Clone, Debug)]
@@ -363,15 +374,16 @@ impl Page for ErcPage {
 
     fn show(&mut self, ui: &mut Ui, _cx: &mut PageCx<'_>) {
         // Side by side when the window is wide enough, else the matrix first.
-        if ui.available_width() >= 1100.0 {
+        let t = ui.tokens();
+        if ui.available_width() >= SIDE_BY_SIDE {
             ui.horizontal_top(|ui| {
                 ui.vertical(|ui| self.check_grid(ui));
-                ui.add_space(16.0);
+                ui.add_space(t.space.section);
                 ui.vertical(|ui| self.pin_matrix(ui));
             });
         } else {
             self.pin_matrix(ui);
-            ui.add_space(8.0);
+            ui.add_space(t.space.section);
             self.check_grid(ui);
         }
     }
@@ -382,22 +394,23 @@ impl ErcPage {
     /// picks it (Mod+click adds), a click on a group picks the group, and Set severity
     /// sets every picked check.
     fn check_grid(&mut self, ui: &mut Ui) {
+        let t = ui.tokens();
         ui.horizontal(|ui| {
-            ui.label(tr!(
-                "settings-erc-set-picked",
-                count = self.picked.len() as i64
-            ));
+            layout::text(
+                ui,
+                tr!("settings-erc-set-picked", count = self.picked.len() as i64),
+            );
             for severity in SEVERITIES {
                 let label = severity_name(severity);
                 let name = tr!("settings-erc-set-picked-to", severity = label.as_str());
-                let button = ui.add_enabled(!self.picked.is_empty(), Button::new(&label));
+                let button = ui.add_enabled(!self.picked.is_empty(), widgets::button(&label));
                 button.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
                 if button.clicked() {
                     self.set_picked(severity);
                 }
             }
         });
-        ui.add_space(4.0);
+        ui.add_space(t.space.stack);
         // Mod or Shift extends, held now or with the click itself.
         let extend = ui.input(|i| {
             let held = |m: &egui::Modifiers| m.command || m.shift;
@@ -407,68 +420,75 @@ impl ErcPage {
                         if held(modifiers))
                 })
         });
+        // The names' column is as wide as the longest name, so each name is one row to
+        // click.
+        let names_width = ErcCheck::ALL
+            .iter()
+            .map(|c| text_width(ui, &t, &check_name(*c)))
+            .fold(0.0, f32::max)
+            + 2.0 * t.space.row_x;
         let mut pick = None;
         let mut pick_group = None;
-        egui::Grid::new("settings-erc-checks")
-            .num_columns(2)
-            .spacing([8.0, 2.0])
-            .show(ui, |ui| {
+        widgets::table("settings-erc-checks")
+            .columns([Column::fixed(names_width.ceil()), Column::auto()])
+            .show(ui, |table| {
                 for group in ErcGroup::ALL {
-                    let heading = ui.add(
-                        egui::Label::new(RichText::new(group.title()).strong())
-                            .sense(Sense::click()),
-                    );
-                    if heading.clicked() {
-                        pick_group = Some(group);
-                    }
-                    ui.end_row();
+                    table.row(|row| {
+                        let heading = row.ui(|ui| {
+                            let text = t.ty.body_strong.rich(group.title());
+                            ui.add(
+                                Label::new(text.color(t.color.text.primary)).sense(Sense::click()),
+                            )
+                        });
+                        if heading.clicked() {
+                            pick_group = Some(group);
+                        }
+                        row.empty();
+                    });
                     for check in group.checks() {
                         let name = check_name(*check);
                         if check.is_matrix() {
-                            ui.weak(&name);
-                            ui.weak(tr!("settings-erc-by-matrix"));
-                            ui.end_row();
+                            table.row(|row| {
+                                row.muted(&name);
+                                row.muted(tr!("settings-erc-by-matrix"));
+                            });
                             continue;
                         }
                         let picked = self.picked.contains(check);
-                        let row =
-                            ui.add(Button::selectable(picked, &name).frame_when_inactive(false));
-                        let accessible = name.clone();
-                        row.widget_info(|| {
-                            WidgetInfo::selected(Role::Row, true, picked, &accessible)
-                        });
-                        if row.clicked() {
-                            pick = Some(*check);
-                        }
-                        let Some((_, draft)) = self.severities.iter_mut().find(|(c, _)| c == check)
-                        else {
-                            ui.end_row();
-                            continue;
-                        };
-                        ui.horizontal(|ui| {
-                            for severity in SEVERITIES {
-                                let label = severity_name(severity);
-                                let chosen = *draft.value() == severity;
-                                let button = ui.add(Button::selectable(chosen, &label));
-                                let accessible = tr!(
-                                    "settings-erc-choice",
-                                    check = name.as_str(),
-                                    severity = label
-                                );
-                                button.widget_info(|| {
-                                    WidgetInfo::selected(
-                                        Role::RadioButton,
-                                        true,
-                                        chosen,
-                                        &accessible,
-                                    )
+                        table.row(|row| {
+                            let clicked = row.ui(|ui| {
+                                let line = widgets::list_row(name.as_str()).selected(picked);
+                                let row = ui.add(line);
+                                let accessible = name.clone();
+                                row.widget_info(|| {
+                                    WidgetInfo::selected(Role::Row, true, picked, &accessible)
                                 });
-                                if button.clicked() {
-                                    draft.set(severity);
-                                }
+                                row.clicked()
+                            });
+                            if clicked {
+                                pick = Some(*check);
                             }
+                            let Some((_, draft)) =
+                                self.severities.iter_mut().find(|(c, _)| c == check)
+                            else {
+                                row.empty();
+                                return;
+                            };
+                            row.ui(|ui| {
+                                for severity in SEVERITIES {
+                                    let label = severity_name(severity);
+                                    let chosen = *draft.value() == severity;
+                                    let accessible = tr!(
+                                        "settings-erc-choice",
+                                        check = name.as_str(),
+                                        severity = label.as_str()
+                                    );
+                                    if choice_toggle(ui, chosen, &label, &accessible).clicked() {
+                                        draft.set(severity);
+                                    }
+                                }
+                            });
                         });
-                        ui.end_row();
                     }
                 }
             });
@@ -484,53 +504,73 @@ impl ErcPage {
     /// a dot when it is not the default, and its sentence on hover. A click cycles it; the
     /// right-click menu sets every cell.
     fn pin_matrix(&mut self, ui: &mut Ui) {
-        ui.strong(tr!("settings-erc-matrix-title"));
-        ui.weak(tr!("settings-erc-matrix"));
+        let t = ui.tokens();
+        strong(ui, tr!("settings-erc-matrix-title"));
+        layout::muted(ui, tr!("settings-erc-matrix"));
         let mut clicked = None;
         let mut all = None;
-        let size = Vec2::splat(20.0);
-        egui::Grid::new("settings-erc-matrix-grid")
-            .spacing([2.0, 2.0])
-            .show(ui, |ui| {
-                ui.label("");
-                for &t in MatrixType::ALL {
-                    let (name, short) = matrix_type_names(t);
-                    ui.label(RichText::new(short).small()).on_hover_text(name);
+        let rows: Vec<MatrixType> = (MatrixType::ALL.iter().copied())
+            .filter(|t| *t != MatrixType::Unconnected)
+            .collect();
+        // The row names' column and each cell's column fit their texts.
+        let names = rows
+            .iter()
+            .map(|a| small_width(ui, &t, &matrix_type_names(*a).0))
+            .fold(0.0, f32::max)
+            .ceil();
+        let column = (MatrixType::ALL.iter())
+            .map(|b| small_width(ui, &t, &matrix_type_names(*b).1))
+            .fold(CELL, f32::max)
+            .ceil();
+        let head = t.ty.small.line;
+        let step = column + CELL_GAP;
+        let size = vec2(
+            names + CELL_GAP + step * MatrixType::ALL.len() as f32,
+            head + CELL_GAP + (CELL + CELL_GAP) * rows.len() as f32,
+        );
+        let (area, _) = ui.allocate_exact_size(size, Sense::hover());
+        let column_left = |i: usize| area.left() + names + CELL_GAP + step * i as f32;
+        for (i, &b) in MatrixType::ALL.iter().enumerate() {
+            let (name, short) = matrix_type_names(b);
+            let at = Rect::from_min_size(pos2(column_left(i), area.top()), vec2(column, head));
+            let text = t.ty.small.rich(short).color(t.color.text.primary);
+            ui.put(at, Label::new(text)).tooltip(name);
+        }
+        for (r, &a) in rows.iter().enumerate() {
+            let top = area.top() + head + CELL_GAP + (CELL + CELL_GAP) * r as f32;
+            let at = Rect::from_min_size(pos2(area.left(), top), vec2(names, CELL));
+            let text = t.ty.small.rich(matrix_type_names(a).0);
+            ui.put(at, Label::new(text.color(t.color.text.primary)));
+            for (i, &b) in MatrixType::ALL.iter().enumerate() {
+                // One triangle: each pair once, plus the Unconnected column.
+                let shown = b.index() <= a.index() || b == MatrixType::Unconnected;
+                let Some(cell) = Cell::new(a, b).filter(|_| shown) else {
+                    continue;
+                };
+                let left = column_left(i) + (column - CELL) / 2.0;
+                let rect = Rect::from_min_size(pos2(left, top), Vec2::splat(CELL));
+                let response = self.matrix_cell(ui, &t, cell, rect);
+                if response.clicked() {
+                    clicked = Some(cell);
                 }
-                ui.end_row();
-                for &a in (MatrixType::ALL.iter()).filter(|t| **t != MatrixType::Unconnected) {
-                    ui.label(RichText::new(matrix_type_names(a).0).small());
-                    for &b in MatrixType::ALL {
-                        // One triangle: each pair once, plus the Unconnected column.
-                        let shown = b.index() <= a.index() || b == MatrixType::Unconnected;
-                        let Some(cell) = Cell::new(a, b).filter(|_| shown) else {
-                            ui.allocate_exact_size(size, Sense::hover());
-                            continue;
-                        };
-                        let response = self.matrix_cell(ui, cell, size);
-                        if response.clicked() {
-                            clicked = Some(cell);
+                widgets::context_menu(&response, |ui| {
+                    for (label, severity) in [
+                        (tr!("settings-erc-matrix-all-off"), Some(Severity::Off)),
+                        (
+                            tr!("settings-erc-matrix-all-warning"),
+                            Some(Severity::Warning),
+                        ),
+                        (tr!("settings-erc-matrix-all-error"), Some(Severity::Error)),
+                        (tr!("settings-erc-matrix-default"), None),
+                    ] {
+                        if ui.add(widgets::menu_item(label)).clicked() {
+                            all = Some(severity);
+                            ui.close();
                         }
-                        response.context_menu(|ui| {
-                            for (label, severity) in [
-                                (tr!("settings-erc-matrix-all-off"), Some(Severity::Off)),
-                                (
-                                    tr!("settings-erc-matrix-all-warning"),
-                                    Some(Severity::Warning),
-                                ),
-                                (tr!("settings-erc-matrix-all-error"), Some(Severity::Error)),
-                                (tr!("settings-erc-matrix-default"), None),
-                            ] {
-                                if ui.button(label).clicked() {
-                                    all = Some(severity);
-                                    ui.close();
-                                }
-                            }
-                        });
                     }
-                    ui.end_row();
-                }
-            });
+                });
+            }
+        }
         if let Some(cell) = clicked {
             self.cycle(cell);
         }
@@ -539,40 +579,57 @@ impl ErcPage {
         }
     }
 
-    fn matrix_cell(&self, ui: &mut Ui, cell: Cell, size: Vec2) -> egui::Response {
+    /// One cell in `rect`: the level's subtle tone with its letter in the tone's text
+    /// colour, and a dot when it is not the default.
+    fn matrix_cell(&self, ui: &mut Ui, t: &Tokens, cell: Cell, rect: Rect) -> egui::Response {
         let severity = self.cell(cell);
-        let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+        let (a, b) = cell.types();
+        let id = ui.make_persistent_id(("settings-erc-matrix", a.index(), b.index()));
+        let response = ui.interact(rect, id, Sense::click());
         let sentence = self.sentence(cell);
         response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &sentence));
-        let visuals = ui.visuals();
-        let (fill, letter) = match severity {
-            Severity::Error => (visuals.error_fg_color, "E"),
-            Severity::Warning => (visuals.warn_fg_color, "W"),
-            Severity::Off => (visuals.faint_bg_color, ""),
+        let (fill, ink, letter) = match severity {
+            Severity::Error => (t.color.error.subtle, t.color.error.text, "E"),
+            Severity::Warning => (t.color.warning.subtle, t.color.warning.text, "W"),
+            Severity::Off => (t.color.fill.control, t.color.text.muted, ""),
+        };
+        let fill = if response.hovered() {
+            theme::over(t.color.fill.hover, fill)
+        } else {
+            fill
         };
         let painter = ui.painter();
-        painter.rect_filled(rect.shrink(1.0), 2.0, fill.gamma_multiply(0.35));
-        if response.hovered() {
-            painter.rect_stroke(
-                rect.shrink(1.0),
-                2.0,
-                visuals.widgets.hovered.fg_stroke,
-                egui::StrokeKind::Inside,
-            );
-        }
+        painter.rect_filled(rect, t.radius.mark, fill);
         if !letter.is_empty() {
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 letter,
-                egui::FontId::proportional(11.0),
-                fill,
+                t.ty.small.font_id(),
+                ink,
             );
         }
         if self.is_changed_from_default(cell) {
-            let dot = rect.right_top() + Vec2::new(-4.0, 4.0);
-            painter.circle_filled(dot, 2.0, visuals.strong_text_color());
+            let dot = rect.right_top() + vec2(-2.0 * DOT_RADIUS, 2.0 * DOT_RADIUS);
+            painter.circle_filled(dot, DOT_RADIUS, t.color.text.primary);
         }
-        response.on_hover_text(sentence)
+        response.tooltip(sentence)
     }
+}
+
+/// How wide `text` is in the body style.
+fn text_width(ui: &Ui, t: &Tokens, text: &str) -> f32 {
+    width_in(ui, t.ty.body.font_id(), text)
+}
+
+/// How wide `text` is in the small style.
+fn small_width(ui: &Ui, t: &Tokens, text: &str) -> f32 {
+    width_in(ui, t.ty.small.font_id(), text)
+}
+
+fn width_in(ui: &Ui, font: egui::FontId, text: &str) -> f32 {
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_owned(), font, egui::Color32::TRANSPARENT);
+    galley.size().x
 }
