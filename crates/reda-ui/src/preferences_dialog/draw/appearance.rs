@@ -13,6 +13,7 @@ use super::{Cx, EDITOR_WIDTH, label_width};
 use crate::preferences_dialog::{Kind, PageId, PreferencesDialog, Setting};
 use crate::settings::layout;
 use crate::theme::fonts::{self, Outcome};
+use crate::theme::motion;
 use crate::tr;
 use crate::widgets;
 
@@ -21,6 +22,7 @@ const DENSITY: &str = "general.density";
 const TEXT_SIZE: &str = "general.text_size";
 const UI_FONT: &str = "general.ui_font";
 const MONO_FONT: &str = "general.mono_font";
+const ANIMATE: &str = "general.animate";
 
 /// The page's groups, in order: the catalogue id of each heading and the keys under it.
 /// A key the Preferences do not have yet is skipped, and a group with nothing to show
@@ -34,7 +36,7 @@ const GROUPS: &[(&str, &[&str])] = &[
     ("pref-appearance-fonts", &[UI_FONT, MONO_FONT]),
     (
         "pref-appearance-window",
-        &["general.animate", "general.system_title_bar"],
+        &[ANIMATE, "general.system_title_bar"],
     ),
 ];
 
@@ -105,6 +107,7 @@ impl PreferencesDialog {
             THEME | DENSITY => self.segments(ui, cx, setting),
             TEXT_SIZE => self.text_size(ui, cx, setting),
             UI_FONT | MONO_FONT => self.font(ui, cx, setting),
+            ANIMATE => self.animate(ui, cx, setting),
             _ => return false,
         }
         true
@@ -123,6 +126,20 @@ impl PreferencesDialog {
         }
         let family = self.value(cx.shell, key).as_str()?.to_owned();
         fell_back(ui, key).then(|| tr!("pref-font-not-installed", family = family.as_str()))
+    }
+
+    /// **Animate**: a switch that applies when flipped. While the Preference is unset it
+    /// shows what the OS reduced-motion setting gave at launch; a flip stores the user's
+    /// value, and resetting it follows the OS again from the next launch's read.
+    fn animate(&mut self, ui: &mut Ui, cx: &mut Cx<'_>, setting: &Setting) {
+        let stored = self.value(cx.shell, ANIMATE).as_bool();
+        let mut on = stored.unwrap_or_else(|| motion::system::remembered(ui.ctx()));
+        let label = setting.label.clone();
+        let response = ui.add(widgets::switch(&mut on, ""));
+        response.widget_info(|| WidgetInfo::selected(Role::Switch, true, on, label.clone()));
+        if response.changed() {
+            let _ = self.set(cx.shell, ANIMATE, json!(on));
+        }
     }
 
     /// A segmented control over the setting's choices: it applies when clicked.
