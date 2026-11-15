@@ -2927,3 +2927,25 @@ part-pads-of-on = Pads of Pin { $pin } on { $footprint }
 part-cell-empty = no Pad
 part-cell-unknown = no Pad { $pad }
 part-cell-shared = Pad { $pad } on two Pins
+
+## Preferences whose schema description is a sentence too long for a label; the
+## description stays the tooltip.
+pref-editing-grab-center = Center of Object
+pref-editing-grab-hot-spot = Object's Electrical Hot Spot
+pref-editing-protect-locked-primitives = Protect Locked Primitives In Component
+pref-schematic-clipboard-reference = Clipboard Reference
+pref-schematic-display-when-dragging = Display When Dragging
+pref-schematic-in-place-editing = In-Place Editing
+pref-schematic-cross-reference-location-style-zone = Border Zone
+pref-schematic-cross-reference-location-style-xy = X,Y position
+pref-schematic-cross-reference-sheet-style-name = Sheet title
+pref-schematic-cross-reference-sheet-style-number = Sheet number
+pref-pcb-arc-mode = Arc placement
+pref-pcb-arc-mode-edge = Both ends, then a point
+pref-pcb-arc-mode-center = Centre, start, end
+pref-pcb-arc-mode-circle = Full circle
+pref-pcb-net-info-delta-t = Temperature rise for maximum current (°C)
+pref-pcb-route-auto-terminate = Auto-terminate routing
+pref-pcb-route-clearance-display = Display clearance boundaries
+pref-pcb-route-clearance-display-near = Near the cursor
+pref-cross-select-reposition = Reposition

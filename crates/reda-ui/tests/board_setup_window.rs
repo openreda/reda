@@ -108,6 +108,9 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     retype(&mut h, "Top mask expansion (mm)", "0.08");
     assert_eq!(value(&h, "Bottom mask expansion (mm)"), "0.08", "linked");
     h.get_by_role_and_label(Role::RadioButton, "By area (%)")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::RadioButton, "By area (%)")
         .click();
     h.run();
     retype(&mut h, "Paste area change (%)", "-10");

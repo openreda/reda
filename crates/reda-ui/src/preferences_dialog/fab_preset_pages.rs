@@ -3,15 +3,17 @@
 //! being typed into, the changes are written with `fab_preset.set_user`. A user preset's
 //! source, for Reset page to source, is the shipped Generic preset, REDA's own defaults.
 
-use egui::{Button, Ui};
+use egui::Ui;
 use reda_engine::fab_presets;
 use reda_engine::model::FabPreset;
 
 use super::PreferencesDialog;
 use crate::settings::fab_preset::{self, PresetEditor, PresetPage};
-use crate::settings::problem_label;
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Tooltip as _};
 
 /// The user preset whose pages are open.
 #[derive(Clone, Debug)]
@@ -106,23 +108,24 @@ impl PreferencesDialog {
         };
         let mut close = false;
         let mut reset = false;
-        egui::Frame::group(ui.style()).show(ui, |ui| {
+        let t = ui.tokens();
+        ui.add_space(t.space.stack);
+        widgets::card_frame(&t).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.strong(tr!("pref-fab-preset-pages", name = open.name.as_str()));
+                let title = tr!("pref-fab-preset-pages", name = open.name.as_str());
+                ui.label(t.ty.title.rich(title).color(t.color.text.primary));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    close = ui.button(tr!("settings-close")).clicked();
+                    close = ui.add(widgets::button(tr!("settings-close"))).clicked();
                     reset = ui
-                        .add(Button::new(tr!("preset-reset-page")))
-                        .on_hover_text(tr!("pref-fab-preset-source"))
+                        .add(widgets::button(tr!("preset-reset-page")))
+                        .tooltip(tr!("pref-fab-preset-source"))
                         .clicked();
                 });
             });
             ui.horizontal_wrapped(|ui| {
                 for page in PresetPage::ALL {
-                    if ui
-                        .selectable_label(open.page == page, page.title())
-                        .clicked()
-                    {
+                    let tab = widgets::button(page.title()).on(open.page == page);
+                    if ui.add(tab).clicked() {
                         open.page = page;
                     }
                 }
@@ -130,8 +133,7 @@ impl PreferencesDialog {
             ui.separator();
             fab_preset::draw::page(ui, &mut open.editor, open.page);
             if let Some(error) = &open.error {
-                let problem = crate::settings::Problem::new("", error.clone());
-                problem_label(ui, &problem);
+                layout::error(ui, error.as_str());
             }
         });
         if close {
