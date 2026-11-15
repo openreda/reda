@@ -29,6 +29,7 @@ use egui::{
 
 use super::glyph::{self, Glyph};
 use super::paint::{self, State};
+use crate::theme::motion::{self, Look};
 use crate::theme::{Tokens, TokensExt as _};
 
 /// Between an item's Icon column and its label, and a menu button's text and chevron.
@@ -61,6 +62,7 @@ pub fn menu(anchor: &Response) -> Menu<'_> {
     Menu {
         popup: Popup::menu(anchor),
         fill: false,
+        anchor: Some(anchor.rect),
     }
 }
 
@@ -72,6 +74,7 @@ pub fn menu_below(anchor: &Response) -> Menu<'_> {
             .kind(egui::PopupKind::Menu)
             .layout(egui::Layout::top_down_justified(egui::Align::Min)),
         fill: false,
+        anchor: Some(anchor.rect),
     }
 }
 
@@ -83,6 +86,7 @@ pub fn context_menu<R>(
     Menu {
         popup: Popup::context_menu(response),
         fill: false,
+        anchor: None,
     }
     .show(add)
 }
@@ -93,6 +97,9 @@ pub struct Menu<'a> {
     /// The rows fill a width the caller gave (a dropdown's list is as wide as its
     /// control); otherwise the menu is as wide as its widest item.
     fill: bool,
+    /// What it hangs from, which it travels away from as it opens; `None` for a context
+    /// menu, which opens down from the pointer.
+    anchor: Option<Rect>,
 }
 
 impl Menu<'_> {
@@ -131,15 +138,37 @@ impl Menu<'_> {
 
     /// Draws the menu while it is open; `None` while it is closed.
     pub fn show<R>(self, add: impl FnOnce(&mut Ui) -> R) -> Option<InnerResponse<R>> {
-        let t = self.popup.ctx().tokens();
+        let ctx = self.popup.ctx().clone();
+        let t = ctx.tokens();
         let fill = self.fill;
-        self.popup.frame(menu_frame(&t)).style(inside).show(|ui| {
+        let anchor = self.anchor;
+        let shown = self.popup.frame(menu_frame(&t)).style(inside).show(|ui| {
             if fill {
                 ui.set_min_width(ui.available_width());
             }
             add(ui)
-        })
+        });
+        if let Some(shown) = &shown {
+            arrive(&ctx, &shown.response, anchor);
+        }
+        shown
     }
+}
+
+/// A menu's arrival: `travel` pixels from its anchor, towards where it opened, as egui
+/// fades it in (docs/spec/v0.1/design-language.md#motion-values). It leaves at once.
+fn arrive(ctx: &egui::Context, popup: &Response, anchor: Option<Rect>) {
+    let t = ctx.tokens();
+    let d = t.motion.travel;
+    let rect = popup.rect;
+    let offset = match anchor {
+        Some(a) if rect.bottom() <= a.top() + 1.0 => vec2(0.0, d),
+        Some(a) if rect.left() >= a.right() - 1.0 => vec2(-d, 0.0),
+        Some(a) if rect.right() <= a.left() + 1.0 => vec2(d, 0.0),
+        _ => vec2(0.0, -d),
+    };
+    let look = Look::travel(offset).without_fade();
+    motion::layer(ctx, popup.layer_id, look, t.motion.menu);
 }
 
 /// Whether the menu with this popup id is open.
@@ -485,9 +514,10 @@ impl<'a> MenuButton<'a> {
             None => ui.add(item),
         };
         // The submenu takes its parent's config: its style and what a click closes.
-        let inner = SubMenu::new()
-            .show(ui, &response, add)
-            .map(|shown| shown.inner);
+        let inner = SubMenu::new().show(ui, &response, add).map(|shown| {
+            arrive(ui.ctx(), &shown.response, Some(response.rect));
+            shown.inner
+        });
         InnerResponse { inner, response }
     }
 }
