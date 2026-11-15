@@ -3,8 +3,12 @@
 //! The engine reads no font files: PCB text may name any installed family, and the UI asks
 //! [`InstalledFonts::load`] for the families a Project uses. Loading every installed font
 //! up front would take hundreds of megabytes, so a background thread indexes the OS font
-//! folders by reading only each file's `name` table, and a family's bytes are read when it
-//! is first asked for.
+//! folders by reading only a few small tables of each file, and a family's bytes are read
+//! when it is first asked for.
+//!
+//! The chrome's own font Preferences use the same index (app.md#preferences): it records
+//! every face of a family with its weight and whether it is fixed-pitch, which is what
+//! `reda-ui` needs to resolve a chosen family and to fill the two font lists.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -13,7 +17,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use reda_ui::engine::command::FontFace;
-use reda_ui::shell::InstalledFonts;
+use reda_ui::shell::{FontSource, InstalledFonts};
+use reda_ui::theme::fonts::{Face, Family};
 
 /// The font files the index looks at.
 const EXTENSIONS: [&str; 4] = ["ttf", "otf", "ttc", "otc"];
@@ -22,7 +27,10 @@ const MAX_DEPTH: usize = 8;
 /// A `name` table larger than this is not read.
 const MAX_NAME_TABLE: u32 = 1 << 20;
 
-/// One face's names, from its `name` table.
+/// A `fvar` table larger than this is not read.
+const MAX_FVAR_TABLE: u32 = 1 << 12;
+
+/// One face's names, from its `name` table, and what its other tables say of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FaceName {
     /// The face's index in its file (0 unless the file is a collection).
@@ -30,6 +38,95 @@ pub struct FaceName {
     pub family: String,
     /// The style within the family, such as "Regular" or "Bold Italic".
     pub style: String,
+    pub traits: Traits,
+}
+
+/// What a face's `OS/2`, `post`, `head` and `fvar` tables say of it. A table that is
+/// missing or cut short leaves the defaults: an upright regular of normal width.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Traits {
+    /// The weight class, 1 to 1000 (400 is regular).
+    pub weight: u16,
+    /// The ends of a variable font's weight axis.
+    pub weight_axis: Option<(u16, u16)>,
+    /// The width class, 1 to 9 (5 is normal).
+    pub width: u16,
+    pub italic: bool,
+    pub fixed_pitch: bool,
+    /// The face says it covers basic Latin.
+    pub latin: bool,
+}
+
+impl Default for Traits {
+    fn default() -> Traits {
+        Traits {
+            weight: 400,
+            weight_axis: None,
+            width: 5,
+            italic: false,
+            fixed_pitch: false,
+            latin: false,
+        }
+    }
+}
+
+impl Traits {
+    /// Reads the tables named in `directory` (a font's table records).
+    fn read<R: Read + Seek>(file: &mut R, directory: &[u8]) -> Traits {
+        let mut table = |tag: &[u8; 4], at_most: u32| -> Option<Vec<u8>> {
+            let record = directory.chunks_exact(16).find(|r| &r[..4] == tag)?;
+            let (start, length) = (be32(&record[8..12]), be32(&record[12..16]));
+            let mut bytes = vec![0; length.min(at_most) as usize];
+            file.seek(SeekFrom::Start(u64::from(start))).ok()?;
+            file.read_exact(&mut bytes).ok()?;
+            Some(bytes)
+        };
+        let mut traits = Traits::default();
+        // OS/2: weight and width classes, PANOSE, the Unicode ranges and the style bits.
+        let os2 = table(b"OS/2", 64).unwrap_or_default();
+        if let Some(weight) = os2.get(4..6).map(be16) {
+            traits.weight = match weight {
+                // Some old fonts count in hundreds.
+                1..=9 => weight * 100,
+                10..=1000 => weight,
+                _ => 400,
+            };
+        }
+        if let Some(width @ 1..=9) = os2.get(6..8).map(be16) {
+            traits.width = width;
+        }
+        // PANOSE: a Latin text face (family kind 2) of monospaced proportion (9).
+        let panose_fixed = os2.get(32..42).is_some_and(|p| p[0] == 2 && p[3] == 9);
+        traits.latin = os2.get(42..46).is_some_and(|range| be32(range) & 1 != 0);
+        let head = table(b"head", 46).unwrap_or_default();
+        traits.italic = match os2.get(62..64).map(be16) {
+            // fsSelection: ITALIC or OBLIQUE.
+            Some(selection) => selection & 0x201 != 0,
+            // macStyle: italic.
+            None => head.get(44..46).is_some_and(|style| be16(style) & 2 != 0),
+        };
+        let post = table(b"post", 16).unwrap_or_default();
+        traits.fixed_pitch = panose_fixed || post.get(12..16).is_some_and(|fixed| be32(fixed) != 0);
+        traits.weight_axis = table(b"fvar", MAX_FVAR_TABLE).and_then(|fvar| weight_axis(&fvar));
+        traits
+    }
+}
+
+/// The ends of the `wght` axis in a `fvar` table, as whole weights.
+fn weight_axis(fvar: &[u8]) -> Option<(u16, u16)> {
+    let axes = usize::from(be16(fvar.get(4..6)?));
+    let count = usize::from(be16(fvar.get(8..10)?));
+    let size = usize::from(be16(fvar.get(10..12)?)).max(20);
+    (0..count).find_map(|i| {
+        let axis = fvar.get(axes + i * size..axes + i * size + 20)?;
+        if &axis[..4] != b"wght" {
+            return None;
+        }
+        // 16.16 fixed point: the whole part is the weight.
+        let whole = |b: &[u8]| be16(&b[..2]).clamp(1, 1000);
+        let (lightest, heaviest) = (whole(&axis[4..8]), whole(&axis[12..16]));
+        (lightest < heaviest).then_some((lightest, heaviest))
+    })
 }
 
 /// The faces in a font file: one entry per family name each face goes by (its legacy
@@ -70,6 +167,7 @@ fn face_names<R: Read + Seek>(file: &mut R, offset: u64, index: u32) -> io::Resu
     file.seek(SeekFrom::Start(u64::from(start)))?;
     file.read_exact(&mut table)?;
     let names = NameTable::parse(&table).ok_or_else(|| invalid("bad name table"))?;
+    let traits = Traits::read(file, &directory);
 
     let family = names.get(1).ok_or_else(|| invalid("no family name"))?;
     let style = names.get(2).unwrap_or_default();
@@ -77,12 +175,14 @@ fn face_names<R: Read + Seek>(file: &mut R, offset: u64, index: u32) -> io::Resu
         index,
         family: family.clone(),
         style: style.clone(),
+        traits,
     }];
     if let Some(typographic) = names.get(16).filter(|t| *t != family) {
         out.push(FaceName {
             index,
             family: typographic,
             style: names.get(17).unwrap_or(style),
+            traits,
         });
     }
     Ok(out)
@@ -165,8 +265,8 @@ fn invalid(why: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, why)
 }
 
-/// Installed families by lower-case name: the file and face index of each family's
-/// regular face (or the first face found when it has none).
+/// Installed families by lower-case name: every face of each, and the file and face
+/// index of its regular face (or the first face found when it has none).
 #[derive(Debug, Default)]
 pub struct Index {
     families: HashMap<String, Indexed>,
@@ -176,25 +276,51 @@ pub struct Index {
 struct Indexed {
     face: (PathBuf, u32),
     regular: bool,
+    family: Family,
 }
 
 impl Index {
     pub fn build(faces: impl IntoIterator<Item = (FaceName, PathBuf)>) -> Index {
         let mut families: HashMap<String, Indexed> = HashMap::new();
         for (face, path) in faces {
-            let new = Indexed {
-                face: (path, face.index),
-                regular: is_regular(&face.style),
+            let regular = is_regular(&face.style);
+            let traits = face.traits;
+            let listed = Face {
+                file: path.clone(),
+                index: face.index,
+                weight: traits.weight,
+                weight_axis: traits.weight_axis,
+                width: traits.width,
+                italic: traits.italic,
+                fixed_pitch: traits.fixed_pitch,
+                latin: traits.latin,
             };
-            let slot = families.entry(face.family.to_lowercase());
-            match slot {
+            match families.entry(face.family.to_lowercase()) {
                 Entry::Vacant(v) => {
-                    v.insert(new);
+                    v.insert(Indexed {
+                        face: (path, face.index),
+                        regular,
+                        family: Family {
+                            name: face.family,
+                            faces: vec![listed],
+                        },
+                    });
                 }
-                Entry::Occupied(mut o) if new.regular && !o.get().regular => {
-                    o.insert(new);
+                Entry::Occupied(mut o) => {
+                    let indexed = o.get_mut();
+                    // The same face installed twice (system-wide and per-user) counts once.
+                    let same = |f: &Face| Face {
+                        file: listed.file.clone(),
+                        ..f.clone()
+                    };
+                    if !indexed.family.faces.iter().any(|f| same(f) == listed) {
+                        indexed.family.faces.push(listed);
+                    }
+                    if regular && !indexed.regular {
+                        indexed.face = (path, face.index);
+                        indexed.regular = true;
+                    }
                 }
-                Entry::Occupied(_) => {}
             }
         }
         Index { families }
@@ -203,6 +329,19 @@ impl Index {
     /// The file and face index for `family`, compared case-insensitively.
     pub fn get(&self, family: &str) -> Option<&(PathBuf, u32)> {
         self.families.get(&family.to_lowercase()).map(|i| &i.face)
+    }
+
+    /// `family` with every face it has, compared case-insensitively.
+    pub fn family(&self, family: &str) -> Option<&Family> {
+        self.families.get(&family.to_lowercase()).map(|i| &i.family)
+    }
+
+    /// Every family, in alphabetical order.
+    pub fn families(&self) -> Vec<&Family> {
+        let mut all: Vec<(&String, &Family)> =
+            self.families.iter().map(|(k, i)| (k, &i.family)).collect();
+        all.sort_by_key(|(key, _)| *key);
+        all.into_iter().map(|(_, family)| family).collect()
     }
 }
 
@@ -307,6 +446,20 @@ impl SystemFonts {
             dirs.extend(data_dirs.split(':').map(|d| Path::new(d).join("fonts")));
         }
         dirs
+    }
+}
+
+impl FontSource for SystemFonts {
+    fn family(&self, name: &str) -> Option<Family> {
+        self.index.wait().family(name).cloned()
+    }
+
+    fn families(&self) -> Vec<Family> {
+        self.index.wait().families().into_iter().cloned().collect()
+    }
+
+    fn read(&self, face: &Face) -> Option<Arc<[u8]>> {
+        std::fs::read(&face.file).ok().map(Arc::from)
     }
 }
 

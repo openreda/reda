@@ -10,6 +10,7 @@
 
 #[cfg(test)]
 mod contrast;
+pub mod fonts;
 mod palette;
 mod style;
 #[cfg(test)]
@@ -72,7 +73,8 @@ fn installed_id() -> egui::Id {
 /// Reading the tokens: `ui.tokens()`, then plain fields such as `t.color.surface.card`,
 /// `t.space.gap` and `t.radius.card`.
 pub trait TokensExt {
-    /// The tokens of the theme being drawn. Before [`install`] they are the defaults.
+    /// The tokens of the theme being drawn. Before [`install`] they are the defaults, with
+    /// text in egui's own fonts.
     fn tokens(&self) -> Arc<Tokens>;
 }
 
@@ -83,8 +85,18 @@ impl TokensExt for egui::Context {
             return installed.of(theme);
         }
         static DEFAULT: OnceLock<Installed> = OnceLock::new();
+        // No REDA fonts either, so the text styles name egui's own families.
         DEFAULT
-            .get_or_init(|| Installed::new(&Settings::default()))
+            .get_or_init(|| {
+                let tokens = |theme| {
+                    let settings = Settings::default();
+                    Arc::new(Tokens::with_families(theme, &settings, &Families::egui()))
+                };
+                Installed {
+                    dark: tokens(Theme::Dark),
+                    light: tokens(Theme::Light),
+                }
+            })
             .of(theme)
     }
 }
@@ -96,8 +108,13 @@ impl TokensExt for egui::Ui {
 }
 
 /// Rebuilds the tokens of both themes from `settings` and generates egui's styles from
-/// them. Called again whenever Density, the text size or a family changes.
+/// them. Called again whenever Density, the text size or a font changes.
+///
+/// The chosen font families are resolved by name against the context's installed fonts
+/// ([`fonts::set_source`]); [`fonts::report`] tells what became of them. The first call
+/// on a context must come before the pass lays out text ([`fonts::apply`]).
 pub fn set(ctx: &egui::Context, settings: &Settings) {
+    fonts::apply(ctx, &settings.fonts);
     let installed = Installed::new(settings);
     ctx.set_style_of(Theme::Dark, style(&installed.dark));
     ctx.set_style_of(Theme::Light, style(&installed.light));
@@ -113,8 +130,8 @@ pub fn preference(prefs: &Preferences) -> egui::ThemePreference {
     }
 }
 
-/// Installs the tokens and both themes' styles on `ctx`, in Comfortable at the default
-/// text size, and picks light or dark by `preference`.
+/// Installs the bundled fonts, the tokens and both themes' styles on `ctx`, in Comfortable
+/// at the default text size, and picks light or dark by `preference`.
 pub fn install(ctx: &egui::Context, preference: egui::ThemePreference) {
     set(ctx, &Settings::default());
     ctx.set_theme(preference);

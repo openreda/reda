@@ -48,6 +48,7 @@ use crate::recovery::{self, Recorder};
 use crate::schematic_editor::{Interaction, Turn};
 use crate::selection::{self, Selection};
 use crate::snap::Snapped;
+pub use crate::theme::fonts::Source as FontSource;
 pub use crate::tool_preview::ToolPreview;
 use crate::tools::{self, ActiveTool, PowerPortName, Tool};
 use crate::tr;
@@ -59,8 +60,9 @@ use crate::working_state::{self, SelectionFilter, WorkingState};
 pub use crate::view_state::{LayerView, VIEW_SAVE_DELAY};
 
 /// Where the engine gets the bytes of fonts installed on the machine. The app scans the
-/// OS font folders; tests pass a fake.
-pub trait InstalledFonts: Send + Sync {
+/// OS font folders; tests pass a fake. As a [`FontSource`] it also serves the chrome's own
+/// font Preferences.
+pub trait InstalledFonts: FontSource {
     /// The installed face for `family` (its regular style when there are several), or
     /// `None` when the machine does not have it.
     fn load(&self, family: &str) -> Option<FontFace>;
@@ -68,6 +70,8 @@ pub trait InstalledFonts: Send + Sync {
 
 /// No installed fonts: only REDA's bundled ones.
 struct NoFonts;
+
+impl FontSource for NoFonts {}
 
 impl InstalledFonts for NoFonts {
     fn load(&self, _family: &str) -> Option<FontFace> {
@@ -482,6 +486,11 @@ impl Shell {
         }
         shell.note_focus();
         shell
+    }
+
+    /// The machine's installed fonts, for the chrome's font Preferences.
+    pub fn font_source(&self) -> Arc<dyn FontSource> {
+        self.fonts.clone()
     }
 
     /// Takes installed fonts from `fonts` for PCB text that names them.

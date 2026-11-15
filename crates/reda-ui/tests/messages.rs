@@ -327,6 +327,8 @@ fn load_messages_from_other_sources_can_be_reported_and_replaced() {
 
 struct NoInstalledFonts;
 
+impl reda_ui::shell::FontSource for NoInstalledFonts {}
+
 impl InstalledFonts for NoInstalledFonts {
     fn load(&self, _family: &str) -> Option<FontFace> {
         None
