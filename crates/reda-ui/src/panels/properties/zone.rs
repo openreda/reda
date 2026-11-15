@@ -3,7 +3,7 @@
 //! Keepout Tool is active, that Tool's options, which its Preference keeps for the next
 //! shape (docs/spec/v0.1/pcb.md#creating-zones).
 
-use egui::{Checkbox, ComboBox, Grid, Role, Ui, WidgetInfo};
+use egui::{Grid, Role, Ui, WidgetInfo};
 use reda_engine::model::{Object, PourOver, Restriction};
 use reda_engine::preferences::{KeepoutToolShape, Units};
 use serde_json::{Value, json};
@@ -13,6 +13,7 @@ use crate::properties::Shared;
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets;
 
 /// Draws the active board Tool's options, if it has any; returns the Commands its edits
 /// ask for, or `None` when the Tool has no options here.
@@ -85,7 +86,10 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                 });
             let mut on = values.remove_unconnected;
             if ui
-                .add(Checkbox::new(&mut on, tr!("properties-remove-unconnected")))
+                .add(widgets::checkbox(
+                    &mut on,
+                    tr!("properties-remove-unconnected"),
+                ))
                 .clicked()
             {
                 out.push(set("zone.tool.remove_unconnected", json!(on)));
@@ -109,12 +113,11 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
                     .find(|(s, _)| *s == values.shape)
                     .map(|(_, t)| t.clone())
                     .unwrap_or_default();
-                let response = ComboBox::from_id_salt("properties-keepout-shape")
-                    .selected_text(shown)
-                    .show_ui(ui, |ui| {
+                let response = widgets::dropdown("properties-keepout-shape", shown)
+                    .show(ui, |ui| {
                         for (shape, title) in &shapes {
                             let current = *shape == values.shape;
-                            if ui.selectable_label(current, title).clicked() && !current {
+                            if ui.add(widgets::choice(current, title)).clicked() && !current {
                                 out.push(set("keepout.shape", json!(shape)));
                             }
                         }
@@ -124,7 +127,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
             });
             let mut all = values.all_layers;
             if ui
-                .add(Checkbox::new(
+                .add(widgets::checkbox(
                     &mut all,
                     tr!("properties-keepout-all-layers"),
                 ))
@@ -136,7 +139,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
             for r in Restriction::ALL {
                 let mut on = values.restrict.contains(&r);
                 if ui
-                    .add(Checkbox::new(&mut on, restriction_title(r)))
+                    .add(widgets::checkbox(&mut on, restriction_title(r)))
                     .clicked()
                 {
                     let mut restrict = values.restrict.clone();
@@ -212,12 +215,11 @@ fn pour_over(ui: &mut Ui, salt: &str, value: &Shared<PourOver>) -> Option<PourOv
             .unwrap_or_default(),
     };
     let mut picked = None;
-    let response = ComboBox::from_id_salt(("properties-pour-over", salt))
-        .selected_text(shown)
-        .show_ui(ui, |ui| {
+    let response = widgets::dropdown(("properties-pour-over", salt), shown)
+        .show(ui, |ui| {
             for (choice, title) in &choices {
                 let current = value.same() == Some(choice);
-                if ui.selectable_label(current, title).clicked() && !current {
+                if ui.add(widgets::choice(current, title)).clicked() && !current {
                     picked = Some(*choice);
                 }
             }
@@ -277,7 +279,10 @@ pub(super) fn zones_section(ui: &mut Ui, shell: &Shell, out: &mut Vec<(&'static 
         && zone.follows_outline
     {
         ui.weak(tr!("properties-zone-follows-outline"));
-        if ui.button(tr!("properties-zone-detach")).clicked() {
+        if ui
+            .add(widgets::button(tr!("properties-zone-detach")))
+            .clicked()
+        {
             out.push(("pcb.zone.detach_outline", json!({"zone": zone.uuid})));
         }
     }
@@ -301,7 +306,7 @@ pub(super) fn zones_section(ui: &mut Ui, shell: &Shell, out: &mut Vec<(&'static 
     let mut on = remove.same().copied().unwrap_or(false);
     if ui
         .add(
-            Checkbox::new(&mut on, tr!("properties-remove-unconnected"))
+            widgets::checkbox(&mut on, tr!("properties-remove-unconnected"))
                 .indeterminate(remove == Shared::Mixed),
         )
         .clicked()

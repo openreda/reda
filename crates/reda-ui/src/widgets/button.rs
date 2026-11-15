@@ -6,6 +6,7 @@ use egui::{
     WidgetInfo, pos2, vec2,
 };
 
+use super::glyph::Glyph;
 use super::paint::{self, State};
 use crate::theme::TokensExt as _;
 
@@ -160,12 +161,19 @@ enum IconPx {
 enum Art<'a> {
     Key(&'a str),
     Image(Image<'static>),
+    Glyph(Glyph),
 }
 
 /// An Icon button: a square of the control height holding the Icon `key`, flat at rest
 /// and the accent subtle fill when on. Name it for AccessKit with [`crate::a11y::name`].
 pub fn icon_button(key: &str) -> IconButton<'_> {
     IconButton::new(Art::Key(key))
+}
+
+/// A button of the same shape holding a Glyph in the text colour: the lock and funnel
+/// toggles of list headers and rows.
+pub fn glyph_button(glyph: Glyph) -> IconButton<'static> {
+    IconButton::new(Art::Glyph(glyph))
 }
 
 /// An Icon button around an image the caller already loaded (at its own size, and already
@@ -278,6 +286,10 @@ impl Widget for IconButton<'_> {
             let image = match self.art {
                 Art::Key(key) => crate::icons::image(key, icon, ui.ctx().theme(), enabled),
                 Art::Image(image) => Some(image),
+                Art::Glyph(glyph) => {
+                    glyph.paint(&painter, rect.center(), t.color.text.primary);
+                    None
+                }
             };
             if let Some(image) = image {
                 let image = if fade {

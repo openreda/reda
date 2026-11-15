@@ -94,14 +94,15 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: "1"
           REDA_PNG_SNAPSHOTS: "1"
         run: cargo test --locked -p reda-render --features gpu --test png_snapshots --test gpu --test document_render_png
-      # The app's theme and canvas snapshots (egui_kittest), plus the canvas GPU tests.
+      # The app's theme and canvas snapshots and the widget gallery (egui_kittest), plus the
+      # canvas GPU tests.
       # egui_kittest leaves <name>.new.png and <name>.diff.png beside a failing snapshot.
       - name: Render and compare the app
         env:
           WGPU_BACKEND: gl
           LIBGL_ALWAYS_SOFTWARE: "1"
           REDA_PNG_SNAPSHOTS: "1"
-        run: cargo test --locked -p reda-ui --test app --test canvas_gpu
+        run: cargo test --locked -p reda-ui --test app --test canvas_gpu --test widget_gallery
       # The website (pages.yml deploys it from main): draw its screenshots with the app and
       # assemble it, so a change that breaks either shows here first. Nothing is deployed.
       # The site goes to _site, outside target/: rust-cache restores target/ with files

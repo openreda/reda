@@ -17,6 +17,10 @@ use super::glyph::{self, Glyph};
 use super::paint::{self, State};
 use crate::theme::{Tokens, TokensExt as _};
 
+/// A dropdown's least width when it is given none.
+pub const DROPDOWN_WIDTH: f32 = 100.0;
+/// The height after which a dropdown's list scrolls.
+pub const LIST_HEIGHT: f32 = 200.0;
 /// Between a dropdown's text and its chevron, and a row's tick column and its text.
 const PART_GAP: f32 = 6.0;
 /// The height a rule between rows takes.
@@ -56,7 +60,7 @@ fn closed(
         let c = &t.color;
         let needed =
             paint::width(ui, &t.ty.body, text) + PART_GAP + glyph::BOX + 2.0 * t.space.control_x;
-        let width = min_width.unwrap_or(ui.spacing().combo_width).max(needed);
+        let width = min_width.unwrap_or(DROPDOWN_WIDTH).max(needed);
         let size = vec2(width, t.control_height());
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
         let enabled = ui.is_enabled();
@@ -116,7 +120,7 @@ impl Dropdown {
         let popup_id = ui.make_persistent_id(self.id_salt).with("popup");
         let open = Popup::is_id_open(ui.ctx(), popup_id);
         let response = closed(ui, &t, self.state, &self.text, self.width, open);
-        let height = ui.spacing().combo_height;
+        let height = LIST_HEIGHT;
         let inner = Popup::menu(&response)
             .id(popup_id)
             .width(response.rect.width())
@@ -360,7 +364,7 @@ impl FilterDropdown {
         let popup_id = id.with("popup");
         let was_open = Popup::is_id_open(ui.ctx(), popup_id);
         let response = closed(ui, &t, self.state, &self.text, self.width, was_open);
-        let height = ui.spacing().combo_height;
+        let height = LIST_HEIGHT;
         let mut filtering: Filtering = if was_open {
             ui.data(|d| d.get_temp(id)).unwrap_or_default()
         } else {

@@ -20,14 +20,114 @@ pub const EXEMPT: &[&str] = &[
     "snap.rs",
 ];
 
-/// Stock egui widgets that have a REDA widget, banned outside the exempt modules. It
-/// starts empty: the slice that lands a REDA widget adds the stock patterns it replaces,
-/// for example
-/// `StockWidget { pattern: "ui.button(", instead: "`widgets::button`" }` and
-/// `StockWidget { pattern: "Button::new", instead: "`widgets::button`" }`.
+/// Stock egui widgets that have a REDA widget, banned outside the exempt modules. The
+/// slice that lands a REDA widget adds the stock patterns it replaces.
 /// A pattern that starts with a letter matches only at the start of a word. Files on
 /// [`UNCONVERTED`] are skipped, so a new pattern fails only files already converted.
-pub const STOCK_WIDGETS: &[StockWidget] = &[];
+pub const STOCK_WIDGETS: &[StockWidget] = &[
+    // The controls (`widgets/button.rs`, `field.rs`, `dropdown.rs`, `check.rs`,
+    // `range.rs`, `segmented.rs`, `stepper.rs`).
+    StockWidget {
+        pattern: "ui.button(",
+        instead: "`widgets::button`, or `widgets::menu_item` in a menu",
+    },
+    StockWidget {
+        pattern: "Button::new",
+        instead: "`widgets::button`, or `widgets::menu_item` in a menu",
+    },
+    StockWidget {
+        pattern: "ui.small_button(",
+        instead: "`widgets::button`, or `widgets::menu_item` in a menu",
+    },
+    StockWidget {
+        pattern: "Button::image",
+        instead: "`widgets::icon_button`",
+    },
+    StockWidget {
+        pattern: "ImageButton",
+        instead: "`widgets::icon_button`",
+    },
+    StockWidget {
+        pattern: "ui.toggle_value(",
+        instead: "`widgets::button(..).on(..)`",
+    },
+    StockWidget {
+        pattern: "ui.link(",
+        instead: "`widgets::link`",
+    },
+    StockWidget {
+        pattern: "Link::new",
+        instead: "`widgets::link`",
+    },
+    StockWidget {
+        pattern: "ui.hyperlink(",
+        instead: "`widgets::link`",
+    },
+    StockWidget {
+        pattern: "ui.hyperlink_to(",
+        instead: "`widgets::link`",
+    },
+    StockWidget {
+        pattern: "Hyperlink::",
+        instead: "`widgets::link`",
+    },
+    StockWidget {
+        pattern: "TextEdit::",
+        instead: "`widgets::text_field`",
+    },
+    StockWidget {
+        pattern: "ui.text_edit_singleline(",
+        instead: "`widgets::text_field`",
+    },
+    StockWidget {
+        pattern: "ui.text_edit_multiline(",
+        instead: "`widgets::text_field`",
+    },
+    StockWidget {
+        pattern: "ui.code_editor(",
+        instead: "`widgets::text_field`",
+    },
+    StockWidget {
+        pattern: "DragValue::",
+        instead: "`widgets::number_field` or `widgets::stepper_field`",
+    },
+    StockWidget {
+        pattern: "ui.drag_angle(",
+        instead: "`widgets::number_field`",
+    },
+    StockWidget {
+        pattern: "ComboBox::",
+        instead: "`widgets::dropdown` or `widgets::filter_dropdown`",
+    },
+    StockWidget {
+        pattern: "ui.checkbox(",
+        instead: "`widgets::checkbox`, or `widgets::switch` for a setting that applies at once",
+    },
+    StockWidget {
+        pattern: "Checkbox::",
+        instead: "`widgets::checkbox`, or `widgets::switch` for a setting that applies at once",
+    },
+    StockWidget {
+        pattern: "ui.radio(",
+        instead: "`widgets::radio`",
+    },
+    StockWidget {
+        pattern: "ui.radio_value(",
+        instead: "`widgets::radio`",
+    },
+    StockWidget {
+        pattern: "RadioButton::",
+        instead: "`widgets::radio`",
+    },
+    StockWidget {
+        pattern: "Slider::new",
+        instead: "`widgets::slider`",
+    },
+    StockWidget {
+        pattern: "ProgressBar::",
+        instead: "`widgets::progress`",
+    },
+];
 
 /// Files not yet converted, sorted. The scan skips a listed file and fails once it is
 /// clean, so the slice that converts a file deletes its line here. Never add a file: a
@@ -37,7 +137,6 @@ pub const UNCONVERTED: &[&str] = &[
     "app.rs",
     "bars/draw.rs",
     "bars/groups.rs",
-    "chrome.rs",
     "closing_dialog.rs",
     "command_dialog/draw.rs",
     "docking.rs",

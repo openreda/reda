@@ -9,7 +9,7 @@ use reda_ui::widgets::{self, Glyph, State};
 use crate::kit;
 
 /// The size the page is snapshotted at.
-pub const SIZE: Vec2 = vec2(1660.0, 1600.0);
+pub const SIZE: Vec2 = vec2(1660.0, 1720.0);
 /// The width of a state column, and of a field in one.
 const COLUMN: f32 = 112.0;
 const FIELD: f32 = 112.0;

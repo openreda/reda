@@ -19,7 +19,7 @@ pub mod rows;
 
 use std::collections::BTreeMap;
 
-use egui::{ComboBox, Id, Role, ScrollArea, Sense, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Role, ScrollArea, Sense, Ui, WidgetInfo};
 use reda_engine::library::{LibraryIndex, SearchQuery};
 use reda_engine::model::{ComponentType, DocumentKind, Part, Uuid};
 use serde_json::{Value, json};
@@ -28,6 +28,7 @@ pub use rows::{Entry, Mode, RowStatus};
 
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The drag-and-drop payload of a Part dragged from the panel onto a canvas.
 #[derive(Clone, Copy, Debug)]
@@ -275,7 +276,7 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
             Mode::Place(_) => tr!("library-edit"),
             Mode::Library(_) => tr!("library-edit-element"),
         };
-        let edit = ui.add_enabled(chosen.is_some(), egui::Button::new(label));
+        let edit = ui.add_enabled(chosen.is_some(), widgets::button(label));
         if edit.clicked()
             && let Some(entry) = &chosen
         {
@@ -284,7 +285,7 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
         ui.menu_button(tr!("library-new"), |ui| {
             out.extend(new_menu(ui, shell, panel.library).map(Do::Out));
         });
-        if ui.button(tr!("library-refresh")).clicked() {
+        if ui.add(widgets::button(tr!("library-refresh"))).clicked() {
             panel.rescan();
         }
     });
@@ -318,23 +319,32 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
         ("symbol", tr!("library-new-symbol")),
         ("footprint", tr!("library-new-footprint")),
     ] {
-        if ui.button(label).clicked() {
+        if ui.add(widgets::menu_item(label)).clicked() {
             let params = with_library(json!({ "kind": kind }));
             picked = Some(Action::Call("library.element.new".into(), params));
         }
     }
     ui.separator();
-    if ui.button(tr!("library-new-library")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-new-library")))
+        .clicked()
+    {
         picked = Some(Action::Call("library.create".into(), json!({})));
     }
-    if ui.button(tr!("library-make-project-library")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-make-project-library")))
+        .clicked()
+    {
         picked = Some(Action::Call(
             "library.extract_from_project".into(),
             with_library(json!({})),
         ));
     }
     ui.separator();
-    if ui.button(tr!("library-import-part")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-import-part")))
+        .clicked()
+    {
         picked = Some(Action::Call(
             "library.import_part".into(),
             with_library(json!({})),
@@ -346,7 +356,7 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
                 || id.to_owned(),
                 |m| crate::bars::command_title(id, m.title),
             );
-            if ui.button(format!("{title}…")).clicked() {
+            if ui.add(widgets::menu_item(format!("{title}…"))).clicked() {
                 picked = Some(Action::Call(id.into(), with_library(json!({}))));
                 ui.close();
             }
@@ -362,10 +372,10 @@ fn new_menu(ui: &mut Ui, shell: &Shell, library: Option<Uuid>) -> Option<Action>
 fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
     let search = tr!("library-search");
     let response = ui.add(
-        TextEdit::singleline(&mut panel.text)
+        widgets::text_field(&mut panel.text)
             .id(Id::NULL.with("library-search"))
-            .hint_text(search.clone())
-            .desired_width(f32::INFINITY),
+            .hint(search.clone())
+            .width(f32::INFINITY),
     );
     response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, search.clone()));
     let libraries: Vec<(Uuid, String)> = panel
@@ -383,12 +393,11 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
             .map_or(all.clone(), |(_, n)| n.clone());
         let label = tr!("library-filter-library");
         if shown {
-            let response = ComboBox::from_id_salt("library-filter-library")
-                .selected_text(chosen)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut panel.library, None, all);
+            let response = widgets::dropdown("library-filter-library", chosen)
+                .show(ui, |ui| {
+                    widgets::choice_value(ui, &mut panel.library, None, all);
                     for (uuid, name) in &libraries {
-                        ui.selectable_value(&mut panel.library, Some(*uuid), name);
+                        widgets::choice_value(ui, &mut panel.library, Some(*uuid), name);
                     }
                 })
                 .response;
@@ -397,11 +406,10 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
         let type_name =
             |t: Option<ComponentType>| t.map_or_else(|| tr!("library-all-types"), type_name);
         let label = tr!("library-filter-type");
-        let response = ComboBox::from_id_salt("library-filter-type")
-            .selected_text(type_name(panel.component_type))
-            .show_ui(ui, |ui| {
+        let response = widgets::dropdown("library-filter-type", type_name(panel.component_type))
+            .show(ui, |ui| {
                 for t in std::iter::once(None).chain(ComponentType::ALL.map(Some)) {
-                    ui.selectable_value(&mut panel.component_type, t, type_name(t));
+                    widgets::choice_value(ui, &mut panel.component_type, t, type_name(t));
                 }
             })
             .response;

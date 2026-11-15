@@ -12,6 +12,7 @@ use super::{Out, text_field};
 use crate::pcb::view::format_length;
 use crate::properties::Shared;
 use crate::tr;
+use crate::widgets;
 
 const SIZES: [SheetSize; 8] = [
     SheetSize::A4,
@@ -77,25 +78,23 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
             FrameSize::Custom { .. } => tr!("properties-sheet-custom"),
         };
         let label = tr!("properties-sheet-size");
-        let combo = egui::ComboBox::from_id_salt("properties-sheet-size")
-            .selected_text(shown)
-            .show_ui(ui, |ui| {
-                for size in SIZES {
-                    let chosen = frame.size == FrameSize::Standard(size);
-                    if ui.selectable_label(chosen, size_name(size)).clicked() && !chosen {
-                        set(json!({"size": size}));
-                    }
+        let combo = widgets::dropdown("properties-sheet-size", shown).show(ui, |ui| {
+            for size in SIZES {
+                let chosen = frame.size == FrameSize::Standard(size);
+                if ui.add(widgets::choice(chosen, size_name(size))).clicked() && !chosen {
+                    set(json!({"size": size}));
                 }
-                let custom = matches!(frame.size, FrameSize::Custom { .. });
-                if ui
-                    .selectable_label(custom, tr!("properties-sheet-custom"))
-                    .clicked()
-                    && !custom
-                {
-                    let (long, short) = frame.size.sides();
-                    set(json!({"size": {"width": long.0, "height": short.0}}));
-                }
-            });
+            }
+            let custom = matches!(frame.size, FrameSize::Custom { .. });
+            if ui
+                .add(widgets::choice(custom, tr!("properties-sheet-custom")))
+                .clicked()
+                && !custom
+            {
+                let (long, short) = frame.size.sides();
+                set(json!({"size": {"width": long.0, "height": short.0}}));
+            }
+        });
         combo
             .response
             .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, &label));
@@ -131,7 +130,7 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
                 (Orientation::Portrait, tr!("properties-sheet-portrait")),
             ] {
                 let chosen = frame.orientation == orientation;
-                if ui.radio(chosen, label).clicked() && !chosen {
+                if ui.add(widgets::radio(chosen, label)).clicked() && !chosen {
                     set(json!({ "orientation": orientation }));
                 }
             }
@@ -142,14 +141,20 @@ pub(super) fn show(ui: &mut Ui, project: &Project, document: Uuid, out: &mut Vec
         ui.vertical(|ui| {
             let mut zones = frame.border_zones;
             if ui
-                .checkbox(&mut zones, tr!("properties-sheet-border-zones"))
+                .add(widgets::checkbox(
+                    &mut zones,
+                    tr!("properties-sheet-border-zones"),
+                ))
                 .changed()
             {
                 set(json!({ "border_zones": zones }));
             }
             let mut title_block = frame.title_block;
             if ui
-                .checkbox(&mut title_block, tr!("properties-sheet-title-block"))
+                .add(widgets::checkbox(
+                    &mut title_block,
+                    tr!("properties-sheet-title-block"),
+                ))
                 .changed()
             {
                 set(json!({ "title_block": title_block }));

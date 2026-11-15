@@ -7,7 +7,7 @@
 
 pub mod rows;
 
-use egui::{ComboBox, Grid, Id, Role, ScrollArea, Ui, WidgetInfo};
+use egui::{Grid, Id, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{InsideEdge, LibraryElement, OutsideEdge, Pin, PinType, Symbol, Uuid};
 use serde_json::json;
 
@@ -18,6 +18,7 @@ use crate::i18n;
 use crate::library_dialogs::{PasteMapping, PasteOutcome};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The Pins Panel's view state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -136,7 +137,7 @@ fn symbol_table(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invo
     let selected = element_editor::selected_on(shell, symbol);
     ui.horizontal(|ui| {
         ui.strong(tr!("pins-panel-title", symbol = s.name.as_str()));
-        let paste = ui.add_enabled(!locked, egui::Button::new(tr!("pin-table-paste")));
+        let paste = ui.add_enabled(!locked, widgets::button(tr!("pin-table-paste")));
         if paste.clicked() {
             open_paste(shell, symbol, "");
         }
@@ -175,7 +176,7 @@ fn heading(ui: &mut Ui, shell: &mut Shell, sort: &Sort, column: PinColumn) {
         None => title.clone(),
     };
     let label = tr!("pins-panel-sort", column = title.as_str());
-    let b = ui.add(egui::Button::new(egui::RichText::new(text).strong()).frame(false));
+    let b = ui.add(widgets::button(text).flat());
     b.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
     if b.on_hover_text(tr!("pins-panel-sort-hint")).clicked() {
         let add = ui.input(|i| i.modifiers.shift);
@@ -194,7 +195,7 @@ fn row(
     let is_selected = selected.contains(&pin.uuid);
     let mut on = is_selected;
     let label = tr!("pins-panel-select", pin = pin.number.as_str());
-    let check = ui.checkbox(&mut on, "");
+    let check = ui.add(widgets::checkbox(&mut on, ""));
     check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
     if check.changed() {
         let mut objects: Vec<Uuid> = selected.to_vec();
@@ -205,7 +206,7 @@ fn row(
         }
         out.push(("selection.set".to_owned(), json!({ "objects": objects })));
     }
-    let jump = ui.small_button(tr!("pins-panel-jump"));
+    let jump = ui.add(widgets::button(tr!("pins-panel-jump")).flat());
     let label = tr!("pins-panel-jump-to", pin = pin.number.as_str());
     jump.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
     if jump.clicked() {
@@ -360,7 +361,7 @@ fn row(
         ui.add_enabled_ui(!locked, |ui| {
             let mut shown = visible;
             let label = name(column);
-            let check = ui.checkbox(&mut shown, "");
+            let check = ui.add(widgets::checkbox(&mut shown, ""));
             check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
             if check.changed() {
                 set(column, CellValue::Flag(shown));
@@ -375,11 +376,7 @@ fn text_cell(ui: &mut Ui, id: Id, name: &str, value: &str, width: f32) -> Option
     let mut text: String = ui
         .data(|d| d.get_temp::<String>(id))
         .unwrap_or_else(|| value.to_owned());
-    let response = ui.add(
-        egui::TextEdit::singleline(&mut text)
-            .id(id)
-            .desired_width(width),
-    );
+    let response = ui.add(widgets::text_field(&mut text).id(id).width(width));
     response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name));
     let response = if value.is_empty() {
         response
@@ -409,11 +406,10 @@ fn combo<T: Copy + PartialEq>(
         .map(|(_, t)| t.clone())
         .unwrap_or_default();
     let name = name.to_owned();
-    ComboBox::from_id_salt(id)
-        .selected_text(shown)
-        .show_ui(ui, |ui| {
+    widgets::dropdown(id, shown)
+        .show(ui, |ui| {
             for (v, text) in options {
-                ui.selectable_value(&mut value, *v, text);
+                widgets::choice_value(ui, &mut value, *v, text);
             }
         })
         .response

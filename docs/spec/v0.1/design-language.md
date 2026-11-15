@@ -286,7 +286,17 @@ Each recipe below names the tokens a component uses per state. They are locked a
 - **Marks are 16 px.** A check box has the mark radius, and a radio is round. Off is `surface.well` with a `stroke.strong` outline. On is the accent solid with the tick, minus or dot in its on-colour.
 - **Switch:** a 28 × 16 px track with a white 12 px knob. The track is the accent solid when on.
 - **Which one:** a switch is for a setting that applies the moment it is flipped. A check box is for a choice confirmed with a button, and for lists and tables.
-- **Segmented control, stepper field and filterable dropdown:** the Appearance page needs these three ([app.md](app.md#preferences)). The gallery did not draw them, so the slice that builds that page fixes their recipes from the tokens here.
+- **Segmented control:** for a short set of exclusive choices that apply when picked. The track is filled like a button, at the control height and radius. Segments are equally wide (the widest label plus the control padding) and sit 2 px inside the track, with a radius 2 px smaller.
+  - The chosen segment takes the accent subtle fill, as a toggle that is on does. Text is the primary colour on every segment.
+  - Hover and press lay the neutral fills on one segment. The focus ring goes round the focused segment.
+- **Stepper field:** a number field for a whole number, with a 20 px column at its trailing end, set off by a hairline and split into an up and a down half. Each half holds a chevron Glyph in muted text.
+  - A half takes `fill.hover` and `fill.press` like anything flat. A half that cannot step further is drawn at `opacity.disabled`.
+  - Up and Down step while the field has the keyboard. A typed number applies on Enter or when the field loses the keyboard, and is kept inside the range.
+- **Filterable dropdown:** for a long list. Closed, it is a dropdown. Its list starts with a search field that has the keyboard as soon as the list opens, and typing narrows the rows to those that contain the text.
+  - Up and Down move the lit row, which takes `fill.hover`. Enter picks it, and Escape closes the list.
+  - The chosen row has the tick. A row can carry a note in muted text at its trailing end, and a hairline can set the first row apart while nothing is typed.
+  - When nothing matches, the list says so in one line of muted text.
+- These three were not in the component gallery. They are drawn in the widget gallery ([Enforcement and tests](#enforcement-and-tests)).
 
 ### Menus and context menus
 

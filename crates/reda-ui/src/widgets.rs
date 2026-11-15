@@ -33,7 +33,7 @@ mod segmented;
 mod stepper;
 
 pub use button::{
-    Button, ICON_GAP, IconButton, Link, button, icon_button, icon_button_image, link,
+    Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
 };
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,

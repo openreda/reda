@@ -15,6 +15,8 @@ use crate::theme::TokensExt as _;
 pub const PROGRESS_RAIL: f32 = 6.0;
 /// The height of a slider's rail.
 pub const SLIDER_RAIL: f32 = 4.0;
+/// The width of a slider's rail when it is given none.
+pub const SLIDER_WIDTH: f32 = 100.0;
 /// The diameter of a slider's knob.
 pub const SLIDER_KNOB: f32 = 16.0;
 /// How far outside the knob its focus ring sits.
@@ -256,7 +258,7 @@ impl Widget for Slider<'_> {
         let state = self.state;
         paint::stated(ui, state, |ui| {
             let c = &t.color;
-            let rail_width = self.width.unwrap_or(ui.spacing().slider_width);
+            let rail_width = self.width.unwrap_or(SLIDER_WIDTH);
             let (lo, hi) = self.ends();
             // The value's room is that of its widest end, so the label does not move.
             let value_width = if self.show_value {

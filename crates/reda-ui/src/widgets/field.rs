@@ -14,6 +14,8 @@ use super::glyph::{self, Glyph};
 use super::paint::{self, State};
 use crate::theme::{Text, Tokens, TokensExt as _};
 
+/// A field's width when it is given none. The `size` family replaces it when it lands.
+pub const FIELD_WIDTH: f32 = 280.0;
 /// The width of an invalid field's outline.
 const INVALID_LINE: f32 = 1.5;
 /// Between a field's text and its unit, and between the search glass and the text.
@@ -30,6 +32,8 @@ pub fn text_field(text: &mut String) -> TextField<'_> {
         numeric: false,
         unit: None,
         search: false,
+        mono: false,
+        rows: None,
         state: State::Live,
     }
 }
@@ -53,6 +57,8 @@ pub struct TextField<'a> {
     numeric: bool,
     unit: Option<String>,
     search: bool,
+    mono: bool,
+    rows: Option<usize>,
     state: State,
 }
 
@@ -93,6 +99,18 @@ impl TextField<'_> {
         self
     }
 
+    /// The monospace style: file names and patterns, command and key text.
+    pub fn mono(mut self) -> Self {
+        self.mono = true;
+        self
+    }
+
+    /// A field of several lines, `rows` of them tall. Enter starts a new line.
+    pub fn rows(mut self, rows: usize) -> Self {
+        self.rows = Some(rows.max(1));
+        self
+    }
+
     pub fn forced(mut self, state: State) -> Self {
         self.state = state;
         self
@@ -106,15 +124,18 @@ impl Widget for TextField<'_> {
             let c = &t.color;
             let style = if self.numeric {
                 t.ty.numeric.clone()
+            } else if self.mono {
+                t.ty.mono.clone()
             } else {
                 t.ty.body.clone()
             };
+            let rows = self.rows.unwrap_or(1) as f32;
             let width = match self.width {
                 Some(width) if width.is_finite() => width,
                 Some(_) => ui.available_width(),
-                None => ui.spacing().text_edit_width,
+                None => FIELD_WIDTH,
             };
-            let size = vec2(width, t.control_height());
+            let size = vec2(width, rows * style.line + 2.0 * t.space.control_y);
             let (rect, outer) = ui.allocate_exact_size(size, Sense::hover());
             // The text keeps clear of the focus ring, which is drawn inside the well.
             let inset = t.space.control_x - t.stroke.focus_ring;
@@ -128,8 +149,14 @@ impl Widget for TextField<'_> {
                 0.0
             };
             let inner = Rect::from_min_max(
-                pos2(rect.left() + inset + search_width, rect.top()),
-                pos2(rect.right() - inset - unit_width, rect.bottom()),
+                pos2(
+                    rect.left() + inset + search_width,
+                    rect.top() + t.space.control_y,
+                ),
+                pos2(
+                    rect.right() - inset - unit_width,
+                    rect.bottom() - t.space.control_y,
+                ),
             );
             // The well goes behind the text, but its outline depends on whether the text
             // edit has focus: reserve the two shapes now and set them at the end.
@@ -139,7 +166,7 @@ impl Widget for TextField<'_> {
             let mut response = outer;
             if self.state == State::Live {
                 let hint = style.rich(self.hint.as_str()).color(c.text.muted);
-                let edited = edit_line(ui, inner, self.text, &style, &t, hint, self.id);
+                let edited = edit(ui, inner, self.text, &style, &t, hint, self.id, self.rows);
                 // A click on the padding around the text lands in the field all the same.
                 let clicked_beside = response.hovered()
                     && !edited.hovered()
@@ -152,7 +179,7 @@ impl Widget for TextField<'_> {
                 response = edited;
             } else if self.text.is_empty() {
                 let ink = c.text.muted;
-                paint::text_in(ui, inner, Align2::LEFT_CENTER, &style, &self.hint, ink);
+                paint::text_in(ui, inner, Align2::LEFT_TOP, &style, &self.hint, ink);
             } else {
                 let ink = c.text.primary;
                 let drawn = paint::text_in(ui, inner, Align2::LEFT_CENTER, &style, self.text, ink);
@@ -185,9 +212,8 @@ impl Widget for TextField<'_> {
     }
 }
 
-/// egui's one-line `TextEdit` in `inner`, with no frame of its own, laid out from `style`
-/// and centred on its line height. It takes no room in `ui`: the caller already took the
-/// field's.
+/// egui's one-line `TextEdit` in `inner`, with no frame of its own, laid out from `style`.
+/// It takes no room in `ui`: the caller already took the field's.
 pub(super) fn edit_line(
     ui: &mut Ui,
     inner: Rect,
@@ -197,23 +223,47 @@ pub(super) fn edit_line(
     hint: egui::RichText,
     id: Option<Id>,
 ) -> Response {
+    let line = Rect::from_center_size(inner.center(), vec2(inner.width(), style.line));
+    edit(ui, line, text, style, t, hint, id, None)
+}
+
+/// egui's `TextEdit` filling `inner`: one line, or `rows` lines that wrap at its width.
+#[expect(clippy::too_many_arguments)]
+fn edit(
+    ui: &mut Ui,
+    inner: Rect,
+    text: &mut String,
+    style: &Text,
+    t: &Tokens,
+    hint: egui::RichText,
+    id: Option<Id>,
+    rows: Option<usize>,
+) -> Response {
     let ink = t.color.text.primary;
     let lay = style.clone();
-    let mut layouter = move |ui: &Ui, buffer: &dyn egui::TextBuffer, _wrap: f32| {
-        ui.painter().layout_job(lay.job(buffer.as_str(), ink))
+    let wraps = rows.is_some();
+    let mut layouter = move |ui: &Ui, buffer: &dyn egui::TextBuffer, wrap: f32| {
+        let mut job = lay.job(buffer.as_str(), ink);
+        if wraps {
+            job.wrap.max_width = wrap;
+        }
+        ui.painter().layout_job(job)
     };
-    let mut edit = egui::TextEdit::singleline(text)
+    let mut edit = match rows {
+        Some(rows) => egui::TextEdit::multiline(text).desired_rows(rows),
+        None => egui::TextEdit::singleline(text),
+    };
+    edit = edit
         .frame(egui::Frame::NONE)
         .margin(egui::Margin::ZERO)
         .desired_width(inner.width())
-        .align(Align2::LEFT_CENTER)
+        .align(Align2::LEFT_TOP)
         .hint_text(hint)
         .layouter(&mut layouter);
     if let Some(id) = id {
         edit = edit.id(id);
     }
-    let line = Rect::from_center_size(inner.center(), vec2(inner.width(), style.line));
-    let mut child = ui.new_child(UiBuilder::new().max_rect(line));
+    let mut child = ui.new_child(UiBuilder::new().max_rect(inner));
     // egui grows a text edit to `interact_size.y`; the line height is the token's.
     child.spacing_mut().interact_size.y = style.line;
     child.add(edit)
