@@ -331,7 +331,9 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
         // Clear of the Active Bar, which floats at the canvas's top.
         .fixed_pos(pos2(
             shown.rect.center().x,
-            shown.rect.top() + crate::bars::draw::active_bar_bottom(&crate::theme::TokensExt::tokens(ui)) + 12.0,
+            shown.rect.top()
+                + crate::bars::draw::active_bar_bottom(&crate::theme::TokensExt::tokens(ui))
+                + 12.0,
         ))
         .pivot(Align2::CENTER_TOP);
     area.show(ui.ctx(), |ui| {

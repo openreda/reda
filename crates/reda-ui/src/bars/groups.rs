@@ -109,25 +109,24 @@ pub(super) fn button(
     if response.secondary_clicked() {
         menu = menu.open();
     }
-    menu
-        .show(|ui| {
-            let mut chosen = None;
-            for action in members(group) {
-                let mut inner = None;
-                super::draw::menu_items(
-                    ui,
-                    cx,
-                    std::slice::from_ref(&Item::Action(action.clone())),
-                    &mut inner,
-                );
-                if inner.is_some() {
-                    chosen = Some(action.id.clone());
-                    clicked = inner;
-                }
+    menu.show(|ui| {
+        let mut chosen = None;
+        for action in members(group) {
+            let mut inner = None;
+            super::draw::menu_items(
+                ui,
+                cx,
+                std::slice::from_ref(&Item::Action(action.clone())),
+                &mut inner,
+            );
+            if inner.is_some() {
+                chosen = Some(action.id.clone());
+                clicked = inner;
             }
-            if let Some(id) = chosen {
-                ui.data_mut(|d| d.insert_temp(key, id));
-            }
-        });
+        }
+        if let Some(id) = chosen {
+            ui.data_mut(|d| d.insert_temp(key, id));
+        }
+    });
     clicked
 }

@@ -155,7 +155,8 @@ fn check_in(name: &str, h: &Harness<'_, App>, area: Rect, wrong: &mut Vec<String
 /// The Active Bar: its buttons and their frame.
 fn active_bar(h: &Harness<'_, App>) -> Rect {
     let canvas = h.get_by_role(Role::Canvas).rect();
-    let top = canvas.top() + bars::draw::active_bar_bottom(&reda_ui::theme::TokensExt::tokens(&h.ctx));
+    let top =
+        canvas.top() + bars::draw::active_bar_bottom(&reda_ui::theme::TokensExt::tokens(&h.ctx));
     Rect::from_min_max(canvas.left_top(), egui::pos2(canvas.right(), top))
 }
 

@@ -9,7 +9,7 @@ use reda_ui::widgets::{self, Glyph, State};
 use crate::kit;
 
 /// The size the page is snapshotted at.
-pub const SIZE: Vec2 = vec2(1400.0, 1180.0);
+pub const SIZE: Vec2 = vec2(1260.0, 900.0);
 /// The width of a state column.
 const COLUMN: f32 = 180.0;
 /// The width of a Palette drawn whole, and of a row in the state grid.
@@ -22,8 +22,13 @@ pub fn page(ui: &mut Ui) {
     kit::section(ui, "Bars on the canvas", canvas_bars);
     kit::section(ui, "Command Palette rows", palette_rows);
     ui.horizontal_top(|ui| {
-        kit::section(ui, "Command Palette", palette);
-        kit::section(ui, "Keys in Tool card", keys_card);
+        // Each drawn top-down, as in its Area over the window.
+        kit::section(ui, "Command Palette", |ui| {
+            ui.vertical(palette);
+        });
+        kit::section(ui, "Keys in Tool card", |ui| {
+            ui.vertical(keys_card);
+        });
     });
 }
 
@@ -72,7 +77,11 @@ fn canvas_bars(ui: &mut Ui) {
     kit::row(ui, "Tool's bar with a note", COLUMN, |ui| {
         ui.vertical(|ui| {
             widgets::bar_frame(&t).show(ui, |ui| {
-                ui.label(t.ty.body.rich("Click to start a track").color(t.color.text.primary));
+                ui.label(
+                    t.ty.body
+                        .rich("Click to start a track")
+                        .color(t.color.text.primary),
+                );
             });
             widgets::bar_frame(&t).show(ui, |ui| {
                 widgets::bar_row(ui, |ui| {
@@ -121,7 +130,15 @@ fn palette(ui: &mut Ui) {
     let mut query = String::from(">sav");
     widgets::palette_frame(&t).show(ui, |ui| {
         ui.set_width(PALETTE);
-        ui.add(widgets::text_field(&mut query).search().width(f32::INFINITY));
+        ui.vertical(|ui| palette_contents(ui, &mut query));
+    });
+}
+
+fn palette_contents(ui: &mut Ui, query: &mut String) {
+    let t = ui.tokens();
+    {
+        let field = ui.add(widgets::text_field(query).search().width(f32::INFINITY));
+        field.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Palette"));
         ui.add_space(t.space.row_y);
         widgets::rows(ui, |ui| {
             ui.add(
@@ -152,7 +169,7 @@ fn palette(ui: &mut Ui) {
                     .shortcut("M"),
             );
         });
-    });
+    }
 }
 
 fn keys_card(ui: &mut Ui) {
@@ -168,8 +185,10 @@ fn keys_card(ui: &mut Ui) {
     .map(|(k, a)| (k.to_owned(), a.to_owned()))
     .collect();
     widgets::floating_frame(&t).show(ui, |ui| {
-        let title = t.ty.body_strong.rich("Wire keys");
-        ui.label(title.color(t.color.text.primary));
-        widgets::key_list(ui, "gallery-keys", &rows);
+        ui.vertical(|ui| {
+            let title = t.ty.body_strong.rich("Wire keys");
+            ui.label(title.color(t.color.text.primary));
+            widgets::key_list(ui, "gallery-keys", &rows);
+        });
     });
 }

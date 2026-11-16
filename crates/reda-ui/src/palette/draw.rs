@@ -8,8 +8,8 @@ use egui::{Id, Key, Order, Pos2, Rect, ScrollArea};
 use super::{Row, Sources, Target};
 use crate::theme::TokensExt as _;
 use crate::theme::motion::Look;
-use crate::widgets::{self, Tooltip as _};
 use crate::tr;
+use crate::widgets::{self, Tooltip as _};
 
 /// The most rows drawn at once; typing narrows the rest.
 const SHOWN: usize = 200;
@@ -137,8 +137,7 @@ impl Palette {
                         field.request_focus();
                     }
                     if std::mem::take(&mut self.cursor_to_end) {
-                        let mut state =
-                            TextEditState::load(ui.ctx(), field.id).unwrap_or_default();
+                        let mut state = TextEditState::load(ui.ctx(), field.id).unwrap_or_default();
                         let end = egui::text::CCursor::new(self.query.chars().count());
                         state
                             .cursor
@@ -150,7 +149,11 @@ impl Palette {
                     }
                     ui.add_space(t.space.row_y);
                     if found.is_empty() {
-                        ui.label(t.ty.body.rich(tr!("palette-nothing")).color(t.color.text.muted));
+                        ui.label(
+                            t.ty.body
+                                .rich(tr!("palette-nothing"))
+                                .color(t.color.text.muted),
+                        );
                     }
                     // The Area remembers its last size: without a minimum, a list that was short keeps
                     // its short height when it grows again (#281).
