@@ -7,7 +7,14 @@ use serde_json::json;
 
 use super::{document_scene, hit_stack_on, rank_with_locks, rules, selected, set_command};
 use crate::shell::Shell;
+use crate::theme::{Tokens, TokensExt as _};
+use crate::widgets;
 use crate::working_state::FilterKind;
+
+/// The width of the drawing of an entry beside its row.
+const THUMBNAIL_WIDTH: f32 = 28.0;
+/// The room kept between an entry's drawing and the edges of its box.
+const THUMBNAIL_INSET: f32 = 2.0;
 
 #[derive(Clone, Debug)]
 pub struct PickList {
@@ -87,93 +94,85 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
     let mut choose = None;
     let scene = document_scene(shell, document);
     let layers = layer_list(shell, document);
-    egui::Window::new(crate::tr!("selection-pick-title"))
-        .id(egui::Id::NULL.with(("pick-object", document)))
-        .default_pos(list.at)
-        .collapsible(false)
-        .resizable(false)
-        .open(&mut open)
-        .show(ui.ctx(), |ui| {
-            let mut previous = None;
-            for (ordinal, id) in list.objects.iter().enumerate() {
-                if !rules::allowed(shell, document, *id) {
-                    continue;
-                }
-                let layer = scene
-                    .items
-                    .iter()
-                    .find(|i| i.object == *id)
-                    .map(|i| i.layer);
-                if layer != previous {
-                    let name = match layer {
-                        Some(SceneLayer::Board(layer)) => shell
-                            .engine()
-                            .project()
-                            .and_then(|p| p.pcb_document(document))
-                            .and_then(|p| p.layers().layer(layer))
-                            .map(|l| {
-                                crate::panels::layers::layer_name(
-                                    shell
-                                        .engine()
-                                        .project()
-                                        .and_then(|p| p.pcb_document(document))
-                                        .expect("board"),
-                                    l,
-                                )
-                            })
-                            .or_else(|| {
-                                layers
-                                    .iter()
-                                    .find(|l| l.uuid == layer)
-                                    .map(editor_layer_name)
-                            })
-                            .unwrap_or_else(|| crate::tr!("selection-pick-layer")),
-                        Some(SceneLayer::Drill) => crate::tr!("selection-pick-drill"),
-                        _ => crate::tr!("selection-pick-sheet"),
-                    };
-                    ui.strong(name);
-                    previous = layer;
-                }
-                let label = entry_label(shell, document, *id, ordinal);
-                ui.horizontal(|ui| {
-                    let (rect, _) =
-                        ui.allocate_exact_size(egui::vec2(28.0, 20.0), egui::Sense::hover());
-                    thumbnail(ui, &scene, *id, rect);
-                    let row = ui.selectable_label(false, label);
-                    if row.hovered() {
-                        preview = Some(*id);
-                    }
-                    if row.clicked() {
-                        choose = Some(*id);
-                    }
-                    if rules::locked(shell, document, *id) {
-                        let (lock, response) =
-                            ui.allocate_exact_size(egui::vec2(16.0, 20.0), egui::Sense::hover());
-                        let color = ui.visuals().text_color();
-                        ui.painter().circle_stroke(
-                            lock.center() - egui::vec2(0.0, 3.0),
-                            4.0,
-                            egui::Stroke::new(1.5, color),
-                        );
-                        ui.painter().rect_filled(
-                            egui::Rect::from_center_size(
-                                lock.center() + egui::vec2(0.0, 3.0),
-                                egui::vec2(11.0, 9.0),
-                            ),
-                            2.0,
-                            color,
-                        );
-                        response.widget_info(|| {
-                            egui::WidgetInfo::labeled(
-                                egui::Role::Image,
-                                true,
-                                crate::tr!("selection-pick-locked"),
+    let t = ui.tokens();
+    let shown: Vec<(Uuid, String)> = (list.objects.iter().enumerate())
+        .filter(|(_, id)| rules::allowed(shell, document, **id))
+        .map(|(ordinal, id)| (*id, entry_label(shell, document, *id, ordinal)))
+        .collect();
+    // Every row is as wide as the longest entry, so no entry is cut and the rows line up.
+    let row_width = (shown.iter())
+        .map(|(_, label)| text_width(ui, &t.ty.body, label))
+        .fold(0.0, f32::max)
+        + 2.0 * t.space.row_x;
+    widgets::window(
+        egui::Id::NULL.with(("pick-object", document)),
+        crate::tr!("selection-pick-title"),
+    )
+    .default_pos(list.at)
+    .open(&mut open)
+    .show(ui.ctx(), |ui| {
+        let mut previous = None;
+        for (id, label) in &shown {
+            let layer = scene
+                .items
+                .iter()
+                .find(|i| i.object == *id)
+                .map(|i| i.layer);
+            if layer != previous {
+                let name = match layer {
+                    Some(SceneLayer::Board(layer)) => shell
+                        .engine()
+                        .project()
+                        .and_then(|p| p.pcb_document(document))
+                        .and_then(|p| p.layers().layer(layer))
+                        .map(|l| {
+                            crate::panels::layers::layer_name(
+                                shell
+                                    .engine()
+                                    .project()
+                                    .and_then(|p| p.pcb_document(document))
+                                    .expect("board"),
+                                l,
                             )
-                        });
-                    }
-                });
+                        })
+                        .or_else(|| {
+                            layers
+                                .iter()
+                                .find(|l| l.uuid == layer)
+                                .map(editor_layer_name)
+                        })
+                        .unwrap_or_else(|| crate::tr!("selection-pick-layer")),
+                    Some(SceneLayer::Drill) => crate::tr!("selection-pick-drill"),
+                    _ => crate::tr!("selection-pick-sheet"),
+                };
+                ui.label(t.ty.body_strong.rich(name).color(t.color.text.primary));
+                previous = layer;
             }
-        });
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = t.space.gap;
+                let size = egui::vec2(THUMBNAIL_WIDTH, t.row_height());
+                let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+                thumbnail(ui, &t, &scene, *id, rect);
+                let row = ui.add(widgets::list_row(label.as_str()).width(row_width.ceil()));
+                if row.hovered() {
+                    preview = Some(*id);
+                }
+                if row.clicked() {
+                    choose = Some(*id);
+                }
+                if rules::locked(shell, document, *id) {
+                    let response = ui.add(widgets::glyph(widgets::Glyph::Lock));
+                    response.widget_info(|| {
+                        egui::WidgetInfo::labeled(
+                            egui::Role::Image,
+                            true,
+                            crate::tr!("selection-pick-locked"),
+                        )
+                    });
+                }
+            });
+        }
+    });
     if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
         open = false;
     }
@@ -290,7 +289,14 @@ fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> Strin
     )
 }
 
-fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
+/// How wide `text` is in `style`.
+fn text_width(ui: &egui::Ui, style: &crate::theme::Text, text: &str) -> f32 {
+    let galley = (ui.painter()).layout_no_wrap(text.to_owned(), style.font_id(), egui::Color32::TRANSPARENT);
+    galley.size().x
+}
+
+/// A drawing of `object` fitted to `rect`, in the accent colour.
+fn thumbnail(ui: &egui::Ui, t: &Tokens, scene: &Scene, object: Uuid, rect: egui::Rect) {
     use reda_engine::render::Primitive;
     let items: Vec<_> = scene.items.iter().filter(|i| i.object == object).collect();
     let bounds = items
@@ -305,8 +311,8 @@ fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
     let Some((lo, hi)) = bounds else {
         return;
     };
-    let scale = ((rect.width() - 4.0) as f64 / ((hi.x - lo.x).0.max(1) as f64))
-        .min((rect.height() - 4.0) as f64 / ((hi.y - lo.y).0.max(1) as f64));
+    let scale = ((rect.width() - 2.0 * THUMBNAIL_INSET) as f64 / ((hi.x - lo.x).0.max(1) as f64))
+        .min((rect.height() - 2.0 * THUMBNAIL_INSET) as f64 / ((hi.y - lo.y).0.max(1) as f64));
     let center = (
         ((lo.x.0 + hi.x.0) as f64 / 2.0),
         ((lo.y.0 + hi.y.0) as f64 / 2.0),
@@ -318,8 +324,8 @@ fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
                 ((center.1 - p.y.0 as f64) * scale) as f32,
             )
     };
-    let color = ui.visuals().selection.stroke.color;
-    let stroke = egui::Stroke::new(1.3, color);
+    let color = t.color.accent.text;
+    let stroke = egui::Stroke::new(t.stroke.hairline, color);
     for item in items {
         match &item.primitive {
             Primitive::Capsule { a, b, .. } => {
@@ -334,7 +340,7 @@ fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
                     rect.center(),
                     egui::Align2::CENTER_CENTER,
                     "T",
-                    egui::FontId::proportional(14.0),
+                    t.ty.body.font_id(),
                     color,
                 );
             }
@@ -342,7 +348,7 @@ fn thumbnail(ui: &egui::Ui, scene: &Scene, object: Uuid, rect: egui::Rect) {
                 if let Some((a, b)) = other.bounds() {
                     ui.painter().rect_stroke(
                         egui::Rect::from_two_pos(at(a), at(b)),
-                        1.0,
+                        0.0,
                         stroke,
                         egui::StrokeKind::Inside,
                     );
