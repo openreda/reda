@@ -13,11 +13,14 @@
 //! ```
 //!
 //! The popup is egui's, so the wait before it shows and the chaining from one tooltip to
-//! the next are the `motion` tokens the generated `Style` carries.
+//! the next are the `motion` tokens the generated `Style` carries. It arrives with egui's
+//! fade and 4 px of travel; one that follows another within the chaining time shows at
+//! once, with neither.
 
-use egui::{Align2, Frame, Margin, Response, Sense, Stroke, Ui, Widget, vec2};
+use egui::{Align2, Frame, LayerId, Margin, Order, Response, Sense, Stroke, Ui, Widget, vec2};
 
 use super::paint;
+use crate::theme::motion::{self, Look};
 use crate::theme::{Tokens, TokensExt as _};
 
 /// The widest a tooltip's sentence runs before it wraps.
@@ -107,9 +110,46 @@ fn show(response: &Response, disabled: bool, add: impl FnOnce(&mut Ui)) {
     } else {
         egui::Tooltip::for_enabled(response)
     };
-    let t = response.ctx.tokens();
+    let ctx = &response.ctx;
+    let t = ctx.tokens();
     tip.popup = tip.popup.frame(tooltip_frame(&t));
-    tip.show(add);
+    let chained = chained(response, t.motion.tooltip_chain);
+    let shown = if chained {
+        // egui fades a popup in by the style's animation time: none for this one.
+        let time = ctx.global_style().animation_time;
+        ctx.global_style_mut(|s| s.animation_time = 0.0);
+        let shown = tip.show(add);
+        ctx.global_style_mut(|s| s.animation_time = time);
+        shown
+    } else {
+        tip.show(add)
+    };
+    if let Some(shown) = shown {
+        let rect = shown.response.rect;
+        let d = if chained { 0.0 } else { t.motion.travel };
+        let offset = if rect.top() >= response.rect.bottom() - 1.0 {
+            vec2(0.0, -d)
+        } else {
+            vec2(0.0, d)
+        };
+        let look = Look::travel(offset).without_fade();
+        motion::layer(ctx, shown.response.layer_id, look, t.motion.tooltip);
+    }
+}
+
+/// Whether the tooltip of `response` follows another that was showing within `within`
+/// seconds: decided on the frame it appears, and kept while it stays.
+fn chained(response: &Response, within: f32) -> bool {
+    let ctx = &response.ctx;
+    let id = egui::Tooltip::next_tooltip_id(ctx, response.id);
+    let layer = LayerId::new(Order::Tooltip, id);
+    let key = id.with("reda-chained");
+    if ctx.memory(|m| m.areas().visible_last_frame(&layer)) {
+        return ctx.data(|d| d.get_temp::<bool>(key)).unwrap_or(false);
+    }
+    let chained = egui::Tooltip::seconds_since_last_tooltip(ctx) < within;
+    ctx.data_mut(|d| d.insert_temp(key, chained));
+    chained
 }
 
 /// Makes the tooltip's text the accessible description of the widget, and its name if it

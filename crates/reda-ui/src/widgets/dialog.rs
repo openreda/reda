@@ -25,6 +25,7 @@ use egui::{
 
 use super::glyph::Glyph;
 use super::paint;
+use crate::theme::motion::{self, Look};
 use crate::theme::{Tokens, TokensExt as _};
 
 /// The frame of a dialog or window: `surface.floating`, a hairline rim, the window radius
@@ -129,6 +130,7 @@ pub fn window<'open>(id: Id, title: impl Into<String>) -> Window<'open> {
         fixed_pos: None,
         centred: false,
         order: None,
+        still: false,
     }
 }
 
@@ -147,6 +149,8 @@ pub struct Window<'open> {
     fixed_pos: Option<Pos2>,
     centred: bool,
     order: Option<Order>,
+    /// Arrives and leaves at once, instead of as a dialog does.
+    still: bool,
 }
 
 /// What showing a [`Window`] gave.
@@ -227,7 +231,16 @@ impl<'open> Window<'open> {
         self
     }
 
-    /// Shows the window for one frame; `None` while its `open` flag is false.
+    /// Appears and goes at once: a window that is not a dialog (a floating window of
+    /// the layout, which may be one being dragged).
+    pub fn still(mut self) -> Self {
+        self.still = true;
+        self
+    }
+
+    /// Shows the window for one frame; `None` while its `open` flag is false. A dialog
+    /// fades in growing from `motion.dialog_scale`, and fades out once it is no longer
+    /// shown, its scrim with it.
     pub fn show<R>(self, ctx: &Context, add: impl FnOnce(&mut Ui) -> R) -> Option<Shown<R>> {
         if self.open.as_deref() == Some(&false) {
             return None;
@@ -246,7 +259,9 @@ impl<'open> Window<'open> {
             .title_bar(false)
             .collapsible(false)
             .frame(self.frame.unwrap_or_else(|| dialog_frame(&t)))
-            .resizable(self.resizable);
+            .resizable(self.resizable)
+            // A dialog's fade, below, has its own timing; other windows appear at once.
+            .fade_in(false);
         if let Some(order) = self.order {
             window = window.order(order);
         }
@@ -309,6 +324,10 @@ impl<'open> Window<'open> {
             close_clicked = title_at(ui, row, &title, close);
             inner
         })?;
+        if !self.still {
+            let look = Look::grow(t.motion.dialog_scale, response.rect.center());
+            motion::layer(ctx, response.layer_id, look, t.motion.dialog);
+        }
         if close_clicked && let Some(open) = self.open {
             *open = false;
         }

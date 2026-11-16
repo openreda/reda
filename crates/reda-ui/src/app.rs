@@ -78,6 +78,9 @@ pub struct App {
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
+    /// Whether the OS allowed motion when REDA started: what `general.animate` follows
+    /// while it is unset.
+    os_allows_motion: bool,
     /// A Crash Report from an earlier run, not yet offered.
     crash_report: Option<PathBuf>,
     /// The control port, for agents.
@@ -130,6 +133,7 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            os_allows_motion: true,
             help: Default::default(),
             palette: None,
             palette_recent: Vec::new(),
@@ -149,6 +153,13 @@ impl App {
             closing: Closing::default(),
             relink_confirm: None,
         }
+    }
+
+    /// What the OS reduced-motion setting said at launch: `general.animate` follows it
+    /// while unset. Without this the chrome animates.
+    pub fn with_os_motion(mut self, allows: bool) -> App {
+        self.os_allows_motion = allows;
+        self
     }
 
     /// Hosts the control port `bridge` (see [`Bridge::start`]); without one the bridge is
@@ -242,6 +253,7 @@ impl App {
         let ctx = ui.ctx().clone();
         if !self.theme_installed {
             theme::fonts::set_source(&ctx, self.shell.font_source());
+            theme::motion::system::remember(&ctx, self.os_allows_motion);
             // The first frame is drawn as the Preferences ask, fonts included.
             theme::set(&ctx, &theme::settings(self.shell.preferences()));
             ctx.set_theme(theme::preference(self.shell.preferences()));
@@ -1263,6 +1275,8 @@ pub fn run(
         .with_title(tr!("window-title"))
         .with_inner_size([1280.0, 800.0])
         .with_min_inner_size([480.0, 320.0]);
+    // Read at each launch, and not followed while REDA runs.
+    let os_motion = theme::motion::system::AtLaunch::start();
     let options = eframe::NativeOptions {
         viewport: title_bar::viewport(startup, viewport),
         renderer: eframe::Renderer::Wgpu,
@@ -1289,6 +1303,7 @@ pub fn run(
             Ok(Box::new(
                 App::new(shell)
                     .with_title_bar(startup)
+                    .with_os_motion(os_motion.allows_motion(theme::motion::system::LAUNCH_WAIT))
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
                     .watching_preferences()

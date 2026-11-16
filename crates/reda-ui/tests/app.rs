@@ -663,6 +663,14 @@ fn snapshot_of_an_open_dock_flyout() {
     let folder = snapshot_folder("flyout");
     let file = make_project(&folder, "Board");
     set_theme(home.path(), "light");
+    // The board opens on the frame the Dock collapses. Animated, the canvas would first
+    // be drawn while the Dock is still wide, and the board fitted to that narrower canvas.
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.animate",
+        json!(false),
+    )
+    .unwrap();
     let Some(mut h) = snapshot_harness(home.path()) else {
         return;
     };

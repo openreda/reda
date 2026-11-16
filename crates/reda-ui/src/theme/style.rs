@@ -113,7 +113,9 @@ pub fn style(t: &Tokens) -> egui::Style {
         interact_background_opacity: 0.0,
         ..ScrollStyle::floating()
     };
-    style.animation_time = t.motion.base;
+    // egui's own transitions: a popup's fade-in (menus, combo lists, tooltips) and the
+    // scrollbar widening. Zero with Animate off.
+    style.animation_time = t.motion.menu.enter;
     style.interaction.tooltip_delay = t.motion.tooltip_wait;
     style.interaction.tooltip_grace_time = t.motion.tooltip_chain;
     style

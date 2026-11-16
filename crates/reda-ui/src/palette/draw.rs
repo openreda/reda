@@ -5,6 +5,8 @@
 use egui::{Button, Id, Key, Order, Pos2, Rect, RichText, ScrollArea, TextEdit};
 
 use super::{Row, Sources, Target};
+use crate::theme::TokensExt as _;
+use crate::theme::motion::Look;
 use crate::{icons, tr};
 
 /// The most rows drawn at once; typing narrows the rest.
@@ -111,6 +113,7 @@ impl Palette {
         let area = egui::Area::new(id)
             .order(Order::Foreground)
             .fixed_pos(Pos2::new(left, top))
+            .fade_in(false)
             .show(ctx, |ui| {
                 egui::Frame::popup(ui.style()).show(ui, |ui| {
                     ui.set_width(width - 16.0);
@@ -160,6 +163,10 @@ impl Palette {
                         });
                 });
             });
+        // It fades in dropping from the command field, and fades out when it closes.
+        let motion = ctx.tokens().motion;
+        let look = Look::travel(egui::vec2(0.0, -motion.travel));
+        crate::theme::motion::layer(ctx, area.response.layer_id, look, motion.palette);
         let rect = area.response.rect;
         let elsewhere = self.frames > 0
             && ctx.input(|i| {

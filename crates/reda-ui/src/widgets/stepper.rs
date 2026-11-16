@@ -18,7 +18,7 @@ use egui::{
 
 use super::field::{self, PART_GAP};
 use super::glyph::Glyph;
-use super::paint::{self, Seen, State};
+use super::paint::{self, State};
 use crate::theme::TokensExt as _;
 
 /// The width of the column that holds the two step halves.
@@ -217,11 +217,7 @@ impl Widget for StepperField<'_> {
                     ui.data_mut(|d| d.remove::<String>(draft_id));
                 }
                 let seen = match self.state {
-                    State::Live => Seen {
-                        hover: can && enabled && part.hovered(),
-                        press: pressed,
-                        focus: false,
-                    },
+                    State::Live => paint::live(&part, can && enabled && part.hovered(), pressed),
                     State::Hover | State::Press if i == 0 => paint::seen(&part, self.state),
                     _ => paint::seen(&part, State::Rest),
                 };
