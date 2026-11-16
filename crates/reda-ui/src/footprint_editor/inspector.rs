@@ -17,10 +17,11 @@ use crate::settings::layout;
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
-/// The panel's width in points.
-pub const WIDTH: f32 = 288.0;
+/// The panel's width in points: a side Dock's, so the Pad rows (the same as Free Pad
+/// Properties in a Dock) fit, plus the gap the panel keeps from the canvas.
+pub const WIDTH: f32 = 300.0;
 
 pub use crate::pad_form::draw::{KINDS, SHAPES, kind_name, shape_name};
 /// The Layers a field text can go on.
@@ -115,20 +116,20 @@ fn footprint_section(
 ) {
     let fp = footprint.uuid;
     widgets::form(id.with("footprint")).show(ui, |ui| {
-            if let Some(height) = length(
-                ui,
-                id.with("height"),
-                &tr!("footprint-height"),
-                footprint.height,
-                true,
-            ) {
-                out.push(cmd(
-                    "library.footprint.edit",
-                    json!({"footprint": fp, "height": height.map(|h| h.0)}),
-                ));
-            }
-            ui.end_row();
-        });
+        if let Some(height) = length(
+            ui,
+            id.with("height"),
+            &tr!("footprint-height"),
+            footprint.height,
+            true,
+        ) {
+            out.push(cmd(
+                "library.footprint.edit",
+                json!({"footprint": fp, "height": height.map(|h| h.0)}),
+            ));
+        }
+        ui.end_row();
+    });
     crate::settings::strong(ui, tr!("footprint-texts"));
     // By field, then layer: the stored order follows the texts' UUIDs.
     let mut texts: Vec<_> = footprint.texts.iter().collect();
@@ -141,13 +142,16 @@ fn footprint_section(
                     field = text.field.as_str(),
                     layer = layer_name(text.layer)
                 );
-                let remove = widgets::button(tr!("footprint-text-remove")).flat();
-                let room = ui.available_width() - remove.width(ui) - ui.tokens().space.gap;
+                // The row leaves room for its Remove button: a glyph, so that a long
+                // field and Layer still fit the panel.
+                let t = ui.tokens();
+                let room = ui.available_width() - t.control_height() - t.space.gap;
                 let row = ui.add(widgets::list_row(&label).width(room));
                 if row.clicked() {
                     out.push(cmd("selection.set", json!({"objects": [text.uuid]})));
                 }
-                let remove = ui.add(remove);
+                let remove = ui.add(widgets::glyph_button(widgets::Glyph::Close));
+                let remove = remove.tooltip(tr!("footprint-text-remove"));
                 let what = tr!("footprint-text-remove-of", text = label.as_str());
                 remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
                 if remove.clicked() {
@@ -223,26 +227,26 @@ fn tool_settings_ui(ui: &mut Ui, id: Id, opts: &mut ToolSettings) {
     crate::settings::strong(ui, tr!("footprint-pad-tool"));
     let pad = &mut opts.pad;
     widgets::form(id.with("pad-tool")).show(ui, |ui| {
-            combo(
-                ui,
-                id.with("kind"),
-                &tr!("footprint-pad-kind"),
-                &mut pad.kind,
-                &KINDS,
-                kind_name,
-            );
-            ui.end_row();
-            combo(
-                ui,
-                id.with("shape"),
-                &tr!("footprint-pad-shape"),
-                &mut pad.shape,
-                &SHAPES,
-                shape_name,
-            );
-            ui.end_row();
-            template_lengths(ui, id, pad);
-        });
+        combo(
+            ui,
+            id.with("kind"),
+            &tr!("footprint-pad-kind"),
+            &mut pad.kind,
+            &KINDS,
+            kind_name,
+        );
+        ui.end_row();
+        combo(
+            ui,
+            id.with("shape"),
+            &tr!("footprint-pad-shape"),
+            &mut pad.shape,
+            &SHAPES,
+            shape_name,
+        );
+        ui.end_row();
+        template_lengths(ui, id, pad);
+    });
     ui.add_space(ui.tokens().space.stack);
     crate::settings::strong(ui, tr!("footprint-drawing"));
     widgets::form(id.with("drawing")).show(ui, |ui| {
@@ -353,47 +357,50 @@ fn selection(
                 .map(|(id, params)| cmd(id, params)),
         );
     } else if let Some(text) = footprint.texts.iter().find(|t| t.uuid == selected) {
-        crate::settings::strong(ui, match text.field.as_str() {
-            DESIGNATOR_FIELD => tr!("footprint-designator-text"),
-            VALUE_FIELD => tr!("footprint-value-text"),
-            field => tr!("footprint-field-text", field = field.to_owned()),
-        });
+        crate::settings::strong(
+            ui,
+            match text.field.as_str() {
+                DESIGNATOR_FIELD => tr!("footprint-designator-text"),
+                VALUE_FIELD => tr!("footprint-value-text"),
+                field => tr!("footprint-field-text", field = field.to_owned()),
+            },
+        );
         widgets::form(id.with(("text", selected))).show(ui, |ui| {
-                text_properties(ui, id.with(selected), fp, text, out);
-            });
+            text_properties(ui, id.with(selected), fp, text, out);
+        });
     } else if let Some(g) = footprint.graphics.iter().find(|g| g.uuid == selected) {
         crate::settings::strong(ui, tr!("footprint-selected-graphic"));
         widgets::form(id.with(("graphic", selected))).show(ui, |ui| {
-                let mut layer = g.layer;
-                combo(
-                    ui,
-                    id.with(("gl", selected)),
-                    &tr!("footprint-layer"),
-                    &mut layer,
-                    &LAYERS,
-                    layer_name,
-                );
-                if layer != g.layer {
-                    out.push(cmd(
-                        "library.footprint.graphic.edit",
-                        json!({"footprint": fp, "graphic": g.uuid, "layer": layer}),
-                    ));
-                }
-                ui.end_row();
-                if let Some(Some(w)) = length(
-                    ui,
-                    id.with(("gw", selected)),
-                    &tr!("footprint-stroke-width"),
-                    Some(g.width),
-                    false,
-                ) {
-                    out.push(cmd(
-                        "library.footprint.graphic.edit",
-                        json!({"footprint": fp, "graphic": g.uuid, "width": w.0}),
-                    ));
-                }
-                ui.end_row();
-            });
+            let mut layer = g.layer;
+            combo(
+                ui,
+                id.with(("gl", selected)),
+                &tr!("footprint-layer"),
+                &mut layer,
+                &LAYERS,
+                layer_name,
+            );
+            if layer != g.layer {
+                out.push(cmd(
+                    "library.footprint.graphic.edit",
+                    json!({"footprint": fp, "graphic": g.uuid, "layer": layer}),
+                ));
+            }
+            ui.end_row();
+            if let Some(Some(w)) = length(
+                ui,
+                id.with(("gw", selected)),
+                &tr!("footprint-stroke-width"),
+                Some(g.width),
+                false,
+            ) {
+                out.push(cmd(
+                    "library.footprint.graphic.edit",
+                    json!({"footprint": fp, "graphic": g.uuid, "width": w.0}),
+                ));
+            }
+            ui.end_row();
+        });
     }
 }
 

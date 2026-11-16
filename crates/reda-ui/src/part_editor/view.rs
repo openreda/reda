@@ -17,6 +17,8 @@ use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Column};
 
+/// The form's widest.
+const MAX_WIDTH: f32 = 720.0;
 const FIELD_WIDTH: f32 = 260.0;
 /// A custom field's name.
 const NAME_WIDTH: f32 = 120.0;
@@ -35,23 +37,39 @@ pub(crate) fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocat
         .id_salt(id)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            ui.set_max_width(720.0);
-            header(ui, shell, &part, locked, &mut out);
-            ui.separator();
-            region(ui, id, "part", tr!("part-region-part"), |ui| {
-                properties(ui, id, &part, locked, &mut out);
-            });
-            region(ui, id, "symbol", tr!("part-region-symbol"), |ui| {
-                symbol(ui, shell, id, &part, locked, &mut out);
-            });
-            region(ui, id, "footprints", tr!("part-footprints"), |ui| {
-                footprints(ui, shell, id, &part, locked, &mut out);
-            });
-            region(ui, id, "fields", tr!("part-fields"), |ui| {
-                fields(ui, id, &part, locked, &mut out);
-            });
+            // The form keeps the panel's gap from the tab's edges.
+            let gap = ui.tokens().space.panel as i8;
+            let frame = egui::Frame::new().inner_margin(egui::Margin::symmetric(gap, 0));
+            frame.show(ui, |ui| form(ui, shell, id, &part, locked, &mut out));
         });
     out
+}
+
+/// The form's header and its four regions.
+fn form(
+    ui: &mut Ui,
+    shell: &mut Shell,
+    id: Id,
+    part: &Part,
+    locked: bool,
+    out: &mut Vec<Invocation>,
+) {
+    // No wider than the tab: `set_max_width` alone would widen a narrower one.
+    ui.set_max_width(ui.available_width().min(MAX_WIDTH));
+    header(ui, shell, part, locked, out);
+    ui.separator();
+    region(ui, id, "part", tr!("part-region-part"), |ui| {
+        properties(ui, id, part, locked, out);
+    });
+    region(ui, id, "symbol", tr!("part-region-symbol"), |ui| {
+        symbol(ui, shell, id, part, locked, out);
+    });
+    region(ui, id, "footprints", tr!("part-footprints"), |ui| {
+        footprints(ui, shell, id, part, locked, out);
+    });
+    region(ui, id, "fields", tr!("part-fields"), |ui| {
+        fields(ui, id, part, locked, out);
+    });
 }
 
 /// One of the form's four regions (library.md#part-editor), open unless folded.
@@ -86,17 +104,14 @@ fn header(ui: &mut Ui, shell: &mut Shell, part: &Part, locked: bool, out: &mut V
     if let Some(provenance) = &part.provenance {
         layout::muted(
             ui,
-            tr!(
-                "part-imported-from",
-                service = provenance.service.as_str()
-            ),
+            tr!("part-imported-from", service = provenance.service.as_str()),
         );
         let url = &provenance.terms_url;
         if !url.is_empty() && ui.add(widgets::link(url)).clicked() {
             ui.ctx().open_url(egui::OpenUrl::new_tab(url));
         }
     }
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let save = ui.add_enabled(!locked, widgets::button(tr!("footprint-save")));
         if save.clicked() {
             out.push((
@@ -130,41 +145,40 @@ fn heading(ui: &mut Ui, text: String) {
 fn properties(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invocation>) {
     ui.add_enabled_ui(!locked, |ui| {
         widgets::form(id.with("properties")).show(ui, |ui| {
-                let label = tr!("part-name");
-                ui.add(widgets::form_name(&label));
-                if let Some(name) = text_field(ui, id.with("name"), &label, &part.name, FIELD_WIDTH)
-                {
-                    out.extend(super::rename(part, &name));
-                }
-                ui.end_row();
-                let label = tr!("library-filter-type");
-                ui.add(widgets::form_name(&label));
-                let mut kind = part.component_type;
-                let name = crate::panels::library::type_name;
-                widgets::dropdown(id.with("type"), name(kind))
-                    .show(ui, |ui| {
-                        for t in ComponentType::ALL {
-                            widgets::choice_value(ui, &mut kind, t, name(t));
-                        }
-                    })
-                    .response
-                    .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-                out.extend(super::set_component_type(part, kind));
-                ui.end_row();
-                ui.label("");
-                let mut in_bom = part.in_bom;
-                ui.add(widgets::checkbox(&mut in_bom, tr!("part-in-bom")));
-                out.extend(super::set_in_bom(part, in_bom));
-                ui.end_row();
-                ui.label("");
-                let mut in_cpl = part.in_cpl;
-                ui.add(widgets::checkbox(&mut in_cpl, tr!("part-in-cpl")));
-                out.extend(super::set_in_cpl(part, in_cpl));
-                ui.end_row();
-                for key in super::PART_FIELDS {
-                    builtin_row(ui, id, part, key, out);
-                }
-            });
+            let label = tr!("part-name");
+            ui.add(widgets::form_name(&label));
+            if let Some(name) = text_field(ui, id.with("name"), &label, &part.name, FIELD_WIDTH) {
+                out.extend(super::rename(part, &name));
+            }
+            ui.end_row();
+            let label = tr!("library-filter-type");
+            ui.add(widgets::form_name(&label));
+            let mut kind = part.component_type;
+            let name = crate::panels::library::type_name;
+            widgets::dropdown(id.with("type"), name(kind))
+                .show(ui, |ui| {
+                    for t in ComponentType::ALL {
+                        widgets::choice_value(ui, &mut kind, t, name(t));
+                    }
+                })
+                .response
+                .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+            out.extend(super::set_component_type(part, kind));
+            ui.end_row();
+            ui.label("");
+            let mut in_bom = part.in_bom;
+            ui.add(widgets::checkbox(&mut in_bom, tr!("part-in-bom")));
+            out.extend(super::set_in_bom(part, in_bom));
+            ui.end_row();
+            ui.label("");
+            let mut in_cpl = part.in_cpl;
+            ui.add(widgets::checkbox(&mut in_cpl, tr!("part-in-cpl")));
+            out.extend(super::set_in_cpl(part, in_cpl));
+            ui.end_row();
+            for key in super::PART_FIELDS {
+                builtin_row(ui, id, part, key, out);
+            }
+        });
         layout::muted(ui, tr!("part-flags-hint"));
     });
 }
@@ -249,7 +263,7 @@ fn symbol(
     } else {
         super::symbol_choices(shell)
     };
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let label = tr!("part-symbol");
         let picked = ui
             .add_enabled_ui(!locked, |ui| {
@@ -343,7 +357,7 @@ fn footprints(
                     layout::warning(ui, tr!("part-not-found", uuid = uuid.to_string()));
                 }
             }
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 let mut moved = None;
                 let mut button = |ui: &mut Ui, enabled: bool, text: String, what: String, how| {
                     let b = ui.add_enabled(enabled && !locked, widgets::button(text));
@@ -411,7 +425,7 @@ fn footprints(
     if locked {
         return;
     }
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         layout::text(ui, tr!("part-add"));
         let choices: Vec<Choice> = super::footprint_choices(shell)
             .into_iter()
@@ -622,9 +636,8 @@ fn fields(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invocati
                         let label = builtin_label(key);
                         cells.ui(|ui| ui.add(widgets::form_name(&label)));
                         let current = super::builtin(part, key);
-                        let typed = cells.ui(|ui| {
-                            text_field(ui, id.with(key), &label, &current, FIELD_WIDTH)
-                        });
+                        let typed = cells
+                            .ui(|ui| text_field(ui, id.with(key), &label, &current, FIELD_WIDTH));
                         if let Some(typed) = typed {
                             out.extend(super::set_builtin(part, key, &typed));
                         }
@@ -648,9 +661,11 @@ fn fields(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invocati
                         if let Some(value) = typed {
                             out.extend(super::set_field(part, i, None, Some(&value)));
                         }
-                        let remove = cells.ui(|ui| ui.add(widgets::button(tr!("part-remove")).flat()));
+                        let remove =
+                            cells.ui(|ui| ui.add(widgets::button(tr!("part-remove")).flat()));
                         let what = tr!("part-remove-field", name = field.name.as_str());
-                        remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
+                        remove
+                            .widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
                         if remove.clicked() {
                             out.push(super::remove_field(part, i));
                         }

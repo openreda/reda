@@ -37,7 +37,10 @@ const SCROLLS: usize = 12;
 const WINDOW: [f32; 2] = [1280.0, 800.0];
 
 fn uuid(v: &Value) -> Uuid {
-    v.as_str().unwrap_or_else(|| panic!("not a UUID: {v}")).parse().expect("a UUID")
+    v.as_str()
+        .unwrap_or_else(|| panic!("not a UUID: {v}"))
+        .parse()
+        .expect("a UUID")
 }
 
 /// A Shell with the starter Library and an empty user Library "Mine", in `theme`.
@@ -196,16 +199,36 @@ fn screens(shell: &mut Shell) -> Vec<Screen> {
     let starter_part: Uuid = BUTTON.parse().unwrap();
     vec![
         ("Footprint", Box::new(open(fp)), "Pad Tool", PANEL),
-        ("Footprint, an SMD Pad", Box::new(select(fp, pad)), "Corner ratio", PANEL),
+        (
+            "Footprint, an SMD Pad",
+            Box::new(select(fp, pad)),
+            "Corner ratio",
+            PANEL,
+        ),
         (
             "Footprint, a through-hole Pad",
             Box::new(select(fp, hole)),
             "Hole tolerance +",
             PANEL,
         ),
-        ("Footprint, a text", Box::new(select(fp, text)), "Visible", PANEL),
-        ("Footprint, a graphic", Box::new(select(fp, graphic)), "Stroke width", PANEL),
-        ("generated Footprint", Box::new(open(generated)), "Regenerate…", PANEL),
+        (
+            "Footprint, a text",
+            Box::new(select(fp, text)),
+            "Visible",
+            PANEL,
+        ),
+        (
+            "Footprint, a graphic",
+            Box::new(select(fp, graphic)),
+            "Stroke width",
+            PANEL,
+        ),
+        (
+            "generated Footprint",
+            Box::new(open(generated)),
+            "Regenerate…",
+            PANEL,
+        ),
         (
             "starter Footprint",
             Box::new(open(starter_footprint)),
@@ -299,10 +322,21 @@ fn check(dark: bool, density: Density) {
     let theme_name = if dark { "dark" } else { "light" };
     let mut shell = shell(home.path(), theme_name);
     let all = screens(&mut shell);
-    let mut h = Harness::builder()
-        .with_size(WINDOW)
-        .with_max_steps(200)
-        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    // With `REDA_GALLERY_OUT` set, each screen is also written there as a picture, for a
+    // reviewer (drawn by Mesa's llvmpipe: `LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl`).
+    let pictures = std::env::var_os("REDA_GALLERY_OUT").map(std::path::PathBuf::from);
+    let mut builder = Harness::builder().with_size(WINDOW).with_max_steps(200);
+    if pictures.is_some() {
+        builder = builder.renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state({
+            let render_state = egui_kittest::wgpu::create_render_state(
+                egui_kittest::wgpu::default_wgpu_setup(),
+                egui_wgpu::RendererOptions::PREDICTABLE,
+            );
+            reda_ui::install_canvas(&render_state, 1);
+            render_state
+        }));
+    }
+    let mut h = builder.build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.run();
     theme::set(
         &h.ctx,
@@ -320,10 +354,21 @@ fn check(dark: bool, density: Density) {
         // Tables measure their columns on their first frame and the rest settles over
         // a few more.
         h.run_steps(30);
+        if let Some(folder) = &pictures {
+            std::fs::create_dir_all(folder).unwrap();
+            let file = format!("{name}_{theme_name}_{density:?}.png").replace([' ', ','], "_");
+            let image = h.render().expect("the window renders");
+            image.save(folder.join(file.to_lowercase())).unwrap();
+        }
         let mut seen = drawn(&h);
         let mut lines = misfits(&h);
         for label in scrolled {
-            let at = h.get_all_by_label(label).next().expect(label).rect().center();
+            let at = h
+                .get_all_by_label(label)
+                .next()
+                .expect(label)
+                .rect()
+                .center();
             h.event(egui::Event::PointerMoved(at));
             for _ in 0..SCROLLS {
                 h.event(egui::Event::MouseWheel {
