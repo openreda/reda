@@ -131,6 +131,21 @@ impl Menu<'_> {
         self
     }
 
+    /// Opens the menu when it is closed and closes it when it is open, when `toggle`: for
+    /// a menu that a key opens as well as a click on its anchor.
+    pub fn toggle(mut self, toggle: bool) -> Self {
+        if toggle {
+            self.popup = self.popup.open_memory(Some(SetOpenCommand::Toggle));
+        }
+        self
+    }
+
+    /// The popup's accessible name.
+    pub fn named(mut self, name: impl Into<String>) -> Self {
+        self.popup = self.popup.accessible_name(name.into());
+        self
+    }
+
     /// The id of the popup, to ask [`menu_is_open`] about.
     pub fn popup_id(&self) -> Id {
         self.popup.get_id()

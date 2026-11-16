@@ -72,9 +72,9 @@ fn window_with_step(step: f32) -> Window {
     let h = Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        // The side Docks open 16 px wider each than they first did, and the cards stand
+        // The side Docks open 48 px wider each than they first did, and the cards stand
         // 6 px apart and from the window's edges: the canvas keeps its width.
-        .with_size([1050.0, 1400.0])
+        .with_size([1114.0, 1400.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
         h,
@@ -897,6 +897,10 @@ fn board_rectangle_direction_follows_the_screen_also_from_below() {
             .unwrap();
         w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
         w.h.drag_at(from);
+        w.h.step();
+        // Let the clock run again, or the Layers Panel's "View from bottom" box, which
+        // the flip just changed, never finishes its transition.
+        w.h.input_mut().time = None;
         w.h.run();
         w.h.hover_at(to);
         w.h.run();

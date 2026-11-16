@@ -199,10 +199,7 @@ fn violation_details_is_a_window_that_leaves_the_rest_usable() {
     h.get_by_role_and_label(Role::Button, SECOND_END)
         .scroll_to_me();
     h.run();
-    // The bottom Dock's card leaves the list too little room over the details pane at
-    // the Dock's default height for the line to show: it is clicked through AccessKit.
-    h.get_by_role_and_label(Role::Button, SECOND_END)
-        .click_accesskit();
+    h.get_by_role_and_label(Role::Button, SECOND_END).click();
     h.run();
     assert_eq!(current(&h).as_deref(), Some(SECOND_END));
     h.key_press(egui::Key::F4);

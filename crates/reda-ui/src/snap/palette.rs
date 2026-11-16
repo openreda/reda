@@ -3,7 +3,6 @@
 //! (`view.snap.palette`) opens the same pop-up during any operation. Every change is a
 //! `view.snap.set`.
 
-use egui::{PopupCloseBehavior, SetOpenCommand};
 use std::collections::BTreeMap;
 
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
@@ -14,6 +13,8 @@ use serde_json::{Value, json};
 
 use super::{hotspot_label, hotspot_name, offered};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
+use crate::widgets::{self, Glyph, Tooltip as _};
 use crate::working_state::{SnapMode, WorkingState};
 
 /// Adds `view.snap.palette`.
@@ -71,10 +72,8 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
         .unwrap_or_else(|| crate::working_state::SnapOptions::default_for(ty));
     let mut commands = Vec::new();
     let mut grid = !options.gridless;
-    if ui
-        .checkbox(&mut grid, crate::tr!("snap-palette-grid"))
-        .changed()
-    {
+    let grid_box = widgets::checkbox(&mut grid, crate::tr!("snap-palette-grid"));
+    if ui.add(grid_box).changed() {
         commands.push((
             "view.snap.set",
             json!({"document": document, "gridless": !grid}),
@@ -83,7 +82,8 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
     ui.separator();
     ui.label(crate::tr!("snap-palette-mode"));
     for &mode in SnapMode::offered(ty) {
-        if ui.radio(options.mode == mode, mode_label(mode)).clicked() && options.mode != mode {
+        let radio = widgets::radio(options.mode == mode, mode_label(mode));
+        if ui.add(radio).clicked() && options.mode != mode {
             commands.push(("view.snap.set", json!({"document": document, "mode": mode})));
         }
     }
@@ -91,7 +91,10 @@ pub fn controls(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Vec<(&'stat
     ui.label(crate::tr!("snap-palette-hotspots"));
     for &kind in offered(ty) {
         let mut on = !options.hotspots_off.contains(&kind);
-        if ui.checkbox(&mut on, hotspot_label(kind)).changed() {
+        if ui
+            .add(widgets::checkbox(&mut on, hotspot_label(kind)))
+            .changed()
+        {
             commands.push((
                 "view.snap.set",
                 json!({"document": document, "hotspots": {hotspot_name(kind): on}}),
@@ -115,20 +118,11 @@ pub fn mode_label(mode: SnapMode) -> String {
 /// the same pop-up.
 pub fn palette_button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Option<(String, Value)> {
     let title = crate::tr!("snap-palette-title");
-    let (_, rect) = ui.allocate_space(egui::Vec2::splat(crate::chrome::BAR_BUTTON));
-    let response = ui.interact(
-        rect,
-        ui.scope_id().with(("snap-palette-button", document)),
-        egui::Sense::click(),
-    );
-    let color = if response.hovered() {
-        ui.visuals().strong_text_color()
-    } else {
-        ui.visuals().text_color()
-    };
-    paint_icon(ui.painter(), rect.center(), color);
+    let button = widgets::glyph_button(Glyph::Snap).side(crate::chrome::BAR_BUTTON);
+    let response = ui.push_id(("snap-palette-button", document), |ui| ui.add(button));
+    let response = response.inner;
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &title));
-    let response = response.on_hover_text(&title);
+    let response = response.tooltip(&title);
     let requested = shell
         .engine()
         .view()
@@ -138,29 +132,19 @@ pub fn palette_button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Optio
     let seen_id = egui::Id::NULL.with(("snap-palette-seen", document));
     let seen = ui.data(|d| d.get_temp::<u64>(seen_id)).unwrap_or(requested);
     ui.data_mut(|d| d.insert_temp(seen_id, requested));
-    let toggle = (seen != requested || response.clicked()).then_some(SetOpenCommand::Toggle);
+    // A click on the button toggles the pop-up by itself; the Command toggles it too.
     let mut command = None;
-    egui::Popup::menu(&response)
-        .open_memory(toggle)
-        .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-        .accessible_name(title.clone())
+    widgets::menu(&response)
+        .toggle(seen != requested)
+        .stay_open()
+        .named(title.clone())
         .show(|ui| {
-            ui.strong(&title);
+            let t = ui.tokens();
+            ui.label(t.ty.body_strong.rich(&title).color(t.color.text.primary));
             command = controls(ui, shell, document)
                 .into_iter()
                 .next()
                 .map(|(id, p)| (id.into(), p));
         });
     command
-}
-
-/// A grid of dots with a cross on one: the palette's icon, painted (the UI font lacks
-/// symbol glyphs).
-fn paint_icon(painter: &egui::Painter, c: egui::Pos2, color: egui::Color32) {
-    for dx in [-6.0, 0.0, 6.0] {
-        for dy in [-6.0, 0.0, 6.0] {
-            painter.circle_filled(c + egui::vec2(dx, dy), 1.2, color);
-        }
-    }
-    painter.circle_stroke(c, 4.0, egui::Stroke::new(1.5, color));
 }

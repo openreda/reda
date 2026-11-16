@@ -208,6 +208,21 @@ pub struct RecentProject {
 }
 
 /// The shell: the engine and the tabs showing it.
+/// The tab the user last pressed in or moved the keyboard into.
+struct UsedTab {
+    tab: TabKey,
+    /// The layout's focus once what the press itself ran had settled. The tab stays the
+    /// one in use only while the layout's focus is still this.
+    focus: Option<TabKey>,
+    /// How many more frames the layout's focus may move without ending the use: what the
+    /// press itself runs (going to a Violation opens its sheet) takes a frame or two to
+    /// move it.
+    settling: u8,
+}
+
+/// The frames a press's own Commands are given to move the layout's focus.
+const USE_SETTLES_IN: u8 = 3;
+
 pub struct Shell {
     pub(crate) engine: Engine,
     /// The open Documents' tabs, wherever the Layout puts them.
@@ -215,6 +230,9 @@ pub struct Shell {
     /// The units the Properties panel shows lengths in after `Ctrl+Q` there; `None`
     /// follows the active Document's.
     properties_units: Option<preferences::Units>,
+    /// The tab the user last pressed in or moved the keyboard into: which Panel shows a
+    /// live selection (see [`Shell::panel_focused`]).
+    used_tab: Option<UsedTab>,
     fonts: Arc<dyn InstalledFonts>,
     /// Families already asked of [`InstalledFonts`], found or not.
     asked_fonts: BTreeSet<String>,
@@ -436,6 +454,7 @@ impl Shell {
             engine,
             documents: Vec::new(),
             properties_units: None,
+            used_tab: None,
             fonts: Arc::new(NoFonts),
             asked_fonts: BTreeSet::new(),
             generation: 0,

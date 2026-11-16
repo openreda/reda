@@ -319,6 +319,10 @@ command-view-theme-set-light-title = Light
 
 dialog-cancel = Cancel
 dialog-close-window = Close window
+colour-shade = Saturation and brightness
+colour-hue = Hue
+colour-hex = Colour as #rrggbb
+colour-copy = Copy colour
 dialog-open-project-title = Open Project
 dialog-project-filter = REDA Project
 dialog-location-title = Choose Where to Create the Project

@@ -233,6 +233,8 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) -> Vec<Action> {
 fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
     let mut out = Vec::new();
     let target = target(shell);
+    // Whether the Panel holds keyboard focus: its chosen row is live only then.
+    let focused = shell.panel_focused(crate::layout::PanelId::Library);
     let mode = panel.mode(shell);
     filters(ui, shell, panel, mode);
     let entries = panel.entries(shell, mode);
@@ -261,7 +263,7 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
             widgets::rows(ui, |ui| {
                 for entry in &entries {
                     let status = statuses.get(&entry.uuid).copied();
-                    out.extend(row(ui, panel, mode, target, entry, status));
+                    out.extend(row(ui, panel, mode, target, entry, status, focused));
                 }
             });
         });
@@ -270,7 +272,8 @@ fn draw(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel) -> Vec<Do> {
         .selected
         .and_then(|s| entries.iter().find(|e| e.uuid == s))
         .cloned();
-    ui.horizontal(|ui| {
+    // The buttons wrap where the Dock is too narrow for the three.
+    ui.horizontal_wrapped(|ui| {
         // Edit opens the chosen element in its editor (a Part's links to its Symbol and
         // Footprints); New makes an element or a Library, imports a Part, generates a
         // Footprint or makes a Project Library.
@@ -385,7 +388,7 @@ fn filters(ui: &mut Ui, shell: &Shell, panel: &mut LibraryPanel, mode: Mode) {
         .libraries()
         .map(|l| (l.info.uuid, l.info.name.clone()))
         .collect();
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let all = tr!("library-all-libraries");
         // In Library mode the editor's Library is the one listed.
         let shown = matches!(mode, Mode::Place(_));
@@ -430,6 +433,7 @@ fn row(
     target: Placing,
     entry: &Entry,
     status: Option<RowStatus>,
+    focused: bool,
 ) -> Vec<Do> {
     let mut out = Vec::new();
     let chosen = panel.selected == Some(entry.uuid);
@@ -454,6 +458,7 @@ fn row(
             }
             let row = widgets::list_row(entry.text(mode))
                 .selected(chosen)
+                .panel_focused(focused)
                 .sense(Sense::click_and_drag());
             let response = ui.add(row);
             response.widget_info(|| WidgetInfo::selected(Role::ListItem, true, chosen, &label));

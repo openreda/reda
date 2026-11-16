@@ -12,7 +12,8 @@
 //! ```
 //!
 //! The data widgets work the same way: `widgets::list_row`, `tree_row`, `table`,
-//! `section_header` and `section`, `form` with `form_row`, `status_mark` and `swatch`.
+//! `section_header` and `section`, `form` with `form_row`, `status_mark`, `swatch`,
+//! `badge` and `count_pill`.
 //! So do the shell's: `tab`, `status_item`, `paint_card` with `mask_card_corners`, the
 //! Dock `splitter`, and `drop_preview`, `drop_button` and `drag_chip` for a dragged tab.
 //!
@@ -27,8 +28,10 @@
 //! Dimensions that no setting changes (the 28 × 16 switch track, the 16 px mark) are
 //! named constants beside their recipe, not `Tokens` entries.
 
+mod badge;
 mod button;
 mod check;
+mod color;
 mod command_field;
 mod dialog;
 mod drop;
@@ -52,11 +55,15 @@ mod table;
 mod tooltip;
 mod window_bar;
 
+pub use badge::{BADGE_PAD_X, BADGE_PAD_Y, Badge, BadgeTone, badge, count_pill};
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
 };
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
+};
+pub use color::{
+    ColorButton, PICKER_FIELD, PICKER_HUE, PICKER_WIDTH, color_button, color_picker, data_color,
 };
 pub use command_field::{COMMAND_FIELD_MAX, COMMAND_FIELD_MIN, CommandField, command_field};
 pub use dialog::{Shown, Window, button_row, dialog_frame, scrim, title_row, window, window_frame};
@@ -68,7 +75,7 @@ pub use dropdown::{
 pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_field};
 pub use form::{Form, FormName, form, form_name, form_row};
 pub use glyph::{Glyph, GlyphMark, glyph};
-pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_rgb};
+pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_none, swatch_rgb};
 pub use menu::{
     Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_below, menu_button, menu_frame,
     menu_is_open, menu_item, menu_separator, menu_titles_width,
