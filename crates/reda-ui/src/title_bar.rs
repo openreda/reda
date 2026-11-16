@@ -21,6 +21,9 @@ pub mod resize;
     not(any(target_os = "macos", target_os = "ios", target_os = "android"))
 ))]
 pub mod wayland;
+// Compiled everywhere, so its pure functions are tested on any platform; what reaches
+// AppKit inside it is macOS-only.
+pub mod macos;
 mod window;
 
 pub use arrange::{Arrangement, Field, Widths, arrange};
@@ -73,6 +76,8 @@ impl Chrome {
 /// What the window `ctx` is drawing provides around its Title bar, from how REDA
 /// `startup` and the window's state now (maximised, full screen).
 pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
+    #[cfg(target_os = "macos")]
+    return ctx.input(|i| macos::chrome(startup, i.viewport()));
     #[cfg(all(
         unix,
         not(any(target_os = "macos", target_os = "ios", target_os = "android"))
@@ -90,9 +95,11 @@ pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
 }
 
 /// The options of a window REDA is about to open (the main window or a floating one),
-/// as `startup` asks: the platform's undecorated window unless the system title bar is
-/// in force.
+/// as `startup` asks: the platform's own window for REDA's bar (undecorated on Wayland)
+/// unless the system title bar is in force.
 pub fn viewport(startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
+    #[cfg(target_os = "macos")]
+    return macos::viewport(startup, builder);
     #[cfg(all(
         unix,
         not(any(target_os = "macos", target_os = "ios", target_os = "android"))
@@ -120,6 +127,46 @@ pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
     let _ = (frame, at);
 }
 
+/// The height of a floating window's slim bar: the native title bar's on macOS, where
+/// the traffic lights stay where AppKit puts them, and `floating_bar_height()` elsewhere.
+pub fn floating_bar_height(tokens: &crate::theme::Tokens) -> f32 {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = tokens;
+        return macos::NATIVE_TITLE_BAR_HEIGHT;
+    }
+    #[allow(unreachable_code)]
+    {
+        tokens.floating_bar_height()
+    }
+}
+
+/// What a double-click on the bar's empty space sends to a window that is `maximised`
+/// or not: on macOS what System Settings asks, elsewhere maximise or restore.
+pub fn double_click(maximised: bool) -> Option<egui::ViewportCommand> {
+    #[cfg(target_os = "macos")]
+    return macos::double_click(macos::DoubleClick::system(), maximised);
+    #[allow(unreachable_code)]
+    {
+        Some(egui::ViewportCommand::Maximized(!maximised))
+    }
+}
+
+/// Puts what the platform draws itself in the main window's bar, drawn at `bar` this
+/// frame: macOS's traffic lights, centred in it. Through `frame`, which holds the main
+/// window only; nothing elsewhere.
+pub fn place_native_controls(
+    frame: &eframe::Frame,
+    ctx: &egui::Context,
+    chrome: Chrome,
+    bar: egui::Rect,
+) {
+    #[cfg(target_os = "macos")]
+    macos::place_traffic_lights(frame, ctx, chrome, bar);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (frame, ctx, chrome, bar);
+}
+
 /// How the Title bar was set up when REDA started. **Use the system title bar** applies
 /// on restart, so the Appearance page compares the stored Preference with this to say
 /// whether a change waits for the next start.
@@ -144,7 +191,7 @@ impl Startup {
 
     /// The start as the Preferences ask and the desktop allows: `forced` where the
     /// platform detects a desktop that draws every window's title bar, before the window
-    /// is created.
+    /// is created. macOS never forces it; under Linux, sway, Hyprland and X11 do.
     pub fn detect(prefs: &reda_engine::preferences::Preferences) -> Startup {
         #[allow(unused_mut)]
         let mut startup = Startup::of(prefs);
@@ -172,27 +219,27 @@ impl Startup {
     pub fn recalled(ctx: &egui::Context) -> Option<Startup> {
         ctx.data(|d| d.get_temp(startup_id()))
     }
+
+    /// Marks the windows drawn on `ctx` as built from this start, so REDA draws the
+    /// platform's window chrome in them ([`Startup::decorating`]). Only the real app
+    /// does this; a test harness's windows keep the system title bar's row.
+    pub fn remember_decorating(self, ctx: &egui::Context) {
+        self.remember(ctx);
+        ctx.data_mut(|d| d.insert_temp(decorating_id(), true));
+    }
+
+    /// The start kept on `ctx` when its windows are built from it, for a floating
+    /// window to be built and decorated like the main one.
+    pub fn decorating(ctx: &egui::Context) -> Option<Startup> {
+        let decorating = ctx.data(|d| d.get_temp::<bool>(decorating_id()));
+        decorating.and_then(|_| Startup::recalled(ctx))
+    }
 }
 
 fn startup_id() -> egui::Id {
     egui::Id::NULL.with("reda-title-bar-startup")
 }
 
-impl Startup {
-    /// Keeps on `ctx` that the main window was built as this start asks, so the floating
-    /// windows it opens are built and decorated the same way ([`Startup::window`]).
-    pub fn remember_window(self, ctx: &egui::Context) {
-        ctx.data_mut(|d| d.insert_temp(window_id(), self));
-    }
-
-    /// The start the main window was built with, if the app built it as the platform
-    /// does; `None` for a window drawn under the system title bar whatever the start
-    /// (a test harness).
-    pub fn window(ctx: &egui::Context) -> Option<Startup> {
-        ctx.data(|d| d.get_temp(window_id()))
-    }
-}
-
-fn window_id() -> egui::Id {
-    egui::Id::NULL.with("reda-title-bar-window")
+fn decorating_id() -> egui::Id {
+    egui::Id::NULL.with("reda-title-bar-decorating")
 }

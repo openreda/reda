@@ -248,6 +248,7 @@ pub fn floating_bar(title: impl Into<String>) -> FloatingBar {
     FloatingBar {
         title: title.into(),
         leading_inset: 0.0,
+        height: None,
         controls: true,
         drags: false,
         maximised: false,
@@ -261,6 +262,7 @@ pub fn floating_bar(title: impl Into<String>) -> FloatingBar {
 pub struct FloatingBar {
     title: String,
     leading_inset: f32,
+    height: Option<f32>,
     controls: bool,
     drags: bool,
     maximised: bool,
@@ -283,6 +285,13 @@ impl FloatingBar {
     /// lights).
     pub fn leading_inset(mut self, inset: f32) -> Self {
         self.leading_inset = inset;
+        self
+    }
+
+    /// The bar's height; unset, `floating_bar_height()`. On macOS the bar takes the
+    /// native title-bar height, which the traffic lights are centred in.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
         self
     }
 
@@ -323,7 +332,7 @@ impl FloatingBar {
     /// Draws the bar across the width available at the cursor.
     pub fn show(self, ui: &mut Ui) -> FloatingBarResponse {
         let t = ui.tokens();
-        let height = t.floating_bar_height();
+        let height = self.height.unwrap_or_else(|| t.floating_bar_height());
         let sense = if self.drags {
             Sense::click_and_drag()
         } else {

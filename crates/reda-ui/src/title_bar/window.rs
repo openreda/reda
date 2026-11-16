@@ -13,9 +13,9 @@ use crate::widgets::WindowAction;
 
 /// Carries out a frame of the bar in the window `ctx` draws: the window control
 /// clicked, and on the bar's empty stretches (`background`) a drag that moves the
-/// window, a double-click that maximises or restores it, and a right-click, whose
-/// position (in points) is returned for the system window menu where the platform
-/// can show one.
+/// window, a double-click ([`super::double_click`]: maximise or restore, or on macOS
+/// what System Settings asks), and a right-click, whose position (in points) is
+/// returned for the system window menu where the platform can show one.
 pub fn drive(
     ctx: &egui::Context,
     chrome: Chrome,
@@ -28,11 +28,14 @@ pub fn drive(
     if !chrome.drags {
         return None;
     }
-    if background.drag_started_by(PointerButton::Primary) {
+    let on_empty = pressed_on_empty(ctx, background);
+    if background.drag_started_by(PointerButton::Primary) && on_empty {
         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
     }
-    if background.double_clicked() {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!chrome.maximised));
+    if background.double_clicked()
+        && let Some(command) = super::double_click(chrome.maximised)
+    {
+        ctx.send_viewport_cmd(command);
     }
     if background.secondary_clicked() {
         return background.interact_pointer_pos();
@@ -56,4 +59,26 @@ pub fn edge(ctx: &egui::Context, chrome: Chrome) {
         Stroke::new(t.stroke.hairline, t.color.stroke.hairline),
         StrokeKind::Inside,
     );
+}
+
+/// Whether the primary press now held (or pressed this frame) began on the bar's empty
+/// space itself, and not on a button above it. egui hands a drag that starts on a click-only widget (a quick
+/// strip button, a menu title) to the drag-sensing background under it, which would
+/// move the window from a button. Runs every frame the bar drags, to see the press.
+fn pressed_on_empty(ctx: &egui::Context, background: &Response) -> bool {
+    let id = background.id.with("pressed-on-empty");
+    if ctx.input(|i| i.pointer.primary_pressed()) {
+        // Pressed this frame: nothing clickable but the background is under the pointer.
+        let over = ctx.interaction_snapshot(|s| s.hovered.clone());
+        let clickable = |id: &egui::Id| {
+            *id != background.id
+                && ctx
+                    .read_response(*id)
+                    .is_some_and(|r| r.sense.senses_click())
+        };
+        let empty = background.contains_pointer() && !over.iter().any(clickable);
+        ctx.data_mut(|d| d.insert_temp(id, empty));
+        return empty;
+    }
+    ctx.data(|d| d.get_temp(id)).unwrap_or(false)
 }

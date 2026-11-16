@@ -284,14 +284,14 @@ impl Cx<'_, '_> {
 }
 
 /// The slim Title bar at the top of a floating window REDA decorates itself: the window's
-/// title, drag space and the window controls, which act on that window. None under the
-/// system title bar.
+/// title, drag space and, where REDA draws them, the window controls, which act on that
+/// window. None under the system title bar.
 fn floating_bar(ui: &mut Ui, title: &str, chrome: crate::title_bar::Chrome) {
     if !chrome.controls && !chrome.drags {
         return;
     }
     let ctx = ui.ctx().clone();
-    let height = ui.tokens().floating_bar_height();
+    let height = crate::title_bar::floating_bar_height(&ui.tokens());
     egui::Panel::top("floating-bar")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)
@@ -299,6 +299,7 @@ fn floating_bar(ui: &mut Ui, title: &str, chrome: crate::title_bar::Chrome) {
         .exact_size(height)
         .show(ui, |ui| {
             let bar = widgets::floating_bar(title)
+                .height(height)
                 .leading_inset(chrome.leading_inset)
                 .controls(chrome.controls)
                 .drags(chrome.drags)
@@ -369,9 +370,9 @@ impl Cx<'_, '_> {
             .with_title(title.clone())
             .with_inner_size(size)
             .with_min_inner_size(WINDOW_MIN);
-        // Built like the main window: undecorated, with REDA's slim bar, unless the system
-        // title bar is in force.
-        let startup = crate::title_bar::Startup::window(ctx);
+        // Built like the main window, with REDA's slim bar, unless the system title bar
+        // is in force.
+        let startup = crate::title_bar::Startup::decorating(ctx);
         if let Some(startup) = startup {
             builder = crate::title_bar::viewport(startup, builder);
         }

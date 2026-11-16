@@ -75,6 +75,9 @@ pub struct App {
     /// Where the bar was right-clicked this frame, in logical pixels, for the system
     /// window menu.
     window_menu: Option<egui::Pos2>,
+    /// The chrome the bar was drawn with this frame and where, for what the platform
+    /// places in it itself (macOS's traffic lights).
+    drawn_bar: Option<(title_bar::Chrome, egui::Rect)>,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
@@ -120,6 +123,7 @@ impl App {
             window_chrome: false,
             transparent: false,
             window_menu: None,
+            drawn_bar: None,
             crash_report,
             shell,
             files: FileDialogs::default(),
@@ -196,11 +200,11 @@ impl App {
         }
     }
 
-    /// Lets the window free the GPU state of canvases whose tabs close.
     /// The window as REDA built it at the start, from `startup`
     /// ([`title_bar::Startup::detect`] and [`title_bar::viewport`]): the Title bar gets the
-    /// platform's window controls, dragging, edge resizing and corners unless the system
-    /// title bar is in force.
+    /// platform's window chrome unless the system title bar is in force: on Wayland the
+    /// window controls, dragging, edge resizing and corners, on macOS the traffic lights'
+    /// inset and dragging.
     pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
         self.title_bar = startup;
         self.window_chrome = true;
@@ -209,6 +213,7 @@ impl App {
         self
     }
 
+    /// Lets the window free the GPU state of canvases whose tabs close.
     pub fn with_render_state(mut self, render_state: egui_wgpu::RenderState) -> App {
         self.render_state = Some(render_state);
         self
@@ -261,9 +266,10 @@ impl App {
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
-            self.title_bar.remember(&ctx);
             if self.window_chrome {
-                self.title_bar.remember_window(&ctx);
+                self.title_bar.remember_decorating(&ctx);
+            } else {
+                self.title_bar.remember(&ctx);
             }
             self.theme_installed = true;
         }
@@ -1010,6 +1016,7 @@ impl App {
         let ctx = ui.ctx();
         let menu = title_bar::drive(ctx, chrome, outcome.window, &outcome.background);
         self.window_menu = menu.map(|p| (p.to_vec2() * ctx.zoom_factor()).to_pos2());
+        self.drawn_bar = Some((chrome, outcome.background.rect));
         outcome.run
     }
 
@@ -1210,6 +1217,9 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         App::ui(self, ui);
+        if let Some((chrome, bar)) = self.drawn_bar.take() {
+            title_bar::place_native_controls(frame, ui.ctx(), chrome, bar);
+        }
         if let Some(at) = self.window_menu.take() {
             title_bar::show_window_menu(frame, at);
         }
