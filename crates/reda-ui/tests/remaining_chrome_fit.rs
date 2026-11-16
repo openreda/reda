@@ -78,12 +78,37 @@ fn shell_with(home: &Path, look: Look, latest: &'static str) -> Shell {
 }
 
 fn harness(shell: Shell) -> Harness<'static, App> {
-    let mut h = Harness::builder()
-        .with_size(WINDOW)
-        .with_max_steps(12)
-        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    let mut builder = Harness::builder().with_size(WINDOW).with_max_steps(12);
+    if pictures().is_some() {
+        let render_state = egui_kittest::wgpu::create_render_state(
+            egui_kittest::wgpu::default_wgpu_setup(),
+            egui_wgpu::RendererOptions::PREDICTABLE,
+        );
+        reda_ui::install_canvas(&render_state, 1);
+        builder = builder.renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
+            render_state,
+        ));
+    }
+    let mut h = builder.build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     settle(&mut h);
     h
+}
+
+/// Where to write a picture of each screen: `REDA_GALLERY_OUT`, when set (with the
+/// llvmpipe environment of the snapshots).
+fn pictures() -> Option<PathBuf> {
+    std::env::var_os("REDA_GALLERY_OUT").map(PathBuf::from)
+}
+
+/// Writes what `h` shows to `REDA_GALLERY_OUT/fit_<screen>_<theme>_<density>.png`.
+fn keep(h: &mut Harness<'static, App>, look: Look, screen: &str) {
+    let Some(folder) = pictures() else {
+        return;
+    };
+    std::fs::create_dir_all(&folder).unwrap();
+    let name = format!("fit_{screen}_{}_{}.png", look.theme, look.density).replace(' ', "_");
+    let image = h.render().expect("the window renders");
+    image.save(folder.join(name)).unwrap();
 }
 
 /// Dialogs grow in and size themselves to their content over a few frames.
@@ -216,6 +241,7 @@ fn start_and_new_project(look: Look, out: &mut Vec<String>) {
     for label in &labels {
         page = page.union(h.get_all_by_label(label).last().unwrap().rect());
     }
+    keep(&mut h, look, "start page");
     report(
         out,
         look,
@@ -225,6 +251,7 @@ fn start_and_new_project(look: Look, out: &mut Vec<String>) {
 
     click(&mut h, "New Project…");
     click(&mut h, "Rectangle");
+    keep(&mut h, look, "new project");
     report(
         out,
         look,
@@ -247,6 +274,7 @@ fn help_dialogs(look: Look, out: &mut Vec<String>) {
                 .run("app.dialog.open", json!({"dialog": "about"}))
                 .unwrap();
             settle(&mut h);
+            keep(&mut h, look, "about");
             report(
                 out,
                 look,
@@ -254,6 +282,7 @@ fn help_dialogs(look: Look, out: &mut Vec<String>) {
                 misfits(&h, &[dialog(&h, "About REDA")], &[]),
             );
             click(&mut h, "Licences");
+            keep(&mut h, look, "licences");
             report(
                 out,
                 look,
@@ -268,6 +297,7 @@ fn help_dialogs(look: Look, out: &mut Vec<String>) {
             .unwrap();
         wait_for(&mut h, answer);
         let screen = format!("check for updates ({latest})");
+        keep(&mut h, look, &screen);
         report(
             out,
             look,
@@ -304,6 +334,7 @@ fn closing(look: Look, out: &mut Vec<String>) {
     h.get_by_role_and_label(Role::Button, "Close Sheet 1")
         .click();
     settle(&mut h);
+    keep(&mut h, look, "closing a tab");
     report(
         out,
         look,
@@ -317,6 +348,7 @@ fn closing(look: Look, out: &mut Vec<String>) {
     settle(&mut h);
     click(&mut h, "File");
     click(&mut h, "Quit");
+    keep(&mut h, look, "quitting");
     report(
         out,
         look,
@@ -342,7 +374,8 @@ fn crash_dialogs(look: Look, out: &mut Vec<String>) {
     drop(shell);
     let mut shell = shell_in(home.path(), look);
     shell.open_project(&work.path().join(LONG)).unwrap();
-    let h = harness(shell);
+    let mut h = harness(shell);
+    keep(&mut h, look, "recovery");
     report(
         out,
         look,
@@ -366,7 +399,8 @@ fn crash_dialogs(look: Look, out: &mut Vec<String>) {
         std::time::SystemTime::now(),
     )
     .unwrap();
-    let h = harness(shell_in(home.path(), look));
+    let mut h = harness(shell_in(home.path(), look));
+    keep(&mut h, look, "crash report");
     report(
         out,
         look,
@@ -408,6 +442,7 @@ fn job_report(look: Look, out: &mut Vec<String>) {
         })
         .expect("the run report")
         .rect();
+    keep(&mut h, look, "job run report");
     report(out, look, "job run report", misfits(&h, &[window], &[]));
 }
 

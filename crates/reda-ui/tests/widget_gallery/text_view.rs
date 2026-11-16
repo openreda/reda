@@ -8,11 +8,11 @@ use reda_ui::widgets::{self, State};
 use crate::kit;
 
 /// The size the page is snapshotted at.
-pub const SIZE: Vec2 = vec2(1180.0, 300.0);
+pub const SIZE: Vec2 = vec2(1180.0, 380.0);
 /// The width of a state column.
 const COLUMN: f32 = 168.0;
 
-const NOTICE: &str = "MIT License\nCopyright (c) the egui\nauthors";
+const NOTICE: &str = "MIT License\nCopyright (c)\nthe egui authors";
 const PROSE: &str = "Read-only text,\nselectable to copy.";
 
 pub fn page(ui: &mut Ui) {
@@ -30,13 +30,18 @@ pub fn views(ui: &mut Ui) {
             ui.add(if mono { view.mono() } else { view });
         });
     };
+    // One grid per style: a grid row takes its height from the frame before, and these
+    // rows are taller than a control.
     kit::states(
         ui,
-        "text-views",
+        "text-views-mono",
         COLUMN,
-        &mut [
-            ("Monospace", &mut |ui, s| view(ui, NOTICE, true, s)),
-            ("Body", &mut |ui, s| view(ui, PROSE, false, s)),
-        ],
+        &mut [("Monospace", &mut |ui, s| view(ui, NOTICE, true, s))],
+    );
+    kit::states(
+        ui,
+        "text-views-body",
+        COLUMN,
+        &mut [("Body", &mut |ui, s| view(ui, PROSE, false, s))],
     );
 }
