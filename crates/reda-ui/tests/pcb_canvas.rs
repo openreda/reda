@@ -897,6 +897,10 @@ fn board_rectangle_direction_follows_the_screen_also_from_below() {
             .unwrap();
         w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
         w.h.drag_at(from);
+        w.h.step();
+        // Let the clock run again, or the Layers Panel's "View from bottom" box, which
+        // the flip just changed, never finishes its transition.
+        w.h.input_mut().time = None;
         w.h.run();
         w.h.hover_at(to);
         w.h.run();
