@@ -397,7 +397,7 @@ What the Title bar holds and how it behaves is in [app.md](app.md#window-shell) 
 - **macOS:** the native traffic lights at the left, vertically centred. The quick strip starts after their 78 px inset.
 - **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls while the bar drags the window; with the system title bar the gear keeps only the bar's 6 px padding. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
 - **Inactive window:** text and window-control Glyphs go muted.
-- **Window corners** take the window radius. They are square when the window is maximised or uses the system title bar.
+- **Window corners** take the window radius. They are square when the window is maximised or uses the system title bar. On Windows the system rounds the window itself, at its own radius ([app.md](app.md#title-bar), accepted gaps).
 - **Floating windows:** a 32 px bar on the base with the window's title at the left in body text, and the same window controls. On macOS the bar takes the native title-bar height.
 - **Edge-resize strip:** an invisible hit strip inside the window edge on Windows and Wayland, off while maximised: 6 px along the edges and 12 px at the corners, along each of the two edges that meet there.
 

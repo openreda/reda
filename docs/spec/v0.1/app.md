@@ -113,11 +113,13 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
   - **Inactive window:** the bar's text and window controls go muted.
 - **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds an invisible hit strip inside the window edge: 6 px along the edges and 12 px at the corners. It is off while the window is maximised.
 - **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
+  - **Under Windows it is on by default for now.** Nobody on the project has had a Windows PC to try REDA's own bar on, so it has been proven only by CI on a Windows runner, which shows no real window: dragging, snapping, resizing and the window controls with Windows itself in the loop are untested. Turning it off gives REDA's bar. The default changes to off, as elsewhere, once the hands-on run ([#314](https://github.com/openreda/reda/issues/314)) has passed. While a user has not set it the value is not written to the file, so that change reaches everyone who left it alone.
   - With it on, the row is the same minus the window controls and the dragging. The command field still shows the title, and the window corners are square. Floating windows have the system's title bar and no REDA bar.
   - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created. It is also forced on under X11, where the window manager decorates every window: on Linux REDA draws its own Title bar under Wayland only.
   - This path keeps winit's Adwaita frame for compositors that draw none, such as GNOME on Wayland.
 - **Accepted gaps,** because REDA uses no `unsafe` and no winit fork (ADR-0014):
   - Windows: no snap-layouts flyout on the maximise button. Win+arrow and drag-to-snap still work.
+  - Windows: the window corners are the ones Windows 11 draws, at its own radius, and square on Windows 10. A transparent window could take the window radius, but wgpu presents an opaque surface on a Windows window handle, so REDA leaves the window opaque and the corners to the system, which also squares them when maximised or snapped.
   - GNOME: a 1 px rim in place of a window shadow, and corners that stay round when tiled.
   - macOS: floating windows keep AppKit's default traffic-light position.
 
@@ -492,7 +494,7 @@ Sources: [What per-user state does REDA keep, and where?](https://github.com/ope
     | Fonts | UI font | `general.ui_font` | Dropdown with type-to-filter (the bundled Inter) | none |
     | Fonts | Monospace font | `general.mono_font` | Dropdown with type-to-filter (the bundled JetBrains Mono) | "Used for the Journal, file names and command text." |
     | Window | Animate | `general.animate` | Switch (on) | "Off: menus, panels and dialogs appear at once." |
-    | Window | Use the system title bar | `general.system_title_bar` | Check box (off) | see below |
+    | Window | Use the system title bar | `general.system_title_bar` | Check box (off; on under Windows for now, see [Title bar](#title-bar)) | see below |
 
     - **Live:** every setting except the title bar applies to every window on the next frame, so the Preferences window is its own preview and there is no preview pane. A font or text size applies when chosen, not while moving through the list.
     - **Density** changes the padding and gaps around text, never the size of text or icons, for the whole chrome at once. No Panel or Dock has its own.

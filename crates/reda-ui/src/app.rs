@@ -70,6 +70,9 @@ pub struct App {
     /// the platform's window chrome. Off for a window made with [`App::new`] alone, such as
     /// a test harness's, which draws the bar as under the system title bar.
     window_chrome: bool,
+    /// Whose window chrome REDA draws: this platform's, or another's in a window test
+    /// ([`App::with_platform`]).
+    platform: title_bar::Platform,
     /// The window's surface is transparent, for the corners REDA rounds itself.
     transparent: bool,
     /// Where the bar was right-clicked this frame, in logical pixels, for the system
@@ -121,6 +124,7 @@ impl App {
         App {
             title_bar,
             window_chrome: false,
+            platform: title_bar::Platform::NATIVE,
             transparent: false,
             window_menu: None,
             drawn_bar: None,
@@ -208,9 +212,22 @@ impl App {
     pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
         self.title_bar = startup;
         self.window_chrome = true;
-        let options = title_bar::viewport(startup, egui::ViewportBuilder::default());
-        self.transparent = options.transparent == Some(true);
+        self.platform_changed();
         self
+    }
+
+    /// Draws `platform`'s window chrome in place of this platform's, in this window and
+    /// its floating windows, with [`App::with_title_bar`]: how the window tests draw
+    /// Windows' bar on any platform.
+    pub fn with_platform(mut self, platform: title_bar::Platform) -> App {
+        self.platform = platform;
+        self.platform_changed();
+        self
+    }
+
+    fn platform_changed(&mut self) {
+        let options = (self.platform).viewport(self.title_bar, egui::ViewportBuilder::default());
+        self.transparent = self.window_chrome && options.transparent == Some(true);
     }
 
     /// Lets the window free the GPU state of canvases whose tabs close.
@@ -268,6 +285,7 @@ impl App {
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
             if self.window_chrome {
                 self.title_bar.remember_decorating(&ctx);
+                self.platform.remember(&ctx);
             } else {
                 self.title_bar.remember(&ctx);
             }
@@ -289,7 +307,7 @@ impl App {
         tab_switcher::release(&ctx, &mut self.shell);
 
         let chrome = if self.window_chrome {
-            title_bar::chrome_for(&ctx, self.title_bar)
+            self.platform.chrome(&ctx, self.title_bar)
         } else {
             title_bar::Chrome::SYSTEM
         };

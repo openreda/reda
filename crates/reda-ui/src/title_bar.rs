@@ -15,6 +15,7 @@
 
 pub mod arrange;
 mod draw;
+pub mod hit;
 pub mod resize;
 #[cfg(all(
     unix,
@@ -24,10 +25,14 @@ pub mod wayland;
 // Compiled everywhere, so its pure functions are tested on any platform; what reaches
 // AppKit inside it is macOS-only.
 pub mod macos;
+// Compiled everywhere, like macos, so the Windows chrome is tested and drawn on any
+// platform; only the window menu inside it reaches winit on Windows.
+pub mod windows;
 mod window;
 
 pub use arrange::{Arrangement, Field, Widths, arrange};
 pub use draw::{FieldText, Outcome, field_text, show};
+pub use hit::{Hit, hit};
 pub use window::{drive, edge};
 
 /// The drag gap kept beside the window controls while the bar drags the window.
@@ -78,6 +83,8 @@ impl Chrome {
 pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
     #[cfg(target_os = "macos")]
     return ctx.input(|i| macos::chrome(startup, i.viewport()));
+    #[cfg(target_os = "windows")]
+    return windows::chrome_in(ctx, startup);
     #[cfg(all(
         unix,
         not(any(target_os = "macos", target_os = "ios", target_os = "android"))
@@ -95,11 +102,13 @@ pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
 }
 
 /// The options of a window REDA is about to open (the main window or a floating one),
-/// as `startup` asks: the platform's own window for REDA's bar (undecorated on Wayland)
-/// unless the system title bar is in force.
+/// as `startup` asks: the platform's own window for REDA's bar (undecorated on Wayland
+/// and Windows) unless the system title bar is in force.
 pub fn viewport(startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
     #[cfg(target_os = "macos")]
     return macos::viewport(startup, builder);
+    #[cfg(target_os = "windows")]
+    return windows::viewport(startup, builder);
     #[cfg(all(
         unix,
         not(any(target_os = "macos", target_os = "ios", target_os = "android"))
@@ -120,11 +129,63 @@ pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
         not(any(target_os = "macos", target_os = "ios", target_os = "android"))
     ))]
     wayland::show_window_menu(frame, at);
-    #[cfg(not(all(
-        unix,
-        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    #[cfg(target_os = "windows")]
+    windows::show_window_menu(frame, at);
+    #[cfg(not(any(
+        target_os = "windows",
+        all(
+            unix,
+            not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+        )
     )))]
     let _ = (frame, at);
+}
+
+/// How a platform decorates REDA's windows: the chrome a window gives its Title bar
+/// ([`chrome_for`]) and how the window is built ([`viewport`]). A window uses
+/// [`Platform::NATIVE`]; another platform's (such as [`windows::PLATFORM`]) is for drawing
+/// that platform's chrome on this one, in the window tests.
+#[derive(Clone, Copy, Debug)]
+pub struct Platform {
+    chrome: fn(&egui::Context, Startup) -> Chrome,
+    viewport: fn(Startup, egui::ViewportBuilder) -> egui::ViewportBuilder,
+}
+
+impl Platform {
+    /// The platform REDA was built for.
+    pub const NATIVE: Platform = Platform::new(chrome_for, viewport);
+
+    pub const fn new(
+        chrome: fn(&egui::Context, Startup) -> Chrome,
+        viewport: fn(Startup, egui::ViewportBuilder) -> egui::ViewportBuilder,
+    ) -> Platform {
+        Platform { chrome, viewport }
+    }
+
+    /// What the window `ctx` draws provides around its Title bar.
+    pub fn chrome(self, ctx: &egui::Context, startup: Startup) -> Chrome {
+        (self.chrome)(ctx, startup)
+    }
+
+    /// The options of a window about to open, as `startup` asks.
+    pub fn viewport(self, startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
+        (self.viewport)(startup, builder)
+    }
+
+    /// Keeps this platform on `ctx`, for the floating windows drawn there.
+    pub fn remember(self, ctx: &egui::Context) {
+        ctx.data_mut(|d| d.insert_temp(platform_id(), self));
+    }
+
+    /// The platform kept on `ctx`, or the native one.
+    pub fn recalled(ctx: &egui::Context) -> Platform {
+        ctx.data(|d| d.get_temp(platform_id()))
+            .unwrap_or(Platform::NATIVE)
+    }
+}
+
+fn platform_id() -> egui::Id {
+    egui::Id::NULL.with("reda-title-bar-platform")
 }
 
 /// The height of a floating window's slim bar: the native title bar's on macOS, where
@@ -191,7 +252,8 @@ impl Startup {
 
     /// The start as the Preferences ask and the desktop allows: `forced` where the
     /// platform detects a desktop that draws every window's title bar, before the window
-    /// is created. macOS never forces it; under Linux, sway, Hyprland and X11 do.
+    /// is created. macOS and Windows never force it; under Linux, sway, Hyprland and X11
+    /// do.
     pub fn detect(prefs: &reda_engine::preferences::Preferences) -> Startup {
         #[allow(unused_mut)]
         let mut startup = Startup::of(prefs);

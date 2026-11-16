@@ -374,7 +374,7 @@ impl Cx<'_, '_> {
         // is in force.
         let startup = crate::title_bar::Startup::decorating(ctx);
         if let Some(startup) = startup {
-            builder = crate::title_bar::viewport(startup, builder);
+            builder = crate::title_bar::Platform::recalled(ctx).viewport(startup, builder);
         }
         let saved = window.rect.map(|r| egui::pos2(r.x as f32, r.y as f32));
         if let Some(at) = drag::placement(ctx, self.layout, window.id).or(saved) {
@@ -383,7 +383,7 @@ impl Cx<'_, '_> {
         ctx.show_viewport_immediate(viewport, builder, |ui, _| {
             let ctx = ui.ctx().clone();
             let chrome = startup.map_or(crate::title_bar::Chrome::SYSTEM, |startup| {
-                crate::title_bar::chrome_for(&ctx, startup)
+                crate::title_bar::Platform::recalled(&ctx).chrome(&ctx, startup)
             });
             floating_bar(ui, &title, chrome);
             // Cards keep the card gap from the window's edges; the tab strip is at its top.
