@@ -10,7 +10,9 @@
 use std::path::Path;
 
 use egui::Rect;
+use egui::accesskit::Role;
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable as _;
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
@@ -28,11 +30,14 @@ const RESC1005: &str = "cece716c-4fd0-42c8-900c-0f3bc3c14225";
 /// The starter Button Part.
 const BUTTON: &str = "a785152e-43cd-446a-b4db-4044e91e3761";
 
+/// How many wheel turns a scroll area is given to reach its end.
+const SCROLLS: usize = 12;
+
 /// The window: a laptop's REDA window.
 const WINDOW: [f32; 2] = [1280.0, 800.0];
 
 fn uuid(v: &Value) -> Uuid {
-    v.as_str().expect("a UUID").parse().expect("a UUID")
+    v.as_str().unwrap_or_else(|| panic!("not a UUID: {v}")).parse().expect("a UUID")
 }
 
 /// A Shell with the starter Library and an empty user Library "Mine", in `theme`.
@@ -58,8 +63,8 @@ fn shell(home: &Path, theme: &str) -> Shell {
 }
 
 /// A Footprint of the user's with Pads of both kinds, a courtyard and its two texts;
-/// returns it with a Pad, a text and the graphic to select.
-fn footprint(shell: &mut Shell) -> (Uuid, [Uuid; 3]) {
+/// returns it with its SMD Pad, its through-hole Pad, a text and the graphic to select.
+fn footprint(shell: &mut Shell) -> (Uuid, [Uuid; 4]) {
     let out = shell
         .run(
             "library.element.new",
@@ -75,14 +80,15 @@ fn footprint(shell: &mut Shell) -> (Uuid, [Uuid; 3]) {
         )
         .unwrap()["result"]["pad"]
         .clone();
-    shell
+    let hole = shell
         .run(
             "library.footprint.pad.add",
             json!({"footprint": fp, "number": "2", "kind": "plated_through_hole",
                    "shape": "oval", "at": {"x": "3mm", "y": 0}, "width": "1.2mm",
                    "height": "2mm", "hole": {"width": "0.6mm", "height": "1.2mm"}}),
         )
-        .unwrap();
+        .unwrap()["result"]["pad"]
+        .clone();
     shell
         .run(
             "library.footprint.graphic.add",
@@ -97,7 +103,7 @@ fn footprint(shell: &mut Shell) -> (Uuid, [Uuid; 3]) {
     };
     let text = f.texts[0].uuid;
     let graphic = f.graphics[0].uuid;
-    (fp, [uuid(&pad), text, graphic])
+    (fp, [uuid(&pad), uuid(&hole), text, graphic])
 }
 
 /// A Part of the user's on the starter Resistor's Symbol and two Footprints, with an
@@ -135,8 +141,18 @@ fn part(shell: &mut Shell) -> Uuid {
     uuid(&part)
 }
 
-/// One screen: what it is called and how to bring it up in the window.
-type Screen = (String, Box<dyn Fn(&mut Shell)>);
+/// One screen: what it is called, how to bring it up in the window, a text it shows (so
+/// the check is known to look at all of it), and the labels of what scrolls in it (the
+/// Footprint's panel, the Part's form, the Pins Panel), which are scrolled to their ends.
+type Screen = (
+    &'static str,
+    Box<dyn Fn(&mut Shell)>,
+    &'static str,
+    &'static [&'static str],
+);
+
+const PANEL: &[&str] = &["Pad Tool"];
+const PART: &[&str] = &["Component Type", "Pin-Pad Map"];
 
 fn open(element: Uuid) -> impl Fn(&mut Shell) {
     move |shell: &mut Shell| {
@@ -159,14 +175,14 @@ fn select(element: Uuid, object: Uuid) -> impl Fn(&mut Shell) {
 }
 
 fn screens(shell: &mut Shell) -> Vec<Screen> {
-    let (fp, [pad, text, graphic]) = footprint(shell);
+    let (fp, [pad, hole, text, graphic]) = footprint(shell);
     let generated = shell
         .run(
             "library.footprint.generate.chip",
             json!({"library": MINE, "size": "0603"}),
         )
         .unwrap();
-    let generated = uuid(&generated["element"]);
+    let generated = uuid(&generated["footprint"]);
     let part = part(shell);
     let symbol = uuid(
         &shell
@@ -179,23 +195,46 @@ fn screens(shell: &mut Shell) -> Vec<Screen> {
     let starter_footprint: Uuid = RESC1608.parse().unwrap();
     let starter_part: Uuid = BUTTON.parse().unwrap();
     vec![
-        ("Footprint".into(), Box::new(open(fp))),
-        ("Footprint, a Pad".into(), Box::new(select(fp, pad))),
-        ("Footprint, a text".into(), Box::new(select(fp, text))),
-        ("Footprint, a graphic".into(), Box::new(select(fp, graphic))),
-        ("generated Footprint".into(), Box::new(open(generated))),
-        ("starter Footprint".into(), Box::new(open(starter_footprint))),
-        ("Part".into(), Box::new(open(part))),
-        ("starter Part".into(), Box::new(open(starter_part))),
-        ("Symbol".into(), Box::new(open(symbol))),
+        ("Footprint", Box::new(open(fp)), "Pad Tool", PANEL),
+        ("Footprint, an SMD Pad", Box::new(select(fp, pad)), "Corner ratio", PANEL),
+        (
+            "Footprint, a through-hole Pad",
+            Box::new(select(fp, hole)),
+            "Hole tolerance +",
+            PANEL,
+        ),
+        ("Footprint, a text", Box::new(select(fp, text)), "Visible", PANEL),
+        ("Footprint, a graphic", Box::new(select(fp, graphic)), "Stroke width", PANEL),
+        ("generated Footprint", Box::new(open(generated)), "Regenerate…", PANEL),
+        (
+            "starter Footprint",
+            Box::new(open(starter_footprint)),
+            "Read-only: this Footprint is in the starter Library.",
+            PANEL,
+        ),
+        ("Part", Box::new(open(part)), "Add Field", PART),
+        (
+            "starter Part",
+            Box::new(open(starter_part)),
+            "Read-only: this Part is in the starter Library.",
+            PART,
+        ),
+        ("Symbol", Box::new(open(symbol)), "Add Unit", &[]),
     ]
 }
 
 /// What is wrong with the text drawn, one line per text: cut short with an ellipsis, out
 /// of its clip sideways (a field, a dropdown, a column, a panel), or a label broken over
 /// lines. Text a scroll area cuts at its top or bottom is only scrolled out of view.
+///
+/// The tab strips are the Shell's, not the editors': a strip with more tabs than room
+/// scrolls, so text in a tab's band is left out.
 fn misfits(h: &Harness<'static, App>) -> Vec<String> {
     let screen = h.ctx.content_rect();
+    let strips: Vec<egui::Rangef> = h
+        .get_all_by_role(Role::Tab)
+        .map(|tab| tab.rect().y_range())
+        .collect();
     let mut out = Vec::new();
     for clipped in &h.output().shapes {
         let mut shapes = vec![&clipped.shape];
@@ -211,6 +250,9 @@ fn misfits(h: &Harness<'static, App>) -> Vec<String> {
             let rect = text.galley.rect.translate(text.pos.to_vec2());
             let clip: Rect = clipped.clip_rect;
             if !clip.intersects(rect) || text.galley.text().is_empty() {
+                continue;
+            }
+            if strips.iter().any(|band| band.contains(rect.center().y)) {
                 continue;
             }
             let said = text.galley.text();
@@ -236,6 +278,22 @@ fn misfits(h: &Harness<'static, App>) -> Vec<String> {
     out
 }
 
+/// Every text drawn this frame.
+fn drawn(h: &Harness<'static, App>) -> Vec<String> {
+    let mut out = Vec::new();
+    for clipped in &h.output().shapes {
+        let mut shapes = vec![&clipped.shape];
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(inner) => shapes.extend(inner),
+                egui::Shape::Text(text) => out.push(text.galley.text().to_owned()),
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
 fn check(dark: bool, density: Density) {
     let home = TempDir::new("element-editors-fit");
     let theme_name = if dark { "dark" } else { "light" };
@@ -254,7 +312,7 @@ fn check(dark: bool, density: Density) {
         },
     );
     let mut wrong = Vec::new();
-    for (name, show) in all {
+    for (name, show, shows, scrolled) in all {
         let shell = h.state_mut().shell_mut();
         show(shell);
         // The Pins Panel follows the Part or Symbol in front.
@@ -262,8 +320,38 @@ fn check(dark: bool, density: Density) {
         // Tables measure their columns on their first frame and the rest settles over
         // a few more.
         h.run_steps(30);
-        for line in misfits(&h) {
-            wrong.push(format!("{name}: {line}"));
+        let mut seen = drawn(&h);
+        let mut lines = misfits(&h);
+        for label in scrolled {
+            let at = h.get_all_by_label(label).next().expect(label).rect().center();
+            h.event(egui::Event::PointerMoved(at));
+            for _ in 0..SCROLLS {
+                h.event(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -240.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Unknown,
+                    modifiers: egui::Modifiers::NONE,
+                });
+                h.run_steps(4);
+                let now = drawn(&h);
+                lines.extend(misfits(&h));
+                let done = now.iter().all(|t| seen.contains(t));
+                seen.extend(now);
+                if done {
+                    break;
+                }
+            }
+        }
+        assert!(
+            seen.iter().any(|t| t == shows),
+            "{name}: {shows:?} is not drawn"
+        );
+        for line in lines {
+            let line = format!("{name}: {line}");
+            if !wrong.contains(&line) {
+                wrong.push(line);
+            }
         }
     }
     assert!(

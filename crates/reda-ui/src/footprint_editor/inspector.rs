@@ -20,7 +20,7 @@ use crate::tr;
 use crate::widgets;
 
 /// The panel's width in points.
-pub const WIDTH: f32 = 240.0;
+pub const WIDTH: f32 = 288.0;
 
 pub use crate::pad_form::draw::{KINDS, SHAPES, kind_name, shape_name};
 /// The Layers a field text can go on.
