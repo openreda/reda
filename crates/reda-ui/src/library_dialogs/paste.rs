@@ -5,12 +5,14 @@
 //! cells), and Remove Row and Remove Column. The rows are read with
 //! [`PasteTable::pins`], whose type aliases Import part shares.
 
-use egui::{ComboBox, Grid, Id, Role, ScrollArea, Ui, WidgetInfo};
+use egui::{Id, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::library::wizard::WizardPin;
 use reda_engine::library::wizard::paste::{Column, Delimiter, PasteTable};
 
+use crate::settings::layout;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Column as TableColumn};
 
 /// The sub-dialog's state: the pasted text and the table made of it.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,15 +93,15 @@ impl PasteMapping {
     }
 
     fn contents(&mut self, ui: &mut Ui, id: Id, apply: &str, height: f32) -> PasteOutcome {
-        ui.label(tr!("paste-map-intro"));
+        layout::text(ui, tr!("paste-map-intro"));
         let mut text = self.text.clone();
         let label = tr!("paste-map-text");
         let edit = ui.add(
-            egui::TextEdit::multiline(&mut text)
+            widgets::text_field(&mut text)
                 .id(id.with("text"))
-                .desired_rows(3)
-                .desired_width(f32::INFINITY)
-                .hint_text(tr!("paste-map-hint")),
+                .rows(3)
+                .width(f32::INFINITY)
+                .hint(tr!("paste-map-hint")),
         );
         edit.widget_info(|| WidgetInfo::labeled(Role::MultilineTextInput, true, label.clone()));
         if text != self.text {
@@ -107,11 +109,11 @@ impl PasteMapping {
         }
         ui.horizontal(|ui| {
             let label = tr!("paste-map-delimiter");
-            ui.label(&label);
+            ui.add(widgets::form_name(&label));
             let mut chosen = self.delimiter;
-            ComboBox::from_id_salt(id.with("delimiter"))
-                .selected_text(delimiter_name(chosen))
-                .show_ui(ui, |ui| {
+            widgets::dropdown(id.with("delimiter"), delimiter_name(chosen))
+                .width(DELIMITER_WIDTH)
+                .show(ui, |ui| {
                     for d in [
                         None,
                         Some(Delimiter::Tab),
@@ -119,7 +121,7 @@ impl PasteMapping {
                         Some(Delimiter::Semicolon),
                         Some(Delimiter::Whitespace),
                     ] {
-                        ui.selectable_value(&mut chosen, d, delimiter_name(d));
+                        widgets::choice_value(ui, &mut chosen, d, delimiter_name(d));
                     }
                 })
                 .response
@@ -127,11 +129,11 @@ impl PasteMapping {
             if chosen != self.delimiter {
                 self.set_delimiter(chosen);
             }
-            ui.add_space(12.0);
+            ui.add_space(ui.tokens().space.section);
             let has_rows = !self.table.rows.is_empty();
             ui.add_enabled(
                 has_rows,
-                egui::Checkbox::new(&mut self.table.header, tr!("paste-map-header")),
+                widgets::checkbox(&mut self.table.header, tr!("paste-map-header")),
             );
         });
         ScrollArea::both()
@@ -143,7 +145,7 @@ impl PasteMapping {
         if let Err(why) = &pins
             && !self.table.rows.is_empty()
         {
-            ui.colored_label(ui.visuals().error_fg_color, why);
+            layout::error(ui, why);
         }
         let mut outcome = PasteOutcome::Open;
         crate::modal::buttons(ui, |ui| {
@@ -166,55 +168,63 @@ impl PasteMapping {
             return;
         }
         let (mut remove_row, mut remove_column) = (None, None);
-        Grid::new(id.with("grid"))
-            .striped(true)
-            .num_columns(width + 1)
-            .show(ui, |ui| {
-                ui.label("");
-                for c in 0..width {
-                    ui.vertical(|ui| {
-                        let label = tr!("paste-map-column", column = (c + 1).to_string());
-                        let mut column = self.table.columns[c];
-                        ComboBox::from_id_salt(id.with(("column", c)))
-                            .selected_text(column_name(column))
-                            .width(110.0)
-                            .show_ui(ui, |ui| {
-                                for k in COLUMNS {
-                                    ui.selectable_value(&mut column, k, column_name(k));
-                                }
-                            })
-                            .response
-                            .widget_info(|| {
-                                WidgetInfo::labeled(Role::ComboBox, true, label.clone())
-                            });
-                        if column != self.table.columns[c] {
-                            self.table.set_column(c, column);
-                        }
-                        let what = tr!("paste-map-remove-column", column = (c + 1).to_string());
-                        let b = ui.small_button(tr!("paste-map-remove"));
-                        b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
-                        if b.clicked() {
-                            remove_column = Some(c);
+        let t = ui.tokens();
+        let columns = std::iter::repeat_n(TableColumn::auto(), width + 1);
+        widgets::table(id.with("grid"))
+            .columns(columns)
+            .show(ui, |table| {
+                table.row(|row| {
+                    row.empty();
+                    for c in 0..width {
+                        row.ui(|ui| {
+                            let label = tr!("paste-map-column", column = (c + 1).to_string());
+                            let mut column = self.table.columns[c];
+                            widgets::dropdown(id.with(("column", c)), column_name(column))
+                                .width(COLUMN_WIDTH)
+                                .show(ui, |ui| {
+                                    for k in COLUMNS {
+                                        widgets::choice_value(ui, &mut column, k, column_name(k));
+                                    }
+                                })
+                                .response
+                                .widget_info(|| {
+                                    WidgetInfo::labeled(Role::ComboBox, true, label.clone())
+                                });
+                            if column != self.table.columns[c] {
+                                self.table.set_column(c, column);
+                            }
+                            let what = tr!("paste-map-remove-column", column = (c + 1).to_string());
+                            let b = ui.add(widgets::button(tr!("paste-map-remove")).flat());
+                            b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
+                            if b.clicked() {
+                                remove_column = Some(c);
+                            }
+                        });
+                    }
+                });
+                for (r, cells) in self.table.rows.iter().enumerate() {
+                    table.row(|row| {
+                        row.ui(|ui| {
+                            let what = tr!("paste-map-remove-row", row = (r + 1).to_string());
+                            let b = ui.add(widgets::button(tr!("paste-map-remove")).flat());
+                            b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
+                            if b.clicked() {
+                                remove_row = Some(r);
+                            }
+                        });
+                        let heading = r == 0 && self.table.header;
+                        for cell in cells {
+                            if heading {
+                                row.ui(|ui| {
+                                    ui.label(
+                                        t.ty.body_strong.rich(cell).color(t.color.text.primary),
+                                    )
+                                });
+                            } else {
+                                row.text(cell);
+                            }
                         }
                     });
-                }
-                ui.end_row();
-                for (r, row) in self.table.rows.iter().enumerate() {
-                    let what = tr!("paste-map-remove-row", row = (r + 1).to_string());
-                    let b = ui.small_button(tr!("paste-map-remove"));
-                    b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
-                    if b.clicked() {
-                        remove_row = Some(r);
-                    }
-                    let heading = r == 0 && self.table.header;
-                    for cell in row {
-                        if heading {
-                            ui.strong(cell);
-                        } else {
-                            ui.label(cell);
-                        }
-                    }
-                    ui.end_row();
                 }
             });
         if let Some(r) = remove_row {
@@ -225,6 +235,11 @@ impl PasteMapping {
         }
     }
 }
+
+/// How wide the delimiter's dropdown is.
+const DELIMITER_WIDTH: f32 = 160.0;
+/// How wide each column's field dropdown is.
+const COLUMN_WIDTH: f32 = 110.0;
 
 const COLUMNS: [Column; 6] = [
     Column::Number,
