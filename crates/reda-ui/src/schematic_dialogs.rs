@@ -25,6 +25,7 @@ use serde_json::json;
 use crate::bars::{Request, request};
 use crate::command_dialog::Dialogs;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Tooltip as _};
 
@@ -251,6 +252,44 @@ pub fn pdf_file_name(shell: &Shell) -> String {
         .map(|p| p.props().name.clone())
         .unwrap_or_default();
     format!("{name}.pdf")
+}
+
+/// A line of text in the error tone: why a dialog could not do what it was asked.
+pub(crate) fn error(ui: &mut egui::Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.body.rich(text).color(t.color.error.text))
+}
+
+/// A line of text in the warning tone: something to look at before going on.
+fn warning(ui: &mut egui::Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.body.rich(text).color(t.color.warning.text))
+}
+
+/// A heading inside a dialog: body text in the strong weight.
+fn strong(ui: &mut egui::Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.body_strong.rich(text).color(t.color.text.primary))
+}
+
+/// Secondary text: a column's name, a note, a value that is not changing.
+fn muted(ui: &mut egui::Ui, text: impl Into<String>) -> egui::Response {
+    let t = ui.tokens();
+    ui.label(t.ty.body.rich(text).color(t.color.text.muted))
+}
+
+/// A radio button for `choice`: clicking it sets `value` to `choice`.
+fn radio<T: PartialEq>(
+    ui: &mut egui::Ui,
+    value: &mut T,
+    choice: T,
+    text: impl Into<String>,
+) -> egui::Response {
+    let response = ui.add(widgets::radio(*value == choice, text));
+    if response.clicked() {
+        *value = choice;
+    }
+    response
 }
 
 /// The two buttons that end a dialog: the action (greyed with `why` as its tooltip when
