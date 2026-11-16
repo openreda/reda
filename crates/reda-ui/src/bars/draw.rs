@@ -240,13 +240,18 @@ pub(super) fn icon_button_response(
     icon_button_with(ui, cx, action, side, t.icon.bar, None)
 }
 
-/// A bar button's tooltip: its title with the key that runs it, and a sentence under it.
+/// A bar button's tooltip: its title with the key that runs it ("Undo (Ctrl+Z)"), and a
+/// sentence under it.
 fn tooltip(ui: &mut Ui, title: &str, key: Option<&str>, sentence: Option<&str>) {
+    let heading = match key {
+        Some(key) => format!("{title} ({key})"),
+        None => title.to_owned(),
+    };
     widgets::tooltip_contents(
         ui,
         widgets::TooltipText {
-            title,
-            key,
+            title: &heading,
+            key: None,
             sentence,
         },
     );
@@ -263,7 +268,7 @@ fn icon_button_with(
     let mut clicked = None;
     let item = resolve_for(cx.shell, action, cx.document);
     let enabled = item.run.is_ok();
-    // The tooltip names the shortcut in a key chip after the title.
+    // The tooltip names the shortcut: "Undo (Ctrl+Z)".
     let shortcut = cx.shortcut(ui, action);
     let checked = toggled.unwrap_or_else(|| cx.is_checked(&item));
     // A disabled Icon button still senses the pointer, for the tooltip saying why.

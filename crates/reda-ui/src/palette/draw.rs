@@ -112,7 +112,10 @@ impl Palette {
         let left = (centre - width / 2.0)
             .min(screen.right() - 8.0 - width)
             .max(screen.left() + 8.0);
-        let top = field.map_or(screen.top() + 4.0, |f| f.top());
+        // The Palette's field sits in the command field's place: the frame starts its
+        // padding above it.
+        let inset = widgets::palette_frame_inset(&ctx.tokens());
+        let top = field.map_or(screen.top() + 4.0, |f| f.top() - inset);
         let t = ctx.tokens();
         let area = egui::Area::new(id)
             .order(Order::Foreground)

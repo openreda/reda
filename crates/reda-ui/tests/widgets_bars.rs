@@ -1,7 +1,7 @@
 //! The bar, Command Palette and keys widgets, driven through AccessKit. How they look is
 //! the gallery's job (`tests/widget_gallery`, the bars page).
 
-use egui::accesskit::Role;
+use egui::accesskit::{Role, Toggled};
 use egui::{Theme, Ui};
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
@@ -87,10 +87,10 @@ fn a_palette_row_is_named_by_its_title_then_its_notes_and_key_in_order() {
         Role::Button,
         "Save All File › Save All  ·  Ctrl+S  ·  recently used",
     );
-    assert_eq!(row.accesskit_node().is_selected(), Some(true));
+    assert_eq!(row.accesskit_node().toggled(), Some(Toggled::True));
     assert_eq!(row.rect().height(), h.ctx.tokens().row_height());
     let plain = h.get_by_role_and_label(Role::Button, "Sheet 1");
-    assert_eq!(plain.accesskit_node().is_selected(), Some(false));
+    assert_eq!(plain.accesskit_node().toggled(), Some(Toggled::False));
 }
 
 #[test]

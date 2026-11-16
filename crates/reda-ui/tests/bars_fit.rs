@@ -124,7 +124,7 @@ fn misfits(h: &Harness<'_, App>, area: Rect) -> Vec<String> {
 fn nodes(h: &Harness<'_, App>) -> Vec<(Role, String, Rect)> {
     let mut out = Vec::new();
     for role in [Role::Button, Role::Label, Role::TextInput] {
-        for node in h.get_all_by_role(role) {
+        for node in h.query_all_by_role(role) {
             let label = node.accesskit_node().label().unwrap_or_default();
             out.push((role, label, node.rect()));
         }
@@ -168,13 +168,12 @@ fn menus(dark: bool, density: Density, wrong: &mut Vec<String>) {
         .map(|m| reda_ui::i18n::translate(&m.title, &[]))
         .collect();
     for title in titles {
+        let (mut h, _dir) = window(dark, density, false);
         let before = nodes(&h);
         h.get_by_role_and_label(Role::Button, &title).click();
         h.run_steps(10);
         let area = shown_since(&h, &before);
         check_in(&format!("{title} menu"), &h, area, wrong);
-        h.key_press(Key::Escape);
-        h.run_steps(10);
     }
 
     // The canvas's context menu.
