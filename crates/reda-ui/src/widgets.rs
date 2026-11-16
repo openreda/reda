@@ -13,7 +13,8 @@
 //!
 //! The data widgets work the same way: `widgets::list_row`, `tree_row`, `table`,
 //! `section_header` and `section`, `form` with `form_row`, `status_mark`, `swatch`,
-//! `badge` and `count_pill`.
+//! `badge` and `count_pill`. Over the canvas, `chip` and `chip_strip` draw the Layer
+//! chips and the Layer strip.
 //! So do the shell's: `tab`, `status_item`, `paint_card` with `mask_card_corners`, the
 //! Dock `splitter`, and `drop_preview`, `drop_button` and `drag_chip` for a dragged tab.
 //!
@@ -31,6 +32,7 @@
 mod badge;
 mod button;
 mod check;
+mod chip;
 mod color;
 mod command_field;
 mod dialog;
@@ -62,6 +64,7 @@ pub use button::{
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use chip::{CHIP_GAP, CHIP_PAD_Y, Chip, chip, chip_rule, chip_strip};
 pub use color::{
     ColorButton, PICKER_FIELD, PICKER_HUE, PICKER_WIDTH, color_button, color_picker, data_color,
 };

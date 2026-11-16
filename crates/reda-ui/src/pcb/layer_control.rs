@@ -1,21 +1,18 @@
 //! The Layer control: switching Layers with the Layers panel collapsed. A Preference
 //! (`pcb.view.layer_control`) picks its form, and neither changes any output:
 //!
-//! - **Swatch** (default): a chip at the canvas's top right with the active Layer's
-//!   colour and name. Its dropdown lists the Layers copper first, each as a chip, then
-//!   the Layer sets and **Save current as…**.
-//! - **Strip:** a 24 px row along the canvas bottom with a Layer sets button and a chip
-//!   per shown Layer, copper first. The Tool's bar and the grid readout move up to clear
+//! - **Swatch** (default): a [`widgets::chip`] on the floating surface at the canvas's top
+//!   right with the active Layer's swatch and name. Its menu lists the Layers copper
+//!   first, each as a row with its swatch, then the Layer sets and **Save current as…**.
+//! - **Strip:** a 24 px [`widgets::chip_strip`] along the canvas bottom with a Layer sets
+//!   chip and a chip per shown Layer, copper first. The Tool's bar and the grid readout move up to clear
 //!   it ([`crate::bars::draw::bottom_inset`]).
 //!
 //! In either, a click on a chip activates the Layer (`pcb.layer.activate`) and `Mod`+click
 //! highlights its content (`pcb.layer.highlight`). Drawing only: each click is a Command
 //! returned for the window to run.
 
-use egui::{
-    Align2, Color32, CornerRadius, FontId, Id, Order, Rect, Response, Role, Sense, Stroke, Ui,
-    Vec2, WidgetInfo, vec2,
-};
+use egui::{Align2, Id, Order, Rect, Response, Role, Ui, WidgetInfo, vec2};
 use reda_engine::model::{Layer, LayerKind, PcbDocument, Uuid};
 use reda_engine::preferences::LayerControl;
 use reda_engine::render::{BoardColor, ColorKey};
@@ -24,13 +21,13 @@ use serde_json::{Value, json};
 use super::view_commands::LAYER_SETS;
 use crate::panels::layers::layer_name;
 use crate::shell::Shell;
-use crate::{theme, tr, widgets};
+use crate::theme::TokensExt as _;
+use crate::widgets::{self, Tooltip as _};
+use crate::{theme, tr};
 
 /// A Command for the window to run (one lacking params opens its dialog).
 pub type Invocation = (String, Value);
 
-/// The chip's colour square, in points.
-const SQUARE: f32 = 10.0;
 /// Under this width the swatch drops its name, so the centred Active Bar stays clear.
 const NARROW_CANVAS: f32 = 600.0;
 /// How far the swatch sits from the canvas's right edge.
@@ -68,17 +65,32 @@ pub fn set_title(set: &str) -> String {
 /// The Layer set buttons, built-in sets then saved ones, and **Save current as…**:
 /// pushes `pcb.view.layer_set.apply` or the paramless `save` (whose dialog asks the name).
 pub fn set_buttons(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
+    sets(ui, shell, out, |ui, text| ui.add(widgets::button(text)));
+}
+
+/// The Layer sets as the items of a menu, as [`set_buttons`] has them.
+fn set_items(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
+    sets(ui, shell, out, |ui, text| ui.add(widgets::menu_item(text)));
+}
+
+/// The Layer sets and **Save current as…**, each drawn by `add`.
+fn sets(
+    ui: &mut Ui,
+    shell: &Shell,
+    out: &mut Vec<Invocation>,
+    add: impl Fn(&mut Ui, String) -> Response,
+) {
     let saved = shell.preferences().pcb.view.layer_sets.iter();
     let sets = LAYER_SETS
         .iter()
         .map(|s| (s.to_string(), set_title(s)))
         .chain(saved.map(|s| (s.name.clone(), s.name.clone())));
     for (set, title) in sets {
-        if ui.button(title).clicked() {
+        if add(ui, title).clicked() {
             out.push(("pcb.view.layer_set.apply".into(), json!({ "set": set })));
         }
     }
-    if ui.button(tr!("layers-set-save")).clicked() {
+    if add(ui, tr!("layers-set-save")).clicked() {
         out.push(("pcb.view.layer_set.save".into(), json!({})));
     }
 }
@@ -112,37 +124,34 @@ fn swatch(
     let Some(active) = active.and_then(|a| pcb.layers().layer(a)) else {
         return;
     };
+    let t = ui.tokens();
     egui::Area::new(id.with("layer-swatch"))
         .order(Order::Middle)
         .fixed_pos(canvas.right_top() + vec2(-SWATCH_INSET, crate::bars::draw::ACTIVE_BAR_TOP))
         .pivot(Align2::RIGHT_TOP)
         .show(ui.ctx(), |ui| {
-            egui::Frame::window(ui.style())
-                .inner_margin(egui::Margin::same(3))
-                .corner_radius(CornerRadius::same(5))
-                .show(ui, |ui| {
-                    let name = layer_name(pcb, active);
-                    let label = tr!("layer-control-active", layer = name.as_str());
-                    // On a narrow canvas the swatch shows its colour only, clear of the
-                    // Active Bar; the name is in its tooltip.
-                    let face = if canvas.width() < NARROW_CANVAS {
-                        chip(ui, shell, active, "", label, true).on_hover_text(name)
-                    } else {
-                        chip(ui, shell, active, &name, label, true)
-                    };
-                    egui::Popup::menu(&face).show(|ui| {
-                        ui.set_min_width(160.0);
-                        for layer in ordered(pcb) {
-                            let name = layer_name(pcb, layer);
-                            let label = tr!("layer-chip", layer = name.as_str());
-                            let r = chip(ui, shell, layer, &name, label, layer.uuid == active.uuid);
-                            chip_clicked(ui, &r, layer.uuid, out);
-                        }
-                        ui.separator();
-                        ui.weak(tr!("layers-sets"));
-                        set_buttons(ui, shell, out);
-                    });
+            widgets::floating_frame(&t).show(ui, |ui| {
+                let name = layer_name(pcb, active);
+                let label = tr!("layer-control-active", layer = name.as_str());
+                // On a narrow canvas the swatch shows its colour only, clear of the
+                // Active Bar; the name is in its tooltip.
+                let face = if canvas.width() < NARROW_CANVAS {
+                    chip(ui, shell, active, "", label, true).tooltip(name)
+                } else {
+                    chip(ui, shell, active, &name, label, true)
+                };
+                let width = menu_width(ui, pcb);
+                widgets::menu(&face).width(width).show(|ui| {
+                    layer_rows(ui, shell, pcb, active.uuid, out);
+                    widgets::menu_separator(ui);
+                    ui.label(
+                        t.ty.small
+                            .rich(tr!("layers-sets"))
+                            .color(t.color.text.muted),
+                    );
+                    set_items(ui, shell, out);
                 });
+            });
         });
 }
 
@@ -173,24 +182,55 @@ pub fn status_swatch(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
     let [r, g, b] = layer_rgb(ui, shell, active);
     let face = ui.add(widgets::status_item(name.as_str()).swatch_rgb(r, g, b));
     face.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
-    widgets::menu(&face).width(STATUS_MENU_WIDTH).show(|ui| {
-        for layer in ordered(pcb) {
-            let name = layer_name(pcb, layer);
-            let label = tr!("layer-chip", layer = name.as_str());
-            let chosen = layer.uuid == active.uuid;
-            let [r, g, b] = layer_rgb(ui, shell, layer);
-            let row = widgets::list_row(name.as_str())
-                .swatch_rgb(r, g, b)
-                .selected(chosen);
-            let r = ui.add(row);
-            r.widget_info(|| WidgetInfo::selected(Role::Button, true, chosen, label.clone()));
-            chip_clicked(ui, &r, layer.uuid, out);
-        }
-    });
+    let width = menu_width(ui, pcb);
+    widgets::menu(&face)
+        .width(width)
+        .show(|ui| layer_rows(ui, shell, pcb, active.uuid, out));
 }
 
-/// The width of the status bar swatch's menu.
-const STATUS_MENU_WIDTH: f32 = 160.0;
+/// The least width of a menu listing the Layers.
+const MENU_WIDTH: f32 = 160.0;
+
+/// The width of a menu listing `pcb`'s Layers: the widest row (a swatch and a name) in
+/// the menu's frame, and no narrower than [`MENU_WIDTH`].
+fn menu_width(ui: &Ui, pcb: &PcbDocument) -> f32 {
+    let t = ui.tokens();
+    // The popup's width takes in its padding and rim.
+    let frame = 2.0 * (t.space.menu + t.stroke.hairline);
+    let lead = widgets::SWATCH + widgets::ICON_GAP + 2.0 * t.space.row_x + frame;
+    ordered(pcb)
+        .into_iter()
+        .map(|layer| {
+            let job =
+                t.ty.body
+                    .job(&layer_name(pcb, layer), egui::Color32::TRANSPARENT);
+            ui.painter().layout_job(job).size().x.ceil() + lead
+        })
+        .fold(MENU_WIDTH, f32::max)
+}
+
+/// The board's Layers as the rows of a menu, each with its swatch, the `active` one
+/// selected. A row is a Layer chip in a list: a click activates, `Mod`+click highlights.
+fn layer_rows(
+    ui: &mut Ui,
+    shell: &Shell,
+    pcb: &PcbDocument,
+    active: Uuid,
+    out: &mut Vec<Invocation>,
+) {
+    for layer in ordered(pcb) {
+        let name = layer_name(pcb, layer);
+        let label = tr!("layer-chip", layer = name.as_str());
+        let chosen = layer.uuid == active;
+        let [r, g, b] = layer_rgb(ui, shell, layer);
+        let row = widgets::list_row(name.as_str())
+            .swatch_rgb(r, g, b)
+            .selected(chosen);
+        let r = ui.add(row);
+        r.widget_info(|| WidgetInfo::selected(Role::Button, true, chosen, label.clone()));
+        chip_clicked(ui, &r, layer.uuid, out);
+    }
+}
 
 /// The red, green and blue `layer` is drawn in on the canvas, in the theme of `ui`.
 fn layer_rgb(ui: &Ui, shell: &Shell, layer: &Layer) -> [u8; 3] {
@@ -223,20 +263,10 @@ fn strip(
         .order(Order::Middle)
         .fixed_pos(rect.min)
         .show(ui.ctx(), |ui| {
-            ui.painter().rect_filled(rect, 0.0, ui.visuals().panel_fill);
-            ui.painter().hline(
-                rect.x_range(),
-                rect.top(),
-                Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color),
-            );
-            let layout = egui::Layout::left_to_right(egui::Align::Center);
-            ui.allocate_ui_with_layout(rect.size(), layout, |ui| {
-                ui.set_clip_rect(rect);
-                ui.add_space(4.0);
-                ui.spacing_mut().item_spacing.x = 2.0;
-                let sets = ui.add(egui::Button::new(tr!("layers-sets")).small());
-                egui::Popup::menu(&sets).show(|ui| set_buttons(ui, shell, out));
-                ui.separator();
+            widgets::chip_strip(ui, rect, |ui| {
+                let sets = ui.add(widgets::chip(tr!("layers-sets")).chevron());
+                widgets::menu(&sets).show(|ui| set_items(ui, shell, out));
+                widgets::chip_rule(ui);
                 for layer in ordered(pcb)
                     .into_iter()
                     .filter(|l| !view.layers.hidden.contains(&l.uuid))
@@ -262,8 +292,8 @@ fn chip_clicked(ui: &Ui, response: &Response, layer: Uuid, out: &mut Vec<Invocat
     }
 }
 
-/// A Layer chip: its colour square and name, accent-framed when `selected`; `label` is
-/// what assistive tech reads.
+/// A Layer chip: its swatch and name, tinted when `selected`; `label` is what assistive
+/// tech reads.
 fn chip(
     ui: &mut Ui,
     shell: &Shell,
@@ -272,34 +302,11 @@ fn chip(
     label: String,
     selected: bool,
 ) -> Response {
-    let font = FontId::proportional(12.0);
-    let text = ui.visuals().text_color();
-    let galley = ui.painter().layout_no_wrap(name.to_owned(), font, text);
-    let size = if name.is_empty() {
-        Vec2::new(SQUARE + 10.0, 20.0)
-    } else {
-        Vec2::new(SQUARE + 14.0 + galley.size().x, 20.0)
-    };
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
-    let visuals = ui.style().interact_selectable(&response, selected);
-    let painter = ui.painter();
-    if selected || response.hovered() {
-        painter.rect(
-            rect,
-            3.0,
-            visuals.weak_bg_fill,
-            visuals.bg_stroke,
-            egui::StrokeKind::Inside,
-        );
-    }
     let [r, g, b] = layer_rgb(ui, shell, layer);
-    let square = Rect::from_center_size(
-        rect.left_center() + vec2(5.0 + SQUARE / 2.0, 0.0),
-        Vec2::splat(SQUARE),
-    );
-    painter.rect_filled(square, 2.0, Color32::from_rgb(r, g, b));
-    let at = rect.left_center() + vec2(SQUARE + 9.0, -galley.size().y / 2.0);
-    painter.galley(at, galley, visuals.text_color());
-    response
+    ui.add(
+        widgets::chip(name)
+            .swatch_rgb(r, g, b)
+            .selected(selected)
+            .name(label),
+    )
 }
