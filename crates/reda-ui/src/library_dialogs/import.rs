@@ -4,16 +4,18 @@
 
 use std::any::Any;
 
-use egui::{Grid, Id, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// The Import part dialog's state.
 pub struct ImportDialog {
@@ -67,17 +69,16 @@ impl ImportDialog {
     }
 
     fn file_row(&mut self, ui: &mut Ui, label: String, pick: Pick) {
-        ui.label(&label);
+        ui.add(widgets::form_name(&label));
         ui.horizontal(|ui| {
             let text = match pick {
                 Pick::ImportSymbol => &mut self.symbol_file,
                 _ => &mut self.footprint_file,
             };
-            let response = ui.add(TextEdit::singleline(text).desired_width(260.0));
+            let response = ui.add(widgets::text_field(text).width(super::PATH_WIDTH));
             let name = label.clone();
             response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name.clone()));
-            let browse =
-                ui.add_enabled(!self.files.busy(), egui::Button::new(tr!("import-browse")));
+            let browse = ui.add_enabled(!self.files.busy(), widgets::button(tr!("import-browse")));
             let what = tr!("import-browse-for", what = label.as_str());
             browse.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
             if browse.clicked() {
@@ -88,11 +89,11 @@ impl ImportDialog {
     }
 
     fn text_row(ui: &mut Ui, label: String, hint: String, text: &mut String) {
-        ui.label(&label);
+        ui.add(widgets::form_name(&label));
         let response = ui.add(
-            TextEdit::singleline(text)
-                .hint_text(hint)
-                .desired_width(260.0),
+            widgets::text_field(text)
+                .hint(hint)
+                .width(super::FIELD_WIDTH),
         );
         response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label.clone()));
         ui.end_row();
@@ -119,39 +120,36 @@ impl ParamsDialog for ImportDialog {
         let modal = crate::modal::Dialog::new(Id::NULL.with("import-part"), tr!("import-title"))
             .width(480.0)
             .show(ctx, |ui| {
-                ui.weak(tr!("import-intro"));
-                ui.add_space(6.0);
-                Grid::new("import-part-fields")
-                    .num_columns(2)
-                    .spacing([8.0, 6.0])
-                    .show(ui, |ui| {
-                        self.file_row(ui, tr!("import-symbol-file"), Pick::ImportSymbol);
-                        self.file_row(ui, tr!("import-footprint-file"), Pick::ImportFootprint);
-                        super::library_picker(
-                            ui,
-                            shell,
-                            Id::NULL.with("import-library"),
-                            &mut self.library,
-                        );
-                        ui.end_row();
-                        Self::text_row(
-                            ui,
-                            tr!("import-name"),
-                            tr!("import-name-hint"),
-                            &mut self.name,
-                        );
-                        Self::text_row(
-                            ui,
-                            tr!("import-symbol"),
-                            tr!("import-symbol-hint"),
-                            &mut self.symbol,
-                        );
-                    });
+                layout::muted(ui, tr!("import-intro"));
+                ui.add_space(ui.tokens().space.stack);
+                widgets::form("import-part-fields").show(ui, |ui| {
+                    self.file_row(ui, tr!("import-symbol-file"), Pick::ImportSymbol);
+                    self.file_row(ui, tr!("import-footprint-file"), Pick::ImportFootprint);
+                    super::library_picker(
+                        ui,
+                        shell,
+                        Id::NULL.with("import-library"),
+                        &mut self.library,
+                    );
+                    ui.end_row();
+                    Self::text_row(
+                        ui,
+                        tr!("import-name"),
+                        tr!("import-name-hint"),
+                        &mut self.name,
+                    );
+                    Self::text_row(
+                        ui,
+                        tr!("import-symbol"),
+                        tr!("import-symbol-hint"),
+                        &mut self.symbol,
+                    );
+                });
                 if super::writable_libraries(shell).is_empty() {
-                    ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
+                    layout::warning(ui, tr!("library-target-missing"));
                 }
                 if let Some(error) = &self.error {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
+                    layout::error(ui, error);
                 }
                 crate::modal::buttons(ui, |ui| {
                     let params = self.params();
@@ -164,7 +162,7 @@ impl ParamsDialog for ImportDialog {
                             outcome = Outcome::Run(params);
                         }
                     } else {
-                        run.on_disabled_hover_text(tr!("import-needs"));
+                        run.disabled_tooltip(tr!("import-needs"));
                     }
                     if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;

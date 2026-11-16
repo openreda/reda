@@ -5,7 +5,7 @@
 //! preview's hash, leaving out the unticked rows. Instances with a Component update
 //! through the schematic's dialog and Sync.
 
-use egui::{Grid, Id, RichText, Role, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use reda_engine::model::Uuid;
 use reda_engine::model::local_edit::LocalEdit;
@@ -14,8 +14,9 @@ use serde_json::json;
 
 use crate::schematic_dialogs::update::{describe_change, edited_copy, local_edits_compare};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Column, Tooltip as _};
 
 /// One Footprint instance of the preview.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,67 +129,111 @@ impl BoardUpdateDialog {
                 .max_height(height)
                 .show(ui, |ui| {
                     if self.rows.is_empty() && self.error.is_none() {
-                        ui.label(tr!("library-update-board-none"));
+                        let t = ui.tokens();
+                        ui.label(
+                            t.ty.body
+                                .rich(tr!("library-update-board-none"))
+                                .color(t.color.text.muted),
+                        );
                     }
-                    Grid::new("pcb-update-grid")
-                        .num_columns(4)
-                        .striped(true)
-                        .show(ui, |ui| {
+                    let t = ui.tokens();
+                    // The Designator rows are one width, the widest Designator's.
+                    let row_width = self
+                        .rows
+                        .iter()
+                        .map(|r| text_width(ui, &t.ty.body, &r.designator))
+                        .fold(0.0, f32::max)
+                        + 2.0 * t.space.row_x;
+                    widgets::table("pcb-update-grid")
+                        .columns([
+                            Column::auto(),
+                            Column::auto(),
+                            Column::auto(),
+                            Column::auto(),
+                        ])
+                        .show(ui, |table| {
                             for row in &self.rows {
-                                let mut on = row.included;
-                                let enabled = row.status != LibraryStatus::SourceMissing;
-                                let name = tr!(
-                                    "library-update-include",
-                                    designator = row.designator.clone()
-                                );
-                                let response =
-                                    ui.add_enabled(enabled, egui::Checkbox::without_text(&mut on));
-                                response.widget_info(|| {
-                                    WidgetInfo::selected(Role::CheckBox, enabled, on, &name)
+                                table.row(|cells| {
+                                    let mut on = row.included;
+                                    let enabled = row.status != LibraryStatus::SourceMissing;
+                                    let name = tr!(
+                                        "library-update-include",
+                                        designator = row.designator.clone()
+                                    );
+                                    let response = cells.ui_enabled(enabled, |ui| {
+                                        ui.add(widgets::checkbox(&mut on, ""))
+                                    });
+                                    response.widget_info(|| {
+                                        WidgetInfo::selected(Role::CheckBox, enabled, on, &name)
+                                    });
+                                    if response.clicked() {
+                                        ticked = Some((row.instance, on));
+                                    }
+                                    let shown = self.shown == Some(row.instance);
+                                    let label = cells.ui(|ui| {
+                                        ui.add(
+                                            widgets::list_row(row.designator.as_str())
+                                                .selected(shown)
+                                                .width(row_width),
+                                        )
+                                    });
+                                    let designator = row.designator.clone();
+                                    label.widget_info(|| {
+                                        WidgetInfo::selected(
+                                            Role::ListItem,
+                                            true,
+                                            shown,
+                                            &designator,
+                                        )
+                                    });
+                                    if label.clicked() {
+                                        clicked = Some(row.instance);
+                                    }
+                                    cells.text(&row.name);
+                                    let status = crate::schematic_dialogs::update::status_text(
+                                        row.status,
+                                        &[reda_engine::schematic::Aspect::Footprints],
+                                    );
+                                    cells.text(status);
                                 });
-                                if response.clicked() {
-                                    ticked = Some((row.instance, on));
-                                }
-                                let shown = self.shown == Some(row.instance);
-                                let label = ui.selectable_label(shown, &row.designator);
-                                let designator = row.designator.clone();
-                                label.widget_info(|| {
-                                    WidgetInfo::selected(Role::ListItem, true, shown, &designator)
-                                });
-                                if label.clicked() {
-                                    clicked = Some(row.instance);
-                                }
-                                ui.label(&row.name);
-                                let status = crate::schematic_dialogs::update::status_text(
-                                    row.status,
-                                    &[reda_engine::schematic::Aspect::Footprints],
-                                );
-                                ui.label(status);
-                                ui.end_row();
                             }
                         });
                     if let Some(row) = self
                         .shown
                         .and_then(|s| self.rows.iter().find(|r| r.instance == s))
                     {
-                        ui.add_space(6.0);
-                        ui.heading(tr!(
-                            "library-update-preview-of",
-                            designator = row.designator.clone()
-                        ));
-                        ui.label(RichText::new(tr!("library-update-section-footprints")).strong());
+                        ui.add_space(t.space.section);
+                        ui.label(
+                            t.ty.title
+                                .rich(tr!(
+                                    "library-update-preview-of",
+                                    designator = row.designator.clone()
+                                ))
+                                .color(t.color.text.primary),
+                        );
+                        ui.label(
+                            t.ty.body_strong
+                                .rich(tr!("library-update-section-footprints"))
+                                .color(t.color.text.primary),
+                        );
                         for change in &row.changes {
-                            ui.label(change);
+                            ui.label(t.ty.body.rich(change).color(t.color.text.primary));
                         }
                         if let Some(reason) = &row.reason {
-                            ui.colored_label(
-                                ui.visuals().warn_fg_color,
-                                tr!("library-update-source-missing", reason = reason.clone()),
+                            ui.label(
+                                t.ty.body
+                                    .rich(tr!(
+                                        "library-update-source-missing",
+                                        reason = reason.clone()
+                                    ))
+                                    .color(t.color.warning.text),
                             );
                         }
                         if !row.lost_local_edits.is_empty() {
                             ui.label(
-                                RichText::new(tr!("library-update-section-local-edits")).strong(),
+                                t.ty.body_strong
+                                    .rich(tr!("library-update-section-local-edits"))
+                                    .color(t.color.text.primary),
                             );
                             let compare = edited_copy(shell, row.instance);
                             local_edits_compare(
@@ -201,13 +246,14 @@ impl BoardUpdateDialog {
                     }
                 });
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                let t = ui.tokens();
+                ui.label(t.ty.body.rich(error).color(t.color.error.text));
             }
             crate::modal::buttons(ui, |ui| {
                 let any = self.rows.iter().any(|r| r.included);
                 result.0 = ui
                     .add_enabled(any, widgets::button(tr!("library-update-apply")).primary())
-                    .on_disabled_hover_text(tr!("library-update-none-ticked"))
+                    .disabled_tooltip(tr!("library-update-none-ticked"))
                     .clicked();
                 result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
@@ -227,4 +273,12 @@ impl BoardUpdateDialog {
         }
         !(cancel || modal.should_close())
     }
+}
+
+/// The width of `text` on one line in `style`.
+fn text_width(ui: &Ui, style: &crate::theme::Text, text: &str) -> f32 {
+    let galley = ui
+        .painter()
+        .layout_job(style.job(text, egui::Color32::TRANSPARENT));
+    galley.size().x.ceil()
 }
