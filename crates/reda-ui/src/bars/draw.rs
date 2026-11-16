@@ -5,18 +5,18 @@
 
 use std::collections::BTreeMap;
 
-use egui::{Align2, Button, Id, Order, Rect, Role, Ui, Vec2};
+use egui::{Align2, Id, Order, Rect, Role, Ui, Vec2};
 use serde_json::Value;
 
 use reda_engine::model::Uuid;
 
 use super::{Action, Bars, Item, Menu, Resolved, resolve_for};
 use crate::a11y;
-use crate::chrome;
 use crate::i18n;
 use crate::icons;
 use crate::keymap;
 use crate::shell::Shell;
+use crate::theme::{Tokens, TokensExt as _};
 use crate::widgets::{self, Tooltip as _};
 
 /// A clicked item: the Command or Preset id and its params.
@@ -132,12 +132,13 @@ pub(crate) fn menu_items(
     }
 }
 
-/// A row of square icon buttons, as on the Active Bar.
+/// A row of the Active Bar's Icon buttons, [`widgets::BAR_GAP`] apart.
 pub fn icon_row(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> {
-    icon_row_sized(ui, cx, items, chrome::BAR_BUTTON, icons::TOOLBAR)
+    let t = ui.tokens();
+    icon_row_sized(ui, cx, items, widgets::bar_button_side(&t), t.icon.bar)
 }
 
-/// A row of square icon buttons `side` points wide holding `icon`-point icons.
+/// A row of Icon buttons `side` points square holding `icon`-point Icons.
 fn icon_row_sized(
     ui: &mut Ui,
     cx: &Cx<'_>,
@@ -145,56 +146,67 @@ fn icon_row_sized(
     side: f32,
     icon: f32,
 ) -> Option<Invocation> {
-    let mut clicked = None;
-    ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
-    for item in items {
-        let action = match item {
-            Item::Separator => {
-                chrome::bar_separator(ui, side);
-                continue;
-            }
-            // A submenu on a bar opens as a menu under its button: its icon, or else its
-            // title.
-            Item::Submenu(menu) => {
-                let mut inner = None;
-                let title = i18n::translate(&menu.title, &[]);
-                let image = menu
-                    .icon
-                    .as_deref()
-                    .and_then(|key| icons::image(key, icon, ui.ctx().theme(), true));
-                match image {
-                    Some(image) => {
-                        // Shown as active while any of its items is.
-                        let checked = menu.items.iter().any(|i| match i {
-                            Item::Action(a) => {
-                                cx.is_checked(&resolve_for(cx.shell, a, cx.document))
-                            }
-                            _ => false,
-                        });
-                        let response = chrome::icon_button(ui, image, icon, side, checked, true)
-                            .on_hover_text(&title);
-                        a11y::name(&response, Role::Button, true, &title, None, None);
-                        widgets::menu(&response).show(|ui| {
-                            menu_items(ui, cx, &menu.items, &mut inner);
-                        });
-                    }
-                    None => {
-                        widgets::menu_button(title).show(ui, |ui| {
-                            menu_items(ui, cx, &menu.items, &mut inner);
-                        });
-                    }
+    widgets::bar_row(ui, |ui| {
+        let mut clicked = None;
+        for item in items {
+            let action = match item {
+                Item::Separator => {
+                    widgets::bar_separator_sized(ui, side);
+                    continue;
                 }
-                clicked = clicked.or(inner);
-                continue;
-            }
-            Item::Action(action) => action,
-        };
-        clicked = clicked.or(icon_button_for(ui, cx, action, side, icon));
-    }
-    clicked
+                // A submenu on a bar opens as a menu under its button: its icon, or else
+                // its title.
+                Item::Submenu(menu) => {
+                    clicked = clicked.or(submenu_button(ui, cx, menu, side, icon));
+                    continue;
+                }
+                Item::Action(action) => action,
+            };
+            clicked = clicked.or(icon_button_for(ui, cx, action, side, icon));
+        }
+        clicked
+    })
+    .inner
 }
 
-/// One square icon button for `action`, with its tooltip and AccessKit name.
+/// A bar's button for a submenu: an Icon button that opens it as a menu, or a menu button
+/// with its title when it has no Icon.
+fn submenu_button(
+    ui: &mut Ui,
+    cx: &Cx<'_>,
+    menu: &Menu,
+    side: f32,
+    icon: f32,
+) -> Option<Invocation> {
+    let mut inner = None;
+    let title = i18n::translate(&menu.title, &[]);
+    match menu.icon.as_deref().filter(|key| icons::has(key)) {
+        Some(key) => {
+            // Shown as active while any of its items is.
+            let checked = menu.items.iter().any(|i| match i {
+                Item::Action(a) => cx.is_checked(&resolve_for(cx.shell, a, cx.document)),
+                _ => false,
+            });
+            let button = widgets::icon_button(key)
+                .side(side)
+                .icon_size(icon)
+                .on(checked);
+            let response = ui.add(button).tooltip(&title);
+            a11y::name(&response, Role::Button, true, &title, None, None);
+            widgets::menu(&response).show(|ui| {
+                menu_items(ui, cx, &menu.items, &mut inner);
+            });
+        }
+        None => {
+            widgets::menu_button(title).show(ui, |ui| {
+                menu_items(ui, cx, &menu.items, &mut inner);
+            });
+        }
+    }
+    inner
+}
+
+/// One Icon button for `action`, with its tooltip and AccessKit name.
 fn icon_button_for(
     ui: &mut Ui,
     cx: &Cx<'_>,
@@ -223,7 +235,26 @@ pub(super) fn icon_button_response(
     cx: &Cx<'_>,
     action: &Action,
 ) -> (Option<Invocation>, egui::Response) {
-    icon_button_with(ui, cx, action, chrome::BAR_BUTTON, icons::TOOLBAR, None)
+    let t = ui.tokens();
+    let side = widgets::bar_button_side(&t);
+    icon_button_with(ui, cx, action, side, t.icon.bar, None)
+}
+
+/// A bar button's tooltip: its title with the key that runs it ("Undo (Ctrl+Z)"), and a
+/// sentence under it.
+fn tooltip(ui: &mut Ui, title: &str, key: Option<&str>, sentence: Option<&str>) {
+    let heading = match key {
+        Some(key) => format!("{title} ({key})"),
+        None => title.to_owned(),
+    };
+    widgets::tooltip_contents(
+        ui,
+        widgets::TooltipText {
+            title: &heading,
+            key: None,
+            sentence,
+        },
+    );
 }
 
 fn icon_button_with(
@@ -234,49 +265,39 @@ fn icon_button_with(
     icon: f32,
     toggled: Option<bool>,
 ) -> (Option<Invocation>, egui::Response) {
-    let theme = ui.ctx().theme();
     let mut clicked = None;
     let item = resolve_for(cx.shell, action, cx.document);
     let enabled = item.run.is_ok();
     // The tooltip names the shortcut: "Undo (Ctrl+Z)".
     let shortcut = cx.shortcut(ui, action);
-    let heading = match &shortcut {
-        Some(shortcut) => format!("{} ({shortcut})", item.title),
-        None => item.title.clone(),
-    };
     let checked = toggled.unwrap_or_else(|| cx.is_checked(&item));
-    // A disabled button still senses the pointer, for the tooltip saying why.
-    let response = match icons::image(&item.icon, icons::TOOLBAR, theme, enabled) {
-        Some(image) => chrome::icon_button(ui, image, icon, side, checked, enabled),
-        None => ui.add_enabled(
-            enabled,
-            Button::new(item.title.clone())
-                .selected(checked)
-                .min_size(Vec2::splat(side)),
-        ),
+    // A disabled Icon button still senses the pointer, for the tooltip saying why.
+    let response = if icons::has(&item.icon) {
+        let button = widgets::icon_button(&item.icon)
+            .side(side)
+            .icon_size(icon)
+            .on(checked)
+            .enabled(enabled);
+        ui.add(button)
+    } else {
+        ui.add_enabled(enabled, widgets::button(item.title.clone()).on(checked))
     };
     let response = match &item.run {
         Ok(run) => {
-            let response = response.on_hover_ui(|ui| {
-                ui.strong(&heading);
-                if !item.preset {
-                    ui.label(&item.description);
-                }
-            });
+            let sentence = (!item.preset).then_some(item.description.as_str());
+            let response =
+                response.tooltip_ui(|ui| tooltip(ui, &item.title, shortcut.as_deref(), sentence));
             if response.clicked() {
                 clicked = Some(run.clone());
             }
             response
         }
         Err(reason) => {
-            let tooltip = |ui: &mut Ui| {
-                ui.strong(&heading);
-                ui.label(reason);
-            };
+            let tip = |ui: &mut Ui| tooltip(ui, &item.title, shortcut.as_deref(), Some(reason));
             if response.enabled() {
-                response.on_hover_ui(tooltip)
+                response.tooltip_ui(tip)
             } else {
-                response.on_disabled_hover_ui(tooltip)
+                response.disabled_tooltip_ui(tip)
             }
         }
     };
@@ -296,14 +317,18 @@ fn icon_button_with(
 
 /// How far below the canvas top the Active Bar floats.
 pub(crate) const ACTIVE_BAR_TOP: f32 = 12.0;
-/// The Active Bar's frame: its inner margin and window stroke, on each side.
-pub(crate) const ACTIVE_BAR_MARGIN: i8 = 3;
-/// What the frame adds to the row's width: margin and stroke on both sides.
-const ACTIVE_BAR_FRAME: f32 = 2.0 * (ACTIVE_BAR_MARGIN as f32 + 1.0);
 /// How close the Active Bar comes to the canvas's sides.
 const ACTIVE_BAR_INSET: f32 = 8.0;
+
+/// What the bar frame adds to a row's width or height: its inset on both sides.
+fn frame_width(t: &Tokens) -> f32 {
+    2.0 * widgets::bar_frame_inset(t)
+}
+
 /// How far below the canvas top the Active Bar ends, for overlays that sit under it.
-pub const ACTIVE_BAR_BOTTOM: f32 = ACTIVE_BAR_TOP + ACTIVE_BAR_FRAME + chrome::BAR_BUTTON;
+pub fn active_bar_bottom(t: &Tokens) -> f32 {
+    ACTIVE_BAR_TOP + frame_width(t) + widgets::bar_button_side(t)
+}
 
 /// How far above the canvas bottom a Tool's bar (the Routing or Placement Bar) ends,
 /// clear of the grid readout.
@@ -333,23 +358,28 @@ pub fn grid_readout_anchor(canvas: Rect, strip: bool) -> egui::Pos2 {
 }
 
 /// The width of a row of bar items.
-fn row_width(items: &[Item]) -> f32 {
+fn row_width(t: &Tokens, items: &[Item]) -> f32 {
     let widths: f32 = items
         .iter()
         .map(|item| match item {
-            Item::Separator => chrome::BAR_SEPARATOR,
-            _ => chrome::BAR_BUTTON,
+            Item::Separator => widgets::BAR_SEPARATOR,
+            _ => widgets::bar_button_side(t),
         })
         .sum();
-    widths + chrome::BAR_SPACING * items.len().saturating_sub(1) as f32
+    widths + widgets::BAR_GAP * items.len().saturating_sub(1) as f32
 }
 
-/// How many of the Active Bar's `items` fit on a canvas `width` points wide. The rest go
-/// in a menu behind a "More Tools" button at the end of the row. A separator never ends
-/// the row.
-pub fn active_bar_fit(items: &[Item], width: f32) -> usize {
-    let room = width - 2.0 * ACTIVE_BAR_INSET - ACTIVE_BAR_FRAME;
-    if row_width(items) <= room {
+/// What one more button adds to a row: the gap before it and its side.
+fn one_more(t: &Tokens) -> f32 {
+    widgets::BAR_GAP + widgets::bar_button_side(t)
+}
+
+/// How many of the Active Bar's `items` fit on a canvas `width` points wide, at the sizes
+/// of `t`. The rest go in a menu behind a "More Tools" button at the end of the row. A
+/// separator never ends the row.
+pub fn active_bar_fit(t: &Tokens, items: &[Item], width: f32) -> usize {
+    let room = width - 2.0 * ACTIVE_BAR_INSET - frame_width(t);
+    if row_width(t, items) <= room {
         return items.len();
     }
     let trimmed = |n: usize| {
@@ -359,11 +389,10 @@ pub fn active_bar_fit(items: &[Item], width: f32) -> usize {
         }
         n
     };
-    let more = chrome::BAR_SPACING + chrome::BAR_BUTTON;
     (1..items.len())
         .rev()
         .map(trimmed)
-        .find(|&n| n > 0 && row_width(&items[..n]) + more <= room)
+        .find(|&n| n > 0 && row_width(t, &items[..n]) + one_more(t) <= room)
         .unwrap_or(0)
 }
 
@@ -371,10 +400,10 @@ pub fn active_bar_fit(items: &[Item], width: f32) -> usize {
 /// `popups` pop-up buttons (the Selection Filter and the snap palette) follow them; the
 /// rest go in the More Tools menu. `None` when the canvas is too narrow for even the More
 /// Tools button and the pop-ups, so the bar hides instead of being clipped.
-pub fn active_bar_layout(items: &[Item], width: f32, popups: usize) -> Option<usize> {
-    let tail = popups as f32 * (chrome::BAR_SPACING + chrome::BAR_BUTTON);
-    let shown = active_bar_fit(items, width - tail);
-    let minimal = chrome::BAR_BUTTON + tail + 2.0 * ACTIVE_BAR_INSET + ACTIVE_BAR_FRAME;
+pub fn active_bar_layout(t: &Tokens, items: &[Item], width: f32, popups: usize) -> Option<usize> {
+    let tail = popups as f32 * one_more(t);
+    let shown = active_bar_fit(t, items, width - tail);
+    let minimal = widgets::bar_button_side(t) + tail + 2.0 * ACTIVE_BAR_INSET + frame_width(t);
     (shown > 0 || width >= minimal).then_some(shown)
 }
 
@@ -387,6 +416,7 @@ pub fn active_bar(
     id: Id,
     canvas: Rect,
 ) -> Option<Invocation> {
+    let t = ui.tokens();
     // Grouped by Preference, where the Document type lists groups.
     let grouped = cx
         .document
@@ -401,7 +431,7 @@ pub fn active_bar(
         return None;
     }
     let popups = if cx.document.is_some() { 2 } else { 0 };
-    let Some(shown) = active_bar_layout(items, canvas.width(), popups) else {
+    let Some(shown) = active_bar_layout(&t, items, canvas.width(), popups) else {
         // Too narrow for even More Tools and the pop-ups: hidden rather than clipped.
         return None;
     };
@@ -410,12 +440,11 @@ pub fn active_bar(
         .iter()
         .take_while(|i| matches!(i, Item::Separator))
         .count()..];
-    let width = row_width(row)
-        + ACTIVE_BAR_FRAME
-        + (popups + usize::from(!rest.is_empty())) as f32
-            * (chrome::BAR_SPACING + chrome::BAR_BUTTON)
+    let width = row_width(&t, row)
+        + frame_width(&t)
+        + (popups + usize::from(!rest.is_empty())) as f32 * one_more(&t)
         - if row.is_empty() {
-            chrome::BAR_SPACING
+            widgets::BAR_GAP
         } else {
             0.0
         };
@@ -428,11 +457,9 @@ pub fn active_bar(
         .pivot(Align2::LEFT_TOP)
         .constrain_to(canvas.shrink2(Vec2::new(ACTIVE_BAR_INSET, 0.0)))
         .show(ui.ctx(), |ui| {
-            egui::Frame::window(ui.style())
-                .inner_margin(egui::Margin::same(ACTIVE_BAR_MARGIN))
-                .corner_radius(egui::CornerRadius::same(5))
+            widgets::bar_frame(&t)
                 .show(ui, |ui| {
-                    ui.horizontal(|ui| {
+                    widgets::bar_row(ui, |ui| {
                         let mut clicked = match grouped {
                             Some(ty) => grouped_row(ui, cx, ty, row),
                             None => icon_row(ui, cx, row),
@@ -461,25 +488,26 @@ fn grouped_row(
     ty: super::DocumentType,
     items: &[Item],
 ) -> Option<Invocation> {
-    let mut clicked = None;
-    ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
-    for item in items {
-        let run = match item {
-            Item::Submenu(group) => super::groups::button(ui, cx, ty, group),
-            other => icon_row(ui, cx, std::slice::from_ref(other)),
-        };
-        clicked = clicked.or(run);
-    }
-    clicked
+    widgets::bar_row(ui, |ui| {
+        let mut clicked = None;
+        for item in items {
+            let run = match item {
+                Item::Submenu(group) => super::groups::button(ui, cx, ty, group),
+                other => icon_row(ui, cx, std::slice::from_ref(other)),
+            };
+            clicked = clicked.or(run);
+        }
+        clicked
+    })
+    .inner
 }
 
 /// The Active Bar's "More Tools" button, whose menu holds the items that did not fit.
 fn more_tools(ui: &mut Ui, cx: &Cx<'_>, items: &[Item]) -> Option<Invocation> {
     let title = crate::tr!("active-bar-more");
-    let button = Button::new("»")
-        .frame_when_inactive(false)
-        .min_size(Vec2::splat(chrome::BAR_BUTTON));
-    let response = ui.add(button).on_hover_text(&title);
+    let side = widgets::bar_button_side(&ui.tokens());
+    let button = widgets::glyph_button(widgets::Glyph::ChevronDown).side(side);
+    let response = ui.add(button).tooltip(&title);
     a11y::name(&response, Role::Button, true, &title, None, None);
     let mut clicked = None;
     widgets::menu(&response).show(|ui| {
@@ -503,7 +531,7 @@ pub struct ToolBarItem {
 
 /// A Tool's bar (the Routing Bar): `items` in the Active Bar's frame and buttons, pivoted
 /// on its bottom centre at `anchor` ([`tool_bar_anchor`]), each item as `state` says. A
-/// `note` shows just above it. Returns the item clicked.
+/// `note` shows just above it, in the same frame. Returns the item clicked.
 pub fn tool_bar(
     ui: &Ui,
     cx: &Cx<'_>,
@@ -513,6 +541,8 @@ pub fn tool_bar(
     note: Option<&str>,
     state: &dyn Fn(&Action) -> ToolBarItem,
 ) -> Option<Invocation> {
+    let t = ui.tokens();
+    let side = widgets::bar_button_side(&t);
     // Not egui's fade-in: the bar fades and travels 4 px as `motion.canvas_bar` says
     // (below), coming and going with its Tool or the selection.
     let shown = egui::Area::new(id.with("tool-bar"))
@@ -521,17 +551,14 @@ pub fn tool_bar(
         .fixed_pos(anchor)
         .pivot(Align2::CENTER_BOTTOM)
         .show(ui.ctx(), |ui| {
-            egui::Frame::window(ui.style())
-                .inner_margin(egui::Margin::same(ACTIVE_BAR_MARGIN))
-                .corner_radius(egui::CornerRadius::same(5))
+            widgets::bar_frame(&t)
                 .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = chrome::BAR_SPACING;
+                    widgets::bar_row(ui, |ui| {
                         let mut clicked = None;
                         for item in items {
                             let action = match item {
                                 Item::Separator => {
-                                    chrome::bar_separator(ui, chrome::BAR_BUTTON);
+                                    widgets::bar_separator(ui);
                                     continue;
                                 }
                                 Item::Submenu(_) => continue,
@@ -548,14 +575,8 @@ pub fn tool_bar(
                                     if look.icon.is_some() {
                                         action.icon = look.icon.clone();
                                     }
-                                    icon_button_toggled(
-                                        ui,
-                                        cx,
-                                        &action,
-                                        chrome::BAR_BUTTON,
-                                        icons::TOOLBAR,
-                                        look.toggled,
-                                    )
+                                    let icon = t.icon.bar;
+                                    icon_button_toggled(ui, cx, &action, side, icon, look.toggled)
                                 }
                             };
                             clicked = clicked.or(hit);
@@ -566,24 +587,22 @@ pub fn tool_bar(
                 })
                 .inner
         });
-    let motion = crate::theme::TokensExt::tokens(ui).motion;
+    let motion = t.motion;
     let look = crate::theme::motion::Look::travel(Vec2::new(0.0, motion.travel));
     crate::theme::motion::layer(ui.ctx(), shown.response.layer_id, look, motion.canvas_bar);
     if let Some(note) = note {
-        let top = shown.response.rect.center_top() - Vec2::new(0.0, 4.0);
+        let top = shown.response.rect.center_top() - Vec2::new(0.0, widgets::BAR_GAP);
         egui::Area::new(id.with("tool-bar-note"))
             .order(Order::Middle)
             .fixed_pos(top)
             .pivot(Align2::CENTER_BOTTOM)
             .interactable(false)
             .show(ui.ctx(), |ui| {
-                egui::Frame::window(ui.style())
-                    .inner_margin(egui::Margin::symmetric(6, 2))
-                    .corner_radius(egui::CornerRadius::same(4))
-                    .show(ui, |ui| {
-                        let response = ui.label(note);
-                        a11y::name(&response, Role::Label, true, note, None, None);
-                    });
+                widgets::bar_frame(&t).show(ui, |ui| {
+                    let text = t.ty.body.rich(note).color(t.color.text.primary);
+                    let response = ui.label(text);
+                    a11y::name(&response, Role::Label, true, note, None, None);
+                });
             });
     }
     shown.inner
@@ -593,20 +612,11 @@ pub fn tool_bar(
 fn text_button(ui: &mut Ui, cx: &Cx<'_>, action: &Action, text: &str) -> Option<Invocation> {
     let item = resolve_for(cx.shell, action, cx.document);
     let shortcut = cx.shortcut(ui, action);
-    let heading = match &shortcut {
-        Some(shortcut) => format!("{} ({shortcut})", item.title),
-        None => item.title.clone(),
-    };
     let response = ui
-        .add_enabled(
-            item.run.is_ok(),
-            Button::new(text)
-                .frame_when_inactive(false)
-                .min_size(Vec2::new(chrome::BAR_BUTTON, chrome::BAR_BUTTON)),
-        )
-        .on_hover_ui(|ui| {
-            ui.strong(&heading);
-            ui.label(&item.description);
+        .add_enabled(item.run.is_ok(), widgets::button(text).flat())
+        .tooltip_ui(|ui| {
+            let sentence = Some(item.description.as_str());
+            tooltip(ui, &item.title, shortcut.as_deref(), sentence);
         });
     let name = format!("{}: {text}", item.title);
     a11y::name(

@@ -100,7 +100,7 @@ fn bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars, chrome: Chrome) -> Outcome {
 
     // The quick strip, after the platform's inset; it never collapses.
     let items = bars.toolbar.len() as f32;
-    let strip_w = items * side + (items - 1.0).max(0.0) * crate::chrome::BAR_SPACING;
+    let strip_w = items * side + (items - 1.0).max(0.0) * crate::widgets::BAR_GAP;
     let strip_left = rect.left() + chrome.leading_inset.max(gap);
     let mut run = {
         let mut ui = at(ui, row(strip_left, strip_w));

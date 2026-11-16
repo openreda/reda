@@ -12,7 +12,8 @@ use serde::Serialize;
 use crate::bars::{self, Action, Binding};
 use crate::keymap::{self, Context as KeyContext};
 use crate::shell::Shell;
-use crate::tr;
+use crate::theme::TokensExt as _;
+use crate::{tr, widgets};
 
 /// Whether the card shows: view state, toggled by `view.keys_card.toggle`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -115,20 +116,13 @@ pub fn show(ui: &Ui, shell: &Shell, canvas: Rect) {
         .fixed_pos(canvas.right_top() + egui::vec2(-12.0, 12.0))
         .pivot(Align2::RIGHT_TOP)
         .show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                let heading = ui.strong(card.title.as_str());
+            let t = ui.tokens();
+            widgets::floating_frame(&t).show(ui, |ui| {
+                let text = t.ty.body_strong.rich(card.title.as_str());
+                let heading = ui.label(text.color(t.color.text.primary));
                 let title = card.title.clone();
                 heading.widget_info(|| WidgetInfo::labeled(Role::Label, true, title.clone()));
-                egui::Grid::new(id.with("rows"))
-                    .num_columns(2)
-                    .spacing([16.0, 2.0])
-                    .show(ui, |ui| {
-                        for (chord, action) in &card.rows {
-                            ui.monospace(chord.as_str());
-                            ui.label(action.as_str());
-                            ui.end_row();
-                        }
-                    });
+                widgets::key_list(ui, id.with("rows"), &card.rows);
             });
         });
 }
