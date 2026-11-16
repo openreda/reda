@@ -116,14 +116,29 @@ impl ConvertCrossDialog {
         .width(360.0)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                radio(ui, &mut self.project, false, tr!("convert-cross-scope-sheet"));
-                radio(ui, &mut self.project, true, tr!("convert-cross-scope-project"));
+                radio(
+                    ui,
+                    &mut self.project,
+                    false,
+                    tr!("convert-cross-scope-sheet"),
+                );
+                radio(
+                    ui,
+                    &mut self.project,
+                    true,
+                    tr!("convert-cross-scope-project"),
+                );
             });
             ui.horizontal(|ui| {
                 radio(ui, &mut self.selected_only, false, tr!("convert-cross-all"));
                 ui.add_enabled_ui(!self.selected.is_empty(), |ui| {
-                    radio(ui, &mut self.selected_only, true, tr!("convert-cross-selected"))
-                        .disabled_tooltip(tr!("convert-cross-nothing-selected"));
+                    radio(
+                        ui,
+                        &mut self.selected_only,
+                        true,
+                        tr!("convert-cross-selected"),
+                    )
+                    .disabled_tooltip(tr!("convert-cross-nothing-selected"));
                 });
             });
             ui.horizontal(|ui| {

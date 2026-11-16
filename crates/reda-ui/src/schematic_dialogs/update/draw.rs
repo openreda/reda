@@ -228,62 +228,70 @@ impl UpdateDialog {
     fn settings_grid(&mut self, ui: &mut Ui) {
         let s = &mut self.settings;
         widgets::form("library-update-settings").show(ui, |ui| {
-                let label = ui.add(widgets::form_name(tr!("library-update-setting-library-field-missing")));
-                combo(
-                    ui,
-                    label.id,
-                    "library_field_missing",
-                    &mut s.library_field_missing,
-                    &[
-                        (LibraryFieldMissing::Add, "library-update-add"),
-                        (
-                            LibraryFieldMissing::AddIfNotBlank,
-                            "library-update-add-if-not-blank",
-                        ),
-                        (LibraryFieldMissing::Skip, "library-update-skip"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.add(widgets::form_name(tr!("library-update-setting-component-field-missing")));
-                combo(
-                    ui,
-                    label.id,
-                    "component_field_missing",
-                    &mut s.component_field_missing,
-                    &[
-                        (ComponentFieldMissing::Keep, "library-update-keep"),
-                        (ComponentFieldMissing::Remove, "library-update-remove"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.add(widgets::form_name(tr!("library-update-setting-locally-edited")));
-                combo(
-                    ui,
-                    label.id,
-                    "locally_edited",
-                    &mut s.locally_edited,
-                    &[
-                        (LocallyEdited::Keep, "library-update-keep"),
-                        (LocallyEdited::TakeNew, "library-update-take-new"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.add(widgets::form_name(tr!("library-update-setting-footprint-choice")));
-                combo(
-                    ui,
-                    label.id,
-                    "footprint_choice",
-                    &mut s.footprint_choice,
-                    &[
-                        (
-                            FootprintChoice::KeepIfPresent,
-                            "library-update-keep-if-present",
-                        ),
-                        (FootprintChoice::Default, "library-update-default"),
-                    ],
-                );
-                ui.end_row();
-            });
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-library-field-missing"
+            )));
+            combo(
+                ui,
+                label.id,
+                "library_field_missing",
+                &mut s.library_field_missing,
+                &[
+                    (LibraryFieldMissing::Add, "library-update-add"),
+                    (
+                        LibraryFieldMissing::AddIfNotBlank,
+                        "library-update-add-if-not-blank",
+                    ),
+                    (LibraryFieldMissing::Skip, "library-update-skip"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-component-field-missing"
+            )));
+            combo(
+                ui,
+                label.id,
+                "component_field_missing",
+                &mut s.component_field_missing,
+                &[
+                    (ComponentFieldMissing::Keep, "library-update-keep"),
+                    (ComponentFieldMissing::Remove, "library-update-remove"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-locally-edited"
+            )));
+            combo(
+                ui,
+                label.id,
+                "locally_edited",
+                &mut s.locally_edited,
+                &[
+                    (LocallyEdited::Keep, "library-update-keep"),
+                    (LocallyEdited::TakeNew, "library-update-take-new"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-footprint-choice"
+            )));
+            combo(
+                ui,
+                label.id,
+                "footprint_choice",
+                &mut s.footprint_choice,
+                &[
+                    (
+                        FootprintChoice::KeepIfPresent,
+                        "library-update-keep-if-present",
+                    ),
+                    (FootprintChoice::Default, "library-update-default"),
+                ],
+            );
+            ui.end_row();
+        });
         for (on, key) in [
             (
                 &mut s.add_new_footprints,
@@ -595,7 +603,8 @@ fn row_width<'a>(ui: &Ui, texts: impl Iterator<Item = &'a str>) -> f32 {
     let widest = texts
         .map(|text| {
             let font = t.ty.body.font_id();
-            let galley = (ui.painter()).layout_no_wrap(text.to_owned(), font, egui::Color32::TRANSPARENT);
+            let galley =
+                (ui.painter()).layout_no_wrap(text.to_owned(), font, egui::Color32::TRANSPARENT);
             galley.size().x
         })
         .fold(0.0, f32::max);

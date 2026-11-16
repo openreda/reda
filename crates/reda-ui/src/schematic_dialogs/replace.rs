@@ -307,8 +307,8 @@ impl ReplaceDialog {
                         let name = tr!("replace-keep-fields");
                         ui.label(&name);
                         let keep = &mut self.keep_fields;
-                        let shown = widgets::dropdown("replace-keep-fields", keep.label())
-                            .show(ui, |ui| {
+                        let shown =
+                            widgets::dropdown("replace-keep-fields", keep.label()).show(ui, |ui| {
                                 for choice in KeepFields::ALL {
                                     widgets::choice_value(ui, keep, choice, choice.label());
                                 }

@@ -149,7 +149,6 @@ pub fn show(ui: &egui::Ui, shell: &mut Shell, document: Uuid) {
                 previous = layer;
             }
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = t.space.gap;
                 let size = egui::vec2(THUMBNAIL_WIDTH, t.row_height());
                 let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
                 thumbnail(ui, &t, &scene, *id, rect);
@@ -291,7 +290,8 @@ fn entry_label(shell: &Shell, document: Uuid, id: Uuid, ordinal: usize) -> Strin
 
 /// How wide `text` is in `style`.
 fn text_width(ui: &egui::Ui, style: &crate::theme::Text, text: &str) -> f32 {
-    let galley = (ui.painter()).layout_no_wrap(text.to_owned(), style.font_id(), egui::Color32::TRANSPARENT);
+    let galley =
+        (ui.painter()).layout_no_wrap(text.to_owned(), style.font_id(), egui::Color32::TRANSPARENT);
     galley.size().x
 }
 

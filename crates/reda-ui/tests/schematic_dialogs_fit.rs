@@ -31,8 +31,8 @@ use serde_json::{Value, json};
 
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 const R_10K: &str = "a0000000-0000-4000-8000-000000000100";
-/// The resistor Symbol, which R_10k, R_Shunt and NT_0603 use.
-const R_SYMBOL: &str = "a0000000-0000-4000-8000-000000000010";
+/// The user's own Library, for the shared-element question.
+const MINE: &str = "b0000000-0000-4000-8000-000000000001";
 const MIL: f64 = 25_400.0;
 
 /// A laptop's window.
@@ -85,7 +85,13 @@ fn fixture(label: &str) -> Fixture {
                 json!({"document": SHEET, "part": R_10K, "at": {"x": x, "y": 0}}),
             )
             .unwrap();
-        components.push(out["result"]["component"].as_str().unwrap().parse().unwrap());
+        components.push(
+            out["result"]["component"]["uuid"]
+                .as_str()
+                .unwrap()
+                .parse()
+                .unwrap(),
+        );
     }
     shell
         .run(
@@ -96,7 +102,11 @@ fn fixture(label: &str) -> Fixture {
         .unwrap();
     let part = library.join("parts/R_10k.redapart");
     let text = std::fs::read_to_string(&part).unwrap();
-    std::fs::write(&part, text.replace("\"value\":\"10k\"", "\"value\":\"22k\"")).unwrap();
+    std::fs::write(
+        &part,
+        text.replace("\"value\":\"10k\"", "\"value\":\"22k\""),
+    )
+    .unwrap();
     Fixture {
         shell,
         components,
@@ -127,9 +137,10 @@ fn themed<S>(h: &mut Harness<'static, S>, dark: bool, density: Density) {
 /// `draw` alone in the window, settled: a dialog grows in and sizes itself to its content
 /// over a few frames.
 fn alone(shell: Shell, draw: Draw, dark: bool, density: Density) -> Harness<'static, Alone> {
-    let mut h = Harness::builder()
-        .with_size(WINDOW)
-        .build_state(|ctx, a: &mut Alone| (a.draw)(ctx, &mut a.shell), Alone { shell, draw });
+    let mut h = Harness::builder().with_size(WINDOW).build_ui_state(
+        |ui, a: &mut Alone| (a.draw)(&ui.ctx().clone(), &mut a.shell),
+        Alone { shell, draw },
+    );
     themed(&mut h, dark, density);
     h.run_steps(30);
     h
@@ -164,7 +175,10 @@ fn misfits(shapes: &[egui::epaint::ClippedShape], area: Rect) -> Vec<String> {
             }
             // The lists scroll down, never across: text cut at a side is cut.
             if rect.right() > clip.right() + 0.5 || rect.left() < clip.left() - 0.5 {
-                out.push(format!("runs out sideways by {}: {said:?}", rect.right() - clip.right()));
+                out.push(format!(
+                    "runs out sideways by {}: {said:?}",
+                    rect.right() - clip.right()
+                ));
             }
             if rect.right() > area.right() + 0.5 || rect.left() < area.left() - 0.5 {
                 out.push(format!("runs out of its window: {said:?}"));
@@ -184,7 +198,9 @@ fn check_alone(name: &str, shell: Shell, draw: Draw, dark: bool, density: Densit
     let area = h.ctx.content_rect();
     let shapes = &h.output().shapes;
     assert!(
-        shapes.iter().any(|s| matches!(s.shape, egui::Shape::Text(_) | egui::Shape::Vec(_))),
+        shapes
+            .iter()
+            .any(|s| matches!(s.shape, egui::Shape::Text(_) | egui::Shape::Vec(_))),
         "{name}: nothing drawn"
     );
     misfits(shapes, area)
@@ -211,7 +227,13 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
     let draw: Draw = Box::new(move |ctx, shell| {
         dialog.show(ctx, shell);
     });
-    wrong.extend(check_alone("Re-annotate (board)", f.shell, draw, dark, density));
+    wrong.extend(check_alone(
+        "Re-annotate (board)",
+        f.shell,
+        draw,
+        dark,
+        density,
+    ));
 
     let mut f = fixture("fit-reannotate-last");
     let mut first = ReannotateDialog::new(&mut f.shell);
@@ -226,14 +248,26 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
     let draw: Draw = Box::new(move |ctx, shell| {
         last.show(ctx, shell);
     });
-    wrong.extend(check_alone("Re-annotate (last settings)", f.shell, draw, dark, density));
+    wrong.extend(check_alone(
+        "Re-annotate (last settings)",
+        f.shell,
+        draw,
+        dark,
+        density,
+    ));
 
     let mut f = fixture("fit-update-setup");
     let mut dialog = UpdateDialog::new(&mut f.shell, UpdateScope::default());
     let draw: Draw = Box::new(move |ctx, shell| {
         dialog.show(ctx, shell);
     });
-    wrong.extend(check_alone("Update from Library ▸ 1", f.shell, draw, dark, density));
+    wrong.extend(check_alone(
+        "Update from Library ▸ 1",
+        f.shell,
+        draw,
+        dark,
+        density,
+    ));
 
     let mut f = fixture("fit-update-preview");
     let mut dialog = UpdateDialog::new(&mut f.shell, UpdateScope::default());
@@ -245,7 +279,13 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
     let draw: Draw = Box::new(move |ctx, shell| {
         dialog.show(ctx, shell);
     });
-    wrong.extend(check_alone("Update from Library ▸ 2", f.shell, draw, dark, density));
+    wrong.extend(check_alone(
+        "Update from Library ▸ 2",
+        f.shell,
+        draw,
+        dark,
+        density,
+    ));
 
     let mut f = fixture("fit-replace");
     let mut dialog = ReplaceDialog::new(&mut f.shell, vec![f.components[0]]);
@@ -264,7 +304,13 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
     let draw: Draw = Box::new(move |ctx, shell| {
         dialog.show(ctx, shell);
     });
-    wrong.extend(check_alone("Convert Cross Junctions", f.shell, draw, dark, density));
+    wrong.extend(check_alone(
+        "Convert Cross Junctions",
+        f.shell,
+        draw,
+        dark,
+        density,
+    ));
 
     let f = fixture("fit-text");
     let mut dialog = TextDialog::new(json!({"document": SHEET, "at": {"x": 0, "y": 0}}));
@@ -275,7 +321,10 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
 
     let mut f = fixture("fit-shared");
     let symbol = shared_symbol(&mut f.shell);
-    assert!(reda_ui::shared_element::asking(&f.shell).is_some(), "{symbol}");
+    assert!(
+        reda_ui::shared_element::asking(&f.shell).is_some(),
+        "{symbol}"
+    );
     let draw: Draw = Box::new(move |ctx, shell| {
         reda_ui::shared_element::show(ctx, shell);
     });
@@ -284,20 +333,60 @@ fn dialogs_alone(dark: bool, density: Density) -> Vec<String> {
     wrong
 }
 
-/// The test Library's resistor Symbol, which two of its Parts use, opened and changed:
+/// A Symbol of a writable Library of the user's that two Parts use, open and changed:
 /// the change waits on the shared-element question.
 fn shared_symbol(shell: &mut Shell) -> Uuid {
-    let symbol: Uuid = R_SYMBOL.parse().unwrap();
+    let lib = TempDir::new("fit-shared-lib");
+    std::fs::write(
+        lib.path().join("Mine.redalib"),
+        format!("{{\"format\": 1, \"library\": {{\"uuid\": \"{MINE}\", \"name\": \"Mine\"}}}}"),
+    )
+    .unwrap();
     shell
-        .run("library.element.open", json!({"element": symbol}))
+        .run(
+            "app.preferences.set",
+            json!({"key": "libraries.paths", "value": [lib.path()]}),
+        )
         .unwrap();
+    let mut new = |kind: &str, name: &str| -> Uuid {
+        let out = shell
+            .run(
+                "library.element.new",
+                json!({"library": MINE, "kind": kind, "name": name}),
+            )
+            .unwrap();
+        out["element"].as_str().unwrap().parse().unwrap()
+    };
+    let symbol = new("symbol", "Shared");
+    let parts = [new("part", "First"), new("part", "Second")];
+    let save = |shell: &mut Shell, element: Uuid| {
+        shell
+            .run("library.element.save", json!({"element": element}))
+            .unwrap();
+    };
+    save(shell, symbol);
+    for part in parts {
+        shell
+            .run(
+                "library.part.symbol.set",
+                json!({"part": part, "symbol": symbol}),
+            )
+            .unwrap();
+        save(shell, part);
+    }
     let unit = match shell.engine().element(symbol) {
         Some(reda_ui::engine::model::LibraryElement::Symbol(s)) => s.units[0].uuid,
         _ => unreachable!(),
     };
-    let params = json!({"symbol": symbol, "unit": unit, "number": "9", "name": "A",
+    let params = json!({"symbol": symbol, "unit": unit, "number": "1", "name": "A",
                         "at": {"x": "-300mil", "y": "0mil"}});
-    assert!(!reda_ui::shared_element::hold(shell, "library.symbol.pin.add", &params));
+    assert!(!reda_ui::shared_element::hold(
+        shell,
+        "library.symbol.pin.add",
+        &params
+    ));
+    // The Library's folder stays for the test's length.
+    std::mem::forget(lib);
     symbol
 }
 
@@ -313,6 +402,7 @@ fn window(dark: bool, density: Density) -> (Harness<'static, App>, Fixture) {
     let shell = std::mem::replace(&mut f.shell, Shell::new(Engine::builder().build()));
     let mut h = Harness::builder()
         .with_size(WINDOW)
+        .with_step_dt(0.01)
         .with_max_steps(200)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     themed(&mut h, dark, density);
@@ -327,13 +417,29 @@ fn run(h: &mut Harness<'_, App>, id: &str, params: Value) -> Value {
 fn screen(h: &Harness<'_, App>, x: f64, y: f64) -> Pos2 {
     let rect = h.get_by_role(Role::Canvas).rect();
     let sheet = SHEET.parse().unwrap();
-    let camera = h.state().shell().document_tab(sheet).unwrap().camera.unwrap();
+    let camera = h
+        .state()
+        .shell()
+        .document_tab(sheet)
+        .unwrap()
+        .camera
+        .unwrap();
     camera.screen_point(rect, (x * MIL, y * MIL))
 }
 
-/// The text in `area` of the window as it is drawn now.
+/// The text in `area` of the window as it is drawn now. Only text wholly inside it is
+/// looked at: what pokes out from under it belongs to the panels behind.
 fn check_in(name: &str, h: &Harness<'_, App>, area: Rect) -> Vec<String> {
-    misfits(&h.output().shapes, area)
+    let inside: Vec<_> = (h.output().shapes.iter())
+        .filter(|clipped| match &clipped.shape {
+            egui::Shape::Text(text) => {
+                area.contains_rect(text.galley.rect.translate(text.pos.to_vec2()))
+            }
+            _ => false,
+        })
+        .cloned()
+        .collect();
+    misfits(&inside, area)
         .into_iter()
         .map(|line| format!("{name}: {line}"))
         .collect()
@@ -347,22 +453,22 @@ fn around(rect: Rect) -> Rect {
 fn editor_chrome(dark: bool, density: Density) -> Vec<String> {
     let mut wrong = Vec::new();
 
-    // The pick list: a Wire over the other, double-clicked.
+    // The pick list: a Wire across a resistor, double-clicked.
     let (mut h, _f) = window(dark, density);
     run(
         &mut h,
         "schematic.wire.add",
         json!({"document": SHEET, "points": [
-            {"x": "0mil", "y": "-1000mil"}, {"x": "1000mil", "y": "-1000mil"}]}),
+            {"x": "1500mil", "y": "0mil"}, {"x": "2500mil", "y": "0mil"}]}),
     );
     h.run();
-    let at = screen(&h, 500.0, -1000.0);
+    let at = screen(&h, 2000.0, 0.0);
     for _ in 0..2 {
         h.drag_at(at);
         h.drop_at(at);
         h.run();
     }
-    h.run_steps(10);
+    h.run_steps(30);
     let list = h.get_by_label("Pick Object").rect();
     wrong.extend(check_in("Pick Object", &h, list));
 
@@ -393,7 +499,9 @@ fn editor_chrome(dark: bool, density: Density) -> Vec<String> {
     h.run();
     h.key_press(Key::F2);
     h.run_steps(4);
-    let field = h.get_by_role_and_label(Role::TextInput, "Edit in place").rect();
+    let field = h
+        .get_by_role_and_label(Role::TextInput, "Edit in place")
+        .rect();
     wrong.extend(check_in("In-place field", &h, around(field)));
 
     // Tab while placing a Net Label: the Paused chip and the next name.
