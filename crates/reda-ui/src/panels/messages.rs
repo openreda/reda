@@ -5,13 +5,15 @@
 //! Details, Waive, Unwaive, Set severity, Run this check only and Show rule. Drawing
 //! only: every click becomes an [`Action`] the window applies after the frame.
 
-use egui::{Button, ComboBox, RichText, ScrollArea, Ui};
+use egui::{Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{Severity, Uuid};
 
-use crate::layout::SettingsWindow;
+use crate::layout::{PanelId, SettingsWindow};
 use crate::messages::{CheckKind, GroupBy, Line, LineKey, SortBy, check_title};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Status};
 
 /// What a click in the panel, Violation Details or the Waive window asks for.
 #[derive(Clone, Debug, PartialEq)]
@@ -123,10 +125,7 @@ fn rule_page(shell: &Shell, key: LineKey) -> Option<(SettingsWindow, String)> {
 
 /// Draws the panel into `ui`.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Action> {
-    egui::Frame::new()
-        .inner_margin(egui::Margin::symmetric(6, 2))
-        .show(ui, |ui| contents(ui, shell))
-        .inner
+    contents(ui, shell)
 }
 
 /// The height the details pane under the list opens at.
@@ -141,7 +140,7 @@ fn contents(ui: &mut Ui, shell: &Shell) -> Vec<Action> {
                 CheckKind::Erc => tr!("messages-erc-stale"),
                 CheckKind::Drc => tr!("messages-drc-stale"),
             };
-            ui.colored_label(ui.visuals().warn_fg_color, text);
+            ui.colored_label(ui.tokens().color.warning.text, text);
         }
     }
     ui.separator();
@@ -156,26 +155,33 @@ fn contents(ui: &mut Ui, shell: &Shell) -> Vec<Action> {
         return actions;
     }
     let picked = shell.messages().picked();
+    let focused = shell.panel_focused(PanelId::Messages);
     ScrollArea::vertical()
         .id_salt("messages-list")
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            for group in &groups {
-                let title = tr!(
-                    "messages-group",
-                    document = group.title.as_str(),
-                    count = group.lines.len()
-                );
-                egui::CollapsingHeader::new(title)
-                    .id_salt(("messages-group", &group.kind))
-                    .default_open(!group.collapsed)
-                    .show(ui, |ui| {
-                        for line in &group.lines {
-                            let on = picked.contains(&line.key);
-                            row(ui, shell, line, on, &mut actions);
-                        }
-                    });
-            }
+            widgets::rows(ui, |ui| {
+                for group in &groups {
+                    let title = tr!(
+                        "messages-group",
+                        document = group.title.as_str(),
+                        count = group.lines.len()
+                    );
+                    widgets::section(title)
+                        .id_salt(("messages-group", &group.kind))
+                        .default_open(!group.collapsed)
+                        .show(ui, |ui| {
+                            for line in &group.lines {
+                                let on = picked.contains(&line.key);
+                                let look = Look {
+                                    picked: on,
+                                    focused,
+                                };
+                                row(ui, shell, line, look, &mut actions);
+                            }
+                        });
+                }
+            });
         });
     actions
 }
@@ -185,7 +191,7 @@ fn toolbar(ui: &mut Ui, shell: &Shell, actions: &mut Vec<Action>) {
     ui.horizontal_wrapped(|ui| {
         let erc = open.is_some();
         if ui
-            .add_enabled(erc, Button::new(tr!("messages-run-erc")))
+            .add_enabled(erc, widgets::button(tr!("messages-run-erc")))
             .clicked()
         {
             actions.push(Action::Run(CheckKind::Erc));
@@ -193,125 +199,129 @@ fn toolbar(ui: &mut Ui, shell: &Shell, actions: &mut Vec<Action>) {
         let drc = open.and_then(|p| p.pcb()).is_some()
             && shell.engine().registry().get("drc.run").is_some();
         if ui
-            .add_enabled(drc, Button::new(tr!("messages-run-drc")))
+            .add_enabled(drc, widgets::button(tr!("messages-run-drc")))
             .clicked()
         {
             actions.push(Action::Run(CheckKind::Drc));
         }
         let messages = shell.messages();
         let mut show_waived = messages.show_waived();
-        if ui
-            .checkbox(&mut show_waived, tr!("messages-show-waived"))
-            .changed()
-        {
+        let waived = widgets::checkbox(&mut show_waived, tr!("messages-show-waived"));
+        if ui.add(waived).changed() {
             actions.push(Action::ShowWaived(show_waived));
         }
         ui.separator();
+        // The severity chips: each counts its lines, and shows or hides them.
         let (errors, warnings) = messages.counts();
-        for (severity, text) in [
-            (Severity::Error, tr!("messages-chip-errors", count = errors)),
+        for (severity, status, text) in [
+            (
+                Severity::Error,
+                Status::Error,
+                tr!("messages-chip-errors", count = errors),
+            ),
             (
                 Severity::Warning,
+                Status::Warning,
                 tr!("messages-chip-warnings", count = warnings),
             ),
         ] {
             let on = messages.severity_shown(severity);
-            if ui.selectable_label(on, text).clicked() {
+            let chip = widgets::badge(text).status(status).filter(on);
+            if ui.add(chip).clicked() {
                 actions.push(Action::Chip(severity, !on));
             }
         }
         ui.separator();
         let group_by = messages.group_by();
-        let response = ComboBox::from_id_salt("messages-group-by")
-            .selected_text(tr!("messages-group-by", by = group_by.label()))
-            .show_ui(ui, |ui| {
+        let text = tr!("messages-group-by", by = group_by.label());
+        let response = widgets::dropdown("messages-group-by", text)
+            .show(ui, |ui| {
                 for g in GroupBy::ALL {
-                    if ui.selectable_label(g == group_by, g.label()).clicked() {
+                    if ui.add(widgets::choice(g == group_by, g.label())).clicked() {
                         actions.push(Action::GroupBy(g));
                     }
                 }
             })
             .response;
         let label = tr!("messages-group-by-label");
-        response
-            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, label.clone()));
+        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
         let sort = messages.sort();
-        let response = ComboBox::from_id_salt("messages-sort")
-            .selected_text(tr!("messages-sort", by = sort.label()))
-            .show_ui(ui, |ui| {
+        let text = tr!("messages-sort", by = sort.label());
+        let response = widgets::dropdown("messages-sort", text)
+            .show(ui, |ui| {
                 for s in SortBy::ALL {
-                    if ui.selectable_label(s == sort, s.label()).clicked() {
+                    if ui.add(widgets::choice(s == sort, s.label())).clicked() {
                         actions.push(Action::Sort(s));
                     }
                 }
             })
             .response;
         let label = tr!("messages-sort-label");
-        response
-            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, label.clone()));
+        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
     });
 }
 
-fn row(ui: &mut Ui, shell: &Shell, line: &Line, picked: bool, actions: &mut Vec<Action>) {
-    ui.horizontal(|ui| {
-        let (label, color) = match line.severity {
-            Severity::Error => (tr!("severity-error"), ui.visuals().error_fg_color),
-            _ => (tr!("severity-warning"), ui.visuals().warn_fg_color),
-        };
-        let color = if line.waived || line.stale {
-            color.gamma_multiply(0.5)
+/// How a line's row shows: picked, and whether the panel holds keyboard focus.
+#[derive(Clone, Copy)]
+struct Look {
+    picked: bool,
+    focused: bool,
+}
+
+/// One line: its severity as a mark and the message. A waived or stale line is muted,
+/// with the muted mark.
+fn row(ui: &mut Ui, shell: &Shell, line: &Line, look: Look, actions: &mut Vec<Action>) {
+    let off = line.waived || line.stale;
+    let (severity, status) = match line.severity {
+        Severity::Error => (tr!("severity-error"), Status::Error),
+        _ => (tr!("severity-warning"), Status::Warning),
+    };
+    let status = if off { Status::Off } else { status };
+    let row = widgets::list_row(line.text.as_str())
+        .status(status)
+        .muted(off)
+        .selected(look.picked)
+        .panel_focused(look.focused);
+    let response = ui.add(row);
+    // The line reads as a button, as it always has; its severity, which the mark shows,
+    // is its description.
+    let name = if line.waived {
+        tr!("messages-waived-line", text = line.text.as_str())
+    } else {
+        line.text.clone()
+    };
+    response.widget_info(|| WidgetInfo::selected(Role::Button, true, look.picked, &name));
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_description(severity.clone());
+    });
+    // A pass the frame discards counts the same press again, so a double-click can
+    // read as a triple one.
+    if response.double_clicked() || response.triple_clicked() {
+        actions.push(Action::Details(line.key));
+    } else if response.clicked() {
+        if ui.input(|i| i.modifiers.command) {
+            actions.push(Action::Pick(line.key));
         } else {
-            color
-        };
-        ui.label(RichText::new(label).small().color(color));
-        let mut text = RichText::new(line.text.as_str());
-        if line.stale || line.waived {
-            text = text.color(ui.visuals().weak_text_color());
+            actions.push(Action::GoTo(line.key));
         }
-        if line.waived {
-            text = text.italics();
+    }
+    match line.key {
+        LineKey::Violation(..) => {
+            widgets::context_menu(&response, |ui| violation_menu(ui, shell, line.key, actions));
         }
-        let response = ui.selectable_label(picked, text);
-        if line.waived {
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(
-                    egui::Role::Button,
-                    true,
-                    tr!("messages-waived-line", text = line.text.as_str()),
-                )
+        LineKey::StaleWaiver(..) => {
+            widgets::context_menu(&response, |ui| {
+                let delete = tr!("messages-delete-waiver");
+                item(ui, delete, Action::Unwaive(line.key), actions);
             });
         }
-        // A pass the frame discards counts the same press again, so a double-click can
-        // read as a triple one.
-        if response.double_clicked() || response.triple_clicked() {
-            actions.push(Action::Details(line.key));
-        } else if response.clicked() {
-            if ui.input(|i| i.modifiers.command) {
-                actions.push(Action::Pick(line.key));
-            } else {
-                actions.push(Action::GoTo(line.key));
-            }
-        }
-        match line.key {
-            LineKey::Violation(..) => {
-                response.context_menu(|ui| violation_menu(ui, shell, line.key, actions));
-            }
-            LineKey::StaleWaiver(..) => {
-                response.context_menu(|ui| {
-                    if ui.button(tr!("messages-delete-waiver")).clicked() {
-                        actions.push(Action::Unwaive(line.key));
-                        ui.close();
-                    }
-                });
-            }
-            LineKey::Note(_) => {}
-        }
-    });
+        LineKey::Note(_) => {}
+    }
 }
 
 /// One item of a right-click menu.
 fn item(ui: &mut Ui, label: String, action: Action, actions: &mut Vec<Action>) {
-    if ui.button(label).clicked() {
+    if ui.add(widgets::menu_item(label)).clicked() {
         actions.push(action);
         ui.close();
     }
@@ -330,16 +340,15 @@ fn violation_menu(ui: &mut Ui, shell: &Shell, key: LineKey, actions: &mut Vec<Ac
         item(ui, tr!("messages-waive"), Action::Waive(key), actions);
     }
     let check = check_title(&entry.violation.check);
-    ui.menu_button(tr!("messages-set-severity", check = check.as_str()), |ui| {
+    let title = tr!("messages-set-severity", check = check.as_str());
+    widgets::menu_button(title).show(ui, |ui| {
         for (severity, label) in [
             (Severity::Error, tr!("severity-error")),
             (Severity::Warning, tr!("severity-warning")),
             (Severity::Off, tr!("severity-off")),
         ] {
-            if ui
-                .radio(entry.violation.severity == severity, label)
-                .clicked()
-            {
+            let chosen = entry.violation.severity == severity;
+            if ui.add(widgets::radio(chosen, label)).clicked() {
                 actions.push(Action::SetSeverity(key, severity));
                 ui.close();
             }
@@ -370,13 +379,14 @@ fn details_pane(ui: &mut Ui, shell: &Shell, actions: &mut Vec<Action>) {
                 let Some(entry) = messages.entry(key) else {
                     return;
                 };
-                ui.add(egui::Label::new(RichText::new(entry.text.as_str()).strong()).wrap());
+                let text = ui.tokens().ty.body_strong.rich(entry.text.as_str());
+                ui.add(egui::Label::new(text).wrap());
                 ui.horizontal_wrapped(|ui| {
                     ui.label(tr!("messages-details-objects"));
                     for (object, name) in
                         object_links(shell, entry.document, &entry.violation.objects)
                     {
-                        if ui.link(name.as_str()).clicked() {
+                        if ui.add(widgets::link(name.as_str())).clicked() {
                             actions.push(Action::GoToObject(entry.document, object));
                         }
                     }

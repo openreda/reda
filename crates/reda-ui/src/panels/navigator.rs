@@ -8,9 +8,7 @@
 
 pub mod rows;
 
-use egui::{
-    Color32, Id, Rect, Response, Role, ScrollArea, Sense, Stroke, TextEdit, Ui, WidgetInfo,
-};
+use egui::{Id, Rect, Role, ScrollArea, Sense, Stroke, Ui, WidgetInfo};
 use reda_engine::model::{PcbDocument, Side, Uuid};
 use reda_engine::pcb::LayerZones;
 use reda_engine::pcb::zone::FillState;
@@ -19,10 +17,13 @@ use reda_engine::render::Rgba;
 use serde_json::{Value, json};
 
 use self::rows::{OnClick, Target};
+use crate::layout::PanelId;
 use crate::panels::layers::layer_name;
 use crate::pcb::view::{format_length, parse_hex};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column, RowLook, Selection, Status, Tooltip as _};
 
 /// A Command for the window to run.
 pub type Invocation = (String, Value);
@@ -44,13 +45,21 @@ struct State {
     on: OnClick,
 }
 
-/// The Net colours the swatch offers, besides any colour from the picker.
+/// The Net colours the swatch offers, besides any colour typed in. They are data: the
+/// colours a Net can be given, sent to `pcb.net.set_color` as written here.
 pub const NET_COLOURS: [&str; 12] = [
+    // theme-exempt: the Net palette is data, the colours a Net can be given
     "#e6194b", "#f58231", "#ffe119", "#bfef45", "#3cb44b", "#42d4f4", "#4363d8", "#911eb4",
+    // theme-exempt: the Net palette is data, the colours a Net can be given
     "#f032e6", "#fabed4", "#9a6324", "#a9a9a9",
 ];
 
-const SWATCH: egui::Vec2 = egui::vec2(18.0, 12.0);
+/// How many of the Net colours the palette shows in a row.
+const PALETTE_ROW: usize = 6;
+/// The width of the palette's field for a typed colour.
+const HEX_WIDTH: f32 = 80.0;
+/// The width of a Zone row's drag handle.
+const GRIP_WIDTH: f32 = 10.0;
 
 /// A dragged Zone row: the Zone and its Layer.
 #[derive(Clone, Copy)]
@@ -73,16 +82,20 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
 
     top(ui, &mut state);
     ui.separator();
-    let units = shell.board_view().units;
+    let look = Look {
+        units: shell.board_view().units,
+        // The tint of a selected row: live only while this Panel holds keyboard focus.
+        selected: Selection::of(ui, true, shell.panel_focused(PanelId::Navigator)),
+    };
     let mut clicked = None;
     ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
         clicked = match state.mode {
-            Mode::Nets => nets(ui, shell, pcb, &state.search, units, &mut out),
-            Mode::Footprints => footprints(ui, shell, pcb, &state.search, &mut out),
+            Mode::Nets => nets(ui, shell, pcb, &state.search, look, &mut out),
+            Mode::Footprints => footprints(ui, shell, pcb, &state.search, look, &mut out),
             Mode::Zones => {
                 let fills = project.zone_fills(pcb.uuid);
                 let listing = rows::zones(pcb, fills, &state.search);
-                zones(ui, shell, pcb, &listing.layers, units, &mut out)
+                zones(ui, shell, pcb, &listing.layers, look, &mut out)
             }
         };
     });
@@ -93,22 +106,40 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
     out
 }
 
+/// What every mode's rows share.
+#[derive(Clone, Copy)]
+struct Look {
+    units: Units,
+    /// How a selected row shows.
+    selected: Selection,
+}
+
+impl Look {
+    fn row(self, selected: bool) -> RowLook {
+        RowLook::selected(if selected {
+            self.selected
+        } else {
+            Selection::None
+        })
+    }
+}
+
 fn no_board(ui: &mut Ui, out: Vec<Invocation>) -> Vec<Invocation> {
-    ui.add_space(8.0);
+    ui.add_space(ui.tokens().space.gap);
     ui.vertical_centered(|ui| ui.weak(tr!("nav-no-pcb")));
     out
 }
 
 /// The mode switch, the search box and the toggles.
 fn top(ui: &mut Ui, state: &mut State) {
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         for (mode, title) in [
             (Mode::Nets, tr!("nav-mode-nets")),
             (Mode::Footprints, tr!("nav-mode-footprints")),
             (Mode::Zones, tr!("nav-mode-zones")),
         ] {
             let on = state.mode == mode;
-            let response = ui.selectable_label(on, title.as_str());
+            let response = ui.add(widgets::button(title.as_str()).on(on));
             let label = tr!("nav-mode", mode = title.as_str());
             response.widget_info(|| WidgetInfo::selected(Role::RadioButton, true, on, &label));
             if response.clicked() {
@@ -117,13 +148,14 @@ fn top(ui: &mut Ui, state: &mut State) {
         }
     });
     let search = ui.add(
-        TextEdit::singleline(&mut state.search)
-            .hint_text(tr!("nav-search"))
-            .desired_width(f32::INFINITY),
+        widgets::text_field(&mut state.search)
+            .search()
+            .hint(tr!("nav-search"))
+            .width(f32::INFINITY),
     );
     let label = tr!("nav-search-label");
     search.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, &label));
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         for (flag, title, hint) in [
             (&mut state.on.dim, tr!("nav-dim"), tr!("nav-dim-hint")),
             (
@@ -134,7 +166,7 @@ fn top(ui: &mut Ui, state: &mut State) {
             (&mut state.on.zoom, tr!("nav-zoom"), tr!("nav-zoom-hint")),
         ] {
             let on = *flag;
-            let response = ui.selectable_label(on, title.as_str()).on_hover_text(hint);
+            let response = ui.add(widgets::button(title.as_str()).on(on)).tooltip(hint);
             let label = tr!("nav-on-click", what = title.as_str());
             response.widget_info(|| WidgetInfo::selected(Role::Button, true, on, &label));
             if response.clicked() {
@@ -144,72 +176,35 @@ fn top(ui: &mut Ui, state: &mut State) {
     });
 }
 
-/// A read-out cell `width` wide, named `label` for screen readers.
-fn readout(ui: &mut Ui, width: f32, text: &str, label: &str) {
-    let response = ui
-        .allocate_ui(egui::vec2(width, ui.spacing().interact_size.y), |ui| {
-            ui.set_min_width(width);
-            ui.set_max_width(width);
-            ui.add(egui::Label::new(text).truncate())
-        })
-        .inner;
+/// A read-out cell, named `label` for screen readers.
+fn readout(row: &mut widgets::TableRow<'_>, text: &str, label: &str) {
+    let response = row.text(text);
     response.widget_info(|| WidgetInfo::labeled(Role::Group, true, label));
 }
 
-/// A checkbox named `label`; returns the new value when it was clicked.
-fn check(ui: &mut Ui, value: bool, label: &str, hint: Option<&str>) -> Option<bool> {
+/// A cell holding a checkbox named `label`; returns the new value when it was clicked.
+fn check(
+    row: &mut widgets::TableRow<'_>,
+    value: bool,
+    label: &str,
+    hint: Option<&str>,
+) -> Option<bool> {
     let mut v = value;
-    let mut response = ui.checkbox(&mut v, "");
+    let mut response = row.ui(|ui| ui.add(widgets::checkbox(&mut v, "")));
     if let Some(hint) = hint {
-        response = response.on_hover_text(hint);
+        response = response.tooltip(hint);
     }
     response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, v, label));
     response.changed().then_some(v)
 }
 
-/// The row's name: a selectable label that is the row's click target.
-fn name(ui: &mut Ui, width: f32, selected: bool, text: &str, label: &str) -> bool {
-    let response = ui
-        .allocate_ui(egui::vec2(width, ui.spacing().interact_size.y), |ui| {
-            ui.set_min_width(width);
-            ui.set_max_width(width);
-            ui.add(egui::Button::selectable(selected, text).truncate())
-        })
-        .inner;
-    response.widget_info(|| WidgetInfo::selected(Role::Button, true, selected, label));
-    response.clicked()
-}
-
-/// The width left for a row's name once its `fixed` columns are laid out, so a row fits
-/// the Dock's width.
-fn name_width(ui: &Ui, fixed: &[f32]) -> f32 {
-    let spacing = ui.spacing().item_spacing.x;
-    let taken: f32 = fixed.iter().map(|w| w + spacing).sum();
-    (ui.available_width() - taken - 4.0).max(48.0)
-}
-
-/// A cell `width` wide holding a checkbox named `label`.
-fn check_cell(ui: &mut Ui, width: f32, value: bool, label: &str) -> Option<bool> {
-    ui.allocate_ui(egui::vec2(width, ui.spacing().interact_size.y), |ui| {
-        ui.set_min_width(width);
-        check(ui, value, label, None)
-    })
-    .inner
-}
-
-fn header(ui: &mut Ui, columns: &[(f32, String)]) {
-    ui.horizontal(|ui| {
-        for (width, title) in columns {
-            ui.allocate_ui(egui::vec2(*width, ui.spacing().interact_size.y), |ui| {
-                ui.set_min_width(*width);
-                ui.weak(title.as_str());
-            });
-        }
-    });
+/// Names a row for screen readers: it is the row's click target, a button named `label`.
+fn name_row(row: &egui::Response, selected: bool, label: &str) {
+    row.widget_info(|| WidgetInfo::selected(Role::Button, true, selected, label));
 }
 
 fn nothing(ui: &mut Ui) {
-    ui.add_space(6.0);
+    ui.add_space(ui.tokens().space.gap);
     ui.vertical_centered(|ui| ui.weak(tr!("nav-nothing")));
 }
 
@@ -218,7 +213,7 @@ fn nets(
     shell: &Shell,
     pcb: &PcbDocument,
     search: &str,
-    units: Units,
+    look: Look,
     out: &mut Vec<Invocation>,
 ) -> Option<Target> {
     let ratsnest = &shell.board_view().layers.ratsnest;
@@ -227,119 +222,119 @@ fn nets(
         nothing(ui);
         return None;
     }
-    let (tracks_w, length_w) = (40.0, 58.0);
-    let lead = ui.spacing().icon_width + ui.spacing().item_spacing.x + SWATCH.x;
-    let name_w = name_width(ui, &[lead, tracks_w, length_w]);
-    header(
-        ui,
-        &[
-            (lead, String::new()),
-            (name_w, tr!("nav-column-net")),
-            (tracks_w, tr!("nav-column-tracks")),
-            (length_w, tr!("nav-column-length")),
-        ],
-    );
     let selection = shell.selection();
     let mut clicked = None;
-    for row in rows {
-        let net = row.name.as_str();
-        ui.horizontal(|ui| {
-            if let Some(visible) = check(ui, row.ratsnest, &tr!("nav-ratsnest", net = net), None) {
-                out.push((
-                    "pcb.ratsnest.show".to_owned(),
-                    json!({"net": row.uuid, "visible": visible}),
-                ));
-            }
-            if let Some(color) = swatch(ui, row.uuid, net, row.color.as_deref()) {
-                let params = match color {
-                    Some(c) => json!({"nets": [row.uuid], "color": c}),
-                    None => json!({"nets": [row.uuid]}),
-                };
-                out.push(("pcb.net.set_color".to_owned(), params));
-            }
+    // The Ratsnest box and the colour share the first column, so the name has the room.
+    let columns = [
+        Column::auto(),
+        Column::fill(),
+        Column::auto().number(),
+        Column::auto().number(),
+    ];
+    let table = widgets::table("nav-nets").columns(columns);
+    table.show(ui, |table| {
+        table.header(|h| {
+            h.empty();
+            h.text(tr!("nav-column-net"));
+            h.text(tr!("nav-column-tracks"));
+            h.text(tr!("nav-column-length"));
+        });
+        for row in rows {
+            let net = row.name.as_str();
             let selected = selection.nets.contains(&row.uuid);
-            if name(ui, name_w, selected, net, &tr!("nav-net", net = net)) {
+            let response = table.row_with(look.row(selected), |cells| {
+                let label = tr!("nav-ratsnest", net = net);
+                let (visible, picked) = cells.ui(|ui| {
+                    let mut shown = row.ratsnest;
+                    let check = ui.add(widgets::checkbox(&mut shown, ""));
+                    check.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, shown, &label));
+                    ui.add_space(ui.tokens().space.gap / 2.0);
+                    let picked = swatch(ui, row.uuid, net, row.color.as_deref());
+                    (check.changed().then_some(shown), picked)
+                });
+                if let Some(visible) = visible {
+                    out.push((
+                        "pcb.ratsnest.show".to_owned(),
+                        json!({"net": row.uuid, "visible": visible}),
+                    ));
+                }
+                if let Some(color) = picked {
+                    let params = match color {
+                        Some(c) => json!({"nets": [row.uuid], "color": c}),
+                        None => json!({"nets": [row.uuid]}),
+                    };
+                    out.push(("pcb.net.set_color".to_owned(), params));
+                }
+                cells.text(net);
+                let count = row.tracks.to_string();
+                let label = tr!("nav-tracks", net = net, count = count.as_str());
+                readout(cells, &count, &label);
+                let length = format_length(row.length, look.units);
+                let label = tr!("nav-length", net = net, length = length.as_str());
+                readout(cells, &length, &label);
+            });
+            name_row(&response, selected, &tr!("nav-net", net = net));
+            if response.clicked() {
                 clicked = Some(Target::Net(row.uuid));
             }
-            let count = row.tracks.to_string();
-            readout(
-                ui,
-                tracks_w,
-                &count,
-                &tr!("nav-tracks", net = net, count = count.as_str()),
-            );
-            let length = format_length(row.length, units);
-            readout(
-                ui,
-                length_w,
-                &length,
-                &tr!("nav-length", net = net, length = length.as_str()),
-            );
-        });
-    }
+        }
+    });
     clicked
 }
 
 /// The Net colour swatch of `net`: a click opens the palette. Returns the colour picked,
 /// `Some(None)` for No colour.
 fn swatch(ui: &mut Ui, net: Uuid, name: &str, color: Option<&str>) -> Option<Option<String>> {
-    let (rect, response) = ui.allocate_exact_size(SWATCH, Sense::click());
-    let stroke = Stroke::new(1.0, ui.visuals().widgets.noninteractive.fg_stroke.color);
-    match color.and_then(parse_hex) {
-        Some(Rgba([r, g, b, _])) => {
-            ui.painter()
-                .rect_filled(rect, 2.0, Color32::from_rgb(r, g, b));
-        }
-        None => {
-            // No colour: a hollow box with a slash.
-            ui.painter()
-                .rect_stroke(rect, 2.0, stroke, egui::StrokeKind::Inside);
-            ui.painter()
-                .line_segment([rect.left_bottom(), rect.right_top()], stroke);
-        }
-    }
+    let t = ui.tokens();
     let shown = color.map_or_else(|| tr!("nav-colour-none"), str::to_owned);
     let label = tr!("nav-colour", net = name, colour = shown.as_str());
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+    let response = match color.and_then(parse_hex) {
+        Some(Rgba([r, g, b, _])) => ui.add(widgets::swatch_rgb(r, g, b).button(label)),
+        None => ui.add(widgets::swatch_none().button(label)),
+    };
     let mut picked = None;
     let pending_id = Id::NULL.with(("nav-net-colour", net));
-    let menu =
-        egui::Popup::menu(&response).close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside);
-    let open = menu.show(|ui| {
-        ui.horizontal_wrapped(|ui| {
-            ui.set_max_width(6.0 * (SWATCH.x + 6.0));
-            for hex in NET_COLOURS {
-                let Some(Rgba([r, g, b, _])) = parse_hex(hex) else {
-                    continue;
-                };
-                let (rect, chip) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), Sense::click());
-                ui.painter()
-                    .rect_filled(rect.shrink(1.0), 2.0, Color32::from_rgb(r, g, b));
-                if color == Some(hex) {
-                    ui.painter()
-                        .rect_stroke(rect, 2.0, stroke, egui::StrokeKind::Inside);
+    let open = widgets::menu(&response).stay_open().show(|ui| {
+        for line in NET_COLOURS.chunks(PALETTE_ROW) {
+            ui.horizontal(|ui| {
+                for &hex in line {
+                    let Some(Rgba([r, g, b, _])) = parse_hex(hex) else {
+                        continue;
+                    };
+                    let label = tr!("nav-colour-pick", colour = hex);
+                    let chip = ui.add(widgets::swatch_rgb(r, g, b).button(label));
+                    if color == Some(hex) {
+                        // The Net's colour is ringed.
+                        let ring = Stroke::new(t.stroke.accent_line, t.color.accent.text);
+                        let at = chip.rect.expand(t.stroke.accent_line);
+                        let radius = t.radius.mark + t.stroke.accent_line;
+                        ui.painter()
+                            .rect_stroke(at, radius, ring, egui::StrokeKind::Inside);
+                    }
+                    if chip.clicked() {
+                        picked = Some(Some(hex.to_owned()));
+                        ui.close();
+                    }
                 }
-                let label = tr!("nav-colour-pick", colour = hex);
-                chip.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
-                if chip.clicked() {
-                    picked = Some(Some(hex.to_owned()));
-                    ui.close();
-                }
-            }
-        });
-        if ui.button(tr!("nav-colour-clear")).clicked() {
+            });
+            ui.add_space(t.space.gap / 2.0);
+        }
+        if ui
+            .add(widgets::menu_item(tr!("nav-colour-clear")))
+            .clicked()
+        {
             picked = Some(None);
             ui.close();
         }
-        ui.separator();
+        widgets::menu_separator(ui);
         // Any other colour, typed as #rrggbb and written on Enter.
         let mut text: String = ui
             .data(|d| d.get_temp(pending_id))
             .unwrap_or_else(|| color.unwrap_or_default().to_owned());
         let field = ui.add(
-            TextEdit::singleline(&mut text)
-                .hint_text("#rrggbb")
-                .desired_width(80.0),
+            widgets::text_field(&mut text)
+                .hint("#rrggbb")
+                .width(HEX_WIDTH),
         );
         let label = tr!("nav-colour-hex", net = name);
         field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, &label));
@@ -365,6 +360,7 @@ fn footprints(
     shell: &Shell,
     pcb: &PcbDocument,
     search: &str,
+    look: Look,
     out: &mut Vec<Invocation>,
 ) -> Option<Target> {
     let rows = rows::footprints(pcb, search);
@@ -372,54 +368,54 @@ fn footprints(
         nothing(ui);
         return None;
     }
-    let (side_w, locked_w, fitted_w) = (48.0, 44.0, 60.0);
-    let name_w = name_width(ui, &[side_w, locked_w, fitted_w]);
-    header(
-        ui,
-        &[
-            (name_w, tr!("nav-column-designator")),
-            (side_w, tr!("nav-column-side")),
-            (locked_w, tr!("nav-column-locked")),
-            (fitted_w, tr!("nav-column-not-fitted")),
-        ],
-    );
     let selection = shell.selection();
     let mut clicked = None;
-    for row in rows {
-        let d = row.designator.as_str();
-        ui.horizontal(|ui| {
+    let columns = [
+        Column::fill(),
+        Column::auto(),
+        Column::auto(),
+        Column::auto(),
+    ];
+    let table = widgets::table("nav-footprints").columns(columns);
+    table.show(ui, |table| {
+        table.header(|h| {
+            h.text(tr!("nav-column-designator"));
+            h.text(tr!("nav-column-side"));
+            h.text(tr!("nav-column-locked"));
+            h.text(tr!("nav-column-not-fitted"));
+        });
+        for row in rows {
+            let d = row.designator.as_str();
             let selected = selection.objects.contains(&row.uuid);
-            if name(
-                ui,
-                name_w,
-                selected,
-                d,
-                &tr!("nav-footprint", designator = d),
-            ) {
+            let response = table.row_with(look.row(selected), |cells| {
+                cells.text(d);
+                let side = match row.side {
+                    Side::Top => tr!("nav-side-top"),
+                    Side::Bottom => tr!("nav-side-bottom"),
+                };
+                let label = tr!("nav-side", designator = d, side = side.as_str());
+                readout(cells, &side, &label);
+                let label = tr!("nav-locked", designator = d);
+                if let Some(locked) = check(cells, row.locked, &label, None) {
+                    out.push((
+                        "pcb.lock".to_owned(),
+                        json!({"objects": [row.uuid], "locked": locked}),
+                    ));
+                }
+                let label = tr!("nav-not-fitted", designator = d);
+                if let Some(not_fitted) = check(cells, row.not_fitted, &label, None) {
+                    out.push((
+                        "pcb.footprint.set".to_owned(),
+                        json!({"footprints": [row.uuid], "not_fitted": not_fitted}),
+                    ));
+                }
+            });
+            name_row(&response, selected, &tr!("nav-footprint", designator = d));
+            if response.clicked() {
                 clicked = Some(Target::Object(row.uuid));
             }
-            let side = match row.side {
-                Side::Top => tr!("nav-side-top"),
-                Side::Bottom => tr!("nav-side-bottom"),
-            };
-            let label = tr!("nav-side", designator = d, side = side.as_str());
-            readout(ui, side_w, &side, &label);
-            let label = tr!("nav-locked", designator = d);
-            if let Some(locked) = check_cell(ui, locked_w, row.locked, &label) {
-                out.push((
-                    "pcb.lock".to_owned(),
-                    json!({"objects": [row.uuid], "locked": locked}),
-                ));
-            }
-            let label = tr!("nav-not-fitted", designator = d);
-            if let Some(not_fitted) = check_cell(ui, fitted_w, row.not_fitted, &label) {
-                out.push((
-                    "pcb.footprint.set".to_owned(),
-                    json!({"footprints": [row.uuid], "not_fitted": not_fitted}),
-                ));
-            }
-        });
-    }
+        }
+    });
     clicked
 }
 
@@ -441,17 +437,20 @@ fn zones(
     shell: &Shell,
     pcb: &PcbDocument,
     layers: &[LayerZones],
-    units: Units,
+    look: Look,
     out: &mut Vec<Invocation>,
 ) -> Option<Target> {
+    let t = ui.tokens();
     ui.horizontal(|ui| {
         let auto = ui
-            .button(tr!("nav-auto-order"))
-            .on_hover_text(tr!("nav-auto-order-hint"));
+            .add(widgets::button(tr!("nav-auto-order")))
+            .tooltip(tr!("nav-auto-order-hint"));
         if auto.clicked() {
             out.push(("pcb.zone.auto_order".to_owned(), json!({})));
         }
-        if pcb.zones().any(|z| z.shelved) && ui.button(tr!("nav-restore-all")).clicked() {
+        if pcb.zones().any(|z| z.shelved)
+            && ui.add(widgets::button(tr!("nav-restore-all"))).clicked()
+        {
             out.push(("pcb.zone.restore".to_owned(), json!({})));
         }
     });
@@ -462,8 +461,14 @@ fn zones(
     let selection = shell.selection();
     let mut clicked = None;
     let mut dropped = None;
-    let (net_w, area_w) = (44.0, 60.0);
-    let name_w = name_width(ui, &[10.0, ui.spacing().icon_width, 12.0, net_w, area_w]);
+    // The drag handle, the shelve box and the stale mark share the first column, so the
+    // name has the room; then the name, the Net and the area.
+    let columns = [
+        Column::auto(),
+        Column::fill(),
+        Column::auto(),
+        Column::auto().number(),
+    ];
     for layer in layers {
         let title = pcb
             .layers()
@@ -472,73 +477,88 @@ fn zones(
             .find(|l| l.uuid == layer.layer)
             .map(|l| layer_name(pcb, l))
             .unwrap_or_default();
-        ui.add_space(4.0);
-        ui.strong(title);
-        for zone in &layer.zones {
-            let z = zone.name.as_str();
-            let row = ui.horizontal(|ui| {
-                let drag = ZoneDrag {
-                    layer: layer.layer,
-                    zone: zone.uuid,
-                };
-                let grip =
-                    ui.dnd_drag_source(Id::NULL.with(("nav-zone-drag", zone.uuid)), drag, |ui| {
-                        let (rect, _) =
-                            ui.allocate_exact_size(egui::vec2(10.0, 14.0), Sense::hover());
-                        grip_lines(ui, rect);
-                    });
-                let label = tr!("nav-zone-drag", zone = z);
-                grip.response
-                    .widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
-                let label = tr!("nav-zone-shelve", zone = z);
-                let hint = tr!("nav-zone-shelve-hint");
-                if let Some(shelve) = check(ui, zone.shelved, &label, Some(&hint)) {
-                    let id = if shelve {
-                        "pcb.zone.shelve"
-                    } else {
-                        "pcb.zone.restore"
-                    };
-                    out.push((id.to_owned(), json!({ "zones": [zone.uuid] })));
-                }
-                stale_marker(ui, zone.state == FillState::Stale, z);
+        ui.add_space(t.space.gap / 2.0);
+        ui.label(t.ty.body_strong.rich(title).color(t.color.text.primary));
+        let table = widgets::table(("nav-zones", layer.layer)).columns(columns);
+        table.show(ui, |table| {
+            for zone in &layer.zones {
+                let z = zone.name.as_str();
                 let selected = selection.objects.contains(&zone.uuid);
-                if name(ui, name_w, selected, z, &tr!("nav-zone", zone = z)) {
+                let row = table.row_with(look.row(selected), |cells| {
+                    let drag = ZoneDrag {
+                        layer: layer.layer,
+                        zone: zone.uuid,
+                    };
+                    let id = Id::NULL.with(("nav-zone-drag", zone.uuid));
+                    let shelve = cells.ui(|ui| {
+                        let grip = ui
+                            .dnd_drag_source(id, drag, |ui| {
+                                let size = egui::vec2(GRIP_WIDTH, widgets::glyph::BOX);
+                                let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+                                grip_lines(ui, rect);
+                            })
+                            .response;
+                        let label = tr!("nav-zone-drag", zone = z);
+                        grip.widget_info(|| WidgetInfo::labeled(Role::Button, true, &label));
+                        let small = ui.tokens().space.gap / 2.0;
+                        ui.add_space(small);
+                        let mut shelved = zone.shelved;
+                        let label = tr!("nav-zone-shelve", zone = z);
+                        let check = ui
+                            .add(widgets::checkbox(&mut shelved, ""))
+                            .tooltip(tr!("nav-zone-shelve-hint"));
+                        check.widget_info(|| {
+                            WidgetInfo::selected(Role::CheckBox, true, shelved, &label)
+                        });
+                        ui.add_space(small);
+                        stale_marker(ui, zone.state == FillState::Stale, z);
+                        check.changed().then_some(shelved)
+                    });
+                    if let Some(shelve) = shelve {
+                        let id = if shelve {
+                            "pcb.zone.shelve"
+                        } else {
+                            "pcb.zone.restore"
+                        };
+                        out.push((id.to_owned(), json!({ "zones": [zone.uuid] })));
+                    }
+                    cells.text(z);
+                    let net = zone
+                        .net
+                        .and_then(|n| pcb.net(n))
+                        .map_or_else(|| tr!("nav-zone-no-net"), |n| n.name.clone());
+                    let label = tr!("nav-zone-net", zone = z, net = net.as_str());
+                    readout(cells, &net, &label);
+                    let area = format_area(zone.outline_area, look.units);
+                    let label = tr!("nav-zone-area", zone = z, area = area.as_str());
+                    readout(cells, &area, &label);
+                });
+                name_row(&row, selected, &tr!("nav-zone", zone = z));
+                if row.clicked() {
                     clicked = Some(Target::Object(zone.uuid));
                 }
-                let net = zone
-                    .net
-                    .and_then(|n| pcb.net(n))
-                    .map_or_else(|| tr!("nav-zone-no-net"), |n| n.name.clone());
-                let label = tr!("nav-zone-net", zone = z, net = net.as_str());
-                readout(ui, net_w, &net, &label);
-                let area = format_area(zone.outline_area, units);
-                let label = tr!("nav-zone-area", zone = z, area = area.as_str());
-                readout(ui, area_w, &area, &label);
-            });
-            let row = ui.interact(
-                row.response.rect,
-                Id::NULL.with(("nav-zone-row", zone.uuid)),
-                Sense::hover(),
-            );
-            if let Some(drag) = row.dnd_hover_payload::<ZoneDrag>()
-                && drag.layer == layer.layer
-            {
-                let after = pointer_below_middle(ui, row.rect);
-                let y = if after {
-                    row.rect.bottom()
-                } else {
-                    row.rect.top()
-                };
-                let stroke = Stroke::new(2.0, ui.visuals().selection.stroke.color);
-                ui.painter().hline(row.rect.x_range(), y, stroke);
+                if let Some(drag) = row.dnd_hover_payload::<ZoneDrag>()
+                    && drag.layer == layer.layer
+                {
+                    let after = pointer_below_middle(&row);
+                    let y = if after {
+                        row.rect.bottom()
+                    } else {
+                        row.rect.top()
+                    };
+                    let stroke = Stroke::new(t.stroke.accent_line, t.color.accent.text);
+                    row.ctx
+                        .layer_painter(row.layer_id)
+                        .hline(row.rect.x_range(), y, stroke);
+                }
+                if let Some(drag) = row.dnd_release_payload::<ZoneDrag>()
+                    && drag.layer == layer.layer
+                {
+                    let after = pointer_below_middle(&row);
+                    dropped = Some((layer, drag.zone, zone.uuid, after));
+                }
             }
-            if let Some(drag) = row.dnd_release_payload::<ZoneDrag>()
-                && drag.layer == layer.layer
-            {
-                let after = pointer_below_middle(ui, row.rect);
-                dropped = Some((layer, drag.zone, zone.uuid, after));
-            }
-        }
+        });
     }
     if let Some((layer, moved, target, after)) = dropped {
         // The full order on the Layer, shelved and filtered-out Zones too.
@@ -557,14 +577,18 @@ fn zones(
     clicked
 }
 
-fn pointer_below_middle(ui: &Ui, rect: Rect) -> bool {
-    ui.input(|i| i.pointer.interact_pos())
+/// Whether the pointer is in the lower half of `row`.
+fn pointer_below_middle(row: &egui::Response) -> bool {
+    let rect: Rect = row.rect;
+    row.ctx
+        .input(|i| i.pointer.interact_pos())
         .is_some_and(|p| p.y > rect.center().y)
 }
 
 /// The drag handle: three short lines.
 fn grip_lines(ui: &Ui, rect: Rect) {
-    let stroke = Stroke::new(1.0, ui.visuals().weak_text_color());
+    let t = ui.tokens();
+    let stroke = Stroke::new(t.stroke.hairline, t.color.text.muted);
     for dy in [-3.0, 0.0, 3.0] {
         let y = rect.center().y + dy;
         ui.painter()
@@ -572,16 +596,15 @@ fn grip_lines(ui: &Ui, rect: Rect) {
     }
 }
 
-/// The stale marker: an amber dot while the Zone needs refilling, else a blank of the
+/// The stale mark: a warning mark while the Zone needs refilling, else a blank of the
 /// same size.
 fn stale_marker(ui: &mut Ui, stale: bool, zone: &str) {
-    let (rect, response): (Rect, Response) =
-        ui.allocate_exact_size(egui::vec2(12.0, 12.0), Sense::hover());
-    if stale {
-        ui.painter()
-            .circle_filled(rect.center(), 4.0, ui.visuals().warn_fg_color);
-        let label = tr!("nav-zone-stale", zone = zone);
-        response.widget_info(|| WidgetInfo::labeled(Role::Group, true, &label));
-        response.on_hover_text(tr!("nav-zone-stale", zone = zone));
+    if !stale {
+        ui.allocate_exact_size(egui::Vec2::splat(widgets::glyph::BOX), Sense::hover());
+        return;
     }
+    let response = ui.add(widgets::status_mark(Status::Warning));
+    let label = tr!("nav-zone-stale", zone = zone);
+    response.widget_info(|| WidgetInfo::labeled(Role::Group, true, &label));
+    response.tooltip(label);
 }

@@ -54,7 +54,7 @@ fn harness_with_library(dir: &TempDir, step: f32, library: PathBuf) -> Harness<'
     Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        .with_size([1200.0, 800.0])
+        .with_size([1264.0, 800.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell))
 }
 

@@ -95,7 +95,7 @@ pub(super) fn paint_swatch(painter: &Painter, t: &Tokens, rect: Rect, color: Col
 /// drawn as given in light and dark.
 pub fn swatch(color: Color32) -> Swatch {
     Swatch {
-        color,
+        color: Some(color),
         name: None,
         state: State::Live,
     }
@@ -106,9 +106,27 @@ pub fn swatch_rgb(r: u8, g: u8, b: u8) -> Swatch {
     swatch(Color32::from_rgb(r, g, b))
 }
 
+/// The swatch of something that has no colour set (a Net without one): the same shape,
+/// hollow, with a slash through it.
+pub fn swatch_none() -> Swatch {
+    Swatch {
+        color: None,
+        name: None,
+        state: State::Live,
+    }
+}
+
+/// Paints the hollow swatch of "no colour" in `rect`: the rim and a slash.
+fn paint_no_swatch(painter: &Painter, t: &Tokens, rect: Rect) {
+    let stroke = Stroke::new(t.stroke.hairline, t.color.text.muted);
+    painter.rect_stroke(rect, t.radius.mark, stroke, StrokeKind::Inside);
+    let inner = rect.shrink(t.radius.mark / 2.0);
+    painter.line_segment([inner.left_bottom(), inner.right_top()], stroke);
+}
+
 #[must_use = "add it with ui.add"]
 pub struct Swatch {
-    color: Color32,
+    color: Option<Color32>,
     name: Option<String>,
     state: State,
 }
@@ -145,7 +163,10 @@ impl Widget for Swatch {
             if !ui.is_rect_visible(rect) {
                 return response;
             }
-            paint_swatch(ui.painter(), &t, rect, self.color);
+            match self.color {
+                Some(color) => paint_swatch(ui.painter(), &t, rect, color),
+                None => paint_no_swatch(ui.painter(), &t, rect),
+            }
             if self.name.is_some() {
                 let s = paint::seen(&response, self.state);
                 let fill = paint::state_fill(&t, Color32::TRANSPARENT, s);
