@@ -22,7 +22,7 @@ use crate::tools::Tool;
 use crate::theme::TokensExt as _;
 use crate::{tr, widgets};
 
-/// The width of the chooser's typed field.
+/// The least width of the chooser's typed field.
 const CHOOSER_FIELD_WIDTH: f32 = 160.0;
 
 /// How the item bound to `action` shows now.
@@ -205,11 +205,13 @@ fn chooser_ui(
         .show(ui.ctx(), |ui| {
             widgets::floating_frame(&t)
                 .show(ui, |ui| {
-                    // The rows are as wide as the widest, and no narrower than the field.
+                    // The rows and the field are one width: the widest row's, or the
+                    // field's with its hint, and no narrower than the field's own.
+                    let field = text_width(ui, &t.ty.body, &hint) + 2.0 * t.space.control_x;
                     let width = rows
                         .iter()
                         .map(|(text, _)| text_width(ui, &t.ty.body, text) + 2.0 * t.space.row_x)
-                        .fold(CHOOSER_FIELD_WIDTH, f32::max);
+                        .fold(CHOOSER_FIELD_WIDTH.max(field + t.space.gap), f32::max);
                     let mut clicked = None;
                     ui.label(t.ty.body_strong.rich(&title).color(t.color.text.primary));
                     widgets::rows(ui, |ui| {

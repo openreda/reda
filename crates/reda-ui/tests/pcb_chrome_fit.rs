@@ -10,7 +10,7 @@ use std::path::Path;
 use egui::Rect;
 use egui::accesskit::Role;
 use egui_kittest::Harness;
-use egui_kittest::kittest::{NodeT, Queryable};
+use egui_kittest::kittest::Queryable;
 use reda_testkit::{TempDir, starter_library};
 use reda_ui::App;
 use reda_ui::engine::Engine;
@@ -181,6 +181,7 @@ fn mm(x: f64, y: f64) -> Point {
 /// label broken over lines. Text that pokes out of a region belongs to what is behind it.
 fn misfits(h: &Harness<'static, App>, regions: &[Rect]) -> Vec<String> {
     let mut out = Vec::new();
+    let mut seen = 0;
     for clipped in &h.output().shapes {
         let mut shapes = vec![&clipped.shape];
         while let Some(shape) = shapes.pop() {
@@ -201,6 +202,7 @@ fn misfits(h: &Harness<'static, App>, regions: &[Rect]) -> Vec<String> {
             {
                 continue;
             }
+            seen += 1;
             if text.galley.elided {
                 out.push(format!("cut short: {said:?}"));
             }
@@ -218,6 +220,9 @@ fn misfits(h: &Harness<'static, App>, regions: &[Rect]) -> Vec<String> {
                 out.push(format!("wraps: {said:?}"));
             }
         }
+    }
+    if seen == 0 {
+        out.push("no text to look at: the screen did not open".to_owned());
     }
     out
 }

@@ -78,8 +78,7 @@ fn strip(ui: &mut Ui) {
     let (canvas, _) = ui.allocate_exact_size(CANVAS, Sense::hover());
     widgets::paint_card(ui, &t, canvas);
     let rect = Rect::from_min_max(canvas.left_bottom() - vec2(0.0, STRIP), canvas.right_bottom());
-    let mut row = ui.new_child(egui::UiBuilder::new().max_rect(rect));
-    widgets::chip_strip(&mut row, rect, |ui| {
+    widgets::chip_strip(ui, rect, |ui| {
         ui.add(widgets::chip("Layer sets").chevron().forced(State::Rest));
         widgets::chip_rule(ui);
         ui.add(layer("Top Copper", RED).selected(true));

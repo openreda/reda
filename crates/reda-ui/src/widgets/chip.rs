@@ -161,7 +161,8 @@ impl Widget for Chip {
 
 /// The strip in `rect` along a canvas's bottom edge: the card's surface with a hairline
 /// on top and the card's corners at the bottom, so it sits inside the Document's card.
-/// `add` lays out its chips left to right, [`CHIP_GAP`] apart, vertically centred.
+/// `add` lays out its chips left to right, [`CHIP_GAP`] apart, vertically centred, in a
+/// child of `ui` placed at `rect`; `ui`'s own layout does not move.
 pub fn chip_strip<R>(ui: &mut Ui, rect: Rect, add: impl FnOnce(&mut Ui) -> R) -> R {
     let t = ui.tokens();
     let corners = CornerRadius {
@@ -177,14 +178,12 @@ pub fn chip_strip<R>(ui: &mut Ui, rect: Rect, add: impl FnOnce(&mut Ui) -> R) ->
         Stroke::new(t.stroke.hairline, t.color.stroke.hairline),
     );
     let layout = egui::Layout::left_to_right(egui::Align::Center);
-    ui.allocate_ui_with_layout(rect.size(), layout, |ui| {
-        ui.set_clip_rect(rect);
-        ui.spacing_mut().item_spacing.x = CHIP_GAP;
-        // Clear of the card's rounded corner.
-        ui.add_space(t.radius.card - CHIP_GAP);
-        add(ui)
-    })
-    .inner
+    let mut row = ui.new_child(egui::UiBuilder::new().max_rect(rect).layout(layout));
+    row.set_clip_rect(rect.intersect(ui.clip_rect()));
+    row.spacing_mut().item_spacing.x = CHIP_GAP;
+    // Clear of the card's rounded corner.
+    row.add_space(t.radius.card - CHIP_GAP);
+    add(&mut row)
 }
 
 /// A thin upright rule between groups of chips in a strip.

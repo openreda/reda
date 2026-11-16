@@ -1,11 +1,11 @@
 //! The Layer control: switching Layers with the Layers panel collapsed. A Preference
 //! (`pcb.view.layer_control`) picks its form, and neither changes any output:
 //!
-//! - **Swatch** (default): a chip at the canvas's top right with the active Layer's
-//!   colour and name. Its dropdown lists the Layers copper first, each as a chip, then
-//!   the Layer sets and **Save current as…**.
-//! - **Strip:** a 24 px row along the canvas bottom with a Layer sets button and a chip
-//!   per shown Layer, copper first. The Tool's bar and the grid readout move up to clear
+//! - **Swatch** (default): a [`widgets::chip`] on the floating surface at the canvas's top
+//!   right with the active Layer's swatch and name. Its menu lists the Layers copper
+//!   first, each as a row with its swatch, then the Layer sets and **Save current as…**.
+//! - **Strip:** a 24 px [`widgets::chip_strip`] along the canvas bottom with a Layer sets
+//!   chip and a chip per shown Layer, copper first. The Tool's bar and the grid readout move up to clear
 //!   it ([`crate::bars::draw::bottom_inset`]).
 //!
 //! In either, a click on a chip activates the Layer (`pcb.layer.activate`) and `Mod`+click
@@ -140,7 +140,8 @@ fn swatch(
                 } else {
                     chip(ui, shell, active, &name, label, true)
                 };
-                widgets::menu(&face).width(MENU_WIDTH).show(|ui| {
+                let width = menu_width(ui, pcb);
+                widgets::menu(&face).width(width).show(|ui| {
                     layer_rows(ui, shell, pcb, active.uuid, out);
                     widgets::menu_separator(ui);
                     ui.label(t.ty.small.rich(tr!("layers-sets")).color(t.color.text.muted));
@@ -177,13 +178,30 @@ pub fn status_swatch(ui: &mut Ui, shell: &Shell, out: &mut Vec<Invocation>) {
     let [r, g, b] = layer_rgb(ui, shell, active);
     let face = ui.add(widgets::status_item(name.as_str()).swatch_rgb(r, g, b));
     face.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
+    let width = menu_width(ui, pcb);
     widgets::menu(&face)
-        .width(MENU_WIDTH)
+        .width(width)
         .show(|ui| layer_rows(ui, shell, pcb, active.uuid, out));
 }
 
-/// The width of a menu listing the Layers.
+/// The least width of a menu listing the Layers.
 const MENU_WIDTH: f32 = 160.0;
+
+/// The width of a menu listing `pcb`'s Layers: the widest row (a swatch and a name) in
+/// the menu's frame, and no narrower than [`MENU_WIDTH`].
+fn menu_width(ui: &Ui, pcb: &PcbDocument) -> f32 {
+    let t = ui.tokens();
+    // The popup's width takes in its padding and rim.
+    let frame = 2.0 * (t.space.menu + t.stroke.hairline);
+    let lead = widgets::SWATCH + widgets::ICON_GAP + 2.0 * t.space.row_x + frame;
+    ordered(pcb)
+        .into_iter()
+        .map(|layer| {
+            let job = t.ty.body.job(&layer_name(pcb, layer), egui::Color32::TRANSPARENT);
+            ui.painter().layout_job(job).size().x.ceil() + lead
+        })
+        .fold(MENU_WIDTH, f32::max)
+}
 
 /// The board's Layers as the rows of a menu, each with its swatch, the `active` one
 /// selected. A row is a Layer chip in a list: a click activates, `Mod`+click highlights.
