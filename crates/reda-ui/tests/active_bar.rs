@@ -91,7 +91,7 @@ fn a_narrow_canvas_clips_nothing_on_the_active_bar() {
                 "{width}: {label} at {rect:?} sticks out of the canvas {canvas:?}"
             );
         }
-        // More Tools and the two pop-ups, 32 px each 2 px apart, in the 8 px wider frame,
+        // More Tools and the two pop-ups, 30 px each 2 px apart, in the 14 px wider frame,
         // 8 px in from each canvas edge, need 124 px; a narrower canvas hides the bar.
         if canvas.width() < 124.0 {
             assert_eq!(shown, 0, "{width}: a bar on a {canvas:?} canvas");
@@ -106,17 +106,19 @@ fn a_narrow_canvas_clips_nothing_on_the_active_bar() {
 
 #[test]
 fn the_pop_ups_keep_their_room_when_the_tools_overflow() {
-    // Select, Move, Drag | Wire, Net Label, Power Port: 32 px buttons 2 px apart and a 7 px
-    // separator make a 211 px row; the two pop-ups add 68, the frame 8 and the insets 16.
+    // Select, Move, Drag | Wire, Net Label, Power Port: 30 px buttons (the control height,
+    // Comfortable) 2 px apart and a 7 px separator make a 199 px row; the two pop-ups add
+    // 64, the frame 14 (6 px padding and the 1 px rim each side) and the insets 16.
+    let t = reda_ui::theme::Tokens::new(egui::Theme::Dark, &Default::default());
     let sheet = &bars::for_document(Some(DocumentType::Schematic)).active_bar;
-    assert_eq!(bars::draw::active_bar_layout(sheet, 303.0, 2), Some(7));
+    assert_eq!(bars::draw::active_bar_layout(&t, sheet, 293.0, 2), Some(7));
     // One point less: Net Label and Power Port go to More Tools.
-    assert_eq!(bars::draw::active_bar_layout(sheet, 302.0, 2), Some(5));
+    assert_eq!(bars::draw::active_bar_layout(&t, sheet, 292.0, 2), Some(5));
     // More Tools and the pop-ups alone take 124 px; below that the bar hides.
-    assert_eq!(bars::draw::active_bar_layout(sheet, 124.0, 2), Some(0));
-    assert_eq!(bars::draw::active_bar_layout(sheet, 123.0, 2), None);
+    assert_eq!(bars::draw::active_bar_layout(&t, sheet, 124.0, 2), Some(0));
+    assert_eq!(bars::draw::active_bar_layout(&t, sheet, 123.0, 2), None);
     // Without a Document there are no pop-ups.
-    assert_eq!(bars::draw::active_bar_layout(sheet, 235.0, 0), Some(7));
+    assert_eq!(bars::draw::active_bar_layout(&t, sheet, 229.0, 0), Some(7));
 }
 
 /// The Tool each Active Bar item activates (a group: its items'), in order.

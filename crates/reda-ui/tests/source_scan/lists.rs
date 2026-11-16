@@ -245,15 +245,11 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
 /// clean, so the slice that converts a file deletes its line here. Never add a file: a
 /// new file must be clean from the start.
 pub const UNCONVERTED: &[&str] = &[
-    "bars/draw.rs",
-    "bars/groups.rs",
     "closing_dialog.rs",
     "help/dialogs.rs",
     "icons.rs",
     "job_run/draw.rs",
-    "keys_card.rs",
     "new_project.rs",
-    "palette/draw.rs",
     "recovery_dialog.rs",
     "start_page.rs",
 ];
