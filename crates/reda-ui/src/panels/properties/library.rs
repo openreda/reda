@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use egui::{RichText, Role, Ui, WidgetInfo};
+use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::Uuid;
 use reda_engine::schematic::{Aspect, ComponentStatus, LibraryStatus};
 use serde_json::json;
@@ -14,6 +14,7 @@ use crate::properties::{ComponentProperties, MIXED, Shared};
 use crate::schematic_dialogs::update::status_text;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets::{self, BadgeTone, Tooltip as _};
 
 /// Every placed Component's Library Status, and the library generation and Journal length
 /// it was worked out at, kept between frames.
@@ -73,7 +74,7 @@ pub(super) fn rows(
     let objects = &shell.selection().objects;
     let statuses = statuses(ui, shell);
     ui.horizontal_wrapped(|ui| {
-        ui.label(tr!("properties-library-status"));
+        ui.add(widgets::form_name(tr!("properties-library-status")));
         let (text, warn) = match shared_status(&statuses, &component.components) {
             Some(Shared::Same((status, aspects))) => (
                 status_text(status, &aspects),
@@ -82,17 +83,17 @@ pub(super) fn rows(
             Some(Shared::Mixed) => (MIXED.to_owned(), true),
             None => (String::new(), false),
         };
-        let color = if warn {
-            ui.visuals().warn_fg_color
+        let tone = if warn {
+            BadgeTone::Warning
         } else {
-            ui.visuals().text_color()
+            BadgeTone::Neutral
         };
-        let badge = ui.label(RichText::new(&text).color(color).strong());
+        let badge = ui.add(widgets::badge(text.as_str()).tone(tone));
         let name = tr!("properties-library-status-badge", status = text.clone());
         badge.widget_info(|| WidgetInfo::labeled(Role::Label, true, &name));
         if ui
-            .button(tr!("properties-update"))
-            .on_hover_text(tr!("properties-update-hint"))
+            .add(widgets::button(tr!("properties-update")))
+            .tooltip(tr!("properties-update-hint"))
             .clicked()
         {
             out.push(Out::Run(
@@ -102,14 +103,14 @@ pub(super) fn rows(
         }
     });
     ui.horizontal_wrapped(|ui| {
-        ui.label(tr!("properties-part"));
+        ui.add(widgets::form_name(tr!("properties-part")));
         ui.label(match part {
             Shared::Same((_, name)) => name.clone(),
             Shared::Mixed => MIXED.to_owned(),
         });
         if ui
-            .button(tr!("properties-replace"))
-            .on_hover_text(tr!("properties-replace-hint"))
+            .add(widgets::button(tr!("properties-replace")))
+            .tooltip(tr!("properties-replace-hint"))
             .clicked()
         {
             out.push(Out::Run(
@@ -117,7 +118,10 @@ pub(super) fn rows(
                 json!({ "objects": objects }),
             ));
         }
-        if ui.button(tr!("properties-edit-in-library")).clicked() {
+        if ui
+            .add(widgets::button(tr!("properties-edit-in-library")))
+            .clicked()
+        {
             out.push(Out::Run(
                 "library.element.edit_in_library",
                 json!({ "objects": objects }),

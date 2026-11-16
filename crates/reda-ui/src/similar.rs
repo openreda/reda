@@ -26,7 +26,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
 use crate::working_state::FilterKind;
 
 /// How a row's attribute must compare with the template's.
@@ -440,6 +442,13 @@ pub fn apply(shell: &mut Shell) -> Result<usize, CommandError> {
     Ok(count)
 }
 
+/// The width the window opens at.
+const WIDTH: f32 = 420.0;
+/// The least height of the list of attributes, however short the window is.
+const MIN_LIST_HEIGHT: f32 = 160.0;
+/// The width of a rule's pattern field.
+const PATTERN_WIDTH: f32 = 90.0;
+
 /// Draws the window while it is open: rows by group, the scope, the options and the
 /// buttons. It doesn't block the canvas.
 pub fn show(ctx: &egui::Context, shell: &mut Shell) {
@@ -448,14 +457,13 @@ pub fn show(ctx: &egui::Context, shell: &mut Shell) {
     };
     let mut open = true;
     let mut action = None;
-    egui::Window::new(w.title.clone())
-        .id(Id::NULL.with("select-similar-window"))
+    widgets::window(Id::NULL.with("select-similar-window"), w.title.clone())
         .open(&mut open)
-        .collapsible(false)
         .resizable(true)
-        .default_width(420.0)
+        .width(WIDTH)
         .show(ctx, |ui| {
-            let max = (ctx.content_rect().height() * 0.5).max(160.0);
+            let t = ui.tokens();
+            let max = (ctx.content_rect().height() * 0.5).max(MIN_LIST_HEIGHT);
             egui::ScrollArea::vertical().max_height(max).show(ui, |ui| {
                 for (group, heading) in [
                     (AttributeGroup::Kind, tr!("similar-group-kind")),
@@ -465,19 +473,19 @@ pub fn show(ctx: &egui::Context, shell: &mut Shell) {
                     if !w.rows.iter().any(|r| r.group == group) {
                         continue;
                     }
-                    ui.strong(heading);
-                    egui::Grid::new(("similar-rows", group as u8))
-                        .num_columns(3)
-                        .show(ui, |ui| {
-                            for row in w.rows.iter_mut().filter(|r| r.group == group) {
-                                rule_row(ui, row);
-                                ui.end_row();
-                            }
-                        });
-                    ui.add_space(4.0);
+                    ui.label(t.ty.body_strong.rich(heading).color(t.color.text.primary));
+                    // The attribute, the template's value and the rule.
+                    let columns = [Column::auto(), Column::auto(), Column::auto()];
+                    let table = widgets::table(("similar-rows", group as u8)).columns(columns);
+                    table.show(ui, |table| {
+                        for row in w.rows.iter_mut().filter(|r| r.group == group) {
+                            table.row(|cells| rule_row(cells, row));
+                        }
+                    });
+                    ui.add_space(t.space.gap / 2.0);
                 }
             });
-            ui.add_space(6.0);
+            ui.add_space(t.space.gap);
             if w.scopes.len() > 1 {
                 ui.horizontal(|ui| {
                     for scope in w.scopes.clone() {
@@ -487,34 +495,54 @@ pub fn show(ctx: &egui::Context, shell: &mut Shell) {
                             SimilarScope::Board => tr!("similar-scope-board"),
                             SimilarScope::Element => tr!("similar-scope-element"),
                         };
-                        ui.radio_value(&mut w.scope, scope, label);
+                        if ui.add(widgets::radio(w.scope == scope, label)).clicked() {
+                            w.scope = scope;
+                        }
                     }
                 });
             }
-            ui.checkbox(&mut w.select, tr!("similar-option-select"));
-            ui.checkbox(&mut w.zoom, tr!("similar-option-zoom"));
-            ui.checkbox(&mut w.clear_existing, tr!("similar-option-clear"));
+            ui.add(widgets::checkbox(
+                &mut w.select,
+                tr!("similar-option-select"),
+            ));
+            ui.add(widgets::checkbox(&mut w.zoom, tr!("similar-option-zoom")));
+            ui.add(widgets::checkbox(
+                &mut w.clear_existing,
+                tr!("similar-option-clear"),
+            ));
             ui.horizontal(|ui| {
-                ui.radio_value(&mut w.show, Show::Normal, tr!("similar-option-normal"));
-                ui.radio_value(&mut w.show, Show::Dim, tr!("similar-option-dim"));
-                ui.radio_value(&mut w.show, Show::Mask, tr!("similar-option-mask"));
+                for (show, label) in [
+                    (Show::Normal, tr!("similar-option-normal")),
+                    (Show::Dim, tr!("similar-option-dim")),
+                    (Show::Mask, tr!("similar-option-mask")),
+                ] {
+                    if ui.add(widgets::radio(w.show == show, label)).clicked() {
+                        w.show = show;
+                    }
+                }
             });
-            ui.checkbox(&mut w.open_properties, tr!("similar-option-properties"));
+            ui.add(widgets::checkbox(
+                &mut w.open_properties,
+                tr!("similar-option-properties"),
+            ));
             if let Some(error) = &w.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                ui.colored_label(t.color.error.text, error);
             } else if let Some(found) = w.found {
                 ui.label(tr!("similar-found", count = found as i64));
             }
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                if ui.button(tr!("similar-apply")).clicked() {
-                    action = Some(Button::Apply);
-                }
-                if ui.button(tr!("similar-ok")).clicked() {
+            // The row runs from the trailing edge: OK, the primary button, is last.
+            widgets::button_row(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("similar-ok")).primary())
+                    .clicked()
+                {
                     action = Some(Button::Ok);
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     action = Some(Button::Cancel);
+                }
+                if ui.add(widgets::button(tr!("similar-apply"))).clicked() {
+                    action = Some(Button::Apply);
                 }
             });
         });
@@ -545,48 +573,46 @@ enum Button {
 }
 
 /// One row: the attribute, the template's value and the rule.
-fn rule_row(ui: &mut egui::Ui, row: &mut Row) {
-    ui.label(&row.name);
+fn rule_row(cells: &mut widgets::TableRow<'_>, row: &mut Row) {
+    cells.text(row.name.as_str());
     let value = if row.value.chars().count() > 32 {
         let short: String = row.value.chars().take(31).collect();
         format!("{short}…")
     } else {
         row.value.clone()
     };
-    ui.label(value).on_hover_text(&row.value);
-    ui.horizontal(|ui| {
+    cells.text(value).tooltip(&row.value);
+    cells.ui(|ui| {
         let current = match &row.rule {
             Rule::Any => tr!("similar-rule-any"),
             Rule::Same => tr!("similar-rule-same"),
             Rule::Different => tr!("similar-rule-different"),
             Rule::Pattern(_) => tr!("similar-rule-pattern"),
         };
-        egui::ComboBox::from_id_salt(("similar-rule", &row.name))
-            .selected_text(current)
-            .show_ui(ui, |ui| {
-                let pattern = match &row.rule {
-                    Rule::Pattern(p) => p.clone(),
-                    _ => row.value.clone(),
-                };
-                for (rule, label) in [
-                    (Rule::Any, tr!("similar-rule-any")),
-                    (Rule::Same, tr!("similar-rule-same")),
-                    (Rule::Different, tr!("similar-rule-different")),
-                    (Rule::Pattern(pattern), tr!("similar-rule-pattern")),
-                ] {
-                    let on = std::mem::discriminant(&row.rule) == std::mem::discriminant(&rule);
-                    if ui.selectable_label(on, label).clicked() {
-                        row.rule = rule;
-                    }
+        let name = row.name.clone();
+        let dropdown = widgets::dropdown(("similar-rule", &row.name), current);
+        let shown = dropdown.show(ui, |ui| {
+            let pattern = match &row.rule {
+                Rule::Pattern(p) => p.clone(),
+                _ => row.value.clone(),
+            };
+            for (rule, label) in [
+                (Rule::Any, tr!("similar-rule-any")),
+                (Rule::Same, tr!("similar-rule-same")),
+                (Rule::Different, tr!("similar-rule-different")),
+                (Rule::Pattern(pattern), tr!("similar-rule-pattern")),
+            ] {
+                let on = std::mem::discriminant(&row.rule) == std::mem::discriminant(&rule);
+                if ui.add(widgets::choice(on, label)).clicked() {
+                    row.rule = rule;
                 }
-            })
+            }
+        });
+        shown
             .response
-            .widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::ComboBox, true, row.name.clone())
-            });
+            .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, name.clone()));
         if let Rule::Pattern(p) = &mut row.rule {
-            let name = row.name.clone();
-            ui.add(egui::TextEdit::singleline(p).desired_width(90.0))
+            ui.add(widgets::text_field(p).width(PATTERN_WIDTH))
                 .widget_info(|| {
                     egui::WidgetInfo::labeled(egui::Role::TextInput, true, name.clone())
                 });

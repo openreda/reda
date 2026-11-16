@@ -34,6 +34,8 @@ fn harness(home: &Path, work: &Path, board: bool) -> Harness<'static, App> {
     shell.run("project.new", params).unwrap();
     let mut h = Harness::builder()
         .with_size([1100.0, 700.0])
+        // A press on a Projects row runs the row's press transition: more frames to settle.
+        .with_max_steps(8)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.ctx
         .options_mut(|o| o.input_options.max_double_click_delay = 10.0);

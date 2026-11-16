@@ -55,11 +55,15 @@ pub enum Glyph {
     /// A table column sorted ascending, and descending.
     SortUp,
     SortDown,
+    /// The snap palette: a grid of dots with a ring on the one snapped to.
+    Snap,
+    /// Copy to the clipboard: one sheet over another.
+    Copy,
 }
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 20] = [
+    pub const ALL: [(Glyph, &'static str); 22] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -80,6 +84,8 @@ impl Glyph {
         (Glyph::Warning, "warning"),
         (Glyph::SortUp, "sort ascending"),
         (Glyph::SortDown, "sort descending"),
+        (Glyph::Snap, "snap"),
+        (Glyph::Copy, "copy"),
     ];
 
     /// Paints the Glyph with its box centred on `center`, in `color`.
@@ -174,10 +180,28 @@ impl Glyph {
                 open(&[(8.0, 3.5), (8.0, 12.5)]);
                 open(&[(4.5, 9.0), (8.0, 12.5), (11.5, 9.0)]);
             }
+            Glyph::Copy => {
+                // The sheet in front, and the two edges of the one behind that show.
+                let front = Rect::from_min_max(at((5.5, 5.5)), at((13.5, 13.5)));
+                painter.rect_stroke(front, SHEET_CORNER, pen, egui::StrokeKind::Middle);
+                open(&[(2.5, 10.0), (2.5, 2.5), (10.0, 2.5)]);
+            }
+            Glyph::Snap => {
+                for x in [2.5, 8.0, 13.5] {
+                    for y in [2.5, 8.0, 13.5] {
+                        painter.circle_filled(at((x, y)), STROKE / 2.0, color);
+                    }
+                }
+                painter.circle_stroke(at((8.0, 8.0)), SNAP_RING, pen);
+            }
         }
     }
 }
 
+/// The corner of the copy Glyph's sheet.
+const SHEET_CORNER: f32 = 1.0;
+/// The ring on the snap Glyph's middle dot.
+const SNAP_RING: f32 = 3.5;
 /// The modified dot is a filled disc, not a stroke.
 const DOT_RADIUS: f32 = 3.0;
 /// The corner of the boxes inside the window-control and lock Glyphs.

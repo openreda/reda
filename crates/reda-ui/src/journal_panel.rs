@@ -2,12 +2,14 @@
 //! and its result or error, and an Export button that saves the session as a script for
 //! `reda run --script`.
 
-use egui::{RichText, Ui};
+use egui::Ui;
 use reda_engine::Engine;
 use reda_engine::command::{ErrorCode, Kind};
 use reda_engine::journal::{self, JournalEntry, Source};
 
+use crate::theme::{Tokens, TokensExt as _};
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
 
 /// What the user asked of the Journal panel this frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,10 +24,9 @@ pub fn show(ui: &mut Ui, engine: &Engine) -> Option<JournalAction> {
     let mut action = None;
     let entries = engine.journal();
     ui.horizontal(|ui| {
-        ui.add_space(4.0);
         let export = ui
-            .button(tr!("journal-export"))
-            .on_hover_text(tr!("journal-export-hint"));
+            .add(widgets::button(tr!("journal-export")))
+            .tooltip(tr!("journal-export-hint"));
         if export.clicked() {
             action = Some(JournalAction::Export);
         }
@@ -39,35 +40,43 @@ pub fn show(ui: &mut Ui, engine: &Engine) -> Option<JournalAction> {
                 ui.weak(tr!("journal-empty"));
                 return;
             }
-            egui::Grid::new("journal-entries")
-                .num_columns(4)
-                .striped(true)
-                .spacing([12.0, 2.0])
-                .show(ui, |ui| {
-                    ui.strong(tr!("journal-column-number"));
-                    ui.strong(tr!("journal-column-command"));
-                    ui.strong(tr!("journal-column-source"));
-                    ui.strong(tr!("journal-column-result"));
-                    ui.end_row();
-                    for (i, entry) in entries.iter().enumerate() {
-                        row(ui, i + 1, entry);
-                        ui.end_row();
-                    }
+            let columns = [
+                Column::auto().number(),
+                Column::auto(),
+                Column::auto(),
+                Column::auto(),
+            ];
+            let t = ui.tokens();
+            let table = widgets::table("journal-entries").columns(columns);
+            table.show(ui, |table| {
+                table.header(|h| {
+                    h.text(tr!("journal-column-number"));
+                    h.text(tr!("journal-column-command"));
+                    h.text(tr!("journal-column-source"));
+                    h.text(tr!("journal-column-result"));
                 });
+                for (i, entry) in entries.iter().enumerate() {
+                    table.row(|cells| row(cells, &t, i + 1, entry));
+                }
+            });
         });
     action
 }
 
 /// One Journal entry: its number, the Command id (params on hover), the source, and
 /// `OK` (result on hover) or the error code and message.
-fn row(ui: &mut Ui, number: usize, entry: &JournalEntry) {
-    ui.weak(number.to_string());
-    ui.monospace(&entry.id)
-        .on_hover_text(compact(&entry.params));
-    ui.label(source_label(entry.source));
+fn row(cells: &mut widgets::TableRow<'_>, t: &Tokens, number: usize, entry: &JournalEntry) {
+    cells.muted(number.to_string());
+    cells
+        .ui(|ui| {
+            let id = t.ty.mono.rich(&entry.id).color(t.color.text.primary);
+            ui.add(egui::Label::new(id).selectable(false).extend())
+        })
+        .tooltip(compact(&entry.params));
+    cells.text(source_label(entry.source));
     match &entry.outcome {
         Ok(result) => {
-            ui.label(tr!("journal-ok")).on_hover_text(compact(result));
+            cells.text(tr!("journal-ok")).tooltip(compact(result));
         }
         Err(err) => {
             let text = tr!(
@@ -75,7 +84,7 @@ fn row(ui: &mut Ui, number: usize, entry: &JournalEntry) {
                 code = error_code(err.code),
                 message = err.message.clone()
             );
-            ui.label(RichText::new(text).color(ui.visuals().error_fg_color));
+            cells.colored(text, t.color.error.text);
         }
     }
 }

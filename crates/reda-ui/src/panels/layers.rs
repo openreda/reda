@@ -4,17 +4,22 @@
 //! change is a Command (a view Command, or `app.preferences.set` for a colour), returned
 //! for the window to run after the frame.
 
-use egui::color_picker::{Alpha, color_edit_button_srgba};
-use egui::{Color32, ComboBox, Id, RadioButton, Role, ScrollArea, Ui, WidgetInfo};
+use egui::{Color32, Id, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{Layer, LayerKind, ObjectType, PcbDocument, Side, Uuid};
 use reda_engine::preferences::{InactiveLayerMode, Units};
 use reda_engine::render::{BoardColor, ColorKey, Rgba};
 use serde_json::{Value, json};
 
+use crate::layout::PanelId;
 use crate::pcb::layer_control::{ordered, set_buttons};
 use crate::pcb::view::{VIEW_TYPES, color_key, format_length, to_hex};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
+use crate::widgets::{self, Tooltip as _};
 use crate::{theme, tr};
+
+/// The side of the pin mark on a pinned Layer's eye.
+const PIN_MARK: f32 = 4.0;
 
 /// A Command for the window to run.
 pub type Invocation = (String, Value);
@@ -23,39 +28,43 @@ pub type Invocation = (String, Value);
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
     let mut out = Vec::new();
     let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
-        ui.add_space(8.0);
+        ui.add_space(ui.tokens().space.gap);
         ui.vertical_centered(|ui| ui.weak(tr!("layers-no-pcb")));
         return out;
     };
     let view = shell.board_view();
     let layers = &view.layers;
     let active = shell.engine().project().and_then(|p| view.active_layer(p));
+    let t = ui.tokens();
+    let focused = shell.panel_focused(PanelId::Layers);
     ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
         ui.horizontal(|ui| {
             let mode = layers
                 .inactive_mode
                 .unwrap_or(shell.preferences().display.inactive_layer_mode);
             let mut chosen = mode;
-            ComboBox::from_label(tr!("layers-inactive"))
-                .selected_text(mode_title(mode))
-                .show_ui(ui, |ui| {
-                    for m in [
-                        InactiveLayerMode::Normal,
-                        InactiveLayerMode::Dimmed,
-                        InactiveLayerMode::Hidden,
-                    ] {
-                        ui.selectable_value(&mut chosen, m, mode_title(m));
-                    }
-                });
+            let label = tr!("layers-inactive");
+            let dropdown = widgets::dropdown("layers-inactive", mode_title(mode));
+            let shown = dropdown.show(ui, |ui| {
+                for m in [
+                    InactiveLayerMode::Normal,
+                    InactiveLayerMode::Dimmed,
+                    InactiveLayerMode::Hidden,
+                ] {
+                    widgets::choice_value(ui, &mut chosen, m, mode_title(m));
+                }
+            });
+            shown
+                .response
+                .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+            ui.label(label.as_str());
             if chosen != mode {
                 out.push(("pcb.view.inactive_layers".into(), json!({ "mode": chosen })));
             }
         });
         let mut bottom = layers.from_bottom;
-        if ui
-            .checkbox(&mut bottom, tr!("layers-from-bottom"))
-            .changed()
-        {
+        let from_bottom = widgets::checkbox(&mut bottom, tr!("layers-from-bottom"));
+        if ui.add(from_bottom).changed() {
             out.push((
                 "pcb.view.from_bottom".into(),
                 json!({ "from_bottom": bottom }),
@@ -78,7 +87,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 let of_kind = || pcb.layers().layers.iter().filter(move |l| l.kind == kind);
                 let mut all = of_kind().all(|l| !layers.hidden.contains(&l.uuid));
                 let title = kind_title(kind);
-                let check = ui.checkbox(&mut all, title.as_str());
+                let check = ui.add(widgets::checkbox(&mut all, title.as_str()));
                 let label = tr!("layers-show-kind", kind = title.as_str());
                 check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
                 if check.changed() {
@@ -99,8 +108,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 let pinned = layers.pinned.contains(&layer.uuid);
                 let name = layer_name(pcb, layer);
                 let check = ui
-                    .checkbox(&mut visible, "")
-                    .on_hover_text(tr!("layers-pin-hint"));
+                    .add(widgets::checkbox(&mut visible, ""))
+                    .tooltip(tr!("layers-pin-hint"));
                 let label = if pinned {
                     tr!("layers-show-pinned", layer = name.as_str())
                 } else {
@@ -108,12 +117,15 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 };
                 check.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, label.clone()));
                 if pinned {
-                    // A pin mark beside the eye: a small filled square.
-                    let r = check.rect;
-                    let at = egui::pos2(r.right() - 2.0, r.top() + 2.0);
-                    let mark = egui::Rect::from_center_size(at, egui::vec2(4.0, 4.0));
-                    ui.painter()
-                        .rect_filled(mark, 1.0, ui.visuals().selection.bg_fill);
+                    // A pin mark beside the eye: a small filled square on the corner of
+                    // the check box's mark.
+                    let r = egui::Rect::from_center_size(
+                        check.rect.center(),
+                        egui::Vec2::splat(widgets::MARK),
+                    );
+                    let mark =
+                        egui::Rect::from_center_size(r.right_top(), egui::Vec2::splat(PIN_MARK));
+                    ui.painter().rect_filled(mark, 0.0, t.color.accent.text);
                 }
                 if check.changed() {
                     // Mod+click on the eye pins the Layer instead.
@@ -132,11 +144,16 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 {
                     out.push(("app.preferences.set".into(), color));
                 }
-                let radio = ui.add(RadioButton::new(active == Some(layer.uuid), name.as_str()));
+                // The row is the active Layer's when it is selected.
+                let row = widgets::list_row(name.as_str())
+                    .selected(active == Some(layer.uuid))
+                    .muted(!visible)
+                    .panel_focused(focused);
+                let row = ui.add(row);
                 // Mod+click on a Layer's name highlights its content, as on a chip.
-                if radio.clicked() && ui.input(|i| i.modifiers.command) {
+                if row.clicked() && ui.input(|i| i.modifiers.command) {
                     out.push(("pcb.layer.highlight".into(), json!({ "layer": layer.uuid })));
-                } else if radio.clicked() && active != Some(layer.uuid) {
+                } else if row.clicked() && active != Some(layer.uuid) {
                     out.push(("pcb.layer.activate".into(), json!({ "layer": layer.uuid })));
                 }
             });
@@ -146,7 +163,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         ui.label(tr!("layers-objects"));
         for kind in VIEW_TYPES {
             let mut visible = !layers.hidden_types.contains(&kind);
-            if ui.checkbox(&mut visible, type_title(kind)).changed() {
+            let check = widgets::checkbox(&mut visible, type_title(kind));
+            if ui.add(check).changed() {
                 out.push((
                     "pcb.view.object_type.show".into(),
                     json!({"type": kind, "visible": visible}),
@@ -156,10 +174,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         ui.separator();
 
         let mut net_colors = layers.net_colors;
-        if ui
-            .checkbox(&mut net_colors, tr!("layers-net-colors"))
-            .changed()
-        {
+        let check = widgets::checkbox(&mut net_colors, tr!("layers-net-colors"));
+        if ui.add(check).changed() {
             out.push(("pcb.view.net_colors".into(), json!({ "on": net_colors })));
         }
         let labels = layers.labels;
@@ -173,24 +189,25 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             ),
         ] {
             let mut on = value;
-            if ui.checkbox(&mut on, key).changed() {
+            if ui.add(widgets::checkbox(&mut on, key)).changed() {
                 out.push(("pcb.view.labels".into(), json!({ param: on })));
             }
         }
         ui.separator();
 
         let mut ratsnest = !layers.ratsnest.hidden;
-        if ui.checkbox(&mut ratsnest, tr!("layers-ratsnest")).changed() {
+        let check = widgets::checkbox(&mut ratsnest, tr!("layers-ratsnest"));
+        if ui.add(check).changed() {
             out.push(("pcb.ratsnest.show".into(), json!({ "visible": ratsnest })));
         }
         let mut nets: Vec<(&str, Uuid)> = pcb.nets().map(|n| (n.name.as_str(), n.uuid)).collect();
         nets.sort();
-        egui::CollapsingHeader::new(tr!("layers-ratsnest-nets"))
+        widgets::section(tr!("layers-ratsnest-nets"))
             .id_salt("layers-ratsnest-nets")
             .show(ui, |ui| {
                 for (name, net) in nets {
                     let mut shown = !layers.ratsnest.hidden_nets.contains(&net);
-                    let check = ui.add_enabled(ratsnest, egui::Checkbox::new(&mut shown, name));
+                    let check = ui.add_enabled(ratsnest, widgets::checkbox(&mut shown, name));
                     if check.changed() {
                         out.push((
                             "pcb.ratsnest.show".into(),
@@ -203,30 +220,33 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
 
         ui.horizontal(|ui| {
             ui.label(tr!("layers-units"));
-            for (units, title) in [(Units::Mm, "mm"), (Units::Mil, "mil")] {
-                if ui.selectable_label(view.units == units, title).clicked() && view.units != units
-                {
-                    out.push(("view.units.toggle".into(), json!({})));
-                }
+            let mut units = view.units;
+            let options = [(Units::Mm, "mm"), (Units::Mil, "mil")];
+            if ui.add(widgets::segmented(&mut units, &options)).changed() {
+                out.push(("view.units.toggle".into(), json!({})));
             }
         });
         ui.horizontal(|ui| {
             let current = shell.grid(pcb.uuid);
             let mut grid = current;
-            ComboBox::from_label(tr!("layers-grid"))
-                .selected_text(format_length(current, view.units))
-                .show_ui(ui, |ui| {
-                    let rows = shell.grids().rows(shell.engine().elements(), pcb.uuid);
-                    let tables = shell.grids().tables(crate::bars::DocumentType::Pcb).clone();
-                    let imperial = view.units == reda_engine::preferences::Units::Mil;
-                    for g in rows
-                        .iter()
-                        .map(|r| r.snap.0)
-                        .filter(|g| tables.is_imperial(*g) == imperial)
-                    {
-                        ui.selectable_value(&mut grid, g, format_length(g, view.units));
-                    }
-                });
+            let label = tr!("layers-grid");
+            let dropdown = widgets::dropdown("layers-grid", format_length(current, view.units));
+            let shown = dropdown.show(ui, |ui| {
+                let rows = shell.grids().rows(shell.engine().elements(), pcb.uuid);
+                let tables = shell.grids().tables(crate::bars::DocumentType::Pcb).clone();
+                let imperial = view.units == reda_engine::preferences::Units::Mil;
+                for g in rows
+                    .iter()
+                    .map(|r| r.snap.0)
+                    .filter(|g| tables.is_imperial(*g) == imperial)
+                {
+                    widgets::choice_value(ui, &mut grid, g, format_length(g, view.units));
+                }
+            });
+            shown
+                .response
+                .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+            ui.label(label.as_str());
             if grid != current {
                 out.push((
                     "view.grid.set".into(),
@@ -255,10 +275,9 @@ fn colour_swatch(
     let [r, g, b, _] = current.0;
     let mut color: Color32 = ui
         .data(|d| d.get_temp(pending_id))
-        .unwrap_or(Color32::from_rgb(r, g, b));
-    let response = color_edit_button_srgba(ui, &mut color, Alpha::Opaque);
+        .unwrap_or_else(|| widgets::data_color(r, g, b));
     let label = tr!("layers-colour", layer = name);
-    response.widget_info(|| WidgetInfo::labeled(Role::Button, true, label.clone()));
+    let response = ui.add(widgets::color_button(&mut color, label));
     if response.changed() {
         ui.data_mut(|d| d.insert_temp(pending_id, color));
     }

@@ -38,6 +38,9 @@ fn harness(home: &TempDir, work: &TempDir) -> Harness<'static, App> {
         .unwrap();
     Harness::builder()
         .with_size([1400.0, 2600.0])
+        // A press on a row of a Panel runs the row's press transition: more frames to
+        // settle.
+        .with_max_steps(8)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell))
 }
 
@@ -245,10 +248,7 @@ fn nothing_selected_shows_the_overview_with_fix_for_health_checks() {
     assert!(h.query_by_label("Fix Duplicate Copper").is_none());
 
     // Ready for fab?'s Run (the check summary's Run DRC goes the same way).
-    // The button's row is wider than the Panel's card leaves it at the Dock's default
-    // width, so the button's middle is cut off: it is clicked through AccessKit.
-    h.get_by_label("Run (DRC run since the last edit)")
-        .click_accesskit();
+    h.get_by_label("Run (DRC run since the last edit)").click();
     h.run();
     h.run();
     h.get_by_label("Last run just now");

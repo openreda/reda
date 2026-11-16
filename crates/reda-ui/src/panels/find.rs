@@ -8,15 +8,18 @@
 //! What the Panel holds is view state ([`FindPanel`]), so the step keys reach it from any
 //! focus.
 
-use egui::{Key, Role, ScrollArea, TextEdit, Ui, WidgetInfo};
+use egui::{Key, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Preset};
 use reda_engine::model::Uuid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::layout::PanelId;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
 
 /// One match.
 #[derive(Clone, Debug, PartialEq)]
@@ -302,6 +305,9 @@ pub fn step(shell: &mut Shell, forward: bool) {
     go(shell, next);
 }
 
+/// The least width of the text field, however narrow the Panel is.
+const MIN_FIELD: f32 = 80.0;
+
 /// Draws the Panel.
 pub fn show(ui: &mut Ui, shell: &mut Shell) {
     let mut panel = state(shell);
@@ -314,11 +320,18 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
     let before = (before, panel.scope, panel.mask);
     let mut search_now = false;
     let mut go_to = None;
+    let t = ui.tokens();
+    let focused = shell.panel_focused(PanelId::Find);
     ui.horizontal(|ui| {
+        // The Search button takes its own width at the trailing end; the field has the
+        // rest.
+        let search = tr!("find-search");
+        let button = widgets::button(search.as_str());
+        let width = (ui.available_width() - button.width(ui) - t.space.gap).max(MIN_FIELD);
         let field = ui.add(
-            TextEdit::singleline(&mut panel.text)
-                .hint_text(tr!("find-hint"))
-                .desired_width((ui.available_width() - 50.0).max(80.0)),
+            widgets::text_field(&mut panel.text)
+                .hint(tr!("find-hint"))
+                .width(width),
         );
         field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("find-text")));
         if panel.focus {
@@ -328,42 +341,62 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
         if field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
             search_now = true;
         }
-        if ui.button(tr!("find-search")).clicked() {
+        if ui.add(button).clicked() {
             search_now = true;
         }
     });
     ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut panel.kinds.designators, tr!("find-kinds-designators"));
-        ui.checkbox(&mut panel.kinds.values, tr!("find-kinds-values"));
-        ui.checkbox(&mut panel.kinds.nets, tr!("find-kinds-nets"));
-        ui.checkbox(&mut panel.kinds.text, tr!("find-kinds-text"));
+        let kinds = &mut panel.kinds;
+        ui.add(widgets::checkbox(
+            &mut kinds.designators,
+            tr!("find-kinds-designators"),
+        ));
+        ui.add(widgets::checkbox(
+            &mut kinds.values,
+            tr!("find-kinds-values"),
+        ));
+        ui.add(widgets::checkbox(&mut kinds.nets, tr!("find-kinds-nets")));
+        ui.add(widgets::checkbox(&mut kinds.text, tr!("find-kinds-text")));
     });
     ui.horizontal_wrapped(|ui| {
-        ui.checkbox(&mut panel.match_case, tr!("find-match-case"));
-        ui.checkbox(&mut panel.whole_word, tr!("find-whole-word"));
+        ui.add(widgets::checkbox(
+            &mut panel.match_case,
+            tr!("find-match-case"),
+        ));
+        ui.add(widgets::checkbox(
+            &mut panel.whole_word,
+            tr!("find-whole-word"),
+        ));
     });
     ui.horizontal_wrapped(|ui| {
-        ui.selectable_value(&mut panel.syntax, Syntax::Plain, tr!("find-syntax-plain"));
-        ui.selectable_value(
-            &mut panel.syntax,
-            Syntax::Wildcard,
-            tr!("find-syntax-wildcard"),
-        );
-        ui.selectable_value(&mut panel.syntax, Syntax::Regex, tr!("find-syntax-regex"));
+        for (syntax, text) in [
+            (Syntax::Plain, tr!("find-syntax-plain")),
+            (Syntax::Wildcard, tr!("find-syntax-wildcard")),
+            (Syntax::Regex, tr!("find-syntax-regex")),
+        ] {
+            if ui
+                .add(widgets::radio(panel.syntax == syntax, text))
+                .clicked()
+            {
+                panel.syntax = syntax;
+            }
+        }
     });
     ui.horizontal_wrapped(|ui| {
-        ui.weak(tr!("find-scope"));
-        ui.selectable_value(&mut panel.scope, Scope::Sheet, tr!("find-scope-sheet"));
-        ui.selectable_value(&mut panel.scope, Scope::Project, tr!("find-scope-project"));
-        ui.selectable_value(
-            &mut panel.scope,
-            Scope::Selection,
-            tr!("find-scope-selection"),
-        );
+        ui.add(widgets::form_name(tr!("find-scope")));
+        for (scope, text) in [
+            (Scope::Sheet, tr!("find-scope-sheet")),
+            (Scope::Project, tr!("find-scope-project")),
+            (Scope::Selection, tr!("find-scope-selection")),
+        ] {
+            if ui.add(widgets::radio(panel.scope == scope, text)).clicked() {
+                panel.scope = scope;
+            }
+        }
     });
-    ui.checkbox(&mut panel.mask, tr!("find-mask"));
+    ui.add(widgets::checkbox(&mut panel.mask, tr!("find-mask")));
     if let Some(error) = &panel.error {
-        ui.colored_label(ui.visuals().error_fg_color, error);
+        ui.colored_label(t.color.error.text, error);
     } else if panel.searched && panel.results.is_empty() {
         ui.weak(tr!("find-nothing"));
     } else if panel.searched {
@@ -371,13 +404,15 @@ pub fn show(ui: &mut Ui, shell: &mut Shell) {
     }
     ui.separator();
     ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-        for (i, row) in panel.results.iter().enumerate() {
-            let label = row.label();
-            let response = ui.selectable_label(panel.current == Some(i), &label);
-            if response.clicked() {
-                go_to = Some(i);
+        widgets::rows(ui, |ui| {
+            for (i, row) in panel.results.iter().enumerate() {
+                let chosen = panel.current == Some(i);
+                let row = widgets::list_row(row.label()).selected(chosen);
+                if ui.add(row.panel_focused(focused)).clicked() {
+                    go_to = Some(i);
+                }
             }
-        }
+        });
     });
     let after = (
         panel.kinds,
