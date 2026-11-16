@@ -558,12 +558,12 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 
 ### Size values
 
-Widths that follow the text size and never Density. Each is given at B = 13 and scaled by B / 13 (`size.of(..)` in code), on whole pixels.
+Widths that follow the text size and never Density. Each is given at B = 13 and scaled by B / 13 above it (`size.of(..)` in code), on whole pixels. Below 13 they keep their 13 px width, since icons, marks and paddings do not shrink.
 
 | B | Scale | `size.dock` | `size.field` |
 |---|---|---|---|
-| 11 | 0.85 | 244 | 237 |
-| 12 | 0.92 | 266 | 258 |
+| 11 | 1.00 | 288 | 280 |
+| 12 | 1.00 | 288 | 280 |
 | 13 | 1.00 | 288 | 280 |
 | 14 | 1.08 | 310 | 302 |
 | 15 | 1.15 | 332 | 323 |

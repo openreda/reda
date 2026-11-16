@@ -396,7 +396,7 @@ impl PreferencesDialog {
         // Where a long label and a control do not fit side by side (search results at a
         // large text size gather long labels), the control goes under the label rather
         // than off the page.
-        let spacing = ui.spacing().item_spacing.x;
+        let spacing = t.space.gap;
         let beside =
             DOT_WIDTH + label + t.size.of(EDITOR_WIDTH) + 2.0 * spacing <= ui.available_width();
         let mut control = Some(control);
