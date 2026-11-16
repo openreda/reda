@@ -497,18 +497,20 @@ fn the_active_bar_holds_only_the_most_used_tools() {
 
 #[test]
 fn a_narrow_canvas_moves_the_active_bar_tools_that_do_not_fit_into_a_menu() {
-    // Select, Move, Drag | Wire, Net Label, Power Port: 32 px buttons 2 px apart, a 7 px
-    // separator, in a frame 8 px wider than its row, 8 px in from each canvas edge.
+    // Select, Move, Drag | Wire, Net Label, Power Port: 30 px buttons (the control height,
+    // Comfortable) 2 px apart, a 7 px separator, in a frame 14 px wider than its row, 8 px
+    // in from each canvas edge.
+    let t = reda_ui::theme::Tokens::new(egui::Theme::Dark, &Default::default());
     let sheet = &bars::for_document(Some(DocumentType::Schematic)).active_bar;
     assert_eq!(sheet.len(), 7);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 1000.0), 7);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 235.0), 7);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 1000.0), 7);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 229.0), 7);
     // One point less: Net Label and Power Port go to the overflow menu.
-    assert_eq!(bars::draw::active_bar_fit(sheet, 234.0), 5);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 228.0), 5);
     // A separator never ends the row.
-    assert_eq!(bars::draw::active_bar_fit(sheet, 200.0), 3);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 100.0), 1);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 40.0), 0);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 180.0), 3);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 100.0), 1);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 40.0), 0);
 }
 
 // The window.

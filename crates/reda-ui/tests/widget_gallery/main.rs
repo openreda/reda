@@ -16,6 +16,7 @@
 //! along with close-ups of single sections at twice the size (`approval_sheets`): what a
 //! reviewer is shown.
 
+mod bars;
 mod canvas_chrome;
 mod controls;
 mod data;
@@ -225,4 +226,11 @@ page_snapshots!("text_view", text_view::SIZE, text_view::page:
     text_view_light_compact => Light, Compact;
     text_view_dark_comfortable => Dark, Comfortable;
     text_view_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("bars", bars::SIZE, bars::page:
+    bars_light_comfortable => Light, Comfortable;
+    bars_light_compact => Light, Compact;
+    bars_dark_comfortable => Dark, Comfortable;
+    bars_dark_compact => Dark, Compact;
 );

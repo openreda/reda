@@ -60,18 +60,29 @@ pub struct KeyChip {
 impl Widget for KeyChip {
     fn ui(self, ui: &mut Ui) -> Response {
         let t = ui.tokens();
-        let width = paint::width(ui, &t.ty.small, &self.keys) + 2.0 * CHIP_PAD_X;
-        let size = vec2(width, t.ty.small.line + CHIP_PAD_Y);
+        let size = key_chip_size(ui, &t, &self.keys);
         let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
         response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &self.keys));
         if ui.is_rect_visible(rect) {
-            ui.painter()
-                .rect_filled(rect, t.radius.mark, t.color.fill.control);
-            let (style, ink) = (&t.ty.small, t.color.text.muted);
-            paint::text_in(ui, rect, Align2::CENTER_CENTER, style, &self.keys, ink);
+            paint_key_chip(ui, &t, rect, &self.keys);
         }
         response
     }
+}
+
+/// The size of a key chip holding `keys`.
+pub(super) fn key_chip_size(ui: &Ui, t: &Tokens, keys: &str) -> egui::Vec2 {
+    let width = paint::width(ui, &t.ty.small, keys) + 2.0 * CHIP_PAD_X;
+    vec2(width, t.ty.small.line + CHIP_PAD_Y)
+}
+
+/// Paints a key chip holding `keys` in `rect` (a [`key_chip_size`] rect), for a widget
+/// that draws one as part of itself: a Palette row's shortcut.
+pub(super) fn paint_key_chip(ui: &Ui, t: &Tokens, rect: egui::Rect, keys: &str) {
+    ui.painter()
+        .rect_filled(rect, t.radius.mark, t.color.fill.control);
+    let (style, ink) = (&t.ty.small, t.color.text.muted);
+    paint::text_in(ui, rect, Align2::CENTER_CENTER, style, keys, ink);
 }
 
 /// What a tooltip holds.

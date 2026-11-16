@@ -244,9 +244,4 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
 /// Files not yet converted, sorted. The scan skips a listed file and fails once it is
 /// clean, so the slice that converts a file deletes its line here. Never add a file: a
 /// new file must be clean from the start.
-pub const UNCONVERTED: &[&str] = &[
-    "bars/draw.rs",
-    "bars/groups.rs",
-    "keys_card.rs",
-    "palette/draw.rs",
-];
+pub const UNCONVERTED: &[&str] = &[];
