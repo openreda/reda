@@ -28,6 +28,7 @@ pub mod dimension_edit;
 pub mod draw;
 pub mod layer_control;
 pub mod live_hover;
+pub mod marks;
 pub mod measure;
 pub mod placement_bar;
 pub mod placing;

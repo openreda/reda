@@ -7,14 +7,13 @@
 //!   shows the mode in force: the obstacle mode by its icon (toggled in `avoid`), the
 //!   alignment guides toggled, the Ratsnest mode by its icon, and the queue's "3 of 12"
 //!   only during Reposition Selected.
-//! - [`draw_move`]: the live overlap (the Courtyards too close, in the violation colour)
-//!   and the alignment guides the move is snapped across.
+//! - The live overlap and the alignment guides a move draws are canvas marks, in
+//!   [`super::marks::move_marks`].
 //! - [`dialogs`]: Choose Component and the question a locked move asks.
 
 use std::collections::BTreeMap;
 
-use egui::{Id, Rect, Role, Stroke, Ui};
-use reda_engine::model::geom::Point;
+use egui::{Id, Rect, Role, Ui};
 use reda_engine::pcb::place::{ObstacleMode, RatsnestMode};
 use serde_json::json;
 
@@ -22,9 +21,7 @@ use super::placing::{self, PlaceFlight};
 use crate::a11y;
 use crate::bars::draw::{Cx, Invocation, ToolBarItem, tool_bar, tool_bar_anchor};
 use crate::bars::{self, Action, Binding, DocumentType};
-use crate::canvas::CanvasInputs;
 use crate::shell::Shell;
-use crate::snap::Guide;
 use crate::tools::Tool;
 use crate::tr;
 use crate::widgets;
@@ -124,51 +121,6 @@ pub fn show(ui: &Ui, shell: &Shell, id: Id, canvas: Rect) -> Option<Invocation> 
     )
 }
 
-/// Draws the live overlap and the alignment guides of the Footprint move in flight.
-pub fn draw_move(ui: &Ui, shell: &Shell, input: &CanvasInputs) {
-    let tool = shell.pcb_tool();
-    let (overlaps, outlines) = tool.overlaps();
-    let guides = tool.guide_lines();
-    if overlaps.is_empty() && guides.is_empty() {
-        return;
-    }
-    let painter = ui.painter_at(input.rect);
-    let screen = |p: Point| input.screen_point((p.x.0 as f64, p.y.0 as f64));
-    let refused = ui.visuals().error_fg_color;
-    for outline in outlines {
-        let mut points: Vec<egui::Pos2> = outline.iter().map(|p| screen(*p)).collect();
-        if let Some(first) = points.first().copied() {
-            points.push(first);
-        }
-        painter.add(egui::Shape::convex_polygon(
-            points[..points.len().saturating_sub(1)].to_vec(),
-            refused.gamma_multiply(0.25),
-            Stroke::NONE,
-        ));
-        painter.add(egui::Shape::line(points, Stroke::new(2.0, refused)));
-    }
-    let accent = ui.visuals().selection.stroke.color.gamma_multiply(0.8);
-    let r = input.rect;
-    for guide in guides {
-        let (a, b) = match *guide {
-            Guide::X(x) => {
-                let sx = screen(Point::new(x, reda_engine::model::geom::Nm(0))).x;
-                (egui::pos2(sx, r.top()), egui::pos2(sx, r.bottom()))
-            }
-            Guide::Y(y) => {
-                let sy = screen(Point::new(reda_engine::model::geom::Nm(0), y)).y;
-                (egui::pos2(r.left(), sy), egui::pos2(r.right(), sy))
-            }
-        };
-        painter.add(egui::Shape::dashed_line(
-            &[a, b],
-            Stroke::new(1.0, accent),
-            6.0,
-            4.0,
-        ));
-    }
-}
-
 /// Choose Component (while [`PlaceFlight::choose`] is open) and the locked-move question
 /// (while [`PlaceFlight::confirm`] waits). Returns the Command a button runs.
 pub fn dialogs(ctx: &egui::Context, shell: &mut Shell) -> Option<Invocation> {
@@ -194,22 +146,26 @@ pub fn dialogs(ctx: &egui::Context, shell: &mut Shell) -> Option<Invocation> {
             .show(ctx, |ui| {
                 let hint = tr!("place-choose-filter");
                 let field = ui.add(
-                    egui::TextEdit::singleline(&mut filter)
-                        .hint_text(&hint)
-                        .desired_width(f32::INFINITY),
+                    widgets::text_field(&mut filter)
+                        .search()
+                        .hint(&hint)
+                        .width(f32::INFINITY),
                 );
                 a11y::name(&field, Role::TextInput, true, &hint, None, None);
                 egui::ScrollArea::vertical()
                     .max_height(240.0)
                     .show(ui, |ui| {
-                        for (designator, footprint) in &rows {
-                            let response =
-                                ui.selectable_label(picked == Some(*footprint), designator);
-                            a11y::name(&response, Role::ListItem, true, designator, None, None);
-                            if response.clicked() {
-                                picked = Some(*footprint);
+                        widgets::rows(ui, |ui| {
+                            for (designator, footprint) in &rows {
+                                let row = widgets::list_row(designator.as_str())
+                                    .selected(picked == Some(*footprint));
+                                let response = ui.add(row);
+                                a11y::name(&response, Role::ListItem, true, designator, None, None);
+                                if response.clicked() {
+                                    picked = Some(*footprint);
+                                }
                             }
-                        }
+                        });
                     });
                 crate::modal::buttons(ui, |ui| {
                     let enabled = picked.is_some();
