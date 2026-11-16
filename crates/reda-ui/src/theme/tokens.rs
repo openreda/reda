@@ -70,6 +70,10 @@ pub struct Settings {
     /// The chosen UI and monospace families, by name. [`set`](super::set) resolves them
     /// against the installed fonts; the bundled faces stand in for what is missing.
     pub fonts: fonts::Choice,
+    /// Whether the chrome animates (`general.animate`). `None` follows the OS
+    /// reduced-motion setting as read at launch ([`set`](super::set) resolves it); off,
+    /// every transition happens at once.
+    pub animate: Option<bool>,
 }
 
 impl Settings {
@@ -84,6 +88,7 @@ impl Default for Settings {
             density: Density::default(),
             text_size: Settings::DEFAULT_TEXT_SIZE,
             fonts: fonts::Choice::default(),
+            animate: None,
         }
     }
 }
@@ -445,9 +450,14 @@ pub struct Transition {
     pub easing: Easing,
 }
 
-/// The Crisp motion profile (docs/spec/v0.1/design-language.md#motion).
+/// The Crisp motion profile (docs/spec/v0.1/design-language.md#motion). With Animate off
+/// every transition is at once, the travel is zero and nothing scales; the tooltip wait
+/// stays, because it is a wait and not a movement.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Motion {
+    /// Whether the chrome animates: the Animate Preference, or the OS setting while it
+    /// is unset.
+    pub animate: bool,
     pub fast: f32,
     pub base: f32,
     /// A hover fill, and a scrollbar widening.
@@ -633,7 +643,45 @@ fn type_scale(body: f32, f: &Families) -> Type {
     }
 }
 
-fn motion() -> Motion {
+/// The motion tokens; with `animate` off, every transition is at once.
+pub(super) fn motion(animate: bool) -> Motion {
+    let crisp = crisp();
+    if animate {
+        return crisp;
+    }
+    let still = Transition {
+        enter: 0.0,
+        leave: Some(0.0),
+        easing: Easing::Out,
+    };
+    Motion {
+        animate: false,
+        hover: still,
+        press: still,
+        toggle: still,
+        switch: still,
+        tab_line: still,
+        menu: still,
+        tooltip: still,
+        flyout: still,
+        dock_collapse: still,
+        section: still,
+        dialog: still,
+        palette: still,
+        selected_row: still,
+        canvas_bar: still,
+        progress: Transition {
+            leave: None,
+            ..still
+        },
+        travel: 0.0,
+        flyout_travel: 0.0,
+        dialog_scale: 1.0,
+        ..crisp
+    }
+}
+
+fn crisp() -> Motion {
     let (fast, base) = (0.09, 0.14);
     let t = |enter: f32, leave: f32| Transition {
         enter,
@@ -641,6 +689,7 @@ fn motion() -> Motion {
         easing: Easing::Out,
     };
     Motion {
+        animate: true,
         fast,
         base,
         hover: Transition {
@@ -720,7 +769,7 @@ impl Tokens {
                 bar: 20.0,
             },
             opacity: Opacity { disabled: 0.45 },
-            motion: motion(),
+            motion: motion(settings.animate.unwrap_or(true)),
         }
     }
 

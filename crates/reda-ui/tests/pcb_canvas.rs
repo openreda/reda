@@ -758,7 +758,12 @@ fn click(w: &mut Window, at: Pos2) {
 /// [`click`], `gap` seconds after the last input.
 fn click_after(w: &mut Window, at: Pos2, gap: f64) {
     w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + gap);
-    click(w, at);
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.step();
+    // Let the clock run again, or a bar leaving with the selection never finishes.
+    w.h.input_mut().time = None;
+    w.h.run();
 }
 
 #[test]

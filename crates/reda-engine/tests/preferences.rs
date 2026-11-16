@@ -728,6 +728,45 @@ fn density_text_size_and_fonts_are_stored_and_loaded_with_the_others() {
 }
 
 #[test]
+fn animate_is_unset_until_the_user_flips_it_and_unset_is_never_written() {
+    let home = TempDir::new("prefs-animate");
+    let mut engine = test_engine_in(home.path());
+    // Unset: the UI follows the OS reduced-motion setting, read at launch.
+    assert_eq!(get(home.path(), "general.animate")["value"], Value::Null);
+    assert!(!prefs_file(home.path()).exists());
+
+    // Both values are the user's choice and are stored, off as well as on.
+    for on in [false, true] {
+        engine.run_ok(
+            "app.preferences.set",
+            json!({"key": "general.animate", "value": on}),
+        );
+        assert_eq!(
+            read_prefs(home.path()),
+            format!("[general]\nanimate = {on}\n")
+        );
+        assert_eq!(get(home.path(), "general.animate")["value"], on);
+    }
+
+    // Reset puts it back to following the OS, and the file no longer names it.
+    engine.run_ok(
+        "app.preferences.set",
+        json!({"key": "general.animate", "value": null}),
+    );
+    assert_eq!(get(home.path(), "general.animate")["value"], Value::Null);
+    assert!(!read_prefs(home.path()).contains("animate"));
+    assert_eq!(
+        engine
+            .run_err(
+                "app.preferences.set",
+                json!({"key": "general.animate", "value": "sometimes"}),
+            )
+            .code,
+        ErrorCode::InvalidParams
+    );
+}
+
+#[test]
 fn a_text_size_out_of_range_is_rejected_not_clamped() {
     let home = TempDir::new("prefs-text-size");
     let mut engine = test_engine_in(home.path());
@@ -777,6 +816,7 @@ fn the_appearance_page_holds_the_look_and_stays_under_general_keys() {
     assert_eq!(
         pages::keys_on("appearance", false),
         [
+            "general.animate",
             "general.density",
             "general.mono_font",
             "general.system_title_bar",

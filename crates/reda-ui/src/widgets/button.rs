@@ -131,12 +131,18 @@ impl Widget for Button<'_> {
                 return response;
             }
             let s = paint::seen(&response, self.state);
-            let (under, ink) = match (self.kind, self.on) {
-                (Kind::Primary, _) => (c.accent.solid, c.accent.on_solid),
-                (Kind::Danger, _) => (c.error.solid, c.error.on_solid),
-                (_, Some(true)) => (c.accent.subtle, c.text.primary),
-                (Kind::Filled, _) => (c.fill.control, c.text.primary),
-                (Kind::Flat, _) => (Color32::TRANSPARENT, c.text.primary),
+            let (under, ink) = match self.kind {
+                Kind::Primary => (c.accent.solid, c.accent.on_solid),
+                Kind::Danger => (c.error.solid, c.error.on_solid),
+                Kind::Filled => (c.fill.control, c.text.primary),
+                Kind::Flat => (Color32::TRANSPARENT, c.text.primary),
+            };
+            // A toggle's on fill fades in and out over its own.
+            let under = match (self.kind, self.on) {
+                (Kind::Filled | Kind::Flat, Some(on)) => {
+                    paint::mix(under, c.accent.subtle, on_fill(ui, &t, response.id, on))
+                }
+                _ => under,
             };
             ui.painter()
                 .rect_filled(rect, t.radius.control, paint::state_fill(&t, under, s));
@@ -289,11 +295,8 @@ impl Widget for IconButton<'_> {
             } else {
                 paint::seen(&response, State::Rest)
             };
-            let under = if self.on {
-                t.color.accent.subtle
-            } else {
-                Color32::TRANSPARENT
-            };
+            let on = on_fill(ui, &t, response.id, self.on);
+            let under = paint::mix(Color32::TRANSPARENT, t.color.accent.subtle, on);
             // Disabled by its own flag while the `Ui` is enabled: fade it here, once.
             let fade = !self.enabled && ui.is_enabled();
             let painter = if fade {
@@ -385,4 +388,9 @@ impl Widget for Link {
             response
         })
     }
+}
+
+/// How much of a toggle's on fill shows: it fades in and out with `motion.toggle`.
+fn on_fill(ui: &Ui, t: &crate::theme::Tokens, id: egui::Id, on: bool) -> f32 {
+    crate::theme::motion::toggle(ui.ctx(), id.with("on"), on, t.motion.toggle)
 }

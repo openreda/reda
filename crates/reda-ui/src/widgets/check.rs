@@ -5,13 +5,13 @@
 //! choice confirmed with a button, and for lists and tables.
 
 use egui::{
-    Align2, Rect, Response, Role, Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo, pos2,
-    vec2,
+    Align2, Id, Rect, Response, Role, Sense, Stroke, StrokeKind, Ui, Vec2, Widget, WidgetInfo,
+    pos2, vec2,
 };
 
 use super::glyph::Glyph;
 use super::paint::{self, Seen, State};
-use crate::theme::{Tokens, TokensExt as _};
+use crate::theme::{Tokens, TokensExt as _, motion};
 
 /// The side of a check box's or a radio's mark.
 pub const MARK: f32 = 16.0;
@@ -26,7 +26,8 @@ const RADIO_DOT: f32 = 6.0;
 
 /// The row every one of the three shares: a mark, then the label, a control tall so that
 /// a column of them lines up with a column of fields. `radius` is the mark's, for its
-/// focus ring.
+/// focus ring. `paint_mark` is given the control's id, under which its own transition is
+/// kept.
 #[expect(clippy::too_many_arguments)]
 fn mark_row(
     ui: &mut Ui,
@@ -36,7 +37,7 @@ fn mark_row(
     mark: Vec2,
     radius: f32,
     info: impl Fn(bool) -> WidgetInfo,
-    paint_mark: impl FnOnce(&Ui, Rect, Seen),
+    paint_mark: impl FnOnce(&Ui, Rect, Seen, Id),
 ) -> Response {
     paint::stated(ui, state, |ui| {
         let label = if text.is_empty() {
@@ -53,7 +54,7 @@ fn mark_row(
         }
         let s = paint::seen(&response, state);
         let at = Rect::from_center_size(pos2(rect.left() + mark.x / 2.0, rect.center().y), mark);
-        paint_mark(ui, at, s);
+        paint_mark(ui, at, s, response.id);
         let label = rect.with_min_x(at.right() + LABEL_GAP);
         let ink = t.color.text.primary;
         paint::text_in(ui, label, Align2::LEFT_CENTER, &t.ty.body, text, ink);
@@ -107,14 +108,11 @@ impl Widget for Checkbox<'_> {
             Vec2::splat(MARK),
             t.radius.mark,
             |enabled| WidgetInfo::selected(Role::CheckBox, enabled, on, &self.text),
-            |ui, mark, s| {
+            |ui, mark, s, id| {
                 let c = &t.color;
-                if on || mixed {
-                    let fill = paint::state_fill(&t, c.accent.solid, s);
-                    ui.painter().rect_filled(mark, t.radius.mark, fill);
-                    let glyph = if mixed { Glyph::Minus } else { Glyph::Tick };
-                    glyph.paint(ui.painter(), mark.center(), c.accent.on_solid);
-                } else {
+                // The fill fades in over the empty box, and the mark grows.
+                let k = motion::toggle(ui.ctx(), id.with("on"), on || mixed, t.motion.toggle);
+                if k < 1.0 {
                     ui.painter()
                         .rect_filled(mark, t.radius.mark, c.surface.well);
                     ui.painter().rect_stroke(
@@ -123,6 +121,15 @@ impl Widget for Checkbox<'_> {
                         Stroke::new(t.stroke.hairline, outline(&t, s)),
                         StrokeKind::Inside,
                     );
+                }
+                if k > 0.0 {
+                    let fill = paint::state_fill(&t, c.accent.solid, s);
+                    ui.painter()
+                        .rect_filled(mark, t.radius.mark, fill.gamma_multiply(k));
+                    let glyph = if mixed { Glyph::Minus } else { Glyph::Tick };
+                    paint::scaled(ui, mark.center(), k, || {
+                        glyph.paint(ui.painter(), mark.center(), c.accent.on_solid);
+                    });
                 }
             },
         );
@@ -178,15 +185,13 @@ impl Widget for Radio {
             Vec2::splat(MARK),
             MARK / 2.0,
             |enabled| WidgetInfo::selected(Role::RadioButton, enabled, on, &self.text),
-            |ui, mark, s| {
+            |ui, mark, s, id| {
                 let c = &t.color;
                 let p = ui.painter();
                 let round = MARK / 2.0;
-                if on {
-                    let fill = paint::state_fill(&t, c.accent.solid, s);
-                    p.rect_filled(mark, round, fill);
-                    p.circle_filled(mark.center(), RADIO_DOT / 2.0, c.accent.on_solid);
-                } else {
+                // The fill fades in over the empty ring, and the dot grows.
+                let k = motion::toggle(ui.ctx(), id.with("on"), on, t.motion.toggle);
+                if k < 1.0 {
                     p.rect_filled(mark, round, c.surface.well);
                     p.rect_stroke(
                         mark,
@@ -194,6 +199,11 @@ impl Widget for Radio {
                         Stroke::new(t.stroke.hairline, outline(&t, s)),
                         StrokeKind::Inside,
                     );
+                }
+                if k > 0.0 {
+                    let fill = paint::state_fill(&t, c.accent.solid, s);
+                    p.rect_filled(mark, round, fill.gamma_multiply(k));
+                    p.circle_filled(mark.center(), k * RADIO_DOT / 2.0, c.accent.on_solid);
                 }
             },
         )
@@ -235,17 +245,15 @@ impl Widget for Switch<'_> {
             SWITCH_TRACK,
             SWITCH_TRACK.y / 2.0,
             |enabled| WidgetInfo::selected(Role::Switch, enabled, on, &self.text),
-            |ui, track, s| {
+            |ui, track, s, id| {
                 let c = &t.color;
-                let under = if on { c.accent.solid } else { c.stroke.strong };
+                // The knob slides and the track's colour mixes from off to on.
+                let k = motion::toggle(ui.ctx(), id.with("on"), on, t.motion.switch);
+                let under = paint::mix(c.stroke.strong, c.accent.solid, k);
                 let round = SWITCH_TRACK.y / 2.0;
                 ui.painter()
                     .rect_filled(track, round, paint::state_fill(&t, under, s));
-                let x = if on {
-                    track.right() - round
-                } else {
-                    track.left() + round
-                };
+                let x = egui::lerp((track.left() + round)..=(track.right() - round), k);
                 let knob = pos2(x, track.center().y);
                 ui.painter()
                     .circle_filled(knob, SWITCH_KNOB / 2.0, paint::KNOB);

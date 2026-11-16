@@ -218,6 +218,9 @@ pub struct General {
     /// The installed fixed-pitch font family of the Journal, file names and command
     /// text. Unset means the bundled JetBrains Mono.
     pub mono_font: Option<String>,
+    /// Animate the chrome's transitions: menus, panels and dialogs. Unset means the OS
+    /// reduced-motion setting, read each time REDA starts.
+    pub animate: Option<bool>,
     /// Use the title bar the operating system draws instead of REDA's own window
     /// controls and dragging. Applied the next time REDA starts.
     pub system_title_bar: bool,
@@ -287,6 +290,7 @@ impl Default for General {
             text_size: DEFAULT_TEXT_SIZE,
             ui_font: None,
             mono_font: None,
+            animate: None,
             system_title_bar: false,
             reopen_last_project: true,
             undo_depth: None,

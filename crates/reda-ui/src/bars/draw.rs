@@ -513,8 +513,8 @@ pub fn tool_bar(
     note: Option<&str>,
     state: &dyn Fn(&Action) -> ToolBarItem,
 ) -> Option<Invocation> {
-    // No fade-in: the Placement Bar comes and goes with the selection, and a fade keeps
-    // repainting while the clock stands still (tests with a fixed input time).
+    // Not egui's fade-in: the bar fades and travels 4 px as `motion.canvas_bar` says
+    // (below), coming and going with its Tool or the selection.
     let shown = egui::Area::new(id.with("tool-bar"))
         .fade_in(false)
         .order(Order::Middle)
@@ -566,6 +566,9 @@ pub fn tool_bar(
                 })
                 .inner
         });
+    let motion = crate::theme::TokensExt::tokens(ui).motion;
+    let look = crate::theme::motion::Look::travel(Vec2::new(0.0, motion.travel));
+    crate::theme::motion::layer(ui.ctx(), shown.response.layer_id, look, motion.canvas_bar);
     if let Some(note) = note {
         let top = shown.response.rect.center_top() - Vec2::new(0.0, 4.0);
         egui::Area::new(id.with("tool-bar-note"))

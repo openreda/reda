@@ -22,6 +22,7 @@ use egui::{
 use reda_engine::model::{DocumentKind, Scope, Uuid};
 use serde_json::{Value, json};
 
+use self::windows::{WindowView, Zones};
 use crate::bars;
 use crate::bars::draw::{self, Invocation};
 use crate::canvas::{CanvasInputs, canvas_id, canvas_input, canvas_paint};
@@ -36,11 +37,10 @@ use crate::projects_panel::{self, ProjectsAction};
 use crate::schematic_editor;
 use crate::shell::{RecentProject, Shell};
 use crate::start_page::{self, StartAction};
-use crate::theme::{self, TokensExt as _};
+use crate::theme::{self, TokensExt as _, motion};
 use crate::tr;
 use crate::widgets::{self, CARD_GAP, Glyph, TabKind, Tooltip as _};
 use crate::{a11y, keymap};
-use windows::{WindowView, Zones};
 
 /// What one frame of the docking layer asks for.
 #[derive(Default)]
@@ -230,7 +230,8 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
             let mut floating = widgets::window(id, window_title(cx.shell, &layout, window.id))
                 .frame(widgets::window_frame(&ctx.tokens()))
                 .size(size)
-                .resizable(true);
+                .resizable(true)
+                .still();
             if settings {
                 floating = floating.centred();
             }
@@ -421,7 +422,15 @@ impl Cx<'_, '_> {
         if dock.groups.is_empty() {
             return None;
         }
-        let id = format!("dock-{side}");
+        let strip = ui.tokens().control_height() + CARD_GAP;
+        let open = dock_open(ui, side, dock.collapsed);
+        // The strip, the expanded Dock and the Dock on its way between them are three
+        // panels, so the expanded one keeps its size while the Dock is collapsed.
+        let id = match open {
+            0.0 => format!("dock-{side}-strip"),
+            1.0 => format!("dock-{side}"),
+            _ => format!("dock-{side}-moving"),
+        };
         // The gap on the Dock's inner edge is its splitter.
         let gap = CARD_GAP as i8;
         let none = egui::Margin::ZERO;
@@ -433,20 +442,28 @@ impl Cx<'_, '_> {
         let panel = panel
             .frame(egui::Frame::NONE.outer_margin(margin))
             .show_separator_line(false);
-        let shown = if dock.collapsed {
-            panel
-                .resizable(false)
-                .exact_size(ui.tokens().control_height() + CARD_GAP)
-                .show(ui, reserve)
+        let size_id = Id::NULL.with(("dock-expanded-size", side.to_string()));
+        let shown = if open == 0.0 {
+            panel.resizable(false).exact_size(strip).show(ui, reserve)
+        } else if open < 1.0 {
+            // Collapsing or expanding: its width (or height) moves between the strip's
+            // and the expanded Dock's.
+            let full = ui
+                .data(|d| d.get_temp::<f32>(size_id))
+                .unwrap_or_else(|| default_dock_size(side));
+            let size = egui::lerp(strip..=full.max(strip), open);
+            panel.resizable(false).exact_size(size).show(ui, reserve)
         } else {
-            let default = if side == DockSide::Bottom {
-                BOTTOM_DOCK
-            } else {
-                SIDE_DOCK
-            };
             // It shows the accent while dragged.
-            let panel = panel.resizable(true).default_size(default);
-            widgets::splitter(ui, CARD_GAP, |ui| panel.show(ui, reserve))
+            let panel = panel.resizable(true).default_size(default_dock_size(side));
+            let shown = widgets::splitter(ui, CARD_GAP, |ui| panel.show(ui, reserve));
+            let rect = shown.response.rect;
+            let size = match side {
+                DockSide::Bottom => rect.height(),
+                DockSide::Left | DockSide::Right => rect.width(),
+            };
+            ui.data_mut(|d| d.insert_temp(size_id, size));
+            shown
         };
         self.zones.docks.push((side, shown.response.rect));
         Some(shown.inner)
@@ -456,6 +473,11 @@ impl Cx<'_, '_> {
     /// groups, or as an icon strip with any flyout.
     fn dock(&mut self, ui: &mut Ui, side: DockSide, rect: Rect) {
         let dock = self.layout.dock(side);
+        let open = dock_open(ui, side, dock.collapsed);
+        if open > 0.0 && open < 1.0 {
+            self.dock_moving(ui, side, rect, open);
+            return;
+        }
         if dock.collapsed {
             // The strip is on the base, with no frame.
             let builder = UiBuilder::new()
@@ -479,6 +501,46 @@ impl Cx<'_, '_> {
         {
             self.group_at(ui, part, group, Area::Dock(side));
         }
+    }
+
+    /// A Dock on its way between its strip and its groups, `open` of the way to expanded:
+    /// both are drawn clipped to `rect`, the groups at the expanded size from the
+    /// window's edge, and they cross-fade.
+    fn dock_moving(&mut self, ui: &mut Ui, side: DockSide, rect: Rect, open: f32) {
+        let size_id = Id::NULL.with(("dock-expanded-size", side.to_string()));
+        let full = ui
+            .data(|d| d.get_temp::<f32>(size_id))
+            .unwrap_or_else(|| default_dock_size(side))
+            - CARD_GAP;
+        let expanded = match side {
+            DockSide::Left => rect.with_max_x(rect.left() + full),
+            DockSide::Right => rect.with_min_x(rect.right() - full),
+            DockSide::Bottom => rect.with_min_y(rect.bottom() - full),
+        };
+        let clip = rect.intersect(ui.clip_rect());
+        let builder = UiBuilder::new()
+            .max_rect(rect)
+            .id_salt(("dock-strip", side.to_string()));
+        ui.scope_builder(builder, |ui| {
+            ui.set_clip_rect(clip);
+            ui.multiply_opacity(1.0 - open);
+            self.icon_strip(ui, side);
+        });
+        let builder = UiBuilder::new()
+            .max_rect(expanded)
+            .id_salt(("dock-groups", side.to_string()));
+        ui.scope_builder(builder, |ui| {
+            ui.set_clip_rect(clip);
+            ui.multiply_opacity(open);
+            let groups = &self.layout.dock(side).groups;
+            for (group, part) in
+                groups
+                    .iter()
+                    .zip(split_rect(expanded, Axis::Vertical, groups.len()))
+            {
+                self.group_at(ui, part, group, Area::Dock(side));
+            }
+        });
     }
 
     /// A collapsed Dock's strip: the button that expands the Dock, then a 20 px Icon
@@ -650,10 +712,18 @@ impl Cx<'_, '_> {
         };
         let frame = widgets::flyout_frame(&t);
         let inner = outer - frame.total_margin().sum();
-        egui::Area::new(Id::NULL.with(("dock-flyout", side.to_string())))
+        // It fades in from the strip, travelling away from it, and fades back out.
+        let d = t.motion.flyout_travel;
+        let from = match side {
+            DockSide::Left => Vec2::new(-d, 0.0),
+            DockSide::Right => Vec2::new(d, 0.0),
+            DockSide::Bottom => Vec2::new(0.0, d),
+        };
+        let shown = egui::Area::new(Id::NULL.with(("dock-flyout", side.to_string())))
             .order(egui::Order::Foreground)
             .fixed_pos(pos)
             .pivot(pivot)
+            .fade_in(false)
             .show(ui.ctx(), |ui| {
                 frame.show(ui, |ui| {
                     ui.set_min_size(inner);
@@ -665,6 +735,8 @@ impl Cx<'_, '_> {
                     self.content(ui, tab);
                 });
             });
+        let look = motion::Look::travel(from);
+        motion::layer(ui.ctx(), shown.response.layer_id, look, t.motion.flyout);
     }
 
     fn node(&mut self, ui: &mut Ui, node: &Node, area: Area) {
@@ -1153,6 +1225,22 @@ fn refusal(
 }
 
 /// `rect` cut into `n` equal parts along `axis`, a card gap apart, on whole points.
+/// How far the Dock on `side` is from its strip (0) to expanded (1): it moves between
+/// them in `motion.dock_collapse`.
+fn dock_open(ui: &Ui, side: DockSide, collapsed: bool) -> f32 {
+    let id = Id::NULL.with(("dock-open", side.to_string()));
+    let tr = ui.tokens().motion.dock_collapse;
+    motion::toggle(ui.ctx(), id, !collapsed, tr)
+}
+
+/// The size a Dock opens at before the user has dragged it.
+fn default_dock_size(side: DockSide) -> f32 {
+    match side {
+        DockSide::Bottom => BOTTOM_DOCK,
+        DockSide::Left | DockSide::Right => SIDE_DOCK,
+    }
+}
+
 fn split_rect(rect: Rect, axis: Axis, n: usize) -> Vec<Rect> {
     let n = n.max(1);
     let length = match axis {
