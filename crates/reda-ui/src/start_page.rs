@@ -3,10 +3,12 @@
 
 use std::path::PathBuf;
 
-use egui::{Align, Button, Label, Layout, RichText, Role, Ui, WidgetInfo};
+use egui::{Align, Label, Layout, Role, Ui, WidgetInfo};
 
 use crate::shell::RecentProject;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Glyph, Tooltip as _};
 
 /// What the user asked for on the Start page this frame.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,26 +22,30 @@ pub enum StartAction {
 /// Shows the Start page; returns what the user clicked, if anything.
 pub fn show(ui: &mut Ui, recent: &[RecentProject]) -> Option<StartAction> {
     let mut action = None;
-    ui.add_space(24.0);
+    let t = ui.tokens();
+    ui.add_space(t.space.section);
     ui.vertical_centered(|ui| {
         // Narrower when Docks leave the centre less room, so nothing is clipped.
         ui.set_max_width(ui.available_width().min(520.0));
         ui.with_layout(Layout::top_down(Align::Min), |ui| {
-            ui.heading(tr!("start-page-heading"));
-            ui.add_space(12.0);
+            let heading = tr!("start-page-heading");
+            ui.label(t.ty.heading.rich(heading).color(t.color.text.primary));
+            ui.add_space(t.space.section);
             ui.horizontal(|ui| {
-                if ui.button(tr!("start-new-project")).clicked() {
+                if ui.add(widgets::button(tr!("start-new-project"))).clicked() {
                     action = Some(StartAction::NewProject);
                 }
-                if ui.button(tr!("start-open-project")).clicked() {
+                if ui.add(widgets::button(tr!("start-open-project"))).clicked() {
                     action = Some(StartAction::OpenProject);
                 }
             });
-            ui.add_space(18.0);
-            ui.label(RichText::new(tr!("start-recent-projects")).strong());
-            ui.separator();
+            ui.add_space(t.space.section);
+            let title = tr!("start-recent-projects");
+            ui.label(t.ty.title.rich(title).color(t.color.text.primary));
+            ui.add_space(t.space.stack);
             if recent.is_empty() {
-                ui.weak(tr!("start-no-recent-projects"));
+                let none = tr!("start-no-recent-projects");
+                ui.label(t.ty.body.rich(none).color(t.color.text.muted));
             }
             for project in recent {
                 if let Some(a) = recent_row(ui, project) {
@@ -53,11 +59,12 @@ pub fn show(ui: &mut Ui, recent: &[RecentProject]) -> Option<StartAction> {
 
 fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
     let mut action = None;
+    let t = ui.tokens();
     ui.horizontal(|ui| {
         let open = ui
-            .add_enabled(!project.missing, Button::new(&project.name).frame(false))
-            .on_hover_text(reda_engine::fs::display_path(&project.path))
-            .on_disabled_hover_text(tr!("start-project-missing"));
+            .add_enabled(!project.missing, widgets::button(&project.name).flat())
+            .tooltip(reda_engine::fs::display_path(&project.path))
+            .disabled_tooltip(tr!("start-project-missing"));
         if open.clicked() {
             action = Some(StartAction::OpenRecent(project.path.clone()));
         }
@@ -71,8 +78,8 @@ fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let name = project.name.clone();
             let remove = ui
-                .add(Button::new("×").frame(false))
-                .on_hover_text(tr!("start-remove-recent", name = name.as_str()));
+                .add(widgets::glyph_button(Glyph::Close))
+                .tooltip(tr!("start-remove-recent", name = name.as_str()));
             remove.widget_info(|| {
                 WidgetInfo::labeled(
                     Role::Button,
@@ -86,7 +93,7 @@ fn recent_row(ui: &mut Ui, project: &RecentProject) -> Option<StartAction> {
             ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                 ui.add_enabled(
                     !project.missing,
-                    Label::new(RichText::new(location).weak()).truncate(),
+                    Label::new(t.ty.body.rich(location).color(t.color.text.muted)).truncate(),
                 );
             });
         });

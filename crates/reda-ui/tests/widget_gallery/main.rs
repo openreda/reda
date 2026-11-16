@@ -24,6 +24,7 @@ mod kit;
 mod popups;
 mod sheets;
 mod shell;
+mod text_view;
 mod title_bar;
 
 use egui::{Theme, Vec2};
@@ -219,6 +220,13 @@ fn approval_sheets() {
     }
     sheets::write_all();
 }
+
+page_snapshots!("text_view", text_view::SIZE, text_view::page:
+    text_view_light_comfortable => Light, Comfortable;
+    text_view_light_compact => Light, Compact;
+    text_view_dark_comfortable => Dark, Comfortable;
+    text_view_dark_compact => Dark, Compact;
+);
 
 page_snapshots!("bars", bars::SIZE, bars::page:
     bars_light_comfortable => Light, Comfortable;

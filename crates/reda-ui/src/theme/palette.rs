@@ -49,11 +49,23 @@ pub(super) struct Palette {
     pub green: Hue,
     pub touch_green: u32,
     pub close_red: u32,
-    /// The six icon role colours, in the order of `icons::ROLE_KEYS`.
+    /// The six icon role colours, in the order of [`ICON_KEYS`].
     pub icon_roles: [u32; 6],
     /// The shadows under a card, a popup and a window.
     pub shadows: [Soft; 3],
 }
+
+/// The six icon role colours as the SVG files in `icons/` write them: fixed keys in the
+/// art, not theme values. `icons::recolour` swaps each for the theme's `icon_roles`
+/// entry in the same place, so the two tables sit side by side here.
+pub(super) const ICON_KEYS: [u32; 6] = [
+    0x8a93a0, // existing / context
+    0x2fb36b, // created, schematic
+    0xe08a2e, // created, PCB copper
+    0x3d8fd6, // created, general
+    0xec4f7a, // picked point
+    0xd4c03c, // created, board edge and keepout (not copper)
+];
 
 const WHITE: u32 = 0xffffff;
 
