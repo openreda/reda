@@ -34,6 +34,7 @@ pub fn dropdown(id_salt: impl egui::AsIdSalt, selected_text: impl Into<String>) 
         text: selected_text.into(),
         width: None,
         max_width: None,
+        stay_open: false,
         state: State::Live,
     }
 }
@@ -44,6 +45,7 @@ pub struct Dropdown {
     text: String,
     width: Option<f32>,
     max_width: Option<f32>,
+    stay_open: bool,
     state: State,
 }
 
@@ -106,6 +108,13 @@ impl Dropdown {
         self
     }
 
+    /// Keeps the list open when something in it is clicked: for a list that holds a
+    /// field, such as a filter. The caller closes it on a pick with `ui.close()`.
+    pub fn stay_open(mut self) -> Self {
+        self.stay_open = true;
+        self
+    }
+
     pub fn forced(mut self, state: State) -> Self {
         self.state = state;
         self
@@ -120,9 +129,13 @@ impl Dropdown {
         let widths = (self.width, self.max_width);
         let response = closed(ui, &t, self.state, &self.text, widths, open);
         let height = LIST_HEIGHT;
-        let inner = super::menu(&response)
+        let mut menu = super::menu(&response)
             .id(popup_id)
-            .width(response.rect.width())
+            .width(response.rect.width());
+        if self.stay_open {
+            menu = menu.stay_open();
+        }
+        let inner = menu
             .show(|ui| {
                 ScrollArea::vertical()
                     .max_height(height)
