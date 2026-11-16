@@ -65,18 +65,15 @@ fn the_system_title_bar_gives_the_plain_row_whether_chosen_or_forced() {
 }
 
 #[test]
-fn macos_draws_no_corners_or_resize_strip_of_its_own() {
-    // AppKit rounds, shadows and resizes the window; the fields #313 adds stay at the
-    // system's values because every literal here ends in `..Chrome::SYSTEM`.
-    let chrome = chrome(CUSTOM, &window(false, false));
-    let plain = Chrome {
-        leading_inset: chrome.leading_inset,
-        drags: chrome.drags,
-        maximised: chrome.maximised,
-        controls: chrome.controls,
+fn macos_draws_nothing_else_of_the_window() {
+    // AppKit rounds, shadows and resizes the window: every other field stays at the
+    // system title bar's value.
+    let expected = Chrome {
+        leading_inset: 78.0,
+        drags: true,
         ..Chrome::SYSTEM
     };
-    assert_eq!(chrome, plain);
+    assert_eq!(chrome(CUSTOM, &window(false, false)), expected);
 }
 
 #[test]
