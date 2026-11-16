@@ -179,10 +179,13 @@ fn misfits(h: &Harness<'static, App>, regions: &[Rect], paths: &[&Path]) -> Vec<
                 continue;
             }
             seen += 1;
-            if paths
-                .iter()
-                .any(|p| said.starts_with(&*p.display().to_string()))
-            {
+            // The app shows a folder as the OS resolves it, which on macOS (`/private/var/..`)
+            // and Windows (`\\?\C:\..`) is not how the temporary folder was asked for.
+            if paths.iter().any(|p| {
+                said.starts_with(&*p.display().to_string())
+                    || std::fs::canonicalize(p)
+                        .is_ok_and(|real| said.starts_with(&*real.display().to_string()))
+            }) {
                 continue;
             }
             if text.galley.elided {
