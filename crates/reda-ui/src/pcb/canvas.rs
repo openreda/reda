@@ -1,10 +1,10 @@
 //! The PCB canvas in a window. The shared canvas widget lays it out and turns the pointer
 //! into [`Pointer`] events ([`crate::canvas::canvas_input`]); [`pointer`] feeds them to the
 //! [`Tool`](super::Tool), and [`decorate`] draws what the board adds over the painted
-//! canvas: the snap marker, the cursor position and the "No Board
+//! canvas: the Tools' marks ([`super::marks`]), the grid readout and the "No Board
 //! Outline" hint. Its keys are Keymap bindings in the `pcb` context (`keymap/reda.toml`).
 
-use egui::{Align2, Color32, FontId, Id, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
+use egui::{Align2, Id, Rect, Role, Stroke, Ui, WidgetInfo, pos2, vec2};
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::{Nm, Point};
 use serde_json::{Value, json};
@@ -13,6 +13,7 @@ use super::view::format_length;
 use crate::canvas::interact::Pointer;
 use crate::canvas::{CanvasInputs, RubberBand};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tools::Tool;
 use crate::tr;
 use crate::widgets;
@@ -117,11 +118,12 @@ fn live_hover_net(shell: &Shell, document: Uuid, at: (f64, f64), tolerance: f64)
 pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String, Value)> {
     super::route::draw(ui, shell, input);
     super::live_hover::draw(ui, shell, input);
-    drawing(ui, shell, input);
+    super::marks::drawing(ui, shell, input);
     super::polygon_edit::draw(ui, shell, input);
     super::dimension_edit::draw(ui, shell, input);
     super::copper_drag::draw(ui, shell, input);
-    overlay(ui, shell, input);
+    super::marks::snap_marker(ui, shell, input);
+    grid_readout(ui, shell, input);
     let mut out = Vec::new();
     // A right-click ends the route instead of opening the menu (the window leaves the
     // canvas menu out while routing, see `context_menu::canvas`).
@@ -140,7 +142,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
         input.response.id,
         input.rect,
     ));
-    super::placement_bar::draw_move(ui, shell, input);
+    super::marks::move_marks(ui, shell, input);
     out.extend(super::placement_bar::show(
         ui,
         shell,
@@ -156,51 +158,6 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     out
 }
 
-/// What the drawing Tools show over the canvas: the shape in progress, a measurement,
-/// and the Mechanical Part being placed. (The Output Origin is in the Scene.)
-fn drawing(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
-    let painter = ui.painter_at(shown.rect);
-    let accent = ui.visuals().selection.stroke.color;
-    let stroke = Stroke::new(1.5, accent);
-    let screen = |p: Point| shown.screen_point((p.x.0 as f64, p.y.0 as f64));
-    let draw = shell.pcb_draw();
-    if let Some(preview) = draw.preview() {
-        let mut points: Vec<_> = preview.points.iter().map(|p| screen(*p)).collect();
-        if preview.closed
-            && let Some(first) = points.first().copied()
-        {
-            points.push(first);
-        }
-        if points.len() > 1 {
-            painter.add(egui::Shape::line(points.clone(), stroke));
-        }
-        for p in &points {
-            painter.circle_stroke(*p, 3.0, Stroke::new(1.0, accent));
-        }
-    }
-    let units = shell.board_view().units;
-    let kept = super::measure::shown(shell);
-    for m in kept.iter().chain(draw.measurement().as_ref()) {
-        let (a, b) = (screen(m.from), screen(m.to));
-        painter.line_segment([a, b], stroke);
-        painter.circle_stroke(a, 3.0, Stroke::new(1.0, accent));
-        painter.circle_stroke(b, 3.0, Stroke::new(1.0, accent));
-        let label = tr!(
-            "pcb-measure",
-            dx = format_length(m.to.x - m.from.x, units),
-            dy = format_length(m.to.y - m.from.y, units),
-            distance = format_length(m.distance(), units)
-        );
-        painter.text(
-            b + vec2(8.0, -8.0),
-            Align2::LEFT_BOTTOM,
-            label,
-            FontId::proportional(12.0),
-            accent,
-        );
-    }
-}
-
 /// While text waits for its words: a small form that places it.
 fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     if shell.pcb_draw().pending_text().is_none() {
@@ -211,7 +168,7 @@ fn text_form(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     let (mut place, mut cancel) = (false, false);
     let modal =
         crate::modal::Dialog::new(id.with("modal"), tr!("pcb-text-title")).show(ui.ctx(), |ui| {
-            let field = ui.text_edit_singleline(&mut words);
+            let field = ui.add(widgets::text_field(&mut words));
             field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-text-words")));
             field.request_focus();
             if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
@@ -250,29 +207,20 @@ fn board_point((x, y): (f64, f64)) -> Point {
     Point::new(Nm(x.round() as i64), Nm(y.round() as i64))
 }
 
-/// The snap marker and the cursor position.
-fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
+/// The grid readout at the canvas's bottom left: the cursor position and the grid, or
+/// the grid alone while the cursor is off the canvas. A small floating chip in the
+/// numeric style.
+fn grid_readout(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
+    let t = ui.tokens();
     let painter = ui.painter_at(shown.rect);
-    let accent = ui.visuals().selection.stroke.color;
-    let screen = |p: Point| shown.screen_point((p.x.0 as f64, p.y.0 as f64));
-    let hovered = shown.response.hovered()
-        || shell.pcb_tool().moving()
-        || shell.pcb_tool().polygon_edit().is_some()
-        || shell.pcb_draw().preview().is_some();
-    let snapped = match shell.tool() {
-        Tool::Route | Tool::Via => shell.router().snap(),
-        _ => shell.pcb_snap(),
-    };
-    if hovered && let Some(snapped) = snapped {
-        crate::snap::marker(&painter, screen(snapped.at), snapped.hit, accent);
-    }
     let units = shell.board_view().units;
     let grid = shell
         .engine()
         .project()
         .and_then(|p| p.pcb())
         .map_or(crate::grid::pcb_default(units), |pcb| shell.grid(pcb.uuid));
-    let text = match snapped.filter(|_| hovered) {
+    let snapped = super::marks::snapped(shell).filter(|_| super::marks::snap_shown(shell, shown));
+    let text = match snapped {
         Some(snapped) => {
             let at = shell.pcb_cursor_from_origin(snapped.at);
             tr!(
@@ -284,17 +232,22 @@ fn overlay(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         }
         None => tr!("pcb-grid", grid = format_length(grid, units)),
     };
-    let font = FontId::proportional(12.0);
     let strip = super::layer_control::strip_shown(shell);
     let at = crate::bars::draw::grid_readout_anchor(shown.rect, strip);
-    let galley = painter.layout_no_wrap(text, font, ui.visuals().text_color());
+    let galley = painter.layout_job(t.ty.numeric_small.job(&text, t.color.text.primary));
+    let pad = vec2(t.space.row_x, t.space.row_y);
     let back = Rect::from_min_size(
-        at - vec2(4.0, galley.size().y + 2.0),
-        galley.size() + vec2(8.0, 4.0),
+        at - vec2(0.0, galley.size().y + 2.0 * pad.y),
+        galley.size() + 2.0 * pad,
     );
-    painter.rect_filled(back, 3.0, Color32::from_black_alpha(140));
-    let text = galley.text().to_owned();
-    painter.galley(back.min + vec2(4.0, 2.0), galley, Color32::WHITE);
+    painter.rect(
+        back,
+        t.radius.row,
+        t.color.surface.floating,
+        Stroke::new(t.stroke.hairline, t.color.stroke.hairline),
+        egui::StrokeKind::Inside,
+    );
+    painter.galley(back.min + pad, galley, t.color.text.primary);
     let readout = ui.interact(
         back,
         shown.response.id.with("grid-readout"),
@@ -334,11 +287,12 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
             shown.rect.top() + crate::bars::draw::ACTIVE_BAR_BOTTOM + 12.0,
         ))
         .pivot(Align2::CENTER_TOP);
+    let t = ui.tokens();
     area.show(ui.ctx(), |ui| {
-        egui::Frame::popup(ui.style()).show(ui, |ui| {
+        widgets::floating_frame(&t).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(tr!("pcb-no-outline"));
-                let button = ui.button(tr!("pcb-create-rect"));
+                ui.label(t.ty.body.rich(tr!("pcb-no-outline")).color(t.color.text.primary));
+                let button = ui.add(widgets::button(tr!("pcb-create-rect")));
                 button.widget_info(|| {
                     WidgetInfo::labeled(Role::Button, true, tr!("pcb-create-rect"))
                 });
@@ -369,22 +323,20 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     let modal = crate::modal::Dialog::new(form_id.with("modal"), tr!("pcb-outline-title")).show(
         ui.ctx(),
         |ui| {
-            egui::Grid::new(form_id.with("grid"))
-                .num_columns(2)
-                .show(ui, |ui| {
-                    ui.label(tr!("pcb-outline-width"));
-                    let w = ui.text_edit_singleline(&mut form.width);
+            widgets::form(form_id.with("grid")).show(ui, |ui| {
+                widgets::form_row(ui, tr!("pcb-outline-width"), |ui| {
+                    let w = ui.add(widgets::text_field(&mut form.width));
                     w.widget_info(|| {
                         WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-width"))
                     });
-                    ui.end_row();
-                    ui.label(tr!("pcb-outline-height"));
-                    let h = ui.text_edit_singleline(&mut form.height);
+                });
+                widgets::form_row(ui, tr!("pcb-outline-height"), |ui| {
+                    let h = ui.add(widgets::text_field(&mut form.height));
                     h.widget_info(|| {
                         WidgetInfo::labeled(Role::TextInput, true, tr!("pcb-outline-height"))
                     });
-                    ui.end_row();
                 });
+            });
             crate::modal::buttons(ui, |ui| {
                 if ui
                     .add(widgets::button(tr!("pcb-outline-create")).primary())

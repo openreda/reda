@@ -19,7 +19,11 @@ use crate::bars::draw::{Cx, Invocation, ToolBarItem, tool_bar, tool_bar_anchor};
 use crate::bars::{self, Action, Binding, DocumentType};
 use crate::shell::Shell;
 use crate::tools::Tool;
-use crate::tr;
+use crate::theme::TokensExt as _;
+use crate::{tr, widgets};
+
+/// The width of the chooser's typed field.
+const CHOOSER_FIELD_WIDTH: f32 = 160.0;
 
 /// How the item bound to `action` shows now.
 pub fn item_state(shell: &Shell, action: &Action) -> ToolBarItem {
@@ -155,66 +159,71 @@ fn chooser_ui(
         WidthSource::Favourite => tr!("route-chooser-favourite"),
         WidthSource::Board => tr!("route-chooser-board"),
     };
+    // Each row's text and what it runs.
+    let rows: Vec<(String, Invocation)> = match chooser {
+        Chooser::Width(rows) => rows
+            .iter()
+            .map(|row| {
+                (
+                    format!("{}  {}", length(row.width), source(row.source)),
+                    (
+                        "pcb.route.width".to_owned(),
+                        json!({ "width": row.width.0 }),
+                    ),
+                )
+            })
+            .collect(),
+        Chooser::Via(rows) => rows
+            .iter()
+            .map(|row| {
+                (
+                    format!(
+                        "{} / {}  {}",
+                        length(row.size.diameter),
+                        length(row.size.hole),
+                        source(row.source)
+                    ),
+                    (
+                        "pcb.route.via_size".to_owned(),
+                        json!({ "diameter": row.size.diameter.0,
+                                "hole": row.size.hole.0 }),
+                    ),
+                )
+            })
+            .collect(),
+    };
+    let (title, hint) = match chooser {
+        Chooser::Width(_) => (tr!("route-chooser-width"), tr!("route-chooser-type-width")),
+        Chooser::Via(_) => (tr!("route-chooser-via"), tr!("route-chooser-type-via")),
+    };
     let field_id = id.with("typed");
+    let t = ui.tokens();
     egui::Area::new(id)
         .order(Order::Foreground)
         .fixed_pos(at)
         .pivot(Align2::CENTER_BOTTOM)
         .show(ui.ctx(), |ui| {
-            egui::Frame::window(ui.style())
-                .inner_margin(egui::Margin::same(6))
+            widgets::floating_frame(&t)
                 .show(ui, |ui| {
+                    // The rows are as wide as the widest, and no narrower than the field.
+                    let width = rows
+                        .iter()
+                        .map(|(text, _)| text_width(ui, &t.ty.body, text) + 2.0 * t.space.row_x)
+                        .fold(CHOOSER_FIELD_WIDTH, f32::max);
                     let mut clicked = None;
-                    let title = match chooser {
-                        Chooser::Width(_) => tr!("route-chooser-width"),
-                        Chooser::Via(_) => tr!("route-chooser-via"),
-                    };
-                    ui.strong(&title);
-                    match chooser {
-                        Chooser::Width(rows) => {
-                            for row in rows {
-                                let label =
-                                    format!("{}  {}", length(row.width), source(row.source));
-                                let response = ui.selectable_label(false, &label);
-                                a11y::name(&response, Role::ListItem, true, &label, None, None);
-                                if response.clicked() {
-                                    clicked = Some((
-                                        "pcb.route.width".to_owned(),
-                                        json!({ "width": row.width.0 }),
-                                    ));
-                                }
+                    ui.label(t.ty.body_strong.rich(&title).color(t.color.text.primary));
+                    widgets::rows(ui, |ui| {
+                        for (label, invocation) in &rows {
+                            let response = ui.add(widgets::list_row(label.as_str()).width(width));
+                            a11y::name(&response, Role::ListItem, true, label, None, None);
+                            if response.clicked() {
+                                clicked = Some(invocation.clone());
                             }
                         }
-                        Chooser::Via(rows) => {
-                            for row in rows {
-                                let label = format!(
-                                    "{} / {}  {}",
-                                    length(row.size.diameter),
-                                    length(row.size.hole),
-                                    source(row.source)
-                                );
-                                let response = ui.selectable_label(false, &label);
-                                a11y::name(&response, Role::ListItem, true, &label, None, None);
-                                if response.clicked() {
-                                    clicked = Some((
-                                        "pcb.route.via_size".to_owned(),
-                                        json!({ "diameter": row.size.diameter.0,
-                                                "hole": row.size.hole.0 }),
-                                    ));
-                                }
-                            }
-                        }
-                    }
+                    });
                     let mut typed: String = ui.data(|d| d.get_temp(field_id)).unwrap_or_default();
-                    let hint = match chooser {
-                        Chooser::Width(_) => tr!("route-chooser-type-width"),
-                        Chooser::Via(_) => tr!("route-chooser-type-via"),
-                    };
-                    let response = ui.add(
-                        egui::TextEdit::singleline(&mut typed)
-                            .hint_text(&hint)
-                            .desired_width(160.0),
-                    );
+                    let response =
+                        ui.add(widgets::text_field(&mut typed).hint(&hint).width(width));
                     a11y::name(&response, Role::TextInput, true, &hint, None, None);
                     let entered =
                         response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -228,6 +237,12 @@ fn chooser_ui(
                 .inner
         })
         .inner
+}
+
+/// The width of `text` on one line in `style`.
+fn text_width(ui: &Ui, style: &crate::theme::Text, text: &str) -> f32 {
+    let galley = ui.painter().layout_job(style.job(text, egui::Color32::TRANSPARENT));
+    galley.size().x.ceil()
 }
 
 /// What a typed value runs: a width (`0.3mm`), or a Via size as diameter and hole
