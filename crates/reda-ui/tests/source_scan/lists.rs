@@ -246,12 +246,10 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
 /// new file must be clean from the start.
 pub const UNCONVERTED: &[&str] = &[
     "closing_dialog.rs",
-    "footprint_editor/inspector.rs",
     "help/dialogs.rs",
     "icons.rs",
     "job_run/draw.rs",
     "new_project.rs",
-    "part_editor/view.rs",
     "recovery_dialog.rs",
     "start_page.rs",
 ];

@@ -4,17 +4,26 @@
 //! open the Symbol or a Footprint in its own editor. A starter Library Part shows the same
 //! form with the edits disabled.
 
-use egui::{ComboBox, Grid, Id, Role, ScrollArea, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{ComponentType, LibraryElement, Part, Uuid};
 use serde_json::json;
 
 use super::{Choice, FootprintMove};
 use crate::element_editor::{self, Invocation, text_field};
 use crate::panels::library::preview;
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column};
 
+/// The form's widest.
+const MAX_WIDTH: f32 = 720.0;
 const FIELD_WIDTH: f32 = 260.0;
+/// A custom field's name.
+const NAME_WIDTH: f32 = 120.0;
+/// A Pin's Pads in the pin-pad map.
+const PADS_WIDTH: f32 = 110.0;
 
 /// Draws the form for the Part `element`; returns the Commands its controls ask for.
 pub(crate) fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
@@ -28,28 +37,44 @@ pub(crate) fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocat
         .id_salt(id)
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            ui.set_max_width(720.0);
-            header(ui, shell, &part, locked, &mut out);
-            ui.separator();
-            region(ui, id, "part", tr!("part-region-part"), |ui| {
-                properties(ui, id, &part, locked, &mut out);
-            });
-            region(ui, id, "symbol", tr!("part-region-symbol"), |ui| {
-                symbol(ui, shell, id, &part, locked, &mut out);
-            });
-            region(ui, id, "footprints", tr!("part-footprints"), |ui| {
-                footprints(ui, shell, id, &part, locked, &mut out);
-            });
-            region(ui, id, "fields", tr!("part-fields"), |ui| {
-                fields(ui, id, &part, locked, &mut out);
-            });
+            // The form keeps the panel's gap from the tab's edges.
+            let gap = ui.tokens().space.panel as i8;
+            let frame = egui::Frame::new().inner_margin(egui::Margin::symmetric(gap, 0));
+            frame.show(ui, |ui| form(ui, shell, id, &part, locked, &mut out));
         });
     out
 }
 
+/// The form's header and its four regions.
+fn form(
+    ui: &mut Ui,
+    shell: &mut Shell,
+    id: Id,
+    part: &Part,
+    locked: bool,
+    out: &mut Vec<Invocation>,
+) {
+    // No wider than the tab: `set_max_width` alone would widen a narrower one.
+    ui.set_max_width(ui.available_width().min(MAX_WIDTH));
+    header(ui, shell, part, locked, out);
+    ui.separator();
+    region(ui, id, "part", tr!("part-region-part"), |ui| {
+        properties(ui, id, part, locked, out);
+    });
+    region(ui, id, "symbol", tr!("part-region-symbol"), |ui| {
+        symbol(ui, shell, id, part, locked, out);
+    });
+    region(ui, id, "footprints", tr!("part-footprints"), |ui| {
+        footprints(ui, shell, id, part, locked, out);
+    });
+    region(ui, id, "fields", tr!("part-fields"), |ui| {
+        fields(ui, id, part, locked, out);
+    });
+}
+
 /// One of the form's four regions (library.md#part-editor), open unless folded.
 fn region(ui: &mut Ui, id: Id, key: &str, title: String, add: impl FnOnce(&mut Ui)) {
-    egui::CollapsingHeader::new(egui::RichText::new(title).strong())
+    widgets::section(title)
         .id_salt(id.with(("region", key)))
         .default_open(true)
         .show(ui, add);
@@ -71,35 +96,37 @@ fn open(element: Uuid) -> Invocation {
 }
 
 fn header(ui: &mut Ui, shell: &mut Shell, part: &Part, locked: bool, out: &mut Vec<Invocation>) {
-    ui.heading(&part.name);
+    let t = ui.tokens();
+    ui.label(t.ty.title.rich(&part.name).color(t.color.text.primary));
     if locked {
-        ui.colored_label(ui.visuals().warn_fg_color, tr!("part-read-only"));
+        layout::warning(ui, tr!("part-read-only"));
     }
     if let Some(provenance) = &part.provenance {
-        ui.weak(tr!(
-            "part-imported-from",
-            service = provenance.service.as_str()
-        ));
-        if !provenance.terms_url.is_empty() {
-            ui.hyperlink(&provenance.terms_url);
+        layout::muted(
+            ui,
+            tr!("part-imported-from", service = provenance.service.as_str()),
+        );
+        let url = &provenance.terms_url;
+        if !url.is_empty() && ui.add(widgets::link(url)).clicked() {
+            ui.ctx().open_url(egui::OpenUrl::new_tab(url));
         }
     }
-    ui.horizontal(|ui| {
-        let save = ui.add_enabled(!locked, egui::Button::new(tr!("footprint-save")));
+    ui.horizontal_wrapped(|ui| {
+        let save = ui.add_enabled(!locked, widgets::button(tr!("footprint-save")));
         if save.clicked() {
             out.push((
                 "library.element.save".to_owned(),
                 json!({ "element": part.uuid }),
             ));
         }
-        if ui.button(tr!("footprint-check")).clicked() {
+        if ui.add(widgets::button(tr!("footprint-check"))).clicked() {
             // An error shows in the status bar; the lines go to the Messages panel.
             let _ = element_editor::check(shell, part.uuid);
         }
         // Saves the Part first, then previews the update of its Components.
         let in_project = shell.engine().project().is_some();
         if ui
-            .add_enabled(in_project, egui::Button::new(tr!("part-update-in-project")))
+            .add_enabled(in_project, widgets::button(tr!("part-update-in-project")))
             .clicked()
         {
             out.push((
@@ -111,58 +138,54 @@ fn header(ui: &mut Ui, shell: &mut Shell, part: &Part, locked: bool, out: &mut V
 }
 
 fn heading(ui: &mut Ui, text: String) {
-    ui.add_space(4.0);
-    ui.strong(text);
+    ui.add_space(ui.tokens().space.stack);
+    crate::settings::strong(ui, text);
 }
 
 fn properties(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invocation>) {
     ui.add_enabled_ui(!locked, |ui| {
-        Grid::new(id.with("properties"))
-            .num_columns(2)
-            .show(ui, |ui| {
-                let label = tr!("part-name");
-                ui.label(&label);
-                if let Some(name) = text_field(ui, id.with("name"), &label, &part.name, FIELD_WIDTH)
-                {
-                    out.extend(super::rename(part, &name));
-                }
-                ui.end_row();
-                let label = tr!("library-filter-type");
-                ui.label(&label);
-                let mut kind = part.component_type;
-                let name = crate::panels::library::type_name;
-                ComboBox::from_id_salt(id.with("type"))
-                    .selected_text(name(kind))
-                    .show_ui(ui, |ui| {
-                        for t in ComponentType::ALL {
-                            ui.selectable_value(&mut kind, t, name(t));
-                        }
-                    })
-                    .response
-                    .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-                out.extend(super::set_component_type(part, kind));
-                ui.end_row();
-                ui.label("");
-                let mut in_bom = part.in_bom;
-                ui.checkbox(&mut in_bom, tr!("part-in-bom"));
-                out.extend(super::set_in_bom(part, in_bom));
-                ui.end_row();
-                ui.label("");
-                let mut in_cpl = part.in_cpl;
-                ui.checkbox(&mut in_cpl, tr!("part-in-cpl"));
-                out.extend(super::set_in_cpl(part, in_cpl));
-                ui.end_row();
-                for key in super::PART_FIELDS {
-                    builtin_row(ui, id, part, key, out);
-                }
-            });
-        ui.weak(tr!("part-flags-hint"));
+        widgets::form(id.with("properties")).show(ui, |ui| {
+            let label = tr!("part-name");
+            ui.add(widgets::form_name(&label));
+            if let Some(name) = text_field(ui, id.with("name"), &label, &part.name, FIELD_WIDTH) {
+                out.extend(super::rename(part, &name));
+            }
+            ui.end_row();
+            let label = tr!("library-filter-type");
+            ui.add(widgets::form_name(&label));
+            let mut kind = part.component_type;
+            let name = crate::panels::library::type_name;
+            widgets::dropdown(id.with("type"), name(kind))
+                .show(ui, |ui| {
+                    for t in ComponentType::ALL {
+                        widgets::choice_value(ui, &mut kind, t, name(t));
+                    }
+                })
+                .response
+                .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+            out.extend(super::set_component_type(part, kind));
+            ui.end_row();
+            ui.label("");
+            let mut in_bom = part.in_bom;
+            ui.add(widgets::checkbox(&mut in_bom, tr!("part-in-bom")));
+            out.extend(super::set_in_bom(part, in_bom));
+            ui.end_row();
+            ui.label("");
+            let mut in_cpl = part.in_cpl;
+            ui.add(widgets::checkbox(&mut in_cpl, tr!("part-in-cpl")));
+            out.extend(super::set_in_cpl(part, in_cpl));
+            ui.end_row();
+            for key in super::PART_FIELDS {
+                builtin_row(ui, id, part, key, out);
+            }
+        });
+        layout::muted(ui, tr!("part-flags-hint"));
     });
 }
 
 fn builtin_row(ui: &mut Ui, id: Id, part: &Part, key: &str, out: &mut Vec<Invocation>) {
     let label = builtin_label(key);
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     let current = super::builtin(part, key);
     if let Some(typed) = text_field(ui, id.with(key), &label, &current, FIELD_WIDTH) {
         out.extend(super::set_builtin(part, key, &typed));
@@ -182,31 +205,31 @@ fn picker(
 ) -> Option<Option<Uuid>> {
     let mut picked = None;
     let filter_id = id.with("filter");
-    let response = ComboBox::from_id_salt(id)
-        .selected_text(shown)
+    let response = widgets::dropdown(id, shown)
         .width(FIELD_WIDTH)
-        .height(320.0)
         // Typing in the filter must not close it; a pick does.
-        .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
-        .show_ui(ui, |ui| {
+        .stay_open()
+        .show(ui, |ui| {
             let mut filter: String = ui.data(|d| d.get_temp(filter_id)).unwrap_or_default();
             let hint = tr!("part-filter");
             ui.add(
-                TextEdit::singleline(&mut filter)
-                    .hint_text(hint.clone())
-                    .desired_width(f32::INFINITY),
+                widgets::text_field(&mut filter)
+                    .id(filter_id.with("field"))
+                    .search()
+                    .hint(hint.clone())
+                    .width(f32::INFINITY),
             )
             .widget_info(|| WidgetInfo::labeled(Role::TextInput, true, hint.clone()));
             ui.data_mut(|d| d.insert_temp(filter_id, filter.clone()));
             let needle = filter.to_lowercase();
-            if none && ui.selectable_label(false, tr!("part-none")).clicked() {
+            if none && ui.add(widgets::choice(false, tr!("part-none"))).clicked() {
                 picked = Some(None);
             }
             for choice in choices
                 .iter()
                 .filter(|c| c.label.to_lowercase().contains(&needle))
             {
-                if ui.selectable_label(false, &choice.label).clicked() {
+                if ui.add(widgets::choice(false, &choice.label)).clicked() {
                     picked = Some(Some(choice.uuid));
                 }
             }
@@ -240,7 +263,7 @@ fn symbol(
     } else {
         super::symbol_choices(shell)
     };
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let label = tr!("part-symbol");
         let picked = ui
             .add_enabled_ui(!locked, |ui| {
@@ -250,19 +273,19 @@ fn symbol(
         if let Some(picked) = picked {
             out.extend(super::set_symbol(part, picked));
         }
-        let wizard = ui.add_enabled(!locked, egui::Button::new(tr!("part-symbol-wizard")));
+        let wizard = ui.add_enabled(!locked, widgets::button(tr!("part-symbol-wizard")));
         if wizard.clicked() {
             out.push((
                 "library.symbol.generate".to_owned(),
                 json!({ "part": part.uuid }),
             ));
         }
-        let new = ui.add_enabled(!locked, egui::Button::new(tr!("part-symbol-new")));
+        let new = ui.add_enabled(!locked, widgets::button(tr!("part-symbol-new")));
         if new.clicked() {
             let made = super::new_element(shell, part.uuid, "symbol");
             report(shell, made);
         }
-        let edit = ui.add_enabled(found.is_some(), egui::Button::new(tr!("part-edit-symbol")));
+        let edit = ui.add_enabled(found.is_some(), widgets::button(tr!("part-edit-symbol")));
         if edit.clicked()
             && let Some(symbol) = part.symbol
         {
@@ -271,7 +294,7 @@ fn symbol(
         }
         let duplicate = ui.add_enabled(
             found.is_some() && !locked,
-            egui::Button::new(tr!("part-duplicate-edit")),
+            widgets::button(tr!("part-duplicate-edit")),
         );
         let what = tr!("part-duplicate-edit-symbol");
         duplicate.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
@@ -289,13 +312,10 @@ fn symbol(
             preview::symbol_probed(ui, s, &pins);
         }
         (None, Some(uuid)) => {
-            ui.colored_label(
-                ui.visuals().warn_fg_color,
-                tr!("part-not-found", uuid = uuid.to_string()),
-            );
+            layout::warning(ui, tr!("part-not-found", uuid = uuid.to_string()));
         }
         (None, None) if part.component_type.needs_symbol_and_footprint() => {
-            ui.colored_label(ui.visuals().warn_fg_color, tr!("part-needs-symbol"));
+            layout::warning(ui, tr!("part-needs-symbol"));
         }
         (None, None) => {}
     }
@@ -323,8 +343,9 @@ fn footprints(
         } else {
             name.clone()
         };
-        ui.group(|ui| {
-            ui.strong(&text);
+        let t = ui.tokens();
+        widgets::card_frame(&t).show(ui, |ui| {
+            crate::settings::strong(ui, &text);
             match &found {
                 Some(f) => {
                     let hovered = preview::footprint_probed(ui, f, &probed);
@@ -333,16 +354,13 @@ fn footprints(
                     }
                 }
                 None => {
-                    ui.colored_label(
-                        ui.visuals().warn_fg_color,
-                        tr!("part-not-found", uuid = uuid.to_string()),
-                    );
+                    layout::warning(ui, tr!("part-not-found", uuid = uuid.to_string()));
                 }
             }
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 let mut moved = None;
                 let mut button = |ui: &mut Ui, enabled: bool, text: String, what: String, how| {
-                    let b = ui.add_enabled(enabled && !locked, egui::Button::new(text));
+                    let b = ui.add_enabled(enabled && !locked, widgets::button(text));
                     b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
                     if b.clicked() {
                         moved = Some(how);
@@ -365,7 +383,7 @@ fn footprints(
                     of("part-move-down-of"),
                     FootprintMove::Down,
                 );
-                let edit = ui.add_enabled(found.is_some(), egui::Button::new(tr!("part-edit")));
+                let edit = ui.add_enabled(found.is_some(), widgets::button(tr!("part-edit")));
                 let what = tr!("part-edit-footprint", name = name.as_str());
                 edit.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
                 if edit.clicked() {
@@ -374,7 +392,7 @@ fn footprints(
                 }
                 let duplicate = ui.add_enabled(
                     found.is_some() && !locked,
-                    egui::Button::new(tr!("part-duplicate-edit")),
+                    widgets::button(tr!("part-duplicate-edit")),
                 );
                 let what = of("part-duplicate-edit-footprint");
                 duplicate.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
@@ -402,13 +420,13 @@ fn footprints(
         }
     }
     if part.footprints.is_empty() {
-        ui.weak(tr!("part-no-footprints"));
+        layout::muted(ui, tr!("part-no-footprints"));
     }
     if locked {
         return;
     }
-    ui.horizontal(|ui| {
-        ui.label(tr!("part-add"));
+    ui.horizontal_wrapped(|ui| {
+        layout::text(ui, tr!("part-add"));
         let choices: Vec<Choice> = super::footprint_choices(shell)
             .into_iter()
             .filter(|c| !part.footprints.contains(&c.uuid))
@@ -425,13 +443,13 @@ fn footprints(
         if let Some(Some(uuid)) = picked {
             out.extend(super::add_footprint(part, uuid));
         }
-        ui.menu_button(tr!("part-generate-footprint"), |ui| {
+        widgets::menu_button(tr!("part-generate-footprint")).show(ui, |ui| {
             for generator in reda_engine::library::GENERATORS {
                 let title = shell.engine().registry().get(generator).map_or_else(
                     || generator.to_owned(),
                     |m| crate::bars::command_title(generator, m.title),
                 );
-                if ui.button(format!("{title}…")).clicked() {
+                if ui.add(widgets::menu_item(format!("{title}…"))).clicked() {
                     let mut params = json!({ "part": part.uuid });
                     if let Some((library, true)) = super::library_of(shell, part.uuid) {
                         params["library"] = json!(library);
@@ -441,7 +459,7 @@ fn footprints(
                 }
             }
         });
-        if ui.button(tr!("part-new-footprint")).clicked() {
+        if ui.add(widgets::button(tr!("part-new-footprint"))).clicked() {
             let made = super::new_element(shell, part.uuid, "footprint");
             report(shell, made);
         }
@@ -484,94 +502,98 @@ fn pin_map(
         .collect();
     let rows = super::map_rows(part, symbol.as_ref(), &footprints);
     if rows.is_empty() {
-        ui.weak(tr!("part-pin-map-empty"));
+        layout::muted(ui, tr!("part-pin-map-empty"));
         return;
     }
-    ui.weak(tr!("part-pin-map-hint"));
+    layout::muted(ui, tr!("part-pin-map-hint"));
     let probed = super::probed_pins(shell, part, symbol.as_ref());
     let mut hovered: Option<String> = None;
     ui.add_enabled_ui(!locked, |ui| {
-        Grid::new(id.with("pin-map"))
-            .num_columns(3 + footprints.len())
-            .striped(true)
-            .show(ui, |ui| {
-                ui.strong(tr!("part-pin"));
-                ui.strong(tr!("part-pin-name"));
-                if footprints.is_empty() {
-                    ui.strong(tr!("part-pads"));
-                }
-                // One column per alternate, the default first.
-                for f in &footprints {
-                    ui.strong(&f.name);
-                }
-                ui.label("");
-                ui.end_row();
+        let t = ui.tokens();
+        // Pin, Name, a column of Pads per alternate (the default first), and the note.
+        let columns = 3 + footprints.len().max(1);
+        widgets::table(id.with("pin-map"))
+            .columns(vec![Column::auto(); columns])
+            .show(ui, |table| {
+                table.header(|h| {
+                    h.text(tr!("part-pin"));
+                    h.text(tr!("part-pin-name"));
+                    if footprints.is_empty() {
+                        h.text(tr!("part-pads"));
+                    }
+                    for f in &footprints {
+                        h.text(&f.name);
+                    }
+                    h.empty();
+                });
                 for row in &rows {
-                    let lit = probed.contains(&row.number);
-                    let number = if lit {
-                        egui::RichText::new(&row.number)
-                            .strong()
-                            .color(ui.visuals().selection.stroke.color)
-                    } else {
-                        egui::RichText::new(&row.number)
-                    };
-                    let mut over = ui.label(number).hovered();
-                    over |= ui.label(&row.name).hovered();
-                    let cells: Vec<super::MapCell> = if row.cells.is_empty() {
-                        vec![super::MapCell {
-                            text: String::new(),
-                            marks: Vec::new(),
-                        }]
-                    } else {
-                        row.cells.clone()
-                    };
-                    for (i, cell) in cells.iter().enumerate() {
-                        let mut label = match footprints.get(i) {
-                            Some(f) if i > 0 => tr!(
-                                "part-pads-of-on",
-                                pin = row.number.as_str(),
-                                footprint = f.name.as_str()
-                            ),
-                            _ => tr!("part-pads-of", pin = row.number.as_str()),
+                    table.row(|cells| {
+                        let lit = probed.contains(&row.number);
+                        let mut over = if lit {
+                            let number = t.ty.body_strong.rich(&row.number);
+                            cells.ui(|ui| ui.label(number.color(t.color.accent.text)))
+                        } else {
+                            cells.text(&row.number)
+                        }
+                        .hovered();
+                        over |= cells.text(&row.name).hovered();
+                        let map_cells: Vec<super::MapCell> = if row.cells.is_empty() {
+                            vec![super::MapCell {
+                                text: String::new(),
+                                marks: Vec::new(),
+                            }]
+                        } else {
+                            row.cells.clone()
                         };
-                        if !cell.marks.is_empty() {
-                            let why: Vec<String> = cell.marks.iter().map(mark_text).collect();
-                            label = format!("{label} ({})", why.join(", "));
+                        for (i, cell) in map_cells.iter().enumerate() {
+                            let mut label = match footprints.get(i) {
+                                Some(f) if i > 0 => tr!(
+                                    "part-pads-of-on",
+                                    pin = row.number.as_str(),
+                                    footprint = f.name.as_str()
+                                ),
+                                _ => tr!("part-pads-of", pin = row.number.as_str()),
+                            };
+                            if !cell.marks.is_empty() {
+                                let why: Vec<String> = cell.marks.iter().map(mark_text).collect();
+                                label = format!("{label} ({})", why.join(", "));
+                            }
+                            let field = id.with(("pads", row.number.as_str(), i));
+                            let (typed, response) = cells.ui(|ui| {
+                                crate::element_editor::text_field_with(
+                                    ui,
+                                    field,
+                                    &label,
+                                    &cell.text,
+                                    PADS_WIDTH,
+                                    !cell.marks.is_empty(),
+                                )
+                            });
+                            if let Some(typed) = typed {
+                                out.extend(super::set_pin_pads(part, &row.number, &typed));
+                            }
+                            over |= response.hovered();
                         }
-                        let field = id.with(("pads", row.number.as_str(), i));
-                        let (typed, response) = crate::element_editor::text_field_with(
-                            ui,
-                            field,
-                            &label,
-                            &cell.text,
-                            110.0,
-                            !cell.marks.is_empty(),
-                        );
-                        if let Some(typed) = typed {
-                            out.extend(super::set_pin_pads(part, &row.number, &typed));
+                        if row.overridden {
+                            cells.muted(tr!("part-overridden"));
+                        } else {
+                            cells.empty();
                         }
-                        over |= response.hovered();
-                    }
-                    if row.overridden {
-                        ui.weak(tr!("part-overridden"));
-                    } else {
-                        ui.label("");
-                    }
-                    if over {
-                        hovered = Some(row.number.clone());
-                    }
-                    ui.end_row();
+                        if over {
+                            hovered = Some(row.number.clone());
+                        }
+                    });
                 }
             });
         let loose = super::unmapped_pads(part, symbol.as_ref(), &footprints);
         if !loose.is_empty() {
-            ui.add_space(4.0);
-            ui.label(tr!("part-unmapped-pads"));
+            ui.add_space(ui.tokens().space.stack);
+            layout::text(ui, tr!("part-unmapped-pads"));
             ui.horizontal_wrapped(|ui| {
                 for pad in &loose {
                     let mut on = part.pin_map.unconnected.contains(pad);
                     let text = tr!("part-pad-unconnected", pad = pad.as_str());
-                    if ui.checkbox(&mut on, text).changed() {
+                    if ui.add(widgets::checkbox(&mut on, text)).changed() {
                         out.extend(super::set_unconnected(part, pad, on));
                     }
                 }
@@ -606,40 +628,51 @@ fn builtin_label(key: &str) -> String {
 fn fields(ui: &mut Ui, id: Id, part: &Part, locked: bool, out: &mut Vec<Invocation>) {
     heading(ui, tr!("part-fields"));
     ui.add_enabled_ui(!locked, |ui| {
-        Grid::new(id.with("fields")).num_columns(3).show(ui, |ui| {
-            for key in super::FIELD_GRID {
-                let label = builtin_label(key);
-                ui.label(&label);
-                let current = super::builtin(part, key);
-                if let Some(typed) = text_field(ui, id.with(key), &label, &current, FIELD_WIDTH) {
-                    out.extend(super::set_builtin(part, key, &typed));
+        widgets::table(id.with("fields"))
+            .columns([Column::auto(), Column::auto(), Column::auto()])
+            .show(ui, |table| {
+                for key in super::FIELD_GRID {
+                    table.row(|cells| {
+                        let label = builtin_label(key);
+                        cells.ui(|ui| ui.add(widgets::form_name(&label)));
+                        let current = super::builtin(part, key);
+                        let typed = cells
+                            .ui(|ui| text_field(ui, id.with(key), &label, &current, FIELD_WIDTH));
+                        if let Some(typed) = typed {
+                            out.extend(super::set_builtin(part, key, &typed));
+                        }
+                        cells.empty();
+                    });
                 }
-                ui.label("");
-                ui.end_row();
-            }
-            for (i, field) in part.fields.custom.iter().enumerate() {
-                let label = tr!("part-field-name", n = (i + 1).to_string());
-                let typed = text_field(ui, id.with(("cname", i)), &label, &field.name, 120.0);
-                if let Some(name) = typed {
-                    out.extend(super::set_field(part, i, Some(&name), None));
+                for (i, field) in part.fields.custom.iter().enumerate() {
+                    table.row(|cells| {
+                        let label = tr!("part-field-name", n = (i + 1).to_string());
+                        let typed = cells.ui(|ui| {
+                            text_field(ui, id.with(("cname", i)), &label, &field.name, NAME_WIDTH)
+                        });
+                        if let Some(name) = typed {
+                            out.extend(super::set_field(part, i, Some(&name), None));
+                        }
+                        let label = tr!("part-field-of", name = field.name.as_str());
+                        let current = &field.value;
+                        let typed = cells.ui(|ui| {
+                            text_field(ui, id.with(("cvalue", i)), &label, current, FIELD_WIDTH)
+                        });
+                        if let Some(value) = typed {
+                            out.extend(super::set_field(part, i, None, Some(&value)));
+                        }
+                        let remove =
+                            cells.ui(|ui| ui.add(widgets::button(tr!("part-remove")).flat()));
+                        let what = tr!("part-remove-field", name = field.name.as_str());
+                        remove
+                            .widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
+                        if remove.clicked() {
+                            out.push(super::remove_field(part, i));
+                        }
+                    });
                 }
-                let label = tr!("part-field-of", name = field.name.as_str());
-                let current = &field.value;
-                if let Some(value) =
-                    text_field(ui, id.with(("cvalue", i)), &label, current, FIELD_WIDTH)
-                {
-                    out.extend(super::set_field(part, i, None, Some(&value)));
-                }
-                let remove = ui.button(tr!("part-remove"));
-                let what = tr!("part-remove-field", name = field.name.as_str());
-                remove.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
-                if remove.clicked() {
-                    out.push(super::remove_field(part, i));
-                }
-                ui.end_row();
-            }
-        });
-        if ui.button(tr!("part-add-field")).clicked() {
+            });
+        if ui.add(widgets::button(tr!("part-add-field"))).clicked() {
             out.push(super::add_field(part));
         }
     });
