@@ -96,15 +96,21 @@ fn initial_library(shell: &mut Shell, given: &serde_json::Value) -> Option<Uuid>
 }
 
 /// The target Library picker shared by the dialogs.
+/// How wide a dialog's text field or dropdown is.
+const FIELD_WIDTH: f32 = 260.0;
+/// How wide a path field is, leaving room for its Browse… button within [`FIELD_WIDTH`]'s
+/// column.
+const PATH_WIDTH: f32 = 200.0;
+
 fn library_picker(ui: &mut egui::Ui, shell: &mut Shell, id: egui::Id, library: &mut Option<Uuid>) {
     let libraries = writable_libraries(shell);
     let label = crate::tr!("library-target");
-    ui.label(&label);
+    ui.add(widgets::form_name(&label));
     let shown = library
         .and_then(|l| libraries.iter().find(|(u, _)| *u == l))
         .map_or_else(|| crate::tr!("library-target-none"), |(_, n)| n.clone());
     widgets::dropdown(id, shown)
-        .width(260.0)
+        .width(FIELD_WIDTH)
         .show(ui, |ui| {
             for (uuid, name) in &libraries {
                 widgets::choice_value(ui, library, Some(*uuid), name);
