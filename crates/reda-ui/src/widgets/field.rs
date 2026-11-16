@@ -14,8 +14,6 @@ use super::glyph::{self, Glyph};
 use super::paint::{self, State};
 use crate::theme::{Text, Tokens, TokensExt as _};
 
-/// A field's width when it is given none. The `size` family replaces it when it lands.
-pub const FIELD_WIDTH: f32 = 280.0;
 /// The width of an invalid field's outline.
 const INVALID_LINE: f32 = 1.5;
 /// Between a field's text and its unit, and between the search glass and the text.
@@ -133,7 +131,7 @@ impl Widget for TextField<'_> {
             let width = match self.width {
                 Some(width) if width.is_finite() => width,
                 Some(_) => ui.available_width(),
-                None => FIELD_WIDTH,
+                None => t.size.field,
             };
             let size = vec2(width, rows * style.line + 2.0 * t.space.control_y);
             let (rect, outer) = ui.allocate_exact_size(size, Sense::hover());

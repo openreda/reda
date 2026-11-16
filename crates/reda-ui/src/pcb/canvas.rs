@@ -232,7 +232,7 @@ fn grid_readout(ui: &Ui, shell: &Shell, shown: &CanvasInputs) {
         }
         None => tr!("pcb-grid", grid = format_length(grid, units)),
     };
-    let strip = super::layer_control::strip_shown(shell);
+    let strip = super::layer_control::strip_inset(ui, shell);
     let at = crate::bars::draw::grid_readout_anchor(shown.rect, strip);
     let galley = painter.layout_job(t.ty.numeric_small.job(&text, t.color.text.primary));
     let pad = vec2(t.space.row_x, t.space.row_y);

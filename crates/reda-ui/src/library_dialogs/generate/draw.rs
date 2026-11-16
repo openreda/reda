@@ -38,7 +38,8 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
     // preview, leaving room for the title, notes and buttons.
     let tall = (ctx.content_rect().height() * 0.75).clamp(300.0, 900.0);
     let height = tall - 120.0;
-    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, MAX_WIDTH);
+    // As wide as its fields need at this text size, if the window has the room.
+    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, ctx.tokens().size.of(MAX_WIDTH));
     // The sections take the larger share: their fields show long calculated values.
     let sections_width = ((wide - 40.0) * SECTIONS_SHARE).floor();
     let preview_width = wide - 40.0 - sections_width;

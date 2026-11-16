@@ -9,6 +9,9 @@
 //! the pick list, the in-place field, the Paused chip and a Wire's tooltip are drawn in
 //! the window, over the canvas.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::{Path, PathBuf};
 
 use egui::accesskit::Role;
@@ -124,6 +127,7 @@ struct Alone {
 fn themed<S>(h: &mut Harness<'static, S>, dark: bool, density: Density) {
     let settings = Settings {
         density,
+        text_size: text_size::get(),
         ..Settings::default()
     };
     theme::set(&h.ctx, &settings);
@@ -528,7 +532,8 @@ fn check(dark: bool, density: Density) {
     let theme = if dark { "dark" } else { "light" };
     assert!(
         wrong.is_empty(),
-        "{theme} {density:?}: text does not fit:\n{}",
+        "{theme} {density:?} {} px: text does not fit:\n{}",
+        text_size::get(),
         wrong.join("\n")
     );
 }
@@ -551,4 +556,28 @@ fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_light_comfortable()
 #[test]
 fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_light_compact() {
     check(false, Density::Compact);
+}
+
+#[test]
+fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_light_comfortable_at_the_smallest_text_size()
+ {
+    text_size::at(text_size::SMALLEST, || check(false, Density::Comfortable));
+}
+
+#[test]
+fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_dark_compact_at_the_smallest_text_size()
+ {
+    text_size::at(text_size::SMALLEST, || check(true, Density::Compact));
+}
+
+#[test]
+fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_dark_comfortable_at_the_largest_text_size()
+ {
+    text_size::at(text_size::LARGEST, || check(true, Density::Comfortable));
+}
+
+#[test]
+fn the_schematic_dialogs_and_editor_chrome_fit_their_text_in_light_compact_at_the_largest_text_size()
+ {
+    text_size::at(text_size::LARGEST, || check(false, Density::Compact));
 }

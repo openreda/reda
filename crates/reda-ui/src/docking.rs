@@ -62,8 +62,8 @@ pub struct Frame {
     pub keys: Vec<(String, Value)>,
 }
 
-/// The size a side Dock and the bottom Dock open at, until the user drags them.
-const SIDE_DOCK: f32 = 288.0;
+/// The height the bottom Dock opens at, until the user drags it. A side Dock's width is
+/// `size.dock`, which follows the text size.
 const BOTTOM_DOCK: f32 = 220.0;
 /// Where egui cannot open OS windows: the size a floating window opens at inside the
 /// main window, and how much of the main window a settings window leaves free.
@@ -450,12 +450,14 @@ impl Cx<'_, '_> {
             // and the expanded Dock's.
             let full = ui
                 .data(|d| d.get_temp::<f32>(size_id))
-                .unwrap_or_else(|| default_dock_size(side));
+                .unwrap_or_else(|| default_dock_size(&ui.tokens(), side));
             let size = egui::lerp(strip..=full.max(strip), open);
             panel.resizable(false).exact_size(size).show(ui, reserve)
         } else {
             // It shows the accent while dragged.
-            let panel = panel.resizable(true).default_size(default_dock_size(side));
+            let panel = panel
+                .resizable(true)
+                .default_size(default_dock_size(&ui.tokens(), side));
             let shown = widgets::splitter(ui, CARD_GAP, |ui| panel.show(ui, reserve));
             let rect = shown.response.rect;
             let size = match side {
@@ -510,7 +512,7 @@ impl Cx<'_, '_> {
         let size_id = Id::NULL.with(("dock-expanded-size", side.to_string()));
         let full = ui
             .data(|d| d.get_temp::<f32>(size_id))
-            .unwrap_or_else(|| default_dock_size(side))
+            .unwrap_or_else(|| default_dock_size(&ui.tokens(), side))
             - CARD_GAP;
         let expanded = match side {
             DockSide::Left => rect.with_max_x(rect.left() + full),
@@ -775,9 +777,18 @@ impl Cx<'_, '_> {
             // The front tab reaches one hairline into the card, over its rim.
             let reach = strip.with_max_y(strip.bottom() + t.stroke.hairline);
             ui.set_clip_rect(reach.intersect(clip));
+            // Back tabs give up their titles when the strip cannot hold every one.
+            let full: f32 = (group.tabs.iter().enumerate())
+                .map(|(i, tab)| {
+                    let title = tab_title(self.shell, tab);
+                    self.tab_look(&title, tab, i == group.active, false)
+                        .width(ui)
+                })
+                .sum();
+            let icon_only = widgets::TAB_INSET + full > strip.width();
             widgets::tab_strip(ui, |ui| {
                 for (i, tab) in group.tabs.iter().enumerate() {
-                    tabs.push(self.tab(ui, tab, i == group.active, area));
+                    tabs.push(self.tab(ui, tab, i == group.active, icon_only, area));
                 }
             });
         });
@@ -816,18 +827,22 @@ impl Cx<'_, '_> {
         });
     }
 
-    /// Draws a tab on its group's strip; returns its rect. The front tab is a card joined
-    /// to the group's body, and the active Document's tab adds the accent line along its
-    /// top edge: the menus and Commands act on that Document. Back tabs sit on the base in
-    /// muted text, and a hovered one takes the hover fill. The front or hovered tab shows
-    /// its close button.
-    fn tab(&mut self, ui: &mut Ui, tab: &TabKey, active: bool, area: Area) -> Rect {
-        let title = tab_title(self.shell, tab);
-        // The PCB tab carries the "out of sync" badge while Sync changes are pending.
-        let pending = match tab {
+    /// The Sync changes pending, on the PCB's tab; 0 on every other tab.
+    fn pending_on(&self, tab: &TabKey) -> usize {
+        match tab {
             TabKey::Document(uuid) if self.shell.is_pcb(*uuid) => self.shell.out_of_sync(),
             _ => 0,
-        };
+        }
+    }
+
+    /// The tab widget for `tab`, the front of its group when `active`, before it is shown.
+    fn tab_look<'a>(
+        &self,
+        title: &'a str,
+        tab: &TabKey,
+        active: bool,
+        icon_only: bool,
+    ) -> widgets::Tab<'a> {
         let active_document = active
             && matches!(tab, TabKey::Document(uuid) if self.layout.active_document() == Some(*uuid));
         let kind = match (active_document, active) {
@@ -838,12 +853,31 @@ impl Cx<'_, '_> {
         let modified = matches!(tab, TabKey::Document(uuid)
             if self.dirty.contains(&Scope::Document(*uuid))
                 || self.dirty.contains(&Scope::Element(*uuid)));
-        let shown = widgets::tab(&title)
+        widgets::tab(title)
             .icon(tab_icon_key(self.shell, tab))
             .kind(kind)
             .modified(modified)
-            .out_of_sync(pending > 0)
-            .show(ui);
+            .out_of_sync(self.pending_on(tab) > 0)
+            .icon_only(icon_only)
+    }
+
+    /// Draws a tab on its group's strip; returns its rect. The front tab is a card joined
+    /// to the group's body, and the active Document's tab adds the accent line along its
+    /// top edge: the menus and Commands act on that Document. Back tabs sit on the base in
+    /// muted text, and a hovered one takes the hover fill. The front or hovered tab shows
+    /// its close button.
+    fn tab(
+        &mut self,
+        ui: &mut Ui,
+        tab: &TabKey,
+        active: bool,
+        icon_only: bool,
+        area: Area,
+    ) -> Rect {
+        let title = tab_title(self.shell, tab);
+        // The PCB tab carries the "out of sync" badge while Sync changes are pending.
+        let pending = self.pending_on(tab);
+        let shown = self.tab_look(&title, tab, active, icon_only).show(ui);
         let response = shown.response;
         let close = shown.close.map(|close| {
             let name = tr!("tab-close", tab = title.as_str());
@@ -1233,11 +1267,12 @@ fn dock_open(ui: &Ui, side: DockSide, collapsed: bool) -> f32 {
     motion::toggle(ui.ctx(), id, !collapsed, tr)
 }
 
-/// The size a Dock opens at before the user has dragged it.
-fn default_dock_size(side: DockSide) -> f32 {
+/// The size a Dock opens at before the user has dragged it. A side Dock's width follows
+/// the text size; the bottom Dock's height does not.
+fn default_dock_size(t: &crate::theme::Tokens, side: DockSide) -> f32 {
     match side {
         DockSide::Bottom => BOTTOM_DOCK,
-        DockSide::Left | DockSide::Right => SIDE_DOCK,
+        DockSide::Left | DockSide::Right => t.size.dock,
     }
 }
 

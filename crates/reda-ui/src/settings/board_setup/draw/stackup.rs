@@ -38,11 +38,11 @@ pub fn stackup_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraf
     let t = ui.tokens();
     // The cross-section sits beside the table when the page is wide enough, else under
     // it, so its labels are never cut by the page's edge.
-    let beside = TABLE_WIDTH + t.space.dialog + SECTION_WIDTH + SECTION_LABELS;
+    let beside = t.size.of(TABLE_WIDTH + SECTION_WIDTH + SECTION_LABELS) + t.space.dialog;
     if ui.available_width() >= beside {
         ui.horizontal_top(|ui| {
             ui.vertical(|ui| {
-                ui.set_max_width(TABLE_WIDTH);
+                ui.set_max_width(t.size.of(TABLE_WIDTH));
                 table(ui, cx, board);
             });
             ui.add_space(t.space.dialog);
@@ -50,7 +50,7 @@ pub fn stackup_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraf
         });
     } else {
         ui.vertical(|ui| {
-            ui.set_max_width(TABLE_WIDTH);
+            ui.set_max_width(t.size.of(TABLE_WIDTH));
             table(ui, cx, board);
         });
         ui.add_space(t.space.section);
@@ -65,7 +65,7 @@ pub fn stackup_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraf
     let notes = ui.add(
         widgets::text_field(stackup.fab_notes_mut())
             .rows(NOTES_ROWS)
-            .width(NOTES_WIDTH),
+            .width(t.size.of(NOTES_WIDTH)),
     );
     notes.widget_info(|| WidgetInfo::labeled(Role::MultilineTextInput, true, &label));
     layout::muted(ui, tr!("board-setup-fab-notes-note"));
@@ -105,7 +105,7 @@ fn table(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
                             ui.vertical(|ui| {
                                 let edit = widgets::text_field(value)
                                     .hint(hint)
-                                    .width(THICKNESS_WIDTH)
+                                    .width(t.size.of(THICKNESS_WIDTH))
                                     .invalid(problem.is_some());
                                 let response = ui.add(edit);
                                 response.widget_info(|| {
@@ -184,7 +184,7 @@ fn cross_section(ui: &mut Ui, board: &BoardSetupDraft) {
     let t = ui.tokens();
     strong(ui, tr!("board-setup-cross-section"));
     let height: f32 = bands.iter().map(|b| band_height(b.band)).sum();
-    let width = SECTION_WIDTH + SECTION_LABELS;
+    let width = SECTION_WIDTH + t.size.of(SECTION_LABELS);
     let (rect, response) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     let painter = ui.painter_at(rect);
     let mut y = rect.top();
@@ -257,6 +257,7 @@ fn looks(ui: &mut Ui, board: &mut BoardSetupDraft) {
 
 /// A drop-down of `options` for `value`, which can also be typed.
 fn suggestion_box(ui: &mut Ui, label: &str, options: &[String], value: &mut String) {
+    let t = ui.tokens();
     ui.horizontal(|ui| {
         let shown = if value.trim().is_empty() {
             tr!("board-setup-unset")
@@ -265,7 +266,7 @@ fn suggestion_box(ui: &mut Ui, label: &str, options: &[String], value: &mut Stri
         };
         let mut chosen = value.clone();
         let combo = widgets::dropdown(("board-setup-look", label), shown)
-            .width(SUGGESTION_WIDTH)
+            .width(t.size.of(SUGGESTION_WIDTH))
             .show(ui, |ui| {
                 let unset = tr!("board-setup-unset");
                 widgets::choice_value(ui, &mut chosen, String::new(), unset);
@@ -280,7 +281,7 @@ fn suggestion_box(ui: &mut Ui, label: &str, options: &[String], value: &mut Stri
             *value = chosen;
         }
         let typed = tr!("board-setup-typed", what = label);
-        let edit = ui.add(widgets::text_field(value).width(TYPED_WIDTH));
+        let edit = ui.add(widgets::text_field(value).width(t.size.of(TYPED_WIDTH)));
         edit.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, &typed));
     });
 }

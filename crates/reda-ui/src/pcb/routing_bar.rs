@@ -115,7 +115,7 @@ pub fn show(ui: &Ui, shell: &Shell, id: Id, canvas: Rect) -> Vec<Invocation> {
         checked: &checked,
         document,
     };
-    let anchor = tool_bar_anchor(canvas, super::layer_control::strip_shown(shell));
+    let anchor = tool_bar_anchor(canvas, super::layer_control::strip_inset(ui, shell));
     let state = |action: &Action| item_state(shell, action);
     let note = shell.router().note();
     out.extend(tool_bar(

@@ -7,6 +7,9 @@
 //! the field, dropdown, column or panel that holds it, or breaks over lines unless it is
 //! a sentence.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::Path;
 
 use egui::Rect;
@@ -342,6 +345,7 @@ fn check(dark: bool, density: Density) {
         &h.ctx,
         &Settings {
             density,
+            text_size: text_size::get(),
             ..Settings::default()
         },
     );
@@ -401,7 +405,8 @@ fn check(dark: bool, density: Density) {
     }
     assert!(
         wrong.is_empty(),
-        "{theme_name} {density:?}: text does not fit:\n{}",
+        "{theme_name} {density:?} {} px: text does not fit:\n{}",
+        text_size::get(),
         wrong.join("\n")
     );
 }
@@ -424,4 +429,24 @@ fn the_element_editors_fit_their_text_in_light_comfortable() {
 #[test]
 fn the_element_editors_fit_their_text_in_light_compact() {
     check(false, Density::Compact);
+}
+
+#[test]
+fn the_element_editors_fit_their_text_in_light_comfortable_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(false, Density::Comfortable));
+}
+
+#[test]
+fn the_element_editors_fit_their_text_in_dark_compact_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(true, Density::Compact));
+}
+
+#[test]
+fn the_element_editors_fit_their_text_in_dark_comfortable_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(true, Density::Comfortable));
+}
+
+#[test]
+fn the_element_editors_fit_their_text_in_light_compact_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(false, Density::Compact));
 }

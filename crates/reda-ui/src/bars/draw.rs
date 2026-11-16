@@ -333,28 +333,28 @@ pub fn active_bar_bottom(t: &Tokens) -> f32 {
 /// How far above the canvas bottom a Tool's bar (the Routing or Placement Bar) ends,
 /// clear of the grid readout.
 pub const TOOL_BAR_BOTTOM: f32 = 36.0;
-/// The height of the Layer strip along a board canvas's bottom.
+/// The height of the Layer strip along a board canvas's bottom at the default text size;
+/// it follows the text size ([`layer_strip_height`]).
 pub const LAYER_STRIP_HEIGHT: f32 = 24.0;
 /// How far above the canvas bottom the grid readout ends.
 pub const GRID_READOUT_BOTTOM: f32 = 8.0;
 
-/// What the Layer strip takes from the canvas bottom: [`LAYER_STRIP_HEIGHT`] while it
-/// shows, else nothing. Everything anchored to the bottom moves up by this much.
-pub fn bottom_inset(strip: bool) -> f32 {
-    if strip { LAYER_STRIP_HEIGHT } else { 0.0 }
+/// The Layer strip's height at `t`'s text size: 24 px at the default one.
+pub fn layer_strip_height(t: &Tokens) -> f32 {
+    t.size.of(LAYER_STRIP_HEIGHT)
 }
 
 /// Where a Tool's bar sits on `canvas`: its bottom centre, 36 px above the canvas's
-/// bottom edge, and a further 24 px up while the Layer `strip` shows. A Tool's bar is
-/// pivoted on this point (`Align2::CENTER_BOTTOM`).
-pub fn tool_bar_anchor(canvas: Rect, strip: bool) -> egui::Pos2 {
-    canvas.center_bottom() - Vec2::new(0.0, TOOL_BAR_BOTTOM + bottom_inset(strip))
+/// bottom edge, and further up by `strip`, the height of the Layer strip while it shows
+/// (0 while it does not). A Tool's bar is pivoted on this point (`Align2::CENTER_BOTTOM`).
+pub fn tool_bar_anchor(canvas: Rect, strip: f32) -> egui::Pos2 {
+    canvas.center_bottom() - Vec2::new(0.0, TOOL_BAR_BOTTOM + strip)
 }
 
-/// Where the grid readout sits on `canvas`: its bottom left corner, moved up while the
-/// Layer `strip` shows.
-pub fn grid_readout_anchor(canvas: Rect, strip: bool) -> egui::Pos2 {
-    canvas.left_bottom() + Vec2::new(8.0, -(GRID_READOUT_BOTTOM + bottom_inset(strip)))
+/// Where the grid readout sits on `canvas`: its bottom left corner, moved up by `strip`,
+/// the Layer strip's height while it shows.
+pub fn grid_readout_anchor(canvas: Rect, strip: f32) -> egui::Pos2 {
+    canvas.left_bottom() + Vec2::new(8.0, -(GRID_READOUT_BOTTOM + strip))
 }
 
 /// The width of a row of bar items.

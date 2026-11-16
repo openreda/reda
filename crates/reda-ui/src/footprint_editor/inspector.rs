@@ -20,7 +20,8 @@ use crate::tr;
 use crate::widgets::{self, Tooltip as _};
 
 /// The panel's width in points: a side Dock's, so the Pad rows (the same as Free Pad
-/// Properties in a Dock) fit, plus the gap the panel keeps from the canvas.
+/// Properties in a Dock) fit, plus the gap the panel keeps from the canvas. At 13 px: it
+/// follows the text size as a Dock does (`size.of(WIDTH)`).
 pub const WIDTH: f32 = 300.0;
 
 pub use crate::pad_form::draw::{KINDS, SHAPES, kind_name, shape_name};

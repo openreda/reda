@@ -608,7 +608,7 @@ fn placing_section(ui: &mut Ui, placing: &Placing) -> Vec<(&'static str, Value)>
                 .map_or_else(|| uuid.to_string(), |f| f.footprint.name.clone())
         };
         let selected = current.map_or_else(|| tr!("properties-no-footprint"), name);
-        let width = value_width(ui);
+        let width = unlocked_value_width(ui);
         let response = widgets::dropdown("properties-placing-footprint", selected)
             .width(width)
             .max_width(width)
@@ -772,7 +772,7 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
     let enabled = !component.alternates.is_empty();
     let response = ui
         .add_enabled_ui(enabled, |ui| {
-            let width = value_width(ui);
+            let width = unlocked_value_width(ui);
             widgets::dropdown("properties-footprint", selected)
                 .width(width)
                 .max_width(width)
@@ -846,8 +846,18 @@ struct Draft {
 /// box after it (a Component's fields have one), so every value of the Panel is as wide
 /// and none runs past the Dock.
 pub(super) fn value_width(ui: &Ui) -> f32 {
-    let left = ui.available_width() - widgets::MARK - ui.tokens().space.gap;
-    left.clamp(MIN_FIELD_WIDTH, FIELD_WIDTH)
+    let t = ui.tokens();
+    let left = ui.available_width() - widgets::MARK - t.space.gap;
+    left.clamp(MIN_FIELD_WIDTH, t.size.of(FIELD_WIDTH))
+}
+
+/// The width of a value on a row with no lock box after it (the Footprint): the value's
+/// width and the lock box's column, so a Footprint name has room.
+fn unlocked_value_width(ui: &Ui) -> f32 {
+    let t = ui.tokens();
+    let lock = widgets::MARK + t.space.gap;
+    ui.available_width()
+        .clamp(MIN_FIELD_WIDTH, t.size.of(FIELD_WIDTH) + lock)
 }
 
 /// A labelled one-line field for a value that may be mixed. It returns the new text when

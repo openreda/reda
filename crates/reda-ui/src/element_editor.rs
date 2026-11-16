@@ -234,7 +234,7 @@ pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec
             egui::Panel::right(id)
                 .frame(frame)
                 .resizable(false)
-                .exact_size(crate::footprint_editor::inspector::WIDTH)
+                .exact_size(t.size.of(crate::footprint_editor::inspector::WIDTH))
                 .show(ui, |ui| {
                     crate::footprint_editor::inspector::show(ui, shell, element)
                 })

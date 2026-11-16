@@ -77,6 +77,7 @@ pub fn tab(title: &str) -> Tab<'_> {
         modified: false,
         out_of_sync: false,
         window_focused: None,
+        icon_only: false,
         state: State::Live,
     }
 }
@@ -89,6 +90,7 @@ pub struct Tab<'a> {
     modified: bool,
     out_of_sync: bool,
     window_focused: Option<bool>,
+    icon_only: bool,
     state: State,
 }
 
@@ -131,9 +133,45 @@ impl<'a> Tab<'a> {
         self
     }
 
+    /// A back tab on a strip too narrow for every title shows its Icon alone, so the
+    /// front tab keeps its whole title. The title stays the tab's name for assistive
+    /// technology and its tooltip. A tab with no Icon, or a front tab, keeps its title.
+    pub fn icon_only(mut self, icon_only: bool) -> Self {
+        self.icon_only = icon_only;
+        self
+    }
+
     pub fn forced(mut self, state: State) -> Self {
         self.state = state;
         self
+    }
+
+    /// Whether the title is left out: [`Tab::icon_only`] on a back tab with an Icon.
+    fn titleless(&self) -> bool {
+        self.icon_only && self.kind == TabKind::Back && self.icon.is_some()
+    }
+
+    /// How wide the tab is drawn.
+    pub fn width(&self, ui: &Ui) -> f32 {
+        let t = ui.tokens();
+        let style = if self.kind == TabKind::Active {
+            &t.ty.body_strong
+        } else {
+            &t.ty.body
+        };
+        let icon_width = if self.icon.is_some() {
+            t.icon.small + ICON_GAP
+        } else {
+            0.0
+        };
+        let title = if self.titleless() {
+            0.0
+        } else {
+            paint::width(ui, style, self.title)
+        };
+        let badge_width = if self.out_of_sync { glyph::BOX } else { 0.0 };
+        // | tab_x | icon gap | title | gap | badge | close | tab_x |
+        2.0 * t.space.tab_x + icon_width + title + PART_GAP + badge_width + glyph::BOX
     }
 
     /// The top corners of a front tab.
@@ -165,14 +203,8 @@ impl<'a> Tab<'a> {
         } else {
             0.0
         };
-        let badge_width = if self.out_of_sync { glyph::BOX } else { 0.0 };
-        // | tab_x | icon gap | title | gap | badge | close | tab_x |
-        let width = 2.0 * t.space.tab_x
-            + icon_width
-            + paint::width(ui, style, self.title)
-            + PART_GAP
-            + badge_width
-            + glyph::BOX;
+        let titleless = self.titleless();
+        let width = self.width(ui);
         let (rect, response) =
             ui.allocate_exact_size(vec2(width, t.tab_height()), Sense::click_and_drag());
         let enabled = ui.is_enabled();
@@ -246,7 +278,11 @@ impl<'a> Tab<'a> {
         }
         let ink = if front { c.text.primary } else { c.text.muted };
         let label = Rect::from_min_max(pos2(left, rect.top()), rect.max);
-        let drawn = paint::text_in(ui, label, Align2::LEFT_CENTER, style, self.title, ink);
+        let drawn = if titleless {
+            Rect::from_min_size(pos2(left - ICON_GAP, rect.top()), vec2(0.0, rect.height()))
+        } else {
+            paint::text_in(ui, label, Align2::LEFT_CENTER, style, self.title, ink)
+        };
         if self.out_of_sync {
             let at = pos2(drawn.right() + PART_GAP + glyph::BOX / 2.0, rect.center().y);
             out_of_sync_badge(ui, t, at);

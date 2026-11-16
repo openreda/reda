@@ -2,7 +2,7 @@
 
 How REDA's application chrome looks: colour, type, spacing, radius, elevation, motion and the recipe of each component, in light and dark and in two Densities. Behaviour and structure (what a tab does, what the Title bar holds, which Preferences exist) are in [`app.md`](app.md). Crate: `reda-ui`, modules `theme` and `widgets`.
 
-This file describes the target look. It was written ahead of the build, so `reda-ui` on main may still draw the earlier slate theme until the restyle slices land.
+This file describes the look `reda-ui` draws. It was written ahead of the build, and the build's slices brought the two in step; the images under [Images](#images) are drawn by the tests.
 
 Sources, all tickets of the [theme baseline map](https://github.com/openreda/reda/issues/266): [Which visual direction does the chrome take?](https://github.com/openreda/reda/issues/272), [Where does colour carry meaning in the chrome?](https://github.com/openreda/reda/issues/273), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [How are theme tokens structured and enforced in reda-ui?](https://github.com/openreda/reda/issues/275) and [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md), [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276), [Which transitions does the chrome animate, and with which timing?](https://github.com/openreda/reda/issues/282), [Do icons change under the new theme, and do the hand-painted glyphs become icons?](https://github.com/openreda/reda/issues/283), [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274) and [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md), [Where does the design-language spec live, and what does it replace?](https://github.com/openreda/reda/issues/285). Where two of them disagree, the later resolution wins, and this file follows it.
 
@@ -50,7 +50,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
   | `elevation` | light/dark | card, popup, window |
   | `space` | Density | 13 paddings and gaps, two hand-picked values each |
   | `type` | text size and typeface Preferences | small, body, body_strong, title, heading, mono, numeric, numeric_small |
-  | `size` | text size | field, dialog and Dock column widths |
+  | `size` | text size | scale, dock, field; every other field, dialog and Dock column width is a constant at 13 px read through `size.of(..)` |
   | `radius`, stroke widths, icon sizes, `opacity.disabled` | fixed | |
   | `motion` | fixed | fast, base |
 
@@ -435,7 +435,7 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 
 ## Enforcement and tests
 
-- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets, files not yet converted) are in `lists.rs` there.
+- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets) are in `lists.rs` there.
   - **Banned outside the exempt modules:**
     - colours: `Color32::from_*` and named constants, `gamma_multiply`, `linear_multiply`, hex literals;
     - egui style access: `ui.visuals()`, `ui.spacing()`, `ui.style()` and their `_mut` forms, `ctx.set_style*`, `set_visuals*`;
@@ -444,11 +444,13 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
   - **Allowed everywhere:** zero (`Color32::TRANSPARENT` counts as zero), and arithmetic on token values.
   - **Exempt modules:** `theme/`, `widgets/` and the on-canvas drawing modules, listed by path in the test.
   - **Marker:** `// theme-exempt: <reason>` exempts the next line. A marker with no reason fails, and the test prints the total.
-  - **During the migration** the test carries a list of files not yet converted. A listed file is skipped, an unlisted file must be clean, and a clean file still on the list fails. New files are never listed.
+  - **Every file is converted.** The migration's list of files not yet converted is gone: every file the scan reads must be clean.
   - The scan works on text, so an alias or a macro can defeat it. It is there to stop accidents.
 - **The contrast test,** as above.
 - **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid) and the Glyph set, in the four variants, and is snapshotted.
-- **Whole-screen snapshots** stay in dark Comfortable only, and are rebaselined slice by slice.
+- **Whole-screen snapshots** stay in dark Comfortable only, apart from the whole-app screen of [Images](#images), and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows.
+- **Fit tests.** One per area of the window (`crates/reda-ui/tests/*_fit.rs`, and `panel_sheets.rs` for the Panels, their Docks and the status bar) drives its screens in light and dark, Comfortable and Compact, at the default text size and at both ends of the range, and fails on text cut short with an ellipsis, text that runs out of its clip, and a label broken over lines.
+- **Font coverage.** `crates/reda-ui/tests/font_coverage.rs` fails when the message catalogue, a Command's or a Preference's text, or a string literal of a crate whose messages reach the window holds a character the bundled faces lack.
 
 ## Values
 
@@ -553,6 +555,19 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | 14 | 12 / 18 | 14 / 22 | 17 / 26 | 13 / 22 | 32 / 28 |
 | 15 | 13 / 20 | 15 / 22 | 18 / 28 | 14 / 22 | 32 / 28 |
 | 16 | 14 / 22 | 16 / 24 | 19 / 28 | 15 / 24 | 34 / 30 |
+
+### Size values
+
+Widths that follow the text size and never Density. Each is given at B = 13 and scaled by B / 13 (`size.of(..)` in code), on whole pixels.
+
+| B | Scale | `size.dock` | `size.field` |
+|---|---|---|---|
+| 11 | 0.85 | 244 | 237 |
+| 12 | 0.92 | 266 | 258 |
+| 13 | 1.00 | 288 | 280 |
+| 14 | 1.08 | 310 | 302 |
+| 15 | 1.15 | 332 | 323 |
+| 16 | 1.23 | 354 | 345 |
 
 ### Fixed values
 
