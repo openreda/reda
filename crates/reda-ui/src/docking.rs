@@ -299,7 +299,7 @@ fn floating_bar(ui: &mut Ui, title: &str, chrome: crate::title_bar::Chrome) {
         return;
     }
     let ctx = ui.ctx().clone();
-    let height = crate::title_bar::floating_bar_height(&ui.tokens());
+    let height = crate::title_bar::Platform::recalled(&ctx).floating_bar_height(&ui.tokens());
     egui::Panel::top("floating-bar")
         .frame(egui::Frame::NONE)
         .show_separator_line(false)

@@ -330,9 +330,10 @@ fn wayland_title_bar_snapshot(theme: &str, density: &str) {
         preference: false,
         forced: false,
     };
-    let Some(mut h) =
-        snapshot_harness_of(engine_in(home.path()), |app| app.with_title_bar(decorated))
-    else {
+    let Some(mut h) = snapshot_harness_of(engine_in(home.path()), |app| {
+        app.with_platform(reda_ui::title_bar::wayland::PLATFORM)
+            .with_title_bar(decorated)
+    }) else {
         return;
     };
     h.run();

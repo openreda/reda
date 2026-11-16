@@ -17,10 +17,8 @@ pub mod arrange;
 mod draw;
 pub mod hit;
 pub mod resize;
-#[cfg(all(
-    unix,
-    not(any(target_os = "macos", target_os = "ios", target_os = "android"))
-))]
+// Compiled everywhere, like macos and windows, so its chrome is tested and drawn on any
+// platform; what reaches winit inside it is Linux-only.
 pub mod wayland;
 // Compiled everywhere, so its pure functions are tested on any platform; what reaches
 // AppKit inside it is macOS-only.
@@ -79,46 +77,17 @@ impl Chrome {
 }
 
 /// What the window `ctx` is drawing provides around its Title bar, from how REDA
-/// `startup` and the window's state now (maximised, full screen).
+/// `startup` and the window's state now (maximised, full screen), on the platform REDA
+/// was built for ([`Platform::NATIVE`]).
 pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
-    #[cfg(target_os = "macos")]
-    return ctx.input(|i| macos::chrome(startup, i.viewport()));
-    #[cfg(target_os = "windows")]
-    return windows::chrome_in(ctx, startup);
-    #[cfg(all(
-        unix,
-        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
-    ))]
-    {
-        use crate::theme::TokensExt as _;
-        let radius = ctx.tokens().radius.window;
-        return ctx.input(|i| wayland::chrome(startup, i.viewport(), radius));
-    }
-    #[allow(unreachable_code)]
-    {
-        let _ = (ctx, startup);
-        Chrome::SYSTEM
-    }
+    Platform::NATIVE.chrome(ctx, startup)
 }
 
 /// The options of a window REDA is about to open (the main window or a floating one),
 /// as `startup` asks: the platform's own window for REDA's bar (undecorated on Wayland
 /// and Windows) unless the system title bar is in force.
 pub fn viewport(startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
-    #[cfg(target_os = "macos")]
-    return macos::viewport(startup, builder);
-    #[cfg(target_os = "windows")]
-    return windows::viewport(startup, builder);
-    #[cfg(all(
-        unix,
-        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
-    ))]
-    return wayland::viewport(startup, builder);
-    #[allow(unreachable_code)]
-    {
-        let _ = startup;
-        builder
-    }
+    Platform::NATIVE.viewport(startup, builder)
 }
 
 /// Shows the system window menu at `at` (logical pixels in the main window), where the
@@ -141,25 +110,68 @@ pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
     let _ = (frame, at);
 }
 
-/// How a platform decorates REDA's windows: the chrome a window gives its Title bar
-/// ([`chrome_for`]) and how the window is built ([`viewport`]). A window uses
-/// [`Platform::NATIVE`]; another platform's (such as [`windows::PLATFORM`]) is for drawing
-/// that platform's chrome on this one, in the window tests.
+/// How a platform decorates REDA's windows: the chrome a window gives its Title bar, how
+/// the window is built, how tall a floating window's slim bar is, and what a double-click
+/// on the bar does. Everything the bar decides by platform goes through this, so a window
+/// drawn with another platform's ([`windows::PLATFORM`], [`macos::PLATFORM`],
+/// [`wayland::PLATFORM`]) is that platform's whole chrome: how the window tests draw each
+/// platform's bar on any platform. A window uses [`Platform::NATIVE`].
 #[derive(Clone, Copy, Debug)]
 pub struct Platform {
     chrome: fn(&egui::Context, Startup) -> Chrome,
     viewport: fn(Startup, egui::ViewportBuilder) -> egui::ViewportBuilder,
+    floating_bar_height: fn(&crate::theme::Tokens) -> f32,
+    double_click: fn(bool) -> Option<egui::ViewportCommand>,
 }
 
 impl Platform {
-    /// The platform REDA was built for.
-    pub const NATIVE: Platform = Platform::new(chrome_for, viewport);
+    /// The platform REDA was built for: macOS, Windows, Wayland (Linux and the BSDs), or
+    /// elsewhere the system title bar.
+    #[cfg(target_os = "macos")]
+    pub const NATIVE: Platform = macos::PLATFORM;
+    /// The platform REDA was built for: macOS, Windows, Wayland (Linux and the BSDs), or
+    /// elsewhere the system title bar.
+    #[cfg(target_os = "windows")]
+    pub const NATIVE: Platform = windows::PLATFORM;
+    /// The platform REDA was built for: macOS, Windows, Wayland (Linux and the BSDs), or
+    /// elsewhere the system title bar.
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    ))]
+    pub const NATIVE: Platform = wayland::PLATFORM;
+    /// The platform REDA was built for: macOS, Windows, Wayland (Linux and the BSDs), or
+    /// elsewhere the system title bar.
+    #[cfg(not(any(
+        target_os = "macos",
+        target_os = "windows",
+        all(
+            unix,
+            not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+        )
+    )))]
+    pub const NATIVE: Platform = Platform::SYSTEM;
+
+    /// A platform with no slice of its own: the system title bar above the bar.
+    pub const SYSTEM: Platform = Platform::new(
+        |_, _| Chrome::SYSTEM,
+        |_, builder| builder,
+        crate::theme::Tokens::floating_bar_height,
+        maximise_or_restore,
+    );
 
     pub const fn new(
         chrome: fn(&egui::Context, Startup) -> Chrome,
         viewport: fn(Startup, egui::ViewportBuilder) -> egui::ViewportBuilder,
+        floating_bar_height: fn(&crate::theme::Tokens) -> f32,
+        double_click: fn(bool) -> Option<egui::ViewportCommand>,
     ) -> Platform {
-        Platform { chrome, viewport }
+        Platform {
+            chrome,
+            viewport,
+            floating_bar_height,
+            double_click,
+        }
     }
 
     /// What the window `ctx` draws provides around its Title bar.
@@ -174,6 +186,17 @@ impl Platform {
         builder: egui::ViewportBuilder,
     ) -> egui::ViewportBuilder {
         (self.viewport)(startup, builder)
+    }
+
+    /// The height of a floating window's slim bar.
+    pub fn floating_bar_height(self, tokens: &crate::theme::Tokens) -> f32 {
+        (self.floating_bar_height)(tokens)
+    }
+
+    /// What a double-click on the bar's empty space sends a window that is `maximised`
+    /// or not.
+    pub fn double_click(self, maximised: bool) -> Option<egui::ViewportCommand> {
+        (self.double_click)(maximised)
     }
 
     /// Keeps this platform on `ctx`, for the floating windows drawn there.
@@ -192,29 +215,24 @@ fn platform_id() -> egui::Id {
     egui::Id::NULL.with("reda-title-bar-platform")
 }
 
-/// The height of a floating window's slim bar: the native title bar's on macOS, where
-/// the traffic lights stay where AppKit puts them, and `floating_bar_height()` elsewhere.
+/// A double-click on the bar maximises a window, or restores one that is `maximised`:
+/// what it does on Windows and Linux.
+pub fn maximise_or_restore(maximised: bool) -> Option<egui::ViewportCommand> {
+    Some(egui::ViewportCommand::Maximized(!maximised))
+}
+
+/// The height of a floating window's slim bar on the platform REDA was built for: the
+/// native title bar's on macOS, where the traffic lights stay where AppKit puts them, and
+/// `floating_bar_height()` elsewhere.
 pub fn floating_bar_height(tokens: &crate::theme::Tokens) -> f32 {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = tokens;
-        return macos::NATIVE_TITLE_BAR_HEIGHT;
-    }
-    #[allow(unreachable_code)]
-    {
-        tokens.floating_bar_height()
-    }
+    Platform::NATIVE.floating_bar_height(tokens)
 }
 
 /// What a double-click on the bar's empty space sends to a window that is `maximised`
-/// or not: on macOS what System Settings asks, elsewhere maximise or restore.
+/// or not, on the platform REDA was built for: on macOS what System Settings asks,
+/// elsewhere maximise or restore.
 pub fn double_click(maximised: bool) -> Option<egui::ViewportCommand> {
-    #[cfg(target_os = "macos")]
-    return macos::double_click(macos::DoubleClick::system(), maximised);
-    #[allow(unreachable_code)]
-    {
-        Some(egui::ViewportCommand::Maximized(!maximised))
-    }
+    Platform::NATIVE.double_click(maximised)
 }
 
 /// Puts what the platform draws itself in the main window's bar, drawn at `bar` this

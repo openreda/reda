@@ -26,7 +26,12 @@ use super::{Chrome, Platform, Startup};
 
 /// Windows' decoration of REDA's windows, for drawing it on another platform (the window
 /// tests). On Windows it is what [`Platform::NATIVE`] does.
-pub const PLATFORM: Platform = Platform::new(chrome_in, viewport);
+pub const PLATFORM: Platform = Platform::new(
+    chrome_in,
+    viewport,
+    crate::theme::Tokens::floating_bar_height,
+    super::maximise_or_restore,
+);
 
 /// What the window around the Title bar provides in a window with the state `viewport`:
 /// REDA's window controls, a bar that drags and the edge-resize strip, unless the system

@@ -11,11 +11,21 @@
 //! otherwise. Under X11 the window manager decorates the window, so the system title bar
 //! is forced there too: the custom bar is a Wayland slice.
 //!
-//! Everything here but [`env`] is a pure function of what it is given.
+//! Everything here but [`env`] and the window menu is a pure function of what it is given,
+//! compiled on every platform so it is tested anywhere.
 
 use egui::{ViewportBuilder, ViewportInfo};
 
-use super::{Chrome, Startup};
+use super::{Chrome, Platform, Startup};
+
+/// Wayland's decoration of REDA's windows. On Linux and the BSDs it is what
+/// [`Platform::NATIVE`] does; elsewhere it draws Wayland's chrome in the window tests.
+pub const PLATFORM: Platform = Platform::new(
+    chrome_in,
+    viewport,
+    crate::theme::Tokens::floating_bar_height,
+    super::maximise_or_restore,
+);
 
 /// The display server winit will open the window on, and the compositor where that
 /// matters.
@@ -89,6 +99,13 @@ pub fn chrome(startup: Startup, viewport: &ViewportInfo, radius: f32) -> Chrome 
     }
 }
 
+/// [`chrome`] for the window `ctx` draws, its corners at the window radius.
+pub fn chrome_in(ctx: &egui::Context, startup: Startup) -> Chrome {
+    use crate::theme::TokensExt as _;
+    let radius = ctx.tokens().radius.window;
+    ctx.input(|i| chrome(startup, i.viewport(), radius))
+}
+
 /// The window's options before it is created: no server-side decoration and a
 /// transparent surface (for the round corners) unless the system title bar is in force.
 pub fn viewport(startup: Startup, builder: ViewportBuilder) -> ViewportBuilder {
@@ -100,6 +117,10 @@ pub fn viewport(startup: Startup, builder: ViewportBuilder) -> ViewportBuilder {
 
 /// Asks the compositor for its window menu at `at`, in logical pixels of the main window.
 /// The compositor may show none (xdg-shell gives no guarantee).
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+))]
 pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
     if let Some(window) = frame.winit_window() {
         let at = winit::dpi::LogicalPosition::new(f64::from(at.x), f64::from(at.y));

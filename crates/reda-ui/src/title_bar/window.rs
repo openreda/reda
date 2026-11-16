@@ -33,7 +33,7 @@ pub fn drive(
         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
     }
     if background.double_clicked()
-        && let Some(command) = super::double_click(chrome.maximised)
+        && let Some(command) = super::Platform::recalled(ctx).double_click(chrome.maximised)
     {
         ctx.send_viewport_cmd(command);
     }
