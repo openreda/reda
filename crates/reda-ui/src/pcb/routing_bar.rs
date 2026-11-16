@@ -125,7 +125,7 @@ pub fn show(ui: &Ui, shell: &Shell, id: Id, canvas: Rect) -> Vec<Invocation> {
     ));
     if let Some(chooser) = shell.router().chooser() {
         // Above the bar and its note.
-        let above = anchor - Vec2::new(0.0, 2.0 * crate::chrome::BAR_BUTTON + 24.0);
+        let above = anchor - Vec2::new(0.0, 2.0 * crate::widgets::bar_button_side(&crate::theme::TokensExt::tokens(ui)) + 24.0);
         out.extend(chooser_ui(
             ui,
             shell,

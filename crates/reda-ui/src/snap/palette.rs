@@ -118,7 +118,7 @@ pub fn mode_label(mode: SnapMode) -> String {
 /// the same pop-up.
 pub fn palette_button(ui: &mut egui::Ui, shell: &Shell, document: Uuid) -> Option<(String, Value)> {
     let title = crate::tr!("snap-palette-title");
-    let button = widgets::glyph_button(Glyph::Snap).side(crate::chrome::BAR_BUTTON);
+    let button = widgets::glyph_button(Glyph::Snap);
     let response = ui.push_id(("snap-palette-button", document), |ui| ui.add(button));
     let response = response.inner;
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &title));

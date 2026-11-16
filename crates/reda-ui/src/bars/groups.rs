@@ -6,6 +6,8 @@ use egui::{Id, Ui};
 
 use super::draw::{Cx, Invocation};
 use super::{Action, DocumentType, Item, Menu, resolve_for};
+use crate::theme::TokensExt as _;
+use crate::widgets::{self, Tooltip as _};
 
 /// The Tool a group item activates, from its params: `power_port` for every Power Port
 /// Preset.
@@ -86,10 +88,11 @@ pub(super) fn button(
     let title = crate::i18n::translate(&group.title, &[]);
     let name = crate::tr!("active-bar-group", group = title.clone());
     let opener = ui.interact(corner, response.id.with("group-menu"), egui::Sense::click());
+    let t = ui.tokens();
     let color = if opener.hovered() {
-        ui.visuals().strong_text_color()
+        t.color.text.primary
     } else {
-        ui.visuals().weak_text_color()
+        t.color.text.muted
     };
     ui.painter().add(egui::Shape::convex_polygon(
         vec![
@@ -101,15 +104,12 @@ pub(super) fn button(
         egui::Stroke::NONE,
     ));
     opener.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &name));
-    let opener = opener.on_hover_text(&name);
-    let open = if response.secondary_clicked() {
-        Some(egui::SetOpenCommand::Bool(true))
-    } else {
-        None
-    };
-    egui::Popup::menu(&opener)
-        .open_memory(open.or(opener.clicked().then_some(egui::SetOpenCommand::Toggle)))
-        .accessible_name(title)
+    let opener = opener.tooltip(&name);
+    let mut menu = widgets::menu(&opener).named(title);
+    if response.secondary_clicked() {
+        menu = menu.open();
+    }
+    menu
         .show(|ui| {
             let mut chosen = None;
             for action in members(group) {

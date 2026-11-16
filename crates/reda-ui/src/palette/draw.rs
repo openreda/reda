@@ -2,15 +2,19 @@
 //! place at the top of the window. It does not dim the window. Up and Down move the
 //! selection, Enter or a click chooses it, Escape or a click anywhere else closes it.
 
-use egui::{Button, Id, Key, Order, Pos2, Rect, RichText, ScrollArea, TextEdit};
+use egui::text_edit::TextEditState;
+use egui::{Id, Key, Order, Pos2, Rect, ScrollArea};
 
 use super::{Row, Sources, Target};
 use crate::theme::TokensExt as _;
 use crate::theme::motion::Look;
-use crate::{icons, tr};
+use crate::widgets::{self, Tooltip as _};
+use crate::tr;
 
 /// The most rows drawn at once; typing narrows the rest.
 const SHOWN: usize = 200;
+/// The most the list of rows takes before it scrolls.
+const LIST_HEIGHT: f32 = 360.0;
 /// The Palette's width when the command field is narrower.
 const WIDTH: f32 = 560.0;
 
@@ -109,18 +113,19 @@ impl Palette {
             .min(screen.right() - 8.0 - width)
             .max(screen.left() + 8.0);
         let top = field.map_or(screen.top() + 4.0, |f| f.top());
-        let theme = ctx.theme();
+        let t = ctx.tokens();
         let area = egui::Area::new(id)
             .order(Order::Foreground)
             .fixed_pos(Pos2::new(left, top))
             .fade_in(false)
             .show(ctx, |ui| {
-                egui::Frame::popup(ui.style()).show(ui, |ui| {
-                    ui.set_width(width - 16.0);
-                    let edit = TextEdit::singleline(&mut self.query)
+                widgets::palette_frame(&t).show(ui, |ui| {
+                    ui.set_width(width - 2.0 * widgets::palette_frame_inset(&t));
+                    let edit = widgets::text_field(&mut self.query)
+                        .search()
                         .id(id.with("query"))
-                        .hint_text(tr!("palette-hint"))
-                        .desired_width(f32::INFINITY);
+                        .hint(tr!("palette-hint"))
+                        .width(f32::INFINITY);
                     let field = ui.add(edit);
                     field.widget_info(|| {
                         egui::WidgetInfo::labeled(egui::Role::TextInput, true, tr!("palette-title"))
@@ -130,7 +135,7 @@ impl Palette {
                     }
                     if std::mem::take(&mut self.cursor_to_end) {
                         let mut state =
-                            TextEdit::load_state(ui.ctx(), field.id).unwrap_or_default();
+                            TextEditState::load(ui.ctx(), field.id).unwrap_or_default();
                         let end = egui::text::CCursor::new(self.query.chars().count());
                         state
                             .cursor
@@ -140,26 +145,27 @@ impl Palette {
                     if field.changed() {
                         self.selected = 0;
                     }
-                    ui.add_space(4.0);
+                    ui.add_space(t.space.row_y);
                     if found.is_empty() {
-                        ui.weak(tr!("palette-nothing"));
+                        ui.label(t.ty.body.rich(tr!("palette-nothing")).color(t.color.text.muted));
                     }
                     // The Area remembers its last size: without a minimum, a list that was short keeps
                     // its short height when it grows again (#281).
                     ScrollArea::vertical()
-                        .max_height(360.0)
-                        .min_scrolled_height(360.0)
+                        .max_height(LIST_HEIGHT)
+                        .min_scrolled_height(LIST_HEIGHT)
                         .show(ui, |ui| {
-                            for (i, row) in found.iter().take(SHOWN).enumerate() {
-                                let (target, response) =
-                                    draw_row(ui, row, i == self.selected, theme);
-                                if target.is_some() {
-                                    chosen = target;
+                            widgets::rows(ui, |ui| {
+                                for (i, row) in found.iter().take(SHOWN).enumerate() {
+                                    let (target, response) = draw_row(ui, row, i == self.selected);
+                                    if target.is_some() {
+                                        chosen = target;
+                                    }
+                                    if i == self.selected && (up || down) {
+                                        response.scroll_to_me(None);
+                                    }
                                 }
-                                if i == self.selected && (up || down) {
-                                    response.scroll_to_me(None);
-                                }
-                            }
+                            });
                         });
                 });
             });
@@ -190,38 +196,33 @@ impl Palette {
 }
 
 /// One row; returns its target when clicked.
-fn draw_row(
-    ui: &mut egui::Ui,
-    row: &Row,
-    selected: bool,
-    theme: egui::Theme,
-) -> (Option<Target>, egui::Response) {
+fn draw_row(ui: &mut egui::Ui, row: &Row, selected: bool) -> (Option<Target>, egui::Response) {
     let enabled = row.unavailable.is_none();
-    let mut button = match icons::image(&row.icon, icons::TAB, theme, enabled) {
-        Some(image) => Button::new((image, row.title.as_str())),
-        None => Button::new(row.title.as_str()),
+    // The menu path, the shortcut (a Command's detail) or other detail, then why it
+    // cannot run now.
+    let mut shown = widgets::palette_row(row.title.as_str())
+        .icon(&row.icon)
+        .selected(selected);
+    if let Some(path) = &row.menu_path {
+        shown = shown.note(path);
     }
-    .selected(selected)
-    .frame_when_inactive(selected)
-    .min_size(egui::vec2(ui.available_width(), 0.0));
-    // The menu path, the shortcut, then why it cannot run now.
-    let mut parts: Vec<String> = [&row.menu_path, &row.detail, &row.unavailable]
-        .into_iter()
-        .flatten()
-        .cloned()
-        .collect();
+    if let Some(detail) = &row.detail {
+        shown = match row.target {
+            Target::Run(_) => shown.shortcut(detail),
+            _ => shown.note(detail),
+        };
+    }
+    if let Some(why) = &row.unavailable {
+        shown = shown.note(why);
+    }
     if row.recent {
-        parts.push(tr!("palette-recent"));
+        shown = shown.note(tr!("palette-recent"));
     }
-    let right = (!parts.is_empty()).then(|| parts.join("  ·  "));
-    if let Some(right) = right {
-        button = button.right_text(RichText::new(right).weak());
-    }
-    let response = ui.add_enabled(enabled, button);
+    let response = ui.add_enabled(enabled, shown);
     let response = if row.description.is_empty() {
         response
     } else {
-        response.on_hover_text(&row.description)
+        response.tooltip(&row.description)
     };
     let target = response.clicked().then(|| row.target.clone());
     (target, response)

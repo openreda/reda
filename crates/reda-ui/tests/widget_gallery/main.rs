@@ -16,6 +16,7 @@
 //! along with close-ups of single sections at twice the size (`approval_sheets`): what a
 //! reviewer is shown.
 
+mod bars;
 mod controls;
 mod data;
 mod kit;
@@ -210,3 +211,10 @@ fn approval_sheets() {
     }
     sheets::write_all();
 }
+
+page_snapshots!("bars", bars::SIZE, bars::page:
+    bars_light_comfortable => Light, Comfortable;
+    bars_light_compact => Light, Compact;
+    bars_dark_comfortable => Dark, Comfortable;
+    bars_dark_compact => Dark, Compact;
+);

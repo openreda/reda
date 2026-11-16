@@ -29,6 +29,7 @@
 //! named constants beside their recipe, not `Tokens` entries.
 
 mod badge;
+mod bar;
 mod button;
 mod check;
 mod color;
@@ -39,9 +40,11 @@ mod dropdown;
 mod field;
 mod form;
 pub mod glyph;
+mod key_list;
 mod mark;
 mod menu;
 mod paint;
+mod palette;
 mod range;
 mod row;
 mod section;
@@ -56,6 +59,10 @@ mod tooltip;
 mod window_bar;
 
 pub use badge::{BADGE_PAD_X, BADGE_PAD_Y, Badge, BadgeTone, badge, count_pill};
+pub use bar::{
+    BAR_GAP, BAR_SEPARATOR, bar_button_side, bar_frame, bar_frame_inset, bar_row, bar_separator,
+    bar_separator_sized,
+};
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
 };
@@ -75,12 +82,14 @@ pub use dropdown::{
 pub use field::{InvalidMessage, TextField, invalid_message, number_field, text_field};
 pub use form::{Form, FormName, form, form_name, form_row};
 pub use glyph::{Glyph, GlyphMark, glyph};
+pub use key_list::key_list;
 pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_none, swatch_rgb};
 pub use menu::{
     Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_below, menu_button, menu_frame,
     menu_is_open, menu_item, menu_separator, menu_titles_width,
 };
 pub use paint::{State, drew_focus};
+pub use palette::{PaletteRow, palette_frame, palette_frame_inset, palette_row};
 pub use range::{PROGRESS_RAIL, Progress, SLIDER_KNOB, SLIDER_RAIL, Slider, progress, slider};
 pub use row::{Row, RowResponse, Selection, TREE_INDENT, list_row, rows, tree_row};
 pub use section::{Section, SectionHeader, SectionResponse, section, section_header};
