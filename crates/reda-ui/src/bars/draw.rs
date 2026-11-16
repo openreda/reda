@@ -594,7 +594,7 @@ pub fn tool_bar(
     let look = crate::theme::motion::Look::travel(Vec2::new(0.0, motion.travel));
     crate::theme::motion::layer(ui.ctx(), shown.response.layer_id, look, motion.canvas_bar);
     if let Some(note) = note {
-        let top = shown.response.rect.center_top() - Vec2::new(0.0, t.space.gap);
+        let top = shown.response.rect.center_top() - Vec2::new(0.0, widgets::BAR_GAP);
         egui::Area::new(id.with("tool-bar-note"))
             .order(Order::Middle)
             .fixed_pos(top)
