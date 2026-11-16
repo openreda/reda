@@ -26,7 +26,8 @@ pub fn drive(
     if !chrome.drags {
         return None;
     }
-    if background.drag_started_by(PointerButton::Primary) {
+    let on_empty = pressed_on_empty(ctx, background);
+    if background.drag_started_by(PointerButton::Primary) && on_empty {
         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
     }
     if background.double_clicked()
@@ -38,4 +39,26 @@ pub fn drive(
         return background.interact_pointer_pos();
     }
     None
+}
+
+/// Whether the primary press now held (or pressed this frame) began on the bar's empty space itself, and not on
+/// a button above it. egui hands a drag that starts on a click-only widget (a quick
+/// strip button, a menu title) to the drag-sensing background under it, which would
+/// move the window from a button. Runs every frame the bar drags, to see the press.
+fn pressed_on_empty(ctx: &egui::Context, background: &Response) -> bool {
+    let id = background.id.with("pressed-on-empty");
+    if ctx.input(|i| i.pointer.primary_pressed()) {
+        // Pressed this frame: nothing clickable but the background is under the pointer.
+        let over = ctx.interaction_snapshot(|s| s.hovered.clone());
+        let clickable = |id: &egui::Id| {
+            *id != background.id
+                && ctx
+                    .read_response(*id)
+                    .is_some_and(|r| r.sense.senses_click())
+        };
+        let empty = background.contains_pointer() && !over.iter().any(clickable);
+        ctx.data_mut(|d| d.insert_temp(id, empty));
+        return empty;
+    }
+    ctx.data(|d| d.get_temp(id)).unwrap_or(false)
 }
