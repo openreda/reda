@@ -10,9 +10,13 @@ use reda_engine::model::geom::Nm;
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
 
-use super::buttons;
+use super::{buttons, radio};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets::{self, Tooltip as _};
+
+/// The Miter Size field's width: room for a length with its unit.
+const MITER_WIDTH: f32 = 100.0;
 
 /// The Convert Cross Junctions dialog.
 #[derive(Clone, Debug)]
@@ -112,23 +116,38 @@ impl ConvertCrossDialog {
         .width(360.0)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.radio_value(&mut self.project, false, tr!("convert-cross-scope-sheet"));
-                ui.radio_value(&mut self.project, true, tr!("convert-cross-scope-project"));
+                radio(
+                    ui,
+                    &mut self.project,
+                    false,
+                    tr!("convert-cross-scope-sheet"),
+                );
+                radio(
+                    ui,
+                    &mut self.project,
+                    true,
+                    tr!("convert-cross-scope-project"),
+                );
             });
             ui.horizontal(|ui| {
-                ui.radio_value(&mut self.selected_only, false, tr!("convert-cross-all"));
+                radio(ui, &mut self.selected_only, false, tr!("convert-cross-all"));
                 ui.add_enabled_ui(!self.selected.is_empty(), |ui| {
-                    ui.radio_value(&mut self.selected_only, true, tr!("convert-cross-selected"))
-                        .on_disabled_hover_text(tr!("convert-cross-nothing-selected"));
+                    radio(
+                        ui,
+                        &mut self.selected_only,
+                        true,
+                        tr!("convert-cross-selected"),
+                    )
+                    .disabled_tooltip(tr!("convert-cross-nothing-selected"));
                 });
             });
             ui.horizontal(|ui| {
                 let label = ui.label(tr!("convert-cross-miter"));
-                ui.add(egui::TextEdit::singleline(&mut self.miter).desired_width(100.0))
+                ui.add(widgets::text_field(&mut self.miter).width(MITER_WIDTH))
                     .labelled_by(label.id);
             });
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                super::error(ui, error);
             }
             result = buttons(
                 ui,

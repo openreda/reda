@@ -2,14 +2,19 @@
 //! Net name, and the board name when Append Sheet Numbers changes it), the in-place
 //! edit's text field and the "Paused" chip of a placement paused by Tab.
 
-use egui::{Id, Key, Modifiers, Rect, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Key, Modifiers, Rect, Role, Ui, WidgetInfo};
 use reda_engine::model::Uuid;
 use reda_engine::model::geom::Point;
 use reda_engine::schematic::connectivity::{net_at, project_nets};
 
 use super::{Interaction, Invocation, in_place, point};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
+
+/// The in-place field's width: room for a Designator, a Net name or a line of text.
+const FIELD_WIDTH: f32 = 180.0;
 
 /// The tooltip for the Wire under the pointer on `document`'s canvas: its Net's name,
 /// with the board name when that differs. `None` when the pointer is over no Wire or
@@ -112,7 +117,8 @@ fn text_field(
         .order(egui::Order::Foreground)
         .fixed_pos(pos)
         .show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
+            let t = ui.tokens();
+            widgets::floating_frame(&t).show(ui, |ui| {
                 let focused = ui.memory(|m| m.has_focus(id));
                 if focused {
                     escape = ui.input(|i| i.key_pressed(Key::Escape));
@@ -120,12 +126,14 @@ fn text_field(
                         enter = ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
                     }
                 }
-                let edit = if field.multiline {
-                    TextEdit::multiline(&mut text).desired_rows(2)
-                } else {
-                    TextEdit::singleline(&mut text)
-                };
-                let response = ui.add(edit.id(id).desired_width(180.0));
+                let mut edit = widgets::text_field(&mut text)
+                    .id(id)
+                    .width(FIELD_WIDTH)
+                    .invalid(field.error.is_some());
+                if field.multiline {
+                    edit = edit.rows(2);
+                }
+                let response = ui.add(edit);
                 response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label));
                 if !field.multiline
                     && response.lost_focus()
@@ -137,7 +145,7 @@ fn text_field(
                     response.request_focus();
                 }
                 if let Some(error) = &field.error {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
+                    ui.add(widgets::invalid_message(error));
                 }
             });
         });
@@ -163,8 +171,9 @@ pub(super) fn chip(ui: &Ui, id: egui::Id, at: egui::Pos2, text: &str) {
         .pivot(egui::Align2::LEFT_BOTTOM)
         .interactable(false)
         .show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                let response = ui.label(text);
+            let t = ui.tokens();
+            widgets::tooltip_frame(&t).show(ui, |ui| {
+                let response = ui.label(t.ty.body.rich(text).color(t.color.text.primary));
                 response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Tooltip, true, text));
             });
         });
