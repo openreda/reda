@@ -17,6 +17,7 @@
 //! reviewer is shown.
 
 mod bars;
+mod canvas_chrome;
 mod controls;
 mod data;
 mod kit;
@@ -193,6 +194,13 @@ page_snapshots!("shell", shell::SIZE, shell::page:
     shell_light_compact => Light, Compact;
     shell_dark_comfortable => Dark, Comfortable;
     shell_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("canvas_chrome", canvas_chrome::SIZE, canvas_chrome::page:
+    canvas_chrome_light_comfortable => Light, Comfortable;
+    canvas_chrome_light_compact => Light, Compact;
+    canvas_chrome_dark_comfortable => Dark, Comfortable;
+    canvas_chrome_dark_compact => Dark, Compact;
 );
 
 page_snapshots!("title_bar", title_bar::SIZE, title_bar::page:

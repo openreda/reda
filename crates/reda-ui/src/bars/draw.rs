@@ -317,9 +317,6 @@ fn icon_button_with(
 
 /// How far below the canvas top the Active Bar floats.
 pub(crate) const ACTIVE_BAR_TOP: f32 = 12.0;
-/// The old Active Bar frame's inner margin, which the Show on Board banner still uses
-/// until it is converted.
-pub(crate) const ACTIVE_BAR_MARGIN: i8 = 3;
 /// How close the Active Bar comes to the canvas's sides.
 const ACTIVE_BAR_INSET: f32 = 8.0;
 
