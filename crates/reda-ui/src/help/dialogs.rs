@@ -1,12 +1,14 @@
 //! The Help menu's windows: the About box (with the Licences page showing the notices built
 //! into the binary) and the result of a Check for Updates.
 
-use egui::{Id, TextEdit, TextStyle, Ui};
+use egui::{Id, Ui};
 use reda_engine::Engine;
 
 use super::{NOTICES, UpdateCheck, take_checks, version};
+use crate::settings::layout;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// The open Help windows. The App keeps one and calls [`Dialogs::show`] every frame.
 #[derive(Default)]
@@ -51,18 +53,20 @@ fn about(ctx: &egui::Context, page: &mut AboutPage, version: &str) -> bool {
     let modal = crate::modal::Dialog::new(Id::NULL.with("about"), tr!("about-title"))
         .width(600.0)
         .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(page, AboutPage::About, tr!("about-tab-about"));
-                ui.selectable_value(page, AboutPage::Licences, tr!("about-tab-licences"));
-            });
-            ui.separator();
+            let t = ui.tokens();
+            let pages = [
+                (AboutPage::About, tr!("about-tab-about")),
+                (AboutPage::Licences, tr!("about-tab-licences")),
+            ];
+            ui.add(widgets::segmented(page, &pages));
+            ui.add_space(t.space.section);
             match page {
                 AboutPage::About => {
-                    ui.label(tr!("about-version", version = version));
-                    ui.add_space(6.0);
-                    ui.label(tr!("about-summary"));
-                    ui.add_space(6.0);
-                    ui.label(tr!("about-licence"));
+                    layout::text(ui, tr!("about-version", version = version));
+                    ui.add_space(t.space.stack);
+                    layout::text(ui, tr!("about-summary"));
+                    ui.add_space(t.space.stack);
+                    layout::text(ui, tr!("about-licence"));
                 }
                 AboutPage::Licences => licences(ui),
             }
@@ -73,17 +77,12 @@ fn about(ctx: &egui::Context, page: &mut AboutPage, version: &str) -> bool {
 
 /// The notices, read-only but selectable for copying.
 fn licences(ui: &mut Ui) {
-    let label = ui.label(tr!("about-notices"));
+    let label = layout::text(ui, tr!("about-notices"));
     egui::ScrollArea::vertical()
         .max_height(380.0)
         .show(ui, |ui| {
-            let mut text = NOTICES;
-            ui.add(
-                TextEdit::multiline(&mut text)
-                    .font(TextStyle::Monospace)
-                    .desired_width(f32::INFINITY),
-            )
-            .labelled_by(label.id);
+            ui.add(widgets::text_view(NOTICES).mono())
+                .labelled_by(label.id);
         });
 }
 
@@ -92,11 +91,10 @@ fn update(ctx: &egui::Context, check: &Result<UpdateCheck, String>) -> bool {
     let modal = crate::modal::Dialog::new(Id::NULL.with("update-check"), tr!("update-title"))
         .width(380.0)
         .show(ctx, |ui| {
-            ui.add_space(6.0);
             let check = match check {
                 Ok(check) => check,
                 Err(why) => {
-                    ui.label(tr!("update-failed", why = why.as_str()));
+                    layout::text(ui, tr!("update-failed", why = why.as_str()));
                     return close_button(ui);
                 }
             };
@@ -104,18 +102,23 @@ fn update(ctx: &egui::Context, check: &Result<UpdateCheck, String>) -> bool {
             let current = check.current.as_str();
             match &check.url {
                 Some(url) => {
-                    ui.label(tr!("update-available", latest = latest, current = current));
-                    ui.hyperlink_to(tr!("update-open-release"), url);
+                    layout::text(
+                        ui,
+                        tr!("update-available", latest = latest, current = current),
+                    );
+                    let link = ui.add(widgets::link(tr!("update-open-release")));
+                    if link.tooltip(url).clicked() {
+                        ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                    }
                 }
                 None if super::is_newer(current, latest) => {
-                    ui.label(tr!(
-                        "update-current-dev",
-                        latest = latest,
-                        current = current
-                    ));
+                    layout::text(
+                        ui,
+                        tr!("update-current-dev", latest = latest, current = current),
+                    );
                 }
                 None => {
-                    ui.label(tr!("update-current", latest = latest));
+                    layout::text(ui, tr!("update-current", latest = latest));
                 }
             }
             close_button(ui)

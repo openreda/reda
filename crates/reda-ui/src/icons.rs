@@ -76,21 +76,13 @@ fn source(key: &str) -> Option<&'static [u8]> {
 }
 
 /// The six role colours as the SVG files write them: fixed keys, which [`recolour`] maps
-/// to the theme's values (`color.icon` in the theme's tokens, in the same order).
-pub(crate) const ROLE_KEYS: [u32; 6] = [
-    0x8a93a0, // existing / context
-    0x2fb36b, // created, schematic
-    0xe08a2e, // created, PCB copper
-    0x3d8fd6, // created, general
-    0xec4f7a, // picked point
-    0xd4c03c, // created, board edge and keepout (not copper)
-];
+/// to the theme's values (`color.icon` in the theme's tokens, in the same order). The
+/// table is kept in `theme`, the one place colours are written.
+pub(crate) const ROLE_KEYS: [u32; 6] = crate::theme::ICON_ROLE_KEYS;
 
 /// The role keys: the only colours an icon's SVG file may use.
 pub fn role_keys() -> impl Iterator<Item = Color32> {
-    ROLE_KEYS
-        .iter()
-        .map(|c| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, *c as u8))
+    crate::theme::icon_role_keys().into_iter()
 }
 
 /// The value of each role key on `theme`, in the order of [`ROLE_KEYS`].

@@ -4,6 +4,7 @@
 use egui::Id;
 
 use crate::closing::{Answer, Ask, Closing, Item};
+use crate::settings::layout;
 use crate::tr;
 use crate::widgets;
 
@@ -18,16 +19,15 @@ pub(crate) fn show(ctx: &egui::Context, closing: &mut Closing) -> Option<Answer>
         .show(ctx, |ui| {
             let (save, dont_save) = match ask {
                 Ask::Tab { title, .. } => {
-                    ui.label(tr!("closing-tab-intro", document = title.as_str()));
+                    layout::text(ui, tr!("closing-tab-intro", document = title.as_str()));
                     (tr!("closing-save"), tr!("closing-dont-save"))
                 }
                 Ask::Settings { title, .. } => {
-                    ui.label(tr!("closing-settings-intro", window = title.as_str()));
+                    layout::text(ui, tr!("closing-settings-intro", window = title.as_str()));
                     (tr!("closing-apply"), tr!("closing-discard"))
                 }
                 Ask::List { rows, .. } => {
-                    ui.label(tr!("closing-list-intro"));
-                    ui.separator();
+                    layout::text(ui, tr!("closing-list-intro"));
                     for row in rows.iter_mut() {
                         let label = match row.item {
                             Item::Settings(_) => {
@@ -35,13 +35,13 @@ pub(crate) fn show(ctx: &egui::Context, closing: &mut Closing) -> Option<Answer>
                             }
                             _ => row.title.clone(),
                         };
-                        ui.checkbox(&mut row.ticked, label);
+                        ui.add(widgets::checkbox(&mut row.ticked, label));
                     }
                     (tr!("closing-save-selected"), tr!("closing-dont-save"))
                 }
             };
             if let Some(error) = &error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                layout::error(ui, error);
             }
             crate::modal::buttons(ui, |ui| {
                 if ui.add(widgets::button(save).primary()).clicked() {
