@@ -46,8 +46,12 @@ fn set_recent(home: &Path, recent: &[&Path]) {
     .unwrap();
 }
 
+/// The window every whole-screen snapshot is drawn in: a laptop's, where two side Docks
+/// at their opening width leave the canvas and the editors their room.
+const WINDOW: [f32; 2] = [1280.0, 800.0];
+
 fn builder() -> HarnessBuilder<App> {
-    Harness::builder().with_size([900.0, 560.0])
+    Harness::builder().with_size(WINDOW)
 }
 
 fn harness(home: &Path) -> Harness<'static, App> {
@@ -1505,4 +1509,82 @@ fn snapshot_of_the_board_navigator() {
     h.remove_cursor();
     h.run();
     h.snapshot("board_navigator_zones_dark");
+}
+
+/// Copies the reference Project `tests/projects/<name>` into `folder` and returns its
+/// `.reda` file.
+fn copy_reference_project(folder: &Path, name: &str) -> PathBuf {
+    let from = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/projects")
+        .join(name);
+    let to = folder.join(name);
+    std::fs::create_dir_all(&to).unwrap();
+    let mut reda = None;
+    for entry in std::fs::read_dir(&from).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_file() {
+            let target = to.join(path.file_name().unwrap());
+            std::fs::copy(&path, &target).unwrap();
+            if path.extension().is_some_and(|e| e == "reda") {
+                reda = Some(target);
+            }
+        }
+    }
+    reda.unwrap_or_else(|| panic!("no .reda file in {}", from.display()))
+}
+
+/// The whole window in one of the four variants, for the design language's images: the
+/// 555 blinker's board with its Zones filled, the Projects and Layers Panels open, and the
+/// Active Bar and status bar around it.
+fn whole_app_snapshot(theme: &str, density: &str) {
+    let name = format!("whole_app_{theme}_{density}");
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&name);
+    let file = copy_reference_project(&folder, "blinky_555");
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell.run("pcb.zone.fill", json!({})).unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    shell.run("panel.show", json!({"panel": "layers"})).unwrap();
+    h.run();
+    h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({}))
+        .unwrap();
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_whole_app_light_comfortable() {
+    whole_app_snapshot("light", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_light_compact() {
+    whole_app_snapshot("light", "compact");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_dark_comfortable() {
+    whole_app_snapshot("dark", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_dark_compact() {
+    whole_app_snapshot("dark", "compact");
 }
