@@ -61,10 +61,10 @@ pub use badge::{BADGE_PAD_X, BADGE_PAD_Y, Badge, BadgeTone, badge, count_pill};
 pub use button::{
     Button, ICON_GAP, IconButton, Link, button, glyph_button, icon_button, icon_button_image, link,
 };
-pub use chip::{CHIP_GAP, CHIP_PAD_Y, Chip, chip, chip_rule, chip_strip};
 pub use check::{
     Checkbox, MARK, Radio, SWITCH_KNOB, SWITCH_TRACK, Switch, checkbox, radio, switch,
 };
+pub use chip::{CHIP_GAP, CHIP_PAD_Y, Chip, chip, chip_rule, chip_strip};
 pub use color::{
     ColorButton, PICKER_FIELD, PICKER_HUE, PICKER_WIDTH, color_button, color_picker, data_color,
 };

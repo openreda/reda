@@ -130,7 +130,11 @@ impl BoardUpdateDialog {
                 .show(ui, |ui| {
                     if self.rows.is_empty() && self.error.is_none() {
                         let t = ui.tokens();
-                        ui.label(t.ty.body.rich(tr!("library-update-board-none")).color(t.color.text.muted));
+                        ui.label(
+                            t.ty.body
+                                .rich(tr!("library-update-board-none"))
+                                .color(t.color.text.muted),
+                        );
                     }
                     let t = ui.tokens();
                     // The Designator rows are one width, the widest Designator's.
@@ -175,7 +179,12 @@ impl BoardUpdateDialog {
                                     });
                                     let designator = row.designator.clone();
                                     label.widget_info(|| {
-                                        WidgetInfo::selected(Role::ListItem, true, shown, &designator)
+                                        WidgetInfo::selected(
+                                            Role::ListItem,
+                                            true,
+                                            shown,
+                                            &designator,
+                                        )
                                     });
                                     if label.clicked() {
                                         clicked = Some(row.instance);
@@ -194,10 +203,14 @@ impl BoardUpdateDialog {
                         .and_then(|s| self.rows.iter().find(|r| r.instance == s))
                     {
                         ui.add_space(t.space.section);
-                        ui.label(t.ty.title.rich(tr!(
-                            "library-update-preview-of",
-                            designator = row.designator.clone()
-                        )).color(t.color.text.primary));
+                        ui.label(
+                            t.ty.title
+                                .rich(tr!(
+                                    "library-update-preview-of",
+                                    designator = row.designator.clone()
+                                ))
+                                .color(t.color.text.primary),
+                        );
                         ui.label(
                             t.ty.body_strong
                                 .rich(tr!("library-update-section-footprints"))

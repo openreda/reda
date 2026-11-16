@@ -251,7 +251,11 @@ fn screens(theme: &str, density: &str) -> Vec<String> {
 
     // The outline form.
     w.click("Create rectangle…");
-    check(&w, "outline form", vec![w.dialog("Rectangular Board Outline")]);
+    check(
+        &w,
+        "outline form",
+        vec![w.dialog("Rectangular Board Outline")],
+    );
     w.h.key_press(egui::Key::Escape);
     w.settle();
 
@@ -262,7 +266,16 @@ fn screens(theme: &str, density: &str) -> Vec<String> {
     );
     check(&w, "strip", vec![w.canvas()]);
     w.click("Layer sets");
-    let menu = w.nodes(&["All", "Signal", "NonSignal", "Mechanical", "Top", "Bottom", "Fab", "Save current as"]);
+    let menu = w.nodes(&[
+        "All",
+        "Signal",
+        "NonSignal",
+        "Mechanical",
+        "Top",
+        "Bottom",
+        "Fab",
+        "Save current as",
+    ]);
     check(&w, "strip menu", menu);
     w.h.key_press(egui::Key::Escape);
     w.settle();

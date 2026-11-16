@@ -18,8 +18,8 @@ use crate::a11y;
 use crate::bars::draw::{Cx, Invocation, ToolBarItem, tool_bar, tool_bar_anchor};
 use crate::bars::{self, Action, Binding, DocumentType};
 use crate::shell::Shell;
-use crate::tools::Tool;
 use crate::theme::TokensExt as _;
+use crate::tools::Tool;
 use crate::{tr, widgets};
 
 /// The least width of the chooser's typed field.
@@ -224,8 +224,7 @@ fn chooser_ui(
                         }
                     });
                     let mut typed: String = ui.data(|d| d.get_temp(field_id)).unwrap_or_default();
-                    let response =
-                        ui.add(widgets::text_field(&mut typed).hint(&hint).width(width));
+                    let response = ui.add(widgets::text_field(&mut typed).hint(&hint).width(width));
                     a11y::name(&response, Role::TextInput, true, &hint, None, None);
                     let entered =
                         response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -243,7 +242,9 @@ fn chooser_ui(
 
 /// The width of `text` on one line in `style`.
 fn text_width(ui: &Ui, style: &crate::theme::Text, text: &str) -> f32 {
-    let galley = ui.painter().layout_job(style.job(text, egui::Color32::TRANSPARENT));
+    let galley = ui
+        .painter()
+        .layout_job(style.job(text, egui::Color32::TRANSPARENT));
     galley.size().x.ceil()
 }
 

@@ -144,7 +144,11 @@ fn swatch(
                 widgets::menu(&face).width(width).show(|ui| {
                     layer_rows(ui, shell, pcb, active.uuid, out);
                     widgets::menu_separator(ui);
-                    ui.label(t.ty.small.rich(tr!("layers-sets")).color(t.color.text.muted));
+                    ui.label(
+                        t.ty.small
+                            .rich(tr!("layers-sets"))
+                            .color(t.color.text.muted),
+                    );
                     set_items(ui, shell, out);
                 });
             });
@@ -197,7 +201,9 @@ fn menu_width(ui: &Ui, pcb: &PcbDocument) -> f32 {
     ordered(pcb)
         .into_iter()
         .map(|layer| {
-            let job = t.ty.body.job(&layer_name(pcb, layer), egui::Color32::TRANSPARENT);
+            let job =
+                t.ty.body
+                    .job(&layer_name(pcb, layer), egui::Color32::TRANSPARENT);
             ui.painter().layout_job(job).size().x.ceil() + lead
         })
         .fold(MENU_WIDTH, f32::max)
@@ -205,7 +211,13 @@ fn menu_width(ui: &Ui, pcb: &PcbDocument) -> f32 {
 
 /// The board's Layers as the rows of a menu, each with its swatch, the `active` one
 /// selected. A row is a Layer chip in a list: a click activates, `Mod`+click highlights.
-fn layer_rows(ui: &mut Ui, shell: &Shell, pcb: &PcbDocument, active: Uuid, out: &mut Vec<Invocation>) {
+fn layer_rows(
+    ui: &mut Ui,
+    shell: &Shell,
+    pcb: &PcbDocument,
+    active: Uuid,
+    out: &mut Vec<Invocation>,
+) {
     for layer in ordered(pcb) {
         let name = layer_name(pcb, layer);
         let label = tr!("layer-chip", layer = name.as_str());

@@ -8,11 +8,11 @@ use reda_ui::widgets::{self, State};
 use crate::kit;
 
 /// The size the page is snapshotted at.
-pub const SIZE: Vec2 = vec2(1180.0, 560.0);
+pub const SIZE: Vec2 = vec2(1180.0, 480.0);
 /// The width of a state column.
 const COLUMN: f32 = 168.0;
 /// The size of the stand-in canvas the strip runs along.
-const CANVAS: Vec2 = vec2(760.0, 120.0);
+const CANVAS: Vec2 = vec2(600.0, 100.0);
 /// The Layer strip's height (`bars::draw::LAYER_STRIP_HEIGHT`).
 const STRIP: f32 = 24.0;
 
@@ -30,8 +30,12 @@ pub fn page(ui: &mut Ui) {
     ui.spacing_mut().item_spacing = vec2(t.space.section, t.space.section);
     kit::section(ui, "Layer chips", chips);
     ui.horizontal_top(|ui| {
-        kit::section(ui, "Layer swatch (top right of the canvas)", swatch);
-        kit::section(ui, "Layer strip (along the canvas bottom)", strip);
+        ui.vertical(|ui| {
+            kit::section(ui, "Layer swatch (top right of the canvas)", swatch);
+        });
+        ui.vertical(|ui| {
+            kit::section(ui, "Layer strip (along the canvas bottom)", strip);
+        });
     });
 }
 
@@ -77,7 +81,10 @@ fn strip(ui: &mut Ui) {
     let t = ui.tokens();
     let (canvas, _) = ui.allocate_exact_size(CANVAS, Sense::hover());
     widgets::paint_card(ui, &t, canvas);
-    let rect = Rect::from_min_max(canvas.left_bottom() - vec2(0.0, STRIP), canvas.right_bottom());
+    let rect = Rect::from_min_max(
+        canvas.left_bottom() - vec2(0.0, STRIP),
+        canvas.right_bottom(),
+    );
     widgets::chip_strip(ui, rect, |ui| {
         ui.add(widgets::chip("Layer sets").chevron().forced(State::Rest));
         widgets::chip_rule(ui);

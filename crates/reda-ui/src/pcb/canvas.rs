@@ -291,7 +291,11 @@ fn outline_hint(ui: &Ui, shell: &mut Shell, shown: &CanvasInputs) {
     area.show(ui.ctx(), |ui| {
         widgets::floating_frame(&t).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.label(t.ty.body.rich(tr!("pcb-no-outline")).color(t.color.text.primary));
+                ui.label(
+                    t.ty.body
+                        .rich(tr!("pcb-no-outline"))
+                        .color(t.color.text.primary),
+                );
                 let button = ui.add(widgets::button(tr!("pcb-create-rect")));
                 button.widget_info(|| {
                     WidgetInfo::labeled(Role::Button, true, tr!("pcb-create-rect"))

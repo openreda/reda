@@ -56,14 +56,15 @@ fn the_chips_sit_in_one_row_inside_the_strip() {
     h.run();
     let strip = Rect::from_min_size(pos2(0.0, 176.0), vec2(600.0, 24.0));
     let mut rects = vec![h.get_by_role_and_label(Role::Button, "Layer sets").rect()];
-    rects.extend(
-        LAYERS.map(|name| {
-            h.get_by_role_and_label(Role::Button, &format!("Layer: {name}"))
-                .rect()
-        }),
-    );
+    rects.extend(LAYERS.map(|name| {
+        h.get_by_role_and_label(Role::Button, &format!("Layer: {name}"))
+            .rect()
+    }));
     for pair in rects.windows(2) {
-        assert!(pair[0].right() <= pair[1].left(), "left to right: {rects:?}");
+        assert!(
+            pair[0].right() <= pair[1].left(),
+            "left to right: {rects:?}"
+        );
     }
     for rect in &rects {
         assert!(strip.contains_rect(*rect), "{rect:?} inside {strip:?}");

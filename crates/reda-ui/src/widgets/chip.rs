@@ -19,6 +19,8 @@ use crate::theme::TokensExt as _;
 
 /// The padding above and below a chip's text.
 pub const CHIP_PAD_Y: f32 = 1.0;
+/// Between a chip's text and its chevron.
+pub const CHEVRON_GAP: f32 = 2.0;
 /// Between two chips in a row.
 pub const CHIP_GAP: f32 = 2.0;
 
@@ -100,14 +102,16 @@ impl Widget for Chip {
             }
             if self.chevron {
                 width += glyph::BOX;
+                if text_width > 0.0 {
+                    width += CHEVRON_GAP;
+                }
             }
             let size = vec2(width + 2.0 * t.space.row_x, Chip::height(ui));
             let (rect, response) = ui.allocate_exact_size(size, Sense::click());
             let enabled = ui.is_enabled();
             let name = self.name.as_deref().unwrap_or(&self.text);
-            response.widget_info(|| {
-                WidgetInfo::selected(Role::Button, enabled, self.selected, name)
-            });
+            response
+                .widget_info(|| WidgetInfo::selected(Role::Button, enabled, self.selected, name));
             if !ui.is_rect_visible(rect) {
                 return response;
             }
@@ -143,7 +147,7 @@ impl Widget for Chip {
                     &self.text,
                     c.text.primary,
                 );
-                left = drawn.right();
+                left = drawn.right() + CHEVRON_GAP;
             }
             if self.chevron {
                 let at = pos2(left + glyph::BOX / 2.0, rect.center().y);
@@ -171,7 +175,8 @@ pub fn chip_strip<R>(ui: &mut Ui, rect: Rect, add: impl FnOnce(&mut Ui) -> R) ->
         sw: t.radius.card as u8,
         se: t.radius.card as u8,
     };
-    ui.painter().rect_filled(rect, corners, t.color.surface.card);
+    ui.painter()
+        .rect_filled(rect, corners, t.color.surface.card);
     ui.painter().hline(
         rect.x_range(),
         rect.top(),
