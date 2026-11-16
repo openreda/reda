@@ -177,28 +177,38 @@ impl PasteMapping {
                     row.empty();
                     for c in 0..width {
                         row.ui(|ui| {
-                            let label = tr!("paste-map-column", column = (c + 1).to_string());
-                            let mut column = self.table.columns[c];
-                            widgets::dropdown(id.with(("column", c)), column_name(column))
-                                .width(COLUMN_WIDTH)
-                                .show(ui, |ui| {
-                                    for k in COLUMNS {
-                                        widgets::choice_value(ui, &mut column, k, column_name(k));
-                                    }
-                                })
-                                .response
-                                .widget_info(|| {
-                                    WidgetInfo::labeled(Role::ComboBox, true, label.clone())
+                            ui.vertical(|ui| {
+                                let label = tr!("paste-map-column", column = (c + 1).to_string());
+                                let mut column = self.table.columns[c];
+                                widgets::dropdown(id.with(("column", c)), column_name(column))
+                                    .width(COLUMN_WIDTH)
+                                    .show(ui, |ui| {
+                                        for k in COLUMNS {
+                                            widgets::choice_value(
+                                                ui,
+                                                &mut column,
+                                                k,
+                                                column_name(k),
+                                            );
+                                        }
+                                    })
+                                    .response
+                                    .widget_info(|| {
+                                        WidgetInfo::labeled(Role::ComboBox, true, label.clone())
+                                    });
+                                if column != self.table.columns[c] {
+                                    self.table.set_column(c, column);
+                                }
+                                let what =
+                                    tr!("paste-map-remove-column", column = (c + 1).to_string());
+                                let b = ui.add(widgets::button(tr!("paste-map-remove")).flat());
+                                b.widget_info(|| {
+                                    WidgetInfo::labeled(Role::Button, true, what.clone())
                                 });
-                            if column != self.table.columns[c] {
-                                self.table.set_column(c, column);
-                            }
-                            let what = tr!("paste-map-remove-column", column = (c + 1).to_string());
-                            let b = ui.add(widgets::button(tr!("paste-map-remove")).flat());
-                            b.widget_info(|| WidgetInfo::labeled(Role::Button, true, what.clone()));
-                            if b.clicked() {
-                                remove_column = Some(c);
-                            }
+                                if b.clicked() {
+                                    remove_column = Some(c);
+                                }
+                            })
                         });
                     }
                 });

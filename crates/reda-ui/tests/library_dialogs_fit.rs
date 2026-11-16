@@ -10,13 +10,13 @@ use std::path::Path;
 use egui::Rect;
 use egui_kittest::Harness;
 use reda_testkit::TempDir;
-use reda_ui::command_dialog::{Outcome, ParamForm, ParamsDialog};
+use reda_ui::command_dialog::{Outcome, ParamForm, ParamsDialog, lacks_required};
 use reda_ui::engine::Engine;
 use reda_ui::engine::command::{FixedClock, SeededIds, UserDirs};
 use reda_ui::engine::model::{LibraryElement, Uuid};
 use reda_ui::library_dialogs::{
-    GenerateDialog, ImportDialog, NewLibraryDialog, PasteArrayDialog, PasteMapping,
-    PasteOutcome, SymbolWizardDialog, ToLibraryDialog,
+    GenerateDialog, ImportDialog, NewLibraryDialog, PasteArrayDialog, PasteMapping, PasteOutcome,
+    SymbolWizardDialog, ToLibraryDialog,
 };
 use reda_ui::shell::Shell;
 use reda_ui::theme::{self, Density, Settings};
@@ -101,7 +101,7 @@ impl ParamsDialog for Paste {
     }
 
     fn show(&mut self, ctx: &egui::Context, _shell: &mut Shell) -> Outcome {
-        match self.0.show(ctx, egui::Id::new("paste"), "Apply") {
+        match self.0.show(ctx, egui::Id::NULL.with("paste"), "Apply") {
             PasteOutcome::Open => Outcome::Open,
             PasteOutcome::Cancel => Outcome::Cancel,
             PasteOutcome::Apply(_) => Outcome::Run(Value::Null),
@@ -114,24 +114,28 @@ impl ParamsDialog for Paste {
 }
 
 fn harness(window: Window, dark: bool, density: Density) -> Harness<'static, Window> {
-    let mut h = Harness::builder()
-        .with_size(WINDOW)
-        .build_state(
-            |ctx, w: &mut Window| {
-                w.dialog.show(ctx, &mut w.shell);
-            },
-            window,
-        );
     let settings = Settings {
         density,
         ..Settings::default()
     };
-    theme::set(&h.ctx, &settings);
-    h.ctx.set_theme(if dark {
-        egui::Theme::Dark
-    } else {
-        egui::Theme::Light
-    });
+    let mut themed = false;
+    let mut h = Harness::builder().with_size(WINDOW).build_ui_state(
+        move |ui, w: &mut Window| {
+            let ctx = ui.ctx().clone();
+            // The theme and its fonts go in before the first pass lays out any text.
+            if !themed {
+                themed = true;
+                theme::set(&ctx, &settings);
+                ctx.set_theme(if dark {
+                    egui::Theme::Dark
+                } else {
+                    egui::Theme::Light
+                });
+            }
+            w.dialog.show(&ctx, &mut w.shell);
+        },
+        window,
+    );
     // Tables measure their columns on their first frame and dialogs settle their size
     // and fade in over a few more.
     h.run_steps(30);
@@ -157,7 +161,7 @@ fn misfits(h: &Harness<'static, Window>) -> Vec<String> {
             };
             let rect = text.galley.rect.translate(text.pos.to_vec2());
             let clip: Rect = clipped.clip_rect;
-            if !clip.intersects(rect) || text.galley.is_empty() {
+            if !clip.intersects(rect) || text.galley.text().is_empty() {
                 continue;
             }
             let said = text.galley.text();
@@ -170,7 +174,8 @@ fn misfits(h: &Harness<'static, Window>) -> Vec<String> {
                     (rect.right() - clip.right()).max(clip.left() - rect.left())
                 ));
             }
-            if !screen.contains_rect(rect) {
+            // What a scroll area shows of it must be inside the window.
+            if !screen.contains_rect(rect.intersect(clip)) {
                 out.push(format!("off the window: {said:?}"));
             }
             // A sentence may wrap; a label, a title or a value may not.
@@ -229,12 +234,12 @@ fn dialogs(shell: &Shell, symbol: Uuid, pins: &[Uuid]) -> Vec<(String, Box<dyn P
         ("Generate Chip".into(), Box::new(chip)),
         ("Generate SOIC".into(), Box::new(soic)),
     ];
-    // Every Command's generated form.
+    // The generated form of every Command that opens one when called with nothing.
     let registry = shell.engine().registry();
     let mut ids: Vec<&str> = registry
         .commands()
         .map(|m| m.id)
-        .filter(|id| registry.params_schema(id).is_some())
+        .filter(|id| lacks_required(registry, id, &json!({})))
         .collect();
     ids.sort_unstable();
     for id in ids {

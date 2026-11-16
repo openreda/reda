@@ -28,19 +28,26 @@ impl ParamsDialog for ParamForm {
             crate::modal::Dialog::new(Id::NULL.with("command-form"), self.title().to_owned())
                 .width(420.0)
                 .show(ctx, |ui| {
-                    if !self.description().is_empty() {
-                        layout::muted(ui, self.description().to_owned());
-                    }
-                    ui.add_space(ui.tokens().space.stack);
-                    widgets::form("command-form-fields").show(ui, |ui| {
-                        for field in self.fields_mut() {
-                            let problem = problems
-                                .iter()
-                                .find(|(name, _)| *name == field.name)
-                                .map(|(_, m)| m.as_str());
-                            row(ui, field, problem);
-                        }
-                    });
+                    // A long description or many fields scroll, so the title and the
+                    // buttons stay in the window.
+                    egui::ScrollArea::vertical()
+                        .id_salt("command-form-scroll")
+                        .max_height((ctx.content_rect().height() - CHROME).max(CHROME))
+                        .show(ui, |ui| {
+                            if !self.description().is_empty() {
+                                layout::muted(ui, self.description().to_owned());
+                            }
+                            ui.add_space(ui.tokens().space.stack);
+                            widgets::form("command-form-fields").show(ui, |ui| {
+                                for field in self.fields_mut() {
+                                    let problem = problems
+                                        .iter()
+                                        .find(|(name, _)| *name == field.name)
+                                        .map(|(_, m)| m.as_str());
+                                    row(ui, field, problem);
+                                }
+                            });
+                        });
                     if let Some((_, whole)) = problems.iter().find(|(name, _)| name.is_empty()) {
                         layout::error(ui, whole);
                     }
@@ -79,6 +86,10 @@ impl ParamsDialog for ParamForm {
         self
     }
 }
+
+/// The height a form's dialog keeps for what does not scroll: its title row, padding,
+/// notes and button row, and room around the dialog.
+const CHROME: f32 = 240.0;
 
 /// How wide a field's control is.
 const FIELD_WIDTH: f32 = 260.0;

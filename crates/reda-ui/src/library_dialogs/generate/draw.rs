@@ -11,8 +11,12 @@ use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Tooltip as _};
 
-/// How wide a row's field or dropdown is.
+/// How wide a row's field or dropdown is at least; it takes the rest of its column.
 const FIELD_WIDTH: f32 = 160.0;
+/// The widest the dialog opens.
+const MAX_WIDTH: f32 = 1080.0;
+/// The sections' share of the dialog's width; the preview takes the rest.
+const SECTIONS_SHARE: f32 = 0.6;
 /// How wide the family dropdown is.
 const FAMILY_WIDTH: f32 = 220.0;
 
@@ -34,15 +38,17 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
     // preview, leaving room for the title, notes and buttons.
     let tall = (ctx.content_rect().height() * 0.75).clamp(300.0, 900.0);
     let height = tall - 120.0;
-    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, 920.0);
-    let column = (wide - 40.0) / 2.0;
+    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, MAX_WIDTH);
+    // The sections take the larger share: their fields show long calculated values.
+    let sections_width = ((wide - 40.0) * SECTIONS_SHARE).floor();
+    let preview_width = wide - 40.0 - sections_width;
     let modal = crate::modal::Dialog::new(Id::NULL.with("generate-footprint"), title)
         .width(wide)
         .min_size(egui::vec2(wide - 20.0, tall))
         .show(ctx, |ui| {
             ui.horizontal_top(|ui| {
                 ui.vertical(|ui| {
-                    ui.set_width(column);
+                    ui.set_width(sections_width);
                     egui::ScrollArea::vertical()
                         .max_height(height)
                         .auto_shrink([false, true])
@@ -52,7 +58,7 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
                 // A separator here would take the whole height and grow the dialog.
                 ui.add_space(ui.tokens().space.section);
                 ui.vertical(|ui| {
-                    ui.set_width(column);
+                    ui.set_width(preview_width);
                     egui::ScrollArea::vertical()
                         .max_height(height)
                         .auto_shrink([false, true])
@@ -238,18 +244,20 @@ fn row_ui(
     let mut reset = false;
     ui.vertical(|ui| {
         let id = Id::NULL.with(("generate-field", field.name.as_str()));
+        let width = ui.available_width().max(FIELD_WIDTH);
         let response = match &mut field.input {
             Input::Text(t) | Input::Integer(t) | Input::Measure(t) | Input::Json(t) => {
-                let mut edit = widgets::text_field(t).id(id).width(FIELD_WIDTH);
+                let mut edit = widgets::text_field(t).id(id).width(width);
                 if let Some(value) = &calculated {
                     edit = edit.hint(tr!("generate-calculated", value = value.as_str()));
                 }
                 ui.add(edit)
             }
-            Input::Flag(flag) => flag_box(ui, id, flag, calculated.as_deref()),
+            Input::Flag(flag) => flag_box(ui, id, width, flag, calculated.as_deref()),
             Input::Choice { options, selected } => choice_box(
                 ui,
                 id,
+                width,
                 options,
                 selected,
                 field.required,
@@ -279,6 +287,7 @@ fn row_ui(
 fn flag_box(
     ui: &mut Ui,
     id: Id,
+    width: f32,
     flag: &mut Option<bool>,
     calculated: Option<&str>,
 ) -> egui::Response {
@@ -292,7 +301,7 @@ fn flag_box(
         },
     };
     widgets::dropdown(id, text(*flag))
-        .width(FIELD_WIDTH)
+        .width(width)
         .show(ui, |ui| {
             for v in [None, Some(true), Some(false)] {
                 widgets::choice_value(ui, flag, v, text(v));
@@ -304,6 +313,7 @@ fn flag_box(
 fn choice_box(
     ui: &mut Ui,
     id: Id,
+    width: f32,
     options: &[Value],
     selected: &mut Option<usize>,
     required: bool,
@@ -319,7 +329,7 @@ fn choice_box(
         },
     };
     widgets::dropdown(id, text(*selected))
-        .width(FIELD_WIDTH)
+        .width(width)
         .show(ui, |ui| {
             if !required {
                 widgets::choice_value(ui, selected, None, text(None));
