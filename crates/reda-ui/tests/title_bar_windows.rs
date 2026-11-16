@@ -18,7 +18,7 @@ use egui::{
     pos2, vec2,
 };
 use egui_kittest::Harness;
-use egui_kittest::kittest::{NodeT as _, Queryable as _};
+use egui_kittest::kittest::Queryable as _;
 use reda_testkit::TempDir;
 use reda_ui::App;
 use reda_ui::engine::Engine;
@@ -144,7 +144,10 @@ fn button(h: &Harness<'static, App>, label: &str) -> Rect {
 /// The Title bar's rect: the harness's margin in from the sides, the controls' height.
 fn bar(h: &Harness<'static, App>) -> Rect {
     let close = button(h, "Close");
-    Rect::from_min_max(pos2(MARGIN, close.top()), pos2(WIDTH - MARGIN, close.bottom()))
+    Rect::from_min_max(
+        pos2(MARGIN, close.top()),
+        pos2(WIDTH - MARGIN, close.bottom()),
+    )
 }
 
 /// A point on the bar's empty space: in the drag gap left of the window controls.
@@ -254,12 +257,10 @@ fn check_hits(h: &mut Harness<'static, App>, chrome: Chrome) {
         let expected = title_bar::hit(window, bar, chrome, &items, at);
         let sent = drag(h, at);
         let moved = sent.contains(&ViewportCommand::StartDrag);
-        let resized = sent
-            .iter()
-            .find_map(|c| match c {
-                ViewportCommand::BeginResize(d) => Some(*d),
-                _ => None,
-            });
+        let resized = sent.iter().find_map(|c| match c {
+            ViewportCommand::BeginResize(d) => Some(*d),
+            _ => None,
+        });
         match expected {
             Hit::Drag => assert!(moved && resized.is_none(), "{at:?} drags: {sent:?}"),
             Hit::Resize(direction) => {
@@ -267,7 +268,10 @@ fn check_hits(h: &mut Harness<'static, App>, chrome: Chrome) {
                 assert!(!moved, "{at:?}: {sent:?}");
             }
             Hit::Item | Hit::Client | Hit::Control(_) => {
-                assert!(!moved && resized.is_none(), "{at:?} is {expected:?}: {sent:?}");
+                assert!(
+                    !moved && resized.is_none(),
+                    "{at:?} is {expected:?}: {sent:?}"
+                );
             }
         }
         // Close whatever the press opened.
@@ -315,7 +319,10 @@ fn a_double_click_on_a_maximised_window_restores_it() {
     let mut h = window(&home, CUSTOM, true);
     let at = empty_bar(&h);
     let sent = double_click(&mut h, at);
-    assert!(sent.contains(&ViewportCommand::Maximized(false)), "{sent:?}");
+    assert!(
+        sent.contains(&ViewportCommand::Maximized(false)),
+        "{sent:?}"
+    );
 }
 
 #[test]
@@ -329,8 +336,16 @@ fn pressing_the_edge_strip_starts_a_resize_from_that_edge_or_corner() {
         (pos2(600.0, 1.0), North, CursorIcon::ResizeNorth),
         (pos2(600.0, HEIGHT - 2.0), South, CursorIcon::ResizeSouth),
         (pos2(10.0, 2.0), NorthWest, CursorIcon::ResizeNorthWest),
-        (pos2(WIDTH - 2.0, 10.0), NorthEast, CursorIcon::ResizeNorthEast),
-        (pos2(3.0, HEIGHT - 11.0), SouthWest, CursorIcon::ResizeSouthWest),
+        (
+            pos2(WIDTH - 2.0, 10.0),
+            NorthEast,
+            CursorIcon::ResizeNorthEast,
+        ),
+        (
+            pos2(3.0, HEIGHT - 11.0),
+            SouthWest,
+            CursorIcon::ResizeSouthWest,
+        ),
         (
             pos2(WIDTH - 11.0, HEIGHT - 1.0),
             SouthEast,
@@ -377,9 +392,11 @@ fn the_corners_are_left_to_windows_square_in_reda_and_without_a_rim() {
             "REDA rounds nothing to the window radius"
         );
         assert!(
-            !rects.iter().any(|r| r.stroke.color == t.color.stroke.hairline
-                && r.rect.width() == WIDTH
-                && r.rect.height() == HEIGHT),
+            !rects
+                .iter()
+                .any(|r| r.stroke.color == t.color.stroke.hairline
+                    && r.rect.width() == WIDTH
+                    && r.rect.height() == HEIGHT),
             "no rim: Windows draws the window's border and shadow"
         );
     }

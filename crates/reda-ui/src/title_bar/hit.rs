@@ -104,10 +104,22 @@ mod tests {
 
     #[test]
     fn the_controls_take_the_last_138_px_of_the_bar() {
-        assert_eq!(at(RESTORED, 1080.0, 20.0), Hit::Control(WindowAction::Minimise));
-        assert_eq!(at(RESTORED, 1120.0, 20.0), Hit::Control(WindowAction::Maximise));
-        assert_eq!(at(RESTORED, 1170.0, 20.0), Hit::Control(WindowAction::Close));
-        assert_eq!(at(MAXIMISED, 1120.0, 20.0), Hit::Control(WindowAction::Restore));
+        assert_eq!(
+            at(RESTORED, 1080.0, 20.0),
+            Hit::Control(WindowAction::Minimise)
+        );
+        assert_eq!(
+            at(RESTORED, 1120.0, 20.0),
+            Hit::Control(WindowAction::Maximise)
+        );
+        assert_eq!(
+            at(RESTORED, 1170.0, 20.0),
+            Hit::Control(WindowAction::Close)
+        );
+        assert_eq!(
+            at(MAXIMISED, 1120.0, 20.0),
+            Hit::Control(WindowAction::Restore)
+        );
         // Just left of minimise is the drag gap.
         assert_eq!(at(RESTORED, 1060.0, 20.0), Hit::Drag);
         assert_eq!(at(RESTORED, 1053.0, 20.0), Hit::Drag);
@@ -142,7 +154,10 @@ mod tests {
 
     #[test]
     fn a_maximised_window_has_no_resize_strip() {
-        assert_eq!(at(MAXIMISED, 1199.0, 1.0), Hit::Control(WindowAction::Close));
+        assert_eq!(
+            at(MAXIMISED, 1199.0, 1.0),
+            Hit::Control(WindowAction::Close)
+        );
         assert_eq!(at(MAXIMISED, 600.0, 1.0), Hit::Drag);
         assert_eq!(at(MAXIMISED, 1.0, 20.0), Hit::Drag);
         assert_eq!(at(MAXIMISED, 1.0, 400.0), Hit::Client);

@@ -234,7 +234,9 @@ impl WindowControls {
     /// Draws them left to right from the cursor, where [`window_control_rects`] puts
     /// them; returns what was clicked.
     pub fn show(self, ui: &mut Ui) -> Option<WindowAction> {
-        let height = self.height.unwrap_or_else(|| ui.tokens().title_bar_height());
+        let height = self
+            .height
+            .unwrap_or_else(|| ui.tokens().title_bar_height());
         let at = Rect::from_min_size(ui.cursor().min, vec2(Self::width(), height));
         let mut clicked = None;
         let placed = window_control_rects(at, self.maximised);

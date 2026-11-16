@@ -27,8 +27,8 @@ pub mod wayland;
 pub mod macos;
 // Compiled everywhere, like macos, so the Windows chrome is tested and drawn on any
 // platform; only the window menu inside it reaches winit on Windows.
-pub mod windows;
 mod window;
+pub mod windows;
 
 pub use arrange::{Arrangement, Field, Widths, arrange};
 pub use draw::{FieldText, Outcome, field_text, show};
@@ -168,7 +168,11 @@ impl Platform {
     }
 
     /// The options of a window about to open, as `startup` asks.
-    pub fn viewport(self, startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
+    pub fn viewport(
+        self,
+        startup: Startup,
+        builder: egui::ViewportBuilder,
+    ) -> egui::ViewportBuilder {
         (self.viewport)(startup, builder)
     }
 

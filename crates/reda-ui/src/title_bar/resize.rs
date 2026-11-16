@@ -83,11 +83,13 @@ pub fn show(ctx: &egui::Context, on: bool) {
         .show(ctx, |ui| {
             let pointer = ui.input(|i| i.pointer.hover_pos());
             let under = pointer.and_then(|p| hit(window, p));
-            for (i, (direction, rect)) in zones(window).into_iter().enumerate() {
-                let response = ui.interact(rect, id.with(i), Sense::drag());
-                if under != Some(direction) || !response.hovered() {
-                    continue;
-                }
+            // The pieces overlap (a corner piece lies over its edge's), and egui hovers
+            // only one of them: whichever piece is hovered, the direction is `hit`'s.
+            let mut hovered = false;
+            for (i, (_, rect)) in zones(window).into_iter().enumerate() {
+                hovered |= ui.interact(rect, id.with(i), Sense::drag()).hovered();
+            }
+            if let Some(direction) = under.filter(|_| hovered) {
                 ui.ctx().set_cursor_icon(cursor(direction));
                 if ui.input(|i| i.pointer.button_pressed(PointerButton::Primary)) {
                     ui.ctx()
