@@ -5,9 +5,20 @@ use serde_json::Value;
 
 use super::{GenerateDialog, Preview, Section, Shown, callouts};
 use crate::command_dialog::{Input, Outcome};
+use crate::settings::{layout, strong};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
+
+/// How wide a row's field or dropdown is at least; it takes the rest of its column.
+const FIELD_WIDTH: f32 = 160.0;
+/// The widest the dialog opens.
+const MAX_WIDTH: f32 = 1080.0;
+/// The sections' share of the dialog's width; the preview takes the rest.
+const SECTIONS_SHARE: f32 = 0.6;
+/// How wide the family dropdown is.
+const FAMILY_WIDTH: f32 = 220.0;
 
 pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut Shell) -> Outcome {
     let preview = dialog.preview(shell);
@@ -27,15 +38,17 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
     // preview, leaving room for the title, notes and buttons.
     let tall = (ctx.content_rect().height() * 0.75).clamp(300.0, 900.0);
     let height = tall - 120.0;
-    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, 920.0);
-    let column = (wide - 40.0) / 2.0;
+    let wide = (ctx.content_rect().width() - 32.0).clamp(480.0, MAX_WIDTH);
+    // The sections take the larger share: their fields show long calculated values.
+    let sections_width = ((wide - 40.0) * SECTIONS_SHARE).floor();
+    let preview_width = wide - 40.0 - sections_width;
     let modal = crate::modal::Dialog::new(Id::NULL.with("generate-footprint"), title)
         .width(wide)
         .min_size(egui::vec2(wide - 20.0, tall))
         .show(ctx, |ui| {
             ui.horizontal_top(|ui| {
                 ui.vertical(|ui| {
-                    ui.set_width(column);
+                    ui.set_width(sections_width);
                     egui::ScrollArea::vertical()
                         .max_height(height)
                         .auto_shrink([false, true])
@@ -43,9 +56,9 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
                         .show(ui, |ui| sections(ui, dialog, shell, &preview));
                 });
                 // A separator here would take the whole height and grow the dialog.
-                ui.add_space(12.0);
+                ui.add_space(ui.tokens().space.section);
                 ui.vertical(|ui| {
-                    ui.set_width(column);
+                    ui.set_width(preview_width);
                     egui::ScrollArea::vertical()
                         .max_height(height)
                         .auto_shrink([false, true])
@@ -54,10 +67,10 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
                 });
             });
             if super::super::writable_libraries(shell).is_empty() && dialog.regenerating.is_none() {
-                ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
+                layout::warning(ui, tr!("library-target-missing"));
             }
             if let Some(error) = &dialog.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                layout::error(ui, error);
             }
             crate::modal::buttons(ui, |ui| {
                 let label = match dialog.regenerating {
@@ -69,7 +82,7 @@ pub(super) fn show(dialog: &mut GenerateDialog, ctx: &egui::Context, shell: &mut
                     Some(params) if run.clicked() => outcome = Outcome::Run(params.clone()),
                     Some(_) => {}
                     None => {
-                        run.on_disabled_hover_text(tr!("form-fix-fields"));
+                        run.disabled_tooltip(tr!("form-fix-fields"));
                     }
                 }
                 if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
@@ -96,7 +109,7 @@ impl GenerateDialog {
 fn sections(ui: &mut Ui, dialog: &mut GenerateDialog, shell: &mut Shell, preview: &Preview) {
     match &dialog.regenerating {
         Some(old) => {
-            ui.weak(tr!("generate-regenerating", name = old.name.as_str()));
+            layout::muted(ui, tr!("generate-regenerating", name = old.name.as_str()));
         }
         None => family_list(ui, dialog, shell),
     }
@@ -116,54 +129,50 @@ fn sections(ui: &mut Ui, dialog: &mut GenerateDialog, shell: &mut Shell, preview
         if pointers.is_empty() && section != Section::Target {
             continue;
         }
-        ui.add_space(6.0);
-        ui.strong(section_title(section));
-        egui::Grid::new(("generate-section", section as u8))
-            .num_columns(2)
-            .spacing([8.0, 4.0])
-            .show(ui, |ui| {
-                if section == Section::Target && dialog.regenerating.is_none() {
-                    super::super::library_picker(
-                        ui,
-                        shell,
-                        Id::NULL.with("generate-library"),
-                        &mut dialog.library,
-                    );
-                    ui.end_row();
-                }
-                for pointer in &pointers {
-                    let shown = dialog.shown(preview, pointer);
-                    let problem = problems
-                        .iter()
-                        .find(|(p, _)| p == pointer)
-                        .map(|(_, m)| m.clone());
-                    let resettable = calculable.contains(&pointer.as_str())
-                        || dialog
-                            .form
-                            .row(pointer)
-                            .is_some_and(|r| r.default.is_some());
-                    let Some(row) = dialog
+        layout::group(ui, &section_title(section));
+        widgets::form(("generate-section", section as u8)).show(ui, |ui| {
+            if section == Section::Target && dialog.regenerating.is_none() {
+                super::super::library_picker(
+                    ui,
+                    shell,
+                    Id::NULL.with("generate-library"),
+                    &mut dialog.library,
+                );
+                ui.end_row();
+            }
+            for pointer in &pointers {
+                let shown = dialog.shown(preview, pointer);
+                let problem = problems
+                    .iter()
+                    .find(|(p, _)| p == pointer)
+                    .map(|(_, m)| m.clone());
+                let resettable = calculable.contains(&pointer.as_str())
+                    || dialog
                         .form
-                        .rows_mut()
-                        .iter_mut()
-                        .find(|r| r.pointer() == pointer)
-                    else {
-                        continue;
-                    };
-                    if row_ui(
-                        ui,
-                        &mut row.field,
-                        shown.as_ref(),
-                        problem.as_deref(),
-                        resettable,
-                    ) {
-                        clear = Some(pointer.clone());
-                    }
+                        .row(pointer)
+                        .is_some_and(|r| r.default.is_some());
+                let Some(row) = dialog
+                    .form
+                    .rows_mut()
+                    .iter_mut()
+                    .find(|r| r.pointer() == pointer)
+                else {
+                    continue;
+                };
+                if row_ui(
+                    ui,
+                    &mut row.field,
+                    shown.as_ref(),
+                    problem.as_deref(),
+                    resettable,
+                ) {
+                    clear = Some(pointer.clone());
                 }
-            });
+            }
+        });
     }
     if let Some((_, whole)) = problems.iter().find(|(p, _)| p.is_empty()) {
-        ui.colored_label(ui.visuals().error_fg_color, whole);
+        layout::error(ui, whole);
     }
     if let Some(pointer) = clear {
         dialog.form.clear(&pointer);
@@ -199,13 +208,12 @@ fn family_list(ui: &mut Ui, dialog: &mut GenerateDialog, shell: &Shell) {
         )
     };
     ui.horizontal(|ui| {
-        ui.label(&label);
-        egui::ComboBox::from_id_salt("generate-family")
-            .selected_text(title(&picked))
-            .width(220.0)
-            .show_ui(ui, |ui| {
+        ui.add(widgets::form_name(&label));
+        widgets::dropdown("generate-family", title(&picked))
+            .width(FAMILY_WIDTH)
+            .show(ui, |ui| {
                 for id in reda_engine::library::GENERATORS {
-                    ui.selectable_value(&mut picked, id.to_owned(), title(id));
+                    widgets::choice_value(ui, &mut picked, id.to_owned(), title(id));
                 }
             })
             .response
@@ -228,26 +236,28 @@ fn row_ui(
     } else {
         tr!("form-optional", label = field.label.as_str())
     };
-    let label = ui.label(label);
+    let label = ui.add(widgets::form_name(label));
     if !field.description.is_empty() {
-        label.clone().on_hover_text(&field.description);
+        label.clone().tooltip(&field.description);
     }
     let calculated = shown.filter(|s| s.calculated).map(|s| s.text.clone());
     let mut reset = false;
     ui.vertical(|ui| {
         let id = Id::NULL.with(("generate-field", field.name.as_str()));
+        let width = ui.available_width().max(FIELD_WIDTH);
         let response = match &mut field.input {
             Input::Text(t) | Input::Integer(t) | Input::Measure(t) | Input::Json(t) => {
-                let mut edit = egui::TextEdit::singleline(t).id(id).desired_width(160.0);
+                let mut edit = widgets::text_field(t).id(id).width(width);
                 if let Some(value) = &calculated {
-                    edit = edit.hint_text(tr!("generate-calculated", value = value.as_str()));
+                    edit = edit.hint(tr!("generate-calculated", value = value.as_str()));
                 }
                 ui.add(edit)
             }
-            Input::Flag(flag) => flag_box(ui, id, flag, calculated.as_deref()),
+            Input::Flag(flag) => flag_box(ui, id, width, flag, calculated.as_deref()),
             Input::Choice { options, selected } => choice_box(
                 ui,
                 id,
+                width,
                 options,
                 selected,
                 field.required,
@@ -256,16 +266,18 @@ fn row_ui(
         };
         response.labelled_by(label.id);
         if shown.is_some_and(|s| s.overrides_ipc) {
-            ui.colored_label(ui.visuals().warn_fg_color, tr!("generate-overrides-ipc"));
+            layout::warning(ui, tr!("generate-overrides-ipc"));
         }
         if resettable
             && shown.is_some_and(|s| !s.calculated)
-            && ui.small_button(tr!("generate-use-calculated")).clicked()
+            && ui
+                .add(widgets::button(tr!("generate-use-calculated")).flat())
+                .clicked()
         {
             reset = true;
         }
         if let Some(problem) = problem {
-            ui.colored_label(ui.visuals().error_fg_color, problem);
+            layout::error(ui, problem);
         }
     });
     ui.end_row();
@@ -275,6 +287,7 @@ fn row_ui(
 fn flag_box(
     ui: &mut Ui,
     id: Id,
+    width: f32,
     flag: &mut Option<bool>,
     calculated: Option<&str>,
 ) -> egui::Response {
@@ -287,11 +300,11 @@ fn flag_box(
             _ => tr!("form-default"),
         },
     };
-    egui::ComboBox::from_id_salt(id)
-        .selected_text(text(*flag))
-        .show_ui(ui, |ui| {
+    widgets::dropdown(id, text(*flag))
+        .width(width)
+        .show(ui, |ui| {
             for v in [None, Some(true), Some(false)] {
-                ui.selectable_value(flag, v, text(v));
+                widgets::choice_value(ui, flag, v, text(v));
             }
         })
         .response
@@ -300,6 +313,7 @@ fn flag_box(
 fn choice_box(
     ui: &mut Ui,
     id: Id,
+    width: f32,
     options: &[Value],
     selected: &mut Option<usize>,
     required: bool,
@@ -314,35 +328,38 @@ fn choice_box(
             None => tr!("form-default"),
         },
     };
-    egui::ComboBox::from_id_salt(id)
-        .selected_text(text(*selected))
-        .show_ui(ui, |ui| {
+    widgets::dropdown(id, text(*selected))
+        .width(width)
+        .show(ui, |ui| {
             if !required {
-                ui.selectable_value(selected, None, text(None));
+                widgets::choice_value(ui, selected, None, text(None));
             }
             for i in 0..options.len() {
-                ui.selectable_value(selected, Some(i), text(Some(i)));
+                widgets::choice_value(ui, selected, Some(i), text(Some(i)));
             }
         })
         .response
 }
 
 fn draw_preview(ui: &mut Ui, preview: &Preview, height: f32) {
-    ui.strong(tr!("generate-preview"));
+    strong(ui, tr!("generate-preview"));
     match preview {
         Preview::Incomplete => {
-            ui.weak(tr!("generate-preview-incomplete"));
+            layout::muted(ui, tr!("generate-preview-incomplete"));
         }
         Preview::Invalid(why) => {
-            ui.colored_label(ui.visuals().error_fg_color, why);
+            layout::error(ui, why);
         }
         Preview::Footprint(generated) => {
             let footprint = &generated.footprint;
-            ui.label(&footprint.name);
-            ui.weak(tr!(
-                "generate-preview-pads",
-                count = footprint.pads.len().to_string()
-            ));
+            layout::text(ui, &footprint.name);
+            layout::muted(
+                ui,
+                tr!(
+                    "generate-preview-pads",
+                    count = footprint.pads.len().to_string()
+                ),
+            );
             let fitted = crate::panels::library::preview::footprint_fitted(
                 ui,
                 footprint,
@@ -350,13 +367,13 @@ fn draw_preview(ui: &mut Ui, preview: &Preview, height: f32) {
                 callouts::ROOM,
             );
             if let Some((painter, fit)) = fitted {
-                let colour = ui.visuals().text_color();
+                let colour = ui.tokens().color.text.primary;
                 callouts::paint(&painter, &fit, &callouts::callouts(footprint), colour);
             }
             if !generated.warnings.is_empty() {
-                ui.strong(tr!("generate-warnings"));
+                strong(ui, tr!("generate-warnings"));
                 for w in &generated.warnings {
-                    ui.colored_label(ui.visuals().warn_fg_color, &w.message);
+                    layout::warning(ui, &w.message);
                 }
             }
             regenerate_changes(ui, generated);
@@ -366,17 +383,20 @@ fn draw_preview(ui: &mut Ui, preview: &Preview, height: f32) {
 
 fn regenerate_changes(ui: &mut Ui, generated: &super::Generated) {
     if generated.unchanged == Some(true) {
-        ui.weak(tr!("generate-unchanged"));
+        layout::muted(ui, tr!("generate-unchanged"));
     }
     for lost in &generated.lost {
         let change = format!("{:?}", lost.change).to_lowercase();
-        ui.label(tr!(
-            "generate-lost",
-            what = lost.what.as_str(),
-            change = change.as_str()
-        ));
+        layout::text(
+            ui,
+            tr!(
+                "generate-lost",
+                what = lost.what.as_str(),
+                change = change.as_str()
+            ),
+        );
     }
     for added in &generated.added {
-        ui.label(tr!("generate-added", what = added.what.as_str()));
+        layout::text(ui, tr!("generate-added", what = added.what.as_str()));
     }
 }

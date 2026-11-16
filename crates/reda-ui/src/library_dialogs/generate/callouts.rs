@@ -6,6 +6,7 @@ use reda_engine::model::Footprint;
 use reda_engine::model::geom::{Nm, Point};
 
 use crate::panels::library::preview::Fit;
+use crate::theme::TokensExt as _;
 
 /// The direction a callout measures in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,8 +107,9 @@ const STEP: f32 = 14.0;
 /// Paints `callouts` over a preview drawn with `fit`; each one further out than the one
 /// before on its side.
 pub fn paint(painter: &Painter, fit: &Fit, callouts: &[Callout], colour: Color32) {
-    let stroke = Stroke::new(1.0, colour);
-    let font = egui::FontId::proportional(10.0);
+    let t = painter.ctx().tokens();
+    let stroke = Stroke::new(t.stroke.hairline, colour);
+    let font = t.ty.small.font_id();
     let mut placed: Vec<(Axis, Side)> = Vec::new();
     for c in callouts {
         let level = placed.iter().filter(|p| **p == (c.axis, c.side)).count() as f32;

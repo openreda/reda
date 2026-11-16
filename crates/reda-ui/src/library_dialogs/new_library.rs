@@ -5,12 +5,13 @@
 
 use std::any::Any;
 
-use egui::{Grid, Id, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::command::CommandError;
 use serde_json::{Value, json};
 
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::dialogs::{FileDialogs, Pick};
+use crate::settings::layout;
 use crate::shell::Shell;
 use crate::tr;
 use crate::widgets;
@@ -85,11 +86,11 @@ impl NewLibraryDialog {
     }
 
     fn text_row(ui: &mut Ui, label: String, hint: String, text: &mut String) {
-        ui.label(&label);
+        ui.add(widgets::form_name(&label));
         let response = ui.add(
-            TextEdit::singleline(text)
-                .hint_text(hint)
-                .desired_width(260.0),
+            widgets::text_field(text)
+                .hint(hint)
+                .width(super::FIELD_WIDTH),
         );
         response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, label.clone()));
         ui.end_row();
@@ -115,67 +116,62 @@ impl ParamsDialog for NewLibraryDialog {
             crate::modal::Dialog::new(Id::NULL.with("new-library"), tr!("new-library-title"))
                 .width(480.0)
                 .show(ctx, |ui| {
-                    ui.add_space(6.0);
-                    Grid::new("new-library-fields")
-                        .num_columns(2)
-                        .spacing([8.0, 6.0])
-                        .show(ui, |ui| {
-                            Self::text_row(
-                                ui,
-                                tr!("new-library-name"),
-                                String::new(),
-                                &mut self.name,
-                            );
-                            ui.label(tr!("new-library-for"));
-                            ui.horizontal(|ui| {
-                                ui.add_enabled_ui(self.has_project, |ui| {
-                                    ui.radio_value(
-                                        &mut self.owner,
-                                        For::Project,
-                                        tr!("new-library-for-project"),
-                                    );
-                                });
-                                ui.radio_value(
-                                    &mut self.owner,
-                                    For::User,
-                                    tr!("new-library-for-user"),
+                    widgets::form("new-library-fields").show(ui, |ui| {
+                        Self::text_row(ui, tr!("new-library-name"), String::new(), &mut self.name);
+                        ui.add(widgets::form_name(tr!("new-library-for")));
+                        ui.horizontal(|ui| {
+                            ui.add_enabled_ui(self.has_project, |ui| {
+                                let project = widgets::radio(
+                                    self.owner == For::Project,
+                                    tr!("new-library-for-project"),
                                 );
-                            });
-                            ui.end_row();
-                            let label = tr!("new-library-folder");
-                            ui.label(&label);
-                            ui.horizontal(|ui| {
-                                let hint = match self.owner {
-                                    For::Project => tr!("new-library-folder-project-hint"),
-                                    For::User => String::new(),
-                                };
-                                let response = ui.add(
-                                    TextEdit::singleline(&mut self.folder)
-                                        .hint_text(hint)
-                                        .desired_width(200.0),
-                                );
-                                let name = label.clone();
-                                response.widget_info(|| {
-                                    WidgetInfo::labeled(Role::TextInput, true, name.clone())
-                                });
-                                let browse = ui.add_enabled(
-                                    !self.files.busy(),
-                                    egui::Button::new(tr!("import-browse")),
-                                );
-                                if browse.clicked() {
-                                    self.files.start(ui.ctx(), Pick::LibraryFolder);
+                                if ui.add(project).clicked() {
+                                    self.owner = For::Project;
                                 }
                             });
-                            ui.end_row();
-                            Self::text_row(
-                                ui,
-                                tr!("new-library-description"),
-                                String::new(),
-                                &mut self.description,
+                            let user = widgets::radio(
+                                self.owner == For::User,
+                                tr!("new-library-for-user"),
                             );
+                            if ui.add(user).clicked() {
+                                self.owner = For::User;
+                            }
                         });
+                        ui.end_row();
+                        let label = tr!("new-library-folder");
+                        ui.add(widgets::form_name(&label));
+                        ui.horizontal(|ui| {
+                            let hint = match self.owner {
+                                For::Project => tr!("new-library-folder-project-hint"),
+                                For::User => String::new(),
+                            };
+                            let response = ui.add(
+                                widgets::text_field(&mut self.folder)
+                                    .hint(hint)
+                                    .width(super::PATH_WIDTH),
+                            );
+                            let name = label.clone();
+                            response.widget_info(|| {
+                                WidgetInfo::labeled(Role::TextInput, true, name.clone())
+                            });
+                            let browse = ui.add_enabled(
+                                !self.files.busy(),
+                                widgets::button(tr!("import-browse")),
+                            );
+                            if browse.clicked() {
+                                self.files.start(ui.ctx(), Pick::LibraryFolder);
+                            }
+                        });
+                        ui.end_row();
+                        Self::text_row(
+                            ui,
+                            tr!("new-library-description"),
+                            String::new(),
+                            &mut self.description,
+                        );
+                    });
                     if let Some(error) = &self.error {
-                        ui.colored_label(ui.visuals().error_fg_color, error);
+                        layout::error(ui, error);
                     }
                     crate::modal::buttons(ui, |ui| {
                         let params = self.params();
