@@ -1052,7 +1052,12 @@ fn snapshot_of_a_footprint_generator_form() {
     h.get_by_label("Generate Chip Footprint…").click();
     h.run();
     h.get_by_role_and_label(Role::ComboBox, "Size (optional)")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Size (optional)")
         .click();
+    h.run_steps(8);
+    h.get_by_label("0805").scroll_to_me();
     h.run();
     h.get_by_label("0805").click();
     h.run();
