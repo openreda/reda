@@ -257,13 +257,5 @@ pub const UNCONVERTED: &[&str] = &[
     "palette/draw.rs",
     "part_editor/view.rs",
     "recovery_dialog.rs",
-    "schematic_dialogs/cross.rs",
-    "schematic_dialogs/reannotate.rs",
-    "schematic_dialogs/replace.rs",
-    "schematic_dialogs/text.rs",
-    "schematic_dialogs/update/draw.rs",
-    "schematic_editor/decorate.rs",
-    "selection/picking/pick_list.rs",
-    "shared_element.rs",
     "start_page.rs",
 ];

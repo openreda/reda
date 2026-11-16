@@ -53,14 +53,14 @@ impl ParamsDialog for TextDialog {
             tr!("schematic-text-title"),
         )
         .show(ctx, |ui| {
-            let field = ui.text_edit_singleline(&mut self.words);
+            let field = ui.add(widgets::text_field(&mut self.words));
             field.widget_info(|| {
                 WidgetInfo::labeled(Role::TextInput, true, tr!("schematic-text-words"))
             });
             field.request_focus();
             let enter = field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                super::error(ui, error);
             }
             crate::modal::buttons(ui, |ui| {
                 let place = ui.add_enabled(

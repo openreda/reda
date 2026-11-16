@@ -15,6 +15,10 @@ use serde_json::json;
 use super::update::{Section, describe_change};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
+
+/// The most of the Parts list shown before it scrolls.
+const LIST_HEIGHT: f32 = 220.0;
 
 /// One Part the picker offers.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -268,52 +272,61 @@ impl ReplaceDialog {
                 ui.horizontal(|ui| {
                     let label = ui.label(tr!("replace-search"));
                     searched = ui
-                        .text_edit_singleline(&mut self.search)
+                        .add(widgets::text_field(&mut self.search))
                         .labelled_by(label.id)
                         .changed();
                 });
                 egui::ScrollArea::vertical()
                     .id_salt("replace-parts")
-                    .max_height(220.0)
+                    .max_height(LIST_HEIGHT)
                     .show(ui, |ui| {
-                        for row in &self.rows {
-                            let mut text = row.name.clone();
-                            if !row.value.is_empty() {
-                                text += &format!(" · {}", row.value);
-                            }
-                            text += &format!("  ({})", row.library);
-                            if row.current {
-                                text += &tr!("replace-current");
-                            }
-                            let chosen = self.chosen == Some(row.part);
-                            let response = ui.selectable_label(chosen, text);
-                            let name = row.name.clone();
-                            response.widget_info(|| {
-                                WidgetInfo::selected(Role::ListItem, true, chosen, &name)
-                            });
-                            if response.clicked() {
-                                clicked = Some(row.part);
-                            }
-                        }
-                    });
-                if !self.picker {
-                    egui::ComboBox::from_label(tr!("replace-keep-fields"))
-                        .selected_text(self.keep_fields.label())
-                        .show_ui(ui, |ui| {
-                            for keep in KeepFields::ALL {
-                                ui.selectable_value(&mut self.keep_fields, keep, keep.label());
+                        widgets::rows(ui, |ui| {
+                            for row in &self.rows {
+                                let mut text = row.name.clone();
+                                if !row.value.is_empty() {
+                                    text += &format!(" · {}", row.value);
+                                }
+                                text += &format!("  ({})", row.library);
+                                if row.current {
+                                    text += &tr!("replace-current");
+                                }
+                                let chosen = self.chosen == Some(row.part);
+                                let response = ui.add(widgets::list_row(text).selected(chosen));
+                                let name = row.name.clone();
+                                response.widget_info(|| {
+                                    WidgetInfo::selected(Role::ListItem, true, chosen, &name)
+                                });
+                                if response.clicked() {
+                                    clicked = Some(row.part);
+                                }
                             }
                         });
+                    });
+                if !self.picker {
+                    ui.horizontal(|ui| {
+                        let name = tr!("replace-keep-fields");
+                        ui.label(&name);
+                        let keep = &mut self.keep_fields;
+                        let shown =
+                            widgets::dropdown("replace-keep-fields", keep.label()).show(ui, |ui| {
+                                for choice in KeepFields::ALL {
+                                    widgets::choice_value(ui, keep, choice, choice.label());
+                                }
+                            });
+                        shown
+                            .response
+                            .widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, &name));
+                    });
                 }
-                ui.label(egui::RichText::new(tr!("replace-differences")).strong());
+                super::strong(ui, tr!("replace-differences"));
                 if self.chosen.is_some() && self.differences.is_empty() {
-                    ui.weak(tr!("replace-no-differences"));
+                    super::muted(ui, tr!("replace-no-differences"));
                 }
                 for text in &self.differences {
                     ui.label(text);
                 }
                 if let Some(error) = &self.error {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
+                    super::error(ui, error);
                 }
                 let action = if self.picker {
                     tr!("replace-choose")
