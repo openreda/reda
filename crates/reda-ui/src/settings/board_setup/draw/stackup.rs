@@ -162,8 +162,8 @@ fn band_rgb(band: Band, mask: &str, silk: &str) -> (u8, u8, u8) {
 /// [`band_rgb`] as a colour to paint with.
 fn band_color(band: Band, mask: &str, silk: &str) -> Color32 {
     let (r, g, b) = band_rgb(band, mask, silk);
-    // theme-exempt: a cross-section band is painted in the board's own mask, silkscreen and material colours, which are data
-    Color32::from_rgb(r, g, b)
+    // The board's own mask, silkscreen and material colours: data, not theme values.
+    crate::widgets::data_color(r, g, b)
 }
 
 /// How tall a band is drawn: by kind, not by thickness.

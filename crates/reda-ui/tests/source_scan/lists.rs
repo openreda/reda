@@ -23,8 +23,7 @@ pub const EXEMPT: &[&str] = &[
 
 /// Stock egui widgets that have a REDA widget, banned outside the exempt modules. The
 /// slice that lands a REDA widget adds the stock patterns it replaces.
-/// A pattern that starts with a letter matches only at the start of a word. Files on
-/// [`UNCONVERTED`] are skipped, so a new pattern fails only files already converted.
+/// A pattern that starts with a letter matches only at the start of a word.
 pub const STOCK_WIDGETS: &[StockWidget] = &[
     // The controls (`widgets/button.rs`, `field.rs`, `dropdown.rs`, `check.rs`,
     // `range.rs`, `segmented.rs`, `stepper.rs`).
@@ -240,8 +239,3 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
         instead: "`widgets::form` with `widgets::form_row` for names and values, or `widgets::table`",
     },
 ];
-
-/// Files not yet converted, sorted. The scan skips a listed file and fails once it is
-/// clean, so the slice that converts a file deletes its line here. Never add a file: a
-/// new file must be clean from the start.
-pub const UNCONVERTED: &[&str] = &[];

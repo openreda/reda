@@ -80,8 +80,8 @@ pub(super) fn button(
         ui.data_mut(|d| d.insert_temp(key, face.id.clone()));
     }
     let (mut clicked, response) = super::draw::icon_button_response(ui, cx, face);
-    // The corner: a small triangle at the bottom right, painted (the UI font lacks the
-    // glyph), which opens the group's menu, as a right-click on the face does.
+    // The corner: the corner Glyph at the bottom right, which opens the group's menu, as
+    // a right-click on the face does.
     let r = response.rect;
     let corner =
         egui::Rect::from_min_max(r.right_bottom() - egui::vec2(12.0, 12.0), r.right_bottom());
@@ -94,15 +94,12 @@ pub(super) fn button(
     } else {
         t.color.text.muted
     };
-    ui.painter().add(egui::Shape::convex_polygon(
-        vec![
-            r.right_bottom() + egui::vec2(-3.0, -3.0),
-            r.right_bottom() + egui::vec2(-3.0, -9.0),
-            r.right_bottom() + egui::vec2(-9.0, -3.0),
-        ],
+    // The Glyph's box ends at the button's corner, so its triangle sits 3 px inside it.
+    widgets::Glyph::Corner.paint(
+        ui.painter(),
+        r.right_bottom() - egui::Vec2::splat(widgets::glyph::BOX / 2.0),
         color,
-        egui::Stroke::NONE,
-    ));
+    );
     opener.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &name));
     let opener = opener.tooltip(&name);
     let mut menu = widgets::menu(&opener).named(title);
