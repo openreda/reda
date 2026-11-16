@@ -30,6 +30,7 @@ use crate::bars::DocumentType;
 use crate::canvas::CanvasInputs;
 use crate::messages::{self, Note};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
@@ -224,7 +225,14 @@ pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec
     match shell.engine().element(element) {
         Some(LibraryElement::Footprint(_)) => {
             let id = egui::Id::NULL.with(("element-side-panel", element));
+            // The panel's text keeps a gap from the canvas beside it.
+            let t = ui.tokens();
+            let frame = egui::Frame::new().inner_margin(egui::Margin {
+                left: t.space.panel as i8,
+                ..egui::Margin::ZERO
+            });
             egui::Panel::right(id)
+                .frame(frame)
                 .resizable(false)
                 .exact_size(crate::footprint_editor::inspector::WIDTH)
                 .show(ui, |ui| {
