@@ -247,15 +247,8 @@ pub const STOCK_WIDGETS: &[StockWidget] = &[
 pub const UNCONVERTED: &[&str] = &[
     "bars/draw.rs",
     "bars/groups.rs",
-    "closing_dialog.rs",
     "footprint_editor/inspector.rs",
-    "help/dialogs.rs",
-    "icons.rs",
-    "job_run/draw.rs",
     "keys_card.rs",
-    "new_project.rs",
     "palette/draw.rs",
     "part_editor/view.rs",
-    "recovery_dialog.rs",
-    "start_page.rs",
 ];

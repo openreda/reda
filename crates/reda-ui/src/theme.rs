@@ -30,6 +30,17 @@ pub use tokens::{
     Transition, Type,
 };
 
+/// The six role colours as the icon SVG files write them, in the order of
+/// [`IconColor::roles`]: fixed keys in the art, which `icons::recolour` swaps for the
+/// theme's `color.icon` values. They are not theme values, but they are colours, and
+/// colours are written only here.
+pub const ICON_ROLE_KEYS: [u32; 6] = palette::ICON_KEYS;
+
+/// [`ICON_ROLE_KEYS`] as colours: the only colours an icon's SVG file may use.
+pub fn icon_role_keys() -> [Color32; 6] {
+    ICON_ROLE_KEYS.map(|c| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8))
+}
+
 /// `top`, which may be translucent, laid over `under`: how a hover or press fill goes over
 /// a control, a tint over a surface. The only colour blending the chrome does.
 pub fn over(top: Color32, under: Color32) -> Color32 {

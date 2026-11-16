@@ -4,11 +4,13 @@
 
 use std::path::PathBuf;
 
-use egui::{Id, RichText};
+use egui::Id;
 
 use crate::recovery::{Choice, Prompt};
+use crate::settings::{self, layout};
+use crate::theme::TokensExt as _;
 use crate::tr;
-use crate::widgets;
+use crate::widgets::{self, Tooltip as _};
 
 /// What the recovery prompt asked for.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,45 +28,44 @@ pub(crate) fn recovery(ctx: &egui::Context, prompt: &Prompt) -> Option<RecoveryA
     crate::modal::Dialog::new(Id::NULL.with("recovery-prompt"), tr!("recovery-title"))
         .width(560.0)
         .show(ctx, |ui| {
-            ui.label(tr!("recovery-intro"));
-            ui.separator();
+            let t = ui.tokens();
+            layout::text(ui, tr!("recovery-intro"));
             for row in &prompt.rows {
                 let file = row.found.snapshot.file.clone();
-                ui.group(|ui| {
+                widgets::card_frame(&t).show(ui, |ui| {
+                    ui.set_width(ui.available_width());
                     ui.add_enabled_ui(row.can_restore(), |ui| {
-                        ui.strong(row.title());
+                        settings::strong(ui, row.title());
                         if row.found.snapshot.taken > 0 {
-                            ui.weak(tr!("recovery-taken", time = utc(row.found.snapshot.taken)));
+                            let taken = utc(row.found.snapshot.taken);
+                            layout::muted(ui, tr!("recovery-taken", time = taken));
                         }
                     });
                     if let Some(error) = row.error() {
-                        ui.colored_label(
-                            ui.visuals().error_fg_color,
-                            tr!("recovery-unreadable", error = error),
-                        );
+                        layout::error(ui, tr!("recovery-unreadable", error = error));
                     } else if row.found.disk_changed {
-                        ui.colored_label(ui.visuals().warn_fg_color, tr!("recovery-disk-changed"));
+                        layout::warning(ui, tr!("recovery-disk-changed"));
                     } else if row.found.missing {
-                        ui.label(tr!("recovery-missing"));
+                        layout::text(ui, tr!("recovery-missing"));
                     }
                     ui.horizontal(|ui| {
-                        let emphasis = |text: String, on: bool| match on {
-                            true => RichText::new(text).strong(),
-                            false => RichText::new(text),
-                        };
+                        // The row's choice is the toggle that is on.
                         if row.can_restore() {
-                            let restore =
-                                emphasis(tr!("recovery-restore"), row.choice == Choice::Restore);
-                            if ui.button(restore).clicked() {
+                            let restore = widgets::button(tr!("recovery-restore"))
+                                .on(row.choice == Choice::Restore);
+                            if ui.add(restore).clicked() {
                                 action = Some(RecoveryAction::Restore(file.clone()));
                             }
                         }
-                        let discard =
-                            emphasis(tr!("recovery-discard"), row.choice == Choice::Discard);
-                        if ui.button(discard).clicked() {
+                        let discard = widgets::button(tr!("recovery-discard"))
+                            .on(row.choice == Choice::Discard);
+                        if ui.add(discard).clicked() {
                             action = Some(RecoveryAction::Discard(file.clone()));
                         }
-                        if !row.can_restore() && ui.button(tr!("recovery-show-in-folder")).clicked()
+                        if !row.can_restore()
+                            && ui
+                                .add(widgets::button(tr!("recovery-show-in-folder")))
+                                .clicked()
                         {
                             action = Some(RecoveryAction::ShowInFolder(prompt.dir.clone()));
                         }
@@ -104,12 +105,12 @@ pub(crate) fn crash(ctx: &egui::Context, report: &std::path::Path) -> Option<Cra
     crate::modal::Dialog::new(Id::NULL.with("crash-report"), tr!("crash-title"))
         .width(480.0)
         .show(ctx, |ui| {
-            ui.label(tr!("crash-intro"));
-            ui.monospace(report.display().to_string());
+            layout::text(ui, tr!("crash-intro"));
+            settings::mono(ui, report.display().to_string());
             crate::modal::buttons(ui, |ui| {
                 if ui
                     .add(widgets::button(tr!("crash-report-github")).primary())
-                    .on_hover_text(tr!("crash-report-github-hint"))
+                    .tooltip(tr!("crash-report-github-hint"))
                     .clicked()
                 {
                     action = Some(CrashAction::ReportOnGitHub);

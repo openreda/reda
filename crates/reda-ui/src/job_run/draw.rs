@@ -3,9 +3,11 @@
 
 use std::path::PathBuf;
 
-use egui::{Id, ProgressBar, RichText, ScrollArea, Ui};
+use egui::{Align, Id, Layout, ScrollArea, Ui};
 
 use super::{JobRunner, JobStatus, RunOutcome, RunReport};
+use crate::settings::{self, layout};
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
@@ -27,9 +29,19 @@ pub fn show_progress(ctx: &egui::Context, run: &JobRunner) -> bool {
     )
     .width(380.0)
     .show(ctx, |ui| {
-        ui.add_space(6.0);
-        ui.add(ProgressBar::new(step.fraction).show_percentage());
-        ui.weak(&step.message);
+        let t = ui.tokens();
+        ui.add(widgets::progress(step.fraction).named(run.job_name()));
+        ui.add_space(t.space.stack);
+        ui.horizontal(|ui| {
+            // The percentage first, so a long message is cut rather than pushing it out.
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let percent = format!("{:.0}%", step.fraction.clamp(0.0, 1.0) * 100.0);
+                ui.label(t.ty.numeric_small.rich(percent).color(t.color.text.muted));
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    layout::muted(ui, &step.message);
+                });
+            });
+        });
         crate::modal::buttons(ui, |ui| {
             let cancelling = run.cancelling();
             let label = if cancelling {
@@ -63,23 +75,26 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                 RunOutcome::Written {
                     destination, files, ..
                 } => {
-                    ui.label(tr!(
-                        "output-job-written",
-                        count = files.len(),
-                        folder = destination.display().to_string()
-                    ));
+                    layout::text(
+                        ui,
+                        tr!(
+                            "output-job-written",
+                            count = files.len(),
+                            folder = destination.display().to_string()
+                        ),
+                    );
                     for file in files {
-                        ui.monospace(&file.name);
+                        settings::mono(ui, &file.name);
                     }
                 }
                 RunOutcome::Blocked => {
-                    ui.label(tr!("output-job-nothing-written"));
+                    layout::text(ui, tr!("output-job-nothing-written"));
                 }
                 RunOutcome::Cancelled => {
-                    ui.label(tr!("output-job-nothing-written"));
+                    layout::text(ui, tr!("output-job-nothing-written"));
                 }
                 RunOutcome::Failed(message) => {
-                    ui.colored_label(ui.visuals().error_fg_color, message);
+                    layout::error(ui, message);
                 }
                 RunOutcome::All { jobs, stopped } => {
                     for line in jobs {
@@ -87,8 +102,9 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                             let name = line.name.as_str();
                             match &line.status {
                                 JobStatus::Written { destination } => {
-                                    ui.label(tr!("output-job-all-written", job = name));
-                                    let button = ui.button(tr!("output-job-show-zip"));
+                                    layout::text(ui, tr!("output-job-all-written", job = name));
+                                    let show = widgets::button(tr!("output-job-show-zip"));
+                                    let button = ui.add(show);
                                     let label = tr!("output-job-all-show", job = name);
                                     button.widget_info(|| {
                                         egui::WidgetInfo::labeled(
@@ -103,14 +119,11 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                                     }
                                 }
                                 JobStatus::Blocked => {
-                                    ui.colored_label(
-                                        ui.visuals().error_fg_color,
-                                        tr!("output-job-all-blocked", job = name),
-                                    );
+                                    layout::error(ui, tr!("output-job-all-blocked", job = name));
                                 }
                                 JobStatus::Failed(why) => {
-                                    ui.colored_label(
-                                        ui.visuals().error_fg_color,
+                                    layout::error(
+                                        ui,
                                         tr!(
                                             "output-job-all-failed",
                                             job = name,
@@ -119,13 +132,13 @@ pub fn show_report(ctx: &egui::Context, report: &RunReport) -> Option<ReportActi
                                     );
                                 }
                                 JobStatus::NotRun => {
-                                    ui.weak(tr!("output-job-all-not-run", job = name));
+                                    layout::muted(ui, tr!("output-job-all-not-run", job = name));
                                 }
                             }
                         });
                     }
                     if *stopped {
-                        ui.weak(tr!("output-job-all-stopped"));
+                        layout::muted(ui, tr!("output-job-all-stopped"));
                     }
                 }
             }
@@ -156,14 +169,14 @@ fn list(ui: &mut Ui, title: String, lines: &[String], error: bool) {
     if lines.is_empty() {
         return;
     }
-    ui.add_space(6.0);
-    ui.strong(title);
-    let colour = if error {
-        ui.visuals().error_fg_color
-    } else {
-        ui.visuals().warn_fg_color
-    };
+    let t = ui.tokens();
+    ui.add_space(t.space.stack);
+    settings::strong(ui, title);
     for line in lines {
-        ui.label(RichText::new(line).color(colour));
+        if error {
+            layout::error(ui, line);
+        } else {
+            layout::warning(ui, line);
+        }
     }
 }

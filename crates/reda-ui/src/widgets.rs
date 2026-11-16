@@ -23,6 +23,8 @@
 //! [`State`] forces one state, for the gallery that snapshots them side by side
 //! (`tests/widget_gallery.rs`).
 //!
+//! `text_view` shows a long text to read and copy, such as the third-party notices.
+//!
 //! The Title bar's recipes are here too: `command_field`, `window_controls` and the slim
 //! `floating_bar` of a floating window.
 //!
@@ -54,6 +56,7 @@ mod stepper;
 mod surface;
 mod tab;
 mod table;
+mod text_view;
 mod tooltip;
 mod window_bar;
 
@@ -100,6 +103,7 @@ pub use tab::{
     TAB_INSET, Tab, TabKind, TabResponse, accent_line, dock_strip, join_tab, tab, tab_strip,
 };
 pub use table::{COLUMN_GAP, Column, RowLook, Sorted, Table, TableBody, TableRow, table};
+pub use text_view::{TextView, text_view};
 pub use tooltip::{
     KeyChip, TOOLTIP_WIDTH, Tooltip, TooltipText, key_chip, tooltip_contents, tooltip_frame,
 };

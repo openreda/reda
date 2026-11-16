@@ -4,6 +4,8 @@
 use egui::{Id, Ui};
 use serde_json::{Value, json};
 
+use crate::settings::{self, layout};
+use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets;
 
@@ -84,58 +86,49 @@ impl NewProjectForm {
             crate::modal::Dialog::new(Id::NULL.with("new-project"), tr!("new-project-title"))
                 .width(380.0)
                 .show(ctx, |ui| {
-                    ui.add_space(6.0);
-                    egui::Grid::new("new-project-fields")
-                        .num_columns(2)
-                        .spacing([8.0, 6.0])
-                        .show(ui, |ui| {
-                            labelled_field(ui, &tr!("new-project-name"), &mut self.name, true);
-                            ui.end_row();
-                            labelled_field(
-                                ui,
-                                &tr!("new-project-location"),
-                                &mut self.location,
-                                true,
-                            );
-                            ui.end_row();
-                            ui.label("");
-                            if ui.button(tr!("new-project-browse")).clicked() {
-                                action = FormAction::Browse;
-                            }
-                            ui.end_row();
-                        });
-                    ui.add_space(8.0);
-                    ui.strong(tr!("new-project-fab-preset"));
+                    let t = ui.tokens();
+                    widgets::form("new-project-fields").show(ui, |ui| {
+                        labelled_field(ui, &tr!("new-project-name"), &mut self.name, true);
+                        ui.end_row();
+                        labelled_field(ui, &tr!("new-project-location"), &mut self.location, true);
+                        ui.end_row();
+                        ui.label("");
+                        if ui.add(widgets::button(tr!("new-project-browse"))).clicked() {
+                            action = FormAction::Browse;
+                        }
+                        ui.end_row();
+                    });
+                    ui.add_space(t.space.section);
+                    settings::strong(ui, tr!("new-project-fab-preset"));
                     for preset in &self.presets {
-                        ui.radio_value(&mut self.preset, preset.clone(), preset);
+                        radio(ui, &mut self.preset, preset.clone(), preset);
                     }
-                    ui.weak(tr!("new-project-fab-preset-note"));
-                    ui.add_space(8.0);
-                    ui.strong(tr!("new-project-board"));
-                    ui.radio_value(
+                    layout::muted(ui, tr!("new-project-fab-preset-note"));
+                    ui.add_space(t.space.section);
+                    settings::strong(ui, tr!("new-project-board"));
+                    radio(
+                        ui,
                         &mut self.board,
                         Board::DrawLater,
                         tr!("new-project-draw-later"),
                     );
-                    ui.radio_value(
+                    radio(
+                        ui,
                         &mut self.board,
                         Board::Rectangle,
                         tr!("new-project-rectangle"),
                     );
                     let rectangle = self.board == Board::Rectangle;
-                    egui::Grid::new("new-project-board")
-                        .num_columns(2)
-                        .spacing([8.0, 6.0])
-                        .show(ui, |ui| {
-                            for (label, value) in [
-                                (tr!("new-project-width"), &mut self.width),
-                                (tr!("new-project-height"), &mut self.height),
-                                (tr!("new-project-corner-radius"), &mut self.corner_radius),
-                            ] {
-                                labelled_field(ui, &label, value, rectangle);
-                                ui.end_row();
-                            }
-                        });
+                    widgets::form("new-project-board").show(ui, |ui| {
+                        for (label, value) in [
+                            (tr!("new-project-width"), &mut self.width),
+                            (tr!("new-project-height"), &mut self.height),
+                            (tr!("new-project-corner-radius"), &mut self.corner_radius),
+                        ] {
+                            labelled_field(ui, &label, value, rectangle);
+                            ui.end_row();
+                        }
+                    });
                     crate::modal::buttons(ui, |ui| {
                         let ready = self.params().is_some();
                         if ui
@@ -166,10 +159,17 @@ fn positive_mm(text: &str) -> Option<String> {
 }
 
 fn labelled_field(ui: &mut Ui, label: &str, value: &mut String, enabled: bool) {
-    let label = ui.label(label);
-    ui.add_enabled(
-        enabled,
-        egui::TextEdit::singleline(value).desired_width(240.0),
-    )
-    .labelled_by(label.id);
+    let label = ui.add(widgets::form_name(label));
+    ui.add_enabled(enabled, widgets::text_field(value).width(FIELD_WIDTH))
+        .labelled_by(label.id);
+}
+
+/// The width of the dialog's text fields.
+const FIELD_WIDTH: f32 = 240.0;
+
+/// A radio button for `choice`: clicking it sets `value` to `choice`.
+fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, choice: T, text: impl Into<String>) {
+    if ui.add(widgets::radio(*value == choice, text)).clicked() {
+        *value = choice;
+    }
 }
