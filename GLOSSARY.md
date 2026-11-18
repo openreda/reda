@@ -202,6 +202,18 @@ _Avoid_: Layer stack, build-up, layer setup
 An insulating entry in the Stackup between copper. It holds no objects, so it is not a Layer.
 _Avoid_: Dielectric layer, substrate layer
 
+**Core**:
+A Dielectric that arrives at the fab already cured, usually with copper on both faces.
+_Avoid_: Laminate, base material
+
+**Prepreg**:
+A Dielectric that is pressed and cured while the board is built, bonding the Cores and copper around it. Its finished thickness depends on the pressing.
+_Avoid_: Bonding sheet, PP
+
+**Construction**:
+A fabrication house's named, complete Stackup, such as `JLC04161H-7628`, carried by a Fab Preset so that a board can start from it and the order can name it.
+_Avoid_: Stackup template, stackup preset, build-up
+
 **Pad**:
 A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
 _Avoid_: Land, pin (pins are on Symbols)
