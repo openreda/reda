@@ -20,6 +20,10 @@ ignore = [
     # owned_ttf_parser), which parses one installed font to draw the window title. Drop this
     # once ab_glyph moves to a maintained parser.
     { id = "RUSTSEC-2026-0192", reason = "via sctk-adwaita's ab_glyph; awaiting upstream" },
+    # chrono is unmaintained (informational, no known vulnerability). It reaches us only through
+    # rmcp, the MCP server library reda-cli uses (rmcp depends on it and turns on schemars'
+    # chrono support); REDA itself never calls it. Drop this once rmcp moves off chrono.
+    { id = "RUSTSEC-2026-0543", reason = "via rmcp; awaiting upstream" },
 ]
 
 [licenses]
