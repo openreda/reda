@@ -18,13 +18,13 @@ mod draw;
 pub mod hit;
 pub mod resize;
 // Compiled everywhere, like macos and windows, so its chrome is tested and drawn on any
-// platform; what reaches winit inside it is Linux-only.
+// platform.
 pub mod wayland;
 // Compiled everywhere, so its pure functions are tested on any platform; what reaches
 // AppKit inside it is macOS-only.
 pub mod macos;
 // Compiled everywhere, like macos, so the Windows chrome is tested and drawn on any
-// platform; only the window menu inside it reaches winit on Windows.
+// platform.
 mod window;
 pub mod windows;
 
@@ -91,15 +91,22 @@ pub fn viewport(startup: Startup, builder: egui::ViewportBuilder) -> egui::Viewp
 }
 
 /// Shows the system window menu at `at` (logical pixels in the main window), where the
-/// platform has one that REDA can reach: only the main window's, through eframe.
+/// platform has one that REDA can reach: only the main window's, through eframe. One winit
+/// call serves both platforms: on Windows `GetSystemMenu` and `TrackPopupMenu` (Restore, Move,
+/// Size, Minimise, Maximise, Close); under Wayland the compositor's window menu, which it
+/// may decline to show (xdg-shell gives no guarantee).
 pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
-    #[cfg(all(
-        unix,
-        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    #[cfg(any(
+        target_os = "windows",
+        all(
+            unix,
+            not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+        )
     ))]
-    wayland::show_window_menu(frame, at);
-    #[cfg(target_os = "windows")]
-    windows::show_window_menu(frame, at);
+    if let Some(window) = frame.winit_window() {
+        let at = winit::dpi::LogicalPosition::new(f64::from(at.x), f64::from(at.y));
+        window.show_window_menu(at);
+    }
     #[cfg(not(any(
         target_os = "windows",
         all(

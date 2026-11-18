@@ -17,8 +17,8 @@
 //! no snap-layouts flyout on the maximise button (winit#3884), whose answer would be
 //! `HTMAXBUTTON` from [`super::hit`].
 //!
-//! Everything here but [`show_window_menu`] is a pure function, compiled on every
-//! platform so it is tested anywhere.
+//! Everything here is a pure function, compiled on every platform so it is tested
+//! anywhere. The window menu is [`super::show_window_menu`].
 
 use egui::{ViewportBuilder, ViewportInfo};
 
@@ -66,16 +66,6 @@ pub fn viewport(startup: Startup, builder: ViewportBuilder) -> ViewportBuilder {
         return builder;
     }
     builder.with_decorations(false)
-}
-
-/// Opens the system window menu (Restore, Move, Size, Minimise, Maximise, Close) at `at`,
-/// in logical pixels of the main window: winit's `GetSystemMenu` and `TrackPopupMenu`.
-#[cfg(target_os = "windows")]
-pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
-    if let Some(window) = frame.winit_window() {
-        let at = winit::dpi::LogicalPosition::new(f64::from(at.x), f64::from(at.y));
-        window.show_window_menu(at);
-    }
 }
 
 #[cfg(test)]

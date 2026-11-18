@@ -11,8 +11,8 @@
 //! otherwise. Under X11 the window manager decorates the window, so the system title bar
 //! is forced there too: the custom bar is a Wayland slice.
 //!
-//! Everything here but [`env`] and the window menu is a pure function of what it is given,
-//! compiled on every platform so it is tested anywhere.
+//! Everything here but [`env`] is a pure function of what it is given, compiled on every
+//! platform so it is tested anywhere. The window menu is [`super::show_window_menu`].
 
 use egui::{ViewportBuilder, ViewportInfo};
 
@@ -113,19 +113,6 @@ pub fn viewport(startup: Startup, builder: ViewportBuilder) -> ViewportBuilder {
         return builder;
     }
     builder.with_decorations(false).with_transparent(true)
-}
-
-/// Asks the compositor for its window menu at `at`, in logical pixels of the main window.
-/// The compositor may show none (xdg-shell gives no guarantee).
-#[cfg(all(
-    unix,
-    not(any(target_os = "macos", target_os = "ios", target_os = "android"))
-))]
-pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
-    if let Some(window) = frame.winit_window() {
-        let at = winit::dpi::LogicalPosition::new(f64::from(at.x), f64::from(at.y));
-        window.show_window_menu(at);
-    }
 }
 
 #[cfg(test)]
