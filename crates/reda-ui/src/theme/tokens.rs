@@ -9,6 +9,7 @@
 use egui::epaint::Shadow;
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Color32, FontFamily, FontId, Theme};
+use reda_engine::preferences;
 
 use super::fonts;
 use super::palette::{self, Hue, Palette, Soft, Tint};
@@ -77,9 +78,9 @@ pub struct Settings {
 }
 
 impl Settings {
-    /// The body text sizes a user can pick.
-    pub const TEXT_SIZES: std::ops::RangeInclusive<u8> = 11..=16;
-    pub const DEFAULT_TEXT_SIZE: u8 = 13;
+    /// The body text sizes a user can pick: the Preference's range.
+    pub const TEXT_SIZES: std::ops::RangeInclusive<u8> = preferences::TEXT_SIZES;
+    pub const DEFAULT_TEXT_SIZE: u8 = preferences::DEFAULT_TEXT_SIZE;
 }
 
 impl Default for Settings {
