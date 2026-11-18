@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The delete waiting for the user's answer, in the engine's view state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -234,15 +235,23 @@ pub fn dialog(ctx: &egui::Context, shell: &Shell) -> Option<(String, Value)> {
             "delete-dimensions-body",
             count = pending.dimensions.len()
         ));
-        ui.horizontal(|ui| {
-            if ui.button(tr!("delete-dimensions-too")).clicked() {
+        crate::modal::buttons(ui, |ui| {
+            if ui
+                .add(widgets::button(tr!("delete-dimensions-too")).danger())
+                .clicked()
+            {
                 out = answer(Answer::DeleteDimensions);
             }
-            if ui.button(tr!("delete-dimensions-keep")).clicked() {
-                out = answer(Answer::KeepDimensions);
-            }
-            if ui.button(tr!("delete-dimensions-cancel")).clicked() {
+            let cancel = ui.add(widgets::button(tr!("delete-dimensions-cancel")));
+            crate::modal::focus_on_open(&cancel);
+            if cancel.clicked() {
                 out = answer(Answer::Cancel);
+            }
+            if ui
+                .add(widgets::button(tr!("delete-dimensions-keep")))
+                .clicked()
+            {
+                out = answer(Answer::KeepDimensions);
             }
         });
     });

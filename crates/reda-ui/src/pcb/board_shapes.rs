@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// A refused loop: the Command to run again with `mode: outer_edge`, and why it failed.
 #[derive(Clone, Debug, PartialEq)]
@@ -52,11 +53,14 @@ pub fn retry_dialog(ctx: &egui::Context, shell: &mut Shell) {
             .width(360.0)
             .show(ctx, |ui| {
                 ui.label(tr!("loop-gap-body", reason = message.as_str()));
-                ui.horizontal(|ui| {
-                    if ui.button(tr!("loop-gap-retry")).clicked() {
+                crate::modal::buttons(ui, |ui| {
+                    if ui
+                        .add(widgets::button(tr!("loop-gap-retry")).primary())
+                        .clicked()
+                    {
                         answer = Some(true);
                     }
-                    if ui.button(tr!("loop-gap-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("loop-gap-cancel"))).clicked() {
                         answer = Some(false);
                     }
                 });

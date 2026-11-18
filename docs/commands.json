@@ -85,7 +85,7 @@
     },
     {
       "category": "app",
-      "description": "Sets one Preference in the user's preferences.toml, keeping every other line and comment. Null, or the default value, removes the key.",
+      "description": "Sets one Preference in the user's preferences.toml, keeping every other line and comment. Null removes the key, and so does the default value, except for general.system_title_bar, whose default is due to change.",
       "icon": "preferences",
       "id": "app.preferences.set",
       "kind": "file",
@@ -43997,7 +43997,7 @@
     },
     {
       "category": "pcb",
-      "description": "Shows what PCB ▸ Update from Library would change, without changing anything: each Mechanical Part placed straight onto the board (no Component) whose Footprint copy differs by hash from the Library Footprint with its UUID, with the Pads added, removed, moved or resized and the local Pad edits the update removes. A Footprint no registered Library holds is `source_missing`. Instances with a Component update through `schematic.component.update_preview` and Sync. Apply it with `pcb.footprint.update_from_library`.",
+      "description": "Shows what PCB › Update from Library would change, without changing anything: each Mechanical Part placed straight onto the board (no Component) whose Footprint copy differs by hash from the Library Footprint with its UUID, with the Pads added, removed, moved or resized and the local Pad edits the update removes. A Footprint no registered Library holds is `source_missing`. Instances with a Component update through `schematic.component.update_preview` and Sync. Apply it with `pcb.footprint.update_from_library`.",
       "icon": "library_update",
       "id": "pcb.footprint.update_preview",
       "kind": "query",
@@ -63384,7 +63384,7 @@
     },
     {
       "category": "schematic",
-      "description": "Forgets the Update from Library settings saved with the Project, so the next update starts from the defaults (Project Settings ▸ Schematic ▸ Update from Library, Reset).",
+      "description": "Forgets the Update from Library settings saved with the Project, so the next update starts from the defaults (Project Settings › Schematic › Update from Library, Reset).",
       "icon": "library_update",
       "id": "schematic.component.update_settings.reset",
       "kind": "edit",
@@ -73870,7 +73870,7 @@
     },
     {
       "category": "schematic",
-      "description": "Forgets the last Re-annotate settings saved with the Project, so                       `schematic.reannotate {saved: true}` has none to run and the dialog                       starts from the defaults (Project Settings ▸ Schematic ▸ Re-annotate,                       Reset). One undoable Project edit.",
+      "description": "Forgets the last Re-annotate settings saved with the Project, so `schematic.reannotate {saved: true}` has none to run and the dialog starts from the defaults (Project Settings › Schematic › Re-annotate, Reset). One undoable Project edit.",
       "icon": "annotate",
       "id": "schematic.reannotate.reset",
       "kind": "edit",

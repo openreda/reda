@@ -2,11 +2,11 @@
 
 How REDA's application chrome looks: colour, type, spacing, radius, elevation, motion and the recipe of each component, in light and dark and in two Densities. Behaviour and structure (what a tab does, what the Title bar holds, which Preferences exist) are in [`app.md`](app.md). Crate: `reda-ui`, modules `theme` and `widgets`.
 
-This file describes the target look. It was written ahead of the build, so `reda-ui` on main may still draw the earlier slate theme until the restyle slices land.
+This file describes the look `reda-ui` draws. It was written ahead of the build, and the build's slices brought the two in step; the images under [Images](#images) are drawn by the tests.
 
 Sources, all tickets of the [theme baseline map](https://github.com/openreda/reda/issues/266): [Which visual direction does the chrome take?](https://github.com/openreda/reda/issues/272), [Where does colour carry meaning in the chrome?](https://github.com/openreda/reda/issues/273), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [How are theme tokens structured and enforced in reda-ui?](https://github.com/openreda/reda/issues/275) and [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md), [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276), [Which transitions does the chrome animate, and with which timing?](https://github.com/openreda/reda/issues/282), [Do icons change under the new theme, and do the hand-painted glyphs become icons?](https://github.com/openreda/reda/issues/283), [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274) and [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md), [Where does the design-language spec live, and what does it replace?](https://github.com/openreda/reda/issues/285). Where two of them disagree, the later resolution wins, and this file follows it.
 
-**Who is the authority.** This file is the authority for intent: which token does which job, and what each component is made of. The `Tokens` value in `reda-ui` is the authority for values. The tables under [Values](#values) are copied from it, by hand until `Tokens` lands on main and by an `xtask` afterwards ([Keeping the values in step](#keeping-the-values-in-step)).
+**Who is the authority.** This file is the authority for intent: which token does which job, and what each component is made of. The `Tokens` value in `reda-ui` is the authority for values. The tables under [Values](#values) are generated from it by `cargo xtask tokens` ([Keeping the values in step](#keeping-the-values-in-step)).
 
 ## Scope
 
@@ -34,7 +34,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
 - **Three layers:**
   - a **palette** of raw hexes, private to `theme`;
   - **tokens**, named by job and never by value (there is no `grey_300` and no `space_8`);
-  - **recipes** in `widgets`: each component's choice of tokens per state. A recipe holds no numbers of its own.
+  - **recipes** in `widgets`: each component's choice of tokens per state. A recipe holds no numbers of its own, apart from named constants for the dimensions that no setting changes ([Fixed values](#fixed-values)).
 - **egui's `Style` is generated** from `Tokens` by `theme::style(tokens)`, so stock and third-party widgets (the file dialog) get sensible defaults. Outside `theme` and `widgets`, code does not read `ui.visuals()` or `ui.spacing()`.
 - **Components are REDA widgets,** thin builders on stable egui such as `widgets::button(..).primary()` and `widgets::text_field(..)`. egui's `experimental` widget themes stay off.
 - **Each family follows one setting,** and no token depends on two:
@@ -50,12 +50,12 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
   | `elevation` | light/dark | card, popup, window |
   | `space` | Density | 13 paddings and gaps, two hand-picked values each |
   | `type` | text size and typeface Preferences | small, body, body_strong, title, heading, mono, numeric, numeric_small |
-  | `size` | text size | field, dialog and Dock column widths |
+  | `size` | text size | scale, dock, field; every other field, dialog and Dock column width is a constant at 13 px read through `size.of(..)` |
   | `radius`, stroke widths, icon sizes, `opacity.disabled` | fixed | |
   | `motion` | fixed | fast, base |
 
 - **Heights are not tokens.** They are computed from line height plus padding ([Space and Density](#space-and-density)).
-- **Rust field names** may differ in detail from the names here (the prototype used `ty` for `type`). The first build slice fixes them, and the generated tables then show the real ones.
+- **Rust field names** follow the names here, with these differences: the `type` family is `ty` (`type` is a keyword), stroke widths are `stroke.hairline`, `stroke.accent_line` and `stroke.focus_ring` (the colours are `color.stroke.*`), icon sizes are `icon.small` and `icon.bar`, and the fixed dimensions of single components (the rows without a token name under [Fixed values](#fixed-values)) are not tokens: each is a named constant beside its recipe in `widgets`. The `size` family is added by the first slice that needs a width.
 
 ## Colour
 
@@ -128,6 +128,7 @@ The warning solid is a real amber with dark text on it. The other solids carry w
 
 - **A selected row** is the accent subtle tint with ordinary text. It is not accent-coloured text and not a solid fill with white text.
 - **Only one place shows a live blue selection.** In a Panel that does not hold keyboard focus, the selected row is `fill.selected_unfocused`.
+  - The Panel that holds it, for this, is the one in use: the Panel last pressed in or moved into with the keyboard, and otherwise the tab the layout focuses. A press on a row never leaves that row looking unfocused, whether or not its Panel takes the layout's focus.
 - **When REDA's window is in the background,** the active tab's accent line and the live selection tint go neutral. In the Title bar, text and window-control Glyphs go muted. Nothing else dims, and no surface changes.
 
 ### Other colour sources
@@ -202,7 +203,7 @@ Values: [Fixed values](#fixed-values) and [Elevation values](#elevation-values).
 - **Stroke widths:** a 1 px hairline, a 2 px accent line, a 2 px focus ring.
 - **Three shadows:**
   - `elevation.card`: the 1 px soft shadow under a card.
-  - `elevation.popup`: menus, popups, tooltips and floating bars.
+  - `elevation.popup`: menus, popups, tooltips, floating bars and Dock flyouts.
   - `elevation.window`: dialogs, the Command Palette and windows.
 - **Whole points only.** egui takes radii, margins and shadow offsets as whole points.
 - **Cards around a canvas** are rounded by painting corner masks over it. The canvas itself cannot be clipped round.
@@ -286,7 +287,17 @@ Each recipe below names the tokens a component uses per state. They are locked a
 - **Marks are 16 px.** A check box has the mark radius, and a radio is round. Off is `surface.well` with a `stroke.strong` outline. On is the accent solid with the tick, minus or dot in its on-colour.
 - **Switch:** a 28 × 16 px track with a white 12 px knob. The track is the accent solid when on.
 - **Which one:** a switch is for a setting that applies the moment it is flipped. A check box is for a choice confirmed with a button, and for lists and tables.
-- **Segmented control, stepper field and filterable dropdown:** the Appearance page needs these three ([app.md](app.md#preferences)). The gallery did not draw them, so the slice that builds that page fixes their recipes from the tokens here.
+- **Segmented control:** for a short set of exclusive choices that apply when picked. The track is filled like a button, at the control height and radius. Segments are equally wide (the widest label plus the control padding) and sit 2 px inside the track, with a radius 2 px smaller.
+  - The chosen segment takes the accent subtle fill, as a toggle that is on does. Text is the primary colour on every segment.
+  - Hover and press lay the neutral fills on one segment. The focus ring goes round the focused segment.
+- **Stepper field:** a number field for a whole number, with a 20 px column at its trailing end, set off by a hairline and split into an up and a down half. Each half holds a chevron Glyph in muted text.
+  - A half takes `fill.hover` and `fill.press` like anything flat. A half that cannot step further is drawn at `opacity.disabled`.
+  - Up and Down step while the field has the keyboard. A typed number applies on Enter or when the field loses the keyboard, and is kept inside the range.
+- **Filterable dropdown:** for a long list. Closed, it is a dropdown. Its list starts with a search field that has the keyboard as soon as the list opens, and typing narrows the rows to those that contain the text.
+  - Up and Down move the lit row, which takes `fill.hover`. Enter picks it, and Escape closes the list.
+  - The chosen row has the tick. A row can carry a note in muted text at its trailing end, and a hairline can set the first row apart while nothing is typed.
+  - When nothing matches, the list says so in one line of muted text.
+- These three were not in the component gallery. They are drawn in the widget gallery ([Enforcement and tests](#enforcement-and-tests)).
 
 ### Menus and context menus
 
@@ -298,21 +309,26 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 ### Tabs
 
-- **The front tab** of a group is a card joined to its panel: `surface.card`, with no line between tab and panel.
-- **The active Document's tab** adds the 2 px accent line along its top edge and the `body_strong` style. The line means "menus and Commands act on this Document". It stays while keyboard focus is in a Panel, and a Panel's tab never gets one.
+- **A tab group** is a strip of tabs on the base over a card. The first tab starts 6 px in from the card's edge.
+- **The front tab** of a group is a card joined to its panel: `surface.card`, with no line between tab and panel. Its top corners are the card radius less 2.
+- **The active Document's tab** adds the 2 px accent line along its top edge, between the rounded corners, and the `body_strong` style. The line means "menus and Commands act on this Document". It stays while keyboard focus is in a Panel, and a Panel's tab never gets one.
 - **Back tabs** sit on the base in muted text, with `fill.hover` as a rounded pill when hovered.
 - Each tab shows its 16 px Icon in role colours, its title, and then:
   - a **modified dot,** which gives way to the close × on hover;
   - the **close ×** on the front or hovered tab;
   - the **out-of-sync badge:** a warning triangle in the warning solid.
 - Padding is `tab_x` × `tab_y`.
+- **While a tab is dragged,** the place it would land is a drop target: the accent subtle tint inside a 2 px accent line, with the card radius. The drop-target button under the pointer is drawn the same way. A drop the layout would refuse shows the error tone instead, with the reason beside the pointer.
 
 ### Docks
 
 - An expanded Dock is a column of cards with no header.
-- A collapsed Dock is a strip of 20 px Icon buttons on the base, with no frame. The Icon of the open flyout is on.
-- A flyout is the Dock's card floating over the window beside its strip. The gallery did not draw one open; the slice that restyles Docks fixes its shadow.
-- The gap at a Dock's inner edge is its splitter. It shows the accent while dragged.
+- A collapsed Dock is a strip of 20 px Icon buttons on the base, with no frame, one control wide. Its first button, a chevron, expands the Dock. The Icon of the open flyout is on.
+- A flyout is the Dock's card floating over the window beside its strip:
+  - the card's surface, rim, radius and `panel` padding, under `elevation.popup` because it floats;
+  - a card gap from the strip, and as long as the strip (a bottom Dock's is as wide as its strip);
+  - a title row first: the Panel's Icon and its name in the `title` style. The strip shows Icons only, so the flyout names what it holds.
+- The gap at a Dock's inner edge is its splitter. It shows `fill.hover` while hovered and the accent while dragged.
 
 ### Panels
 
@@ -328,15 +344,21 @@ Each recipe below names the tokens a component uses per state. They are locked a
 - **Number columns** are right-aligned in the numeric style.
 - **Severity** is a shape and a colour. A waived row is muted.
 - **Selection** as in [Selection and window focus](#selection-and-window-focus).
+- **A drop target** (a row something dragged would drop on) is the accent subtle tint inside a 2 px accent line.
 - **Swatches** for data colours are 14 px squares with the mark radius and a neutral rim.
+  - Something with no colour set (a Net without one) shows the same square, hollow, with a slash.
+  - A swatch that edits its colour is a button that opens the colour picker: a field of saturation and brightness, a strip of hues, and the colour as `#rrggbb` to type, with a copy button.
 - **Badges and counts** are pills in small text on a tone's subtle tint.
+  - A badge names a state or a tally, and can lead with the status mark of its tone. Without a tone it is muted text on the neutral control fill.
+  - A count is a number alone on the neutral fill, in tabular digits.
+  - A badge that filters a list (Messages' Errors and Warnings) is a toggle. Off, it is neutral and muted, and keeps its size.
 - **Scrollbars** are a 4 px muted thumb with no track, widening to 8 px when hovered.
 
 ### Dialogs and settings windows
 
 - **A dialog:** `surface.floating`, window radius, `elevation.window`, `dialog` padding.
   - A title row in the `title` style with a close ×.
-  - Buttons right-aligned, with the one primary button last.
+  - Buttons right-aligned in one row, `gap` apart and `section` below the content, with the one primary button last. Cancel comes before it, and any third choice before Cancel.
   - A destructive confirm starts with keyboard focus on Cancel.
 - **Modals** sit over `surface.scrim`.
 - **Form rows:** the label at the left and the control at the right, `stack` apart, with sections `section` apart. A caption is one line of small muted text under its setting.
@@ -344,13 +366,14 @@ Each recipe below names the tokens a component uses per state. They are locked a
 
 ### Tooltips
 
-- A popup holding either a name and a key chip, or a title and a sentence in small muted text.
+- A popup holding either a name and a key chip, or a title and a sentence in small muted text. It is smaller than a menu: the control radius and a control's padding.
 - **A key chip** is small muted text on `fill.control` with the mark radius.
 
 ### Status bar
 
 - On the base, with no rule above it. Small muted text, with the numeric style for coordinates and deltas.
-- Its items are flat buttons.
+- Its items are flat buttons with the row radius, side by side with no separators. A note may take a semantic colour's `text` strength.
+- The active Layer's item shows the Layer's swatch before its name.
 
 ### Command Palette
 
@@ -375,14 +398,14 @@ What the Title bar holds and how it behaves is in [app.md](app.md#window-shell) 
 - **Height** follows Density: 40 px Comfortable, 36 px Compact at 13 px text.
 - **Quick strip:** 20 px Icon buttons of the control height, 2 px apart.
 - **Menus:** flat buttons in body text.
-- **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room.
-- **Window controls** (Windows and Linux): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
+- **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room. At rest it shows "Project name — active Document" in body text; with no Project open it shows "Search commands" in muted text. Where it cannot be centred it moves aside before it shrinks.
+- **Window controls** (Windows and Wayland): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
 - **macOS:** the native traffic lights at the left, vertically centred. The quick strip starts after their 78 px inset.
-- **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
+- **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls while the bar drags the window; with the system title bar the gear keeps only the bar's 6 px padding. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
 - **Inactive window:** text and window-control Glyphs go muted.
-- **Window corners** take the window radius. They are square when the window is maximised or uses the system title bar.
+- **Window corners** take the window radius. They are square when the window is maximised or uses the system title bar. On Windows the system rounds the window itself, at its own radius ([app.md](app.md#title-bar), accepted gaps).
 - **Floating windows:** a 32 px bar on the base with the window's title at the left in body text, and the same window controls. On macOS the bar takes the native title-bar height.
-- **Edge-resize strip:** an invisible hit strip inside the window edge on Windows and Wayland, off while maximised. Its width is not set here: the Title bar slice picks it.
+- **Edge-resize strip:** an invisible hit strip inside the window edge on Windows and Wayland, off while maximised: 6 px along the edges and 12 px at the corners, along each of the two edges that meet there.
 
 ## Contrast
 
@@ -400,33 +423,41 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 | The accent line and the focus ring | base, card and floating | 3:1 |
 | The white Glyph | `color.close_hover` | 4.5:1 |
 | Each icon role colour | base, card and floating, at rest, hovered and toggled on | 3:1 |
+| `touch` | base, card and floating | 3:1 |
+| `stroke.strong` | base, card, floating and `surface.well` | 1.5:1 |
+| `surface.floating` | base and card under `surface.scrim` | 1.25:1 |
+| `stroke.hairline` | base, card and floating | 1.15:1 |
 
-- That is 129 rules per theme before the icon rows, which add six roles × nine grounds. None fail with the values below.
+- That is 129 rules per theme before the icon rows, which add six roles × nine grounds, and the last four rows, which add twelve. None fail with the values below.
+- The last four rows are there so that every colour token has a rule. They are floors for things that are meant to be quiet (an outline, a hairline, a dialog over the dimmed window), not text ratios.
 - An icon's momentary pressed state is exempt.
 - The icon rule replaces the earlier test of the blue on the active button background.
 
 ## Enforcement and tests
 
-- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration.
+- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets) are in `lists.rs` there.
   - **Banned outside the exempt modules:**
     - colours: `Color32::from_*` and named constants, `gamma_multiply`, `linear_multiply`, hex literals;
     - egui style access: `ui.visuals()`, `ui.spacing()`, `ui.style()` and their `_mut` forms, `ctx.set_style*`, `set_visuals*`;
     - sizes with a numeric literal: `add_space(<n>)`, `CornerRadius`, `Margin`, `Stroke::new(<n>, ..)`, `FontId::new`, `.size(<n>)`, `Shadow`, and a literal `vec2` in spacing and min-size calls;
     - a raw stock widget once its REDA widget exists (`ui.button(`, `Button::new`, `TextEdit::`, `ui.checkbox(` and so on).
-  - **Allowed everywhere:** zero, and arithmetic on token values.
+  - **Allowed everywhere:** zero (`Color32::TRANSPARENT` counts as zero), and arithmetic on token values.
   - **Exempt modules:** `theme/`, `widgets/` and the on-canvas drawing modules, listed by path in the test.
   - **Marker:** `// theme-exempt: <reason>` exempts the next line. A marker with no reason fails, and the test prints the total.
-  - **During the migration** the test carries a list of files not yet converted. A listed file is skipped, an unlisted file must be clean, and a clean file still on the list fails. New files are never listed.
+  - **Every file is converted.** The migration's list of files not yet converted is gone: every file the scan reads must be clean.
   - The scan works on text, so an alias or a macro can defeat it. It is there to stop accidents.
 - **The contrast test,** as above.
-- **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid) and the Glyph set, in the four variants, and is snapshotted.
-- **Whole-screen snapshots** stay in dark Comfortable only, and are rebaselined slice by slice.
+- **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid), the Glyph set, every colour token and the type scale, in the four variants, and is snapshotted.
+- **Whole-screen snapshots** are in dark Comfortable, and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows. A scene whose look turns on the theme or the Density adds a light or Compact image: the Start page, the Dock flyout, the icons, the Appearance page (drawn at its own 1100 × 820) and the windows REDA decorates. The whole-app screen of [Images](#images) is in all four variants.
+- **Fit tests.** One per area of the window (`crates/reda-ui/tests/*_fit.rs`, and `panel_sheets.rs` for the Panels, their Docks and the status bar) drives its screens in light and dark, Comfortable and Compact, at the default text size and at both ends of the range, and fails on text cut short with an ellipsis, text that runs out of its clip, and a label broken over lines.
+- **Font coverage.** `crates/reda-ui/tests/font_coverage.rs` fails when the message catalogue, a Command's or a Preference's text, or a string literal of a crate whose messages reach the window holds a character the bundled faces lack.
 
 ## Values
 
-The tables in this section are the values of `Tokens`. Until `Tokens` is on main they are copied by hand from the resolution of [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276) and its prototype; the tickets on motion and icons supply the last two tables.
+The tables in this section are the values of `Tokens`, generated from it. They began as the resolution of [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276) and its prototype; the tickets on motion and icons supplied the motion and icon tables.
 
-<!-- tokens:begin (hand-copied for now; to be generated by `cargo xtask` from `Tokens`. Do not reword the tables: the first build slice must reproduce them exactly.) -->
+<!-- tokens:begin -->
+<!-- Generated from `Tokens` (crates/reda-ui/src/theme) by `cargo xtask tokens`. Do not edit between the markers. -->
 
 ### Colour values
 
@@ -479,7 +510,7 @@ The tables in this section are the values of `Tokens`. Until `Tokens` is on main
 | Picked point | `#ec4f7a` | `#d2456c` | `#ef5a82` |
 | Board edge and Keepout | `#d4c03c` | `#8a7a12` | `#d4c03c` |
 
-The dark picked-point value is the one closest to `#ec4f7a` that the contrast test accepts; `#ef5a82` was computed, not run.
+The dark picked-point value is the one closest to `#ec4f7a` that the contrast test accepts.
 
 ### Space values
 
@@ -525,6 +556,19 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | 15 | 13 / 20 | 15 / 22 | 18 / 28 | 14 / 22 | 32 / 28 |
 | 16 | 14 / 22 | 16 / 24 | 19 / 28 | 15 / 24 | 34 / 30 |
 
+### Size values
+
+Widths that follow the text size and never Density. Each is given at B = 13 and scaled by B / 13 above it (`size.of(..)` in code), on whole pixels. Below 13 they keep their 13 px width, since icons, marks and paddings do not shrink.
+
+| B | Scale | `size.dock` | `size.field` |
+|---|---|---|---|
+| 11 | 1.00 | 288 | 280 |
+| 12 | 1.00 | 288 | 280 |
+| 13 | 1.00 | 288 | 280 |
+| 14 | 1.08 | 310 | 302 |
+| 15 | 1.15 | 332 | 323 |
+| 16 | 1.23 | 354 | 345 |
+
 ### Fixed values
 
 | Token | Value |
@@ -549,11 +593,12 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | Tree indent per level | 16 |
 | Window control width | 46 |
 | Drag gap kept beside the window controls | 48 |
+| Edge-resize strip, on edges and at corners | 6, 12 |
 | Command field width | 180 to 420 |
 | Scrollbar thumb, at rest and hovered | 4, 8 |
 | Progress rail and slider rail | 6, 4 |
 
-The rows without a token name are dimensions the gallery drew as plain numbers. The first build slice gives each a token, since a recipe holds no numbers of its own.
+The rows without a token name are dimensions of single components that no setting changes. Stroke widths and icon sizes are tokens (`stroke`, `icon`). The rest are named constants beside their recipe in `widgets`, such as `widgets::SWITCH_TRACK`, not `Tokens` entries; the scrollbar's are beside the generated `Style`.
 
 ### Elevation values
 
@@ -598,25 +643,119 @@ Offset x / y, blur, colour. Spread is zero.
 
 ### Keeping the values in step
 
-- An `xtask` generates the tables between the two markers from `Tokens`, and CI fails when the region is stale. This follows the icon set's README.
+- `cargo xtask tokens` generates the tables between the two markers from `Tokens`. A test beside the tokens (`crates/reda-ui/src/theme/tables.rs`) fails when the region is stale, so CI does too. This follows the icon set's README.
 - Code is the authority for values, and this file for intent. A value changes in `Tokens`, and the tables follow.
-- The first build slice, which lands `Tokens`, switches the region to generated and must reproduce the hand-copied tables exactly.
+- The region was first written by hand. The first generated version reproduced it exactly.
 
 ## Images
 
-The spec embeds only images that tests produce: the seven gallery pages in the four variants, and one whole-app screen per variant. Until the build lands those snapshots, the pages below link to the images on the [`prototype/component-recipes`](https://github.com/openreda/reda/tree/prototype/component-recipes/docs/prototype/component-recipes) branch, which is never merged. No image is copied into `docs/`.
+The spec embeds only images that tests produce: the widget gallery's ten pages and one whole-app screen, each in the four variants, and the windows REDA decorates on Wayland and Windows. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
 
-| Gallery page | Light | Dark |
-|---|---|---|
-| 1 · Controls | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-dark-compact.png) |
-| 2 · Menus and popups | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-dark-compact.png) |
-| 3 · Window: Title bar, tabs, Docks, status bar | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-dark-compact.png) |
-| 4 · Panels and data | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-dark-compact.png) |
-| 5 · Dialogs | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-dark-compact.png) |
-| 6 · Colour | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-dark-compact.png) |
-| 7 · Type, text size and typeface | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-dark-compact.png) |
+- The gallery is `crates/reda-ui/tests/widget_gallery/`, one file per page (`gallery_<page>_<theme>_<density>.png`). The Colour and Type pages are drawn from the tokens themselves, so they cannot drift from them; the Type page also shows the scale at both ends of the text-size range, 11 and 16 px, beside the default 13.
+- The whole-app screens are drawn by `crates/reda-ui/tests/app.rs` (`whole_app_<theme>_<density>.png`) in the window every whole-screen snapshot uses, 1280 × 800. They draw the Title bar as under the system title bar, with no window controls, so they look the same on every platform.
+- The decorated windows are drawn by the same file (`title_bar_wayland_*.png`, `title_bar_windows_*.png`) with each platform's chrome. The test harness keeps an 8 px margin inside the window's rim; a real window has none.
+- Motion cannot be shown in stills. Run REDA with Animate on (Preferences ▸ Appearance); `crates/reda-ui/tests/motion.rs` checks the timings.
 
-- The same folder holds the ends of the text-size range (`text11-*`, `text16-*`) and two regular-only faces (`face-*`).
-- The prototype's gallery shows Hack as the monospace face. The locked face, JetBrains Mono, was not drawn.
-- Motion cannot be shown in stills. Run the [`prototype/motion`](https://github.com/openreda/reda/tree/prototype/motion) branch (`cargo run -p reda-app`, then F10) and pick the Crisp profile.
-- Whole-app screens come with the build's whole-screen snapshots. Until then, page 3 is the closest.
+### The whole app
+
+| Light | Dark |
+|---|---|
+| ![The whole app, light, Comfortable](../../../crates/reda-ui/tests/snapshots/whole_app_light_comfortable.png) | ![The whole app, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/whole_app_dark_comfortable.png) |
+| ![The whole app, light, Compact](../../../crates/reda-ui/tests/snapshots/whole_app_light_compact.png) | ![The whole app, dark, Compact](../../../crates/reda-ui/tests/snapshots/whole_app_dark_compact.png) |
+
+### Controls
+
+Buttons, fields, dropdowns, check box, radio, switch, slider, progress, segmented control, stepper, the Glyph set.
+
+| Light | Dark |
+|---|---|
+| ![Controls, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_controls_light_comfortable.png) | ![Controls, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_controls_dark_comfortable.png) |
+| ![Controls, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_controls_light_compact.png) | ![Controls, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_controls_dark_compact.png) |
+
+### Menus and popups
+
+Menus, tooltips, the dialog frame, cards, the Dock flyout.
+
+| Light | Dark |
+|---|---|
+| ![Menus and popups, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_popups_light_comfortable.png) | ![Menus and popups, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_popups_dark_comfortable.png) |
+| ![Menus and popups, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_popups_light_compact.png) | ![Menus and popups, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_popups_dark_compact.png) |
+
+### Lists, trees and tables
+
+Rows, section headers, form rows, status marks, swatches, badges.
+
+| Light | Dark |
+|---|---|
+| ![Lists, trees and tables, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_data_light_comfortable.png) | ![Lists, trees and tables, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_data_dark_comfortable.png) |
+| ![Lists, trees and tables, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_data_light_compact.png) | ![Lists, trees and tables, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_data_dark_compact.png) |
+
+### The window
+
+Tabs, a tab group's card, the status bar, a dragged tab.
+
+| Light | Dark |
+|---|---|
+| ![The window, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_shell_light_comfortable.png) | ![The window, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_shell_dark_comfortable.png) |
+| ![The window, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_shell_light_compact.png) | ![The window, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_shell_dark_compact.png) |
+
+### The Title bar
+
+Window controls, the command field, a floating window's slim bar.
+
+| Light | Dark |
+|---|---|
+| ![The Title bar, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_comfortable.png) | ![The Title bar, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_comfortable.png) |
+| ![The Title bar, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_compact.png) | ![The Title bar, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_compact.png) |
+
+The main window as REDA decorates it: on Wayland, with round corners and the rim; on Windows, square, with the system rounding the window.
+
+| Light | Dark |
+|---|---|
+| ![The window on Wayland, light, Compact](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_light_compact.png) | ![The window on Wayland, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_dark_comfortable.png) |
+| ![The window on Windows, light, Compact, maximised](../../../crates/reda-ui/tests/snapshots/title_bar_windows_light_compact_maximised.png) | ![The window on Windows, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_windows_dark_comfortable.png) |
+
+### Bars on the canvas
+
+The Active Bar, the Command Palette, the keys card.
+
+| Light | Dark |
+|---|---|
+| ![Bars on the canvas, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_bars_light_comfortable.png) | ![Bars on the canvas, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_bars_dark_comfortable.png) |
+| ![Bars on the canvas, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_bars_light_compact.png) | ![Bars on the canvas, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_bars_dark_compact.png) |
+
+### Canvas chrome
+
+Layer chips, the Layer swatch, the Layer strip.
+
+| Light | Dark |
+|---|---|
+| ![Canvas chrome, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_comfortable.png) | ![Canvas chrome, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_comfortable.png) |
+| ![Canvas chrome, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_compact.png) | ![Canvas chrome, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_compact.png) |
+
+### Colour
+
+Every colour token, by family: surfaces, text, strokes, fills, the accent and the three semantic colours in their four strengths, the icon role colours, and the touch selection and close-button hover.
+
+| Light | Dark |
+|---|---|
+| ![Colour, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_colour_light_comfortable.png) | ![Colour, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_colour_dark_comfortable.png) |
+| ![Colour, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_colour_light_compact.png) | ![Colour, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_colour_dark_compact.png) |
+
+### Type, text size and typeface
+
+The type scale with each style's size and line height, Inter in its three weights and with tabular digits, JetBrains Mono, and the scale at text sizes 11, 13 and 16.
+
+| Light | Dark |
+|---|---|
+| ![Type, text size and typeface, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_type_light_comfortable.png) | ![Type, text size and typeface, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_type_dark_comfortable.png) |
+| ![Type, text size and typeface, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_type_light_compact.png) | ![Type, text size and typeface, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_type_dark_compact.png) |
+
+### Text to read
+
+The read-only text view.
+
+| Light | Dark |
+|---|---|
+| ![Text to read, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_text_view_light_comfortable.png) | ![Text to read, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_text_view_dark_comfortable.png) |
+| ![Text to read, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_text_view_light_compact.png) | ![Text to read, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_text_view_dark_compact.png) |

@@ -168,7 +168,7 @@ fn the_placement_bar_shows_with_only_footprints_selected_and_its_buttons_switch_
     let [r1, r2] = [w.footprints[0], w.footprints[1]];
     run(&mut w, "selection.set", json!({"objects": [r1, r2]}));
     let canvas = w.h.get_by_role(Role::Canvas).rect();
-    let anchor = tool_bar_anchor(canvas, false);
+    let anchor = tool_bar_anchor(canvas, 0.0);
     let bar = w.h.get_by_label(OBSTACLE).rect();
     assert!(
         (bar.bottom() - anchor.y).abs() < 8.0,

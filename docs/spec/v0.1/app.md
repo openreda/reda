@@ -95,11 +95,11 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
   5. the window controls
 
   There are no Document tabs in it.
-- **The window's title** has no label of its own. At rest the command field reads "Project name — active Document". The OS-level title is still set, for the taskbar and Alt+Tab.
+- **The window's title** has no label of its own. At rest the command field reads "Project name — active Document", or the Project name alone while no Document is open. With no Project open it reads "Search commands", in muted text. The OS-level title is still set, for the taskbar and Alt+Tab.
 - **Window controls:**
   - On macOS, the native traffic lights at the left. The quick strip starts after them.
   - On Windows and Linux, one REDA-drawn set at the right: minimise, maximise or restore, and close. It does not follow GNOME's button-layout setting.
-- **Dragging:** every empty stretch drags the window. A double-click maximises or restores. A right-click opens the system menu where the platform offers one.
+- **Dragging:** every empty stretch drags the window; a drag that starts on a menu title, a button or the command field does not. A double-click maximises or restores; on macOS it does what System Settings asks (zoom, minimise or nothing). A right-click opens the system menu where the platform offers one.
 - **Narrow windows:**
   - A drag gap is always kept beside the window controls.
   - The command field shrinks to a minimum, then becomes an icon button.
@@ -109,17 +109,20 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
 - **States:**
   - **Maximised:** square window corners, and edge resizing off.
   - **Tiled:** as maximised on Windows, where the state is known. On Wayland the corners stay round.
-  - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide and, on macOS, the traffic-light inset closes up.
+  - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide, the bar no longer drags or resizes the window and, on macOS, the traffic-light inset closes up.
   - **Inactive window:** the bar's text and window controls go muted.
-- **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds a hit strip inside the window edge.
+- **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds an invisible hit strip inside the window edge: 6 px along the edges and 12 px at the corners. It is off while the window is maximised.
 - **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
+  - **Under Windows it is on by default for now.** Nobody on the project has had a Windows PC to try REDA's own bar on, so it has been proven only by CI on a Windows runner, which shows no real window: dragging, snapping, resizing and the window controls with Windows itself in the loop are untested. Turning it off gives REDA's bar. The default changes to off, as elsewhere, once the hands-on run ([#314](https://github.com/openreda/reda/issues/314)) has passed. While a user has not set it the value is not written to the file, so that change reaches everyone who left it alone.
   - With it on, the row is the same minus the window controls and the dragging. The command field still shows the title, and the window corners are square. Floating windows have the system's title bar and no REDA bar.
-  - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created.
+  - It is forced on where the compositor insists on drawing decorations (sway, Hyprland), detected before the window is created. It is also forced on under X11, where the window manager decorates every window: on Linux REDA draws its own Title bar under Wayland only.
   - This path keeps winit's Adwaita frame for compositors that draw none, such as GNOME on Wayland.
 - **Accepted gaps,** because REDA uses no `unsafe` and no winit fork (ADR-0014):
   - Windows: no snap-layouts flyout on the maximise button. Win+arrow and drag-to-snap still work.
+  - Windows: the window corners are the ones Windows 11 draws, at its own radius, and square on Windows 10. A transparent window could take the window radius, but wgpu presents an opaque surface on a Windows window handle, so REDA leaves the window opaque and the corners to the system, which also squares them when maximised or snapped.
   - GNOME: a 1 px rim in place of a window shadow, and corners that stay round when tiled.
   - macOS: floating windows keep AppKit's default traffic-light position.
+  - Floating windows: the right-click system menu is reached from the main window only, because eframe gives no handle on a floating window's OS window.
 
 ### Command Palette
 
@@ -462,7 +465,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
 Sources: [What per-user state does REDA keep, and where?](https://github.com/openreda/reda/issues/28), [How are theme, Density, text size, typeface and the system title bar presented in the Preferences window?](https://github.com/openreda/reda/issues/284), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [Can REDA read the OS reduced-motion setting on Wayland, Windows and macOS?](https://github.com/openreda/reda/issues/288).
 
 - **The file:**
-  - `preferences.toml` holds only the values that differ from the defaults.
+  - `preferences.toml` holds only the values that differ from the defaults. The one exception is **Use the system title bar**, whose default is due to change ([Title bar](#title-bar)): once the user sets it, its value is written even when it equals the default, and only a reset removes it.
   - REDA edits it with `toml_edit`, so user comments survive.
   - The schema comes from `schemars`.
   - An unknown or invalid key gives a warning in Messages and falls back to its default. There is no `format` migration chain, only a small alias table for renamed keys.
@@ -492,7 +495,7 @@ Sources: [What per-user state does REDA keep, and where?](https://github.com/ope
     | Fonts | UI font | `general.ui_font` | Dropdown with type-to-filter (the bundled Inter) | none |
     | Fonts | Monospace font | `general.mono_font` | Dropdown with type-to-filter (the bundled JetBrains Mono) | "Used for the Journal, file names and command text." |
     | Window | Animate | `general.animate` | Switch (on) | "Off: menus, panels and dialogs appear at once." |
-    | Window | Use the system title bar | `general.system_title_bar` | Check box (off) | see below |
+    | Window | Use the system title bar | `general.system_title_bar` | Check box (off; on under Windows for now, see [Title bar](#title-bar)) | see below |
 
     - **Live:** every setting except the title bar applies to every window on the next frame, so the Preferences window is its own preview and there is no preview pane. A font or text size applies when chosen, not while moving through the list.
     - **Density** changes the padding and gaps around text, never the size of text or icons, for the whole chrome at once. No Panel or Dock has its own.
@@ -514,7 +517,7 @@ Sources: [What per-user state does REDA keep, and where?](https://github.com/ope
       - The reads need no `unsafe`: `objc2-app-kit` on macOS, the `windows` crate's `UISettings` on Windows, and the settings portal over `zbus` on Linux. All three are already in `Cargo.lock`.
     - **Use the system title bar** ([Title bar](#title-bar)) is a check box because it does not apply at once.
       - After a change, a caption appears under it: "Applies the next time REDA starts." There is no Restart button.
-      - Under sway and Hyprland the box is shown ticked and disabled, with the caption "Your desktop draws the title bar for every window." The stored value is left alone, so it is right again on another desktop.
+      - Under sway, Hyprland and X11 the box is shown ticked and disabled, with the caption "Your desktop draws the title bar for every window." The stored value is left alone, so it is right again on another desktop.
   - **Window & Layouts:** the default Saved Layout; Reset Layout; rename and delete Saved Layouts.
   - **Editing,** from [shared editing](editing.md), each with a value per Document type where it differs:
     - default units mm/mil (mm), and display precision: mm (3 decimals), mil (1)

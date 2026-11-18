@@ -67,6 +67,8 @@ fn running_erc_lists_violations_under_their_document_and_a_click_goes_to_one() {
     h.get_by_label("Sheet 2 (2)");
     h.get_by_label(FIRST_END);
 
+    h.get_by_label(SECOND_END).scroll_to_me();
+    h.run();
     h.get_by_label(SECOND_END).click();
     h.run();
     let shell = h.state().shell();

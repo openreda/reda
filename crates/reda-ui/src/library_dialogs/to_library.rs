@@ -11,8 +11,11 @@ use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
 use crate::command_dialog::{Outcome, ParamsDialog};
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
 
 pub const COPY: &str = "library.element.copy";
 pub const EXTRACT: &str = "library.extract_from_project";
@@ -111,27 +114,27 @@ impl ParamsDialog for ToLibraryDialog {
         let modal = crate::modal::Dialog::new(id, self.title.clone())
             .width(420.0)
             .show(ctx, |ui| {
-                ui.label(&self.intro);
-                ui.add_space(6.0);
+                layout::text(ui, &self.intro);
+                ui.add_space(ui.tokens().space.stack);
                 ui.horizontal(|ui| {
                     super::library_picker(ui, shell, id.with("library"), &mut self.library);
                 });
                 if super::writable_libraries(shell).is_empty() {
-                    ui.colored_label(ui.visuals().warn_fg_color, tr!("library-target-missing"));
+                    layout::warning(ui, tr!("library-target-missing"));
                 }
                 if let Some(error) = &self.error {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
+                    layout::error(ui, error);
                 }
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
+                crate::modal::buttons(ui, |ui| {
                     let params = self.params();
-                    let run = ui.add_enabled(params.is_some(), egui::Button::new(&self.run));
+                    let run =
+                        ui.add_enabled(params.is_some(), widgets::button(&self.run).primary());
                     if let Some(params) = params
                         && run.clicked()
                     {
                         outcome = Outcome::Run(params);
                     }
-                    if ui.button(tr!("dialog-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;
                     }
                 });

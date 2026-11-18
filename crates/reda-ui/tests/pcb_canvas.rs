@@ -72,7 +72,9 @@ fn window_with_step(step: f32) -> Window {
     let h = Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        .with_size([1000.0, 1400.0])
+        // The side Docks open 48 px wider each than they first did, and the cards stand
+        // 6 px apart and from the window's edges: the canvas keeps its width.
+        .with_size([1114.0, 1400.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     Window {
         h,
@@ -539,11 +541,15 @@ fn the_layers_panel_hides_a_layer() {
             .unwrap()
             .uuid
     };
+    w.h.get_by_label("Show Top Silkscreen").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show Top Silkscreen").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.layer.show");
     assert!(shell(&w).board_view().layers.hidden.contains(&silk));
 
+    w.h.get_by_label("Ratsnest").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Ratsnest").click();
     w.h.run();
     assert!(shell(&w).board_view().layers.ratsnest.hidden);
@@ -560,6 +566,8 @@ fn mod_click_on_a_layers_eye_pins_it_and_the_panel_applies_sets_and_view_toggles
             .unwrap()
             .uuid
     };
+    w.h.get_by_label("Show Board Outline").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show Board Outline")
         .click_modifiers(Modifiers::COMMAND);
     w.h.run();
@@ -572,14 +580,21 @@ fn mod_click_on_a_layers_eye_pins_it_and_the_panel_applies_sets_and_view_toggles
             .is_some()
     );
 
+    w.h.get_by_label("Net colours on copper (F5)")
+        .scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Net colours on copper (F5)").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.net_colors");
     assert!(shell(&w).board_view().layers.net_colors);
+    w.h.get_by_label("Repeated Net Names").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Repeated Net Names").click();
     w.h.run();
     assert!(shell(&w).board_view().layers.labels.repeated_net_names);
 
+    w.h.get_by_label("Signal").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Signal").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.layer_set.apply");
@@ -743,7 +758,12 @@ fn click(w: &mut Window, at: Pos2) {
 /// [`click`], `gap` seconds after the last input.
 fn click_after(w: &mut Window, at: Pos2, gap: f64) {
     w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + gap);
-    click(w, at);
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.step();
+    // Let the clock run again, or a bar leaving with the selection never finishes.
+    w.h.input_mut().time = None;
+    w.h.run();
 }
 
 #[test]
@@ -877,6 +897,10 @@ fn board_rectangle_direction_follows_the_screen_also_from_below() {
             .unwrap();
         w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
         w.h.drag_at(from);
+        w.h.step();
+        // Let the clock run again, or the Layers Panel's "View from bottom" box, which
+        // the flip just changed, never finishes its transition.
+        w.h.input_mut().time = None;
         w.h.run();
         w.h.hover_at(to);
         w.h.run();
@@ -999,6 +1023,8 @@ fn a_zone_cutout_has_a_layers_panel_row_and_a_selection_filter_kind() {
     assert!(shell(&w).selection().objects.is_empty());
 
     // The Layers panel's Zone Cutouts row hides every one.
+    w.h.get_by_label("Zone Cutouts").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Zone Cutouts").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.object_type.show");

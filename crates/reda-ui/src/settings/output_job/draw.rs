@@ -1,14 +1,19 @@
 //! Drawing the Output Job window's pages.
 
-use egui::{ComboBox, Grid, RichText, Role, ScrollArea, Ui, WidgetInfo};
+use egui::{Role, ScrollArea, Ui, WidgetInfo};
 use reda_engine::model::{NotFittedPaste, PdfColour, SlotCommand};
 use reda_engine::output::Table;
 use reda_engine::output_preview::{FileState, JobPreview, PlannedFile};
 
 use super::last_run::{FileCheck, LastRun, Manifest};
 use super::{JobDraft, Section};
-use crate::settings::{PageCx, field, problem_label};
+use crate::settings::{PageCx, field, layout, mono, problem_label, strong};
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
+
+/// The fields and dropdowns of the General page.
+const FIELD_WIDTH: f32 = 280.0;
 
 /// Draws `section`'s page of the job.
 pub(super) fn page(ui: &mut Ui, cx: &mut PageCx<'_>, section: Section, draft: &mut JobDraft) {
@@ -36,22 +41,27 @@ fn from_preset(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &JobDraft, section: Sect
     let Some(page) = section.preset_page() else {
         return;
     };
+    let t = ui.tokens();
     ui.horizontal(|ui| {
         let badge = egui::Frame::new()
-            .fill(ui.visuals().faint_bg_color)
-            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
-            .corner_radius(4.0)
-            .inner_margin(egui::Margin::symmetric(6, 1));
+            .fill(t.color.fill.control)
+            .corner_radius(t.radius.mark)
+            .inner_margin(egui::Margin::symmetric(
+                t.space.row_x as i8,
+                t.space.row_y as i8,
+            ));
         badge.show(ui, |ui| {
-            ui.label(
-                RichText::new(tr!("output-job-from-preset", preset = draft.preset_name())).small(),
-            );
+            let text = tr!("output-job-from-preset", preset = draft.preset_name());
+            ui.label(t.ty.small.rich(text).color(t.color.text.muted));
         });
-        if ui.button(tr!("output-job-edit-preset")).clicked() {
+        if ui
+            .add(widgets::button(tr!("output-job-edit-preset")))
+            .clicked()
+        {
             cx.edit_preset(*draft.fab_preset.value(), page);
         }
     });
-    ui.add_space(6.0);
+    ui.add_space(t.space.stack);
 }
 
 /// Announces a combo box as `label`.
@@ -60,103 +70,106 @@ fn labelled(response: &egui::Response, label: String) {
 }
 
 fn general(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
-    Grid::new("output-job-general")
-        .num_columns(2)
-        .spacing([12.0, 8.0])
-        .show(ui, |ui| {
-            let label = tr!("output-job-name");
-            ui.label(&label);
+    widgets::form("output-job-general").show(ui, |ui| {
+        let label = tr!("output-job-name");
+        ui.add(widgets::form_name(&label));
+        field(
+            ui,
+            &label,
+            draft.name.value_mut(),
+            FIELD_WIDTH,
+            cx.problem("name"),
+        );
+        ui.end_row();
+
+        ui.add(widgets::form_name(tr!("output-job-pcb")));
+        ui.vertical(|ui| {
+            let combo = widgets::dropdown("output-job-pcb", draft.pcb_title())
+                .width(FIELD_WIDTH)
+                .show(ui, |ui| {
+                    for (uuid, title) in draft.pcbs.clone() {
+                        let mut picked = *draft.pcb.value();
+                        widgets::choice_value(ui, &mut picked, uuid, title);
+                        draft.pcb.set(picked);
+                    }
+                });
+            labelled(&combo.response, tr!("output-job-pcb"));
+            if let Some(problem) = cx.problem("pcb") {
+                problem_label(ui, problem);
+            }
+        });
+        ui.end_row();
+
+        ui.add(widgets::form_name(tr!("output-job-fab-preset")));
+        let combo = widgets::dropdown("output-job-fab-preset", draft.preset_name())
+            .width(FIELD_WIDTH)
+            .show(ui, |ui| {
+                for (uuid, name) in draft.presets.clone() {
+                    let mut picked = *draft.fab_preset.value();
+                    widgets::choice_value(ui, &mut picked, uuid, name);
+                    draft.fab_preset.set(picked);
+                }
+            });
+        labelled(&combo.response, tr!("output-job-fab-preset"));
+        ui.end_row();
+
+        let label = tr!("output-job-destination");
+        ui.add(widgets::form_name(&label));
+        ui.vertical(|ui| {
+            let problem = cx.problem("destination");
             field(
                 ui,
                 &label,
-                draft.name.value_mut(),
-                280.0,
-                cx.problem("name"),
+                draft.destination.value_mut(),
+                FIELD_WIDTH,
+                problem,
             );
-            ui.end_row();
-
-            ui.label(tr!("output-job-pcb"));
-            ui.vertical(|ui| {
-                let combo = ComboBox::from_id_salt("output-job-pcb")
-                    .selected_text(draft.pcb_title())
-                    .width(280.0)
-                    .show_ui(ui, |ui| {
-                        for (uuid, title) in draft.pcbs.clone() {
-                            let mut picked = *draft.pcb.value();
-                            ui.selectable_value(&mut picked, uuid, title);
-                            draft.pcb.set(picked);
-                        }
-                    });
-                labelled(&combo.response, tr!("output-job-pcb"));
-                if let Some(problem) = cx.problem("pcb") {
-                    problem_label(ui, problem);
-                }
-            });
-            ui.end_row();
-
-            ui.label(tr!("output-job-fab-preset"));
-            let combo = ComboBox::from_id_salt("output-job-fab-preset")
-                .selected_text(draft.preset_name())
-                .width(280.0)
-                .show_ui(ui, |ui| {
-                    for (uuid, name) in draft.presets.clone() {
-                        let mut picked = *draft.fab_preset.value();
-                        ui.selectable_value(&mut picked, uuid, name);
-                        draft.fab_preset.set(picked);
-                    }
-                });
-            labelled(&combo.response, tr!("output-job-fab-preset"));
-            ui.end_row();
-
-            let label = tr!("output-job-destination");
-            ui.label(&label);
-            ui.vertical(|ui| {
-                let problem = cx.problem("destination");
-                field(ui, &label, draft.destination.value_mut(), 280.0, problem);
-                if draft.destination.value().trim().is_empty() {
-                    let default = draft.default_destination();
-                    ui.weak(tr!("output-job-destination-default", folder = default));
-                }
-            });
-            ui.end_row();
-
-            let label = tr!("output-job-name-template");
-            ui.label(&label);
-            ui.vertical(|ui| {
-                let problem = cx.problem("name_template");
-                field(ui, &label, draft.name_template.value_mut(), 280.0, problem);
-                ui.weak(tr!("output-job-name-template-tokens"));
-                if problem.is_none()
-                    && let Some(warning) = draft.name_warning(cx.shell.engine())
-                {
-                    ui.colored_label(ui.visuals().warn_fg_color, warning);
-                }
-            });
-            ui.end_row();
+            if draft.destination.value().trim().is_empty() {
+                let default = draft.default_destination();
+                layout::muted(ui, tr!("output-job-destination-default", folder = default));
+            }
         });
+        ui.end_row();
+
+        let label = tr!("output-job-name-template");
+        ui.add(widgets::form_name(&label));
+        ui.vertical(|ui| {
+            let problem = cx.problem("name_template");
+            let template = draft.name_template.value_mut();
+            field(ui, &label, template, FIELD_WIDTH, problem);
+            layout::muted(ui, tr!("output-job-name-template-tokens"));
+            if problem.is_none()
+                && let Some(warning) = draft.name_warning(cx.shell.engine())
+            {
+                layout::warning(ui, warning);
+            }
+        });
+        ui.end_row();
+    });
     let Some(preview) = draft.preview(cx.shell.engine()).cloned() else {
         return;
     };
-    ui.add_space(10.0);
-    ui.strong(tr!("output-job-paths"));
+    let t = ui.tokens();
+    ui.add_space(t.space.section);
+    strong(ui, tr!("output-job-paths"));
     match &preview.destination {
         Ok(folder) => {
             for file in &preview.beside {
-                ui.monospace(format!("{folder}/{file}"));
+                mono(ui, format!("{folder}/{file}"));
             }
         }
         Err(e) => {
-            ui.colored_label(ui.visuals().error_fg_color, e);
+            layout::error(ui, e);
         }
     }
-    ui.add_space(10.0);
-    ui.strong(tr!("output-job-zip-contents"));
+    ui.add_space(t.space.section);
+    strong(ui, tr!("output-job-zip-contents"));
     from_preset(ui, cx, draft, Section::General);
     if preview.zip.is_empty() {
-        ui.weak(tr!("output-job-zip-empty"));
+        layout::muted(ui, tr!("output-job-zip-empty"));
     }
     for name in &preview.zip {
-        ui.monospace(name);
+        mono(ui, name);
     }
 }
 
@@ -172,33 +185,49 @@ fn outputs(ui: &mut Ui, draft: &mut JobDraft) {
         (tr!("output-job-reports"), &mut draft.reports),
         (tr!("output-job-schematic-pdf"), &mut draft.schematic_pdf),
     ] {
-        ui.checkbox(value.value_mut(), label);
+        ui.add(widgets::checkbox(value.value_mut(), label));
     }
-    ui.add_space(6.0);
+    let t = ui.tokens();
+    ui.add_space(t.space.section);
     ui.horizontal(|ui| {
-        ui.label(tr!("output-job-pdf-colour"));
+        layout::text(ui, tr!("output-job-pdf-colour"));
         let colour = draft.schematic_pdf_colour.value_mut();
-        ui.radio_value(
+        radio(
+            ui,
             colour,
             PdfColour::Colour,
             tr!("output-job-pdf-colour-colour"),
         );
-        ui.radio_value(colour, PdfColour::Mono, tr!("output-job-pdf-colour-mono"));
+        radio(
+            ui,
+            colour,
+            PdfColour::Mono,
+            tr!("output-job-pdf-colour-mono"),
+        );
     });
     ui.horizontal(|ui| {
-        ui.label(tr!("output-job-not-fitted-paste"));
+        layout::text(ui, tr!("output-job-not-fitted-paste"));
         let paste = draft.not_fitted_paste.value_mut();
-        ui.radio_value(
+        radio(
+            ui,
             paste,
             NotFittedPaste::Keep,
             tr!("output-job-not-fitted-keep"),
         );
-        ui.radio_value(
+        radio(
+            ui,
             paste,
             NotFittedPaste::Remove,
             tr!("output-job-not-fitted-remove"),
         );
     });
+}
+
+/// A radio button that sets `value` to `option` when clicked.
+fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, option: T, text: String) {
+    if ui.add(widgets::radio(*value == option, text)).clicked() {
+        *value = option;
+    }
 }
 
 /// The words for a planned file's state.
@@ -220,8 +249,7 @@ fn gerber(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
         return;
     };
     if let Some(file) = &preview.out_of_range {
-        let text = tr!("output-job-out-of-range", file = file.as_str());
-        ui.colored_label(ui.visuals().error_fg_color, text);
+        layout::error(ui, tr!("output-job-out-of-range", file = file.as_str()));
         return;
     }
     files(ui, "output-job-gerber-files", &preview.gerber, true);
@@ -229,29 +257,30 @@ fn gerber(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
 
 /// A read-only table of planned files.
 fn files(ui: &mut Ui, id: &str, files: &[PlannedFile], layers: bool) {
-    Grid::new(id)
-        .num_columns(if layers { 3 } else { 2 })
-        .striped(true)
-        .spacing([16.0, 4.0])
-        .show(ui, |ui| {
-            if layers {
-                ui.strong(tr!("output-job-column-layer"));
-            }
-            ui.strong(tr!("output-job-column-file"));
-            ui.strong(tr!("output-job-column-plotted"));
-            ui.end_row();
-            for file in files {
+    let count = if layers { 3 } else { 2 };
+    widgets::table(id)
+        .columns(std::iter::repeat_n(Column::auto(), count))
+        .show(ui, |table| {
+            table.header(|h| {
                 if layers {
-                    ui.label(&file.layer);
+                    h.text(tr!("output-job-column-layer"));
                 }
-                ui.monospace(&file.name);
-                let text = state_text(file.state);
-                if file.state == FileState::Plotted {
-                    ui.label(text);
-                } else {
-                    ui.weak(text);
-                }
-                ui.end_row();
+                h.text(tr!("output-job-column-file"));
+                h.text(tr!("output-job-column-plotted"));
+            });
+            for file in files {
+                table.row(|row| {
+                    if layers {
+                        row.text(&file.layer);
+                    }
+                    row.ui(|ui| mono(ui, &file.name));
+                    let text = state_text(file.state);
+                    if file.state == FileState::Plotted {
+                        row.text(text);
+                    } else {
+                        row.muted(text);
+                    }
+                });
             }
         });
 }
@@ -265,25 +294,29 @@ fn drill(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
         .and_then(|p| p.fab_preset(*draft.fab_preset.value()))
         .map(|p| p.gerber.clone());
     if let Some(settings) = settings {
-        Grid::new("output-job-drill")
-            .num_columns(2)
-            .spacing([12.0, 6.0])
-            .show(ui, |ui| {
-                ui.label(tr!("output-job-slot-command"));
-                ui.label(match settings.slot_command {
-                    SlotCommand::Route => tr!("output-job-slot-route"),
-                    SlotCommand::G85 => tr!("output-job-slot-g85"),
-                });
-                ui.end_row();
-                ui.label(tr!("output-job-drill-files"));
-                ui.label(if settings.merge_drill {
-                    tr!("output-job-drill-merged")
-                } else {
-                    tr!("output-job-drill-split")
-                });
-                ui.end_row();
+        widgets::form("output-job-drill").show(ui, |ui| {
+            widgets::form_row(ui, tr!("output-job-slot-command"), |ui| {
+                layout::text(
+                    ui,
+                    match settings.slot_command {
+                        SlotCommand::Route => tr!("output-job-slot-route"),
+                        SlotCommand::G85 => tr!("output-job-slot-g85"),
+                    },
+                )
             });
-        ui.add_space(8.0);
+            widgets::form_row(ui, tr!("output-job-drill-files"), |ui| {
+                layout::text(
+                    ui,
+                    if settings.merge_drill {
+                        tr!("output-job-drill-merged")
+                    } else {
+                        tr!("output-job-drill-split")
+                    },
+                )
+            });
+        });
+        let t = ui.tokens();
+        ui.add_space(t.space.section);
     }
     if let Some(preview) = preview_of(cx, draft) {
         files(ui, "output-job-drill-files", &preview.drill, false);
@@ -309,7 +342,7 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
         _ => *draft.cpl.value(),
     };
     if !on {
-        ui.weak(tr!("output-job-assembly-off"));
+        layout::muted(ui, tr!("output-job-assembly-off"));
     }
     let Some(preview) = preview_of(cx, draft) else {
         return;
@@ -319,7 +352,7 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
         _ => &preview.cpl,
     };
     if table.rows.is_empty() {
-        ui.weak(tr!("output-job-assembly-no-rows"));
+        layout::muted(ui, tr!("output-job-assembly-no-rows"));
     }
     let empty = if table.rows.is_empty() {
         Vec::new()
@@ -329,31 +362,29 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
     ScrollArea::horizontal()
         .id_salt(("output-job-table", section))
         .show(ui, |ui| {
-            Grid::new(("output-job-rows", section))
-                .striped(true)
-                .spacing([14.0, 4.0])
-                .show(ui, |ui| {
-                    for (i, header) in table.header.iter().enumerate() {
-                        if empty.contains(&i) {
-                            ui.label(
-                                RichText::new(tr!(
-                                    "output-job-column-empty",
-                                    column = header.as_str()
-                                ))
-                                .strong()
-                                .color(ui.visuals().warn_fg_color),
-                            )
-                            .on_hover_text(tr!("output-job-column-empty-hint"));
-                        } else {
-                            ui.strong(header);
+            let t = ui.tokens();
+            let widest = table.rows.iter().map(Vec::len).max().unwrap_or(0);
+            let columns = table.header.len().max(widest);
+            widgets::table(("output-job-rows", section))
+                .columns(std::iter::repeat_n(Column::auto(), columns))
+                .show(ui, |rows| {
+                    rows.header(|h| {
+                        for (i, header) in table.header.iter().enumerate() {
+                            if empty.contains(&i) {
+                                let text = tr!("output-job-column-empty", column = header.as_str());
+                                h.colored(text, t.color.warning.text)
+                                    .tooltip(tr!("output-job-column-empty-hint"));
+                            } else {
+                                h.text(header);
+                            }
                         }
-                    }
-                    ui.end_row();
+                    });
                     for row in &table.rows {
-                        for cell in row {
-                            ui.label(cell);
-                        }
-                        ui.end_row();
+                        rows.row(|cells| {
+                            for cell in row {
+                                cells.text(cell);
+                            }
+                        });
                     }
                 });
         });
@@ -364,17 +395,19 @@ fn last_run(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
     let folder = draft.destination_folder(cx.shell.engine());
     match &run {
         LastRun::NotRun => {
-            ui.label(tr!("output-job-not-run"));
+            layout::text(ui, tr!("output-job-not-run"));
         }
         LastRun::Unreadable(why) => {
             let text = tr!("output-job-manifest-unreadable", error = why.as_str());
-            ui.colored_label(ui.visuals().error_fg_color, text);
+            layout::error(ui, text);
         }
         LastRun::Read(manifest) => manifest_view(ui, manifest),
     }
-    ui.add_space(8.0);
+    let t = ui.tokens();
+    ui.add_space(t.space.section);
     let exists = folder.as_ref().is_some_and(|f| f.is_dir());
-    let button = ui.add_enabled(exists, egui::Button::new(tr!("output-job-show-in-folder")));
+    let show = widgets::button(tr!("output-job-show-in-folder"));
+    let button = ui.add_enabled(exists, show);
     if button.clicked()
         && let Some(folder) = folder
     {
@@ -383,61 +416,62 @@ fn last_run(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
 }
 
 fn manifest_view(ui: &mut Ui, manifest: &Manifest) {
-    ui.label(tr!(
-        "output-job-last-run-status",
-        date = manifest.date.as_str(),
-        reda = manifest.reda.as_str(),
-        preset = manifest.preset.as_str()
-    ));
+    let t = ui.tokens();
+    layout::text(
+        ui,
+        tr!(
+            "output-job-last-run-status",
+            date = manifest.date.as_str(),
+            reda = manifest.reda.as_str(),
+            preset = manifest.preset.as_str()
+        ),
+    );
     let changed = manifest.changed();
     if changed == 0 {
-        ui.label(tr!(
-            "output-job-last-run-match",
-            count = manifest.files.len()
-        ));
-    } else {
-        ui.colored_label(
-            ui.visuals().warn_fg_color,
-            tr!("output-job-last-run-changed", count = changed),
+        layout::text(
+            ui,
+            tr!("output-job-last-run-match", count = manifest.files.len()),
         );
+    } else {
+        layout::warning(ui, tr!("output-job-last-run-changed", count = changed));
     }
     if !manifest.warnings.is_empty() {
-        ui.add_space(6.0);
-        ui.strong(tr!("output-job-warnings"));
+        ui.add_space(t.space.stack);
+        strong(ui, tr!("output-job-warnings"));
         for (_, message) in &manifest.warnings {
-            ui.colored_label(ui.visuals().warn_fg_color, message);
+            layout::warning(ui, message);
         }
     }
-    ui.add_space(6.0);
+    ui.add_space(t.space.stack);
     ScrollArea::horizontal()
         .id_salt("output-job-last-run-files")
         .show(ui, |ui| {
-            Grid::new("output-job-last-run")
-                .striped(true)
-                .spacing([14.0, 4.0])
-                .show(ui, |ui| {
-                    ui.strong(tr!("output-job-column-file"));
-                    ui.strong(tr!("output-job-column-size"));
-                    ui.strong(tr!("output-job-column-sha256"));
-                    ui.strong(tr!("output-job-column-check"));
-                    ui.end_row();
+            widgets::table("output-job-last-run")
+                .columns([Column::auto(); 4])
+                .show(ui, |table| {
+                    table.header(|h| {
+                        h.text(tr!("output-job-column-file"));
+                        h.text(tr!("output-job-column-size"));
+                        h.text(tr!("output-job-column-sha256"));
+                        h.text(tr!("output-job-column-check"));
+                    });
                     for file in &manifest.files {
-                        ui.monospace(&file.path);
-                        ui.label(size(file.size));
-                        let short = file.sha256.get(..12).unwrap_or(&file.sha256);
-                        ui.monospace(short).on_hover_text(&file.sha256);
-                        match file.check {
-                            FileCheck::Same => ui.weak(tr!("output-job-file-same")),
-                            FileCheck::Changed => ui.colored_label(
-                                ui.visuals().warn_fg_color,
-                                tr!("output-job-file-changed"),
-                            ),
-                            FileCheck::Missing => ui.colored_label(
-                                ui.visuals().warn_fg_color,
-                                tr!("output-job-file-missing"),
-                            ),
-                        };
-                        ui.end_row();
+                        table.row(|row| {
+                            row.ui(|ui| mono(ui, &file.path));
+                            row.text(size(file.size));
+                            let short = file.sha256.get(..12).unwrap_or(&file.sha256);
+                            row.ui(|ui| mono(ui, short).tooltip(&file.sha256));
+                            let warning = t.color.warning.text;
+                            match file.check {
+                                FileCheck::Same => row.muted(tr!("output-job-file-same")),
+                                FileCheck::Changed => {
+                                    row.colored(tr!("output-job-file-changed"), warning)
+                                }
+                                FileCheck::Missing => {
+                                    row.colored(tr!("output-job-file-missing"), warning)
+                                }
+                            };
+                        });
                     }
                 });
         });

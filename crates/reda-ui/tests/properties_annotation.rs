@@ -71,7 +71,13 @@ fn type_into(h: &mut Harness<'_, App>, label: &str, text: &str) {
 
 /// Opens the drop-down labelled `label` and picks `option`.
 fn pick(h: &mut Harness<'_, App>, label: &str, option: &str) {
+    h.get_by_role_and_label(Role::ComboBox, label)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::ComboBox, label).click();
+    h.run();
+    // A long list scrolls inside its popup.
+    h.get_all_by_label(option).last().unwrap().scroll_to_me();
     h.run();
     h.get_all_by_label(option).last().unwrap().click();
     h.run();

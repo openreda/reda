@@ -30,7 +30,9 @@ use crate::bars::DocumentType;
 use crate::canvas::CanvasInputs;
 use crate::messages::{self, Note};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
 
 /// A Command for the window to run after the frame.
 pub type Invocation = (String, Value);
@@ -223,9 +225,16 @@ pub(crate) fn panels(ui: &mut egui::Ui, shell: &mut Shell, element: Uuid) -> Vec
     match shell.engine().element(element) {
         Some(LibraryElement::Footprint(_)) => {
             let id = egui::Id::NULL.with(("element-side-panel", element));
+            // The panel's text keeps a gap from the canvas beside it.
+            let t = ui.tokens();
+            let frame = egui::Frame::new().inner_margin(egui::Margin {
+                left: t.space.panel as i8,
+                ..egui::Margin::ZERO
+            });
             egui::Panel::right(id)
+                .frame(frame)
                 .resizable(false)
-                .exact_size(crate::footprint_editor::inspector::WIDTH)
+                .exact_size(t.size.of(crate::footprint_editor::inspector::WIDTH))
                 .show(ui, |ui| {
                     crate::footprint_editor::inspector::show(ui, shell, element)
                 })
@@ -325,25 +334,23 @@ pub(crate) fn text_field(
     current: &str,
     width: f32,
 ) -> Option<String> {
-    text_field_with(ui, id, label, current, width).0
+    text_field_with(ui, id, label, current, width, false).0
 }
 
-/// [`text_field`], also giving back the field's response (to mark or hover it).
+/// [`text_field`], drawn invalid when `invalid`, also giving back the field's response.
 pub(crate) fn text_field_with(
     ui: &mut egui::Ui,
     id: egui::Id,
     label: &str,
     current: &str,
     width: f32,
+    invalid: bool,
 ) -> (Option<String>, egui::Response) {
     let mut draft = ui
         .data(|d| d.get_temp::<String>(id))
         .unwrap_or_else(|| current.to_owned());
-    let response = ui.add(
-        egui::TextEdit::singleline(&mut draft)
-            .id(id)
-            .desired_width(width),
-    );
+    let field = widgets::text_field(&mut draft).id(id).width(width);
+    let response = ui.add(field.invalid(invalid));
     let name = label.to_owned();
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, name.clone()));
     let committed = response.lost_focus()

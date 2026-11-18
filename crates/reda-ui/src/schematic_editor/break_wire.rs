@@ -22,6 +22,7 @@ use crate::canvas::{Cutter, Overlay};
 use crate::shell::Shell;
 use crate::tools::{BreakWireTool, Tool};
 use crate::tr;
+use crate::widgets;
 
 /// The Break Wire Tool's pointer.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -160,10 +161,8 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
         return out;
     }
     let prefs: BreakWirePreferences = shell.preferences().schematic.break_wire.clone();
-    egui::Window::new(tr!("break-wire-title"))
-        .id(egui::Id::NULL.with(("break-wire-options", document)))
-        .collapsible(false)
-        .resizable(false)
+    let id = egui::Id::NULL.with(("break-wire-options", document));
+    widgets::window(id, tr!("break-wire-title"))
         .fixed_pos(rect.left_top() + egui::vec2(12.0, 48.0))
         .show(ui.ctx(), |ui| {
             ui.strong(tr!("pref-schematic-break-wire-cutting-length"));
@@ -177,19 +176,24 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
                     &format!("pref-schematic-break-wire-cutting-length-{id}"),
                     &[],
                 );
-                if ui.radio(prefs.cutting_length == length, label).clicked() {
+                if ui
+                    .add(widgets::radio(prefs.cutting_length == length, label))
+                    .clicked()
+                {
                     out.push(set("cutting_length", json!(length)));
                 }
             }
-            let mut multiple = prefs.grid_multiple;
+            let mut multiple = f64::from(prefs.grid_multiple);
             let range = BreakWirePreferences::GRID_MULTIPLES;
-            let slider = egui::Slider::new(&mut multiple, *range.start()..=*range.end())
+            let range = f64::from(*range.start())..=f64::from(*range.end());
+            let slider = widgets::slider(&mut multiple, range)
+                .step(1.0)
                 .text(tr!("pref-schematic-break-wire-grid-multiple"));
             if ui.add(slider).changed() {
-                out.push(set("grid_multiple", json!(multiple)));
+                out.push(set("grid_multiple", json!(multiple.round() as u32)));
             }
             let mut mils = prefs.fixed_length.0.0 as f64 / 25_400.0;
-            let fixed = egui::Slider::new(&mut mils, 1.0..=1000.0)
+            let fixed = widgets::slider(&mut mils, 1.0..=1000.0)
                 .logarithmic(true)
                 .suffix(" mil")
                 .text(tr!("pref-schematic-break-wire-fixed-length"));
@@ -221,7 +225,7 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
                             &[],
                         );
                         let accessible = format!("{title}: {label}");
-                        let radio = ui.radio(current == show, label);
+                        let radio = ui.add(widgets::radio(current == show, label));
                         radio.widget_info(|| {
                             egui::WidgetInfo::selected(
                                 egui::Role::RadioButton,
@@ -236,7 +240,7 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
                     }
                 });
             }
-            if ui.button(tr!("break-wire-close")).clicked() {
+            if ui.add(widgets::button(tr!("break-wire-close"))).clicked() {
                 out.push(("tool.edit_properties".to_owned(), json!({})));
             }
         });

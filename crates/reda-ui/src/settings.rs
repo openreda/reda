@@ -25,11 +25,12 @@ pub mod board_setup;
 pub mod change_list;
 mod draw;
 pub mod fab_preset;
+pub mod layout;
 pub mod output_job;
 pub mod project;
 pub mod windows;
 
-pub use draw::{Outcome, PageCx, field, problem_label, tree_row};
+pub use draw::{Outcome, PageCx, choice_toggle, dropdown, field, mono, problem_label, strong};
 
 /// A file a page asked the window to pick.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

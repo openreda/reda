@@ -104,7 +104,7 @@ fn canvas_with(kind: &str, builder: egui_kittest::HarnessBuilder<App>) -> Canvas
         );
     }
     let mut h = builder
-        .with_size([1100.0, 900.0])
+        .with_size([1400.0, 1000.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.run();
     // A fixed view with room around the larger rectangle, whatever the canvas's size.

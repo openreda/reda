@@ -2,8 +2,9 @@
 //!
 //! Commands, Presets, Panels and Document types name an icon by key (`"save"`,
 //! `"panel_layers"`); [`ICONS`](table::ICONS) maps each key to its SVG in `icons/`. Each
-//! SVG is drawn with the dark-theme colours. On load, [`recolour`] swaps them for the light
-//! theme's, and makes the greyscale copy disabled buttons show (the button fades it, once);
+//! SVG is drawn with six fixed role keys. On load, [`recolour`] swaps each key for the
+//! theme's role colour, and makes the greyscale copy disabled buttons show (the button
+//! fades it, once);
 //! state otherwise shows on the button, never on the icon. Every icon is REDA's own art,
 //! listed with its provenance in `icons/reda.txt`; `cargo xtask icons` regenerates the
 //! table from it (see `icons/README.md`).
@@ -18,6 +19,7 @@ use egui::{Color32, Image, ImageSource, Theme, Vec2};
 use reda_engine::model::DocumentKind;
 
 use crate::layout::PanelId;
+use crate::theme::{Settings, Tokens};
 
 /// Icon size on toolbars and the Active Bar, in points: the 24 px drawing grid.
 pub const TOOLBAR: f32 = 24.0;
@@ -73,36 +75,35 @@ fn source(key: &str) -> Option<&'static [u8]> {
     }
 }
 
-/// The style guide's role colours (issue #32): each one's dark-theme value, which the SVGs
-/// are drawn with, and its light-theme value.
-const ROLES: [(u32, u32); 6] = [
-    (0x8a93a0, 0x727984), // existing / context
-    (0x2fb36b, 0x228a51), // created, schematic
-    (0xe08a2e, 0xac6921), // created, PCB copper
-    (0x3d8fd6, 0x347dbc), // created, general
-    (0xec4f7a, 0xd2456c), // picked point
-    (0xd4c03c, 0x8a7a12), // created, board edge and keepout (not copper)
-];
+/// The six role colours as the SVG files write them: fixed keys, which [`recolour`] maps
+/// to the theme's values (`color.icon` in the theme's tokens, in the same order). The
+/// table is kept in `theme`, the one place colours are written.
+pub(crate) const ROLE_KEYS: [u32; 6] = crate::theme::ICON_ROLE_KEYS;
 
-/// The role colours as (dark theme, light theme) pairs: the only colours the icons may use.
-pub fn role_colours() -> impl Iterator<Item = (Color32, Color32)> {
-    let colour = |c: u32| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8);
-    ROLES
-        .iter()
-        .map(move |(dark, light)| (colour(*dark), colour(*light)))
+/// The role keys: the only colours an icon's SVG file may use.
+pub fn role_keys() -> impl Iterator<Item = Color32> {
+    crate::theme::icon_role_keys().into_iter()
+}
+
+/// The value of each role key on `theme`, in the order of [`ROLE_KEYS`].
+fn role_values(theme: Theme) -> [u32; 6] {
+    let tokens = Tokens::new(theme, &Settings::default());
+    tokens
+        .color
+        .icon
+        .roles()
+        .map(|c| (u32::from(c.r()) << 16) | (u32::from(c.g()) << 8) | u32::from(c.b()))
 }
 
 /// How far a disabled icon's greys are pulled toward mid grey.
 const DISABLED_PULL: f32 = 0.4;
 
-/// `svg` (drawn with dark-theme colours) for `theme`: on the light theme each listed colour
-/// is swapped; when not `enabled` every colour then becomes its luminance pulled toward mid
+/// `svg` (drawn with the role keys) for `theme`: each role key is swapped for the theme's
+/// value; when not `enabled` every colour then becomes its luminance pulled toward mid
 /// grey. The copy is not faded: the disabled button that shows it fades it, once, by the
-/// theme's [`DISABLED_ALPHA`](crate::theme::DISABLED_ALPHA).
+/// theme's `opacity.disabled`.
 pub fn recolour(svg: &str, theme: Theme, enabled: bool) -> String {
-    if theme == Theme::Dark && enabled {
-        return svg.to_owned();
-    }
+    let roles = role_values(theme);
     let mut out = String::with_capacity(svg.len() + 16);
     let mut rest = svg;
     while let Some(at) = rest.find('#') {
@@ -111,7 +112,7 @@ pub fn recolour(svg: &str, theme: Theme, enabled: bool) -> String {
         let digits = tail.bytes().take_while(u8::is_ascii_hexdigit).count();
         match parse_hex(&tail[..digits]) {
             Some(colour) => {
-                let colour = map_colour(colour, theme, enabled);
+                let colour = map_colour(colour, &roles, enabled);
                 out.push_str(&format!("#{colour:06x}"));
             }
             None => {
@@ -138,14 +139,11 @@ fn parse_hex(digits: &str) -> Option<u32> {
     }
 }
 
-fn map_colour(colour: u32, theme: Theme, enabled: bool) -> u32 {
-    let colour = match theme {
-        Theme::Dark => colour,
-        Theme::Light => ROLES
-            .iter()
-            .find(|(dark, _)| *dark == colour)
-            .map_or(colour, |(_, light)| *light),
-    };
+fn map_colour(colour: u32, roles: &[u32; 6], enabled: bool) -> u32 {
+    let colour = ROLE_KEYS
+        .iter()
+        .position(|key| *key == colour)
+        .map_or(colour, |i| roles[i]);
     if enabled {
         return colour;
     }

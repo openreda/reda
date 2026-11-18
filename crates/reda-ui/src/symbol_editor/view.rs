@@ -10,6 +10,7 @@ use super::{canvas, commit_text, set_text, shown_unit, symbol_of};
 use crate::element_editor::{self, Invocation};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Draws the panels of `symbol`'s tab into `ui`, leaving the rest for the canvas.
 pub(crate) fn panels(ui: &mut Ui, shell: &mut Shell, symbol: Uuid) -> Vec<Invocation> {
@@ -30,7 +31,7 @@ fn unit_tabs(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invocat
         for unit in &s.units {
             let label = tr!("symbol-unit-tab", unit = unit.name.as_str());
             if ui
-                .selectable_label(shown == Some(unit.uuid), label)
+                .add(widgets::button(label).on(shown == Some(unit.uuid)))
                 .clicked()
             {
                 out.push((
@@ -39,7 +40,7 @@ fn unit_tabs(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invocat
                 ));
             }
         }
-        let add = ui.add_enabled(!locked, egui::Button::new(tr!("symbol-unit-add")));
+        let add = ui.add_enabled(!locked, widgets::button(tr!("symbol-unit-add")));
         if add.clicked() {
             out.push((
                 "library.symbol.unit.add".to_owned(),
@@ -60,10 +61,10 @@ fn text_entry(ui: &mut Ui, shell: &mut Shell, symbol: Uuid, out: &mut Vec<Invoca
     };
     ui.separator();
     let edit = ui.add(
-        egui::TextEdit::singleline(&mut text)
+        widgets::text_field(&mut text)
             .id(Id::NULL.with(("symbol-text", symbol)))
-            .hint_text(tr!("symbol-text-hint"))
-            .desired_width(200.0),
+            .hint(tr!("symbol-text-hint"))
+            .width(200.0),
     );
     edit.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, tr!("symbol-text-hint")));
     if !edit.has_focus() && !edit.lost_focus() {

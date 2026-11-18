@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::command_dialog::{Outcome, ParamsDialog};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Asks for the words of text the Text Tool is placing.
 pub struct TextDialog {
@@ -52,26 +53,26 @@ impl ParamsDialog for TextDialog {
             tr!("schematic-text-title"),
         )
         .show(ctx, |ui| {
-            let field = ui.text_edit_singleline(&mut self.words);
+            let field = ui.add(widgets::text_field(&mut self.words));
             field.widget_info(|| {
                 WidgetInfo::labeled(Role::TextInput, true, tr!("schematic-text-words"))
             });
             field.request_focus();
             let enter = field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                super::error(ui, error);
             }
-            ui.horizontal(|ui| {
+            crate::modal::buttons(ui, |ui| {
                 let place = ui.add_enabled(
                     self.params().is_some(),
-                    egui::Button::new(tr!("schematic-text-place")),
+                    widgets::button(tr!("schematic-text-place")).primary(),
                 );
                 if (place.clicked() || enter)
                     && let Some(params) = self.params()
                 {
                     outcome = Outcome::Run(params);
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     outcome = Outcome::Cancel;
                 }
             });

@@ -228,12 +228,18 @@ fn the_strip_runs_along_the_bottom_with_a_chip_per_shown_layer_and_layer_sets() 
 
 #[test]
 fn tool_bars_sit_36_px_above_the_canvas_bottom_and_24_px_more_with_the_strip() {
-    use reda_ui::bars::draw::{grid_readout_anchor, tool_bar_anchor};
+    use reda_ui::bars::draw::{LAYER_STRIP_HEIGHT, grid_readout_anchor, tool_bar_anchor};
     let canvas = egui::Rect::from_min_max(egui::pos2(100.0, 50.0), egui::pos2(900.0, 650.0));
-    assert_eq!(tool_bar_anchor(canvas, false), egui::pos2(500.0, 614.0));
-    assert_eq!(tool_bar_anchor(canvas, true), egui::pos2(500.0, 590.0));
-    assert_eq!(grid_readout_anchor(canvas, false), egui::pos2(108.0, 642.0));
-    assert_eq!(grid_readout_anchor(canvas, true), egui::pos2(108.0, 618.0));
+    assert_eq!(tool_bar_anchor(canvas, 0.0), egui::pos2(500.0, 614.0));
+    assert_eq!(
+        tool_bar_anchor(canvas, LAYER_STRIP_HEIGHT),
+        egui::pos2(500.0, 590.0)
+    );
+    assert_eq!(grid_readout_anchor(canvas, 0.0), egui::pos2(108.0, 642.0));
+    assert_eq!(
+        grid_readout_anchor(canvas, LAYER_STRIP_HEIGHT),
+        egui::pos2(108.0, 618.0)
+    );
 }
 
 /// Types `name` into the open Save Layer Set dialog and saves it.
@@ -314,23 +320,31 @@ fn the_layers_panel_has_a_group_eye_per_kind_and_set_buttons_and_mod_click_pins(
             "a group eye for {kind}"
         );
     }
+    w.h.get_by_label("Show all Copper Layers").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show all Copper Layers").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.layer.show_kind");
     let hidden = &shell(&w).board_view().layers.hidden;
     assert!(hidden.contains(&top) && hidden.contains(&bottom));
     assert_eq!(hidden.len(), 2, "only copper");
+    w.h.get_by_label("Show all Copper Layers").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show all Copper Layers").click();
     w.h.run();
     assert!(shell(&w).board_view().layers.hidden.is_empty());
 
     // The set buttons apply a set in one click.
+    w.h.get_by_label("Top").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Top").click();
     w.h.run();
     assert_eq!(last_command(&w), "pcb.view.layer_set.apply");
     assert!(shell(&w).board_view().layers.hidden.contains(&bottom));
 
     // Mod+click on an eye pins the Layer.
+    w.h.get_by_label("Show Board Outline").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Show Board Outline")
         .click_modifiers(Modifiers::COMMAND);
     w.h.run();
@@ -339,6 +353,8 @@ fn the_layers_panel_has_a_group_eye_per_kind_and_set_buttons_and_mod_click_pins(
     assert!(shell(&w).board_view().layers.pinned.contains(&outline));
 
     // Mod+click on a Layer's name highlights its content, as on a chip.
+    w.h.get_by_label("Top Copper").scroll_to_me();
+    w.h.run();
     w.h.get_by_label("Top Copper")
         .click_modifiers(Modifiers::COMMAND);
     w.h.run();

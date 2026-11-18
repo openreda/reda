@@ -308,7 +308,10 @@ fn no_menu_is_built_in_code() {
     for file in rust_files(&src) {
         let text = std::fs::read_to_string(&file).unwrap();
         let renderer = file.ends_with("bars/draw.rs");
-        if (!renderer && text.contains("MenuBar")) || text.contains("tr!(\"menu-") {
+        // The REDA menu bar widget wraps egui's; only the renderer uses it.
+        let widget = file.ends_with("widgets/menu.rs");
+        let bar = !widget && (text.contains("MenuBar") || text.contains("widgets::menu_bar"));
+        if (!renderer && bar) || text.contains("tr!(\"menu-") {
             offenders.push(file.display().to_string());
         }
     }
@@ -494,18 +497,20 @@ fn the_active_bar_holds_only_the_most_used_tools() {
 
 #[test]
 fn a_narrow_canvas_moves_the_active_bar_tools_that_do_not_fit_into_a_menu() {
-    // Select, Move, Drag | Wire, Net Label, Power Port: 32 px buttons 2 px apart, a 7 px
-    // separator, in a frame 8 px wider than its row, 8 px in from each canvas edge.
+    // Select, Move, Drag | Wire, Net Label, Power Port: 30 px buttons (the control height,
+    // Comfortable) 2 px apart, a 7 px separator, in a frame 14 px wider than its row, 8 px
+    // in from each canvas edge.
+    let t = reda_ui::theme::Tokens::new(egui::Theme::Dark, &Default::default());
     let sheet = &bars::for_document(Some(DocumentType::Schematic)).active_bar;
     assert_eq!(sheet.len(), 7);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 1000.0), 7);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 235.0), 7);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 1000.0), 7);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 229.0), 7);
     // One point less: Net Label and Power Port go to the overflow menu.
-    assert_eq!(bars::draw::active_bar_fit(sheet, 234.0), 5);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 228.0), 5);
     // A separator never ends the row.
-    assert_eq!(bars::draw::active_bar_fit(sheet, 200.0), 3);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 100.0), 1);
-    assert_eq!(bars::draw::active_bar_fit(sheet, 40.0), 0);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 180.0), 3);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 100.0), 1);
+    assert_eq!(bars::draw::active_bar_fit(&t, sheet, 40.0), 0);
 }
 
 // The window.
@@ -633,7 +638,7 @@ fn the_tools_that_do_not_fit_a_narrow_canvas_are_in_the_more_tools_menu() {
     let file = make_project(work.path(), "Narrow");
     let app = App::new(Shell::new(engine_in(home.path())));
     let mut h = Harness::builder()
-        .with_size([720.0, 640.0])
+        .with_size([784.0, 640.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), app);
     h.run();
     h.state_mut().shell_mut().open_project(&file).unwrap();
@@ -769,7 +774,7 @@ fn shift_home_zooms_the_canvas_to_the_selection() {
 }
 
 #[test]
-fn the_top_row_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes() {
+fn the_title_bar_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes() {
     let home = TempDir::new("bars-home");
     let work = TempDir::new("bars-work");
     let file = make_project(work.path(), "Row");
@@ -784,19 +789,15 @@ fn the_top_row_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes
     assert_eq!((save_all.width(), save_all.height()), (30.0, 30.0));
     let save = rect(&h, "Save");
     assert!(save.right() <= save_all.left(), "Save comes first");
-    // Menu titles are 14.5 text with 8 × 4 padding.
+    // Menu titles are body text with the control padding at each side.
+    let t = reda_ui::theme::TokensExt::tokens(&h.ctx);
     let text = h.ctx.fonts_mut(|f| {
-        f.layout_no_wrap(
-            "File".to_owned(),
-            egui::FontId::proportional(14.5),
-            egui::Color32::WHITE,
-        )
-        .size()
+        f.layout_job(t.ty.body.job("File", egui::Color32::WHITE))
+            .size()
     });
     let menu = rect(&h, "File");
-    assert_eq!(menu.width(), text.x + 16.0);
-    // A title is as tall as the row, so it is padded at least 4 above and below.
-    assert!(text.y + 8.0 <= 30.0);
+    assert_eq!(menu.width(), text.x + 2.0 * t.space.control_x);
+    // A title is as tall as a control: its line plus the control padding above and below.
     assert_eq!(menu.height(), 30.0);
     // One row: the quick strip, then the menus, the command field and the gear.
     let field = h
@@ -831,7 +832,8 @@ fn the_gear_opens_preferences_and_the_command_field_the_palette() {
     h.run();
     h.get_by_role_and_label(Role::Button, "Preferences…")
         .click();
-    h.run();
+    // The Preferences window grows in for 140 ms: nine 60 Hz frames.
+    h.run_steps(10);
     assert_eq!(
         journal_ids(&h).last().unwrap(),
         "app.dialog.open:preferences"

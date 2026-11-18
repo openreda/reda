@@ -14,6 +14,8 @@ use serde_json::json;
 
 use crate::layout::SettingsWindow;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
+use crate::widgets;
 
 /// While the board (or a sheet) is shown for a settings window.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -272,7 +274,7 @@ pub enum BannerAction {
 }
 
 /// The banner at the top centre of the canvas `canvas`, in the Active Bar's place and
-/// frame, filled with the tab bar's blue: the count, Back to the settings window and, for
+/// frame, a floating bar like the Active Bar: the count, Back to the settings window and, for
 /// the Change List, the switch to the other side.
 pub fn banner(
     ui: &mut egui::Ui,
@@ -284,17 +286,14 @@ pub fn banner(
     let from = shell.shown_for()?;
     let side = shell.shown_side();
     let switch = shell.can_switch_shown_side();
-    let fill = crate::theme::tab_bar(ui.ctx().theme(), true);
+    let t = ui.tokens();
     egui::Area::new(id.with("show-on-board"))
         .order(egui::Order::Middle)
         .fixed_pos(canvas.center_top() + egui::vec2(0.0, crate::bars::draw::ACTIVE_BAR_TOP))
         .pivot(egui::Align2::CENTER_TOP)
         .constrain_to(canvas)
         .show(ui.ctx(), |ui| {
-            egui::Frame::window(ui.style())
-                .fill(fill)
-                .inner_margin(egui::Margin::same(crate::bars::draw::ACTIVE_BAR_MARGIN))
-                .corner_radius(egui::CornerRadius::same(5))
+            widgets::floating_frame(&t)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let text = match from {
@@ -303,17 +302,16 @@ pub fn banner(
                             }
                             _ => crate::tr!("show-on-board-count", count = count),
                         };
-                        let label = egui::RichText::new(text).color(crate::theme::tab_text(true));
-                        ui.add_space(6.0);
-                        ui.label(label);
-                        ui.add_space(6.0);
+                        ui.add_space(t.space.control_x);
+                        ui.label(t.ty.body.rich(text).color(t.color.text.primary));
+                        ui.add_space(t.space.control_x);
                         let mut action = None;
                         if let Some(side) = side {
                             let text = match side {
                                 Side::Board => crate::tr!("show-change-on-sheet"),
                                 Side::Sheet => crate::tr!("show-change-on-board"),
                             };
-                            if ui.add_enabled(switch, egui::Button::new(text)).clicked() {
+                            if ui.add_enabled(switch, widgets::button(text)).clicked() {
                                 action = Some(BannerAction::Switch);
                             }
                         }
@@ -321,7 +319,7 @@ pub fn banner(
                             SettingsWindow::ChangeList => crate::tr!("show-change-back"),
                             _ => crate::tr!("show-on-board-back"),
                         };
-                        if ui.button(back).clicked() {
+                        if ui.add(widgets::button(back)).clicked() {
                             action = Some(BannerAction::Back);
                         }
                         action

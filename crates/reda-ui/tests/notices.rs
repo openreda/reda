@@ -65,6 +65,8 @@ fn every_vendored_asset_dir_has_an_entry() {
     for expected in [
         "crates/reda-text/fonts/hershey",
         "crates/reda-text/fonts/noto-sans",
+        "crates/reda-ui/fonts/inter",
+        "crates/reda-ui/fonts/jetbrains-mono",
     ] {
         assert!(
             dirs.iter().any(|d| d == expected),
@@ -103,6 +105,11 @@ fn the_notices_carry_the_required_acknowledgements_and_licence_texts() {
         // Noto Sans and eframe's default fonts.
         "SIL OPEN FONT LICENSE Version 1.1",
         "UBUNTU FONT LICENCE Version 1.0",
+        // The chrome's bundled faces, each with its copyright line and licence.
+        "---- Inter ----",
+        "Copyright (c) 2016 The Inter Project Authors",
+        "---- JetBrains Mono ----",
+        "Copyright 2020 The JetBrains Mono Project Authors",
     ] {
         assert!(NOTICES.contains(needle), "the notices lack {needle:?}");
     }

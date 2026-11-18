@@ -3428,6 +3428,7 @@ dependencies = [
  "egui_extras",
  "egui_kittest",
  "fluent-bundle",
+ "objc2-app-kit 0.3.2",
  "reda-control",
  "reda-engine",
  "reda-testkit",
@@ -3435,8 +3436,12 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "skrifa",
  "toml_edit",
  "unic-langid",
+ "windows",
+ "winit",
+ "zbus",
 ]
 
 [[package]]

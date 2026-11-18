@@ -5,7 +5,7 @@
 //! with Waive and Unwaive. Also the small Waive window that asks for one reason for every
 //! Violation picked in Messages.
 
-use egui::{Context, RichText, TextEdit, Ui};
+use egui::{Context, RichText, Ui};
 use reda_engine::model::geom::Point;
 use reda_engine::model::{Object, Uuid, Violation};
 
@@ -13,6 +13,7 @@ use super::messages::{Action, object_links};
 use crate::messages::{LineKey, check_title, measurement, mm};
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// Draws Violation Details and the Waive window, while they are open.
 pub fn show(ctx: &Context, shell: &Shell) -> Vec<Action> {
@@ -28,17 +29,19 @@ pub fn show(ctx: &Context, shell: &Shell) -> Vec<Action> {
 
 fn details_window(ctx: &Context, shell: &Shell, actions: &mut Vec<Action>) {
     let mut open = true;
-    egui::Window::new(tr!("details-title"))
-        .id(egui::Id::NULL.with("violation-details"))
-        .open(&mut open)
-        .resizable(true)
-        .default_width(380.0)
-        .show(ctx, |ui| match shell.details_line() {
-            Some(key) => contents(ui, shell, key, actions),
-            None => {
-                ui.weak(tr!("details-gone"));
-            }
-        });
+    widgets::window(
+        egui::Id::NULL.with("violation-details"),
+        tr!("details-title"),
+    )
+    .open(&mut open)
+    .resizable(true)
+    .width(380.0)
+    .show(ctx, |ui| match shell.details_line() {
+        Some(key) => contents(ui, shell, key, actions),
+        None => {
+            ui.weak(tr!("details-gone"));
+        }
+    });
     if !open {
         actions.push(Action::CloseDetails);
     }
@@ -61,7 +64,7 @@ fn contents(ui: &mut Ui, shell: &Shell, key: LineKey, actions: &mut Vec<Action>)
     if let Some(rule) = rule_text(shell, v) {
         ui.horizontal(|ui| {
             ui.label(tr!("details-rule", rule = rule));
-            if ui.link(tr!("details-open-rule")).clicked() {
+            if ui.add(widgets::link(tr!("details-open-rule"))).clicked() {
                 actions.push(Action::ShowRule(key));
             }
         });
@@ -69,25 +72,31 @@ fn contents(ui: &mut Ui, shell: &Shell, key: LineKey, actions: &mut Vec<Action>)
     ui.separator();
     ui.label(RichText::new(tr!("details-objects")).strong());
     let layers = layer_names(shell, v);
-    egui::Grid::new("violation-details-objects")
-        .striped(true)
-        .num_columns(3)
-        .show(ui, |ui| {
+    let columns = [
+        widgets::Column::auto(),
+        widgets::Column::auto(),
+        widgets::Column::auto().number(),
+    ];
+    widgets::table("violation-details-objects")
+        .columns(columns)
+        .show(ui, |table| {
             for (object, name) in object_links(shell, entry.document, &v.objects) {
-                if ui.link(name.as_str()).clicked() {
-                    actions.push(Action::GoToObject(entry.document, object));
-                }
-                ui.label(layers.as_str());
-                let at = object_location(shell, entry.document, object).or(v.at);
-                ui.label(at.map_or_else(|| "—".to_owned(), point_text));
-                ui.end_row();
+                table.row(|row| {
+                    let link = row.ui(|ui| ui.add(widgets::link(name.as_str())));
+                    if link.clicked() {
+                        actions.push(Action::GoToObject(entry.document, object));
+                    }
+                    row.text(layers.as_str());
+                    let at = object_location(shell, entry.document, object).or(v.at);
+                    row.text(at.map_or_else(|| "—".to_owned(), point_text));
+                });
             }
         });
     ui.horizontal(|ui| {
-        if ui.button(tr!("details-highlight")).clicked() {
+        if ui.add(widgets::button(tr!("details-highlight"))).clicked() {
             actions.push(Action::Highlight(key));
         }
-        if ui.button(tr!("details-jump")).clicked() {
+        if ui.add(widgets::button(tr!("details-jump"))).clicked() {
             actions.push(Action::Jump(key));
         }
     });
@@ -125,7 +134,7 @@ fn waiver(ui: &mut Ui, shell: &Shell, key: LineKey, v: &Violation, actions: &mut
     }
     ui.horizontal(|ui| {
         let label = ui.label(tr!("details-reason"));
-        ui.add(TextEdit::singleline(&mut reason).desired_width(240.0))
+        ui.add(widgets::text_field(&mut reason).width(240.0))
             .labelled_by(label.id);
     });
     ui.data_mut(|d| d.insert_temp(id, reason.clone()));
@@ -134,18 +143,18 @@ fn waiver(ui: &mut Ui, shell: &Shell, key: LineKey, v: &Violation, actions: &mut
             if ui
                 .add_enabled(
                     reason != w.reason,
-                    egui::Button::new(tr!("details-save-reason")),
+                    widgets::button(tr!("details-save-reason")),
                 )
                 .clicked()
             {
                 actions.push(Action::SetReason(key, reason.clone()));
             }
-            if ui.button(tr!("messages-unwaive")).clicked() {
+            if ui.add(widgets::button(tr!("messages-unwaive"))).clicked() {
                 actions.push(Action::Unwaive(key));
             }
         }
         None => {
-            if ui.button(tr!("messages-waive")).clicked() {
+            if ui.add(widgets::button(tr!("messages-waive"))).clicked() {
                 actions.push(Action::WaiveWith(key, reason.clone()));
             }
         }
@@ -203,28 +212,26 @@ fn waive_window(ctx: &Context, shell: &Shell, actions: &mut Vec<Action>) {
         return;
     };
     let mut open = true;
-    egui::Window::new(tr!("waive-title"))
-        .id(egui::Id::NULL.with("waive-window"))
+    widgets::window(egui::Id::NULL.with("waive-window"), tr!("waive-title"))
         .open(&mut open)
-        .collapsible(false)
-        .resizable(false)
         .show(ctx, |ui| {
             ui.label(tr!("waive-intro", count = prompt.violations.len()));
             let mut reason = prompt.reason.clone();
             ui.horizontal(|ui| {
                 let label = ui.label(tr!("details-reason"));
                 let response = ui
-                    .add(TextEdit::singleline(&mut reason).desired_width(240.0))
+                    .add(widgets::text_field(&mut reason).width(240.0))
                     .labelled_by(label.id);
                 if response.changed() {
                     actions.push(Action::WaiveReason(reason.clone()));
                 }
             });
-            ui.horizontal(|ui| {
-                if ui.button(tr!("messages-waive")).clicked() {
+            widgets::button_row(ui, |ui| {
+                let waive = widgets::button(tr!("messages-waive")).primary();
+                if ui.add(waive).clicked() {
                     actions.push(Action::FinishWaive(true));
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     actions.push(Action::FinishWaive(false));
                 }
             });

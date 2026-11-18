@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use crate::shell::Shell;
 use crate::tools::Tool;
 use crate::tr;
+use crate::widgets;
 
 /// The options while the arc Tool runs on the board; `None` otherwise.
 pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static str, Value)>> {
@@ -27,7 +28,7 @@ pub(super) fn tool_options(ui: &mut Ui, shell: &Shell) -> Option<Vec<(&'static s
         (ArcToolMode::Center, tr!("properties-arc-center")),
         (ArcToolMode::Circle, tr!("properties-arc-circle")),
     ] {
-        let response = ui.radio(mode == m, &title);
+        let response = ui.add(widgets::radio(mode == m, &title));
         response.widget_info(|| WidgetInfo::selected(Role::RadioButton, true, mode == m, &title));
         if response.clicked() && mode != m {
             out.push((

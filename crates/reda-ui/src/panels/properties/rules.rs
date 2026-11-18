@@ -2,7 +2,7 @@
 //! and a locally edited Footprint's badge with Revert and the compare
 //! (docs/spec/v0.1/pcb.md#placed-pad-edits).
 
-use egui::{Color32, Id, Pos2, RichText, Role, Sense, Shape, Stroke, Ui, Vec2, WidgetInfo};
+use egui::{Id, Pos2, Role, Sense, Shape, Stroke, Ui, Vec2, WidgetInfo};
 use reda_engine::model::{Footprint, PadShape, RuleValue, Severity};
 use reda_engine::preferences::Units;
 use serde_json::Value;
@@ -15,7 +15,12 @@ use crate::properties::LocalEdits;
 use crate::properties::commands::RevealRules;
 use crate::properties::rules::{self as model, Rules, Standing};
 use crate::shell::Shell;
+use crate::theme::{self, TokensExt as _};
 use crate::tr;
+use crate::widgets::{self, BadgeTone, Column, Status, Tooltip as _};
+
+/// The size of the drawing that compares edited Pads with the copy they came from.
+const COMPARE_SIZE: Vec2 = Vec2::new(220.0, 120.0);
 
 /// The Rules region: per rule kind, a tick on the records that won (with the value), a
 /// cross on those that lost and strike-through on disabled ones. A row opens its Board
@@ -35,13 +40,15 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
         set_open(ui, shell, "rules", true);
     }
     let response = region(ui, shell, "rules", tr!("properties-region-rules"), |ui| {
+        let t = ui.tokens();
+        let focused = shell.panel_focused(crate::layout::PanelId::Properties);
         if rules.kinds.is_empty() {
             ui.weak(tr!("properties-rules-none"));
         }
         for kind in &rules.kinds {
             let page = model::page(kind.kind);
             ui.horizontal(|ui| {
-                ui.strong(kind.kind.id());
+                ui.label(t.ty.body_strong.rich(kind.kind.id()));
                 if let Some(severity) = kind.severity {
                     severity_dot(ui, severity);
                     ui.weak(severity_label(severity));
@@ -66,27 +73,22 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                 if rules.objects == 2 {
                     text = format!("{}  {text}", row.object + 1);
                 }
-                let clicked = ui
-                    .horizontal(|ui| {
-                        mark(ui, row.standing);
-                        let mut label = RichText::new(&text);
-                        if row.standing == Standing::Disabled {
-                            label = label.strikethrough();
-                        }
-                        let standing = match row.standing {
-                            Standing::Won => tr!("properties-rules-won"),
-                            Standing::Lost => tr!("properties-rules-lost"),
-                            Standing::Disabled => tr!("properties-rules-disabled"),
-                        };
-                        let response = ui
-                            .add(egui::Label::new(label).sense(Sense::click()))
-                            .on_hover_text(tr!("properties-rules-open", page = page.clone()));
-                        let name = format!("{standing}: {text}");
-                        response
-                            .widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
-                        response.clicked()
-                    })
-                    .inner;
+                // A row: its standing as a mark (a disabled record is muted), and the
+                // record. The tooltip has the whole line, should the Panel cut it short.
+                let (standing, status) = match row.standing {
+                    Standing::Won => (tr!("properties-rules-won"), Status::Success),
+                    Standing::Lost => (tr!("properties-rules-lost"), Status::Error),
+                    Standing::Disabled => (tr!("properties-rules-disabled"), Status::Off),
+                };
+                let line = widgets::list_row(text.as_str())
+                    .status(status)
+                    .muted(row.standing == Standing::Disabled)
+                    .panel_focused(focused);
+                let response = ui.add(line);
+                let name = format!("{standing}: {text}");
+                response.widget_info(|| WidgetInfo::labeled(Role::Button, true, name.clone()));
+                let open = tr!("properties-rules-open", page = page.clone());
+                let clicked = response.tooltip_titled(&text, open).clicked();
                 if clicked {
                     out.push(Out::Messages(Action::ShowPage(
                         SettingsWindow::BoardSetup,
@@ -102,42 +104,11 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     object = (object + 1) as i64
                 ));
             }
-            ui.add_space(4.0);
+            ui.add_space(t.space.gap / 2.0);
         }
     });
     if reveal {
-        response
-            .header_response
-            .scroll_to_me(Some(egui::Align::TOP));
-    }
-}
-
-/// A tick, a cross or a dash, painted (the UI font has no such glyphs).
-fn mark(ui: &mut Ui, standing: Standing) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
-    let c = rect.center();
-    let painter = ui.painter();
-    match standing {
-        Standing::Won => {
-            let stroke = Stroke::new(2.0, Color32::from_rgb(60, 170, 90));
-            painter.add(Shape::line(
-                vec![
-                    c + Vec2::new(-4.0, 0.0),
-                    c + Vec2::new(-1.0, 3.5),
-                    c + Vec2::new(4.5, -4.0),
-                ],
-                stroke,
-            ));
-        }
-        Standing::Lost => {
-            let stroke = Stroke::new(2.0, ui.visuals().error_fg_color);
-            painter.line_segment([c + Vec2::splat(-4.0), c + Vec2::splat(4.0)], stroke);
-            painter.line_segment([c + Vec2::new(-4.0, 4.0), c + Vec2::new(4.0, -4.0)], stroke);
-        }
-        Standing::Disabled => {
-            let stroke = Stroke::new(2.0, ui.visuals().weak_text_color());
-            painter.line_segment([c + Vec2::new(-4.0, 0.0), c + Vec2::new(4.0, 0.0)], stroke);
-        }
+        response.header.scroll_to_me(Some(egui::Align::TOP));
     }
 }
 
@@ -172,37 +143,36 @@ fn value_text(value: &RuleValue, units: Units) -> String {
 pub(super) fn local_edits(ui: &mut Ui, local: &LocalEdits) -> Option<(&'static str, Value)> {
     let mut revert = false;
     ui.horizontal(|ui| {
-        let badge = RichText::new(tr!("properties-locally-edited"))
-            .color(ui.visuals().warn_fg_color)
-            .strong();
-        ui.label(badge)
-            .on_hover_text(tr!("properties-locally-edited-hint"));
+        let badge = widgets::badge(tr!("properties-locally-edited")).tone(BadgeTone::Warning);
+        ui.add(badge).tooltip(tr!("properties-locally-edited-hint"));
         revert = ui
-            .button(tr!("properties-revert-local-edits"))
-            .on_hover_text(tr!("properties-revert-local-edits-hint"))
+            .add(widgets::button(tr!("properties-revert-local-edits")))
+            .tooltip(tr!("properties-revert-local-edits-hint"))
             .clicked();
     });
     if !local.edits.is_empty() {
-        egui::CollapsingHeader::new(tr!("properties-compare"))
+        widgets::section(tr!("properties-compare"))
             .id_salt("properties-compare")
             .show(ui, |ui| {
-                egui::Grid::new("properties-compare-rows")
-                    .num_columns(3)
-                    .show(ui, |ui| {
-                        for edit in &local.edits {
-                            let what = match (&edit.number, edit.graphic) {
-                                (Some(number), _) => {
-                                    tr!("properties-compare-pad", number = number.clone())
-                                }
-                                (None, Some(_)) => tr!("properties-compare-graphic"),
-                                (None, None) => String::new(),
-                            };
-                            ui.label(format!("{what} {}", edit.property));
-                            ui.label(compare_value(edit.edited.as_ref()));
-                            ui.weak(compare_value(edit.original.as_ref()));
-                            ui.end_row();
-                        }
-                    });
+                // What changed, the edited value, and the original in muted text.
+                let columns = [Column::auto(), Column::auto(), Column::auto()];
+                let table = widgets::table("properties-compare-rows").columns(columns);
+                table.show(ui, |table| {
+                    for edit in &local.edits {
+                        let what = match (&edit.number, edit.graphic) {
+                            (Some(number), _) => {
+                                tr!("properties-compare-pad", number = number.clone())
+                            }
+                            (None, Some(_)) => tr!("properties-compare-graphic"),
+                            (None, None) => String::new(),
+                        };
+                        table.row(|row| {
+                            row.text(format!("{what} {}", edit.property));
+                            row.text(compare_value(edit.edited.as_ref()));
+                            row.muted(compare_value(edit.original.as_ref()));
+                        });
+                    }
+                });
                 if let Some((edited, original)) = &local.compare {
                     compare_drawing(ui, edited, original);
                 }
@@ -226,11 +196,12 @@ fn compare_value(value: Option<&Value>) -> String {
 
 /// The original copy's Pads in outline, the edited Pads filled over them.
 pub(crate) fn compare_drawing(ui: &mut Ui, edited: &Footprint, original: &Footprint) {
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(220.0, 120.0), Sense::hover());
+    let t = ui.tokens();
+    let (rect, response) = ui.allocate_exact_size(COMPARE_SIZE, Sense::hover());
     let label = tr!("properties-compare-drawing");
     response.widget_info(|| WidgetInfo::labeled(egui::Role::Image, true, label.clone()));
     let painter = ui.painter_at(rect);
-    painter.rect_filled(rect, 2.0, ui.visuals().extreme_bg_color);
+    painter.rect_filled(rect, t.radius.mark, t.color.surface.well);
     let outlines: Vec<Vec<(f64, f64)>> = original.pads.iter().map(pad_outline).collect();
     let fills: Vec<Vec<(f64, f64)>> = edited.pads.iter().map(pad_outline).collect();
     let all = outlines.iter().chain(&fills).flatten();
@@ -242,7 +213,7 @@ pub(crate) fn compare_drawing(ui: &mut Ui, edited: &Footprint, original: &Footpr
     if min.0 > max.0 {
         return;
     }
-    let inner = rect.shrink(8.0);
+    let inner = rect.shrink(t.space.gap);
     let scale = (inner.width() as f64 / (max.0 - min.0).max(1.0))
         .min(inner.height() as f64 / (max.1 - min.1).max(1.0));
     let mid = ((min.0 + max.0) / 2.0, (min.1 + max.1) / 2.0);
@@ -252,16 +223,14 @@ pub(crate) fn compare_drawing(ui: &mut Ui, edited: &Footprint, original: &Footpr
             inner.center().y - ((y - mid.1) * scale) as f32,
         )
     };
-    let edited_color = ui.visuals().warn_fg_color;
+    // The edited Pads are the warning tint, laid twice so they read on the well.
+    let tint = t.color.warning.subtle;
+    let edited_color = theme::over(tint, theme::over(tint, t.color.surface.well));
     for points in &fills {
         let points: Vec<Pos2> = points.iter().map(|p| to_screen(*p)).collect();
-        painter.add(Shape::convex_polygon(
-            points,
-            edited_color.gamma_multiply(0.45),
-            Stroke::NONE,
-        ));
+        painter.add(Shape::convex_polygon(points, edited_color, Stroke::NONE));
     }
-    let original_stroke = Stroke::new(1.5, ui.visuals().strong_text_color());
+    let original_stroke = Stroke::new(widgets::glyph::STROKE, t.color.text.primary);
     for points in &outlines {
         let points: Vec<Pos2> = points.iter().map(|p| to_screen(*p)).collect();
         painter.add(Shape::closed_line(points, original_stroke));

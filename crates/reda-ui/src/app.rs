@@ -36,16 +36,13 @@ use crate::settings::FileRequest;
 use crate::settings::windows::{Request as SettingsRequest, SettingsWindows};
 use crate::shell::{InstalledFonts, Shell};
 use crate::start_page::StartAction;
+use crate::theme::TokensExt as _;
 use crate::user_preferences::Watcher;
-use crate::{a11y, crash, keymap, tab_switcher, theme, tr};
+use crate::widgets::{self, Tooltip as _};
+use crate::{a11y, crash, keymap, tab_switcher, theme, title_bar, tr};
 
 /// How many targets the Palette remembers as recent.
 const RECENT: usize = 8;
-
-/// Where the window remembers its status bar row's height between frames.
-fn status_bar_id() -> egui::Id {
-    egui::Id::NULL.with("status-bar-height")
-}
 
 /// The REDA window.
 pub struct App {
@@ -66,9 +63,30 @@ pub struct App {
     /// wake from the thread never adds frames.
     watch_preferences: bool,
     window_title: String,
+    /// How the Title bar was set up at the start: **Use the system title bar** applies
+    /// on restart.
+    title_bar: title_bar::Startup,
+    /// The window was built as `title_bar` asks ([`App::with_title_bar`]), so REDA draws
+    /// the platform's window chrome. Off for a window made with [`App::new`] alone, such as
+    /// a test harness's, which draws the bar as under the system title bar.
+    window_chrome: bool,
+    /// Whose window chrome REDA draws: this platform's, or another's in a window test
+    /// ([`App::with_platform`]).
+    platform: title_bar::Platform,
+    /// The window's surface is transparent, for the corners REDA rounds itself.
+    transparent: bool,
+    /// Where the bar was right-clicked this frame, in logical pixels, for the system
+    /// window menu.
+    window_menu: Option<egui::Pos2>,
+    /// The chrome the bar was drawn with this frame and where, for what the platform
+    /// places in it itself (macOS's traffic lights).
+    drawn_bar: Option<(title_bar::Chrome, egui::Rect)>,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
+    /// Whether the OS allowed motion when REDA started: what `general.animate` follows
+    /// while it is unset.
+    os_allows_motion: bool,
     /// A Crash Report from an earlier run, not yet offered.
     crash_report: Option<PathBuf>,
     /// The control port, for agents.
@@ -102,7 +120,14 @@ impl App {
     pub fn new(shell: Shell) -> App {
         let crash_report = (shell.engine().user_dirs())
             .and_then(|dirs| crash::unseen(&crash::reports_dir(dirs)).pop());
+        let title_bar = title_bar::Startup::of(shell.preferences());
         App {
+            title_bar,
+            window_chrome: false,
+            platform: title_bar::Platform::NATIVE,
+            transparent: false,
+            window_menu: None,
+            drawn_bar: None,
             crash_report,
             shell,
             files: FileDialogs::default(),
@@ -116,6 +141,7 @@ impl App {
             window_title: String::new(),
             render_state: None,
             theme_installed: false,
+            os_allows_motion: true,
             help: Default::default(),
             palette: None,
             palette_recent: Vec::new(),
@@ -135,6 +161,13 @@ impl App {
             closing: Closing::default(),
             relink_confirm: None,
         }
+    }
+
+    /// What the OS reduced-motion setting said at launch: `general.animate` follows it
+    /// while unset. Without this the chrome animates.
+    pub fn with_os_motion(mut self, allows: bool) -> App {
+        self.os_allows_motion = allows;
+        self
     }
 
     /// Hosts the control port `bridge` (see [`Bridge::start`]); without one the bridge is
@@ -171,6 +204,32 @@ impl App {
         }
     }
 
+    /// The window as REDA built it at the start, from `startup`
+    /// ([`title_bar::Startup::detect`] and [`title_bar::viewport`]): the Title bar gets the
+    /// platform's window chrome unless the system title bar is in force: on Wayland the
+    /// window controls, dragging, edge resizing and corners, on macOS the traffic lights'
+    /// inset and dragging.
+    pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
+        self.title_bar = startup;
+        self.window_chrome = true;
+        self.platform_changed();
+        self
+    }
+
+    /// Draws `platform`'s window chrome in place of this platform's, in this window and
+    /// its floating windows, with [`App::with_title_bar`]: how the window tests draw
+    /// Windows' bar on any platform.
+    pub fn with_platform(mut self, platform: title_bar::Platform) -> App {
+        self.platform = platform;
+        self.platform_changed();
+        self
+    }
+
+    fn platform_changed(&mut self) {
+        let options = (self.platform).viewport(self.title_bar, egui::ViewportBuilder::default());
+        self.transparent = self.window_chrome && options.transparent == Some(true);
+    }
+
     /// Lets the window free the GPU state of canvases whose tabs close.
     pub fn with_render_state(mut self, render_state: egui_wgpu::RenderState) -> App {
         self.render_state = Some(render_state);
@@ -201,6 +260,11 @@ impl App {
         &mut self.shell
     }
 
+    /// How the Title bar was set up when the window started.
+    pub fn title_bar_startup(&self) -> title_bar::Startup {
+        self.title_bar
+    }
+
     /// The closing and quitting prompts' state.
     pub fn closing(&self) -> &Closing {
         &self.closing
@@ -210,11 +274,21 @@ impl App {
     pub fn ui(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
         if !self.theme_installed {
-            theme::install(&ctx, theme::preference(self.shell.preferences()));
+            theme::fonts::set_source(&ctx, self.shell.font_source());
+            theme::motion::system::remember(&ctx, self.os_allows_motion);
+            // The first frame is drawn as the Preferences ask, fonts included.
+            theme::set(&ctx, &theme::settings(self.shell.preferences()));
+            ctx.set_theme(theme::preference(self.shell.preferences()));
             crate::icons::install_loaders(&ctx);
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
+            if self.window_chrome {
+                self.title_bar.remember_decorating(&ctx);
+                self.platform.remember(&ctx);
+            } else {
+                self.title_bar.remember(&ctx);
+            }
             self.theme_installed = true;
         }
         self.apply_preferences(&ctx);
@@ -232,15 +306,36 @@ impl App {
         }
         tab_switcher::release(&ctx, &mut self.shell);
 
-        let clicked = self.bars(ui);
+        let chrome = if self.window_chrome {
+            self.platform.chrome(&ctx, self.title_bar)
+        } else {
+            title_bar::Chrome::SYSTEM
+        };
+        let clicked = self.bars(ui, chrome);
         // The status bar's space is set aside before the docking layer's, but what is in
         // it is drawn after, so keyboard focus reaches it last, as it sits in the window.
-        let status_height = ctx.data(|d| d.get_temp::<f32>(status_bar_id()));
-        let status_height = status_height.unwrap_or(ui.spacing().interact_size.y);
+        let t = ui.tokens();
+        let status_height = t.status_bar_height();
+        // The status bar is on the base, with no rule above it. Its items bring their own
+        // padding; with the card gap beside them their text lines up inside the cards.
+        let gap = widgets::CARD_GAP as i8;
+        // A window REDA rounds itself shows its bottom corners through the status bar.
+        let corner = chrome.corner.round() as u8;
+        let frame = egui::Frame::new()
+            .fill(t.color.surface.base)
+            .corner_radius(egui::CornerRadius {
+                sw: corner,
+                se: corner,
+                ..egui::CornerRadius::ZERO
+            })
+            .inner_margin(egui::Margin::symmetric(gap, 0));
         let status = Panel::bottom("status-bar")
+            .frame(frame)
+            .show_separator_line(false)
+            .resizable(false)
+            .exact_size(status_height)
             .show(ui, |ui| {
-                let mut rect = ui.available_rect_before_wrap();
-                rect.set_height(status_height);
+                let rect = ui.max_rect();
                 ui.advance_cursor_after_rect(rect);
                 rect
             })
@@ -253,10 +348,9 @@ impl App {
         let builder = UiBuilder::new()
             .max_rect(status)
             .id_salt("status-bar-content");
-        let drawn = ui.scope_builder(builder, |ui| self.status_bar(ui));
-        let height = drawn.inner.height();
-        ctx.data_mut(|d| d.insert_temp(status_bar_id(), height));
+        ui.scope_builder(builder, |ui| self.status_bar(ui));
         tab_switcher::show(&ctx, &mut self.shell);
+        title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
             self.call(&id, params);
@@ -702,8 +796,9 @@ impl App {
         }
     }
 
-    /// Notices another instance's change to `preferences.toml`, and applies the theme and
-    /// UI scale whenever the Preferences change.
+    /// Notices another instance's change to `preferences.toml`, and applies the theme,
+    /// Density, text size, fonts and UI scale whenever the Preferences change. The tokens
+    /// belong to the egui context, so every window follows on its next frame.
     fn apply_preferences(&mut self, ctx: &egui::Context) {
         if self.watch_preferences
             && self.preferences_watcher.is_none()
@@ -721,6 +816,7 @@ impl App {
         }
         let prefs = self.shell.preferences();
         ctx.set_theme(theme::preference(prefs));
+        theme::set(ctx, &theme::settings(prefs));
         let scale = prefs.general.ui_scale as f32;
         if (ctx.zoom_factor() - scale).abs() > f32::EPSILON {
             ctx.set_zoom_factor(scale);
@@ -780,10 +876,11 @@ impl App {
                 file = file.as_str(),
                 name = name.as_str()
             ));
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                relink = ui.button(tr!("relink-anyway")).clicked();
-                close = ui.button(tr!("dialog-cancel")).clicked();
+            crate::modal::buttons(ui, |ui| {
+                relink = ui
+                    .add(widgets::button(tr!("relink-anyway")).primary())
+                    .clicked();
+                close = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
             });
         });
         if relink {
@@ -844,8 +941,9 @@ impl App {
                 .width(420.0)
                 .show(ctx, |ui| {
                     ui.label(notice);
-                    ui.add_space(8.0);
-                    close = ui.button(tr!("notice-ok")).clicked();
+                    crate::modal::buttons(ui, |ui| {
+                        close = ui.add(widgets::button(tr!("notice-ok"))).clicked();
+                    });
                 });
         if close || modal.should_close() {
             self.notice = None;
@@ -903,9 +1001,9 @@ impl App {
         }
     }
 
-    /// The top row for the active Document's type, drawn from the bar data files. Returns
-    /// the item clicked, if any.
-    fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
+    /// The Title bar for the active Document's type, drawn from the bar data files.
+    /// Returns the item clicked, if any.
+    fn bars(&mut self, ui: &mut Ui, chrome: title_bar::Chrome) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let scale = preferences::nearest_ui_scale(f64::from(ui.ctx().zoom_factor()));
         let mut checked = BTreeMap::from([
@@ -932,9 +1030,12 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        Panel::top("top-row")
-            .show(ui, |ui| draw::top_row(ui, &cx, bars))
-            .inner
+        let outcome = title_bar::show(ui, &cx, bars, chrome);
+        let ctx = ui.ctx();
+        let menu = title_bar::drive(ctx, chrome, outcome.window, &outcome.background);
+        self.window_menu = menu.map(|p| (p.to_vec2() * ctx.zoom_factor()).to_pos2());
+        self.drawn_bar = Some((chrome, outcome.background.rect));
+        outcome.run
     }
 
     /// Carries out what the view Commands asked of the window.
@@ -994,51 +1095,48 @@ impl App {
         }
     }
 
-    /// Draws the status bar; returns the rect its row took. From the left: the active
+    /// Draws the status bar. From the left: the active
     /// Document's segments ([`crate::status_bar`]), the notes, then at the right the
     /// out-of-sync badge, the bridge indicator and the Panels button.
-    fn status_bar(&mut self, ui: &mut Ui) -> egui::Rect {
+    fn status_bar(&mut self, ui: &mut Ui) {
         let mut clicked = Vec::new();
-        let rect = ui
-            .horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    self.panels_button(ui);
-                    if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
-                        self.open_preferences(Some(PageId::AGENTS));
+        let t = ui.tokens();
+        widgets::status_bar(ui, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                self.panels_button(ui);
+                if bridge_ui::indicator(ui, &mut self.bridge, &mut self.shell) {
+                    self.open_preferences(Some(PageId::AGENTS));
+                }
+                let pending = self.shell.out_of_sync();
+                if pending > 0 {
+                    let badge = widgets::status_item(tr!("status-out-of-sync", count = pending))
+                        .tone(widgets::Status::Warning);
+                    if ui
+                        .add(badge)
+                        .tooltip(tr!("status-out-of-sync-hint"))
+                        .clicked()
+                    {
+                        self.open_change_list();
                     }
-                    let pending = self.shell.out_of_sync();
-                    if pending > 0 {
-                        let badge = egui::RichText::new(tr!("status-out-of-sync", count = pending))
-                            .color(ui.visuals().warn_fg_color);
+                }
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    clicked = crate::status_bar::show(ui, &self.shell);
+                    let first = self.shell.active_document().is_none();
+                    if self.shell.zones_need_refill() {
+                        ui.add_space(widgets::STATUS_ITEM_PAD);
+                        let note = t.ty.small.rich(tr!("status-zones-stale"));
+                        ui.label(note.color(t.color.warning.text));
                         if ui
-                            .add(egui::Button::new(badge).frame(false))
-                            .on_hover_text(tr!("status-out-of-sync-hint"))
+                            .add(widgets::status_item(tr!("status-zones-refill")))
                             .clicked()
                         {
-                            self.open_change_list();
+                            let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
                         }
                     }
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        clicked = crate::status_bar::show(ui, &self.shell);
-                        let first = self.shell.active_document().is_none();
-                        let notes = self.shell.zones_need_refill()
-                            || self.shell.message().is_some()
-                            || self.shell.note().is_some();
-                        if !first && notes {
-                            ui.separator();
-                        }
-                        if self.shell.zones_need_refill() {
-                            ui.colored_label(ui.visuals().warn_fg_color, tr!("status-zones-stale"));
-                            if ui.small_button(tr!("status-zones-refill")).clicked() {
-                                let _ = self.shell.run_reporting("pcb.zone.fill", json!({}));
-                            }
-                        }
-                        self.status_message(ui, first);
-                    });
+                    self.status_message(ui, first);
                 });
-            })
-            .response
-            .rect;
+            });
+        });
         for out in clicked {
             match out {
                 crate::status_bar::Out::Run(id, params) => {
@@ -1047,29 +1145,40 @@ impl App {
                 crate::status_bar::Out::Call(id, params) => self.call(&id, params),
             }
         }
-        rect
     }
 
     /// The status bar's error or note with its Dismiss button, or "Ready" when the bar
     /// shows nothing else (`idle`).
     fn status_message(&mut self, ui: &mut Ui, idle: bool) {
+        let t = ui.tokens();
         match (self.shell.message(), self.shell.note()) {
             (Some(message), _) => {
-                let message = message.to_owned();
-                ui.colored_label(ui.visuals().error_fg_color, message);
-                if ui.small_button(tr!("status-dismiss")).clicked() {
+                let message = t.ty.small.rich(message).color(t.color.error.text);
+                ui.add_space(widgets::STATUS_ITEM_PAD);
+                ui.label(message);
+                if ui
+                    .add(widgets::status_item(tr!("status-dismiss")))
+                    .clicked()
+                {
                     self.shell.dismiss_message();
                 }
             }
             (None, Some(note)) => {
-                ui.label(note.to_owned());
-                if ui.small_button(tr!("status-dismiss")).clicked() {
+                let note = t.ty.small.rich(note).color(t.color.text.muted);
+                ui.add_space(widgets::STATUS_ITEM_PAD);
+                ui.label(note);
+                if ui
+                    .add(widgets::status_item(tr!("status-dismiss")))
+                    .clicked()
+                {
                     self.shell.dismiss_note();
                 }
             }
             (None, None) => {
                 if idle {
-                    ui.weak(tr!("status-ready"));
+                    let ready = t.ty.small.rich(tr!("status-ready"));
+                    ui.add_space(widgets::STATUS_ITEM_PAD);
+                    ui.label(ready.color(t.color.text.muted));
                 }
             }
         }
@@ -1077,7 +1186,8 @@ impl App {
 
     /// The Panels button: shows any Panel, reopening a closed one in its usual Dock.
     fn panels_button(&mut self, ui: &mut Ui) {
-        ui.menu_button(tr!("status-panels"), |ui| {
+        let button = ui.add(widgets::status_item(tr!("status-panels")));
+        widgets::menu(&button).show(|ui| {
             let closed = self.shell.layout().closed_panels();
             for panel in PanelId::ALL {
                 let title = panel_title(panel);
@@ -1086,7 +1196,7 @@ impl App {
                 } else {
                     title
                 };
-                if ui.button(label).clicked() {
+                if ui.add(widgets::menu_item(label)).clicked() {
                     let _ = self
                         .shell
                         .run_reporting(&format!("panel.show:{}", panel.id()), json!({}));
@@ -1123,8 +1233,22 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         App::ui(self, ui);
+        if let Some((chrome, bar)) = self.drawn_bar.take() {
+            title_bar::place_native_controls(frame, ui.ctx(), chrome, bar);
+        }
+        if let Some(at) = self.window_menu.take() {
+            title_bar::show_window_menu(frame, at);
+        }
+    }
+
+    /// A transparent window shows nothing where REDA paints nothing: its round corners.
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if self.transparent {
+            return [0.0; 4];
+        }
+        visuals.panel_fill.to_normalized_gamma_f32()
     }
 
     /// The window closes: the view state is saved, and the open Project's Recovery
@@ -1172,11 +1296,17 @@ pub fn run(
     fonts: Arc<dyn InstalledFonts>,
     open: Option<PathBuf>,
 ) -> eframe::Result {
+    // Read before the window is created: the system title bar Preference applies on
+    // restart, and a desktop that decorates every window forces it.
+    let startup = title_bar::Startup::detect(&preferences::current(engine.user_dirs()));
+    let viewport = egui::ViewportBuilder::default()
+        .with_title(tr!("window-title"))
+        .with_inner_size([1280.0, 800.0])
+        .with_min_inner_size([480.0, 320.0]);
+    // Read at each launch, and not followed while REDA runs.
+    let os_motion = theme::motion::system::AtLaunch::start();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title(tr!("window-title"))
-            .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([480.0, 320.0]),
+        viewport: title_bar::viewport(startup, viewport),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
@@ -1200,6 +1330,8 @@ pub fn run(
             let bridge = Bridge::start(&shell);
             Ok(Box::new(
                 App::new(shell)
+                    .with_title_bar(startup)
+                    .with_os_motion(os_motion.allows_motion(theme::motion::system::LAUNCH_WAIT))
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
                     .watching_preferences()

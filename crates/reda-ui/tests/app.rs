@@ -46,8 +46,12 @@ fn set_recent(home: &Path, recent: &[&Path]) {
     .unwrap();
 }
 
+/// The window every whole-screen snapshot is drawn in: a laptop's, where two side Docks
+/// at their opening width leave the canvas and the editors their room.
+const WINDOW: [f32; 2] = [1280.0, 800.0];
+
 fn builder() -> HarnessBuilder<App> {
-    Harness::builder().with_size([900.0, 560.0])
+    Harness::builder().with_size(WINDOW)
 }
 
 fn harness(home: &Path) -> Harness<'static, App> {
@@ -200,6 +204,14 @@ fn snapshot_harness(home: &Path) -> Option<Harness<'static, App>> {
 
 /// [`snapshot_harness`] on `engine`.
 fn snapshot_harness_on(engine: Engine) -> Option<Harness<'static, App>> {
+    snapshot_harness_of(engine, |app| app)
+}
+
+/// [`snapshot_harness_on`] with the window made by `make` from the plain one.
+fn snapshot_harness_of(
+    engine: Engine,
+    make: impl FnOnce(App) -> App,
+) -> Option<Harness<'static, App>> {
     if let Some(why) = snapshot_skip_reason() {
         if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
             panic!("REDA_PNG_SNAPSHOTS is set but snapshots cannot run: {why}");
@@ -212,7 +224,7 @@ fn snapshot_harness_on(engine: Engine) -> Option<Harness<'static, App>> {
         egui_wgpu::RendererOptions::PREDICTABLE,
     );
     reda_ui::install_canvas(&render_state, 1);
-    let app = App::new(Shell::new(engine));
+    let app = make(App::new(Shell::new(engine)));
     Some(
         builder()
             .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
@@ -302,6 +314,89 @@ fn start_page_snapshot(theme: &str) {
     };
     h.run();
     h.snapshot(format!("start_page_{theme}"));
+}
+
+/// The main window as REDA decorates it on Wayland: the window controls at the right of
+/// the Title bar, the corners at the window radius and the rim.
+fn wayland_title_bar_snapshot(theme: &str, density: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&format!("wayland-{theme}-{density}"));
+    let alpha = make_project(&folder, "Alpha");
+    set_recent(home.path(), &[&alpha]);
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let decorated = reda_ui::title_bar::Startup {
+        preference: false,
+        forced: false,
+    };
+    let Some(mut h) = snapshot_harness_of(engine_in(home.path()), |app| {
+        app.with_platform(reda_ui::title_bar::wayland::PLATFORM)
+            .with_title_bar(decorated)
+    }) else {
+        return;
+    };
+    h.run();
+    h.snapshot(format!("title_bar_wayland_{theme}_{density}"));
+}
+
+#[test]
+fn snapshot_of_the_wayland_title_bar_dark() {
+    wayland_title_bar_snapshot("dark", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_wayland_title_bar_light_compact() {
+    wayland_title_bar_snapshot("light", "compact");
+}
+
+/// The main window as REDA decorates it on Windows, drawn with Windows' chrome on any
+/// platform (`title_bar::windows::PLATFORM`): the window controls at the right of the
+/// Title bar, and square corners with no rim, which Windows 11 rounds itself. Maximised,
+/// the middle control is restore.
+fn windows_title_bar_snapshot(theme: &str, density: &str, maximised: bool) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&format!("windows-{theme}-{density}"));
+    let alpha = make_project(&folder, "Alpha");
+    set_recent(home.path(), &[&alpha]);
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let decorated = reda_ui::title_bar::Startup {
+        preference: false,
+        forced: false,
+    };
+    let Some(mut h) = snapshot_harness_of(engine_in(home.path()), |app| {
+        app.with_platform(reda_ui::title_bar::windows::PLATFORM)
+            .with_title_bar(decorated)
+    }) else {
+        return;
+    };
+    if maximised {
+        let root = h.input_mut().viewports.entry(egui::ViewportId::ROOT);
+        root.or_default().maximized = Some(true);
+    }
+    h.run();
+    let state = if maximised { "_maximised" } else { "" };
+    h.snapshot(format!("title_bar_windows_{theme}_{density}{state}"));
+}
+
+#[test]
+fn snapshot_of_the_windows_title_bar_dark() {
+    windows_title_bar_snapshot("dark", "comfortable", false);
+}
+
+#[test]
+fn snapshot_of_the_windows_title_bar_light_compact_maximised() {
+    windows_title_bar_snapshot("light", "compact", true);
 }
 
 #[test]
@@ -566,6 +661,135 @@ fn snapshot_of_a_board_and_the_layers_panel() {
 }
 
 /// A sheet of icons at the toolbar, menu and tab sizes, each row enabled then disabled.
+/// Opens the Project at `file` on its PCB, with two Free Pads, a Track and a Via on it.
+fn open_a_small_board(h: &mut Harness<'static, App>, file: &Path) {
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap();
+    let (pcb, top) = (pcb.uuid, pcb.copper_layers().next().unwrap().uuid);
+    for x in ["0mm", "6mm"] {
+        shell
+            .run(
+                "pcb.free_pad.add",
+                json!({"kind": "smd", "at": {"x": x, "y": 0}, "width": "2mm", "height": "1.2mm"}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "pcb.track.add",
+            json!({"layer": top, "points": [{"x": "6mm", "y": 0}, {"x": "6mm", "y": "5mm"},
+                                            {"x": "12mm", "y": "5mm"}], "width": "0.3mm"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.via.add", json!({"at": {"x": "12mm", "y": "5mm"}}))
+        .unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+}
+
+/// Collapses the Dock on `dock` and opens its Panel `panel` as a flyout.
+fn open_flyout(h: &mut Harness<'static, App>, dock: &str, panel: &str) {
+    let shell = h.state_mut().shell_mut();
+    shell.run("panel.show", json!({"panel": panel})).unwrap();
+    shell
+        .run(
+            "layout.dock.collapse",
+            json!({"dock": dock, "collapsed": true}),
+        )
+        .unwrap();
+    shell
+        .run("layout.tab.activate", json!({"tab": panel}))
+        .unwrap();
+}
+
+/// A board with the right Dock collapsed to its strip and the Layers panel open as a
+/// flyout beside it.
+#[test]
+fn snapshot_of_an_open_dock_flyout() {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder("flyout");
+    let file = make_project(&folder, "Board");
+    set_theme(home.path(), "light");
+    // The board opens on the frame the Dock collapses. Animated, the canvas would first
+    // be drawn while the Dock is still wide, and the board fitted to that narrower canvas.
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.animate",
+        json!(false),
+    )
+    .unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    open_a_small_board(&mut h, &file);
+    open_flyout(&mut h, "right", "layers");
+    h.run();
+    h.snapshot("dock_flyout_light");
+}
+
+/// The open flyout in the window, for a reviewer: each Dock's, in light and dark and both
+/// Densities, at twice the size. Written only when `REDA_GALLERY_OUT` is set; nothing
+/// compares them.
+#[test]
+fn dock_flyout_approval_sheets() {
+    use reda_ui::theme::{self, Density, Settings};
+    let Some(out) = std::env::var_os("REDA_GALLERY_OUT") else {
+        return;
+    };
+    if snapshot_skip_reason().is_some() {
+        return;
+    }
+    let out = PathBuf::from(out);
+    std::fs::create_dir_all(&out).unwrap();
+    let folder = snapshot_folder("flyout-sheets");
+    let file = make_project(&folder, "Board");
+    for theme in ["light", "dark"] {
+        for (density, density_name) in [
+            (Density::Comfortable, "comfortable"),
+            (Density::Compact, "compact"),
+        ] {
+            for (dock, panel) in [
+                ("right", "layers"),
+                ("left", "projects"),
+                ("bottom", "messages"),
+            ] {
+                let home = TempDir::new("app-home");
+                set_theme(home.path(), theme);
+                let render_state = egui_kittest::wgpu::create_render_state(
+                    egui_kittest::wgpu::default_wgpu_setup(),
+                    egui_wgpu::RendererOptions::PREDICTABLE,
+                );
+                reda_ui::install_canvas(&render_state, 1);
+                let app = App::new(Shell::new(engine_in(home.path())));
+                let mut h = Harness::builder()
+                    .with_size([1000.0, 620.0])
+                    .with_pixels_per_point(2.0)
+                    .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
+                        render_state,
+                    ))
+                    .build_ui_state(|ui, app: &mut App| app.ui(ui), app);
+                h.run();
+                // The Appearance page is not built yet: Density is set as it will set it.
+                let settings = Settings {
+                    density,
+                    ..Settings::default()
+                };
+                theme::set(&h.ctx, &settings);
+                open_a_small_board(&mut h, &file);
+                open_flyout(&mut h, dock, panel);
+                h.run();
+                let image = h.render().expect("the window renders");
+                let name = format!("flyout_{dock}_{theme}_{density_name}.png");
+                image.save(out.join(name)).unwrap();
+            }
+        }
+    }
+}
+
 fn icon_sheet_snapshot(theme: egui::Theme) {
     if let Some(why) = snapshot_skip_reason() {
         if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
@@ -593,7 +817,7 @@ fn icon_sheet_snapshot(theme: egui::Theme) {
         "move",
     ];
     let mut h = Harness::builder()
-        .with_size([400.0, 172.0])
+        .with_size([420.0, 220.0])
         .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
             render_state,
         ))
@@ -923,7 +1147,12 @@ fn snapshot_of_a_footprint_generator_form() {
     h.get_by_label("Generate Chip Footprint…").click();
     h.run();
     h.get_by_role_and_label(Role::ComboBox, "Size (optional)")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Size (optional)")
         .click();
+    h.run_steps(8);
+    h.get_by_label("0805").scroll_to_me();
     h.run();
     h.get_by_label("0805").click();
     h.run();
@@ -966,10 +1195,17 @@ fn board_setup_snapshot(page: &str, name: &str) {
     if page != "Clearance" {
         // A page showing the invalid override is flagged in the tree.
         let flagged = format!("{page} (has invalid values)");
-        match h.query_by_role_and_label(Role::TreeItem, &flagged) {
-            Some(item) => item.click(),
-            None => h.get_by_role_and_label(Role::TreeItem, page).click(),
-        }
+        let item =
+            |h: &Harness<'static, App>| match h.query_by_role_and_label(Role::TreeItem, &flagged) {
+                Some(_) => flagged.clone(),
+                None => page.to_owned(),
+            };
+        // The last pages of the tree are below its fold.
+        let label = item(&h);
+        h.get_by_role_and_label(Role::TreeItem, &label)
+            .scroll_to_me();
+        h.run();
+        h.get_by_role_and_label(Role::TreeItem, &label).click();
     }
     h.run();
     h.snapshot(name);
@@ -1111,6 +1347,40 @@ fn preferences_snapshot(page: Option<reda_ui::preferences_dialog::PageId>, name:
 #[test]
 fn snapshot_of_the_preferences_general_page() {
     preferences_snapshot(None, "preferences_general_dark");
+}
+
+/// The Preferences window on its Appearance page, as `theme` and `density` draw it, in
+/// a window with room for all of it. With `ui_font`, a family this machine lacks.
+fn appearance_snapshot(theme: &str, density: &str, ui_font: Option<&str>, name: &str) {
+    let home = TempDir::new("app-home");
+    set_theme(home.path(), theme);
+    let dirs = UserDirs::under(home.path());
+    preferences::set(&dirs, "general.density", json!(density)).unwrap();
+    preferences::set(&dirs, "general.ui_font", json!(ui_font)).unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.set_size(egui::vec2(1100.0, 820.0));
+    h.run();
+    h.state_mut()
+        .open_preferences(Some(reda_ui::preferences_dialog::PageId::APPEARANCE));
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page() {
+    appearance_snapshot("dark", "comfortable", None, "preferences_appearance_dark");
+}
+
+#[test]
+fn snapshot_of_the_preferences_appearance_page_in_light_and_compact() {
+    appearance_snapshot(
+        "light",
+        "compact",
+        Some("Fira Sans"),
+        "preferences_appearance_light_compact",
+    );
 }
 
 #[test]
@@ -1330,4 +1600,82 @@ fn snapshot_of_the_board_navigator() {
     h.remove_cursor();
     h.run();
     h.snapshot("board_navigator_zones_dark");
+}
+
+/// Copies the reference Project `tests/projects/<name>` into `folder` and returns its
+/// `.reda` file.
+fn copy_reference_project(folder: &Path, name: &str) -> PathBuf {
+    let from = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/projects")
+        .join(name);
+    let to = folder.join(name);
+    std::fs::create_dir_all(&to).unwrap();
+    let mut reda = None;
+    for entry in std::fs::read_dir(&from).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_file() {
+            let target = to.join(path.file_name().unwrap());
+            std::fs::copy(&path, &target).unwrap();
+            if path.extension().is_some_and(|e| e == "reda") {
+                reda = Some(target);
+            }
+        }
+    }
+    reda.unwrap_or_else(|| panic!("no .reda file in {}", from.display()))
+}
+
+/// The whole window in one of the four variants, for the design language's images: the
+/// 555 blinker's board with its Zones filled, the Projects and Layers Panels open, and the
+/// Active Bar and status bar around it.
+fn whole_app_snapshot(theme: &str, density: &str) {
+    let name = format!("whole_app_{theme}_{density}");
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&name);
+    let file = copy_reference_project(&folder, "blinky_555");
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let Some(mut h) = snapshot_harness(home.path()) else {
+        return;
+    };
+    h.run();
+    let shell = h.state_mut().shell_mut();
+    shell.open_project(&file).unwrap();
+    let pcb = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell.run("pcb.zone.fill", json!({})).unwrap();
+    shell
+        .run("document.open", json!({"document": pcb}))
+        .unwrap();
+    shell.run("panel.show", json!({"panel": "layers"})).unwrap();
+    h.run();
+    h.state_mut()
+        .shell_mut()
+        .run("view.zoom_fit", json!({}))
+        .unwrap();
+    h.run();
+    h.snapshot(name);
+}
+
+#[test]
+fn snapshot_of_the_whole_app_light_comfortable() {
+    whole_app_snapshot("light", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_light_compact() {
+    whole_app_snapshot("light", "compact");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_dark_comfortable() {
+    whole_app_snapshot("dark", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_whole_app_dark_compact() {
+    whole_app_snapshot("dark", "compact");
 }

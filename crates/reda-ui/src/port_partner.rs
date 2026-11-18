@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets;
 
 /// The partners waiting for the user to pick one, in the engine's view state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -174,15 +175,16 @@ pub fn menu(ctx: &egui::Context, shell: &mut Shell) -> Option<(String, Value)> {
             .width(280.0)
             .show(ctx, |ui| {
                 for partner in &menu.partners {
-                    if ui.button(entry(partner)).clicked() {
+                    if ui.add(widgets::menu_item(entry(partner))).clicked() {
                         out = Some((
                             "schematic.port.go_to_partner".to_owned(),
                             json!({ "objects": [port], "partner": partner.port }),
                         ));
                     }
                 }
-                ui.separator();
-                cancel = ui.button(tr!("dialog-cancel")).clicked();
+                crate::modal::buttons(ui, |ui| {
+                    cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
+                });
             });
     if out.is_none() && (cancel || response.should_close()) {
         dismiss(shell);

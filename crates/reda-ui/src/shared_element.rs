@@ -17,7 +17,12 @@ use serde_json::{Value, json};
 
 use crate::element_editor::Invocation;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
+
+/// The most of the Parts list shown before it scrolls.
+const LIST_HEIGHT: f32 = 200.0;
 
 /// The shared-element prompt's view state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -277,9 +282,9 @@ pub fn show(ctx: &egui::Context, shell: &Shell) -> Option<Answer> {
                 name = ask.name.as_str(),
                 count = ask.parts.len().to_string()
             ));
-            ui.add_space(4.0);
+            ui.add_space(ui.tokens().space.stack);
             egui::ScrollArea::vertical()
-                .max_height(200.0)
+                .max_height(LIST_HEIGHT)
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     for part in &ask.parts {
@@ -288,16 +293,18 @@ pub fn show(ctx: &egui::Context, shell: &Shell) -> Option<Answer> {
                         r.widget_info(|| WidgetInfo::labeled(Role::ListItem, true, label.clone()));
                     }
                 });
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                if ui.button(tr!("shared-edit")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("shared-edit")).primary())
+                    .clicked()
+                {
                     answer = Some(Answer::EditShared);
                 }
-                if ui.button(tr!("shared-copy")).clicked() {
-                    answer = Some(Answer::MakeCopy);
-                }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                     answer = Some(Answer::Cancel);
+                }
+                if ui.add(widgets::button(tr!("shared-copy"))).clicked() {
+                    answer = Some(Answer::MakeCopy);
                 }
             });
         });

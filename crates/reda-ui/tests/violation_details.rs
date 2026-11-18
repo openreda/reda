@@ -196,6 +196,9 @@ fn violation_details_is_a_window_that_leaves_the_rest_usable() {
     assert_eq!(h.get_all_by_role_and_label(Role::Link, "Wire").count(), 2);
 
     // Not modal: Messages still goes to other lines, and the keys still work.
+    h.get_by_role_and_label(Role::Button, SECOND_END)
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, SECOND_END).click();
     h.run();
     assert_eq!(current(&h).as_deref(), Some(SECOND_END));
@@ -204,14 +207,21 @@ fn violation_details_is_a_window_that_leaves_the_rest_usable() {
     assert_eq!(current(&h).as_deref(), Some(FIRST_END));
     assert!(shows(&h, "Violation Details"), "Violation Details");
 
+    h.get_by_label("Highlight").scroll_to_me();
+    h.run();
     h.get_by_label("Highlight").click();
     h.run();
     assert_eq!(journal(&h).last().unwrap(), "view.highlight");
+    h.get_by_label("Jump").scroll_to_me();
+    h.run();
     h.get_by_label("Jump").click();
     h.run();
     assert_eq!(journal(&h).last().unwrap(), "view.jump_to");
 
     // Waive there with a reason, then edit the reason and Unwaive.
+    h.get_by_role_and_label(Role::TextInput, "Reason")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, "Reason").click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Reason")
@@ -245,10 +255,15 @@ fn violation_details_is_a_window_that_leaves_the_rest_usable() {
         };
     assert_eq!(reason(&h), "Test point");
 
+    h.get_by_role_and_label(Role::TextInput, "Reason")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, "Reason").click();
     h.run();
     h.get_by_role_and_label(Role::TextInput, "Reason")
         .type_text(" by design");
+    h.run();
+    h.get_by_label("Save reason").scroll_to_me();
     h.run();
     h.get_by_label("Save reason").click();
     h.run();

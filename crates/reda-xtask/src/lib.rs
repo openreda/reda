@@ -1,5 +1,7 @@
 //! Developer chores behind `cargo xtask` (see `.cargo/config.toml`). Nothing here ships.
 
+pub mod fonts;
 pub mod icons;
 pub mod showcase;
 pub mod site;
+pub mod tokens;

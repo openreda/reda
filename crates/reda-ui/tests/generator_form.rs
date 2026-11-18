@@ -377,9 +377,15 @@ fn regenerate_in_the_footprint_properties_opens_the_form_and_regenerates_in_plac
 fn a_typed_override_shows_its_warning_in_the_window() {
     let home = TempDir::new("genform-window-warn");
     let (mut h, _) = window(&home);
+    h.get_by_role_and_label(Role::Button, "Regenerate…")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Regenerate…").click();
     h.run();
     assert!(h.query_by_label_contains("Overrides IPC-7351").is_none());
+    h.get_by_role_and_label(Role::TextInput, "Fillet toe (optional)")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::TextInput, "Fillet toe (optional)")
         .click();
     h.run();
@@ -388,6 +394,9 @@ fn a_typed_override_shows_its_warning_in_the_window() {
     h.run();
     h.run();
     h.get_by_label_contains("Overrides IPC-7351");
+    h.get_by_role_and_label(Role::Button, "Use calculated")
+        .scroll_to_me();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Use calculated")
         .click();
     h.run();

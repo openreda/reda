@@ -322,7 +322,8 @@ fn menus_follow_the_document_last_pressed_on_in_any_window() {
     // A press on the PCB's canvas, in its own window, makes it the active Document, and
     // the main window's menus and toolbar follow.
     let tab = h.get_by_role_and_label(Role::Tab, &pcb_title).rect();
-    let canvas = egui::pos2(tab.center().x, tab.bottom() + 80.0);
+    // Below the "No Board Outline" banner, which is centred and wider than it was.
+    let canvas = egui::pos2(tab.center().x, tab.bottom() + 120.0);
     h.drag_at(canvas);
     h.drop_at(canvas);
     h.run();
@@ -534,7 +535,7 @@ fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap(
         std::rc::Rc::clone(&labels),
     );
     h.run();
-    // The floating window shows its tab and nothing of the top row; the main window has
+    // The floating window shows its tab and none of the main Title bar; the main window has
     // the menus and the quick strip.
     let shown: Vec<String> = labels.borrow().clone();
     let title = h
@@ -544,12 +545,12 @@ fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap(
         .unwrap()
         .to_owned();
     assert!(shown.contains(&title), "{shown:?}");
-    for top_row in ["File", "Edit", "Help", "Save All", "Undo", "Preferences…"] {
+    for title_bar_item in ["File", "Edit", "Help", "Save All", "Undo", "Preferences…"] {
         assert!(
-            !shown.iter().any(|l| l == top_row),
-            "{top_row} in {shown:?}"
+            !shown.iter().any(|l| l == title_bar_item),
+            "{title_bar_item} in {shown:?}"
         );
-        h.get_by_role_and_label(Role::Button, top_row);
+        h.get_by_role_and_label(Role::Button, title_bar_item);
     }
     // Mod+Z pressed in the floating window undoes the sheet's edit, through the Keymap.
     keys.borrow_mut().push(egui::Event::Key {
@@ -583,33 +584,82 @@ fn filled_rects(h: &Harness<'_, App>) -> Vec<(egui::Rect, egui::Color32)> {
         .collect()
 }
 
+fn near(a: egui::Rect, b: egui::Rect) -> bool {
+    (a.min - b.min).length() < 0.6 && (a.max - b.max).length() < 0.6
+}
+
+/// The 2 px strip along the top edge of `tab`, between its 10 px rounded corners.
+fn top_line(tab: egui::Rect) -> egui::Rect {
+    egui::Rect::from_min_max(
+        egui::pos2(tab.left() + 10.0, tab.top()),
+        egui::pos2(tab.right() - 10.0, tab.top() + 2.0),
+    )
+}
+
 #[test]
-fn the_active_tab_has_white_at_15_percent_and_a_2px_white_underline() {
+fn the_front_tab_is_a_card_and_only_a_document_tab_takes_the_accent_line() {
+    use reda_ui::theme::TokensExt as _;
     let mut h = harness();
     h.run();
+    let t = h.ctx.tokens();
     let tab = h.get_by_role_and_label(Role::Tab, "Start").rect();
     let rects = filled_rects(&h);
-    let near = |a: egui::Rect, b: egui::Rect| {
-        (a.min - b.min).length() < 0.6 && (a.max - b.max).length() < 0.6
-    };
-    // White at 15 %: 38 of 255, premultiplied.
-    assert_eq!(
-        reda_ui::theme::ACTIVE_TAB_FILL,
-        egui::Color32::from_white_alpha(38)
+    assert!(
+        rects
+            .iter()
+            .any(|(r, fill)| near(*r, tab) && *fill == t.color.surface.card),
+        "the front tab is filled with the card colour"
+    );
+    // The Start page is not a Document: no accent line.
+    assert!(
+        !rects.iter().any(|(r, _)| near(*r, top_line(tab))),
+        "no line along the top of the Start tab"
+    );
+}
+
+#[test]
+fn the_active_documents_tab_has_a_2px_accent_line_along_its_top_edge() {
+    use reda_ui::theme::TokensExt as _;
+    let work = reda_testkit::TempDir::new("accent-line");
+    let mut engine = Engine::builder()
+        .user_dirs(None)
+        .starter_library(None)
+        .headless(false)
+        .build();
+    engine
+        .run("project.new", json!({"path": work.path(), "name": "Line"}))
+        .unwrap();
+    let mut shell = Shell::new(engine);
+    shell
+        .open_project(&work.path().join("Line").join("Line.reda"))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1000.0, 640.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let t = h.ctx.tokens();
+    let tab = h.get_by_role_and_label(Role::Tab, "Sheet 1").rect();
+    let rects = filled_rects(&h);
+    assert!(
+        rects
+            .iter()
+            .any(|(r, fill)| near(*r, tab) && *fill == t.color.surface.card),
+        "the front tab is filled with the card colour"
     );
     assert!(
         rects
             .iter()
-            .any(|(r, fill)| near(*r, tab) && *fill == egui::Color32::from_white_alpha(38)),
-        "a 15 % white fill behind the active tab"
+            .any(|(r, fill)| near(*r, top_line(tab)) && *fill == t.color.accent.text),
+        "a 2 px accent line along the top of the active Document's tab"
     );
-    let underline = egui::Rect::from_min_max(egui::pos2(tab.left(), tab.bottom() - 2.0), tab.max);
+    // A Panel's front tab is a card too, but never takes the line.
+    let panel = h.get_by_role_and_label(Role::Tab, "Projects").rect();
     assert!(
         rects
             .iter()
-            .any(|(r, fill)| near(*r, underline) && *fill == egui::Color32::WHITE),
-        "a 2 px white underline across the active tab"
+            .any(|(r, fill)| near(*r, panel) && *fill == t.color.surface.card)
     );
+    assert!(!rects.iter().any(|(r, _)| near(*r, top_line(panel))));
 }
 
 #[test]

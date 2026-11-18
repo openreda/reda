@@ -8,7 +8,7 @@
 
 use std::any::Any;
 
-use egui::{Grid, Id, Role, WidgetInfo};
+use egui::{Id, Role, WidgetInfo};
 use reda_engine::command::{Command, CommandError, Context, Kind, Meta, Registry};
 use reda_engine::model::geom::{Nm, Point};
 use reda_engine::model::{LibraryElement, Uuid, auto_increment};
@@ -17,8 +17,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::command_dialog::{Outcome, ParamsDialog};
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets;
 
 pub const COMMAND: &str = "library.paste_array";
 
@@ -183,6 +186,9 @@ impl Command for PasteArray {
     }
 }
 
+/// How wide the dialog's fields are.
+const FIELD_WIDTH: f32 = 120.0;
+
 /// The modal Paste Array dialog over the selection of one open element.
 pub struct PasteArrayDialog {
     element: Option<LibraryElement>,
@@ -279,12 +285,12 @@ impl ParamsDialog for PasteArrayDialog {
         let modal = crate::modal::Dialog::new(id, tr!("paste-array-title"))
             .width(360.0)
             .show(ctx, |ui| {
-                ui.label(tr!("paste-array-intro", count = self.objects.len()));
-                ui.add_space(6.0);
-                Grid::new(id.with("grid")).num_columns(2).show(ui, |ui| {
+                layout::text(ui, tr!("paste-array-intro", count = self.objects.len()));
+                ui.add_space(ui.tokens().space.stack);
+                widgets::form(id.with("grid")).show(ui, |ui| {
                     let field = |ui: &mut egui::Ui, label: String, text: &mut String| {
-                        ui.label(&label);
-                        ui.add(egui::TextEdit::singleline(text).desired_width(120.0))
+                        ui.add(widgets::form_name(&label));
+                        ui.add(widgets::text_field(text).width(FIELD_WIDTH))
                             .widget_info(|| {
                                 WidgetInfo::labeled(Role::TextInput, true, label.clone())
                             });
@@ -298,27 +304,28 @@ impl ParamsDialog for PasteArrayDialog {
                     field(ui, tr!("paste-array-dx"), &mut self.dx);
                     field(ui, tr!("paste-array-dy"), &mut self.dy);
                 });
-                ui.checkbox(
+                ui.add(widgets::checkbox(
                     &mut self.remove_leading_zeroes,
                     tr!("paste-array-remove-leading-zeroes"),
-                );
+                ));
                 let params = self.params();
                 if let Err(why) = &params {
-                    ui.colored_label(ui.visuals().warn_fg_color, why);
+                    layout::warning(ui, why);
                 }
                 if let Some(error) = &self.error {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
+                    layout::error(ui, error);
                 }
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    let paste =
-                        ui.add_enabled(params.is_ok(), egui::Button::new(tr!("paste-array-run")));
+                crate::modal::buttons(ui, |ui| {
+                    let paste = ui.add_enabled(
+                        params.is_ok(),
+                        widgets::button(tr!("paste-array-run")).primary(),
+                    );
                     if paste.clicked()
                         && let Ok(params) = params
                     {
                         outcome = Outcome::Run(params);
                     }
-                    if ui.button(tr!("dialog-cancel")).clicked() {
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                         outcome = Outcome::Cancel;
                     }
                 });

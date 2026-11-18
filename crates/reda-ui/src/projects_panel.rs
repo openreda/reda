@@ -10,12 +10,20 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Button, CollapsingHeader, Id, Role, Sense, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Role, Sense, Ui, WidgetInfo};
 use reda_engine::model::{DocumentEntry, DocumentKind, ListedDocument, Project, Scope, Uuid};
 use serde_json::{Value, json};
 
+use crate::layout::PanelId;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Tooltip as _};
+
+/// The width kept for a Document's number before its row.
+const NUMBER_WIDTH: f32 = 18.0;
+/// How deep the rows under a group are: the Project is at 0 and its groups at 1.
+const ITEM_DEPTH: usize = 2;
 
 /// What the panel asks of the window.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,10 +91,11 @@ pub fn show(ui: &mut Ui, shell: &Shell, commands: &mut Commands) -> Option<Proje
         state: &mut state,
         commands,
         action: None,
+        focused: shell.panel_focused(PanelId::Projects),
     };
     egui::ScrollArea::vertical()
         .auto_shrink(false)
-        .show(ui, |ui| tree.root(ui));
+        .show(ui, |ui| widgets::rows(ui, |ui| tree.root(ui)));
     tree.confirm_delete(ui.ctx());
     let action = tree.action.take();
     ui.data_mut(|d| d.insert_temp(state_id(), state));
@@ -100,6 +109,8 @@ struct Tree<'a> {
     state: &'a mut PanelState,
     commands: &'a mut Commands,
     action: Option<ProjectsAction>,
+    /// Whether the panel holds keyboard focus: its selected row is live only then.
+    focused: bool,
 }
 
 impl Tree<'_> {
@@ -120,18 +131,49 @@ impl Tree<'_> {
         self.shell.engine().location().map(Path::to_path_buf)
     }
 
+    /// A row that opens: the Project, or one of its groups. Returns the row and
+    /// whether it is open. A click anywhere on it opens or closes it.
+    fn branch(&self, ui: &mut Ui, key: &'static str, title: &str, depth: usize) -> Branch {
+        let id = Id::NULL.with(("projects-open", key));
+        let mut open = ui.data_mut(|d| *d.get_persisted_mut_or(id, true));
+        let row = widgets::tree_row(title, depth)
+            .open(Some(open))
+            .panel_focused(self.focused)
+            .show(ui);
+        // A heading reads as the disclosure it is, not as an item of the tree: other
+        // trees (a settings window's pages) have items of the same names.
+        let enabled = ui.is_enabled();
+        row.response
+            .widget_info(|| WidgetInfo::labeled(Role::DisclosureTriangle, enabled, title));
+        if row.toggled || row.response.clicked() {
+            open = !open;
+            ui.data_mut(|d| d.insert_persisted(id, open));
+        }
+        Branch {
+            row: row.response,
+            open,
+        }
+    }
+
+    /// A line of muted text where a group has nothing to list.
+    fn nothing(&self, ui: &mut Ui, text: String) {
+        ui.horizontal(|ui| {
+            let t = ui.tokens();
+            ui.add_space(t.space.row_x + widgets::TREE_INDENT * (ITEM_DEPTH + 1) as f32);
+            ui.add(widgets::form_name(text));
+        });
+    }
+
     fn root(&mut self, ui: &mut Ui) {
         let name = self.project.props().name.clone();
-        let header = CollapsingHeader::new(self.label(&name, Scope::Project))
-            .id_salt("projects-root")
-            .default_open(true)
-            .show(ui, |ui| {
-                self.sheets(ui);
-                self.pcb(ui);
-                self.jobs(ui);
-                self.libraries(ui);
-            });
-        header.header_response.context_menu(|ui| {
+        let root = self.branch(ui, "root", &self.label(&name, Scope::Project), 0);
+        if root.open {
+            self.sheets(ui);
+            self.pcb(ui);
+            self.jobs(ui);
+            self.libraries(ui);
+        }
+        widgets::context_menu(&root.row, |ui| {
             if item(ui, tr!("projects-settings"), None) {
                 self.action = Some(ProjectsAction::ProjectSettings);
             }
@@ -153,21 +195,19 @@ impl Tree<'_> {
         let sheets: Vec<ListedDocument> = (self.project.document_list().into_iter())
             .filter(|d| d.entry.kind == DocumentKind::Schematic)
             .collect();
-        let header = CollapsingHeader::new(tr!("projects-schematic"))
-            .id_salt("projects-schematic")
-            .default_open(true)
-            .show(ui, |ui| {
-                for (i, sheet) in sheets.iter().enumerate() {
-                    if sheet.missing {
-                        self.missing_row(ui, &sheet.entry);
-                        continue;
-                    }
-                    let before = i.checked_sub(1).map(|j| &sheets[j].entry);
-                    let after = sheets.get(i + 1).map(|d| &d.entry);
-                    self.sheet(ui, &sheet.entry, before, after);
+        let group = self.branch(ui, "schematic", &tr!("projects-schematic"), 1);
+        if group.open {
+            for (i, sheet) in sheets.iter().enumerate() {
+                if sheet.missing {
+                    self.missing_row(ui, &sheet.entry);
+                    continue;
                 }
-            });
-        header.header_response.context_menu(|ui| {
+                let before = i.checked_sub(1).map(|j| &sheets[j].entry);
+                let after = sheets.get(i + 1).map(|d| &d.entry);
+                self.sheet(ui, &sheet.entry, before, after);
+            }
+        }
+        widgets::context_menu(&group.row, |ui| {
             if item(ui, tr!("projects-add-sheet"), None) {
                 self.run("document.add", json!({"kind": "schematic"}));
             }
@@ -191,11 +231,15 @@ impl Tree<'_> {
         }
     }
 
-    /// The Document's number in Project order, before its row.
+    /// The Document's number in Project order, before its row, under the group's
+    /// indent.
     fn number(&self, ui: &mut Ui, document: &DocumentEntry) {
+        let t = ui.tokens();
+        ui.add_space(t.space.row_x + widgets::TREE_INDENT * (ITEM_DEPTH - 1) as f32);
         let number = (self.index(document.uuid) + 1).to_string();
-        let label = egui::Label::new(egui::RichText::new(number).weak());
-        ui.add_sized([18.0, 18.0], label);
+        let text = t.ty.numeric.rich(number).color(t.color.text.muted);
+        let label = egui::Label::new(text).selectable(false);
+        ui.add_sized([NUMBER_WIDTH, t.row_height()], label);
     }
 
     /// A sheet's number among the sheets, "n/m" after its name: what its title block and
@@ -209,12 +253,34 @@ impl Tree<'_> {
             return;
         };
         let (number, count) = (index as i64 + 1, sheets.len() as i64);
-        let text = egui::RichText::new(format!("{number}/{count}"))
-            .weak()
-            .small();
+        let t = ui.tokens();
+        let text = (t.ty.numeric_small)
+            .rich(format!("{number}/{count}"))
+            .color(t.color.text.muted);
         let label = ui.add(egui::Label::new(text).selectable(false));
         let name = tr!("projects-sheet-number", number = number, count = count);
         label.widget_info(|| WidgetInfo::labeled(Role::Label, true, name.clone()));
+    }
+
+    /// One Document's line: its number, its row, and a sheet's number among the sheets
+    /// at the trailing end. The row is a leaf of the tree and takes the width between.
+    fn document_line(
+        &self,
+        ui: &mut Ui,
+        document: &DocumentEntry,
+        row: widgets::Row<'_>,
+    ) -> egui::Response {
+        ui.horizontal(|ui| {
+            self.number(ui, document);
+            let trailing = egui::Layout::right_to_left(egui::Align::Center);
+            ui.with_layout(trailing, |ui| {
+                ui.add_space(ui.tokens().space.row_x);
+                self.sheet_number(ui, document.uuid);
+                ui.add(row)
+            })
+            .inner
+        })
+        .inner
     }
 
     /// A missing Document: greyed, with its file's path on hover and a menu to relink it
@@ -222,18 +288,10 @@ impl Tree<'_> {
     fn missing_row(&mut self, ui: &mut Ui, document: &DocumentEntry) {
         let path = self.file_path(document);
         let label = tr!("projects-missing", name = document.title.as_str());
-        let row = ui
-            .horizontal(|ui| {
-                self.number(ui, document);
-                let text = egui::RichText::new(&label).color(ui.visuals().weak_text_color());
-                let row = ui.add(Button::selectable(false, text).sense(Sense::click()));
-                let name = label.clone();
-                row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, name.clone()));
-                row
-            })
-            .inner;
-        let row = row.on_hover_text(tr!("projects-missing-hint", path = path.as_str()));
-        row.context_menu(|ui| {
+        let row = widgets::tree_row(label, 0).muted(true);
+        let row = self.document_line(ui, document, row.panel_focused(self.focused));
+        let row = row.tooltip(tr!("projects-missing-hint", path = path.as_str()));
+        widgets::context_menu(&row, |ui| {
             if item(ui, tr!("projects-relink"), None) {
                 self.action = Some(ProjectsAction::Relink(document.uuid));
             }
@@ -257,8 +315,8 @@ impl Tree<'_> {
         if let Some(dragged) = row.dnd_hover_payload::<DraggedSheet>()
             && dragged.0 != sheet.uuid
         {
-            let rect = row.rect;
-            let stroke = ui.visuals().selection.stroke;
+            let (rect, t) = (row.rect, ui.tokens());
+            let stroke = egui::Stroke::new(t.stroke.accent_line, t.color.accent.text);
             ui.painter().hline(rect.x_range(), rect.top(), stroke);
         }
         if let Some(dragged) = row.dnd_release_payload::<DraggedSheet>()
@@ -274,7 +332,7 @@ impl Tree<'_> {
             before.map(|d| self.index(d.uuid)),
             after.map(|d| self.index(d.uuid)),
         );
-        row.context_menu(|ui| {
+        widgets::context_menu(&row, |ui| {
             self.document_menu_top(ui, sheet);
             for (label, target) in [
                 (tr!("projects-move-up"), up),
@@ -315,7 +373,7 @@ impl Tree<'_> {
         if let Some((uuid, text)) = &mut self.state.renaming
             && *uuid == document.uuid
         {
-            let field = ui.add(TextEdit::singleline(text).desired_width(f32::INFINITY));
+            let field = ui.add(widgets::text_field(text).width(f32::INFINITY));
             let name = tr!("projects-rename-field", name = document.title.as_str());
             field.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name.clone()));
             if std::mem::take(&mut self.state.focus_rename) {
@@ -342,15 +400,11 @@ impl Tree<'_> {
             Sense::click()
         };
         let path = self.file_path(document);
-        let row = ui
-            .horizontal(|ui| {
-                self.number(ui, document);
-                let row = tree_item(ui, open, &label, sense);
-                self.sheet_number(ui, document.uuid);
-                row
-            })
-            .inner
-            .on_hover_text(path);
+        let row = widgets::tree_row(label, 0)
+            .selected(open)
+            .panel_focused(self.focused)
+            .sense(sense);
+        let row = self.document_line(ui, document, row).tooltip(path);
         if draggable && row.dragged() {
             row.dnd_set_drag_payload(DraggedSheet(document.uuid));
         }
@@ -375,14 +429,13 @@ impl Tree<'_> {
         let pcb =
             (self.project.document_list().into_iter()).find(|d| d.entry.kind == DocumentKind::Pcb);
         let present = pcb.as_ref().filter(|d| !d.missing).map(|d| d.entry.clone());
-        let header = CollapsingHeader::new(tr!("projects-pcb"))
-            .id_salt("projects-pcb")
-            .default_open(true)
-            .show(ui, |ui| match &pcb {
+        let group = self.branch(ui, "pcb", &tr!("projects-pcb"), 1);
+        if group.open {
+            match &pcb {
                 Some(missing) if missing.missing => self.missing_row(ui, &missing.entry),
                 Some(ListedDocument { entry: pcb, .. }) => {
                     if let Some(row) = self.document_row(ui, pcb, false) {
-                        row.context_menu(|ui| {
+                        widgets::context_menu(&row, |ui| {
                             self.document_menu_top(ui, pcb);
                             if item(ui, tr!("projects-board-setup"), None) {
                                 self.action = Some(ProjectsAction::BoardSetup);
@@ -393,11 +446,10 @@ impl Tree<'_> {
                         });
                     }
                 }
-                None => {
-                    ui.weak(tr!("projects-no-pcb"));
-                }
-            });
-        header.header_response.context_menu(|ui| {
+                None => self.nothing(ui, tr!("projects-no-pcb")),
+            }
+        }
+        widgets::context_menu(&group.row, |ui| {
             let refused = present.is_some().then(|| tr!("projects-pcb-exists"));
             if item(ui, tr!("projects-add-pcb"), refused) {
                 self.run("document.add", json!({"kind": "pcb"}));
@@ -411,19 +463,17 @@ impl Tree<'_> {
             .output_jobs()
             .map(|j| (j.uuid, j.name.clone()))
             .collect();
-        let header = CollapsingHeader::new(tr!("projects-output-jobs"))
-            .id_salt("projects-jobs")
-            .default_open(true)
-            .show(ui, |ui| {
-                if jobs.is_empty() {
-                    ui.weak(tr!("projects-no-jobs"));
-                }
-                for (uuid, name) in &jobs {
-                    self.job(ui, *uuid, name);
-                }
-            });
+        let group = self.branch(ui, "jobs", &tr!("projects-output-jobs"), 1);
+        if group.open {
+            if jobs.is_empty() {
+                self.nothing(ui, tr!("projects-no-jobs"));
+            }
+            for (uuid, name) in &jobs {
+                self.job(ui, *uuid, name);
+            }
+        }
         let preset = self.project.fab_presets().next().map(|p| p.uuid);
-        header.header_response.context_menu(|ui| {
+        widgets::context_menu(&group.row, |ui| {
             let refused = jobs.is_empty().then(|| tr!("projects-no-jobs"));
             if item(ui, tr!("projects-run-all"), refused) {
                 self.action = Some(ProjectsAction::RunAllJobs);
@@ -444,14 +494,14 @@ impl Tree<'_> {
         } else {
             name.to_owned()
         };
-        let mut row = tree_item(ui, false, &label, Sense::click());
+        let mut row = self.leaf(ui, &label);
         if broken {
-            row = row.on_hover_text(tr!("output-job-broken"));
+            row = row.tooltip(tr!("output-job-broken"));
         }
         if row.double_clicked() {
             self.action = Some(ProjectsAction::EditJob(job));
         }
-        row.context_menu(|ui| {
+        widgets::context_menu(&row, |ui| {
             let refused = broken.then(|| tr!("output-job-broken"));
             if item(ui, tr!("projects-run-job"), refused) {
                 self.action = Some(ProjectsAction::RunJob(job));
@@ -468,30 +518,33 @@ impl Tree<'_> {
         });
     }
 
+    /// A row under a group that is not a Document: an Output Job, a Library folder.
+    fn leaf(&self, ui: &mut Ui, label: &str) -> egui::Response {
+        ui.add(widgets::tree_row(label, ITEM_DEPTH).panel_focused(self.focused))
+    }
+
     fn libraries(&mut self, ui: &mut Ui) {
         let paths = self.project.props().libraries.clone();
-        let header = CollapsingHeader::new(tr!("projects-libraries"))
-            .id_salt("projects-libraries")
-            .default_open(true)
-            .show(ui, |ui| {
-                if paths.is_empty() {
-                    ui.weak(tr!("projects-no-libraries"));
-                }
-                for path in &paths {
-                    let row = tree_item(ui, false, path, Sense::click());
-                    row.context_menu(|ui| {
-                        if item(ui, tr!("projects-remove"), None) {
-                            self.run("project.library.remove", json!({"path": path}));
-                        }
-                        if item(ui, tr!("projects-show-in-folder"), None)
-                            && let Some(folder) = self.folder()
-                        {
-                            self.action = Some(ProjectsAction::ShowInFolder(folder.join(path)));
-                        }
-                    });
-                }
-            });
-        header.header_response.context_menu(|ui| {
+        let group = self.branch(ui, "libraries", &tr!("projects-libraries"), 1);
+        if group.open {
+            if paths.is_empty() {
+                self.nothing(ui, tr!("projects-no-libraries"));
+            }
+            for path in &paths {
+                let row = self.leaf(ui, path);
+                widgets::context_menu(&row, |ui| {
+                    if item(ui, tr!("projects-remove"), None) {
+                        self.run("project.library.remove", json!({"path": path}));
+                    }
+                    if item(ui, tr!("projects-show-in-folder"), None)
+                        && let Some(folder) = self.folder()
+                    {
+                        self.action = Some(ProjectsAction::ShowInFolder(folder.join(path)));
+                    }
+                });
+            }
+        }
+        widgets::context_menu(&group.row, |ui| {
             if item(ui, tr!("projects-add-folder"), None) {
                 self.action = Some(ProjectsAction::AddLibraryFolder);
             }
@@ -523,14 +576,18 @@ impl Tree<'_> {
                 name = entry.title.as_str(),
                 count = count
             ));
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                if ui.button(tr!("projects-delete-sheet")).clicked() {
+            crate::modal::buttons(ui, |ui| {
+                if ui
+                    .add(widgets::button(tr!("projects-delete-sheet")).danger())
+                    .clicked()
+                {
                     self.commands
                         .push(("document.delete", json!({"document": sheet})));
                     close = true;
                 }
-                if ui.button(tr!("dialog-cancel")).clicked() {
+                let cancel = ui.add(widgets::button(tr!("dialog-cancel")));
+                crate::modal::focus_on_open(&cancel);
+                if cancel.clicked() {
                     close = true;
                 }
             });
@@ -541,20 +598,18 @@ impl Tree<'_> {
     }
 }
 
-/// One item of the tree, announced as a tree item.
-fn tree_item(ui: &mut Ui, selected: bool, label: &str, sense: Sense) -> egui::Response {
-    let row = ui.add(Button::selectable(selected, label).sense(sense));
-    let label = label.to_owned();
-    row.widget_info(|| WidgetInfo::labeled(Role::TreeItem, true, label.clone()));
-    row
+/// A row of the tree that opens, as [`Tree::branch`] showed it.
+struct Branch {
+    row: egui::Response,
+    open: bool,
 }
 
 /// A menu item that closes the menu when clicked; `refused` greys it out with a reason.
 fn item(ui: &mut Ui, label: String, refused: Option<String>) -> bool {
-    let response = ui.add_enabled(refused.is_none(), Button::new(label));
+    let response = ui.add_enabled(refused.is_none(), widgets::menu_item(label));
     let clicked = response.clicked();
     if let Some(reason) = refused {
-        response.on_disabled_hover_text(reason);
+        response.disabled_tooltip(reason);
     }
     if clicked {
         ui.close();

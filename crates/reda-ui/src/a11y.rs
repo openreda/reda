@@ -6,6 +6,8 @@
 
 use egui::{Context, Id, Order, Response, Role, Stroke, StrokeKind, WidgetInfo};
 
+use crate::theme::TokensExt as _;
+
 /// Names `response` for AccessKit: `role`, `name`, whether it is enabled, and, for a
 /// tab or a toggle, whether it is `selected`. Its description is `shortcut`, the key that
 /// runs it, or none.
@@ -63,9 +65,13 @@ fn keyboard_mode(ctx: &Context) -> bool {
     mode
 }
 
-/// Draws a ring around the widget with keyboard focus, over everything else, so focus is
-/// always visible whatever the widget draws for itself. The window calls this once per
-/// frame, after drawing.
+/// How far outside a widget the ring sits.
+const RING_GAP: f32 = 1.0;
+
+/// Draws the focus ring around the widget with keyboard focus when that widget does not
+/// draw its own, over everything else, so focus is always visible: a 2 px ring, 1 px
+/// outside the widget, with a control's radius. The window calls this once per frame,
+/// after drawing.
 pub fn focus_ring(ctx: &Context) {
     if !keyboard_mode(ctx) {
         return;
@@ -76,7 +82,11 @@ pub fn focus_ring(ctx: &Context) {
     let Some(response) = ctx.read_response(id) else {
         return;
     };
-    let accent = crate::theme::accent(ctx.theme());
+    // A REDA widget draws its own ring, following its radius.
+    if crate::widgets::drew_focus(ctx, id) {
+        return;
+    }
+    let t = ctx.tokens();
     // An Area of its own, so the ring's layer is ordered over the window's.
     egui::Area::new(Id::NULL.with("focus-ring"))
         .order(Order::Foreground)
@@ -85,9 +95,9 @@ pub fn focus_ring(ctx: &Context) {
         .show(ctx, |ui| {
             let painter = ui.painter().with_clip_rect(ctx.content_rect());
             painter.rect_stroke(
-                response.rect.expand(1.0),
-                2.0,
-                Stroke::new(2.0, accent),
+                response.rect.expand(RING_GAP),
+                t.radius.control + RING_GAP,
+                Stroke::new(t.stroke.focus_ring, t.color.stroke.focus_ring),
                 StrokeKind::Outside,
             );
         });

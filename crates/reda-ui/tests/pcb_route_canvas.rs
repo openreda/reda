@@ -280,7 +280,7 @@ fn the_routing_bar_floats_over_the_bottom_while_routing_and_its_buttons_run_the_
     );
     route_with_keys(&mut w);
     let canvas = w.h.get_by_role(Role::Canvas).rect();
-    let anchor = tool_bar_anchor(canvas, false);
+    let anchor = tool_bar_anchor(canvas, 0.0);
     let look = w.h.get_by_label("Toggle Look-Ahead");
     let bar = look.rect();
     assert!(
@@ -346,7 +346,7 @@ fn the_routing_bar_moves_up_with_the_layer_strip() {
     w.h.run();
     w.h.run();
     let canvas = w.h.get_by_role(Role::Canvas).rect();
-    let anchor = tool_bar_anchor(canvas, true);
+    let anchor = tool_bar_anchor(canvas, reda_ui::bars::draw::LAYER_STRIP_HEIGHT);
     let bar = w.h.get_by_label("Toggle Look-Ahead").rect();
     assert!(
         (bar.bottom() - anchor.y).abs() < 8.0,

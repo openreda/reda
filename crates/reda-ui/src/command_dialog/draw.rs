@@ -8,8 +8,11 @@ use reda_engine::command::CommandError;
 use serde_json::Value;
 
 use super::{Field, Input, Outcome, ParamForm, ParamsDialog};
+use crate::settings::layout;
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Tooltip as _};
 
 impl ParamsDialog for ParamForm {
     fn command(&self) -> &str {
@@ -25,41 +28,46 @@ impl ParamsDialog for ParamForm {
             crate::modal::Dialog::new(Id::NULL.with("command-form"), self.title().to_owned())
                 .width(420.0)
                 .show(ctx, |ui| {
-                    if !self.description().is_empty() {
-                        ui.weak(self.description().to_owned());
-                    }
-                    ui.add_space(6.0);
-                    egui::Grid::new("command-form-fields")
-                        .num_columns(2)
-                        .spacing([8.0, 4.0])
+                    // A long description or many fields scroll, so the title and the
+                    // buttons stay in the window.
+                    egui::ScrollArea::vertical()
+                        .id_salt("command-form-scroll")
+                        .max_height((ctx.content_rect().height() - CHROME).max(CHROME))
                         .show(ui, |ui| {
-                            for field in self.fields_mut() {
-                                let problem = problems
-                                    .iter()
-                                    .find(|(name, _)| *name == field.name)
-                                    .map(|(_, m)| m.as_str());
-                                row(ui, field, problem);
+                            if !self.description().is_empty() {
+                                layout::muted(ui, self.description().to_owned());
                             }
+                            ui.add_space(ui.tokens().space.stack);
+                            widgets::form("command-form-fields").show(ui, |ui| {
+                                for field in self.fields_mut() {
+                                    let problem = problems
+                                        .iter()
+                                        .find(|(name, _)| *name == field.name)
+                                        .map(|(_, m)| m.as_str());
+                                    row(ui, field, problem);
+                                }
+                            });
                         });
                     if let Some((_, whole)) = problems.iter().find(|(name, _)| name.is_empty()) {
-                        ui.colored_label(ui.visuals().error_fg_color, whole);
+                        layout::error(ui, whole);
                     }
                     if let Some(error) = &self.error {
-                        ui.colored_label(ui.visuals().error_fg_color, error);
+                        layout::error(ui, error);
                     }
                     for note in self.notes() {
-                        ui.colored_label(ui.visuals().warn_fg_color, note);
+                        layout::warning(ui, note);
                     }
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        let run =
-                            ui.add_enabled(ready.is_some(), egui::Button::new(tr!("form-run")));
+                    crate::modal::buttons(ui, |ui| {
+                        let run = ui.add_enabled(
+                            ready.is_some(),
+                            widgets::button(tr!("form-run")).primary(),
+                        );
                         if ready.is_none() {
-                            run.on_disabled_hover_text(tr!("form-fix-fields"));
+                            run.disabled_tooltip(tr!("form-fix-fields"));
                         } else if run.clicked() {
                             outcome = Outcome::Run(ready.clone().unwrap_or(Value::Null));
                         }
-                        if ui.button(tr!("dialog-cancel")).clicked() {
+                        if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
                             outcome = Outcome::Cancel;
                         }
                     });
@@ -79,6 +87,13 @@ impl ParamsDialog for ParamForm {
     }
 }
 
+/// The height a form's dialog keeps for what does not scroll: its title row, padding,
+/// notes and button row, and room around the dialog.
+const CHROME: f32 = 240.0;
+
+/// How wide a field's control is.
+const FIELD_WIDTH: f32 = 260.0;
+
 /// One field: its label, its input, and its problem under the input.
 fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
     let label = if field.required {
@@ -86,22 +101,22 @@ fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
     } else {
         tr!("form-optional", label = field.label.as_str())
     };
-    let label = ui.label(label);
+    let label = ui.add(widgets::form_name(label));
     if !field.description.is_empty() {
-        label.clone().on_hover_text(&field.description);
+        label.clone().tooltip(&field.description);
     }
     ui.vertical(|ui| {
         let id = Id::NULL.with(("command-form-field", field.name.as_str()));
         let response = match &mut field.input {
             Input::Text(t) | Input::Integer(t) | Input::Measure(t) => {
-                ui.add(egui::TextEdit::singleline(t).id(id).desired_width(260.0))
+                ui.add(widgets::text_field(t).id(id).width(FIELD_WIDTH))
             }
             Input::Json(t) => ui.add(
-                egui::TextEdit::multiline(t)
+                widgets::text_field(t)
                     .id(id)
-                    .code_editor()
-                    .desired_rows(2)
-                    .desired_width(260.0),
+                    .mono()
+                    .rows(2)
+                    .width(FIELD_WIDTH),
             ),
             Input::Flag(flag) => flag_box(ui, id, flag, field.required),
             Input::Choice { options, selected } => {
@@ -110,7 +125,7 @@ fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
         };
         response.labelled_by(label.id);
         if let Some(problem) = problem {
-            ui.colored_label(ui.visuals().error_fg_color, problem);
+            layout::error(ui, problem);
         }
     });
     ui.end_row();
@@ -119,7 +134,7 @@ fn row(ui: &mut Ui, field: &mut Field, problem: Option<&str>) {
 fn flag_box(ui: &mut Ui, id: Id, flag: &mut Option<bool>, required: bool) -> egui::Response {
     if required {
         let mut on = flag.unwrap_or(false);
-        let response = ui.checkbox(&mut on, "");
+        let response = ui.add(widgets::checkbox(&mut on, ""));
         *flag = Some(on);
         return response;
     }
@@ -128,11 +143,11 @@ fn flag_box(ui: &mut Ui, id: Id, flag: &mut Option<bool>, required: bool) -> egu
         Some(true) => tr!("form-yes"),
         Some(false) => tr!("form-no"),
     };
-    egui::ComboBox::from_id_salt(id)
-        .selected_text(text(*flag))
-        .show_ui(ui, |ui| {
+    widgets::dropdown(id, text(*flag))
+        .width(FIELD_WIDTH)
+        .show(ui, |ui| {
             for v in [None, Some(true), Some(false)] {
-                ui.selectable_value(flag, v, text(v));
+                widgets::choice_value(ui, flag, v, text(v));
             }
         })
         .response
@@ -150,14 +165,14 @@ fn choice_box(
         Some(other) => other.to_string(),
         None => tr!("form-choose"),
     };
-    egui::ComboBox::from_id_salt(id)
-        .selected_text(text(*selected))
-        .show_ui(ui, |ui| {
+    widgets::dropdown(id, text(*selected))
+        .width(FIELD_WIDTH)
+        .show(ui, |ui| {
             if !required {
-                ui.selectable_value(selected, None, tr!("form-default"));
+                widgets::choice_value(ui, selected, None, tr!("form-default"));
             }
             for i in 0..options.len() {
-                ui.selectable_value(selected, Some(i), text(Some(i)));
+                widgets::choice_value(ui, selected, Some(i), text(Some(i)));
             }
         })
         .response

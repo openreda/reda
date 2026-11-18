@@ -7,6 +7,7 @@ use serde_json::json;
 use super::rows::{Entry, RowStatus};
 use super::{Do, Placing, place};
 use crate::tr;
+use crate::widgets;
 
 /// The menu of `entry`'s row, placing into `target`; `status` is a Part's Library Status.
 pub(super) fn show(
@@ -18,17 +19,22 @@ pub(super) fn show(
     let mut picked = None;
     if let Some(part) = &entry.part
         && target != Placing::Nowhere
-        && ui.button(tr!("library-menu-place")).clicked()
+        && ui
+            .add(widgets::menu_item(tr!("library-menu-place")))
+            .clicked()
     {
         picked = place(target, part, None, part.footprints.first().copied()).map(Do::Out);
     }
-    if ui.button(tr!("library-menu-edit")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-menu-edit")))
+        .clicked()
+    {
         picked = Some(Do::open(entry.uuid));
     }
     // Duplicate copies it into its own Library, which the starter Library is not.
     let duplicate = ui.add_enabled(
         !entry.read_only,
-        egui::Button::new(tr!("library-menu-duplicate")),
+        widgets::menu_item(tr!("library-menu-duplicate")),
     );
     if duplicate.clicked() {
         picked = Some(Do::Out(super::Action::Run(
@@ -36,19 +42,30 @@ pub(super) fn show(
             json!({ "element": entry.uuid, "library": entry.library }),
         )));
     }
-    if ui.button(tr!("library-menu-where-used")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-menu-where-used")))
+        .clicked()
+    {
         picked = Some(Do::WhereUsed(entry.uuid));
     }
     if entry.part.is_some()
         && status.is_some_and(|s| s.placed > 0)
-        && ui.button(tr!("library-menu-update")).clicked()
+        && ui
+            .add(widgets::menu_item(tr!("library-menu-update")))
+            .clicked()
     {
         picked = Some(Do::update(entry.uuid));
     }
-    if ui.button(tr!("library-menu-check")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-menu-check")))
+        .clicked()
+    {
         picked = Some(Do::Check(entry.uuid));
     }
-    if ui.button(tr!("library-menu-copy")).clicked() {
+    if ui
+        .add(widgets::menu_item(tr!("library-menu-copy")))
+        .clicked()
+    {
         picked = Some(Do::Out(super::Action::Call(
             "library.element.copy".into(),
             json!({ "element": entry.uuid }),
@@ -58,7 +75,9 @@ pub(super) fn show(
         .part
         .as_ref()
         .and_then(|p| datasheet(&p.fields.datasheet))
-        && ui.button(tr!("library-menu-datasheet")).clicked()
+        && ui
+            .add(widgets::menu_item(tr!("library-menu-datasheet")))
+            .clicked()
     {
         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
     }

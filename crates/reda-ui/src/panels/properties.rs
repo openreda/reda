@@ -18,7 +18,7 @@ mod zone;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use egui::{Checkbox, ComboBox, Grid, Id, Key, RichText, Role, TextEdit, Ui, WidgetInfo};
+use egui::{Id, Key, Role, Ui, WidgetInfo};
 use reda_engine::model::Uuid;
 use serde_json::{Value, json};
 
@@ -33,7 +33,18 @@ use crate::properties::{
     WireVertices,
 };
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
+
+/// The most a property's text field is wide. In a narrow Dock it takes what its row has
+/// left, down to [`MIN_FIELD_WIDTH`].
+const FIELD_WIDTH: f32 = 160.0;
+const MIN_FIELD_WIDTH: f32 = 72.0;
+/// The width of a short field: a new field's name or value.
+const SHORT_FIELD_WIDTH: f32 = 80.0;
+/// The width of a vertex's coordinate field.
+const VERTEX_FIELD_WIDTH: f32 = 70.0;
 
 /// What the panel asks for after a frame.
 #[derive(Clone, Debug, PartialEq)]
@@ -49,6 +60,7 @@ pub enum Out {
 
 /// Draws the panel for the Shell's selection; returns what its clicks and edits ask for.
 pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
+    // The units key goes where the layout's focus is, not where selections look live.
     let focused = shell.layout().focus
         == Some(crate::layout::TabKey::Panel(
             crate::layout::PanelId::Properties,
@@ -129,7 +141,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                         .dropped_lines;
                     if omitted > 0 {
                         ui.colored_label(
-                            ui.visuals().warn_fg_color,
+                            ui.tokens().color.warning.text,
                             tr!("properties-text-frame-omitted", count = omitted),
                         );
                     }
@@ -230,15 +242,11 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                 && !properties.details.is_empty()
             {
                 region(ui, shell, "stored", tr!("properties-region-stored"), |ui| {
-                    Grid::new("properties-details")
-                        .num_columns(2)
-                        .show(ui, |ui| {
-                            for (name, value) in &properties.details {
-                                ui.weak(name);
-                                ui.label(value);
-                                ui.end_row();
-                            }
-                        });
+                    widgets::form("properties-details").show(ui, |ui| {
+                        for (name, value) in &properties.details {
+                            widgets::form_row(ui, name, |ui| ui.label(value));
+                        }
+                    });
                 });
             }
         });
@@ -266,7 +274,7 @@ fn chips(ui: &mut Ui, shell: &Shell, properties: &Properties, out: &mut Vec<Out>
                 ui.weak("·");
             }
             let label = format!("{} ({n})", kind_title(kind));
-            if ui.button(label).clicked()
+            if ui.add(widgets::button(label)).clicked()
                 && properties.kinds.len() > 1
                 && let Some((cmd, params)) = properties.narrow(kind)
             {
@@ -276,7 +284,7 @@ fn chips(ui: &mut Ui, shell: &Shell, properties: &Properties, out: &mut Vec<Out>
             }
         }
         if let Some(before) = &saved {
-            let clear = ui.button(tr!("properties-chips-clear"));
+            let clear = ui.add(widgets::button(tr!("properties-chips-clear")));
             if clear.clicked() {
                 let params = serde_json::to_value(before.as_ref()).unwrap_or_default();
                 out.push(Out::Run("selection.set", params));
@@ -352,16 +360,18 @@ fn region<R>(
     key: &str,
     title: String,
     add: impl FnOnce(&mut Ui) -> R,
-) -> egui::CollapsingResponse<R> {
+) -> widgets::SectionResponse<R> {
     let open = !collapsed(ui, shell).contains(key);
-    let response = egui::CollapsingHeader::new(RichText::new(title).strong())
-        .id_salt(("properties-region", key))
-        .open(Some(open))
-        .show(ui, add);
-    if response.header_response.clicked() {
+    let header = ui
+        .push_id(("properties-region", key), |ui| {
+            ui.add(widgets::section_header(title, open))
+        })
+        .inner;
+    if header.clicked() {
         set_open(ui, shell, key, !open);
     }
-    response
+    let body = open.then(|| add(ui));
+    widgets::SectionResponse { header, body }
 }
 
 /// The vertex list of the one Wire selected: Index, X and Y for each vertex (X and Y
@@ -370,22 +380,29 @@ fn region<R>(
 fn vertex_section(ui: &mut Ui, list: &WireVertices, units: Units, grid: Nm, edits: &mut Vec<Edit>) {
     ui.label(tr!("properties-vertices"));
     let removable = list.vertices.len() > 2;
-    Grid::new("properties-vertices")
-        .num_columns(4)
-        .show(ui, |ui| {
-            ui.weak(tr!("properties-vertex-index"));
-            ui.weak(tr!("properties-vertex-x"));
-            ui.weak(tr!("properties-vertex-y"));
-            ui.label("");
-            ui.end_row();
-            for (i, at) in list.vertices.iter().enumerate() {
-                ui.label(i.to_string());
+    let columns = [
+        Column::auto().number(),
+        Column::auto(),
+        Column::auto(),
+        Column::auto(),
+    ];
+    let table = widgets::table("properties-vertices").columns(columns);
+    table.show(ui, |table| {
+        table.header(|h| {
+            h.text(tr!("properties-vertex-index"));
+            h.text(tr!("properties-vertex-x"));
+            h.text(tr!("properties-vertex-y"));
+            h.empty();
+        });
+        for (i, at) in list.vertices.iter().enumerate() {
+            table.row(|row| {
+                row.text(i.to_string());
                 let axes = [("x", at.x), ("y", at.y)];
                 for (axis, value) in axes {
                     let key = format!("vertex-{}-{i}-{axis}", list.wire);
                     let shown = Shared::Same(crate::pcb::view::format_length(value, units));
                     let label = tr!("properties-vertex-field", index = i as i64, axis = axis);
-                    if let Some(text) = vertex_field(ui, &key, &label, &shown)
+                    if let Some(text) = row.ui(|ui| vertex_field(ui, &key, &label, &shown))
                         && let Some(length) = parse_length(&text, units)
                     {
                         let to = match axis {
@@ -395,19 +412,24 @@ fn vertex_section(ui: &mut Ui, list: &WireVertices, units: Units, grid: Nm, edit
                         edits.push(Edit::Vertex(i, to));
                     }
                 }
-                let remove = ui
-                    .add_enabled(
-                        removable,
-                        egui::Button::new(tr!("properties-vertex-remove")),
-                    )
-                    .on_hover_text(tr!("properties-vertex-remove-tip", index = i as i64));
-                if remove.clicked() {
+                // A small × named Remove: the row has no room for the word.
+                let remove = row.ui_enabled(removable, |ui| {
+                    let side = ui.tokens().row_height();
+                    ui.add(widgets::glyph_button(widgets::Glyph::Close).side(side))
+                });
+                let name = tr!("properties-vertex-remove");
+                remove.widget_info(|| WidgetInfo::labeled(Role::Button, removable, name.clone()));
+                let tip = tr!("properties-vertex-remove-tip", index = i as i64);
+                if remove.tooltip(tip).clicked() {
                     edits.push(Edit::RemoveVertex(i));
                 }
-                ui.end_row();
-            }
-        });
-    if ui.button(tr!("properties-vertex-add")).clicked() {
+            });
+        }
+    });
+    if ui
+        .add(widgets::button(tr!("properties-vertex-add")))
+        .clicked()
+    {
         edits.push(Edit::AddVertex(grid));
     }
 }
@@ -426,11 +448,8 @@ fn vertex_field(ui: &mut Ui, key: &str, label: &str, value: &Shared<String>) -> 
             committed: None,
         };
     }
-    let response = ui.add(
-        TextEdit::singleline(&mut draft.text)
-            .id(id)
-            .desired_width(80.0),
-    );
+    let field = widgets::text_field(&mut draft.text).id(id);
+    let response = ui.add(field.width(VERTEX_FIELD_WIDTH));
     let name = label.to_owned();
     response.widget_info(|| WidgetInfo::labeled(Role::TextInput, true, name.as_str()));
     if response.changed() {
@@ -516,40 +535,38 @@ fn numbers_section(
     units: Units,
     out: &mut Vec<(&'static str, Value)>,
 ) {
-    Grid::new(("properties-numbers", key))
-        .num_columns(2)
-        .show(ui, |ui| {
-            for row in numbers.rows.iter().filter(|r| r.region == region) {
-                let error_id = Id::NULL.with(("properties-number-error", row.name));
-                let value = match &row.value {
-                    Shared::Mixed => Shared::Mixed,
-                    Shared::Same(None) => Shared::Same(String::new()),
-                    Shared::Same(Some(v)) => Shared::Same(match row.kind {
-                        Kind::Length => crate::pcb::view::format_length(Nm(*v), units),
-                        Kind::Angle => format!("{} deg", *v as f64 / 1000.0),
-                    }),
-                };
-                let key = format!("number-{}", row.name);
-                let label = number_label(row.name);
-                if let Some(text) = text_field(ui, &key, &label, &value, true) {
-                    match numbers.command(row.name, &text, units) {
-                        Ok(command) => {
-                            out.extend(command);
-                            ui.data_mut(|d| d.remove::<String>(error_id));
-                        }
-                        Err(why) => ui.data_mut(|d| {
-                            d.insert_temp(error_id, why);
-                        }),
+    widgets::form(("properties-numbers", key)).show(ui, |ui| {
+        for row in numbers.rows.iter().filter(|r| r.region == region) {
+            let error_id = Id::NULL.with(("properties-number-error", row.name));
+            let value = match &row.value {
+                Shared::Mixed => Shared::Mixed,
+                Shared::Same(None) => Shared::Same(String::new()),
+                Shared::Same(Some(v)) => Shared::Same(match row.kind {
+                    Kind::Length => crate::pcb::view::format_length(Nm(*v), units),
+                    Kind::Angle => format!("{} deg", *v as f64 / 1000.0),
+                }),
+            };
+            let key = format!("number-{}", row.name);
+            let label = number_label(row.name);
+            if let Some(text) = text_field(ui, &key, &label, &value, true) {
+                match numbers.command(row.name, &text, units) {
+                    Ok(command) => {
+                        out.extend(command);
+                        ui.data_mut(|d| d.remove::<String>(error_id));
                     }
-                }
-                ui.end_row();
-                if let Some(why) = ui.data(|d| d.get_temp::<String>(error_id)) {
-                    ui.label("");
-                    ui.colored_label(ui.visuals().error_fg_color, why);
-                    ui.end_row();
+                    Err(why) => ui.data_mut(|d| {
+                        d.insert_temp(error_id, why);
+                    }),
                 }
             }
-        });
+            ui.end_row();
+            if let Some(why) = ui.data(|d| d.get_temp::<String>(error_id)) {
+                ui.label("");
+                ui.add(widgets::invalid_message(why));
+                ui.end_row();
+            }
+        }
+    });
 }
 
 /// While a Part is being placed (Tab opens the panel then): its Designator, value and
@@ -561,55 +578,55 @@ fn placing_section(ui: &mut Ui, placing: &Placing) -> Vec<(&'static str, Value)>
         part = placing.copy.part.name.clone()
     ));
     ui.separator();
-    Grid::new("properties-placing")
-        .num_columns(2)
-        .show(ui, |ui| {
-            let designator = Shared::Same(placing.designator.clone().unwrap_or_default());
-            let label = field_label("designator");
-            if let Some(text) = text_field(ui, "placing-designator", &label, &designator, true) {
-                out.push(("tool.place.set", json!({ "designator": text })));
-            }
-            ui.end_row();
-            let value = placing
-                .fields
-                .get("value")
-                .cloned()
-                .unwrap_or_else(|| placing.copy.part.fields.value.clone());
-            let label = field_label("value");
-            if let Some(text) = text_field(ui, "placing-value", &label, &Shared::Same(value), true)
-            {
-                out.push(("tool.place.set", json!({ "fields": {"value": text} })));
-            }
-            ui.end_row();
-            ui.label(tr!("properties-footprint"));
-            let current = placing
-                .footprint
-                .or_else(|| placing.copy.part.footprints.first().copied());
-            let name = |uuid: Uuid| {
-                placing
-                    .copy
-                    .footprints
-                    .iter()
-                    .find(|f| f.footprint.uuid == uuid)
-                    .map_or_else(|| uuid.to_string(), |f| f.footprint.name.clone())
-            };
-            let selected = current.map_or_else(|| tr!("properties-no-footprint"), name);
-            let response = ComboBox::from_id_salt("properties-placing-footprint")
-                .selected_text(selected)
-                .show_ui(ui, |ui| {
-                    for f in &placing.copy.footprints {
-                        let uuid = f.footprint.uuid;
-                        let chosen = current == Some(uuid);
-                        if ui.selectable_label(chosen, &f.footprint.name).clicked() && !chosen {
-                            out.push(("tool.place.set", json!({ "footprint": uuid })));
-                        }
+    widgets::form("properties-placing").show(ui, |ui| {
+        let designator = Shared::Same(placing.designator.clone().unwrap_or_default());
+        let label = field_label("designator");
+        if let Some(text) = text_field(ui, "placing-designator", &label, &designator, true) {
+            out.push(("tool.place.set", json!({ "designator": text })));
+        }
+        ui.end_row();
+        let value = placing
+            .fields
+            .get("value")
+            .cloned()
+            .unwrap_or_else(|| placing.copy.part.fields.value.clone());
+        let label = field_label("value");
+        if let Some(text) = text_field(ui, "placing-value", &label, &Shared::Same(value), true) {
+            out.push(("tool.place.set", json!({ "fields": {"value": text} })));
+        }
+        ui.end_row();
+        ui.add(widgets::form_name(tr!("properties-footprint")));
+        let current = placing
+            .footprint
+            .or_else(|| placing.copy.part.footprints.first().copied());
+        let name = |uuid: Uuid| {
+            placing
+                .copy
+                .footprints
+                .iter()
+                .find(|f| f.footprint.uuid == uuid)
+                .map_or_else(|| uuid.to_string(), |f| f.footprint.name.clone())
+        };
+        let selected = current.map_or_else(|| tr!("properties-no-footprint"), name);
+        let width = unlocked_value_width(ui);
+        let response = widgets::dropdown("properties-placing-footprint", selected)
+            .width(width)
+            .max_width(width)
+            .show(ui, |ui| {
+                for f in &placing.copy.footprints {
+                    let uuid = f.footprint.uuid;
+                    let chosen = current == Some(uuid);
+                    let row = widgets::choice(chosen, f.footprint.name.as_str());
+                    if ui.add(row).clicked() && !chosen {
+                        out.push(("tool.place.set", json!({ "footprint": uuid })));
                     }
-                })
-                .response;
-            let label = tr!("properties-footprint");
-            response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
-            ui.end_row();
-        });
+                }
+            })
+            .response;
+        let label = tr!("properties-footprint");
+        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, label.clone()));
+        ui.end_row();
+    });
     out
 }
 
@@ -635,37 +652,42 @@ fn component_section(
     out: &mut Vec<Out>,
 ) {
     library::rows(ui, shell, component, out);
-    Grid::new("properties-component")
-        .num_columns(3)
-        .show(ui, |ui| {
-            for row in &component.fields {
-                let label = field_label(&row.name);
-                if let Some(text) = text_field(ui, &row.name, &label, &row.value, row.editable) {
-                    edits.push(Edit::Field(row.name.clone(), text));
-                }
-                // Edited from the board, which fields show on the sheet is not set here.
-                if !component.footprints.is_empty() {
-                    ui.end_row();
-                    continue;
+    widgets::form("properties-component").show(ui, |ui| {
+        for row in &component.fields {
+            let label = field_label(&row.name);
+            // Edited from the board, which fields show on the sheet is not set here.
+            let on_sheet = component.footprints.is_empty();
+            let mut visible = None;
+            let typed = text_field_then(ui, &row.name, &label, &row.value, row.editable, |ui| {
+                if !on_sheet {
+                    return;
                 }
                 let mixed = row.visible == Shared::Mixed;
                 let mut shown = row.visible.same().copied().unwrap_or(false);
-                let response = ui.add(Checkbox::without_text(&mut shown).indeterminate(mixed));
+                let check = widgets::checkbox(&mut shown, "").indeterminate(mixed);
+                let response = ui.add(check);
                 let name = tr!("properties-show-field", field = label.clone());
                 response.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, name.clone()));
                 if response
-                    .on_hover_text(tr!("properties-show-field-hint"))
+                    .tooltip(tr!("properties-show-field-hint"))
                     .clicked()
                 {
-                    edits.push(Edit::Visible(row.name.clone(), shown));
+                    visible = Some(shown);
                 }
-                ui.end_row();
+            });
+            if let Some(text) = typed {
+                edits.push(Edit::Field(row.name.clone(), text));
             }
-
-            ui.label(tr!("properties-footprint"));
-            footprint_combo(ui, component, edits);
+            if let Some(shown) = visible {
+                edits.push(Edit::Visible(row.name.clone(), shown));
+            }
             ui.end_row();
-        });
+        }
+
+        ui.add(widgets::form_name(tr!("properties-footprint")));
+        footprint_combo(ui, component, edits);
+        ui.end_row();
+    });
     if component.footprints.is_empty() {
         field_locks(ui, component, edits);
     }
@@ -699,17 +721,18 @@ fn component_section(
 /// and Update from Library leaves it alone.
 fn field_locks(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec<Edit>) {
     ui.horizontal_wrapped(|ui| {
-        ui.label(tr!("properties-locked-fields"))
-            .on_hover_text(tr!("properties-lock-field-hint"));
+        ui.add(widgets::form_name(tr!("properties-locked-fields")))
+            .tooltip(tr!("properties-lock-field-hint"));
         for row in component.fields.iter().filter(|r| r.name != "designator") {
             let label = field_label(&row.name);
             let mixed = row.locked == Shared::Mixed;
             let mut locked = row.locked.same().copied().unwrap_or(false);
-            let response = ui.add(Checkbox::new(&mut locked, &label).indeterminate(mixed));
+            let check = widgets::checkbox(&mut locked, label.as_str()).indeterminate(mixed);
+            let response = ui.add(check);
             let name = tr!("properties-lock-field", field = label.clone());
             response.widget_info(|| WidgetInfo::labeled(Role::CheckBox, true, name.clone()));
             if response
-                .on_hover_text(tr!("properties-lock-field-hint"))
+                .tooltip(tr!("properties-lock-field-hint"))
                 .clicked()
             {
                 edits.push(Edit::Locked(row.name.clone(), locked));
@@ -729,7 +752,7 @@ fn flag(
     let mixed = *value == Shared::Mixed;
     let mut on = value.same().copied().unwrap_or(false);
     if ui
-        .add(Checkbox::new(&mut on, label).indeterminate(mixed))
+        .add(widgets::checkbox(&mut on, label).indeterminate(mixed))
         .clicked()
     {
         edits.push(edit(on));
@@ -749,13 +772,16 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
     let enabled = !component.alternates.is_empty();
     let response = ui
         .add_enabled_ui(enabled, |ui| {
-            ComboBox::from_id_salt("properties-footprint")
-                .selected_text(selected)
-                .show_ui(ui, |ui| {
+            let width = unlocked_value_width(ui);
+            widgets::dropdown("properties-footprint", selected)
+                .width(width)
+                .max_width(width)
+                .show(ui, |ui| {
                     for alternate in &component.alternates {
                         let current =
                             component.footprint.same() == Some(&Some(alternate.footprint));
-                        if ui.selectable_label(current, &alternate.name).clicked() && !current {
+                        let row = widgets::choice(current, alternate.name.as_str());
+                        if ui.add(row).clicked() && !current {
                             edits.push(Edit::Footprint(alternate.footprint));
                         }
                     }
@@ -766,7 +792,7 @@ fn footprint_combo(ui: &mut Ui, component: &ComponentProperties, edits: &mut Vec
     let name = tr!("properties-footprint");
     response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, enabled, name.clone()));
     if !enabled {
-        response.on_disabled_hover_text(tr!("properties-footprint-different-parts"));
+        response.disabled_tooltip(tr!("properties-footprint-different-parts"));
     }
 }
 
@@ -783,25 +809,25 @@ fn net_class_row(ui: &mut Ui, class: &NetClassProperty, edits: &mut Vec<Edit>) {
         Shared::Same(list) if list.is_empty() => tr!("properties-default-net-class"),
         Shared::Same(list) => list.iter().map(name_of).collect::<Vec<_>>().join(", "),
     };
-    Grid::new("properties-net-class")
-        .num_columns(2)
-        .show(ui, |ui| {
-            ui.label(tr!("properties-net-class"));
-            let response = ComboBox::from_id_salt("properties-net-class")
-                .selected_text(selected)
-                .show_ui(ui, |ui| {
-                    for (uuid, name) in &class.classes {
-                        let member = class.class.same().is_some_and(|c| c.contains(uuid));
-                        if ui.selectable_label(member, name).clicked() {
-                            edits.push(Edit::NetClass(*uuid));
-                        }
+    widgets::form("properties-net-class").show(ui, |ui| {
+        ui.add(widgets::form_name(tr!("properties-net-class")));
+        let width = value_width(ui);
+        let response = widgets::dropdown("properties-net-class", selected)
+            .width(width)
+            .max_width(width)
+            .show(ui, |ui| {
+                for (uuid, name) in &class.classes {
+                    let member = class.class.same().is_some_and(|c| c.contains(uuid));
+                    if ui.add(widgets::choice(member, name.as_str())).clicked() {
+                        edits.push(Edit::NetClass(*uuid));
                     }
-                })
-                .response;
-            let name = tr!("properties-net-class");
-            response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, name.clone()));
-            ui.end_row();
-        });
+                }
+            })
+            .response;
+        let name = tr!("properties-net-class");
+        response.widget_info(|| WidgetInfo::labeled(Role::ComboBox, true, name.clone()));
+        ui.end_row();
+    });
 }
 
 /// What a text field holds between frames: the value it was showing and what the user has
@@ -816,6 +842,24 @@ struct Draft {
     committed: Option<String>,
 }
 
+/// The width of a value's control in a form: what the row has left, less the room of a
+/// box after it (a Component's fields have one), so every value of the Panel is as wide
+/// and none runs past the Dock.
+pub(super) fn value_width(ui: &Ui) -> f32 {
+    let t = ui.tokens();
+    let left = ui.available_width() - widgets::MARK - t.space.gap;
+    left.clamp(MIN_FIELD_WIDTH, t.size.of(FIELD_WIDTH))
+}
+
+/// The width of a value on a row with no lock box after it (the Footprint): the value's
+/// width and the lock box's column, so a Footprint name has room.
+fn unlocked_value_width(ui: &Ui) -> f32 {
+    let t = ui.tokens();
+    let lock = widgets::MARK + t.space.gap;
+    ui.available_width()
+        .clamp(MIN_FIELD_WIDTH, t.size.of(FIELD_WIDTH) + lock)
+}
+
 /// A labelled one-line field for a value that may be mixed. It returns the new text when
 /// the user commits an edit (Enter or leaving the field); Escape puts the value back.
 fn text_field(
@@ -824,6 +868,19 @@ fn text_field(
     label: &str,
     value: &Shared<String>,
     enabled: bool,
+) -> Option<String> {
+    text_field_then(ui, key, label, value, enabled, |_| ())
+}
+
+/// [`text_field`] with whatever `after` adds beside the field, in the same cell of the
+/// form: a Component field's box for showing it on the sheet.
+fn text_field_then(
+    ui: &mut Ui,
+    key: &str,
+    label: &str,
+    value: &Shared<String>,
+    enabled: bool,
+    after: impl FnOnce(&mut Ui),
 ) -> Option<String> {
     let id = Id::NULL.with(("properties-field", key));
     let shown = value.same().cloned();
@@ -836,14 +893,20 @@ fn text_field(
             committed: None,
         };
     }
-    let label = ui.label(label);
-    let mut edit = TextEdit::singleline(&mut draft.text)
+    let label = ui.add(widgets::form_name(label));
+    let mut edit = widgets::text_field(&mut draft.text)
         .id(id)
-        .desired_width(160.0);
+        .width(value_width(ui));
     if shown.is_none() {
-        edit = edit.hint_text(MIXED);
+        edit = edit.hint(MIXED);
     }
-    let response = ui.add_enabled(enabled, edit).labelled_by(label.id);
+    let response = ui
+        .horizontal(|ui| {
+            let response = ui.add_enabled(enabled, edit).labelled_by(label.id);
+            after(ui);
+            response
+        })
+        .inner;
     if response.changed() {
         draft.committed = None;
     }
@@ -871,15 +934,15 @@ fn new_field(ui: &mut Ui, edits: &mut Vec<Edit>) {
     let id = Id::NULL.with("properties-new-field");
     let (mut name, mut value): (String, String) = ui.data(|d| d.get_temp(id)).unwrap_or_default();
     ui.horizontal(|ui| {
-        let name_label = ui.label(tr!("properties-new-field-name"));
-        ui.add(TextEdit::singleline(&mut name).desired_width(80.0))
+        let name_label = ui.add(widgets::form_name(tr!("properties-new-field-name")));
+        ui.add(widgets::text_field(&mut name).width(SHORT_FIELD_WIDTH))
             .labelled_by(name_label.id);
-        let value_label = ui.label(tr!("properties-new-field-value"));
-        ui.add(TextEdit::singleline(&mut value).desired_width(80.0))
+        let value_label = ui.add(widgets::form_name(tr!("properties-new-field-value")));
+        ui.add(widgets::text_field(&mut value).width(SHORT_FIELD_WIDTH))
             .labelled_by(value_label.id);
         let ready = !name.trim().is_empty() && !value.is_empty();
         if ui
-            .add_enabled(ready, egui::Button::new(tr!("properties-add-field")))
+            .add_enabled(ready, widgets::button(tr!("properties-add-field")))
             .clicked()
         {
             edits.push(Edit::Field(name.trim().to_owned(), value.clone()));

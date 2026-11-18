@@ -11,6 +11,7 @@ use super::Invocation;
 use crate::shell::Shell;
 use crate::tools::{Tool, WireTool};
 use crate::tr;
+use crate::widgets;
 
 /// Draws the options window over the canvas `rect` of `document` while the Wire Tool has
 /// it open; returns the Commands its controls ask for.
@@ -26,15 +27,13 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
     if !on_sheet || shell.tool() != Tool::Wire || !wire.options_open {
         return out;
     }
-    egui::Window::new(tr!("auto-wire-title"))
-        .id(egui::Id::NULL.with(("auto-wire-options", document)))
-        .collapsible(false)
-        .resizable(false)
+    let id = egui::Id::NULL.with(("auto-wire-options", document));
+    widgets::window(id, tr!("auto-wire-title"))
         .fixed_pos(rect.left_top() + egui::vec2(12.0, 48.0))
         .show(ui.ctx(), |ui| {
             let mut seconds = wire.timeout_ms as f64 / 1000.0;
             let timeout = ui.add(
-                egui::Slider::new(&mut seconds, 0.1..=60.0)
+                widgets::slider(&mut seconds, 0.1..=60.0)
                     .logarithmic(true)
                     .suffix(" s")
                     .text(tr!("auto-wire-timeout")),
@@ -46,9 +45,9 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
             let levels = [Avoid::Low, Avoid::Medium, Avoid::High];
             let mut level = levels.iter().position(|a| *a == wire.avoid).unwrap_or(1) as f64;
             let avoid = ui.add(
-                egui::Slider::new(&mut level, 0.0..=2.0)
-                    .step_by(1.0)
-                    .custom_formatter(|v, _| match v.round() as i64 {
+                widgets::slider(&mut level, 0.0..=2.0)
+                    .step(1.0)
+                    .formatter(|v| match v.round() as i64 {
                         0 => tr!("auto-wire-avoid-low"),
                         1 => tr!("auto-wire-avoid-medium"),
                         _ => tr!("auto-wire-avoid-high"),
@@ -62,7 +61,7 @@ pub fn options(ui: &Ui, shell: &Shell, document: Uuid, rect: Rect) -> Vec<Invoca
                     json!({ "avoid_cutting_wires": avoid }),
                 ));
             }
-            if ui.button(tr!("auto-wire-close")).clicked() {
+            if ui.add(widgets::button(tr!("auto-wire-close"))).clicked() {
                 out.push(("tool.edit_properties".to_owned(), json!({})));
             }
         });

@@ -112,6 +112,7 @@ reda-ui -> egui-wgpu
 reda-ui -> egui_extras
 reda-ui -> egui_kittest [dev]
 reda-ui -> fluent-bundle
+reda-ui -> objc2-app-kit [cfg(target_os = "macos")]
 reda-ui -> reda-control
 reda-ui -> reda-engine
 reda-ui -> reda-testkit [dev]
@@ -119,6 +120,10 @@ reda-ui -> rfd
 reda-ui -> schemars
 reda-ui -> serde
 reda-ui -> serde_json
+reda-ui -> skrifa
 reda-ui -> toml_edit
 reda-ui -> unic-langid
+reda-ui -> windows [cfg(target_os = "windows")]
+reda-ui -> winit [cfg(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android")))))]
+reda-ui -> zbus [cfg(target_os = "linux")]
 reda-xtask -> serde_json

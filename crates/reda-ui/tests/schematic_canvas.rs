@@ -54,7 +54,7 @@ fn harness_with_library(dir: &TempDir, step: f32, library: PathBuf) -> Harness<'
     Harness::builder()
         .with_step_dt(step)
         .with_max_steps(100)
-        .with_size([1200.0, 800.0])
+        .with_size([1264.0, 800.0])
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell))
 }
 
@@ -976,9 +976,9 @@ fn left_to_right_rectangle_encloses_and_right_to_left_touches() {
         "right to left selects what it touches"
     );
     for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        let t = reda_ui::theme::Tokens::new(theme, &Default::default());
         assert_ne!(
-            reda_ui::theme::selection_box(theme, true),
-            reda_ui::theme::selection_box(theme, false),
+            t.color.touch, t.color.accent.text,
             "each direction has its own colour"
         );
     }

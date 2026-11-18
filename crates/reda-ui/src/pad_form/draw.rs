@@ -1,7 +1,7 @@
 //! Drawing the Pad rows of [`super`]: a two-column grid, each row labelled for
 //! accessibility, giving back the edits made this frame.
 
-use egui::{ComboBox, Grid, Id, Role, Ui, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
     ConnectionStyle, Corner, Corners, HoleTolerance, Pad, PadKind, PadShape, Paste, Side,
@@ -14,6 +14,7 @@ use super::{
 };
 use crate::element_editor::text_field;
 use crate::tr;
+use crate::widgets;
 
 const FIELD_WIDTH: f32 = 110.0;
 
@@ -104,66 +105,64 @@ pub fn rows(
 ) -> Vec<PadEdit> {
     let mut out = Vec::new();
     ui.add_enabled_ui(enabled, |ui| {
-        Grid::new(id.with("pad-form"))
-            .num_columns(2)
-            .show(ui, |ui| {
-                let mut row = Row { ui, id, units };
-                if numbered
-                    && let Some(n) = row.text("number", &tr!("footprint-pad-number"), &pad.number)
-                {
-                    out.push(PadEdit::Number(n));
-                }
-                if let Some(k) = row.combo(
-                    "kind",
-                    &tr!("footprint-pad-kind"),
-                    pad.kind,
-                    &KINDS,
-                    kind_name,
-                ) {
-                    out.push(PadEdit::Kind(k));
-                }
+        widgets::form(id.with("pad-form")).show(ui, |ui| {
+            let mut row = Row { ui, id, units };
+            if numbered
+                && let Some(n) = row.text("number", &tr!("footprint-pad-number"), &pad.number)
+            {
+                out.push(PadEdit::Number(n));
+            }
+            if let Some(k) = row.combo(
+                "kind",
+                &tr!("footprint-pad-kind"),
+                pad.kind,
+                &KINDS,
+                kind_name,
+            ) {
+                out.push(PadEdit::Kind(k));
+            }
+            if let Some(s) = row.combo(
+                "shape",
+                &tr!("footprint-pad-shape"),
+                pad.shape,
+                &SHAPES,
+                shape_name,
+            ) {
+                out.push(PadEdit::Shape(s));
+            }
+            if let Some(w) = row.length("width", &tr!("footprint-pad-width"), pad.width) {
+                out.push(PadEdit::Width(w));
+            }
+            if let Some(h) = row.length("height", &tr!("footprint-pad-height"), pad.height) {
+                out.push(PadEdit::Height(h));
+            }
+            if let Some(r) = row.angle("rotation", &tr!("footprint-rotation"), pad.rotation) {
+                out.push(PadEdit::Rotation(r));
+            }
+            shape_rows(&mut row, pad, &mut out);
+            let offset = pad.offset.unwrap_or_default();
+            if let Some(x) = row.length("offset-x", &tr!("pad-offset-x"), offset.x) {
+                out.push(PadEdit::OffsetX(x));
+            }
+            if let Some(y) = row.length("offset-y", &tr!("pad-offset-y"), offset.y) {
+                out.push(PadEdit::OffsetY(y));
+            }
+            hole_rows(&mut row, pad, &mut out);
+            if pad.kind == PadKind::Smd {
+                let side = pad.side.unwrap_or(Side::Top);
                 if let Some(s) = row.combo(
-                    "shape",
-                    &tr!("footprint-pad-shape"),
-                    pad.shape,
-                    &SHAPES,
-                    shape_name,
+                    "side",
+                    &tr!("pad-side"),
+                    side,
+                    &[Side::Top, Side::Bottom],
+                    side_name,
                 ) {
-                    out.push(PadEdit::Shape(s));
+                    out.push(PadEdit::Side(s));
                 }
-                if let Some(w) = row.length("width", &tr!("footprint-pad-width"), pad.width) {
-                    out.push(PadEdit::Width(w));
-                }
-                if let Some(h) = row.length("height", &tr!("footprint-pad-height"), pad.height) {
-                    out.push(PadEdit::Height(h));
-                }
-                if let Some(r) = row.angle("rotation", &tr!("footprint-rotation"), pad.rotation) {
-                    out.push(PadEdit::Rotation(r));
-                }
-                shape_rows(&mut row, pad, &mut out);
-                let offset = pad.offset.unwrap_or_default();
-                if let Some(x) = row.length("offset-x", &tr!("pad-offset-x"), offset.x) {
-                    out.push(PadEdit::OffsetX(x));
-                }
-                if let Some(y) = row.length("offset-y", &tr!("pad-offset-y"), offset.y) {
-                    out.push(PadEdit::OffsetY(y));
-                }
-                hole_rows(&mut row, pad, &mut out);
-                if pad.kind == PadKind::Smd {
-                    let side = pad.side.unwrap_or(Side::Top);
-                    if let Some(s) = row.combo(
-                        "side",
-                        &tr!("pad-side"),
-                        side,
-                        &[Side::Top, Side::Bottom],
-                        side_name,
-                    ) {
-                        out.push(PadEdit::Side(s));
-                    }
-                }
-                opening_rows(&mut row, pad, &mut out);
-                zone_rows(&mut row, pad, &mut out);
-            });
+            }
+            opening_rows(&mut row, pad, &mut out);
+            zone_rows(&mut row, pad, &mut out);
+        });
     });
     out
 }
@@ -187,13 +186,13 @@ fn shape_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {
             out.push(PadEdit::ChamferRatio(r));
         }
     }
-    row.ui.label(tr!("pad-corners"));
+    row.ui.add(widgets::form_name(tr!("pad-corners")));
     let corners = pad.corners.unwrap_or(Corners::ALL);
     row.ui.horizontal_wrapped(|ui| {
         for c in Corner::ALL {
             let mut on = corners.contains(c);
             let name = corner_name(c);
-            let check = ui.checkbox(&mut on, &name);
+            let check = ui.add(widgets::checkbox(&mut on, &name));
             check.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, on, name.clone()));
             if check.changed() {
                 out.push(PadEdit::Corner(c, on));
@@ -454,7 +453,7 @@ struct Row<'a> {
 
 impl Row<'_> {
     fn text(&mut self, key: &str, label: &str, current: &str) -> Option<String> {
-        self.ui.label(label);
+        self.ui.add(widgets::form_name(label));
         let typed = text_field(self.ui, self.id.with(key), label, current, FIELD_WIDTH);
         self.ui.end_row();
         typed
@@ -498,13 +497,12 @@ impl Row<'_> {
         all: &[T],
         name: impl Fn(T) -> String,
     ) -> Option<T> {
-        self.ui.label(label);
+        self.ui.add(widgets::form_name(label));
         let mut value = current;
-        let response = ComboBox::from_id_salt(self.id.with(key))
-            .selected_text(name(current))
-            .show_ui(self.ui, |ui| {
+        let response = widgets::dropdown(self.id.with(key), name(current))
+            .show(self.ui, |ui| {
                 for v in all {
-                    ui.selectable_value(&mut value, *v, name(*v));
+                    widgets::choice_value(ui, &mut value, *v, name(*v));
                 }
             })
             .response;

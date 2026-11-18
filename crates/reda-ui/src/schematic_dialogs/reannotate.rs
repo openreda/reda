@@ -21,6 +21,14 @@ use self::labels::StartIndices;
 use super::buttons;
 use crate::shell::Shell;
 use crate::tr;
+use crate::widgets::{self, Column};
+
+/// The Threshold and Start index fields' width: room for a length or a number.
+const SHORT_FIELD: f32 = 100.0;
+/// The most of the sheet table shown before it scrolls.
+const SHEETS_HEIGHT: f32 = 120.0;
+/// The most of the old → new preview shown before it scrolls.
+const PREVIEW_HEIGHT: f32 = 220.0;
 
 /// One preview row: a Component in the scope, old → new.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -358,7 +366,7 @@ impl ReannotateDialog {
             ui.separator();
             lock = self.preview(ui);
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                super::error(ui, error);
             }
             result = buttons(
                 ui,
@@ -384,116 +392,116 @@ impl ReannotateDialog {
     }
 
     fn options(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new("reannotate-options")
-            .num_columns(2)
-            .spacing([12.0, 6.0])
-            .show(ui, |ui| {
-                ui.label(tr!("reannotate-source"));
-                let mut source = self.settings.source;
-                radios(
-                    ui,
-                    &mut source,
-                    &[Source::Schematic, Source::Board],
-                    labels::source,
-                );
-                self.set_source(source);
-                ui.end_row();
+        widgets::form("reannotate-options").show(ui, |ui| {
+            ui.add(widgets::form_name(tr!("reannotate-source")));
+            let mut source = self.settings.source;
+            radios(
+                ui,
+                &mut source,
+                &[Source::Schematic, Source::Board],
+                labels::source,
+            );
+            self.set_source(source);
+            ui.end_row();
 
-                ui.label(tr!("reannotate-mode"));
-                radios(
-                    ui,
-                    &mut self.settings.mode,
-                    &[Mode::RenumberAll, Mode::FixDuplicatesOnly],
-                    labels::mode,
-                );
-                ui.end_row();
+            ui.add(widgets::form_name(tr!("reannotate-mode")));
+            radios(
+                ui,
+                &mut self.settings.mode,
+                &[Mode::RenumberAll, Mode::FixDuplicatesOnly],
+                labels::mode,
+            );
+            ui.end_row();
 
-                ui.label(tr!("reannotate-scope"));
-                radios(
-                    ui,
-                    &mut self.settings.scope,
-                    &[ScopeKind::Project, ScopeKind::Sheets, ScopeKind::Selection],
-                    |s| match s {
-                        ScopeKind::Project => tr!("reannotate-scope-project"),
-                        ScopeKind::Sheets => tr!("reannotate-scope-sheets"),
-                        ScopeKind::Selection => tr!("reannotate-scope-selection"),
-                    },
-                );
-                ui.end_row();
+            ui.add(widgets::form_name(tr!("reannotate-scope")));
+            radios(
+                ui,
+                &mut self.settings.scope,
+                &[ScopeKind::Project, ScopeKind::Sheets, ScopeKind::Selection],
+                |s| match s {
+                    ScopeKind::Project => tr!("reannotate-scope-project"),
+                    ScopeKind::Sheets => tr!("reannotate-scope-sheets"),
+                    ScopeKind::Selection => tr!("reannotate-scope-selection"),
+                },
+            );
+            ui.end_row();
 
-                ui.label(tr!("reannotate-order"));
-                let orders = self.orders();
-                combo(
-                    ui,
-                    tr!("reannotate-order"),
-                    &mut self.settings.order,
-                    &orders,
-                    labels::order,
-                );
-                ui.end_row();
+            ui.add(widgets::form_name(tr!("reannotate-order")));
+            let orders = self.orders();
+            combo(
+                ui,
+                tr!("reannotate-order"),
+                &mut self.settings.order,
+                &orders,
+                labels::order,
+            );
+            ui.end_row();
 
-                ui.label(tr!("reannotate-threshold"));
-                let mut text = self.threshold.clone();
-                let field = ui.add(
-                    egui::TextEdit::singleline(&mut text)
-                        .desired_width(100.0)
-                        .id_salt("reannotate-threshold"),
-                );
-                let name = tr!("reannotate-threshold");
-                field.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, &name));
-                if text != self.threshold {
-                    self.set_threshold(&text);
-                }
+            ui.add(widgets::form_name(tr!("reannotate-threshold")));
+            let mut text = self.threshold.clone();
+            let field = ui.add(
+                widgets::text_field(&mut text)
+                    .width(SHORT_FIELD)
+                    .invalid(self.threshold_problem.is_some()),
+            );
+            let name = tr!("reannotate-threshold");
+            field.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, &name));
+            if text != self.threshold {
+                self.set_threshold(&text);
+            }
+            ui.end_row();
+            if let Some(problem) = &self.threshold_problem {
+                ui.label("");
+                ui.add(widgets::invalid_message(problem));
                 ui.end_row();
-                if let Some(problem) = &self.threshold_problem {
-                    ui.label("");
-                    ui.colored_label(ui.visuals().error_fg_color, problem);
+            }
+
+            match self.settings.source {
+                Source::Schematic => {
+                    ui.add(widgets::form_name(tr!("reannotate-location")));
+                    radios(
+                        ui,
+                        &mut self.settings.location,
+                        &[Location::Part, Location::Designator],
+                        labels::location,
+                    );
+                    ui.end_row();
+                    ui.add(widgets::form_name(tr!("reannotate-start-indices")));
+                    let mut start = self.start;
+                    let mut offered = StartIndices::OFFERED.to_vec();
+                    if start == StartIndices::Custom {
+                        offered.push(StartIndices::Custom);
+                    }
+                    radios(ui, &mut start, &offered, StartIndices::label);
+                    if start != self.start {
+                        self.set_start_indices(start);
+                    }
                     ui.end_row();
                 }
-
-                match self.settings.source {
-                    Source::Schematic => {
-                        ui.label(tr!("reannotate-location"));
-                        radios(
-                            ui,
-                            &mut self.settings.location,
-                            &[Location::Part, Location::Designator],
-                            labels::location,
-                        );
-                        ui.end_row();
-                        ui.label(tr!("reannotate-start-indices"));
-                        let mut start = self.start;
-                        let mut offered = StartIndices::OFFERED.to_vec();
-                        if start == StartIndices::Custom {
-                            offered.push(StartIndices::Custom);
-                        }
-                        radios(ui, &mut start, &offered, StartIndices::label);
-                        if start != self.start {
-                            self.set_start_indices(start);
-                        }
-                        ui.end_row();
+                Source::Board => {
+                    ui.add(widgets::form_name(tr!("reannotate-sides")));
+                    radios(
+                        ui,
+                        &mut self.settings.sides,
+                        &[Sides::TopThenBottom, Sides::Top, Sides::Bottom],
+                        labels::sides,
+                    );
+                    ui.end_row();
+                    ui.add(widgets::form_name(tr!("reannotate-start-index")));
+                    let name = tr!("reannotate-start-index");
+                    let mut start = i64::try_from(self.settings.start_index).unwrap_or(1);
+                    let drag =
+                        ui.add(widgets::stepper_field(&mut start, 1..=999_999).width(SHORT_FIELD));
+                    if drag.changed() {
+                        self.settings.start_index = start.max(1) as u64;
                     }
-                    Source::Board => {
-                        ui.label(tr!("reannotate-sides"));
-                        radios(
-                            ui,
-                            &mut self.settings.sides,
-                            &[Sides::TopThenBottom, Sides::Top, Sides::Bottom],
-                            labels::sides,
-                        );
-                        ui.end_row();
-                        ui.label(tr!("reannotate-start-index"));
-                        let name = tr!("reannotate-start-index");
-                        let drag = ui.add(
-                            egui::DragValue::new(&mut self.settings.start_index).range(1..=999_999),
-                        );
-                        drag.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::SpinButton, true, &name)
-                        });
-                        ui.end_row();
-                    }
+                    drag.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::Role::SpinButton, true, &name)
+                    });
+                    ui.end_row();
                 }
-            });
+            }
+        });
     }
 
     /// The sheets with their numbers, a tick for scope Sheets, and where each starts.
@@ -503,31 +511,36 @@ impl ReannotateDialog {
         let mut toggled = None;
         egui::ScrollArea::vertical()
             .id_salt("reannotate-sheets")
-            .max_height(120.0)
+            .max_height(SHEETS_HEIGHT)
             .show(ui, |ui| {
-                egui::Grid::new("reannotate-sheet-grid")
-                    .num_columns(3)
-                    .striped(true)
-                    .show(ui, |ui| {
-                        ui.weak(tr!("reannotate-sheet-number"));
-                        ui.weak(tr!("reannotate-sheet"));
-                        ui.weak(tr!("reannotate-sheet-start"));
-                        ui.end_row();
+                let columns = [
+                    Column::auto().number(),
+                    Column::auto(),
+                    Column::auto().number(),
+                ];
+                widgets::table("reannotate-sheet-grid")
+                    .columns(columns)
+                    .show(ui, |table| {
+                        table.header(|h| {
+                            h.text(tr!("reannotate-sheet-number"));
+                            h.text(tr!("reannotate-sheet"));
+                            h.text(tr!("reannotate-sheet-start"));
+                        });
                         for row in self.sheet_rows() {
-                            ui.label(row.number.to_string());
-                            let mut included = row.included || !sheets_scope;
-                            let check = ui.add_enabled(
-                                sheets_scope,
-                                egui::Checkbox::new(&mut included, &row.title),
-                            );
-                            if check.changed() {
-                                toggled = Some((row.sheet, included));
-                            }
-                            match schematic {
-                                true => ui.label(row.start.to_string()),
-                                false => ui.weak("-"),
-                            };
-                            ui.end_row();
+                            table.row(|cells| {
+                                cells.text(row.number.to_string());
+                                let mut included = row.included || !sheets_scope;
+                                let check = cells.ui_enabled(sheets_scope, |ui| {
+                                    ui.add(widgets::checkbox(&mut included, &row.title))
+                                });
+                                if check.changed() {
+                                    toggled = Some((row.sheet, included));
+                                }
+                                match schematic {
+                                    true => cells.text(row.start.to_string()),
+                                    false => cells.muted("-"),
+                                };
+                            });
                         }
                     });
             });
@@ -541,8 +554,11 @@ impl ReannotateDialog {
     fn preview(&mut self, ui: &mut egui::Ui) -> Option<(Uuid, bool)> {
         let mut lock = None;
         ui.horizontal(|ui| {
-            ui.strong(tr!("reannotate-preview"));
-            ui.checkbox(&mut self.only_changed, tr!("reannotate-only-changed"));
+            super::strong(ui, tr!("reannotate-preview"));
+            ui.add(widgets::checkbox(
+                &mut self.only_changed,
+                tr!("reannotate-only-changed"),
+            ));
             ui.label(tr!("reannotate-sort"));
             radios(
                 ui,
@@ -556,8 +572,8 @@ impl ReannotateDialog {
             );
         });
         if !self.kept_duplicates.is_empty() {
-            ui.colored_label(
-                ui.visuals().warn_fg_color,
+            super::warning(
+                ui,
                 tr!(
                     "reannotate-kept-duplicates",
                     designators = self.kept_duplicates.join(", ")
@@ -566,37 +582,40 @@ impl ReannotateDialog {
         }
         egui::ScrollArea::vertical()
             .id_salt("reannotate-preview")
-            .max_height(220.0)
+            .max_height(PREVIEW_HEIGHT)
             .show(ui, |ui| {
                 let rows = self.rows();
                 if !rows.iter().any(|r| r.changed()) && self.error.is_none() {
-                    ui.weak(tr!("reannotate-no-changes"));
+                    super::muted(ui, tr!("reannotate-no-changes"));
                 }
-                egui::Grid::new("reannotate-rows")
-                    .num_columns(2)
-                    .show(ui, |ui| {
+                widgets::table("reannotate-rows")
+                    .columns([Column::auto(), Column::auto()])
+                    .show(ui, |table| {
                         for r in rows {
-                            let text =
-                                tr!("reannotate-row", old = r.old.clone(), new = r.new.clone());
-                            match r.changed() {
-                                true => ui.label(text),
-                                false => ui.weak(text),
-                            };
-                            let mut locked = r.locked;
-                            let name = tr!("reannotate-lock-row", designator = r.old.clone());
-                            let check = ui.checkbox(&mut locked, tr!("reannotate-lock"));
-                            check.widget_info(|| {
-                                egui::WidgetInfo::selected(
-                                    egui::Role::CheckBox,
-                                    true,
-                                    locked,
-                                    &name,
-                                )
+                            table.row(|cells| {
+                                let text =
+                                    tr!("reannotate-row", old = r.old.clone(), new = r.new.clone());
+                                match r.changed() {
+                                    true => cells.text(text),
+                                    false => cells.muted(text),
+                                };
+                                let mut locked = r.locked;
+                                let name = tr!("reannotate-lock-row", designator = r.old.clone());
+                                let check = cells.ui(|ui| {
+                                    ui.add(widgets::checkbox(&mut locked, tr!("reannotate-lock")))
+                                });
+                                check.widget_info(|| {
+                                    egui::WidgetInfo::selected(
+                                        egui::Role::CheckBox,
+                                        true,
+                                        locked,
+                                        &name,
+                                    )
+                                });
+                                if check.changed() {
+                                    lock = Some((r.component, locked));
+                                }
                             });
-                            if check.changed() {
-                                lock = Some((r.component, locked));
-                            }
-                            ui.end_row();
                         }
                     });
             });
@@ -613,7 +632,7 @@ fn radios<T: Copy + PartialEq>(
 ) {
     ui.horizontal(|ui| {
         for choice in choices {
-            ui.radio_value(value, *choice, label(*choice));
+            super::radio(ui, value, *choice, label(*choice));
         }
     });
 }
@@ -625,13 +644,11 @@ fn combo<T: Copy + PartialEq>(
     choices: &[T],
     label: impl Fn(T) -> String,
 ) {
-    let combo = egui::ComboBox::from_id_salt(name.as_str())
-        .selected_text(label(*value))
-        .show_ui(ui, |ui| {
-            for choice in choices {
-                ui.selectable_value(value, *choice, label(*choice));
-            }
-        });
+    let combo = widgets::dropdown(name.as_str(), label(*value)).show(ui, |ui| {
+        for choice in choices {
+            widgets::choice_value(ui, value, *choice, label(*choice));
+        }
+    });
     combo
         .response
         .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, &name));
@@ -725,7 +742,7 @@ impl ReannotateLast {
         .show(ctx, |ui| {
             ui.label(self.message());
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                super::error(ui, error);
             }
             result = buttons(
                 ui,

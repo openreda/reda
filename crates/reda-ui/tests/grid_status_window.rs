@@ -265,6 +265,8 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
     let home = TempDir::new("gh-prefs-home");
     let work = TempDir::new("gh-prefs-work");
     let mut h = sized(home.path(), work.path(), [1400.0, 2600.0]);
+    h.get_by_label("File").scroll_to_me();
+    h.run();
     h.get_by_label("File").click();
     h.run();
     h.get_all_by_label_contains("Preferences…")
@@ -276,9 +278,19 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
     h.get_all_by_label("Grid")
         .rfind(|n| n.accesskit_node().role() == Role::TreeItem)
         .unwrap()
+        .scroll_to_me();
+    h.run();
+    h.get_all_by_label("Grid")
+        .rfind(|n| n.accesskit_node().role() == Role::TreeItem)
+        .unwrap()
         .click();
     h.run();
     // The first cell reading 8mil is the sheet's imperial 10 mil row's Electrical Range.
+    h.get_all_by_role(Role::TextInput)
+        .find(|n| n.accesskit_node().value().as_deref() == Some("8mil"))
+        .unwrap()
+        .scroll_to_me();
+    h.run();
     h.get_all_by_role(Role::TextInput)
         .find(|n| n.accesskit_node().value().as_deref() == Some("8mil"))
         .unwrap()
@@ -311,13 +323,21 @@ fn the_preferences_grid_page_edits_the_tables_and_restores_the_shipped_presets()
             .is_some()
     );
     h.get_by_role_and_label(Role::CheckBox, "Schematic Sheet Imperial row 2: In cycle")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Schematic Sheet Imperial row 2: In cycle")
         .click();
     h.run();
     assert!(!rows(&h)[1].in_cycle);
     h.get_by_label("Add a row to Schematic Sheet Imperial")
+        .scroll_to_me();
+    h.run();
+    h.get_by_label("Add a row to Schematic Sheet Imperial")
         .click();
     h.run();
     assert_eq!(rows(&h).len(), 5);
+    h.get_by_label("Restore shipped presets").scroll_to_me();
+    h.run();
     let restore = h.get_by_label("Restore shipped presets");
     restore.click();
     h.run();

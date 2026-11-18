@@ -1,7 +1,7 @@
 //! Drawing the Update from Library dialog: page 1's choices, page 2's rows, sections and
 //! field grid, and the local-edit compare the PCB dialog shares.
 
-use egui::{Checkbox, ComboBox, Grid, Id, RichText, Role, Ui, WidgetInfo};
+use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::Footprint;
 use reda_engine::model::library_update::{
     ComponentFieldMissing, FootprintChoice, LibraryFieldMissing, LocallyEdited,
@@ -13,8 +13,18 @@ use serde_json::Value;
 use super::describe::{Section, case, cell_name};
 use super::{Page, UpdateDialog, edited_footprint};
 use crate::schematic_dialogs::replace::Outcome;
+use crate::schematic_dialogs::{error, strong, warning};
 use crate::shell::Shell;
+use crate::theme::TokensExt as _;
 use crate::tr;
+use crate::widgets::{self, Column, Tooltip as _};
+
+/// The smallest the dialog can be made.
+const MIN_SIZE: egui::Vec2 = egui::vec2(480.0, 240.0);
+/// The room the dialog leaves above and below its scrolling page, in the window.
+const OUTSIDE_PAGE: f32 = 220.0;
+/// The least height of the scrolling page.
+const PAGE_MIN_HEIGHT: f32 = 160.0;
 
 /// What a click on page 2 asks for, done once the frame is drawn.
 enum Click {
@@ -51,7 +61,7 @@ pub(crate) fn status_text(status: LibraryStatus, aspects: &[Aspect]) -> String {
 
 /// A tick box labelled for AccessKit with `name`, which may differ from its text.
 fn tick(ui: &mut Ui, on: &mut bool, text: &str, name: &str, enabled: bool) -> bool {
-    let response = ui.add_enabled(enabled, Checkbox::new(on, text));
+    let response = ui.add_enabled(enabled, widgets::checkbox(on, text));
     let name = name.to_owned();
     let value = *on;
     response.widget_info(|| WidgetInfo::selected(Role::CheckBox, enabled, value, &name));
@@ -73,13 +83,13 @@ impl UpdateDialog {
         }
         let mut clicks = Vec::new();
         let mut result = (false, false);
-        let height = (ctx.content_rect().height() - 220.0).max(160.0);
+        let height = (ctx.content_rect().height() - OUTSIDE_PAGE).max(PAGE_MIN_HEIGHT);
         let modal = crate::modal::Dialog::new(
             Id::NULL.with("schematic-update-from-library"),
             tr!("library-update-title"),
         )
         .width(720.0)
-        .min_size(egui::vec2(480.0, 240.0))
+        .min_size(MIN_SIZE)
         .show(ctx, |ui| {
             egui::ScrollArea::vertical()
                 .id_salt(("library-update-page", self.page == Page::Setup))
@@ -88,36 +98,38 @@ impl UpdateDialog {
                     Page::Setup => self.setup_page(ui),
                     Page::Preview => self.preview_page(ui, shell, &mut clicks),
                 });
-            if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+            if let Some(why) = &self.error {
+                error(ui, why);
             }
-            ui.add_space(6.0);
-            ui.horizontal(|ui| match self.page {
+            crate::modal::buttons(ui, |ui| match self.page {
                 Page::Setup => {
                     let ready = self.sheets.iter().any(|s| s.on)
                         && self.parts.iter().any(|p| p.on)
                         && !self.aspects.is_empty();
                     if ui
-                        .add_enabled(ready, egui::Button::new(tr!("library-update-next")))
-                        .on_disabled_hover_text(tr!("library-update-next-why"))
+                        .add_enabled(ready, widgets::button(tr!("library-update-next")).primary())
+                        .disabled_tooltip(tr!("library-update-next-why"))
                         .clicked()
                     {
                         clicks.push(Click::Next);
                     }
-                    result.1 = ui.button(tr!("dialog-cancel")).clicked();
+                    result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
                 }
                 Page::Preview => {
-                    if ui.button(tr!("library-update-back")).clicked() {
-                        clicks.push(Click::Back);
-                    }
                     result.0 = ui
                         .add_enabled(
                             self.can_apply(),
-                            egui::Button::new(tr!("library-update-apply")),
+                            widgets::button(tr!("library-update-apply")).primary(),
                         )
-                        .on_disabled_hover_text(tr!("library-update-none-ticked"))
+                        .disabled_tooltip(tr!("library-update-none-ticked"))
                         .clicked();
-                    result.1 = ui.button(tr!("dialog-cancel")).clicked();
+                    result.1 = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
+                    if ui
+                        .add(widgets::button(tr!("library-update-back")))
+                        .clicked()
+                    {
+                        clicks.push(Click::Back);
+                    }
                 }
             });
         });
@@ -147,20 +159,27 @@ impl UpdateDialog {
     }
 
     fn setup_page(&mut self, ui: &mut Ui) {
-        ui.label(RichText::new(tr!("library-update-sheets")).strong());
+        let gap = ui.tokens().space.stack;
+        strong(ui, tr!("library-update-sheets"));
         ui.horizontal(|ui| {
-            if ui.button(tr!("library-update-all-on")).clicked() {
+            if ui
+                .add(widgets::button(tr!("library-update-all-on")))
+                .clicked()
+            {
                 self.all_sheets(true);
             }
-            if ui.button(tr!("library-update-all-off")).clicked() {
+            if ui
+                .add(widgets::button(tr!("library-update-all-off")))
+                .clicked()
+            {
                 self.all_sheets(false);
             }
         });
         for sheet in &mut self.sheets {
-            ui.checkbox(&mut sheet.on, &sheet.name);
+            ui.add(widgets::checkbox(&mut sheet.on, &sheet.name));
         }
-        ui.add_space(6.0);
-        ui.label(RichText::new(tr!("library-update-parts")).strong());
+        ui.add_space(gap);
+        strong(ui, tr!("library-update-parts"));
         for part in &mut self.parts {
             let text = tr!(
                 "library-update-part-count",
@@ -178,8 +197,8 @@ impl UpdateDialog {
             &tr!("library-update-selected-only"),
             enabled,
         );
-        ui.add_space(6.0);
-        ui.label(RichText::new(tr!("library-update-aspects")).strong());
+        ui.add_space(gap);
+        strong(ui, tr!("library-update-aspects"));
         let mut full = self.aspects.len() == Aspect::ALL.len();
         if tick(
             ui,
@@ -201,72 +220,78 @@ impl UpdateDialog {
                 }
             }
         });
-        ui.add_space(6.0);
-        ui.label(RichText::new(tr!("library-update-settings")).strong());
+        ui.add_space(gap);
+        strong(ui, tr!("library-update-settings"));
         self.settings_grid(ui);
     }
 
     fn settings_grid(&mut self, ui: &mut Ui) {
         let s = &mut self.settings;
-        Grid::new("library-update-settings")
-            .num_columns(2)
-            .show(ui, |ui| {
-                let label = ui.label(tr!("library-update-setting-library-field-missing"));
-                combo(
-                    ui,
-                    label.id,
-                    "library_field_missing",
-                    &mut s.library_field_missing,
-                    &[
-                        (LibraryFieldMissing::Add, "library-update-add"),
-                        (
-                            LibraryFieldMissing::AddIfNotBlank,
-                            "library-update-add-if-not-blank",
-                        ),
-                        (LibraryFieldMissing::Skip, "library-update-skip"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.label(tr!("library-update-setting-component-field-missing"));
-                combo(
-                    ui,
-                    label.id,
-                    "component_field_missing",
-                    &mut s.component_field_missing,
-                    &[
-                        (ComponentFieldMissing::Keep, "library-update-keep"),
-                        (ComponentFieldMissing::Remove, "library-update-remove"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.label(tr!("library-update-setting-locally-edited"));
-                combo(
-                    ui,
-                    label.id,
-                    "locally_edited",
-                    &mut s.locally_edited,
-                    &[
-                        (LocallyEdited::Keep, "library-update-keep"),
-                        (LocallyEdited::TakeNew, "library-update-take-new"),
-                    ],
-                );
-                ui.end_row();
-                let label = ui.label(tr!("library-update-setting-footprint-choice"));
-                combo(
-                    ui,
-                    label.id,
-                    "footprint_choice",
-                    &mut s.footprint_choice,
-                    &[
-                        (
-                            FootprintChoice::KeepIfPresent,
-                            "library-update-keep-if-present",
-                        ),
-                        (FootprintChoice::Default, "library-update-default"),
-                    ],
-                );
-                ui.end_row();
-            });
+        widgets::form("library-update-settings").show(ui, |ui| {
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-library-field-missing"
+            )));
+            combo(
+                ui,
+                label.id,
+                "library_field_missing",
+                &mut s.library_field_missing,
+                &[
+                    (LibraryFieldMissing::Add, "library-update-add"),
+                    (
+                        LibraryFieldMissing::AddIfNotBlank,
+                        "library-update-add-if-not-blank",
+                    ),
+                    (LibraryFieldMissing::Skip, "library-update-skip"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-component-field-missing"
+            )));
+            combo(
+                ui,
+                label.id,
+                "component_field_missing",
+                &mut s.component_field_missing,
+                &[
+                    (ComponentFieldMissing::Keep, "library-update-keep"),
+                    (ComponentFieldMissing::Remove, "library-update-remove"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-locally-edited"
+            )));
+            combo(
+                ui,
+                label.id,
+                "locally_edited",
+                &mut s.locally_edited,
+                &[
+                    (LocallyEdited::Keep, "library-update-keep"),
+                    (LocallyEdited::TakeNew, "library-update-take-new"),
+                ],
+            );
+            ui.end_row();
+            let label = ui.add(widgets::form_name(tr!(
+                "library-update-setting-footprint-choice"
+            )));
+            combo(
+                ui,
+                label.id,
+                "footprint_choice",
+                &mut s.footprint_choice,
+                &[
+                    (
+                        FootprintChoice::KeepIfPresent,
+                        "library-update-keep-if-present",
+                    ),
+                    (FootprintChoice::Default, "library-update-default"),
+                ],
+            );
+            ui.end_row();
+        });
         for (on, key) in [
             (
                 &mut s.add_new_footprints,
@@ -285,10 +310,10 @@ impl UpdateDialog {
                 tr!("library-update-setting-preserve-field-visibility"),
             ),
         ] {
-            ui.checkbox(on, key);
+            ui.add(widgets::checkbox(on, key));
         }
         if !self.field_names.is_empty() {
-            egui::CollapsingHeader::new(tr!("library-update-setting-fields-to-update"))
+            widgets::section(tr!("library-update-setting-fields-to-update"))
                 .id_salt("library-update-fields-to-update")
                 .show(ui, |ui| {
                     for name in self.field_names.clone() {
@@ -309,88 +334,98 @@ impl UpdateDialog {
             return;
         }
         let add = ui.input(|i| i.modifiers.command || i.modifiers.shift);
-        Grid::new("library-update-rows")
-            .num_columns(6)
-            .striped(true)
-            .show(ui, |ui| {
-                ui.label("");
-                ui.strong(tr!("library-update-col-component"));
-                ui.strong(tr!("library-update-col-part"));
-                ui.strong(tr!("library-update-col-status"));
-                ui.strong(tr!("library-update-col-aspects"));
-                ui.end_row();
+        let t = ui.tokens();
+        let designators = row_width(ui, self.rows.iter().map(|r| r.designator.as_str()));
+        let columns = [Column::auto(); 5];
+        widgets::table("library-update-rows")
+            .columns(columns)
+            .show(ui, |table| {
+                table.header(|h| {
+                    h.empty();
+                    h.text(tr!("library-update-col-component"));
+                    h.text(tr!("library-update-col-part"));
+                    h.text(tr!("library-update-col-status"));
+                    h.text(tr!("library-update-col-aspects"));
+                });
                 for row in &self.rows {
-                    let mut on = row.included;
-                    let name = tr!(
-                        "library-update-include",
-                        designator = row.designator.clone()
-                    );
-                    if tick(ui, &mut on, "", &name, !row.blocked) {
-                        clicks.push(Click::Include(row.component, on));
-                    }
-                    let selected = self.selected_rows.contains(&row.component);
-                    let response = ui.selectable_label(selected, &row.designator);
-                    let label = row.designator.clone();
-                    response.widget_info(|| {
-                        WidgetInfo::selected(Role::ListItem, true, selected, &label)
-                    });
-                    if response.clicked() {
-                        clicks.push(Click::Row(row.component, add));
-                    }
-                    match self.replacement(row.component) {
-                        Some(r) => {
-                            ui.label(tr!(
-                                "library-update-replaced-by",
-                                from = row.part_name.clone(),
-                                to = r.part_name.clone()
-                            ));
+                    table.row(|cells| {
+                        let mut on = row.included;
+                        let name = tr!(
+                            "library-update-include",
+                            designator = row.designator.clone()
+                        );
+                        if cells.ui(|ui| tick(ui, &mut on, "", &name, !row.blocked)) {
+                            clicks.push(Click::Include(row.component, on));
                         }
-                        None => {
-                            ui.label(&row.part_name);
+                        let selected = self.selected_rows.contains(&row.component);
+                        let line = widgets::list_row(row.designator.as_str())
+                            .selected(selected)
+                            .width(designators);
+                        let response = cells.ui(|ui| ui.add(line));
+                        let label = row.designator.clone();
+                        response.widget_info(|| {
+                            WidgetInfo::selected(Role::ListItem, true, selected, &label)
+                        });
+                        if response.clicked() {
+                            clicks.push(Click::Row(row.component, add));
                         }
-                    }
-                    let status = status_text(row.status, &row.differs);
-                    if row.status == LibraryStatus::SourceMissing {
-                        ui.colored_label(ui.visuals().warn_fg_color, status);
-                    } else {
-                        ui.label(status);
-                    }
-                    ui.horizontal(|ui| {
-                        for aspect in Aspect::ALL {
-                            let differs = row.differs.contains(&aspect);
-                            let mut on = row.aspects.contains(&aspect);
-                            let name = tr!(
-                                "library-update-row-aspect",
-                                designator = row.designator.clone(),
-                                aspect = aspect_name(aspect)
-                            );
-                            let enabled = differs
-                                && !row.blocked
-                                && self.replacement(row.component).is_none();
-                            if tick(ui, &mut on, &aspect_name(aspect), &name, enabled) {
-                                clicks.push(Click::Aspect(row.component, aspect, on));
+                        match self.replacement(row.component) {
+                            Some(r) => {
+                                cells.text(tr!(
+                                    "library-update-replaced-by",
+                                    from = row.part_name.clone(),
+                                    to = r.part_name.clone()
+                                ));
+                            }
+                            None => {
+                                cells.text(&row.part_name);
                             }
                         }
+                        let status = status_text(row.status, &row.differs);
+                        if row.status == LibraryStatus::SourceMissing {
+                            cells.colored(status, t.color.warning.text);
+                        } else {
+                            cells.text(status);
+                        }
+                        cells.ui(|ui| {
+                            for aspect in Aspect::ALL {
+                                let differs = row.differs.contains(&aspect);
+                                let mut on = row.aspects.contains(&aspect);
+                                let name = tr!(
+                                    "library-update-row-aspect",
+                                    designator = row.designator.clone(),
+                                    aspect = aspect_name(aspect)
+                                );
+                                let enabled = differs
+                                    && !row.blocked
+                                    && self.replacement(row.component).is_none();
+                                if tick(ui, &mut on, &aspect_name(aspect), &name, enabled) {
+                                    clicks.push(Click::Aspect(row.component, aspect, on));
+                                }
+                            }
+                        });
                     });
-                    ui.end_row();
                 }
             });
         ui.horizontal(|ui| {
-            if ui.button(tr!("library-update-choose-component")).clicked() {
+            let choose = widgets::button(tr!("library-update-choose-component"));
+            if ui.add(choose).clicked() {
                 clicks.push(Click::Choose);
             }
-            if ui.button(tr!("library-update-return-to-default")).clicked() {
+            let default = widgets::button(tr!("library-update-return-to-default"));
+            if ui.add(default).clicked() {
                 clicks.push(Click::ReturnToDefault);
             }
         });
         let Some(row) = self.shown() else {
             return;
         };
-        ui.add_space(6.0);
-        ui.heading(tr!(
+        ui.add_space(t.space.section);
+        let heading = tr!(
             "library-update-preview-of",
             designator = row.designator.clone()
-        ));
+        );
+        ui.label(t.ty.heading.rich(heading).color(t.color.text.primary));
         let replacement = self.replacement(row.component);
         let (changes, problems) = match replacement {
             Some(r) => (&r.changes, &r.problems),
@@ -405,7 +440,7 @@ impl UpdateDialog {
             if lines.is_empty() && !grid {
                 continue;
             }
-            ui.label(RichText::new(section.title()).strong());
+            strong(ui, section.title());
             for line in lines {
                 ui.label(line);
             }
@@ -414,10 +449,10 @@ impl UpdateDialog {
             }
         }
         for problem in problems {
-            ui.colored_label(ui.visuals().warn_fg_color, problem);
+            warning(ui, problem);
         }
         if !row.lost_local_edits.is_empty() && replacement.is_none() {
-            ui.label(RichText::new(tr!("library-update-section-local-edits")).strong());
+            strong(ui, tr!("library-update-section-local-edits"));
             let compare = edited_footprint(shell, row.component);
             local_edits(ui, row.component, &row.lost_local_edits, compare.as_ref());
         }
@@ -430,62 +465,70 @@ impl UpdateDialog {
         add: bool,
         clicks: &mut Vec<Click>,
     ) {
-        Grid::new(("library-update-cells", row.component))
-            .num_columns(6)
-            .striped(true)
-            .show(ui, |ui| {
-                for title in [
-                    "library-update-col-field",
-                    "library-update-col-case",
-                    "library-update-col-old",
-                    "library-update-col-new",
-                    "library-update-col-value",
-                    "library-update-col-action",
-                ] {
-                    ui.strong(crate::i18n::translate(title, &[]));
-                }
-                ui.end_row();
-                for cell in &row.cells {
-                    let selected = self.cell_selected(row.component, &cell.cell);
-                    let action = self.action(row.component, cell);
-                    let action_text = match action.as_str() {
-                        "update" => tr!("library-update-action-update"),
-                        "reject" => tr!("library-update-action-reject"),
-                        _ => tr!("library-update-action-none"),
-                    };
-                    let name = cell_name(&cell.cell);
-                    let response = ui.selectable_label(selected, &name);
-                    let label = tr!(
-                        "library-update-cell",
-                        designator = row.designator.clone(),
-                        field = name.clone(),
-                        action = action_text.clone()
-                    );
-                    response.widget_info(|| {
-                        WidgetInfo::selected(Role::ListItem, true, selected, &label)
+        let t = ui.tokens();
+        let names: Vec<String> = row.cells.iter().map(|c| cell_name(&c.cell)).collect();
+        let names_width = row_width(ui, names.iter().map(String::as_str));
+        widgets::table(("library-update-cells", row.component))
+            .columns([Column::auto(); 6])
+            .show(ui, |table| {
+                table.header(|h| {
+                    for title in [
+                        "library-update-col-field",
+                        "library-update-col-case",
+                        "library-update-col-old",
+                        "library-update-col-new",
+                        "library-update-col-value",
+                        "library-update-col-action",
+                    ] {
+                        h.text(crate::i18n::translate(title, &[]));
+                    }
+                });
+                for (cell, name) in row.cells.iter().zip(names) {
+                    table.row(|cells| {
+                        let selected = self.cell_selected(row.component, &cell.cell);
+                        let action = self.action(row.component, cell);
+                        let action_text = match action.as_str() {
+                            "update" => tr!("library-update-action-update"),
+                            "reject" => tr!("library-update-action-reject"),
+                            _ => tr!("library-update-action-none"),
+                        };
+                        let line = widgets::list_row(name.as_str())
+                            .selected(selected)
+                            .width(names_width);
+                        let response = cells.ui(|ui| ui.add(line));
+                        let label = tr!(
+                            "library-update-cell",
+                            designator = row.designator.clone(),
+                            field = name.clone(),
+                            action = action_text.clone()
+                        );
+                        response.widget_info(|| {
+                            WidgetInfo::selected(Role::ListItem, true, selected, &label)
+                        });
+                        if response.clicked() {
+                            clicks.push(Click::Cell(row.component, cell.cell.clone(), add));
+                        }
+                        cells.text(case(&cell.case));
+                        cells.muted(&cell.old);
+                        cells.text(&cell.new);
+                        cells.text(&cell.component);
+                        if !cell.overridable {
+                            cells.muted(action_text);
+                        } else if action == "update" {
+                            cells.colored(action_text, t.color.warning.text);
+                        } else {
+                            cells.text(action_text);
+                        }
                     });
-                    if response.clicked() {
-                        clicks.push(Click::Cell(row.component, cell.cell.clone(), add));
-                    }
-                    ui.label(case(&cell.case));
-                    ui.weak(&cell.old);
-                    ui.label(&cell.new);
-                    ui.label(&cell.component);
-                    if !cell.overridable {
-                        ui.weak(action_text);
-                    } else if action == "update" {
-                        ui.colored_label(ui.visuals().warn_fg_color, action_text);
-                    } else {
-                        ui.label(action_text);
-                    }
-                    ui.end_row();
                 }
             });
         ui.horizontal(|ui| {
-            if ui.button(tr!("library-update-update-selected")).clicked() {
+            let update = widgets::button(tr!("library-update-update-selected"));
+            if ui.add(update).clicked() {
                 clicks.push(Click::UpdateSelected);
             }
-            if ui.button(tr!("library-update-reject-selected")).clicked() {
+            let reject = widgets::button(tr!("library-update-reject-selected"));
+            if ui.add(reject).clicked() {
                 clicks.push(Click::RejectSelected);
             }
         });
@@ -505,11 +548,10 @@ fn combo<T: Copy + PartialEq>(
         .find(|(v, _)| v == value)
         .map(|(_, k)| text(k))
         .unwrap_or_default();
-    ComboBox::from_id_salt(("library-update-setting", id))
-        .selected_text(selected)
-        .show_ui(ui, |ui| {
+    widgets::dropdown(("library-update-setting", id), selected)
+        .show(ui, |ui| {
             for (v, key) in choices {
-                ui.selectable_value(value, *v, text(key));
+                widgets::choice_value(ui, value, *v, text(key));
             }
         })
         .response
@@ -525,32 +567,48 @@ pub(crate) fn local_edits(
     edits: &[LocalEdit],
     compare: Option<&(Footprint, Footprint)>,
 ) {
-    ui.colored_label(
-        ui.visuals().warn_fg_color,
+    warning(
+        ui,
         tr!("library-update-local-edits-lost", count = edits.len()),
     );
-    Grid::new(("library-update-local-edits", salt))
-        .num_columns(3)
-        .show(ui, |ui| {
-            ui.strong(tr!("library-update-col-edit"));
-            ui.strong(tr!("library-update-col-edited"));
-            ui.strong(tr!("library-update-col-original"));
-            ui.end_row();
+    widgets::table(("library-update-local-edits", salt))
+        .columns([Column::auto(); 3])
+        .show(ui, |table| {
+            table.header(|h| {
+                h.text(tr!("library-update-col-edit"));
+                h.text(tr!("library-update-col-edited"));
+                h.text(tr!("library-update-col-original"));
+            });
             for edit in edits {
                 let what = match (&edit.number, edit.graphic) {
                     (Some(number), _) => tr!("properties-compare-pad", number = number.clone()),
                     (None, Some(_)) => tr!("properties-compare-graphic"),
                     (None, None) => String::new(),
                 };
-                ui.label(format!("{what} {}", edit.property));
-                ui.label(value(edit.edited.as_ref()));
-                ui.weak(value(edit.original.as_ref()));
-                ui.end_row();
+                table.row(|cells| {
+                    cells.text(format!("{what} {}", edit.property));
+                    cells.text(value(edit.edited.as_ref()));
+                    cells.muted(value(edit.original.as_ref()));
+                });
             }
         });
     if let Some((edited, original)) = compare {
         crate::panels::properties::rules::compare_drawing(ui, edited, original);
     }
+}
+
+/// The width of a list row that shows the widest of `texts` whole.
+fn row_width<'a>(ui: &Ui, texts: impl Iterator<Item = &'a str>) -> f32 {
+    let t = ui.tokens();
+    let widest = texts
+        .map(|text| {
+            let font = t.ty.body.font_id();
+            let galley =
+                (ui.painter()).layout_no_wrap(text.to_owned(), font, egui::Color32::TRANSPARENT);
+            galley.size().x
+        })
+        .fold(0.0, f32::max);
+    (widest + 2.0 * t.space.row_x).ceil()
 }
 
 fn value(value: Option<&Value>) -> String {

@@ -38,6 +38,9 @@ fn harness(home: &TempDir, work: &TempDir) -> Harness<'static, App> {
         .unwrap();
     Harness::builder()
         .with_size([1400.0, 2600.0])
+        // A press on a row of a Panel runs the row's press transition: more frames to
+        // settle.
+        .with_max_steps(8)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell))
 }
 
