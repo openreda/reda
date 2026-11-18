@@ -153,16 +153,13 @@ fn bar(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars, chrome: Chrome) -> Outcome {
     let mut window = None;
     if chrome.controls {
         let at_controls = Rect::from_min_max(pos2(rect.right() - controls, rect.top()), rect.max);
-        let corner = if chrome.maximised {
-            0.0
-        } else {
-            t.radius.window
-        };
         let mut ui = at(ui, at_controls);
+        // The close button's hover follows the window's corner where REDA rounds it; where
+        // the OS rounds the window (Windows 11) it clips the square hover itself.
         window = widgets::window_controls(chrome.maximised)
             .height(rect.height())
             .window_focused(!muted)
-            .corner(corner)
+            .corner(chrome.corner)
             .show(&mut ui);
     }
     Outcome {

@@ -124,6 +124,6 @@ reda-ui -> skrifa
 reda-ui -> toml_edit
 reda-ui -> unic-langid
 reda-ui -> windows [cfg(target_os = "windows")]
-reda-ui -> winit [cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))]
+reda-ui -> winit [cfg(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android")))))]
 reda-ui -> zbus [cfg(target_os = "linux")]
 reda-xtask -> serde_json

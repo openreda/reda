@@ -11,7 +11,22 @@
 
 use egui::{Rangef, Rect, ViewportBuilder, ViewportCommand, ViewportInfo};
 
-use super::{Chrome, Startup};
+use super::{Chrome, Platform, Startup};
+
+/// macOS's decoration of REDA's windows. On macOS it is what [`Platform::NATIVE`] does;
+/// elsewhere it draws macOS's chrome in the window tests, where a double-click zooms (the
+/// setting's default, as there is no System Settings to read).
+pub const PLATFORM: Platform = Platform::new(
+    chrome_in,
+    viewport,
+    |_| NATIVE_TITLE_BAR_HEIGHT,
+    |maximised| double_click(DoubleClick::system(), maximised),
+);
+
+/// [`chrome`] for the window `ctx` draws.
+pub fn chrome_in(ctx: &egui::Context, startup: Startup) -> Chrome {
+    ctx.input(|i| chrome(startup, i.viewport()))
+}
 
 /// The room the traffic lights take at the leading end of the bar.
 pub const TRAFFIC_LIGHTS_INSET: f32 = 78.0;
@@ -109,6 +124,13 @@ impl DoubleClick {
             Some("1" | "YES" | "true") => DoubleClick::Minimise,
             _ => DoubleClick::Zoom,
         }
+    }
+
+    /// Off macOS there is no setting to read: what macOS does with nothing set, zoom.
+    /// For drawing macOS's chrome in the window tests.
+    #[cfg(not(target_os = "macos"))]
+    pub fn system() -> DoubleClick {
+        DoubleClick::Zoom
     }
 
     /// The setting as the user has it now. Read on each double-click, so a change in
