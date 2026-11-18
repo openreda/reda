@@ -1,5 +1,5 @@
-//! The widget gallery: every REDA widget in every state and the Glyph set, snapshotted in
-//! light and dark, Comfortable and Compact
+//! The widget gallery: every REDA widget in every state, the Glyph set, and the colour and
+//! type tokens, snapshotted in light and dark, Comfortable and Compact
 //! (docs/spec/v0.1/design-language.md#enforcement-and-tests).
 //!
 //! The gallery exists only here. A page is a function that draws sections of widgets
@@ -18,6 +18,7 @@
 
 mod bars;
 mod canvas_chrome;
+mod colour;
 mod controls;
 mod data;
 mod kit;
@@ -26,6 +27,7 @@ mod sheets;
 mod shell;
 mod text_view;
 mod title_bar;
+mod type_scale;
 
 use egui::{Theme, Vec2};
 use egui_kittest::Harness;
@@ -233,4 +235,18 @@ page_snapshots!("bars", bars::SIZE, bars::page:
     bars_light_compact => Light, Compact;
     bars_dark_comfortable => Dark, Comfortable;
     bars_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("colour", colour::SIZE, colour::page:
+    colour_light_comfortable => Light, Comfortable;
+    colour_light_compact => Light, Compact;
+    colour_dark_comfortable => Dark, Comfortable;
+    colour_dark_compact => Dark, Compact;
+);
+
+page_snapshots!("type", type_scale::SIZE, type_scale::page:
+    type_light_comfortable => Light, Comfortable;
+    type_light_compact => Light, Compact;
+    type_dark_comfortable => Dark, Comfortable;
+    type_dark_compact => Dark, Compact;
 );
