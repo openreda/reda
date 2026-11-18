@@ -185,7 +185,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, settings: &mut SettingsContent<'_>) 
     ui.data_mut(|d| d.insert_temp(last_id, focused));
     let focus_moved = focused.filter(|id| Some(*id) != last);
     let dirty = shell.engine().dirty_scopes();
-    // Cards keep the card gap from the window's side edges. Above them is the top row
+    // Cards keep the card gap from the window's side edges. Above them is the Title bar
     // and below them the status bar, both on the base.
     let window = ui.available_rect_before_wrap();
     let area = window.shrink2(Vec2::new(CARD_GAP, 0.0));

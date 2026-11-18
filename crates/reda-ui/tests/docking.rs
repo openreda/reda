@@ -535,7 +535,7 @@ fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap(
         std::rc::Rc::clone(&labels),
     );
     h.run();
-    // The floating window shows its tab and nothing of the top row; the main window has
+    // The floating window shows its tab and none of the main Title bar; the main window has
     // the menus and the quick strip.
     let shown: Vec<String> = labels.borrow().clone();
     let title = h
@@ -545,12 +545,12 @@ fn a_floating_window_has_no_menus_or_toolbar_and_its_keys_go_through_the_keymap(
         .unwrap()
         .to_owned();
     assert!(shown.contains(&title), "{shown:?}");
-    for top_row in ["File", "Edit", "Help", "Save All", "Undo", "Preferences…"] {
+    for title_bar_item in ["File", "Edit", "Help", "Save All", "Undo", "Preferences…"] {
         assert!(
-            !shown.iter().any(|l| l == top_row),
-            "{top_row} in {shown:?}"
+            !shown.iter().any(|l| l == title_bar_item),
+            "{title_bar_item} in {shown:?}"
         );
-        h.get_by_role_and_label(Role::Button, top_row);
+        h.get_by_role_and_label(Role::Button, title_bar_item);
     }
     // Mod+Z pressed in the floating window undoes the sheet's edit, through the Keymap.
     keys.borrow_mut().push(egui::Event::Key {

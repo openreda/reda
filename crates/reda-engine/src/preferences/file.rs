@@ -6,7 +6,7 @@ use reda_command::{CommandError, UserDirs};
 use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item, Table, TableLike};
 
-use super::{ALIASES, Preferences};
+use super::{ALIASES, KEPT_AT_DEFAULT, Preferences};
 
 /// The Preferences as read from the file, with a warning for every key that was ignored.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,8 +53,9 @@ pub(super) fn parse_with(text: &str, aliases: &[(&str, &str)]) -> Loaded {
 }
 
 /// Sets one Preference in the user's file and returns its new value. The file is re-read
-/// first and only the touched key changes; setting the default value (or `null`) removes
-/// the key. The write goes through a temp file and a rename.
+/// first and only the touched key changes; `null` removes the key, and so does setting the
+/// default value, except for a key of [`KEPT_AT_DEFAULT`]. The write goes through a temp
+/// file and a rename.
 pub fn set(dirs: &UserDirs, key: &str, value: Value) -> Result<Value, CommandError> {
     set_with(dirs, key, value, ALIASES)
 }
@@ -92,7 +93,8 @@ pub(super) fn set_with(
         ))
     })?;
 
-    let new = if value.is_null() {
+    let reset = value.is_null();
+    let new = if reset {
         default.clone()
     } else {
         let (mut current, _) = read_doc(&doc, aliases);
@@ -104,7 +106,7 @@ pub(super) fn set_with(
     for (old, _) in aliases.iter().filter(|(_, new)| *new == key) {
         remove_leaf(doc.as_table_mut(), &segments(old));
     }
-    if new == default {
+    if reset || (new == default && !KEPT_AT_DEFAULT.contains(&key)) {
         remove_leaf(doc.as_table_mut(), &segments(key));
     } else {
         set_leaf(doc.as_table_mut(), &segments(key), to_toml(&new)?);
@@ -393,6 +395,39 @@ mod tests {
             RENAMED,
         );
         assert!(loaded.values.schematic.repeat_placement);
+    }
+
+    #[test]
+    fn the_system_title_bar_is_written_when_set_to_its_default_and_removed_on_reset() {
+        let home = std::env::temp_dir().join(format!("reda-kept-{}", std::process::id()));
+        let dirs = UserDirs::under(&home);
+        let read = || std::fs::read_to_string(dirs.preferences_file()).unwrap();
+        let key = "general.system_title_bar";
+        let default = super::super::SYSTEM_TITLE_BAR_DEFAULT;
+        set(&dirs, key, Value::Bool(default)).unwrap();
+        let chosen = read();
+        // An ordinary key set to its default is removed, as before.
+        let ordinary = "schematic.display_cross_overs";
+        set(&dirs, ordinary, Value::Bool(true)).unwrap();
+        set(&dirs, ordinary, Value::Bool(false)).unwrap();
+        let after_ordinary = read();
+        set(&dirs, key, Value::Null).unwrap();
+        let reset = read();
+        let _ = std::fs::remove_dir_all(&home);
+        assert!(
+            chosen.contains(&format!("system_title_bar = {default}")),
+            "{chosen}"
+        );
+        assert!(
+            after_ordinary.contains("system_title_bar"),
+            "{after_ordinary}"
+        );
+        assert!(
+            !after_ordinary.contains("display_cross_overs"),
+            "{after_ordinary}"
+        );
+        assert!(!reset.contains("system_title_bar"), "{reset}");
+        assert_eq!(parse(&chosen).values.general.system_title_bar, default);
     }
 
     #[test]

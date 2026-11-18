@@ -84,7 +84,8 @@ impl Command for PreferencesSet {
         id: "app.preferences.set",
         title: "Set Preference",
         description: "Sets one Preference in the user's preferences.toml, keeping every other \
-                      line and comment. Null, or the default value, removes the key.",
+                      line and comment. Null removes the key, and so does the default value, \
+                      except for general.system_title_bar, whose default is due to change.",
         category: "app",
         icon: "preferences",
         kind: Kind::File,

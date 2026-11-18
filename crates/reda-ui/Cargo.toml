@@ -31,17 +31,16 @@ unic-langid.workspace = true
 [target.'cfg(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android")))))'.dependencies]
 winit.workspace = true
 
-# The OS reduced-motion read (theme/motion/system.rs), one platform each. Every crate is
-# already in Cargo.lock through eframe, wgpu-hal or AccessKit; these name the features the
-# read needs, and no `unsafe` is written for it.
+# The OS reduced-motion read (theme/motion/system.rs), one platform each; versions and
+# features are in the workspace. No `unsafe` is written for it.
 [target.'cfg(target_os = "linux")'.dependencies]
-zbus = { version = "5.19", default-features = false, features = ["async-io", "blocking-api"] }
+zbus.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility"] }
+objc2-app-kit.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62.2", features = ["UI_ViewManagement", "Foundation"] }
+windows.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true

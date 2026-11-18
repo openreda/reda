@@ -774,7 +774,7 @@ fn shift_home_zooms_the_canvas_to_the_selection() {
 }
 
 #[test]
-fn the_top_row_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes() {
+fn the_title_bar_holds_the_quick_strip_menus_command_field_and_gear_at_their_sizes() {
     let home = TempDir::new("bars-home");
     let work = TempDir::new("bars-work");
     let file = make_project(work.path(), "Row");

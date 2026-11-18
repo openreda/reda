@@ -9,15 +9,15 @@
 
 use std::cell::Cell;
 
-use reda_ui::engine::preferences::DEFAULT_TEXT_SIZE;
+use reda_ui::engine::preferences::{DEFAULT_TEXT_SIZE, TEXT_SIZES};
 
 thread_local! {
     static SIZE: Cell<u8> = const { Cell::new(DEFAULT_TEXT_SIZE) };
 }
 
 /// The ends of the text-size range.
-pub const SMALLEST: u8 = 11;
-pub const LARGEST: u8 = 16;
+pub const SMALLEST: u8 = *TEXT_SIZES.start();
+pub const LARGEST: u8 = *TEXT_SIZES.end();
 
 /// The text size this thread's screens are drawn at.
 pub fn get() -> u8 {

@@ -447,7 +447,7 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
   - **Every file is converted.** The migration's list of files not yet converted is gone: every file the scan reads must be clean.
   - The scan works on text, so an alias or a macro can defeat it. It is there to stop accidents.
 - **The contrast test,** as above.
-- **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid) and the Glyph set, in the four variants, and is snapshotted.
+- **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid), the Glyph set, every colour token and the type scale, in the four variants, and is snapshotted.
 - **Whole-screen snapshots** are in dark Comfortable, and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows. A scene whose look turns on the theme or the Density adds a light or Compact image: the Start page, the Dock flyout, the icons, the Appearance page (drawn at its own 1100 × 820) and the windows REDA decorates. The whole-app screen of [Images](#images) is in all four variants.
 - **Fit tests.** One per area of the window (`crates/reda-ui/tests/*_fit.rs`, and `panel_sheets.rs` for the Panels, their Docks and the status bar) drives its screens in light and dark, Comfortable and Compact, at the default text size and at both ends of the range, and fails on text cut short with an ellipsis, text that runs out of its clip, and a label broken over lines.
 - **Font coverage.** `crates/reda-ui/tests/font_coverage.rs` fails when the message catalogue, a Command's or a Preference's text, or a string literal of a crate whose messages reach the window holds a character the bundled faces lack.
@@ -649,9 +649,9 @@ Offset x / y, blur, colour. Spread is zero.
 
 ## Images
 
-The spec embeds only images that tests produce: the widget gallery's pages and one whole-app screen, each in the four variants, and the windows REDA decorates on Wayland and Windows. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
+The spec embeds only images that tests produce: the widget gallery's ten pages and one whole-app screen, each in the four variants, and the windows REDA decorates on Wayland and Windows. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
 
-- The gallery is `crates/reda-ui/tests/widget_gallery/`, one file per page (`gallery_<page>_<theme>_<density>.png`).
+- The gallery is `crates/reda-ui/tests/widget_gallery/`, one file per page (`gallery_<page>_<theme>_<density>.png`). The Colour and Type pages are drawn from the tokens themselves, so they cannot drift from them; the Type page also shows the scale at both ends of the text-size range, 11 and 16 px, beside the default 13.
 - The whole-app screens are drawn by `crates/reda-ui/tests/app.rs` (`whole_app_<theme>_<density>.png`) in the window every whole-screen snapshot uses, 1280 × 800. They draw the Title bar as under the system title bar, with no window controls, so they look the same on every platform.
 - The decorated windows are drawn by the same file (`title_bar_wayland_*.png`, `title_bar_windows_*.png`) with each platform's chrome. The test harness keeps an 8 px margin inside the window's rim; a real window has none.
 - Motion cannot be shown in stills. Run REDA with Animate on (Preferences ▸ Appearance); `crates/reda-ui/tests/motion.rs` checks the timings.
@@ -732,6 +732,24 @@ Layer chips, the Layer swatch, the Layer strip.
 |---|---|
 | ![Canvas chrome, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_comfortable.png) | ![Canvas chrome, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_comfortable.png) |
 | ![Canvas chrome, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_compact.png) | ![Canvas chrome, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_compact.png) |
+
+### Colour
+
+Every colour token, by family: surfaces, text, strokes, fills, the accent and the three semantic colours in their four strengths, the icon role colours, and the touch selection and close-button hover.
+
+| Light | Dark |
+|---|---|
+| ![Colour, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_colour_light_comfortable.png) | ![Colour, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_colour_dark_comfortable.png) |
+| ![Colour, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_colour_light_compact.png) | ![Colour, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_colour_dark_compact.png) |
+
+### Type, text size and typeface
+
+The type scale with each style's size and line height, Inter in its three weights and with tabular digits, JetBrains Mono, and the scale at text sizes 11, 13 and 16.
+
+| Light | Dark |
+|---|---|
+| ![Type, text size and typeface, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_type_light_comfortable.png) | ![Type, text size and typeface, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_type_dark_comfortable.png) |
+| ![Type, text size and typeface, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_type_light_compact.png) | ![Type, text size and typeface, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_type_dark_compact.png) |
 
 ### Text to read
 
