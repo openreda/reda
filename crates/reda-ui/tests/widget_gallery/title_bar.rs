@@ -162,10 +162,14 @@ fn floating(ui: &mut Ui) {
     });
     ui.horizontal_top(|ui| {
         ui.vertical(|ui| {
-            kit::caption(ui, "macOS: room for the traffic lights, no REDA controls");
+            kit::caption(
+                ui,
+                "macOS: the native title-bar height, room for the traffic lights, no REDA controls",
+            );
             let bar = widgets::floating_bar(title)
+                .height(reda_ui::title_bar::macos::NATIVE_TITLE_BAR_HEIGHT)
                 .controls(false)
-                .leading_inset(78.0)
+                .leading_inset(reda_ui::title_bar::macos::TRAFFIC_LIGHTS_INSET)
                 .window_focused(true);
             window(ui, bar);
         });

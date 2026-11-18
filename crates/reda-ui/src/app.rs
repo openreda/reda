@@ -66,6 +66,13 @@ pub struct App {
     /// How the Title bar was set up at the start: **Use the system title bar** applies
     /// on restart.
     title_bar: title_bar::Startup,
+    /// The window was built as `title_bar` asks ([`App::with_title_bar`]), so REDA draws
+    /// the platform's window chrome. Off for a window made with [`App::new`] alone, such as
+    /// a test harness's, which draws the bar as under the system title bar.
+    window_chrome: bool,
+    /// The chrome the bar was drawn with this frame and where, for what the platform
+    /// places in it itself (macOS's traffic lights).
+    drawn_bar: Option<(title_bar::Chrome, egui::Rect)>,
     /// The window's renderer, to free closed canvases' GPU state.
     render_state: Option<egui_wgpu::RenderState>,
     theme_installed: bool,
@@ -108,6 +115,8 @@ impl App {
         let title_bar = title_bar::Startup::of(shell.preferences());
         App {
             title_bar,
+            window_chrome: false,
+            drawn_bar: None,
             crash_report,
             shell,
             files: FileDialogs::default(),
@@ -184,6 +193,16 @@ impl App {
         }
     }
 
+    /// The window as REDA built it at the start, from `startup`
+    /// ([`title_bar::Startup::detect`] and [`title_bar::viewport`]): the Title bar gets the
+    /// platform's window chrome (on macOS the traffic lights' inset and dragging) unless
+    /// the system title bar is in force.
+    pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
+        self.title_bar = startup;
+        self.window_chrome = true;
+        self
+    }
+
     /// Lets the window free the GPU state of canvases whose tabs close.
     pub fn with_render_state(mut self, render_state: egui_wgpu::RenderState) -> App {
         self.render_state = Some(render_state);
@@ -237,7 +256,11 @@ impl App {
             // Mod+=, Mod+- and Mod+0 are Keymap bindings that step the UI scale
             // Preference, not egui's own zoom.
             ctx.options_mut(|o| o.zoom_with_keyboard = false);
-            self.title_bar.remember(&ctx);
+            if self.window_chrome {
+                self.title_bar.remember_decorating(&ctx);
+            } else {
+                self.title_bar.remember(&ctx);
+            }
             self.theme_installed = true;
         }
         self.apply_preferences(&ctx);
@@ -255,7 +278,12 @@ impl App {
         }
         tab_switcher::release(&ctx, &mut self.shell);
 
-        let clicked = self.bars(ui);
+        let chrome = if self.window_chrome {
+            title_bar::chrome_for(&ctx, self.title_bar)
+        } else {
+            title_bar::Chrome::SYSTEM
+        };
+        let clicked = self.bars(ui, chrome);
         // The status bar's space is set aside before the docking layer's, but what is in
         // it is drawn after, so keyboard focus reaches it last, as it sits in the window.
         let t = ui.tokens();
@@ -939,7 +967,7 @@ impl App {
 
     /// The Title bar for the active Document's type, drawn from the bar data files.
     /// Returns the item clicked, if any.
-    fn bars(&mut self, ui: &mut Ui) -> Option<Invocation> {
+    fn bars(&mut self, ui: &mut Ui, chrome: title_bar::Chrome) -> Option<Invocation> {
         let bars = bars::for_document(bars::active_type(&self.shell));
         let scale = preferences::nearest_ui_scale(f64::from(ui.ctx().zoom_factor()));
         let mut checked = BTreeMap::from([
@@ -966,9 +994,10 @@ impl App {
             checked: &checked,
             document: self.shell.active_document().map(|d| d.document),
         };
-        // Every window still has the system title bar above REDA's: the platform slices
-        // give the bar its window controls and dragging.
-        title_bar::show(ui, &cx, bars, title_bar::Chrome::SYSTEM).run
+        let outcome = title_bar::show(ui, &cx, bars, chrome);
+        let _ = title_bar::drive(ui.ctx(), chrome, outcome.window, &outcome.background);
+        self.drawn_bar = Some((chrome, outcome.background.rect));
+        outcome.run
     }
 
     /// Carries out what the view Commands asked of the window.
@@ -1166,8 +1195,11 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         App::ui(self, ui);
+        if let Some((chrome, bar)) = self.drawn_bar.take() {
+            title_bar::place_native_controls(frame, ui.ctx(), chrome, bar);
+        }
     }
 
     /// The window closes: the view state is saved, and the open Project's Recovery
@@ -1217,11 +1249,15 @@ pub fn run(
 ) -> eframe::Result {
     // Read at each launch, and not followed while REDA runs.
     let os_motion = theme::motion::system::AtLaunch::start();
+    // Read before the window is created: the system title bar Preference applies on
+    // restart, and a desktop that decorates every window forces it.
+    let startup = title_bar::Startup::detect(&preferences::current(engine.user_dirs()));
+    let viewport = egui::ViewportBuilder::default()
+        .with_title(tr!("window-title"))
+        .with_inner_size([1280.0, 800.0])
+        .with_min_inner_size([480.0, 320.0]);
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title(tr!("window-title"))
-            .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([480.0, 320.0]),
+        viewport: title_bar::viewport(startup, viewport),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
@@ -1245,6 +1281,7 @@ pub fn run(
             let bridge = Bridge::start(&shell);
             Ok(Box::new(
                 App::new(shell)
+                    .with_title_bar(startup)
                     .with_os_motion(os_motion.allows_motion(theme::motion::system::LAUNCH_WAIT))
                     .with_render_state(render_state.clone())
                     .with_bridge(bridge)
