@@ -61,6 +61,12 @@ unic-langid = "0.9"
 # Find's regular expressions (reda-schematic, reda-ui's Find Panel). The lite crate: no
 # dependencies of its own, and Find needs no Unicode classes or big-input speed.
 regex-lite = "0.1"
+# The OS reduced-motion read (reda-ui's theme/motion/system.rs), one platform each. Every
+# crate is already in Cargo.lock through eframe, wgpu-hal or AccessKit; these name the
+# features the read needs.
+zbus = { version = "5.19", default-features = false, features = ["async-io", "blocking-api"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace", "NSAccessibility"] }
+windows = { version = "0.62.2", features = ["UI_ViewManagement", "Foundation"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
