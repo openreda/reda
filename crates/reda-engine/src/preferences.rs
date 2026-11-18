@@ -1,6 +1,7 @@
 //! Preferences: one user's settings, kept in `preferences.toml` in the config folder.
 //!
-//! The file holds only the values that differ from the defaults, and REDA edits it with
+//! The file holds only the values that differ from the defaults (and the few keys of
+//! [`KEPT_AT_DEFAULT`] once the user has set them), and REDA edits it with
 //! `toml_edit` so the user's comments survive. [`Preferences`] is the schema: its serde
 //! shape gives the keys (`section.name`, such as `schematic.repeat_placement`) and its
 //! `schemars` schema gives the types, defaults and descriptions. An unknown or invalid key
@@ -248,6 +249,11 @@ pub enum Density {
 /// Windows PC (openreda/reda#314), and off everywhere else
 /// (docs/spec/v0.1/app.md#title-bar).
 pub const SYSTEM_TITLE_BAR_DEFAULT: bool = cfg!(target_os = "windows");
+
+/// The keys written to the file whenever the user sets them, even to the default: their
+/// default is due to change, and a choice the user made must outlast that change. Only
+/// `null` (a reset) removes them. Every other key is removed when set to its default.
+pub const KEPT_AT_DEFAULT: &[&str] = &["general.system_title_bar"];
 
 /// The body text sizes `general.text_size` takes, in pixels.
 pub const TEXT_SIZES: std::ops::RangeInclusive<u8> = 11..=16;

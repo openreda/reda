@@ -465,7 +465,7 @@ Sources: [How do Commands get their labels, icons and shortcuts?](https://github
 Sources: [What per-user state does REDA keep, and where?](https://github.com/openreda/reda/issues/28), [How are theme, Density, text size, typeface and the system title bar presented in the Preferences window?](https://github.com/openreda/reda/issues/284), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [Can REDA read the OS reduced-motion setting on Wayland, Windows and macOS?](https://github.com/openreda/reda/issues/288).
 
 - **The file:**
-  - `preferences.toml` holds only the values that differ from the defaults.
+  - `preferences.toml` holds only the values that differ from the defaults. The one exception is **Use the system title bar**, whose default is due to change ([Title bar](#title-bar)): once the user sets it, its value is written even when it equals the default, and only a reset removes it.
   - REDA edits it with `toml_edit`, so user comments survive.
   - The schema comes from `schemars`.
   - An unknown or invalid key gives a warning in Messages and falls back to its default. There is no `format` migration chain, only a small alias table for renamed keys.
