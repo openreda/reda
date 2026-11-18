@@ -291,6 +291,8 @@ impl App {
             }
             self.theme_installed = true;
         }
+        // PROTOTYPE (issue #330): F10, F9 and Shift+F9.
+        crate::proto::keys(&ctx);
         self.apply_preferences(&ctx);
         self.pump_bridge(&ctx);
         self.collect_picked_files();
@@ -350,6 +352,7 @@ impl App {
             .id_salt("status-bar-content");
         ui.scope_builder(builder, |ui| self.status_bar(ui));
         tab_switcher::show(&ctx, &mut self.shell);
+        crate::proto::switcher(&ctx);
         title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {

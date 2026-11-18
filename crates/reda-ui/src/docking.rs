@@ -158,6 +158,10 @@ pub(crate) fn tab_title(shell: &Shell, tab: &TabKey) -> String {
     match tab {
         TabKey::Start => tr!("start-page-title"),
         TabKey::Panel(panel) => panel_title(*panel),
+        // PROTOTYPE (issue #330): the PCB tab stands in for the Stackup editor's tab.
+        TabKey::Document(uuid) if crate::proto::on() && shell.is_pcb(*uuid) => {
+            format!("Stackup · {}", shell.document_title(tab).unwrap_or_default())
+        }
         TabKey::Document(_) => shell.document_title(tab).unwrap_or_default().to_owned(),
         TabKey::Settings(window) => match shell.settings_title(*window) {
             Some(title) => title.to_owned(),
@@ -1098,6 +1102,13 @@ impl Cx<'_, '_> {
             }
             TabKey::Document(uuid) => {
                 let start = self.frame.commands.len();
+                // PROTOTYPE (issue #330): a PCB tab shows the Stackup editor variants.
+                if crate::proto::on() && self.shell.is_pcb(*uuid) {
+                    let rect = ui.available_rect_before_wrap();
+                    crate::proto::show(ui);
+                    self.focus_on_press(ui, rect, tab, start);
+                    return;
+                }
                 if crate::element_editor::is_element(self.shell.engine(), *uuid) {
                     let rect = ui.available_rect_before_wrap();
                     let commands = crate::element_editor::panels(ui, self.shell, *uuid);
