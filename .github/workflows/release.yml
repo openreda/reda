@@ -92,9 +92,12 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # Apple Silicon only for now; nothing stops adding macos-13 (Intel) here.
+          # Apple Silicon only for now. `macos-latest` and not a pinned image: GitHub retires
+          # old macOS images (macos-14 went away and cancelled the first v0.1.0 run), and the
+          # oldest macOS the app runs on comes from MACOSX_DEPLOYMENT_TARGET below, not from
+          # the runner.
           - name: macos-arm64
-            os: macos-14
+            os: macos-latest
           - name: windows-x86_64
             os: windows-latest
           # Ubuntu 22.04 keeps the glibc floor low enough for Debian 12 and Ubuntu 22.04.
@@ -109,6 +112,9 @@ jobs:
       STEM: REDA-${{ needs.plan.outputs.version }}-${{ matrix.name }}
       # build.rs: report the plain version, not -dev+<hash>.
       REDA_RELEASE: "1"
+      # macOS 11 (Big Sur) is the oldest macOS REDA supports; it is also rustc's default for
+      # Apple silicon, stated here so a newer runner image cannot move it. Ignored elsewhere.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
       # reda-ui's build script puts these crate licences into THIRD_PARTY_NOTICES (shown under
       # Help > About > Licences); a release build fails without them.
       REDA_CRATE_NOTICES: ${{ github.workspace }}/target/crate-notices.txt
