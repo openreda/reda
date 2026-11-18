@@ -2,7 +2,7 @@
 //! under it, at `title_bar_height()`. Drawing never runs anything: what was clicked comes
 //! back in an [`Outcome`], for the window to run through the Shell or send to the OS.
 
-use egui::{Frame, Panel, Rect, Response, Role, Sense, Ui, UiBuilder, pos2, vec2};
+use egui::{CornerRadius, Frame, Panel, Rect, Response, Role, Sense, Ui, UiBuilder, pos2, vec2};
 
 use super::arrange::{Field, Widths, arrange};
 use super::{Chrome, DRAG_GAP};
@@ -58,8 +58,15 @@ pub struct Outcome {
 /// Draws the Title bar at the top of `ui`, which fills the window.
 pub fn show(ui: &mut Ui, cx: &Cx<'_>, bars: &Bars, chrome: Chrome) -> Outcome {
     let t = ui.tokens();
+    // A window REDA rounds itself shows its top corners through the bar.
+    let corner = chrome.corner.round() as u8;
+    let radius = CornerRadius {
+        nw: corner,
+        ne: corner,
+        ..CornerRadius::ZERO
+    };
     Panel::top("title-bar")
-        .frame(Frame::NONE.fill(t.color.surface.base))
+        .frame(Frame::NONE.fill(t.color.surface.base).corner_radius(radius))
         .show_separator_line(false)
         .resizable(false)
         .exact_size(t.title_bar_height())

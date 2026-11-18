@@ -312,8 +312,9 @@ fn floating_bar(ui: &mut Ui, title: &str, chrome: crate::title_bar::Chrome) {
                 .controls(chrome.controls)
                 .drags(chrome.drags)
                 .maximised(chrome.maximised)
+                .corner(chrome.corner)
                 .show(ui);
-            // Only the main window's system menu is in reach.
+            // Only the main window's system menu is in reach (title_bar::show_window_menu).
             let _ = crate::title_bar::drive(&ctx, chrome, bar.action, &bar.response);
         });
 }
@@ -404,8 +405,14 @@ impl Cx<'_, '_> {
                 bottom: gap,
             };
             let base = ui.tokens().color.surface.base;
+            let corner = chrome.corner.round() as u8;
+            let bottom = egui::CornerRadius {
+                sw: corner,
+                se: corner,
+                ..egui::CornerRadius::ZERO
+            };
             let area = egui::CentralPanel::default()
-                .frame(egui::Frame::new().fill(base).inner_margin(margin))
+                .frame((egui::Frame::new().fill(base).corner_radius(bottom)).inner_margin(margin))
                 .show(ui, |ui| {
                     let area = ui.available_rect_before_wrap();
                     self.zones = Zones::empty(area);
@@ -449,6 +456,7 @@ impl Cx<'_, '_> {
             let shell = &*self.shell;
             let commands = drag::show(&ctx, self.layout, view, |tab| tab_title(shell, tab));
             self.frame.commands.extend(commands);
+            crate::title_bar::edge(&ctx, chrome);
         });
         viewport
     }

@@ -70,6 +70,11 @@ pub struct App {
     /// the platform's window chrome. Off for a window made with [`App::new`] alone, such as
     /// a test harness's, which draws the bar as under the system title bar.
     window_chrome: bool,
+    /// The window's surface is transparent, for the corners REDA rounds itself.
+    transparent: bool,
+    /// Where the bar was right-clicked this frame, in logical pixels, for the system
+    /// window menu.
+    window_menu: Option<egui::Pos2>,
     /// The chrome the bar was drawn with this frame and where, for what the platform
     /// places in it itself (macOS's traffic lights).
     drawn_bar: Option<(title_bar::Chrome, egui::Rect)>,
@@ -116,6 +121,8 @@ impl App {
         App {
             title_bar,
             window_chrome: false,
+            transparent: false,
+            window_menu: None,
             drawn_bar: None,
             crash_report,
             shell,
@@ -195,11 +202,14 @@ impl App {
 
     /// The window as REDA built it at the start, from `startup`
     /// ([`title_bar::Startup::detect`] and [`title_bar::viewport`]): the Title bar gets the
-    /// platform's window chrome (on macOS the traffic lights' inset and dragging) unless
-    /// the system title bar is in force.
+    /// platform's window chrome unless the system title bar is in force: on Wayland the
+    /// window controls, dragging, edge resizing and corners, on macOS the traffic lights'
+    /// inset and dragging.
     pub fn with_title_bar(mut self, startup: title_bar::Startup) -> App {
         self.title_bar = startup;
         self.window_chrome = true;
+        let options = title_bar::viewport(startup, egui::ViewportBuilder::default());
+        self.transparent = options.transparent == Some(true);
         self
     }
 
@@ -291,8 +301,15 @@ impl App {
         // The status bar is on the base, with no rule above it. Its items bring their own
         // padding; with the card gap beside them their text lines up inside the cards.
         let gap = widgets::CARD_GAP as i8;
+        // A window REDA rounds itself shows its bottom corners through the status bar.
+        let corner = chrome.corner.round() as u8;
         let frame = egui::Frame::new()
             .fill(t.color.surface.base)
+            .corner_radius(egui::CornerRadius {
+                sw: corner,
+                se: corner,
+                ..egui::CornerRadius::ZERO
+            })
             .inner_margin(egui::Margin::symmetric(gap, 0));
         let status = Panel::bottom("status-bar")
             .frame(frame)
@@ -315,6 +332,7 @@ impl App {
             .id_salt("status-bar-content");
         ui.scope_builder(builder, |ui| self.status_bar(ui));
         tab_switcher::show(&ctx, &mut self.shell);
+        title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
         if let Some((id, params)) = clicked {
             self.call(&id, params);
@@ -995,7 +1013,9 @@ impl App {
             document: self.shell.active_document().map(|d| d.document),
         };
         let outcome = title_bar::show(ui, &cx, bars, chrome);
-        let _ = title_bar::drive(ui.ctx(), chrome, outcome.window, &outcome.background);
+        let ctx = ui.ctx();
+        let menu = title_bar::drive(ctx, chrome, outcome.window, &outcome.background);
+        self.window_menu = menu.map(|p| (p.to_vec2() * ctx.zoom_factor()).to_pos2());
         self.drawn_bar = Some((chrome, outcome.background.rect));
         outcome.run
     }
@@ -1200,6 +1220,17 @@ impl eframe::App for App {
         if let Some((chrome, bar)) = self.drawn_bar.take() {
             title_bar::place_native_controls(frame, ui.ctx(), chrome, bar);
         }
+        if let Some(at) = self.window_menu.take() {
+            title_bar::show_window_menu(frame, at);
+        }
+    }
+
+    /// A transparent window shows nothing where REDA paints nothing: its round corners.
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if self.transparent {
+            return [0.0; 4];
+        }
+        visuals.panel_fill.to_normalized_gamma_f32()
     }
 
     /// The window closes: the view state is saved, and the open Project's Recovery
@@ -1247,8 +1278,6 @@ pub fn run(
     fonts: Arc<dyn InstalledFonts>,
     open: Option<PathBuf>,
 ) -> eframe::Result {
-    // Read at each launch, and not followed while REDA runs.
-    let os_motion = theme::motion::system::AtLaunch::start();
     // Read before the window is created: the system title bar Preference applies on
     // restart, and a desktop that decorates every window forces it.
     let startup = title_bar::Startup::detect(&preferences::current(engine.user_dirs()));
@@ -1256,6 +1285,8 @@ pub fn run(
         .with_title(tr!("window-title"))
         .with_inner_size([1280.0, 800.0])
         .with_min_inner_size([480.0, 320.0]);
+    // Read at each launch, and not followed while REDA runs.
+    let os_motion = theme::motion::system::AtLaunch::start();
     let options = eframe::NativeOptions {
         viewport: title_bar::viewport(startup, viewport),
         renderer: eframe::Renderer::Wgpu,

@@ -1,12 +1,14 @@
-//! What a window REDA decorates itself does with its bar: the bar's clicks become window
-//! commands (docs/spec/v0.1/app.md#title-bar, ADR-0014).
+//! What a window REDA decorates itself does with its bar and its edge: the bar's clicks
+//! become window commands, the edge resizes, and a rounded window gets its rim
+//! (docs/spec/v0.1/app.md#title-bar, design-language.md#title-bar, ADR-0014).
 //!
 //! Used by the main window and by each floating window, inside its own viewport, so
 //! every command goes to the window the bar is in.
 
-use egui::{PointerButton, Pos2, Response};
+use egui::{Id, LayerId, Order, PointerButton, Pos2, Response, Stroke, StrokeKind};
 
-use super::Chrome;
+use super::{Chrome, resize};
+use crate::theme::TokensExt as _;
 use crate::widgets::WindowAction;
 
 /// Carries out a frame of the bar in the window `ctx` draws: the window control
@@ -41,8 +43,26 @@ pub fn drive(
     None
 }
 
-/// Whether the primary press now held (or pressed this frame) began on the bar's empty space itself, and not on
-/// a button above it. egui hands a drag that starts on a click-only widget (a quick
+/// The edge of the window `ctx` draws, where REDA decorates it: the invisible resize
+/// strip while it resizes, and a hairline rim along a rounded window's edge, in place
+/// of the shadow a compositor that draws none (GNOME) leaves out.
+pub fn edge(ctx: &egui::Context, chrome: Chrome) {
+    resize::show(ctx, chrome.resizes);
+    if chrome.corner <= 0.0 {
+        return;
+    }
+    let t = ctx.tokens();
+    let layer = LayerId::new(Order::Foreground, Id::NULL.with("reda-window-rim"));
+    ctx.layer_painter(layer).rect_stroke(
+        ctx.content_rect(),
+        chrome.corner,
+        Stroke::new(t.stroke.hairline, t.color.stroke.hairline),
+        StrokeKind::Inside,
+    );
+}
+
+/// Whether the primary press now held (or pressed this frame) began on the bar's empty
+/// space itself, and not on a button above it. egui hands a drag that starts on a click-only widget (a quick
 /// strip button, a menu title) to the drag-sensing background under it, which would
 /// move the window from a button. Runs every frame the bar drags, to see the press.
 fn pressed_on_empty(ctx: &egui::Context, background: &Response) -> bool {

@@ -15,6 +15,12 @@
 
 pub mod arrange;
 mod draw;
+pub mod resize;
+#[cfg(all(
+    unix,
+    not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+))]
+pub mod wayland;
 // Compiled everywhere, so its pure functions are tested on any platform; what reaches
 // AppKit inside it is macOS-only.
 pub mod macos;
@@ -22,7 +28,7 @@ mod window;
 
 pub use arrange::{Arrangement, Field, Widths, arrange};
 pub use draw::{FieldText, Outcome, field_text, show};
-pub use window::drive;
+pub use window::{drive, edge};
 
 /// The drag gap kept beside the window controls while the bar drags the window.
 pub const DRAG_GAP: f32 = 48.0;
@@ -46,6 +52,13 @@ pub struct Chrome {
     pub drags: bool,
     /// The window is maximised: the restore Glyph in place of maximise, square corners.
     pub maximised: bool,
+    /// The radius of the window's corners where REDA rounds the window itself (a
+    /// transparent, undecorated window): the bar rounds its top corners to it. Zero
+    /// where the system draws the frame or the window is maximised or full screen.
+    pub corner: f32,
+    /// The window has no resize borders of its own, so REDA keeps the invisible
+    /// edge-resize strip inside its edge ([`resize`]). Off while maximised.
+    pub resizes: bool,
 }
 
 impl Chrome {
@@ -55,6 +68,8 @@ impl Chrome {
         controls: false,
         drags: false,
         maximised: false,
+        corner: 0.0,
+        resizes: false,
     };
 }
 
@@ -63,6 +78,15 @@ impl Chrome {
 pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
     #[cfg(target_os = "macos")]
     return ctx.input(|i| macos::chrome(startup, i.viewport()));
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    ))]
+    {
+        use crate::theme::TokensExt as _;
+        let radius = ctx.tokens().radius.window;
+        return ctx.input(|i| wayland::chrome(startup, i.viewport(), radius));
+    }
     #[allow(unreachable_code)]
     {
         let _ = (ctx, startup);
@@ -71,16 +95,36 @@ pub fn chrome_for(ctx: &egui::Context, startup: Startup) -> Chrome {
 }
 
 /// The options of a window REDA is about to open (the main window or a floating one),
-/// as `startup` asks: the platform's own window for REDA's bar unless the system title
-/// bar is in force.
+/// as `startup` asks: the platform's own window for REDA's bar (undecorated on Wayland)
+/// unless the system title bar is in force.
 pub fn viewport(startup: Startup, builder: egui::ViewportBuilder) -> egui::ViewportBuilder {
     #[cfg(target_os = "macos")]
     return macos::viewport(startup, builder);
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    ))]
+    return wayland::viewport(startup, builder);
     #[allow(unreachable_code)]
     {
         let _ = startup;
         builder
     }
+}
+
+/// Shows the system window menu at `at` (logical pixels in the main window), where the
+/// platform has one that REDA can reach: only the main window's, through eframe.
+pub fn show_window_menu(frame: &eframe::Frame, at: egui::Pos2) {
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    ))]
+    wayland::show_window_menu(frame, at);
+    #[cfg(not(all(
+        unix,
+        not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+    )))]
+    let _ = (frame, at);
 }
 
 /// The height of a floating window's slim bar: the native title bar's on macOS, where
@@ -147,9 +191,18 @@ impl Startup {
 
     /// The start as the Preferences ask and the desktop allows: `forced` where the
     /// platform detects a desktop that draws every window's title bar, before the window
-    /// is created. macOS never forces it.
+    /// is created. macOS never forces it; under Linux, sway, Hyprland and X11 do.
     pub fn detect(prefs: &reda_engine::preferences::Preferences) -> Startup {
-        Startup::of(prefs)
+        #[allow(unused_mut)]
+        let mut startup = Startup::of(prefs);
+        #[cfg(all(
+            unix,
+            not(any(target_os = "macos", target_os = "ios", target_os = "android"))
+        ))]
+        {
+            startup.forced = wayland::forces_system_title_bar(wayland::session(wayland::env));
+        }
+        startup
     }
 
     /// Whether the window uses the system title bar.

@@ -25,6 +25,11 @@ skrifa.workspace = true
 toml_edit.workspace = true
 unic-langid.workspace = true
 
+# The system window menu on a right-click in the Title bar: winit's own call, which egui
+# has no command for (title_bar/wayland.rs). The same winit eframe opens the window with.
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies]
+winit.workspace = true
+
 # The OS reduced-motion read (theme/motion/system.rs), one platform each. Every crate is
 # already in Cargo.lock through eframe, wgpu-hal or AccessKit; these name the features the
 # read needs, and no `unsafe` is written for it.
