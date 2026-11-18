@@ -160,6 +160,26 @@ impl Widget for WindowControl {
     }
 }
 
+/// Where the window controls go in `bar`, in the order they are drawn: minimise, then
+/// maximise (restore while `maximised`), then close, each [`WINDOW_CONTROL`] wide and the
+/// bar's full height, flush with its trailing end with no gap between them.
+pub fn window_control_rects(bar: Rect, maximised: bool) -> [(WindowAction, Rect); 3] {
+    let middle = if maximised {
+        WindowAction::Restore
+    } else {
+        WindowAction::Maximise
+    };
+    let at = |from_end: f32| {
+        let right = bar.right() - from_end * WINDOW_CONTROL;
+        Rect::from_x_y_ranges(right - WINDOW_CONTROL..=right, bar.y_range())
+    };
+    [
+        (WindowAction::Minimise, at(2.0)),
+        (middle, at(1.0)),
+        (WindowAction::Close, at(0.0)),
+    ]
+}
+
 /// The three window controls side by side: minimise, maximise (restore while
 /// `maximised`), close.
 pub fn window_controls(maximised: bool) -> WindowControls {
@@ -211,33 +231,28 @@ impl WindowControls {
         3.0 * WINDOW_CONTROL
     }
 
-    /// Draws them left to right from the cursor; returns what was clicked.
+    /// Draws them left to right from the cursor, where [`window_control_rects`] puts
+    /// them; returns what was clicked.
     pub fn show(self, ui: &mut Ui) -> Option<WindowAction> {
-        let middle = if self.maximised {
-            WindowAction::Restore
-        } else {
-            WindowAction::Maximise
-        };
-        let actions = [WindowAction::Minimise, middle, WindowAction::Close];
+        let height = self
+            .height
+            .unwrap_or_else(|| ui.tokens().title_bar_height());
+        let at = Rect::from_min_size(ui.cursor().min, vec2(Self::width(), height));
         let mut clicked = None;
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
-            for (action, state) in actions.into_iter().zip(self.states) {
-                let mut control = window_control(action).forced(state);
-                if let Some(height) = self.height {
-                    control = control.height(height);
-                }
-                if let Some(focused) = self.window_focused {
-                    control = control.window_focused(focused);
-                }
-                if action == WindowAction::Close {
-                    control = control.corner(self.corner);
-                }
-                if ui.add(control).clicked() {
-                    clicked = Some(action);
-                }
+        let placed = window_control_rects(at, self.maximised);
+        for ((action, rect), state) in placed.into_iter().zip(self.states) {
+            let mut control = window_control(action).forced(state).height(height);
+            if let Some(focused) = self.window_focused {
+                control = control.window_focused(focused);
             }
-        });
+            if action == WindowAction::Close {
+                control = control.corner(self.corner);
+            }
+            if ui.place(rect, control).clicked() {
+                clicked = Some(action);
+            }
+        }
+        ui.advance_cursor_after_rect(at);
         clicked
     }
 }
@@ -248,6 +263,7 @@ pub fn floating_bar(title: impl Into<String>) -> FloatingBar {
     FloatingBar {
         title: title.into(),
         leading_inset: 0.0,
+        height: None,
         controls: true,
         drags: false,
         maximised: false,
@@ -261,6 +277,7 @@ pub fn floating_bar(title: impl Into<String>) -> FloatingBar {
 pub struct FloatingBar {
     title: String,
     leading_inset: f32,
+    height: Option<f32>,
     controls: bool,
     drags: bool,
     maximised: bool,
@@ -283,6 +300,13 @@ impl FloatingBar {
     /// lights).
     pub fn leading_inset(mut self, inset: f32) -> Self {
         self.leading_inset = inset;
+        self
+    }
+
+    /// The bar's height; unset, `floating_bar_height()`. On macOS the bar takes the
+    /// native title-bar height, which the traffic lights are centred in.
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
         self
     }
 
@@ -323,7 +347,7 @@ impl FloatingBar {
     /// Draws the bar across the width available at the cursor.
     pub fn show(self, ui: &mut Ui) -> FloatingBarResponse {
         let t = ui.tokens();
-        let height = t.floating_bar_height();
+        let height = self.height.unwrap_or_else(|| t.floating_bar_height());
         let sense = if self.drags {
             Sense::click_and_drag()
         } else {
@@ -373,5 +397,43 @@ impl FloatingBar {
         let title = self.title.clone();
         response.widget_info(|| WidgetInfo::labeled(Role::TitleBar, true, &title));
         FloatingBarResponse { response, action }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{Rect, pos2};
+
+    use super::{WindowAction, window_control_rects};
+
+    #[test]
+    fn the_controls_fill_the_trailing_138_px_at_the_bar_height() {
+        // A 40 px bar from x 8 to 1192.
+        let bar = Rect::from_min_max(pos2(8.0, 8.0), pos2(1192.0, 48.0));
+        let placed = window_control_rects(bar, false);
+        let expected = [
+            (WindowAction::Minimise, 1054.0, 1100.0),
+            (WindowAction::Maximise, 1100.0, 1146.0),
+            (WindowAction::Close, 1146.0, 1192.0),
+        ];
+        for ((action, rect), (want, left, right)) in placed.into_iter().zip(expected) {
+            assert_eq!(action, want);
+            assert_eq!((rect.left(), rect.right()), (left, right), "{want:?}");
+            assert_eq!((rect.top(), rect.bottom()), (8.0, 48.0), "{want:?}");
+        }
+    }
+
+    #[test]
+    fn a_maximised_window_has_restore_in_the_middle() {
+        let bar = Rect::from_min_max(pos2(0.0, 0.0), pos2(400.0, 32.0));
+        let actions = window_control_rects(bar, true).map(|(action, _)| action);
+        assert_eq!(
+            actions,
+            [
+                WindowAction::Minimise,
+                WindowAction::Restore,
+                WindowAction::Close
+            ]
+        );
     }
 }

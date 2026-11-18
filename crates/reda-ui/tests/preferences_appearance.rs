@@ -582,15 +582,17 @@ fn the_system_title_bar_is_a_check_box_that_is_stored_and_notes_the_restart() {
     let home = TempDir::new("appearance-title-bar");
     let mut h = appearance(home.path());
     title_bar_box(&mut h);
-    assert!(!general(&h).system_title_bar, "off by default");
+    // Off by default, except under Windows until REDA's bar is tried there (#314).
+    let default = cfg!(target_os = "windows");
+    assert_eq!(general(&h).system_title_bar, default, "the default");
     // Nothing changed yet: no note.
     assert!(h.query_by_label(RESTART_NOTE).is_none());
     h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR)
         .click();
     h.run();
-    assert!(general(&h).system_title_bar);
+    assert_eq!(general(&h).system_title_bar, !default);
     let stored = preferences::load(&UserDirs::under(home.path())).values;
-    assert!(stored.general.system_title_bar);
+    assert_eq!(stored.general.system_title_bar, !default);
     // It applies on restart, so the row says so, under the check box.
     title_bar_box(&mut h);
     assert!(top(&h, SYSTEM_TITLE_BAR) < top(&h, RESTART_NOTE));
@@ -598,7 +600,7 @@ fn the_system_title_bar_is_a_check_box_that_is_stored_and_notes_the_restart() {
     h.get_by_role_and_label(Role::CheckBox, SYSTEM_TITLE_BAR)
         .click();
     h.run();
-    assert!(!general(&h).system_title_bar);
+    assert_eq!(general(&h).system_title_bar, default);
     assert!(h.query_by_label(RESTART_NOTE).is_none());
 }
 
@@ -636,6 +638,6 @@ fn a_forced_system_title_bar_shows_ticked_and_disabled_with_its_reason() {
     );
     assert!(node.accesskit_node().is_disabled());
     h.get_by_label("Your desktop draws the title bar for every window.");
-    // The stored value is left alone.
-    assert!(!general(&h).system_title_bar);
+    // The stored value is left alone: the default, off except under Windows.
+    assert_eq!(general(&h).system_title_bar, cfg!(target_os = "windows"));
 }

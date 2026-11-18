@@ -204,6 +204,14 @@ fn snapshot_harness(home: &Path) -> Option<Harness<'static, App>> {
 
 /// [`snapshot_harness`] on `engine`.
 fn snapshot_harness_on(engine: Engine) -> Option<Harness<'static, App>> {
+    snapshot_harness_of(engine, |app| app)
+}
+
+/// [`snapshot_harness_on`] with the window made by `make` from the plain one.
+fn snapshot_harness_of(
+    engine: Engine,
+    make: impl FnOnce(App) -> App,
+) -> Option<Harness<'static, App>> {
     if let Some(why) = snapshot_skip_reason() {
         if std::env::var_os("REDA_PNG_SNAPSHOTS").is_some() {
             panic!("REDA_PNG_SNAPSHOTS is set but snapshots cannot run: {why}");
@@ -216,7 +224,7 @@ fn snapshot_harness_on(engine: Engine) -> Option<Harness<'static, App>> {
         egui_wgpu::RendererOptions::PREDICTABLE,
     );
     reda_ui::install_canvas(&render_state, 1);
-    let app = App::new(Shell::new(engine));
+    let app = make(App::new(Shell::new(engine)));
     Some(
         builder()
             .renderer(egui_kittest::wgpu::WgpuTestRenderer::from_render_state(
@@ -306,6 +314,89 @@ fn start_page_snapshot(theme: &str) {
     };
     h.run();
     h.snapshot(format!("start_page_{theme}"));
+}
+
+/// The main window as REDA decorates it on Wayland: the window controls at the right of
+/// the Title bar, the corners at the window radius and the rim.
+fn wayland_title_bar_snapshot(theme: &str, density: &str) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&format!("wayland-{theme}-{density}"));
+    let alpha = make_project(&folder, "Alpha");
+    set_recent(home.path(), &[&alpha]);
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let decorated = reda_ui::title_bar::Startup {
+        preference: false,
+        forced: false,
+    };
+    let Some(mut h) = snapshot_harness_of(engine_in(home.path()), |app| {
+        app.with_platform(reda_ui::title_bar::wayland::PLATFORM)
+            .with_title_bar(decorated)
+    }) else {
+        return;
+    };
+    h.run();
+    h.snapshot(format!("title_bar_wayland_{theme}_{density}"));
+}
+
+#[test]
+fn snapshot_of_the_wayland_title_bar_dark() {
+    wayland_title_bar_snapshot("dark", "comfortable");
+}
+
+#[test]
+fn snapshot_of_the_wayland_title_bar_light_compact() {
+    wayland_title_bar_snapshot("light", "compact");
+}
+
+/// The main window as REDA decorates it on Windows, drawn with Windows' chrome on any
+/// platform (`title_bar::windows::PLATFORM`): the window controls at the right of the
+/// Title bar, and square corners with no rim, which Windows 11 rounds itself. Maximised,
+/// the middle control is restore.
+fn windows_title_bar_snapshot(theme: &str, density: &str, maximised: bool) {
+    let home = TempDir::new("app-home");
+    let folder = snapshot_folder(&format!("windows-{theme}-{density}"));
+    let alpha = make_project(&folder, "Alpha");
+    set_recent(home.path(), &[&alpha]);
+    set_theme(home.path(), theme);
+    preferences::set(
+        &UserDirs::under(home.path()),
+        "general.density",
+        json!(density),
+    )
+    .unwrap();
+    let decorated = reda_ui::title_bar::Startup {
+        preference: false,
+        forced: false,
+    };
+    let Some(mut h) = snapshot_harness_of(engine_in(home.path()), |app| {
+        app.with_platform(reda_ui::title_bar::windows::PLATFORM)
+            .with_title_bar(decorated)
+    }) else {
+        return;
+    };
+    if maximised {
+        let root = h.input_mut().viewports.entry(egui::ViewportId::ROOT);
+        root.or_default().maximized = Some(true);
+    }
+    h.run();
+    let state = if maximised { "_maximised" } else { "" };
+    h.snapshot(format!("title_bar_windows_{theme}_{density}{state}"));
+}
+
+#[test]
+fn snapshot_of_the_windows_title_bar_dark() {
+    windows_title_bar_snapshot("dark", "comfortable", false);
+}
+
+#[test]
+fn snapshot_of_the_windows_title_bar_light_compact_maximised() {
+    windows_title_bar_snapshot("light", "compact", true);
 }
 
 #[test]

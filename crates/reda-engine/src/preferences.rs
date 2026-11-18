@@ -222,7 +222,8 @@ pub struct General {
     /// reduced-motion setting, read each time REDA starts.
     pub animate: Option<bool>,
     /// Use the title bar the operating system draws instead of REDA's own window
-    /// controls and dragging. Applied the next time REDA starts.
+    /// controls and dragging. Applied the next time REDA starts. On by default under
+    /// Windows, off elsewhere ([`SYSTEM_TITLE_BAR_DEFAULT`]).
     pub system_title_bar: bool,
     /// Reopen the last Project when REDA starts.
     pub reopen_last_project: bool,
@@ -241,6 +242,12 @@ pub enum Density {
     Comfortable,
     Compact,
 }
+
+/// Whether **Use the system title bar** is on while the user has not set it: on under
+/// Windows, where REDA's own Title bar has been proven only by CI and not yet tried on a
+/// Windows PC (openreda/reda#314), and off everywhere else
+/// (docs/spec/v0.1/app.md#title-bar).
+pub const SYSTEM_TITLE_BAR_DEFAULT: bool = cfg!(target_os = "windows");
 
 /// The body text sizes `general.text_size` takes, in pixels.
 pub const TEXT_SIZES: std::ops::RangeInclusive<u8> = 11..=16;
@@ -291,7 +298,7 @@ impl Default for General {
             ui_font: None,
             mono_font: None,
             animate: None,
-            system_title_bar: false,
+            system_title_bar: SYSTEM_TITLE_BAR_DEFAULT,
             reopen_last_project: true,
             undo_depth: None,
             default_layout: None,

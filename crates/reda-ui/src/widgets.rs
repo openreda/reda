@@ -118,5 +118,5 @@ pub use tooltip::{
 };
 pub use window_bar::{
     FloatingBar, FloatingBarResponse, WINDOW_CONTROL, WindowAction, WindowControl, WindowControls,
-    floating_bar, window_control, window_controls,
+    floating_bar, window_control, window_control_rects, window_controls,
 };
