@@ -287,7 +287,7 @@ A file holding a board's design rules, DRC severities and Net Class names, for u
 _Avoid_: Rule set, constraint file
 
 **Design Rule**:
-One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.
+One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class, a pair of Net Classes or a group of Layers. A narrower scope overrides only the values it sets.
 _Avoid_: Constraint
 
 **Dimension**:
