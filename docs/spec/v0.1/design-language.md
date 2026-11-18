@@ -399,7 +399,7 @@ What the Title bar holds and how it behaves is in [app.md](app.md#window-shell) 
 - **Quick strip:** 20 px Icon buttons of the control height, 2 px apart.
 - **Menus:** flat buttons in body text.
 - **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room. At rest it shows "Project name — active Document" in body text; with no Project open it shows "Search commands" in muted text. Where it cannot be centred it moves aside before it shrinks.
-- **Window controls** (Windows and Linux): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
+- **Window controls** (Windows and Wayland): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
 - **macOS:** the native traffic lights at the left, vertically centred. The quick strip starts after their 78 px inset.
 - **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls while the bar drags the window; with the system title bar the gear keeps only the bar's 6 px padding. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
 - **Inactive window:** text and window-control Glyphs go muted.
@@ -448,7 +448,7 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
   - The scan works on text, so an alias or a macro can defeat it. It is there to stop accidents.
 - **The contrast test,** as above.
 - **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid) and the Glyph set, in the four variants, and is snapshotted.
-- **Whole-screen snapshots** stay in dark Comfortable only, apart from the whole-app screen of [Images](#images), and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows.
+- **Whole-screen snapshots** are in dark Comfortable, and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows. A scene whose look turns on the theme or the Density adds a light or Compact image: the Start page, the Dock flyout, the icons, the Appearance page (drawn at its own 1100 × 820) and the windows REDA decorates. The whole-app screen of [Images](#images) is in all four variants.
 - **Fit tests.** One per area of the window (`crates/reda-ui/tests/*_fit.rs`, and `panel_sheets.rs` for the Panels, their Docks and the status bar) drives its screens in light and dark, Comfortable and Compact, at the default text size and at both ends of the range, and fails on text cut short with an ellipsis, text that runs out of its clip, and a label broken over lines.
 - **Font coverage.** `crates/reda-ui/tests/font_coverage.rs` fails when the message catalogue, a Command's or a Preference's text, or a string literal of a crate whose messages reach the window holds a character the bundled faces lack.
 
@@ -649,10 +649,11 @@ Offset x / y, blur, colour. Spread is zero.
 
 ## Images
 
-The spec embeds only images that tests produce: the widget gallery's pages and one whole-app screen, each in the four variants. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
+The spec embeds only images that tests produce: the widget gallery's pages and one whole-app screen, each in the four variants, and the windows REDA decorates on Wayland and Windows. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
 
 - The gallery is `crates/reda-ui/tests/widget_gallery/`, one file per page (`gallery_<page>_<theme>_<density>.png`).
-- The whole-app screens are drawn by `crates/reda-ui/tests/app.rs` (`whole_app_<theme>_<density>.png`) in the window every whole-screen snapshot uses, 1280 × 800.
+- The whole-app screens are drawn by `crates/reda-ui/tests/app.rs` (`whole_app_<theme>_<density>.png`) in the window every whole-screen snapshot uses, 1280 × 800. They draw the Title bar as under the system title bar, with no window controls, so they look the same on every platform.
+- The decorated windows are drawn by the same file (`title_bar_wayland_*.png`, `title_bar_windows_*.png`) with each platform's chrome. The test harness keeps an 8 px margin inside the window's rim; a real window has none.
 - Motion cannot be shown in stills. Run REDA with Animate on (Preferences ▸ Appearance); `crates/reda-ui/tests/motion.rs` checks the timings.
 
 ### The whole app
@@ -706,6 +707,13 @@ Window controls, the command field, a floating window's slim bar.
 |---|---|
 | ![The Title bar, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_comfortable.png) | ![The Title bar, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_comfortable.png) |
 | ![The Title bar, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_compact.png) | ![The Title bar, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_compact.png) |
+
+The main window as REDA decorates it: on Wayland, with round corners and the rim; on Windows, square, with the system rounding the window.
+
+| Light | Dark |
+|---|---|
+| ![The window on Wayland, light, Compact](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_light_compact.png) | ![The window on Wayland, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_dark_comfortable.png) |
+| ![The window on Windows, light, Compact, maximised](../../../crates/reda-ui/tests/snapshots/title_bar_windows_light_compact_maximised.png) | ![The window on Windows, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_windows_dark_comfortable.png) |
 
 ### Bars on the canvas
 
