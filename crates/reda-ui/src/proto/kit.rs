@@ -139,10 +139,11 @@ pub fn band_heights(s: &Stack, height: f32, to_scale: bool) -> Vec<f32> {
             .collect()
     };
     let sum: f32 = raw.iter().sum();
-    let k = if sum > height || to_scale {
+    // To scale fills the height; by kind grows to fill it too, up to twice its size.
+    let k = if to_scale {
         height / sum
     } else {
-        1.0
+        (height / sum).min(2.0)
     };
     raw.into_iter().map(|h| (h * k).max(2.0)).collect()
 }

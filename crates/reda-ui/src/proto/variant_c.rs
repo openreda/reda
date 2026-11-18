@@ -15,21 +15,25 @@ use super::model::{Kind, Make, Role, Sel, Stack, mm};
 use crate::theme::TokensExt as _;
 use crate::widgets::{self, Column, RowLook, Selection};
 
-const LEFT: f32 = 470.0;
-const RIGHT: f32 = 310.0;
+const LEFT: f32 = 440.0;
 const MASK: f32 = 6.0;
 
 pub fn show(ui: &mut Ui, s: &mut Stack, v: &mut View) {
     let t = ui.tokens();
     let pad = t.space.panel;
     let full = ui.available_rect_before_wrap().shrink(pad);
-    let (left, right) = (t.size.of(LEFT), t.size.of(RIGHT));
+    let left = t.size.of(LEFT);
     let a = Rect::from_min_size(full.min, vec2(left, full.height()));
-    let c = Rect::from_min_max(pos2(full.right() - right, full.top()), full.max);
-    let b = Rect::from_min_max(pos2(a.right() + pad, full.top()), pos2(c.left() - pad, full.bottom()));
-    pane(ui, a, |ui| tables(ui, s));
+    let b = Rect::from_min_max(pos2(a.right() + pad, full.top()), full.max);
+    pane(ui, a, |ui| {
+        egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+            ui.set_width(ui.available_width() - 10.0);
+            tables(ui, s);
+            ui.add_space(t.space.section);
+            readouts(ui, s);
+        });
+    });
     pane(ui, b, |ui| preview(ui, s, v));
-    pane(ui, c, |ui| readouts(ui, s));
     ui.allocate_rect(full, Sense::hover());
 }
 
@@ -41,6 +45,7 @@ fn pane(ui: &mut Ui, rect: Rect, add: impl FnOnce(&mut Ui)) {
     widgets::card_frame(&t).show(&mut child, |ui| {
         ui.set_width(rect.width() - 2.0 * t.space.panel - 2.0);
         ui.set_min_height(rect.height() - 2.0 * t.space.panel - 2.0);
+        ui.set_max_height(rect.height() - 2.0 * t.space.panel - 2.0);
         ui.spacing_mut().item_spacing.y = t.space.stack;
         add(ui);
     });
@@ -65,7 +70,6 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
             Column::fixed(t.size.of(24.0)),
             Column::fill(),
             Column::fixed(t.size.of(108.0)),
-            Column::fixed(t.size.of(96.0)),
             Column::fixed(t.size.of(100.0)),
         ])
         .show(ui, |table| {
@@ -73,7 +77,6 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
                 h.text("#");
                 h.text("Name");
                 h.text("Kind");
-                h.text("Material");
                 h.text("Thickness");
             });
             for (i, e) in s.entries.iter_mut().enumerate() {
@@ -107,7 +110,6 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
                                 }
                             });
                     });
-                    row.ui(|ui| ui.add(widgets::text_field(&mut e.material).width(t.size.of(96.0))));
                     row.ui(|ui| kit::thickness(ui, e, 100.0));
                 });
                 if row.clicked() {
@@ -153,10 +155,12 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
     if let Some(i) = entry.filter(|i| !s.entries[*i].is_copper()) {
         let e = &mut s.entries[i];
         ui.horizontal(|ui| {
-            kit::muted(ui, format!("{}: Dk", e.name));
-            kit::number(ui, &mut e.dk, 64.0, "");
+            kit::muted(ui, "Material");
+            ui.add(widgets::text_field(&mut e.material).width(t.size.of(100.0)));
+            kit::muted(ui, "Dk");
+            kit::number(ui, &mut e.dk, 56.0, "");
             kit::muted(ui, "Df");
-            kit::number(ui, &mut e.df, 64.0, "");
+            kit::number(ui, &mut e.df, 56.0, "");
         });
     }
 
@@ -170,10 +174,10 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
     widgets::table("c-vias")
         .columns([
             Column::fill(),
-            Column::fixed(t.size.of(92.0)),
-            Column::fixed(t.size.of(92.0)),
-            Column::fixed(t.size.of(74.0)),
-            Column::fixed(t.size.of(74.0)),
+            Column::fixed(t.size.of(88.0)),
+            Column::fixed(t.size.of(88.0)),
+            Column::fixed(t.size.of(56.0)),
+            Column::fixed(t.size.of(56.0)),
         ])
         .show(ui, |table| {
             table.header(|h| {
@@ -193,14 +197,15 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
                 let class = via.class(coppers);
                 let row = table.row_with(look, |row| {
                     row.ui(|ui| {
-                        ui.add(widgets::text_field(&mut via.name).width(t.size.of(96.0)));
-                        kit::muted(ui, class);
+                        let width = ui.available_width();
+                        ui.add(widgets::text_field(&mut via.name).width(width))
+                            .on_hover_text(class);
                     });
                     for (which, end) in [("from", &mut via.from), ("to", &mut via.to)] {
                         row.ui(|ui| {
                             widgets::dropdown(("c-via", j, which), names[*end].clone())
-                                .width(t.size.of(92.0))
-                                .max_width(t.size.of(92.0))
+                                .width(t.size.of(88.0))
+                                .max_width(t.size.of(88.0))
                                 .show(ui, |ui| {
                                     for (n, name) in names.iter().enumerate() {
                                         widgets::choice_value(ui, end, n, name);
@@ -208,8 +213,8 @@ fn tables(ui: &mut Ui, s: &mut Stack) {
                                 });
                         });
                     }
-                    row.ui(|ui| kit::number(ui, &mut via.drill, 74.0, ""));
-                    row.ui(|ui| kit::number(ui, &mut via.pad, 74.0, ""));
+                    row.ui(|ui| kit::number(ui, &mut via.drill, 56.0, ""));
+                    row.ui(|ui| kit::number(ui, &mut via.pad, 56.0, ""));
                 });
                 if row.clicked() {
                     select = Some(Sel::Via(j));
@@ -250,10 +255,10 @@ fn preview(ui: &mut Ui, s: &mut Stack, v: &mut View) {
     let area = ui.available_rect_before_wrap();
     let painter = ui.painter_at(area);
     let to_scale = v.to_scale;
-    let labels = t.size.of(150.0);
-    let dim = 40.0;
-    let width = (area.width() - 2.0 * labels - dim).max(120.0);
-    let left = area.left() + labels + dim;
+    let labels = t.size.of(190.0);
+    let dim = t.size.of(96.0);
+    let width = (area.width() - labels - dim).max(120.0);
+    let left = area.left() + dim;
     let height = (area.height() - 2.0 * MASK - 70.0).max(100.0);
     let heights = kit::band_heights(s, height, to_scale);
     let rects = kit::band_rects(pos2(left, area.top() + 40.0 + MASK), width, &heights);
@@ -290,7 +295,7 @@ fn preview(ui: &mut Ui, s: &mut Stack, v: &mut View) {
         kit::paint_text(&painter, pos2(board.right() + 12.0, y), Align2::LEFT_CENTER, &t.ty.small, text, ink);
     }
     // The thickness, dimensioned on the left.
-    let x = left - dim / 2.0;
+    let x = left - 14.0;
     let line = Stroke::new(t.stroke.hairline, c.text.primary);
     painter.vline(x, board.y_range(), line);
     for y in [board.top(), board.bottom()] {
@@ -300,7 +305,7 @@ fn preview(ui: &mut Ui, s: &mut Stack, v: &mut View) {
     kit::paint_text(&painter, pos2(x - 8.0, board.center().y), Align2::RIGHT_CENTER, &t.ty.numeric, total, c.text.primary);
 
     let count = s.vias.len();
-    let pitch = (width * 0.8 / count as f32).clamp(24.0, 70.0);
+    let pitch = (width * 0.9 / count as f32).clamp(24.0, 120.0);
     let first = board.center().x - pitch * (count as f32 - 1.0) / 2.0;
     for j in 0..count {
         let x = first + pitch * j as f32;
@@ -309,7 +314,9 @@ fn preview(ui: &mut Ui, s: &mut Stack, v: &mut View) {
         barrel.paint(&painter, &t);
         let y = board.top() - MASK - 5.0 - if j % 2 == 1 { 14.0 } else { 0.0 };
         let ink = if s.sel == Sel::Via(j) { c.accent.text } else { c.text.muted };
-        kit::paint_text(&painter, pos2(x, y), Align2::CENTER_BOTTOM, &t.ty.small, &s.vias[j].name, ink);
+        let label = format!("{} · {}", s.vias[j].name, s.vias[j].class(s.coppers()));
+        let label = if pitch < 60.0 { s.vias[j].name.clone() } else { label };
+        kit::paint_text(&painter, pos2(x, y), Align2::CENTER_BOTTOM, &t.ty.small, label, ink);
         if hit.clicked() {
             select = Some(Sel::Via(j));
         }

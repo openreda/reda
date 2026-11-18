@@ -18,45 +18,58 @@ use crate::widgets;
 /// The grid's columns before the Via types: name and width at the default text size.
 const COLUMNS: [(&str, f32); 9] = [
     ("", 64.0),
-    ("#", 30.0),
-    ("Name", 130.0),
-    ("Kind", 112.0),
-    ("Material", 112.0),
-    ("Thickness", 104.0),
-    ("Dk", 60.0),
-    ("Df", 64.0),
-    ("Impedance", 190.0),
+    ("#", 26.0),
+    ("Name", 104.0),
+    ("Kind", 100.0),
+    ("Material", 92.0),
+    ("Thickness", 96.0),
+    ("Dk", 50.0),
+    ("Df", 54.0),
+    ("Impedance", 140.0),
 ];
-const VIA: f32 = 84.0;
-const GAP: f32 = 10.0;
+/// A Via type's column: they sit right beside the bands, before the numbers.
+const VIA: f32 = 54.0;
+const GAP: f32 = 8.0;
 /// The to-scale strip left of the grid.
 const SCALE: f32 = 18.0;
 
 pub fn show(ui: &mut Ui, s: &mut Stack, _v: &mut View) {
     let t = ui.tokens();
-    let c = &t.color;
     let pad = t.space.panel;
     let full = ui.available_rect_before_wrap().shrink(pad);
     let strip = Rect::from_min_size(full.min, vec2(full.width(), t.control_height()));
     toolbar(ui, s, strip);
+    let body = Rect::from_min_max(pos2(full.left(), strip.bottom() + pad), full.max);
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(body));
+    egui::ScrollArea::both()
+        .auto_shrink(false)
+        .show(&mut child, |ui| grid(ui, s));
+    ui.allocate_rect(full, Sense::hover());
+}
 
-    let row = t.control_height() + 8.0;
-    let origin = pos2(full.left() + SCALE + 14.0, strip.bottom() + pad);
-    // Column edges: the fixed columns, then one per Via type.
-    let mut x = origin.x;
-    let mut edges = Vec::new();
-    for (_, w) in COLUMNS {
-        let w = t.size.of(w);
+/// The grid itself, as tall and wide as it needs: the tab scrolls it.
+fn grid(ui: &mut Ui, s: &mut Stack) {
+    let t = ui.tokens();
+    let c = &t.color;
+    let start = ui.cursor().min;
+    let row = t.control_height() + 6.0;
+    let origin = pos2(start.x + SCALE + 14.0, start.y);
+    // Column edges: the band, one column per Via type, then the numbers.
+    let via_w = t.size.of(VIA);
+    let band_w = t.size.of(COLUMNS[0].1);
+    let via_x: Vec<f32> = (0..s.vias.len())
+        .map(|j| origin.x + band_w + GAP + (via_w + GAP) * j as f32)
+        .collect();
+    let mut x = via_x.last().map_or(origin.x + band_w, |x| x + via_w) + GAP * 2.0;
+    let mut edges = vec![(origin.x, band_w)];
+    for (_, w) in &COLUMNS[1..] {
+        let w = t.size.of(*w);
         edges.push((x, w));
         x += w + GAP;
     }
-    let via_x: Vec<f32> = (0..s.vias.len())
-        .map(|j| x + (t.size.of(VIA) + GAP) * j as f32)
-        .collect();
-    let via_w = t.size.of(VIA);
-    let right = via_x.last().map_or(x, |x| x + via_w);
+    let right = x - GAP;
     let col = |n: usize, y: f32| Rect::from_min_size(pos2(edges[n].0, y), vec2(edges[n].1, row));
-    let painter = ui.painter_at(full);
+    let painter = ui.painter().clone();
     let rule = Stroke::new(t.stroke.hairline, c.stroke.hairline);
 
     // Header.
@@ -80,7 +93,7 @@ pub fn show(ui: &mut Ui, s: &mut Stack, _v: &mut View) {
             select = Some(Sel::Via(j));
         }
     }
-    let add = Rect::from_min_size(pos2(right + GAP, y), vec2(t.size.of(110.0), row));
+    let add = Rect::from_min_size(pos2(right + GAP, y), vec2(t.size.of(100.0), row));
     if kit::cell(ui, add, |ui| ui.add(widgets::button("+ Via type").flat())).clicked() {
         s.add_via();
     }
@@ -215,26 +228,33 @@ pub fn show(ui: &mut Ui, s: &mut Stack, _v: &mut View) {
                 select = Some(Sel::Via(j));
             }
         }
+        // Each copper Layer runs on under the Via columns, so a barrel is seen to land.
+        for (i, strip) in strips.iter().enumerate() {
+            if s.entries[i].is_copper() {
+                let across = strip.x_range().expand(GAP / 2.0);
+                painter.hline(across, strip.center().y, Stroke::new(2.0, kit::COPPER.gamma_multiply(0.45)));
+            }
+        }
         kit::barrel(s, j, center, &strips, 7.0).paint(&painter, &t);
     }
 
     // Under the stack: each Via type's kind, drill and pad, then the totals.
     let class: Vec<&str> = s.vias.iter().map(|v| v.class(s.coppers())).collect();
-    for (label, k) in [("Via kind", 0), ("Drill", 1), ("Pad", 2)] {
-        let at = col(8, y).right_center();
+    for (label, k) in [("Via kind", 0), ("Drill, mm", 1), ("Pad, mm", 2)] {
+        let at = col(0, y).right_center();
         kit::paint_text(&painter, at, Align2::RIGHT_CENTER, &t.ty.small, label, c.text.muted);
         for (j, x) in via_x.iter().enumerate() {
             let r = Rect::from_min_size(pos2(*x, y), vec2(via_w, row));
             let via = &mut s.vias[j];
             match k {
                 0 => {
-                    kit::paint_text(&painter, r.center(), Align2::CENTER_CENTER, &t.ty.body, class[j], c.text.primary);
+                    kit::paint_text(&painter, r.center(), Align2::CENTER_CENTER, &t.ty.small, class[j], c.text.primary);
                 }
                 1 => {
-                    kit::cell(ui, r, |ui| kit::number(ui, &mut via.drill, VIA, "mm"));
+                    kit::cell(ui, r, |ui| kit::number(ui, &mut via.drill, VIA, ""));
                 }
                 _ => {
-                    kit::cell(ui, r, |ui| kit::number(ui, &mut via.pad, VIA, "mm"));
+                    kit::cell(ui, r, |ui| kit::number(ui, &mut via.pad, VIA, ""));
                 }
             }
         }
@@ -258,7 +278,7 @@ pub fn show(ui: &mut Ui, s: &mut Stack, _v: &mut View) {
     y += row;
 
     // The same stack to scale, in a strip left of the grid, tied to the rows.
-    let scale = Rect::from_min_max(pos2(full.left(), first_row), pos2(full.left() + SCALE, first_row + row * s.entries.len() as f32));
+    let scale = Rect::from_min_max(pos2(start.x, first_row), pos2(start.x + SCALE, first_row + row * s.entries.len() as f32));
     let heights = kit::band_heights(s, scale.height(), true);
     let bands = kit::band_rects(scale.min, SCALE, &heights);
     for (i, band) in bands.iter().enumerate() {
@@ -282,7 +302,8 @@ pub fn show(ui: &mut Ui, s: &mut Stack, _v: &mut View) {
     if let Some(sel) = select {
         s.sel = sel;
     }
-    ui.allocate_rect(full, Sense::hover());
+    let used = Rect::from_min_max(start, pos2(right + GAP + t.size.of(100.0), y + 30.0));
+    ui.allocate_rect(used, Sense::hover());
 }
 
 /// The strip over the grid: the sample, and what can be done to the selected row or
@@ -297,11 +318,11 @@ fn toolbar(ui: &mut Ui, s: &mut Stack, strip: Rect) {
         let copper = entry.and_then(|i| s.copper_number(i));
         let inner = copper.is_some_and(|n| n > 0 && n + 1 < s.coppers());
         let add = ui.add_enabled(entry.is_some(), widgets::button("Add Layer"));
-        let remove = ui.add_enabled(inner, widgets::button("Remove Layer"));
-        let up = ui.add_enabled(copper.is_some_and(|n| n > 0), widgets::button("Move up"));
+        let remove = ui.add_enabled(inner, widgets::button("Remove"));
+        let up = ui.add_enabled(copper.is_some_and(|n| n > 0), widgets::button("Up"));
         let down = ui.add_enabled(
             copper.is_some_and(|n| n + 1 < s.coppers()),
-            widgets::button("Move down"),
+            widgets::button("Down"),
         );
         if let Some(i) = entry {
             if add.clicked() {
@@ -333,10 +354,8 @@ fn toolbar(ui: &mut Ui, s: &mut Stack, strip: Rect) {
             s.remove_via(j);
         }
         widgets::bar_separator(ui);
-        kit::muted(ui, "Impedance at Track width");
-        kit::number(ui, &mut s.track, 84.0, "mm");
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            kit::symmetry(ui, s);
-        });
+        kit::muted(ui, "Track");
+        kit::number(ui, &mut s.track, 76.0, "mm");
+        kit::symmetry(ui, s);
     });
 }

@@ -20,8 +20,8 @@ use crate::theme::TokensExt as _;
 use crate::widgets;
 
 /// The names beside the board, and the numbers on the other side.
-const NAMES: f32 = 170.0;
-const NOTES: f32 = 270.0;
+const NAMES: f32 = 160.0;
+const NOTES: f32 = 200.0;
 /// Room over the board for the Via types' names, and under it for the notes.
 const HEADER: f32 = 48.0;
 const FOOTER: f32 = 44.0;
@@ -174,11 +174,9 @@ fn drawing(ui: &mut Ui, s: &mut Stack, v: &mut View, area: Rect) {
         }
         let e = &s.entries[i];
         let note = match (&e.kind, s.impedance(i)) {
-            (Kind::Copper { role }, Some(z)) => {
-                format!("{} · {} {} over {}", role.name(), z.text(), z.model.to_lowercase(), z.over)
-            }
+            (Kind::Copper { role }, Some(z)) => format!("{} · {}", role.name(), z.text()),
             (Kind::Copper { role: Role::Plane }, None) => "Plane".to_owned(),
-            (Kind::Copper { role }, None) => format!("{} · no reference plane", role.name()),
+            (Kind::Copper { role }, None) => format!("{} · no plane", role.name()),
             (Kind::Dielectric { .. }, _) => format!("Dk {}", e.dk),
         };
         let at = pos2(field.right() + 8.0, cy);
@@ -485,6 +483,6 @@ const WEIGHTS: [(&str, f64); 4] = [("0.5 oz", 17.5), ("1 oz", 35.0), ("2 oz", 70
 
 fn weight_name(um: f64) -> &'static str {
     (WEIGHTS.iter())
-        .find(|(_, w)| (w - um).abs() < 0.3)
+        .find(|(_, w)| (w - um).abs() < 3.0)
         .map_or("Custom", |(name, _)| name)
 }
