@@ -22,7 +22,7 @@ fn field_id() -> Id {
     Id::NULL.with("command-field-rect")
 }
 
-/// Notes where the top row drew the command field this frame, so the Palette opens in its
+/// Notes where the Title bar drew the command field this frame, so the Palette opens in its
 /// place.
 pub fn remember_command_field(ctx: &egui::Context, rect: Rect) {
     ctx.data_mut(|d| d.insert_temp(field_id(), rect));

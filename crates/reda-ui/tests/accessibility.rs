@@ -153,7 +153,7 @@ fn tab_moves_focus_through_the_window_in_layout_order() {
             .position(|l| l == label)
             .unwrap_or_else(|| panic!("{label} never took focus: {order:?}"))
     };
-    // Top row, left Dock, centre, right Dock, bottom Dock, status bar.
+    // Title bar, left Dock, centre, right Dock, bottom Dock, status bar.
     let sequence = [
         at("File"),
         at("Projects"),

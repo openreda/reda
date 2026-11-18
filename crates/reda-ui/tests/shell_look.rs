@@ -1,4 +1,4 @@
-//! The look of the window shell below the top row, checked on what a frame paints
+//! The look of the window shell below the Title bar, checked on what a frame paints
 //! (docs/spec/v0.1/design-language.md#tabs, #docks, #status-bar): tab groups as cards a
 //! card gap apart, the tab strip's height in both Densities, a collapsed Dock's strip, the
 //! status bar, the corner masks over a card that holds a canvas, the drop-target recipe
