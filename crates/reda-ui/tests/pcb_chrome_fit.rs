@@ -5,6 +5,9 @@
 //! Comfortable and Compact and in light and dark, and no text in it is cut short with an
 //! ellipsis, runs out of what holds it, or breaks over lines unless it is a sentence.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::Path;
 
 use egui::Rect;
@@ -69,6 +72,12 @@ fn window(theme: &str, density: &str) -> Window {
             .run("app.preferences.set", json!({"key": key, "value": value}))
             .unwrap();
     }
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "general.text_size", "value": text_size::get()}),
+        )
+        .unwrap();
     let net = shell.run("test.net.add", json!({"name": "SIG"})).unwrap()["result"]["uuid"].clone();
     for x in ["0mm", "10mm"] {
         shell
@@ -334,6 +343,21 @@ fn the_pcb_chrome_fits_its_text_in_both_densities_and_themes() {
         for density in ["comfortable", "compact"] {
             out.extend(screens(theme, density));
         }
+    }
+    assert!(out.is_empty(), "{}", out.join("\n"));
+}
+
+#[test]
+fn the_pcb_chrome_fits_its_text_at_the_ends_of_the_text_size_range() {
+    let mut out = Vec::new();
+    for (size, theme, density) in [
+        (text_size::SMALLEST, "light", "comfortable"),
+        (text_size::SMALLEST, "dark", "compact"),
+        (text_size::LARGEST, "dark", "comfortable"),
+        (text_size::LARGEST, "light", "compact"),
+    ] {
+        let found = text_size::at(size, || screens(theme, density));
+        out.extend(found.into_iter().map(|m| format!("{size} px: {m}")));
     }
     assert!(out.is_empty(), "{}", out.join("\n"));
 }

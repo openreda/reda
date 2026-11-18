@@ -577,7 +577,7 @@ Source for what follows: [What do PCB placement, text, dimensions, measuring and
 Source: [How is the app shell arranged?](https://github.com/openreda/reda/issues/140). It answers switching Layers with the Layers panel collapsed. A [Preference](app.md#preferences) picks one of two forms, and neither changes any output:
 
 - **Swatch** (default): a chip at the top right of the canvas with the active Layer's colour and name. Its dropdown lists the Layers copper first, each as a chip, and Layer sets. REDA's default, because it stays the same size however many Layers a board has, and the strip fills up from v0.2.
-- **Strip,** as in the leading suite: a 24 px row along the canvas bottom, with a Layer sets button and a chip per shown Layer, copper first. The [Tool's bar](app.md#window-shell) and the grid readout move up to clear it.
+- **Strip,** as in the leading suite: a row along the canvas bottom, 24 px at the default text size and growing with it, with a Layer sets button and a chip per shown Layer, copper first. Where the names do not all fit, every Layer chip shows its swatch alone and its name in its tooltip. The [Tool's bar](app.md#window-shell) and the grid readout move up to clear it.
 
 In either, a click on a chip activates the Layer, and `Mod`+click is the Layer chip gesture above. Applying a Layer set is `pcb.view.layer_set.apply`, and **Save current as** is `save`. The Layers panel adds a group eye per Layer kind and the set buttons. It shows no per-Layer key letters, as the leading suite's does, because REDA has no per-Layer keys.
 

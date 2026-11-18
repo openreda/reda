@@ -3,6 +3,9 @@
 //! with an ellipsis, none runs out of the page sideways, and no label breaks over lines.
 //! Sentences that are meant to wrap (a setting's description on All settings) may.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::Path;
 
 use egui::Rect;
@@ -22,6 +25,7 @@ fn harness(home: &Path, theme: &str, density: &str) -> Harness<'static, App> {
     let dirs = UserDirs::under(home);
     preferences::set(&dirs, "general.theme", json!(theme)).unwrap();
     preferences::set(&dirs, "general.density", json!(density)).unwrap();
+    preferences::set(&dirs, "general.text_size", json!(text_size::get())).unwrap();
     // A changed setting, so a page has its count and a row its reset dot.
     preferences::set(&dirs, "user.name", json!("REDA Author")).unwrap();
     preferences::set(&dirs, "libraries.paths", json!(["/libs/a-user-library"])).unwrap();
@@ -166,8 +170,10 @@ fn check(theme: &str, density: &str) {
             seen += 1;
         }
     }
+    // At the smallest text size fewer pages are longer than the window.
+    let longer = if text_size::get() < 13 { 1 } else { 3 };
     assert!(
-        seen > 3,
+        seen > longer,
         "the pages longer than the window were not scrolled"
     );
     // The search results, which gather rows from every page.
@@ -188,7 +194,8 @@ fn check(theme: &str, density: &str) {
     }
     assert!(
         wrong.is_empty(),
-        "{theme} {density}: text does not fit:\n{}",
+        "{theme} {density} {} px: text does not fit:\n{}",
+        text_size::get(),
         wrong.join("\n")
     );
 }
@@ -211,4 +218,24 @@ fn every_page_fits_its_text_in_light_comfortable() {
 #[test]
 fn every_page_fits_its_text_in_light_compact() {
     check("light", "compact");
+}
+
+#[test]
+fn every_page_fits_its_text_in_light_comfortable_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check("light", "comfortable"));
+}
+
+#[test]
+fn every_page_fits_its_text_in_dark_compact_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check("dark", "compact"));
+}
+
+#[test]
+fn every_page_fits_its_text_in_dark_comfortable_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check("dark", "comfortable"));
+}
+
+#[test]
+fn every_page_fits_its_text_in_light_compact_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check("light", "compact"));
 }

@@ -99,7 +99,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
 - **Window controls:**
   - On macOS, the native traffic lights at the left. The quick strip starts after them.
   - On Windows and Linux, one REDA-drawn set at the right: minimise, maximise or restore, and close. It does not follow GNOME's button-layout setting.
-- **Dragging:** every empty stretch drags the window. A double-click maximises or restores. A right-click opens the system menu where the platform offers one.
+- **Dragging:** every empty stretch drags the window; a drag that starts on a menu title, a button or the command field does not. A double-click maximises or restores; on macOS it does what System Settings asks (zoom, minimise or nothing). A right-click opens the system menu where the platform offers one.
 - **Narrow windows:**
   - A drag gap is always kept beside the window controls.
   - The command field shrinks to a minimum, then becomes an icon button.
@@ -109,7 +109,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
 - **States:**
   - **Maximised:** square window corners, and edge resizing off.
   - **Tiled:** as maximised on Windows, where the state is known. On Wayland the corners stay round.
-  - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide and, on macOS, the traffic-light inset closes up.
+  - **Full screen:** v0.1 has no full-screen Command. If the OS puts the window in full screen, the bar stays, the window controls hide, the bar no longer drags or resizes the window and, on macOS, the traffic-light inset closes up.
   - **Inactive window:** the bar's text and window controls go muted.
 - **Edge resizing:** on Windows and Wayland an undecorated window has no resize borders, so REDA adds an invisible hit strip inside the window edge: 6 px along the edges and 12 px at the corners. It is off while the window is maximised.
 - **Use the system title bar** is a [Preference](#preferences), off by default, applied on restart.
@@ -122,6 +122,7 @@ Sources: [Does REDA draw its own title bar, and what goes in it?](https://github
   - Windows: the window corners are the ones Windows 11 draws, at its own radius, and square on Windows 10. A transparent window could take the window radius, but wgpu presents an opaque surface on a Windows window handle, so REDA leaves the window opaque and the corners to the system, which also squares them when maximised or snapped.
   - GNOME: a 1 px rim in place of a window shadow, and corners that stay round when tiled.
   - macOS: floating windows keep AppKit's default traffic-light position.
+  - Floating windows: the right-click system menu is reached from the main window only, because eframe gives no handle on a floating window's OS window.
 
 ### Command Palette
 
@@ -516,7 +517,7 @@ Sources: [What per-user state does REDA keep, and where?](https://github.com/ope
       - The reads need no `unsafe`: `objc2-app-kit` on macOS, the `windows` crate's `UISettings` on Windows, and the settings portal over `zbus` on Linux. All three are already in `Cargo.lock`.
     - **Use the system title bar** ([Title bar](#title-bar)) is a check box because it does not apply at once.
       - After a change, a caption appears under it: "Applies the next time REDA starts." There is no Restart button.
-      - Under sway and Hyprland the box is shown ticked and disabled, with the caption "Your desktop draws the title bar for every window." The stored value is left alone, so it is right again on another desktop.
+      - Under sway, Hyprland and X11 the box is shown ticked and disabled, with the caption "Your desktop draws the title bar for every window." The stored value is left alone, so it is right again on another desktop.
   - **Window & Layouts:** the default Saved Layout; Reset Layout; rename and delete Saved Layouts.
   - **Editing,** from [shared editing](editing.md), each with a value per Document type where it differs:
     - default units mm/mil (mm), and display precision: mm (3 decimals), mil (1)

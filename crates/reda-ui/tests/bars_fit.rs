@@ -6,6 +6,9 @@
 //! menu, every main menu, the canvas's context menu, the Palette on its Documents, its
 //! Commands and its prefixes, and the Keys in Tool card.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::{Path, PathBuf};
 
 use egui::accesskit::Role;
@@ -67,6 +70,7 @@ fn window(dark: bool, density: Density, grouped: bool) -> (Harness<'static, App>
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     let settings = Settings {
         density,
+        text_size: text_size::get(),
         ..Settings::default()
     };
     theme::set(&h.ctx, &settings);
@@ -262,7 +266,8 @@ fn check(dark: bool, density: Density) {
     let theme = if dark { "dark" } else { "light" };
     assert!(
         wrong.is_empty(),
-        "{theme} {density:?}: text does not fit:\n{}",
+        "{theme} {density:?} {} px: text does not fit:\n{}",
+        text_size::get(),
         wrong.join("\n")
     );
 }
@@ -285,4 +290,24 @@ fn the_palette_menus_and_bars_fit_their_text_in_light_comfortable() {
 #[test]
 fn the_palette_menus_and_bars_fit_their_text_in_light_compact() {
     check(false, Density::Compact);
+}
+
+#[test]
+fn the_palette_menus_and_bars_fit_their_text_in_light_comfortable_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(false, Density::Comfortable));
+}
+
+#[test]
+fn the_palette_menus_and_bars_fit_their_text_in_dark_compact_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(true, Density::Compact));
+}
+
+#[test]
+fn the_palette_menus_and_bars_fit_their_text_in_dark_comfortable_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(true, Density::Comfortable));
+}
+
+#[test]
+fn the_palette_menus_and_bars_fit_their_text_in_light_compact_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(false, Density::Compact));
 }

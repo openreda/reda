@@ -4,6 +4,9 @@
 //! and dark, no text is cut short with an ellipsis, none runs out of its page sideways,
 //! and no label breaks over lines. Sentences that are meant to wrap (a page's notes) may.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::{Path, PathBuf};
 
 use egui::Rect;
@@ -98,6 +101,7 @@ fn harness(
     );
     let settings = Settings {
         density,
+        text_size: text_size::get(),
         ..Settings::default()
     };
     theme::set(&h.ctx, &settings);
@@ -315,7 +319,8 @@ fn check(dark: bool, density: Density) {
     let theme = if dark { "dark" } else { "light" };
     assert!(
         wrong.is_empty(),
-        "{theme} {density:?}: text does not fit:\n{}",
+        "{theme} {density:?} {} px: text does not fit:\n{}",
+        text_size::get(),
         wrong.join("\n")
     );
 }
@@ -338,4 +343,24 @@ fn every_settings_page_fits_its_text_in_light_comfortable() {
 #[test]
 fn every_settings_page_fits_its_text_in_light_compact() {
     check(false, Density::Compact);
+}
+
+#[test]
+fn every_settings_page_fits_its_text_in_light_comfortable_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(false, Density::Comfortable));
+}
+
+#[test]
+fn every_settings_page_fits_its_text_in_dark_compact_at_the_smallest_text_size() {
+    text_size::at(text_size::SMALLEST, || check(true, Density::Compact));
+}
+
+#[test]
+fn every_settings_page_fits_its_text_in_dark_comfortable_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(true, Density::Comfortable));
+}
+
+#[test]
+fn every_settings_page_fits_its_text_in_light_compact_at_the_largest_text_size() {
+    text_size::at(text_size::LARGEST, || check(false, Density::Compact));
 }

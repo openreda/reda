@@ -419,6 +419,46 @@ pub struct StrokeWidth {
     pub focus_ring: f32,
 }
 
+/// Widths that follow the text size, and never Density: fields, dialog columns and the
+/// Docks' opening widths. Each is given at the default text size and grows with the body
+/// text above it, so text that fits at 13 px fits at 16. Below the default they keep their
+/// 13 px width: icons, marks and paddings do not shrink with the text, so a narrower
+/// column would cut what fits at 13 px.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Size {
+    /// The body size over the default one, and never below 1: what a width given at
+    /// 13 px is multiplied by.
+    pub scale: f32,
+    /// The width a side Dock opens at before the user drags it.
+    pub dock: f32,
+    /// A text field's width when it is given none.
+    pub field: f32,
+}
+
+impl Size {
+    /// The widths for text whose body is `body` px.
+    fn at(body: f32) -> Size {
+        let scale = (body / f32::from(Settings::DEFAULT_TEXT_SIZE)).max(1.0);
+        let of = |width: f32| (width * scale).round();
+        Size {
+            scale,
+            dock: of(SIDE_DOCK),
+            field: of(FIELD),
+        }
+    }
+
+    /// A width given at the default text size, at this one, on a whole pixel.
+    pub fn of(&self, at_default: f32) -> f32 {
+        (at_default * self.scale).round()
+    }
+}
+
+/// A side Dock's opening width at the default text size: the Library Panel's three
+/// buttons, the Properties values and the navigator's columns need about 250 px inside it.
+const SIDE_DOCK: f32 = 288.0;
+/// A text field's default width at the default text size.
+const FIELD: f32 = 280.0;
+
 /// Icon sizes. Only UI scale changes them.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct IconSize {
@@ -505,6 +545,7 @@ pub struct Tokens {
     pub radius: Radius,
     pub stroke: StrokeWidth,
     pub icon: IconSize,
+    pub size: Size,
     pub opacity: Opacity,
     pub motion: Motion,
 }
@@ -768,6 +809,7 @@ impl Tokens {
                 small: 16.0,
                 bar: 20.0,
             },
+            size: Size::at(body),
             opacity: Opacity { disabled: 0.45 },
             motion: motion(settings.animate.unwrap_or(true)),
         }

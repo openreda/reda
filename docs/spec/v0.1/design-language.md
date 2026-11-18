@@ -2,7 +2,7 @@
 
 How REDA's application chrome looks: colour, type, spacing, radius, elevation, motion and the recipe of each component, in light and dark and in two Densities. Behaviour and structure (what a tab does, what the Title bar holds, which Preferences exist) are in [`app.md`](app.md). Crate: `reda-ui`, modules `theme` and `widgets`.
 
-This file describes the target look. It was written ahead of the build, so `reda-ui` on main may still draw the earlier slate theme until the restyle slices land.
+This file describes the look `reda-ui` draws. It was written ahead of the build, and the build's slices brought the two in step; the images under [Images](#images) are drawn by the tests.
 
 Sources, all tickets of the [theme baseline map](https://github.com/openreda/reda/issues/266): [Which visual direction does the chrome take?](https://github.com/openreda/reda/issues/272), [Where does colour carry meaning in the chrome?](https://github.com/openreda/reda/issues/273), [What does Density change, and how is it chosen?](https://github.com/openreda/reda/issues/271), [How are the chrome's text size and typeface chosen?](https://github.com/openreda/reda/issues/277), [How are theme tokens structured and enforced in reda-ui?](https://github.com/openreda/reda/issues/275) and [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-and-reda-widgets.md), [What does each component look like in the chosen direction?](https://github.com/openreda/reda/issues/276), [Which transitions does the chrome animate, and with which timing?](https://github.com/openreda/reda/issues/282), [Do icons change under the new theme, and do the hand-painted glyphs become icons?](https://github.com/openreda/reda/issues/283), [Does REDA draw its own title bar, and what goes in it?](https://github.com/openreda/reda/issues/274) and [ADR-0014](../../adr/0014-reda-draws-its-own-title-bar.md), [Where does the design-language spec live, and what does it replace?](https://github.com/openreda/reda/issues/285). Where two of them disagree, the later resolution wins, and this file follows it.
 
@@ -50,7 +50,7 @@ Settled in [ADR-0015](../../adr/0015-chrome-styling-goes-through-theme-tokens-an
   | `elevation` | light/dark | card, popup, window |
   | `space` | Density | 13 paddings and gaps, two hand-picked values each |
   | `type` | text size and typeface Preferences | small, body, body_strong, title, heading, mono, numeric, numeric_small |
-  | `size` | text size | field, dialog and Dock column widths |
+  | `size` | text size | scale, dock, field; every other field, dialog and Dock column width is a constant at 13 px read through `size.of(..)` |
   | `radius`, stroke widths, icon sizes, `opacity.disabled` | fixed | |
   | `motion` | fixed | fast, base |
 
@@ -399,7 +399,7 @@ What the Title bar holds and how it behaves is in [app.md](app.md#window-shell) 
 - **Quick strip:** 20 px Icon buttons of the control height, 2 px apart.
 - **Menus:** flat buttons in body text.
 - **Command field:** a filled control centred in the window, up to 420 px wide and at least 180 px, with the search glass Glyph in muted text and its key in small muted text when there is room. At rest it shows "Project name — active Document" in body text; with no Project open it shows "Search commands" in muted text. Where it cannot be centred it moves aside before it shrinks.
-- **Window controls** (Windows and Linux): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
+- **Window controls** (Windows and Wayland): minimise, maximise or restore, and close. Each is 46 px wide and the full height of the bar, flat, with a 1.5 px Glyph. Hover is `fill.hover`, except close, whose hover is `color.close_hover` with a white Glyph.
 - **macOS:** the native traffic lights at the left, vertically centred. The quick strip starts after their 78 px inset.
 - **Narrow windows:** a drag gap of at least 48 px is kept beside the window controls while the bar drags the window; with the system title bar the gear keeps only the bar's 6 px padding. The command field shrinks to its minimum, then becomes an icon button. Then the menus collapse into a single menu button, and the field comes back when that frees the room.
 - **Inactive window:** text and window-control Glyphs go muted.
@@ -435,7 +435,7 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
 
 ## Enforcement and tests
 
-- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets, files not yet converted) are in `lists.rs` there.
+- **A source scan.** A test in `reda-ui` reads every `.rs` file under `crates/reda-ui/src` as text. It is written in-house, with no new dependency and no clippy configuration. It lives in `crates/reda-ui/tests/source_scan/`, and its lists (exempt modules, stock widgets) are in `lists.rs` there.
   - **Banned outside the exempt modules:**
     - colours: `Color32::from_*` and named constants, `gamma_multiply`, `linear_multiply`, hex literals;
     - egui style access: `ui.visuals()`, `ui.spacing()`, `ui.style()` and their `_mut` forms, `ctx.set_style*`, `set_visuals*`;
@@ -444,11 +444,13 @@ The rules are a table beside the tokens: foreground, ground and required ratio. 
   - **Allowed everywhere:** zero (`Color32::TRANSPARENT` counts as zero), and arithmetic on token values.
   - **Exempt modules:** `theme/`, `widgets/` and the on-canvas drawing modules, listed by path in the test.
   - **Marker:** `// theme-exempt: <reason>` exempts the next line. A marker with no reason fails, and the test prints the total.
-  - **During the migration** the test carries a list of files not yet converted. A listed file is skipped, an unlisted file must be clean, and a clean file still on the list fails. New files are never listed.
+  - **Every file is converted.** The migration's list of files not yet converted is gone: every file the scan reads must be clean.
   - The scan works on text, so an alias or a macro can defeat it. It is there to stop accidents.
 - **The contrast test,** as above.
 - **The widget gallery.** A test-only gallery draws every REDA widget in every state (rest, hover, press, focus, disabled, selected, invalid) and the Glyph set, in the four variants, and is snapshotted.
-- **Whole-screen snapshots** stay in dark Comfortable only, and are rebaselined slice by slice.
+- **Whole-screen snapshots** are in dark Comfortable, and are drawn in a 1280 × 800 window, where two side Docks at their opening width leave the canvas and the editors room for what each scene shows. A scene whose look turns on the theme or the Density adds a light or Compact image: the Start page, the Dock flyout, the icons, the Appearance page (drawn at its own 1100 × 820) and the windows REDA decorates. The whole-app screen of [Images](#images) is in all four variants.
+- **Fit tests.** One per area of the window (`crates/reda-ui/tests/*_fit.rs`, and `panel_sheets.rs` for the Panels, their Docks and the status bar) drives its screens in light and dark, Comfortable and Compact, at the default text size and at both ends of the range, and fails on text cut short with an ellipsis, text that runs out of its clip, and a label broken over lines.
+- **Font coverage.** `crates/reda-ui/tests/font_coverage.rs` fails when the message catalogue, a Command's or a Preference's text, or a string literal of a crate whose messages reach the window holds a character the bundled faces lack.
 
 ## Values
 
@@ -554,6 +556,19 @@ B is the body size from `general.text_size` (default 13). Line height is `2 * fl
 | 15 | 13 / 20 | 15 / 22 | 18 / 28 | 14 / 22 | 32 / 28 |
 | 16 | 14 / 22 | 16 / 24 | 19 / 28 | 15 / 24 | 34 / 30 |
 
+### Size values
+
+Widths that follow the text size and never Density. Each is given at B = 13 and scaled by B / 13 above it (`size.of(..)` in code), on whole pixels. Below 13 they keep their 13 px width, since icons, marks and paddings do not shrink.
+
+| B | Scale | `size.dock` | `size.field` |
+|---|---|---|---|
+| 11 | 1.00 | 288 | 280 |
+| 12 | 1.00 | 288 | 280 |
+| 13 | 1.00 | 288 | 280 |
+| 14 | 1.08 | 310 | 302 |
+| 15 | 1.15 | 332 | 323 |
+| 16 | 1.23 | 354 | 345 |
+
 ### Fixed values
 
 | Token | Value |
@@ -634,19 +649,95 @@ Offset x / y, blur, colour. Spread is zero.
 
 ## Images
 
-The spec embeds only images that tests produce: the seven gallery pages in the four variants, and one whole-app screen per variant. Until the build lands those snapshots, the pages below link to the images on the [`prototype/component-recipes`](https://github.com/openreda/reda/tree/prototype/component-recipes/docs/prototype/component-recipes) branch, which is never merged. No image is copied into `docs/`.
+The spec embeds only images that tests produce: the widget gallery's pages and one whole-app screen, each in the four variants, and the windows REDA decorates on Wayland and Windows. They are the snapshots in `crates/reda-ui/tests/snapshots/`, compared in CI, so they change only when a slice rebaselines them; no image is copied into `docs/`.
 
-| Gallery page | Light | Dark |
-|---|---|---|
-| 1 · Controls | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/01-controls-dark-compact.png) |
-| 2 · Menus and popups | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/02-popups-dark-compact.png) |
-| 3 · Window: Title bar, tabs, Docks, status bar | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/03-window-dark-compact.png) |
-| 4 · Panels and data | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/04-panels-dark-compact.png) |
-| 5 · Dialogs | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/05-dialogs-dark-compact.png) |
-| 6 · Colour | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/06-colour-dark-compact.png) |
-| 7 · Type, text size and typeface | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-light-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-light-compact.png) | [Comfortable](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-dark-comfortable.png) · [Compact](https://github.com/openreda/reda/blob/prototype/component-recipes/docs/prototype/component-recipes/07-type-dark-compact.png) |
+- The gallery is `crates/reda-ui/tests/widget_gallery/`, one file per page (`gallery_<page>_<theme>_<density>.png`).
+- The whole-app screens are drawn by `crates/reda-ui/tests/app.rs` (`whole_app_<theme>_<density>.png`) in the window every whole-screen snapshot uses, 1280 × 800. They draw the Title bar as under the system title bar, with no window controls, so they look the same on every platform.
+- The decorated windows are drawn by the same file (`title_bar_wayland_*.png`, `title_bar_windows_*.png`) with each platform's chrome. The test harness keeps an 8 px margin inside the window's rim; a real window has none.
+- Motion cannot be shown in stills. Run REDA with Animate on (Preferences ▸ Appearance); `crates/reda-ui/tests/motion.rs` checks the timings.
 
-- The same folder holds the ends of the text-size range (`text11-*`, `text16-*`) and two regular-only faces (`face-*`).
-- The prototype's gallery shows Hack as the monospace face. The locked face, JetBrains Mono, was not drawn.
-- Motion cannot be shown in stills. Run the [`prototype/motion`](https://github.com/openreda/reda/tree/prototype/motion) branch (`cargo run -p reda-app`, then F10) and pick the Crisp profile.
-- Whole-app screens come with the build's whole-screen snapshots. Until then, page 3 is the closest.
+### The whole app
+
+| Light | Dark |
+|---|---|
+| ![The whole app, light, Comfortable](../../../crates/reda-ui/tests/snapshots/whole_app_light_comfortable.png) | ![The whole app, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/whole_app_dark_comfortable.png) |
+| ![The whole app, light, Compact](../../../crates/reda-ui/tests/snapshots/whole_app_light_compact.png) | ![The whole app, dark, Compact](../../../crates/reda-ui/tests/snapshots/whole_app_dark_compact.png) |
+
+### Controls
+
+Buttons, fields, dropdowns, check box, radio, switch, slider, progress, segmented control, stepper, the Glyph set.
+
+| Light | Dark |
+|---|---|
+| ![Controls, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_controls_light_comfortable.png) | ![Controls, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_controls_dark_comfortable.png) |
+| ![Controls, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_controls_light_compact.png) | ![Controls, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_controls_dark_compact.png) |
+
+### Menus and popups
+
+Menus, tooltips, the dialog frame, cards, the Dock flyout.
+
+| Light | Dark |
+|---|---|
+| ![Menus and popups, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_popups_light_comfortable.png) | ![Menus and popups, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_popups_dark_comfortable.png) |
+| ![Menus and popups, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_popups_light_compact.png) | ![Menus and popups, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_popups_dark_compact.png) |
+
+### Lists, trees and tables
+
+Rows, section headers, form rows, status marks, swatches, badges.
+
+| Light | Dark |
+|---|---|
+| ![Lists, trees and tables, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_data_light_comfortable.png) | ![Lists, trees and tables, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_data_dark_comfortable.png) |
+| ![Lists, trees and tables, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_data_light_compact.png) | ![Lists, trees and tables, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_data_dark_compact.png) |
+
+### The window
+
+Tabs, a tab group's card, the status bar, a dragged tab.
+
+| Light | Dark |
+|---|---|
+| ![The window, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_shell_light_comfortable.png) | ![The window, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_shell_dark_comfortable.png) |
+| ![The window, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_shell_light_compact.png) | ![The window, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_shell_dark_compact.png) |
+
+### The Title bar
+
+Window controls, the command field, a floating window's slim bar.
+
+| Light | Dark |
+|---|---|
+| ![The Title bar, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_comfortable.png) | ![The Title bar, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_comfortable.png) |
+| ![The Title bar, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_light_compact.png) | ![The Title bar, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_title_bar_dark_compact.png) |
+
+The main window as REDA decorates it: on Wayland, with round corners and the rim; on Windows, square, with the system rounding the window.
+
+| Light | Dark |
+|---|---|
+| ![The window on Wayland, light, Compact](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_light_compact.png) | ![The window on Wayland, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_wayland_dark_comfortable.png) |
+| ![The window on Windows, light, Compact, maximised](../../../crates/reda-ui/tests/snapshots/title_bar_windows_light_compact_maximised.png) | ![The window on Windows, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/title_bar_windows_dark_comfortable.png) |
+
+### Bars on the canvas
+
+The Active Bar, the Command Palette, the keys card.
+
+| Light | Dark |
+|---|---|
+| ![Bars on the canvas, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_bars_light_comfortable.png) | ![Bars on the canvas, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_bars_dark_comfortable.png) |
+| ![Bars on the canvas, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_bars_light_compact.png) | ![Bars on the canvas, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_bars_dark_compact.png) |
+
+### Canvas chrome
+
+Layer chips, the Layer swatch, the Layer strip.
+
+| Light | Dark |
+|---|---|
+| ![Canvas chrome, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_comfortable.png) | ![Canvas chrome, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_comfortable.png) |
+| ![Canvas chrome, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_light_compact.png) | ![Canvas chrome, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_canvas_chrome_dark_compact.png) |
+
+### Text to read
+
+The read-only text view.
+
+| Light | Dark |
+|---|---|
+| ![Text to read, light, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_text_view_light_comfortable.png) | ![Text to read, dark, Comfortable](../../../crates/reda-ui/tests/snapshots/gallery_text_view_dark_comfortable.png) |
+| ![Text to read, light, Compact](../../../crates/reda-ui/tests/snapshots/gallery_text_view_light_compact.png) | ![Text to read, dark, Compact](../../../crates/reda-ui/tests/snapshots/gallery_text_view_dark_compact.png) |

@@ -26,8 +26,8 @@ use reda_engine::preferences::{self, Preferences};
 pub use style::style;
 pub use tokens::{
     Colors, Density, Easing, Elevation, Families, Fill, IconColor, IconSize, Motion, Opacity,
-    Radius, Settings, Space, StrokeColor, StrokeWidth, Surface, Text, TextColor, Tokens, Tone,
-    Transition, Type,
+    Radius, Settings, Size, Space, StrokeColor, StrokeWidth, Surface, Text, TextColor, Tokens,
+    Tone, Transition, Type,
 };
 
 /// The six role colours as the icon SVG files write them, in the order of

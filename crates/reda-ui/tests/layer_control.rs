@@ -228,12 +228,18 @@ fn the_strip_runs_along_the_bottom_with_a_chip_per_shown_layer_and_layer_sets() 
 
 #[test]
 fn tool_bars_sit_36_px_above_the_canvas_bottom_and_24_px_more_with_the_strip() {
-    use reda_ui::bars::draw::{grid_readout_anchor, tool_bar_anchor};
+    use reda_ui::bars::draw::{LAYER_STRIP_HEIGHT, grid_readout_anchor, tool_bar_anchor};
     let canvas = egui::Rect::from_min_max(egui::pos2(100.0, 50.0), egui::pos2(900.0, 650.0));
-    assert_eq!(tool_bar_anchor(canvas, false), egui::pos2(500.0, 614.0));
-    assert_eq!(tool_bar_anchor(canvas, true), egui::pos2(500.0, 590.0));
-    assert_eq!(grid_readout_anchor(canvas, false), egui::pos2(108.0, 642.0));
-    assert_eq!(grid_readout_anchor(canvas, true), egui::pos2(108.0, 618.0));
+    assert_eq!(tool_bar_anchor(canvas, 0.0), egui::pos2(500.0, 614.0));
+    assert_eq!(
+        tool_bar_anchor(canvas, LAYER_STRIP_HEIGHT),
+        egui::pos2(500.0, 590.0)
+    );
+    assert_eq!(grid_readout_anchor(canvas, 0.0), egui::pos2(108.0, 642.0));
+    assert_eq!(
+        grid_readout_anchor(canvas, LAYER_STRIP_HEIGHT),
+        egui::pos2(108.0, 618.0)
+    );
 }
 
 /// Types `name` into the open Save Layer Set dialog and saves it.

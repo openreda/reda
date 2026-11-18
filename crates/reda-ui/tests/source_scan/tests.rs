@@ -25,7 +25,6 @@ fn files(files: &[(&str, &str)]) -> Vec<(String, String)> {
 
 const NO_LISTS: Lists = Lists {
     exempt: &[],
-    unconverted: &[],
     stock_widgets: &[],
 };
 
@@ -474,77 +473,4 @@ fn an_exempt_module_is_not_read() {
             "crates/reda-ui/src/canvas/markers/extra.rs:1: named colour `Color32::WHITE`"
         ]
     );
-}
-
-#[test]
-fn a_listed_file_is_skipped_and_an_unlisted_file_must_be_clean() {
-    let dirty = "let c = Color32::WHITE;";
-    let lists = Lists {
-        unconverted: &["old.rs"],
-        ..NO_LISTS
-    };
-    let report = check(&files(&[("new.rs", dirty), ("old.rs", dirty)]), &lists);
-    assert_eq!(
-        report.failures,
-        ["crates/reda-ui/src/new.rs:1: named colour `Color32::WHITE`"]
-    );
-}
-
-#[test]
-fn a_clean_file_still_on_the_list_fails() {
-    let lists = Lists {
-        unconverted: &["done.rs"],
-        ..NO_LISTS
-    };
-    let report = check(&files(&[("done.rs", "let gap = t.space.gap;")]), &lists);
-    assert_eq!(
-        report.failures,
-        ["crates/reda-ui/src/done.rs: is clean, so take it off the unconverted list"]
-    );
-}
-
-#[test]
-fn the_unconverted_list_names_only_files_that_exist_and_are_scanned() {
-    let dirty = "let c = Color32::WHITE;";
-    let lists = Lists {
-        exempt: &["theme/"],
-        unconverted: &["gone.rs", "theme/style.rs"],
-        ..NO_LISTS
-    };
-    let report = check(&files(&[("theme/style.rs", dirty)]), &lists);
-    assert_eq!(
-        report.failures,
-        [
-            "crates/reda-ui/src/gone.rs: is on the unconverted list, but there is no such file",
-            "crates/reda-ui/src/theme/style.rs: is exempt, so it does not belong on the unconverted list",
-        ]
-    );
-}
-
-#[test]
-fn the_unconverted_list_is_sorted_with_no_file_twice() {
-    let dirty = "let c = Color32::WHITE;";
-    let sorted = "the unconverted list must be sorted, with no file twice";
-    for unconverted in [&["b.rs", "a.rs"], &["a.rs", "a.rs"]] {
-        let report = check(
-            &files(&[("a.rs", dirty), ("b.rs", dirty)]),
-            &Lists {
-                unconverted,
-                ..NO_LISTS
-            },
-        );
-        assert_eq!(
-            report.failures.first().map(String::as_str),
-            Some(sorted),
-            "{unconverted:?}"
-        );
-    }
-    let report = check(
-        &files(&[("a.rs", dirty), ("b.rs", dirty)]),
-        &Lists {
-            unconverted: &["a.rs", "b.rs"],
-            ..NO_LISTS
-        },
-    );
-    assert!(report.failures.is_empty(), "{:?}", report.failures);
 }

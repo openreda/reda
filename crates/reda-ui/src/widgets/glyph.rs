@@ -59,11 +59,14 @@ pub enum Glyph {
     Snap,
     /// Copy to the clipboard: one sheet over another.
     Copy,
+    /// A group of Tools behind one Active Bar button: a small filled triangle in the
+    /// bottom-right corner of the box, painted over the button's corner.
+    Corner,
 }
 
 impl Glyph {
     /// Every Glyph with its name, in the order the gallery shows them.
-    pub const ALL: [(Glyph, &'static str); 22] = [
+    pub const ALL: [(Glyph, &'static str); 23] = [
         (Glyph::ChevronDown, "chevron down"),
         (Glyph::ChevronUp, "chevron up"),
         (Glyph::ChevronRight, "chevron right"),
@@ -86,6 +89,7 @@ impl Glyph {
         (Glyph::SortDown, "sort descending"),
         (Glyph::Snap, "snap"),
         (Glyph::Copy, "copy"),
+        (Glyph::Corner, "group corner"),
     ];
 
     /// Paints the Glyph with its box centred on `center`, in `color`.
@@ -185,6 +189,10 @@ impl Glyph {
                 let front = Rect::from_min_max(at((5.5, 5.5)), at((13.5, 13.5)));
                 painter.rect_stroke(front, SHEET_CORNER, pen, egui::StrokeKind::Middle);
                 open(&[(2.5, 10.0), (2.5, 2.5), (10.0, 2.5)]);
+            }
+            Glyph::Corner => {
+                let points = [(13.0, 13.0), (13.0, 7.0), (7.0, 13.0)].map(at).to_vec();
+                painter.add(Shape::convex_polygon(points, color, Stroke::NONE));
             }
             Glyph::Snap => {
                 for x in [2.5, 8.0, 13.5] {

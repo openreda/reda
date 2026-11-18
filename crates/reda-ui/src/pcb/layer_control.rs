@@ -4,9 +4,11 @@
 //! - **Swatch** (default): a [`widgets::chip`] on the floating surface at the canvas's top
 //!   right with the active Layer's swatch and name. Its menu lists the Layers copper
 //!   first, each as a row with its swatch, then the Layer sets and **Save current as…**.
-//! - **Strip:** a 24 px [`widgets::chip_strip`] along the canvas bottom with a Layer sets
-//!   chip and a chip per shown Layer, copper first. The Tool's bar and the grid readout move up to clear
-//!   it ([`crate::bars::draw::bottom_inset`]).
+//! - **Strip:** a [`widgets::chip_strip`] along the canvas bottom, 24 px at the default
+//!   text size ([`crate::bars::draw::layer_strip_height`]), with a Layer sets chip and a
+//!   chip per shown Layer, copper first. Where the names do not all fit, every Layer chip
+//!   shows its swatch alone, its name in its tooltip. The Tool's bar and the grid readout
+//!   move up to clear it ([`strip_inset`]).
 //!
 //! In either, a click on a chip activates the Layer (`pcb.layer.activate`) and `Mod`+click
 //! highlights its content (`pcb.layer.highlight`). Drawing only: each click is a Command
@@ -32,6 +34,16 @@ pub type Invocation = (String, Value);
 const NARROW_CANVAS: f32 = 600.0;
 /// How far the swatch sits from the canvas's right edge.
 const SWATCH_INSET: f32 = 8.0;
+
+/// How much the Layer strip takes from the board canvas's bottom: its height while it
+/// shows, else nothing. Everything anchored to the bottom moves up by this much.
+pub fn strip_inset(ui: &Ui, shell: &Shell) -> f32 {
+    if strip_shown(shell) {
+        crate::bars::draw::layer_strip_height(&ui.tokens())
+    } else {
+        0.0
+    }
+}
 
 /// Whether the board canvas shows the Layer strip: the Preference asks for it and the
 /// Project has a board.
@@ -254,7 +266,7 @@ fn strip(
 ) {
     let view = shell.board_view();
     let active = shell.engine().project().and_then(|p| view.active_layer(p));
-    let height = crate::bars::draw::LAYER_STRIP_HEIGHT;
+    let height = crate::bars::draw::layer_strip_height(&ui.tokens());
     let rect = Rect::from_min_max(
         canvas.left_bottom() - vec2(0.0, height),
         canvas.right_bottom(),
@@ -267,13 +279,25 @@ fn strip(
                 let sets = ui.add(widgets::chip(tr!("layers-sets")).chevron());
                 widgets::menu(&sets).show(|ui| set_items(ui, shell, out));
                 widgets::chip_rule(ui);
-                for layer in ordered(pcb)
+                let shown: Vec<_> = ordered(pcb)
                     .into_iter()
                     .filter(|l| !view.layers.hidden.contains(&l.uuid))
-                {
-                    let name = layer_name(pcb, layer);
+                    .map(|layer| (layer, layer_name(pcb, layer)))
+                    .collect();
+                // The names fit, or every chip shows its swatch alone.
+                let gap = widgets::CHIP_GAP;
+                let needed: f32 = shown
+                    .iter()
+                    .map(|(_, name)| {
+                        widgets::chip(name.as_str()).swatch_rgb(0, 0, 0).width(ui) + gap
+                    })
+                    .sum();
+                let named = needed <= ui.available_width();
+                for (layer, name) in shown {
                     let label = tr!("layer-chip", layer = name.as_str());
-                    let r = chip(ui, shell, layer, &name, label, active == Some(layer.uuid));
+                    let text = if named { name.as_str() } else { "" };
+                    let r = chip(ui, shell, layer, text, label, active == Some(layer.uuid));
+                    let r = if named { r } else { r.tooltip(name.as_str()) };
                     chip_clicked(ui, &r, layer.uuid, out);
                 }
             });

@@ -165,7 +165,7 @@ impl Command for FootprintUpdatePreview {
     const META: Meta = Meta {
         id: "pcb.footprint.update_preview",
         title: "Preview Update from Library",
-        description: "Shows what PCB ▸ Update from Library would change, without changing \
+        description: "Shows what PCB › Update from Library would change, without changing \
                       anything: each Mechanical Part placed straight onto the board (no \
                       Component) whose Footprint copy differs by hash from the Library \
                       Footprint with its UUID, with the Pads added, removed, moved or \

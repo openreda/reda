@@ -353,6 +353,29 @@ fn type_values(out: &mut String) {
     out.push('\n');
 }
 
+fn size_values(out: &mut String) {
+    out.push_str(
+        "### Size values\n\n\
+         Widths that follow the text size and never Density. Each is given at B = 13 and \
+         scaled by B / 13 above it (`size.of(..)` in code), on whole pixels. Below 13 they \
+         keep their 13 px width, since icons, marks and paddings do not shrink.\n\n",
+    );
+    head(out, &["B", "Scale", "`size.dock`", "`size.field`"]);
+    for b in Settings::TEXT_SIZES {
+        let size = tokens(Theme::Dark, Density::Comfortable, b).size;
+        row(
+            out,
+            &[
+                &b.to_string(),
+                &format!("{:.2}", size.scale),
+                &num(size.dock),
+                &num(size.field),
+            ],
+        );
+    }
+    out.push('\n');
+}
+
 fn fixed_values(out: &mut String, t: &Tokens) {
     out.push_str("### Fixed values\n\n");
     head(out, &["Token", "Value"]);
@@ -562,6 +585,7 @@ fn region() -> String {
     icon_roles(&mut out, &light, &dark);
     space_values(&mut out, &dark, &compact);
     type_values(&mut out);
+    size_values(&mut out);
     fixed_values(&mut out, &dark);
     elevation_values(&mut out, &light, &dark);
     motion_values(&mut out, &dark);

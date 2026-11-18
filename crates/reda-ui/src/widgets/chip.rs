@@ -4,7 +4,7 @@
 //! A chip is a flat button in body text with a data colour's swatch before its name: the
 //! row radius, the neutral hover and press fills, and the accent subtle tint while it is
 //! the chosen one (the active Layer). It is shorter than a control so that a row of them
-//! fits the 24 px Layer strip.
+//! fits the Layer strip (24 px at the default text size).
 
 use egui::{
     Align2, Color32, CornerRadius, Rect, Response, Role, Sense, Stroke, Ui, Vec2, Widget,
@@ -81,6 +81,30 @@ impl Chip {
     pub fn height(ui: &Ui) -> f32 {
         ui.tokens().ty.body.line + 2.0 * CHIP_PAD_Y
     }
+
+    /// The chip's width in `ui`: its text, swatch and chevron, and its padding.
+    pub fn width(&self, ui: &Ui) -> f32 {
+        let t = ui.tokens();
+        let text_width = if self.text.is_empty() {
+            0.0
+        } else {
+            paint::width(ui, &t.ty.body, &self.text).ceil()
+        };
+        let mut width = text_width;
+        if self.swatch.is_some() {
+            width += SWATCH;
+            if text_width > 0.0 {
+                width += ICON_GAP;
+            }
+        }
+        if self.chevron {
+            width += glyph::BOX;
+            if text_width > 0.0 {
+                width += CHEVRON_GAP;
+            }
+        }
+        width + 2.0 * t.space.row_x
+    }
 }
 
 impl Widget for Chip {
@@ -88,25 +112,7 @@ impl Widget for Chip {
         let t = ui.tokens();
         paint::stated(ui, self.state, |ui| {
             let style = &t.ty.body;
-            let text_width = if self.text.is_empty() {
-                0.0
-            } else {
-                paint::width(ui, style, &self.text).ceil()
-            };
-            let mut width = text_width;
-            if self.swatch.is_some() {
-                width += SWATCH;
-                if text_width > 0.0 {
-                    width += ICON_GAP;
-                }
-            }
-            if self.chevron {
-                width += glyph::BOX;
-                if text_width > 0.0 {
-                    width += CHEVRON_GAP;
-                }
-            }
-            let size = vec2(width + 2.0 * t.space.row_x, Chip::height(ui));
+            let size = vec2(self.width(ui), Chip::height(ui));
             let (rect, response) = ui.allocate_exact_size(size, Sense::click());
             let enabled = ui.is_enabled();
             let name = self.name.as_deref().unwrap_or(&self.text);
@@ -137,7 +143,7 @@ impl Widget for Chip {
                 );
                 left += SWATCH + ICON_GAP;
             }
-            if text_width > 0.0 {
+            if !self.text.is_empty() {
                 let label = Rect::from_min_max(pos2(left, rect.top()), rect.right_bottom());
                 let drawn = paint::text_in(
                     ui,

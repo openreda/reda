@@ -326,76 +326,88 @@ fn sources() -> Vec<(ColumnSource, String)> {
 fn columns(ui: &mut Ui, id: &str, columns: &mut Vec<Column>) {
     let options = sources();
     let mut action: Option<(usize, i8)> = None;
-    widgets::table(id)
-        .columns([TableColumn::auto(); 5])
-        .show(ui, |table| {
-            table.header(|h| {
-                h.text(tr!("preset-source"));
-                h.text(tr!("preset-header"));
-                h.empty();
-                h.empty();
-                h.empty();
-            });
-            let count = columns.len();
-            for (i, column) in columns.iter_mut().enumerate() {
-                let n = i + 1;
-                table.row(|cells| {
-                    cells.ui(|ui| {
-                        let label = tr!("preset-source-of", n = n);
-                        let is_field = matches!(column.source, ColumnSource::Field(_));
-                        let shown = if is_field {
-                            tr!("preset-source-field")
-                        } else {
-                            options
-                                .iter()
-                                .find(|(s, _)| *s == column.source)
-                                .map(|(_, t)| t.clone())
-                                .unwrap_or_default()
-                        };
-                        let combo = widgets::dropdown((id, "source", i), shown)
-                            .width(SOURCE_WIDTH)
-                            .show(ui, |ui| {
-                                for (source, text) in &options {
-                                    let source = source.clone();
-                                    widgets::choice_value(ui, &mut column.source, source, text);
-                                }
-                                let by_field =
-                                    widgets::choice(is_field, tr!("preset-source-field"));
-                                if ui.add(by_field).clicked() && !is_field {
-                                    column.source = ColumnSource::Field(column.header.clone());
+    // A table this wide gets its own horizontal scroll, so the page (and the note under
+    // it) keeps its width.
+    egui::ScrollArea::horizontal()
+        .id_salt((id, "scroll"))
+        .show(ui, |ui| {
+            widgets::table(id)
+                .columns([TableColumn::auto(); 5])
+                .show(ui, |table| {
+                    table.header(|h| {
+                        h.text(tr!("preset-source"));
+                        h.text(tr!("preset-header"));
+                        h.empty();
+                        h.empty();
+                        h.empty();
+                    });
+                    let count = columns.len();
+                    for (i, column) in columns.iter_mut().enumerate() {
+                        let n = i + 1;
+                        table.row(|cells| {
+                            cells.ui(|ui| {
+                                let label = tr!("preset-source-of", n = n);
+                                let is_field = matches!(column.source, ColumnSource::Field(_));
+                                let shown = if is_field {
+                                    tr!("preset-source-field")
+                                } else {
+                                    options
+                                        .iter()
+                                        .find(|(s, _)| *s == column.source)
+                                        .map(|(_, t)| t.clone())
+                                        .unwrap_or_default()
+                                };
+                                let combo = widgets::dropdown((id, "source", i), shown)
+                                    .width(ui.tokens().size.of(SOURCE_WIDTH))
+                                    .show(ui, |ui| {
+                                        for (source, text) in &options {
+                                            let source = source.clone();
+                                            widgets::choice_value(
+                                                ui,
+                                                &mut column.source,
+                                                source,
+                                                text,
+                                            );
+                                        }
+                                        let by_field =
+                                            widgets::choice(is_field, tr!("preset-source-field"));
+                                        if ui.add(by_field).clicked() && !is_field {
+                                            column.source =
+                                                ColumnSource::Field(column.header.clone());
+                                        }
+                                    });
+                                combo.response.widget_info(|| {
+                                    WidgetInfo::labeled(Role::ComboBox, true, label.clone())
+                                });
+                                if let ColumnSource::Field(name) = &mut column.source {
+                                    let label = tr!("preset-field-of", n = n);
+                                    field(ui, &label, name, SOURCE_FIELD_WIDTH, None);
                                 }
                             });
-                        combo.response.widget_info(|| {
-                            WidgetInfo::labeled(Role::ComboBox, true, label.clone())
+                            cells.ui(|ui| {
+                                let label = tr!("preset-header-of", n = n);
+                                field(ui, &label, &mut column.header, HEADER_WIDTH, None)
+                            });
+                            let small = |ui: &mut Ui, on: bool, text: String, hint: String| {
+                                ui.add_enabled(on, widgets::button(text))
+                                    .tooltip(hint)
+                                    .clicked()
+                            };
+                            let up = tr!("preset-up-of", n = n);
+                            if cells.ui(|ui| small(ui, i > 0, tr!("preset-up"), up)) {
+                                action = Some((i, -1));
+                            }
+                            let down = tr!("preset-down-of", n = n);
+                            if cells.ui(|ui| small(ui, i + 1 < count, tr!("preset-down"), down)) {
+                                action = Some((i, 1));
+                            }
+                            let remove = tr!("preset-remove-of", n = n);
+                            if cells.ui(|ui| small(ui, true, tr!("preset-remove"), remove)) {
+                                action = Some((i, 0));
+                            }
                         });
-                        if let ColumnSource::Field(name) = &mut column.source {
-                            let label = tr!("preset-field-of", n = n);
-                            field(ui, &label, name, SOURCE_FIELD_WIDTH, None);
-                        }
-                    });
-                    cells.ui(|ui| {
-                        let label = tr!("preset-header-of", n = n);
-                        field(ui, &label, &mut column.header, HEADER_WIDTH, None)
-                    });
-                    let small = |ui: &mut Ui, on: bool, text: String, hint: String| {
-                        ui.add_enabled(on, widgets::button(text))
-                            .tooltip(hint)
-                            .clicked()
-                    };
-                    let up = tr!("preset-up-of", n = n);
-                    if cells.ui(|ui| small(ui, i > 0, tr!("preset-up"), up)) {
-                        action = Some((i, -1));
-                    }
-                    let down = tr!("preset-down-of", n = n);
-                    if cells.ui(|ui| small(ui, i + 1 < count, tr!("preset-down"), down)) {
-                        action = Some((i, 1));
-                    }
-                    let remove = tr!("preset-remove-of", n = n);
-                    if cells.ui(|ui| small(ui, true, tr!("preset-remove"), remove)) {
-                        action = Some((i, 0));
                     }
                 });
-            }
         });
     match action {
         Some((i, 0)) => {

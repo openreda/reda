@@ -238,7 +238,10 @@ impl Command for ResetReannotate {
     const META: Meta = Meta {
         id: "schematic.reannotate.reset",
         title: "Reset Re-annotate Settings",
-        description: "Forgets the last Re-annotate settings saved with the Project, so                       `schematic.reannotate {saved: true}` has none to run and the dialog                       starts from the defaults (Project Settings ▸ Schematic ▸ Re-annotate,                       Reset). One undoable Project edit.",
+        description: "Forgets the last Re-annotate settings saved with the Project, so \
+                      `schematic.reannotate {saved: true}` has none to run and the dialog \
+                      starts from the defaults (Project Settings › Schematic › Re-annotate, \
+                      Reset). One undoable Project edit.",
         category: "schematic",
         icon: "annotate",
         kind: Kind::Edit,

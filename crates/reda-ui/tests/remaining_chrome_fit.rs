@@ -9,6 +9,9 @@
 //! offer, and a blocked job run's report. The job run's progress modal is up for as long
 //! as a run takes, too short to look at here.
 
+#[path = "support/text_size.rs"]
+mod text_size;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -74,6 +77,12 @@ fn shell_with(home: &Path, look: Look, latest: &'static str) -> Shell {
             .run("app.preferences.set", json!({"key": key, "value": value}))
             .unwrap();
     }
+    shell
+        .run(
+            "app.preferences.set",
+            json!({"key": "general.text_size", "value": text_size::get()}),
+        )
+        .unwrap();
     shell
 }
 
@@ -259,7 +268,8 @@ fn start_and_new_project(look: Look, out: &mut Vec<String>) {
         out,
         look,
         "new project",
-        misfits(&h, &[dialog(&h, "New Project")], &[]),
+        // The Start page's paths show through the scrim behind the dialog.
+        misfits(&h, &[dialog(&h, "New Project")], &[work.path()]),
     );
 }
 
@@ -466,6 +476,21 @@ fn the_start_page_and_the_window_dialogs_fit_their_text_in_both_densities_and_th
         for density in ["comfortable", "compact"] {
             out.extend(screens(Look { theme, density }));
         }
+    }
+    assert!(out.is_empty(), "{}", out.join("\n"));
+}
+
+#[test]
+fn the_start_page_and_the_window_dialogs_fit_their_text_at_the_ends_of_the_text_size_range() {
+    let mut out = Vec::new();
+    for (size, theme, density) in [
+        (text_size::SMALLEST, "light", "comfortable"),
+        (text_size::SMALLEST, "dark", "compact"),
+        (text_size::LARGEST, "dark", "comfortable"),
+        (text_size::LARGEST, "light", "compact"),
+    ] {
+        let found = text_size::at(size, || screens(Look { theme, density }));
+        out.extend(found.into_iter().map(|m| format!("{size} px: {m}")));
     }
     assert!(out.is_empty(), "{}", out.join("\n"));
 }

@@ -393,14 +393,30 @@ impl PreferencesDialog {
         let key = setting.key.as_str();
         // Rows are `stack` apart.
         ui.add_space((t.space.stack - t.space.row_y).max(0.0));
+        // Where a long label and a control do not fit side by side (search results at a
+        // large text size gather long labels), the control goes under the label rather
+        // than off the page.
+        let spacing = t.space.gap;
+        let beside =
+            DOT_WIDTH + label + t.size.of(EDITOR_WIDTH) + 2.0 * spacing <= ui.available_width();
+        let mut control = Some(control);
         ui.horizontal(|ui| {
             self.reset_dot(ui, cx, setting);
             let name = fixed_label(ui, label, &setting.label, false);
             if !setting.description.is_empty() {
                 name.tooltip(setting.description.as_str());
             }
-            control(self, ui, cx);
+            if beside && let Some(control) = control.take() {
+                control(self, ui, cx);
+            }
         });
+        if let Some(control) = control {
+            ui.horizontal(|ui| {
+                // Under the label, past the reset dot's column.
+                ui.add_space(DOT_WIDTH);
+                control(self, ui, cx);
+            });
+        }
         if let Some(problem) = self.problem(key).filter(|_| setting.kind == Kind::List) {
             crate::settings::problem_label(ui, &Problem::new(key, problem));
         }

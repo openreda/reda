@@ -73,7 +73,8 @@ impl PageCx<'_> {
 }
 
 /// A one-line text field announced as `label`, drawn invalid with `problem`'s message
-/// under it when its value is invalid.
+/// under it when its value is invalid. `width` is given at the default text size and
+/// follows the text size (`size.of`).
 pub fn field(
     ui: &mut Ui,
     label: &str,
@@ -81,6 +82,7 @@ pub fn field(
     width: f32,
     problem: Option<&Problem>,
 ) -> egui::Response {
+    let width = ui.tokens().size.of(width);
     ui.vertical(|ui| {
         let field = widgets::text_field(value)
             .width(width)
@@ -122,8 +124,8 @@ pub fn choice_toggle(ui: &mut Ui, chosen: bool, label: &str, name: &str) -> egui
     response
 }
 
-/// A dropdown of `options` (value and text) setting `value`, at least `width` wide and
-/// announced as `label`.
+/// A dropdown of `options` (value and text) setting `value`, at least `width` wide (given
+/// at the default text size, and following it) and announced as `label`.
 pub fn dropdown<T: PartialEq + Clone>(
     ui: &mut Ui,
     id_salt: impl egui::AsIdSalt,
@@ -138,7 +140,7 @@ pub fn dropdown<T: PartialEq + Clone>(
         .map(|(_, text)| text.clone())
         .unwrap_or_default();
     let response = widgets::dropdown(id_salt, shown)
-        .width(width)
+        .width(ui.tokens().size.of(width))
         .show(ui, |ui| {
             for (option, text) in options {
                 widgets::choice_value(ui, value, option.clone(), text.as_str());

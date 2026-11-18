@@ -598,8 +598,8 @@ impl Command for ResetUpdateSettings {
         id: "schematic.component.update_settings.reset",
         title: "Reset Update from Library Settings",
         description: "Forgets the Update from Library settings saved with the Project, so \
-                      the next update starts from the defaults (Project Settings ▸ \
-                      Schematic ▸ Update from Library, Reset).",
+                      the next update starts from the defaults (Project Settings › \
+                      Schematic › Update from Library, Reset).",
         category: "schematic",
         icon: "library_update",
         kind: Kind::Edit,
