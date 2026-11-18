@@ -20,7 +20,7 @@ LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PROTO_SWITCHER=0 REDA_PROTO_OUT=<di
   cargo test -p reda-ui --test stackup_proto -- --nocapture
 ```
 
-## The three variants
+## The first three variants
 
 | | A · Drawing | B · Ledger | C · Workbench |
 | --- | --- | --- | --- |
@@ -32,6 +32,13 @@ LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PROTO_SWITCHER=0 REDA_PROTO_OUT=<di
 | Impedance | Beside the Layer | A column | Its own table |
 | Total | Badge, top right | Rows under the stack | Dimensioned on the drawing |
 | Finish, colours, Fab Notes | Stay in Board Setup | Stay in Board Setup | Move into the tab |
+
+## Variant D · Workbench plus
+
+Added after the first reaction (leaning to C). C's structure, with: impedance as a column
+of the Layers table (no separate table); a selected Via type's ends draggable in the
+preview; `+ Layer` on the dielectric pointed at; finish and colours in the tab. Reordering
+and thickness stay in the table.
 
 ## What building it showed
 
@@ -48,7 +55,7 @@ LIBGL_ALWAYS_SOFTWARE=1 WGPU_BACKEND=gl REDA_PROTO_SWITCHER=0 REDA_PROTO_OUT=<di
 - `crates/reda-ui/src/proto.rs`: on and off, the variant switcher.
 - `crates/reda-ui/src/proto/model.rs`: the in-memory Stackup all three edit. Not the v0.2
   model. The impedance formula is a rough stand-in.
-- `crates/reda-ui/src/proto/variant_{a,b,c}.rs`: the variants.
+- `crates/reda-ui/src/proto/variant_{a,b,c,d}.rs`: the variants.
 - `crates/reda-ui/tests/stackup_proto.rs`: draws the screenshots.
 - Hooks: `docking.rs` (the PCB tab's content and title), `app.rs` (keys, switcher).
 

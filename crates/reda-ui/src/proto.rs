@@ -20,13 +20,19 @@ pub mod model;
 mod variant_a;
 mod variant_b;
 mod variant_c;
+mod variant_d;
 
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use model::Stack;
 
 /// The variants, in switcher order.
-pub const VARIANTS: [&str; 3] = ["A · Drawing", "B · Ledger", "C · Workbench"];
+pub const VARIANTS: [&str; 4] = [
+    "A · Drawing",
+    "B · Ledger",
+    "C · Workbench",
+    "D · Workbench plus",
+];
 
 /// What the screens remember besides the Stackup.
 #[derive(Default)]
@@ -121,7 +127,8 @@ pub fn show(ui: &mut egui::Ui) {
     match s.variant {
         0 => variant_a::show(ui, &mut s.stack, &mut s.view),
         1 => variant_b::show(ui, &mut s.stack, &mut s.view),
-        _ => variant_c::show(ui, &mut s.stack, &mut s.view),
+        2 => variant_c::show(ui, &mut s.stack, &mut s.view),
+        _ => variant_d::show(ui, &mut s.stack, &mut s.view),
     }
 }
 

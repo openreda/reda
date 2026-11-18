@@ -72,7 +72,7 @@ fn variants() {
     let root = std::env::temp_dir().join(format!("reda-stackup-proto-{}", std::process::id()));
     proto::set_on(true);
     // (file name, variant, sample, to scale, what is selected, theme)
-    let shots: [(&str, usize, usize, bool, &str, &str); 11] = [
+    let shots: [(&str, usize, usize, bool, &str, &str); 15] = [
         ("a1-4-layer-schematic", 0, 1, false, "entry:2", "light"),
         ("a2-4-layer-to-scale", 0, 1, true, "entry:1", "light"),
         ("a3-8-layer-hdi-via", 0, 3, false, "via:2", "light"),
@@ -84,6 +84,10 @@ fn variants() {
         ("c2-8-layer-hdi-via", 2, 3, true, "via:2", "light"),
         ("c3-6-layer-schematic-dark", 2, 2, false, "entry:4", "dark"),
         ("c4-2-layer", 2, 0, true, "none", "light"),
+        ("d1-4-layer-to-scale", 3, 1, true, "entry:2", "light"),
+        ("d2-8-layer-hdi-via", 3, 3, true, "via:2", "light"),
+        ("d3-6-layer-schematic", 3, 2, false, "via:0", "light"),
+        ("d4-6-layer-dark", 3, 2, true, "entry:4", "dark"),
     ];
     for (name, variant, sample, to_scale, sel, theme) in shots {
         let mut h = window(&root, theme);
