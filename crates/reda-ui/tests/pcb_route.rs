@@ -1324,3 +1324,29 @@ fn the_candidate_list_can_jump_to_its_last_page_and_cycle_back_to_the_single_via
     assert_eq!(candidate.members[0].span.from, layers[0]);
     assert_eq!(candidate.members[0].span.to, layers[11]);
 }
+
+#[test]
+fn routing_skips_a_stretched_micro_type_and_commits_the_through_fallback() {
+    let mut b = board();
+    for _ in 0..2 {
+        run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    }
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let split = pcb.stackup().dielectrics().next().unwrap().uuid;
+    run(&mut b.shell, "pcb.via_type.add", json!({"document":b.pcb,"from":layers[0],"to":layers[2],"micro":true}));
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb,"split":split}));
+    run(&mut b.shell, "pcb.layer.activate:4", json!({}));
+    run(&mut b.shell, "pcb.layer.activate:1", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    b.shell.route_hover(mm(3., 4.));
+    let proposed = b.shell.route_preview().unwrap().via_candidate.unwrap();
+    assert_eq!(proposed.target, layers[2]);
+    assert_eq!(proposed.members[0].span.to, layers[3]);
+    run(&mut b.shell, "pcb.route.previous_layer", json!({}));
+    run(&mut b.shell, "pcb.route.finish", json!({}));
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.vias().count(), 1);
+    assert_eq!(pcb.vias().next().unwrap().span, pcb.stackup().through_type().span());
+}
