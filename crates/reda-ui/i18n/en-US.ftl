@@ -3075,18 +3075,50 @@ layer-types-stretched = Via types stretched: { $count }
 layer-types-shortened = Via types shortened: { $count }
 layer-types-removed = Via types removed: { $count }
 layer-vias-stretched = Vias stretched: { $count }
-layer-vias-shortened = Vias shortened: { $count }
-layer-vias-deleted = Vias deleted: { $count }
+layer-vias-shortened = { $count ->
+    [one] { $count } Via shortened.
+   *[other] { $count } Vias shortened.
+}
+layer-vias-deleted = { $count ->
+    [one] { $count } Via deleted.
+   *[other] { $count } Vias deleted.
+}
+layer-vias-shortened-deleted = { $shortened ->
+    [one] { $shortened } Via
+   *[other] { $shortened } Vias
+} shortened, { $deleted } deleted.
 layer-vias-crossed = Vias crossing a Layer: { $count }
 layer-rules-changed = Rules changed: { $count }
 layer-rules-removed = Rules deleted: { $count }
-layer-tracks-deleted = Tracks deleted: { $count }
-layer-zones-deleted = Zones deleted: { $count }
-layer-cutouts-deleted = Zone Cutouts deleted: { $count }
-layer-keepouts-deleted = Keepouts deleted: { $count }
-layer-texts-deleted = Texts deleted: { $count }
-layer-graphics-deleted = Graphics deleted: { $count }
-layer-dimensions-deleted = Dimensions deleted: { $count }
+layer-objects-deleted = { $objects } on { $layer } will be deleted.
+layer-count-tracks = { $count ->
+    [one] { $count } Track
+   *[other] { $count } Tracks
+}
+layer-count-zones = { $count ->
+    [one] { $count } Zone
+   *[other] { $count } Zones
+}
+layer-count-cutouts = { $count ->
+    [one] { $count } Zone Cutout
+   *[other] { $count } Zone Cutouts
+}
+layer-count-keepouts = { $count ->
+    [one] { $count } Keepout
+   *[other] { $count } Keepouts
+}
+layer-count-texts = { $count ->
+    [one] { $count } text
+   *[other] { $count } texts
+}
+layer-count-graphics = { $count ->
+    [one] { $count } graphic
+   *[other] { $count } graphics
+}
+layer-count-dimensions = { $count ->
+    [one] { $count } Dimension
+   *[other] { $count } Dimensions
+}
 layer-class-all = Net Class { $name } will allow every Via type.
 layer-micro-stretched = Micro Via type spans more than a micro Via can.
 stackup-add-sheet = Add sheet

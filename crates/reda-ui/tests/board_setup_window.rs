@@ -651,11 +651,11 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
     h.get_by_role_and_label(Role::Button, "Remove Layer")
         .click();
     h.run();
-    h.get_by_label("Graphics deleted: 1");
+    h.get_by_label("1 graphic on L2 will be deleted.");
     h.state_mut().shell_mut().run("pcb.graphic.add_line",json!({"layer":inner,"from":{"x":0,"y":1000},"to":{"x":500000,"y":1000},"width":100000})).unwrap();
     h.get_by_role_and_label(Role::Button, "Apply").click();
     h.run();
-    h.get_by_label("Graphics deleted: 2");
+    h.get_by_label("2 graphics on L2 will be deleted.");
     h.get_by_role_and_label(Role::Button, "Cancel").click();
     h.run();
     assert_eq!(pcb(&h).graphics().count(), 2);
@@ -1611,4 +1611,74 @@ fn selected_via_type_diameters_support_overrides_inheritance_and_undo() {
             .unwrap();
     }
     assert_eq!(diameter(&h), expected);
+}
+
+#[test]
+fn removing_a_layer_confirms_its_objects_and_vias_in_sentences_naming_the_layer() {
+    let (home, work) = (
+        TempDir::new("layer-sentences-home"),
+        TempDir::new("layer-sentences-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Sentences");
+    let document = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    for _ in 0..2 {
+        shell
+            .run("pcb.layer.add", json!({"document":document}))
+            .unwrap();
+    }
+    let l: Vec<_> = pcb_of(shell).copper_layers().map(|l| l.uuid).collect();
+    shell
+        .run("pcb.layer.set", json!({"layer":l[1],"name":"GND"}))
+        .unwrap();
+    for (from, to) in [(0, 1), (1, 3)] {
+        shell
+            .run(
+                "pcb.via_type.add",
+                json!({"document":document,"from":l[from],"to":l[to]}),
+            )
+            .unwrap();
+    }
+    // Two Vias collapse to one Layer and go; one is shortened to L3–L4.
+    for (from, to, x) in [(0, 1, 0), (0, 1, 2_000_000), (1, 3, 4_000_000)] {
+        shell
+            .run(
+                "pcb.via.add",
+                json!({"from":l[from],"to":l[to],"at":{"x":x,"y":0}}),
+            )
+            .unwrap();
+    }
+    for y in [0, 1_000_000] {
+        shell
+            .run(
+                "pcb.track.add",
+                json!({"layer":l[1],"width":100000,"points":[{"x":0,"y":y},{"x":500000,"y":y}]}),
+            )
+            .unwrap();
+    }
+    shell
+        .run(
+            "pcb.graphic.add_line",
+            json!({"layer":l[1],"from":{"x":0,"y":3000000},"to":{"x":500000,"y":3000000},"width":100000}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.select",
+            json!({"document":document,"entry":l[1]}),
+        )
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Remove Layer")
+        .click();
+    h.run();
+    h.get_by_label("2 Tracks, 1 graphic on L2 GND will be deleted.");
+    h.get_by_label("1 Via shortened, 2 deleted.");
+}
+
+fn pcb_of(shell: &Shell) -> PcbDocument {
+    shell.engine().project().unwrap().pcb().unwrap().clone()
 }

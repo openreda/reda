@@ -85,15 +85,28 @@ fn impact(shell: &mut Shell, command: &str, params: &Value) -> Option<Vec<String
         .ok()?;
     let mut lines = Vec::new();
     // An empty removal and a move that crosses no Via span are immediate.
-    let mut line = |key: &str, format: fn(i64) -> String| {
+    let line = |lines: &mut Vec<String>, key: &str, format: fn(i64) -> String| {
         if let Some(n) = out[key].as_i64().filter(|n| *n > 0) {
             lines.push(format(n));
         }
     };
-    line("vias_using_span", |n| tr!("layer-vias-crossed", count = n));
-    line("vias_stretched", |n| tr!("layer-vias-stretched", count = n));
-    line("vias_shortened", |n| tr!("layer-vias-shortened", count = n));
-    line("vias_deleted", |n| tr!("layer-vias-deleted", count = n));
+    line(&mut lines, "vias_using_span", |n| {
+        tr!("layer-vias-crossed", count = n)
+    });
+    line(&mut lines, "vias_stretched", |n| {
+        tr!("layer-vias-stretched", count = n)
+    });
+    let count = |key: &str| out[key].as_i64().unwrap_or(0);
+    match (count("vias_shortened"), count("vias_deleted")) {
+        (0, 0) => {}
+        (shortened, 0) => lines.push(tr!("layer-vias-shortened", count = shortened)),
+        (0, deleted) => lines.push(tr!("layer-vias-deleted", count = deleted)),
+        (shortened, deleted) => lines.push(tr!(
+            "layer-vias-shortened-deleted",
+            shortened = shortened,
+            deleted = deleted
+        )),
+    }
     if matches!(
         command,
         "pcb.layer.add" | "pcb.layer.remove" | super::apply::COMMAND
@@ -109,30 +122,51 @@ fn impact(shell: &mut Shell, command: &str, params: &Value) -> Option<Vec<String
         } else {
             |n| tr!("layer-types-stretched", count = n)
         };
-        line("via_types_changed", describe);
-        line("via_types_removed", |n| {
+        line(&mut lines, "via_types_changed", describe);
+        line(&mut lines, "via_types_removed", |n| {
             tr!("layer-types-removed", count = n)
         });
-        line("vias_without_type", |n| {
+        line(&mut lines, "vias_without_type", |n| {
             tr!("construction-vias-unmatched", count = n)
         });
-        line("rules_changed", |n| tr!("layer-rules-changed", count = n));
-        line("rules_removed", |n| tr!("layer-rules-removed", count = n));
+        line(&mut lines, "rules_changed", |n| {
+            tr!("layer-rules-changed", count = n)
+        });
+        line(&mut lines, "rules_removed", |n| {
+            tr!("layer-rules-removed", count = n)
+        });
     }
     if let Some(objects) = out["objects_deleted"].as_object() {
-        for (kind, n) in objects {
-            let n = n.as_i64().unwrap_or(0);
-            let label = match kind.as_str() {
-                "track" => tr!("layer-tracks-deleted", count = n),
-                "zone" => tr!("layer-zones-deleted", count = n),
-                "zone_cutout" => tr!("layer-cutouts-deleted", count = n),
-                "keepout" => tr!("layer-keepouts-deleted", count = n),
-                "text" => tr!("layer-texts-deleted", count = n),
-                "graphic" => tr!("layer-graphics-deleted", count = n),
-                "dimension" => tr!("layer-dimensions-deleted", count = n),
-                _ => continue,
-            };
-            lines.push(label);
+        // In the spec's order, Tracks first, whatever order the preview lists them in.
+        let counts: Vec<String> = [
+            "track",
+            "zone",
+            "zone_cutout",
+            "keepout",
+            "text",
+            "graphic",
+            "dimension",
+        ]
+        .into_iter()
+        .filter_map(|kind| {
+            let n = objects.get(kind)?.as_i64().filter(|n| *n > 0)?;
+            Some(match kind {
+                "track" => tr!("layer-count-tracks", count = n),
+                "zone" => tr!("layer-count-zones", count = n),
+                "zone_cutout" => tr!("layer-count-cutouts", count = n),
+                "keepout" => tr!("layer-count-keepouts", count = n),
+                "text" => tr!("layer-count-texts", count = n),
+                "graphic" => tr!("layer-count-graphics", count = n),
+                _ => tr!("layer-count-dimensions", count = n),
+            })
+        })
+        .collect();
+        if !counts.is_empty() {
+            lines.push(tr!(
+                "layer-objects-deleted",
+                objects = counts.join(", "),
+                layer = removed_layers(shell, command, params)
+            ));
         }
     }
     if let Some(names) = out["classes_allowing_all"].as_array() {
@@ -144,6 +178,37 @@ fn impact(shell: &mut Shell, command: &str, params: &Value) -> Option<Vec<String
         );
     }
     Some(lines)
+}
+
+/// The labels of the inner copper Layers `command` removes, such as `L3 GND`.
+fn removed_layers(shell: &Shell, command: &str, params: &Value) -> String {
+    let ids: Vec<Uuid> = if command == "pcb.layer.remove" {
+        params["layer"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .into_iter()
+            .collect()
+    } else {
+        params["remove"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|id| id.as_str()?.parse().ok())
+            .collect()
+    };
+    let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
+        return String::new();
+    };
+    let mut labels: Vec<(usize, String)> = ids
+        .iter()
+        .filter_map(|id| Some((pcb.copper_number(*id)?, pcb.inner_layer_label(*id)?)))
+        .collect();
+    labels.sort();
+    labels
+        .into_iter()
+        .map(|(_, label)| label)
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut Shell) {
