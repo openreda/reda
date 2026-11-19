@@ -384,6 +384,10 @@ _Avoid_: Release manifest, file list
 A named description of what one fabrication house expects, such as its minimum design rules, file conventions, BOM and CPL form and packaging. It says nothing about any one build, which is the Output Job's part.
 _Avoid_: Fab profile, manufacturer settings, CAM settings
 
+**Placement Correction**:
+One row of a Fab Preset that adjusts the rotation, and optionally the centre, written to the CPL for the Components it matches, because a fabrication house's zero orientation for a part can differ from the Footprint's.
+_Avoid_: Rotation offset, rotation table, transformation
+
 **Output Job**:
 A saved, named recipe in a Project that produces a chosen set of manufacturing files for one PCB Document according to one Fab Preset.
 _Avoid_: OutJob, export settings, plot settings, fab output
