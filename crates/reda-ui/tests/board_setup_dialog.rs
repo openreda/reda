@@ -605,3 +605,37 @@ fn the_net_table_makes_a_class_from_selected_nets_and_assigns_by_pattern() {
     assert_eq!(board.net(vcc).unwrap().classes, [power]);
     assert!(board.net(gnd).unwrap().classes.is_empty());
 }
+
+#[test]
+fn the_clearance_pair_grid_commits_its_edited_cell() {
+    let (home, work) = (
+        TempDir::new("pair-grid-home"),
+        TempDir::new("pair-grid-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Pairs");
+    let hv = uuid_of(&run(
+        &mut h,
+        "pcb.net_class.add",
+        serde_json::json!({"name":"HV"}),
+    ));
+    open_board_setup(&mut h, "Pairs");
+    h.get_by_label("Class pairs").scroll_to_me();
+    h.run();
+    h.get_by_label("Class pairs").click();
+    h.run();
+    type_into(&mut h, "HV / HV", "0.125");
+    h.get_by_label("OK").click();
+    h.run();
+    let scope = reda_ui::engine::model::RuleScope {
+        net_class_pair: Some([hv, hv]),
+        ..Default::default()
+    };
+    assert_eq!(
+        pcb(&h)
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value,
+        Some(Nm(125000))
+    );
+}

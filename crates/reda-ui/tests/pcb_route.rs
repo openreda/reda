@@ -331,6 +331,30 @@ fn v_drops_a_via_mid_route_switches_layer_and_the_route_commits_as_one_batch() {
 }
 
 #[test]
+fn undoing_a_via_at_the_route_start_restores_the_layer_width() {
+    let mut b = board();
+    let bottom = copper(&b, Side::Bottom);
+    run(
+        &mut b.shell,
+        "pcb.rules.set",
+        json!({
+            "kind":"track_width","scope":{"layers":[bottom]},"values":{"preferred":"0.45mm"}
+        }),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0.0, 0.0));
+    run(&mut b.shell, "pcb.route.add_via", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_um(450));
+    run(&mut b.shell, "tool.undo_segment", json!({}));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.layer, copper(&b, Side::Top));
+    assert_eq!(preview.width, Nm::from_um(250));
+    run(&mut b.shell, "pcb.route.width", json!({"width":"0.25mm"}));
+    run(&mut b.shell, "pcb.route.add_via", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_um(250));
+}
+
+#[test]
 fn backspace_takes_back_the_last_corner_and_escape_drops_the_route() {
     let mut b = board();
     run(&mut b.shell, "tool.activate:route", json!({}));

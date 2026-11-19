@@ -124,7 +124,7 @@ impl Command for NetClassAdd {
             let base = DesignRule {
                 uuid: cx.new_id(),
                 kind: r.kind,
-                scope,
+                scope: scope.clone(),
                 values: Default::default(),
                 enabled: true,
                 comment: None,
@@ -239,7 +239,12 @@ impl Command for NetClassDelete {
         let left = with_class(pcb, &nets, class.uuid, false)?;
         let records: Vec<Uuid> = pcb
             .rules()
-            .filter(|r| r.scope.net_class == Some(class.uuid))
+            .filter(|r| {
+                r.scope.net_class == Some(class.uuid)
+                    || r.scope
+                        .net_class_pair
+                        .is_some_and(|p| p.contains(&class.uuid))
+            })
             .map(|r| r.uuid)
             .collect();
         let tx = cx.tx()?;

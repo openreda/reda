@@ -248,6 +248,7 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
         .collect();
     let number = |key: ClassKey| numbers.iter().find(|(k, _)| *k == key).map_or(0, |n| n.1);
     let drag_id = ui.scope_id().with("board-setup-drag");
+    let context = ui.ctx().clone();
     let dragging: Option<ClassKey> = ui.data(|d| d.get_temp(drag_id));
     let mut row_rects: Vec<(ClassKey, Rect)> = Vec::new();
     let mut clicked: Option<(ClassKey, Modifiers)> = None;
@@ -313,6 +314,10 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                         } else {
                             tr!("board-setup-drag-row", class = name.as_str())
                         };
+                        let open_key = drag_id.with(("class-layer-rules", key));
+                        let mut expanded = context
+                            .data(|d| d.get_temp::<bool>(open_key))
+                            .unwrap_or(false);
                         table.row(|row| {
                             row.ui(|ui| {
                                 let grip = handle(ui, selected, &label, !default);
@@ -333,9 +338,19 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                                 let label = tr!("board-setup-class-name", number = number(key));
                                 let problem = cx.problem(&class_field(key, "name"));
                                 row.ui(|ui| {
-                                    if let Some(value) = board.class_name_mut(key) {
-                                        field(ui, &label, value, NAME_WIDTH, problem);
-                                    }
+                                    ui.horizontal(|ui| {
+                                        if let Some(value) = board.class_name_mut(key) {
+                                            field(ui, &label, value, NAME_WIDTH, problem);
+                                        }
+                                        if matches!(key, ClassKey::Existing(_))
+                                            && ui
+                                                .add(widgets::button(tr!("board-rule-layers")))
+                                                .clicked()
+                                        {
+                                            expanded = !expanded;
+                                            ui.data_mut(|d| d.insert_temp(open_key, expanded));
+                                        }
+                                    });
                                 });
                             }
                             for kind in GRID_KINDS {
@@ -414,6 +429,17 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                             let shown = board.shown_row(key);
                             row.ui(|ui| super::show_button(ui, cx, &name, shown));
                         });
+                        if expanded
+                            && let ClassKey::Existing(class) = key
+                            && let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb())
+                        {
+                            table.row(|row| {
+                                row.empty();
+                                row.ui(|ui| {
+                                    super::scoped::class_section(ui, pcb, board, class);
+                                });
+                            });
+                        }
                     }
                 });
         });
