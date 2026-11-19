@@ -886,6 +886,88 @@ fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
 }
 
 #[test]
+fn the_inner_copper_pattern_is_checked_and_preserves_existing_layer_names() {
+    let dir = TempDir::new("gerber-pattern-preset");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    let set = |names| json!({"preset":preset,"values":{"gerber":{"file_names":names}}});
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!([{"layer":"Top Copper","name":"top.grb"}])),
+    );
+    let original = only_preset(&engine);
+    for invalid in [
+        "copper.gbr",
+        "$${position}.gbr",
+        "${layer}.gbr",
+        "L${inner",
+        "sub/L${inner}.gbr",
+    ] {
+        let error = engine.run_err("fab_preset.set", set(json!({"inner_copper":invalid})));
+        assert_eq!(error.code, ErrorCode::InvalidParams);
+        assert_eq!(only_preset(&engine), original);
+    }
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!({"inner_copper":"${project}.g${position}l"})),
+    );
+    assert_eq!(
+        json!(only_preset(&engine).gerber)["file_names"],
+        json!({"inner_copper":"${project}.g${position}l","layers":[{"layer":"Top Copper","name":"top.grb"}]})
+    );
+    engine.run_ok("fab_preset.set", set(json!({"inner_copper":null})));
+    assert_eq!(only_preset(&engine), original);
+}
+
+#[test]
+fn a_reopened_user_pattern_can_override_a_layer_named_inner_copper() {
+    let (home, dir) = (
+        TempDir::new("fab-pattern-home"),
+        TempDir::new("fab-pattern-source"),
+    );
+    let mut engine = with_user_preset(&home, &dir);
+    let names = json!({
+        "inner_copper": "plane${inner}.ger",
+        "layers": [{"layer":"inner_copper","name":"ground.ger"}]
+    });
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name":"My JLC","values":{"gerber":{"file_names":names}}}),
+    );
+    drop(engine);
+
+    let destination = TempDir::new("fab-pattern-board");
+    let mut reopened = test_engine_in(home.path());
+    new_project(
+        &mut reopened,
+        &destination,
+        json!({"fab_preset":"My JLC","layers":4}),
+    );
+    let layer = reopened
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    reopened.run_ok(
+        "pcb.layer.set",
+        json!({"layer":layer,"name":"inner_copper"}),
+    );
+    let project = reopened.project().unwrap();
+    let job = project.output_jobs().next().unwrap();
+    let preview = reda_engine::output_preview::job_preview(&reopened, job).unwrap();
+    assert_eq!(
+        &preview.zip[..4],
+        ["Demo.gtl", "ground.ger", "plane2.ger", "Demo.gbl"]
+    );
+    assert_eq!(json!(only_preset(&reopened).gerber)["file_names"], names);
+}
+
+#[test]
 fn a_user_fab_seeds_inner_limits_on_a_new_multilayer_board() {
     let home = TempDir::new("inner-process-home");
     let dir = TempDir::new("inner-process-source");

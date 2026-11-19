@@ -8,7 +8,7 @@ mod gerber_reader;
 use gerber_reader::{Layer, Object, read, winding};
 use reda_command::Fonts;
 use reda_model::{FileNaming, GerberSettings, LayerFileName};
-use reda_output::{CoordinateOutOfRange, Gerbers, OutputFile, Plot, gerber_files};
+use reda_output::{GerberError, Gerbers, OutputFile, Plot, gerber_files};
 use reda_testkit::{TempDir, TestEngine, probe_engine};
 use serde_json::{Value, json};
 
@@ -36,7 +36,7 @@ fn net(engine: &mut TestEngine, name: &str) -> Value {
 fn plot_with(
     engine: &TestEngine,
     settings: impl FnOnce(&mut GerberSettings),
-) -> Result<Gerbers, CoordinateOutOfRange> {
+) -> Result<Gerbers, GerberError> {
     let project = engine.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
@@ -557,7 +557,9 @@ fn a_coordinate_beyond_the_32_bit_range_is_refused() {
         json!({"layer": "copper_bottom", "width": "0.2mm",
                "points": [{"x": 0, "y": 0}, {"x": 0, "y": 2_147_483_648i64}]}),
     );
-    let err = plot_with(&engine, |_| {}).unwrap_err();
+    let GerberError::CoordinateOutOfRange(err) = plot_with(&engine, |_| {}).unwrap_err() else {
+        panic!("the out-of-range coordinate must identify its file and position")
+    };
     assert_eq!(err.file, "Demo.gbl");
     assert_eq!(
         err.at,
@@ -618,7 +620,7 @@ fn file_names_override_any_layers_file_in_either_naming() {
     for naming in [FileNaming::Classic, FileNaming::Descriptive] {
         let gerbers = plot_with(&engine, |g| {
             g.naming = naming;
-            g.file_names = vec![
+            g.file_names.layers = vec![
                 LayerFileName {
                     layer: "Top Copper".into(),
                     name: "top.gbr".into(),
@@ -642,5 +644,35 @@ fn file_names_override_any_layers_file_in_either_naming() {
             !files[1].contains("top"),
             "{naming:?}: only the named Layer"
         );
+    }
+}
+
+#[test]
+fn inner_copper_patterns_resolve_project_and_physical_or_inner_positions() {
+    let dir = TempDir::new("gerber-inner-pattern");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    for (pattern, expected) in [
+        ("${project}.g${inner}", ["Demo.g1", "Demo.g2"]),
+        (
+            "plane${position}-${inner}.ger",
+            ["plane2-1.ger", "plane3-2.ger"],
+        ),
+        (
+            "$${project}-${position}.ger",
+            ["${project}-2.ger", "${project}-3.ger"],
+        ),
+    ] {
+        let gerbers = plot_with(&engine, |g| {
+            g.file_names.inner_copper = Some(pattern.into());
+        })
+        .unwrap();
+        let (plotted, _) = names(&gerbers);
+        assert_eq!(plotted[0], "Demo.gtl");
+        assert_eq!(plotted[1..3], expected);
+        assert_eq!(plotted[3], "Demo.gbl");
     }
 }

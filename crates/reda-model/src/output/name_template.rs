@@ -13,6 +13,42 @@ pub const NAME_TEMPLATE_TOKENS: [&str; 5] = ["project", "job", "revision", "date
 /// that some file systems refuse.
 const REFUSED: &[char] = &['<', '>', ':', '"', '\\', '|', '?', '*', '/'];
 
+impl super::GerberSettings {
+    /// Resolves the preset's inner copper pattern for one physical Layer.
+    /// At least one unescaped position token must distinguish the inner Layers.
+    pub fn inner_copper_file_name(
+        pattern: &str,
+        project: &str,
+        position: usize,
+    ) -> Result<String, String> {
+        let mut uses_position = false;
+        let name = text::resolve(pattern, |token| match token {
+            "project" => Some(project.to_owned()),
+            "position" | "inner" => {
+                uses_position = true;
+                let number = if token == "inner" {
+                    position.checked_sub(1)?
+                } else {
+                    position
+                };
+                Some(number.to_string())
+            }
+            _ => None,
+        })
+        .map_err(|e| e.to_string())?;
+        if !uses_position {
+            return Err("an inner copper file name must include ${position} or ${inner}".into());
+        }
+        if let Some(c) = name.chars().find(|c| REFUSED.contains(c) || c.is_control()) {
+            return Err(format!("the file name {name:?} cannot hold {c:?}"));
+        }
+        if name.ends_with([' ', '.']) {
+            return Err("a file name cannot end in a dot or a space".into());
+        }
+        Ok(name)
+    }
+}
+
 /// A checked Name Template: only known tokens, and no character a file name can't hold.
 /// Commands and file loading both build it through [`NameTemplate::new`], so a stored
 /// template is always valid.

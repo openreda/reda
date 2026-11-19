@@ -2,7 +2,7 @@
 %TF.ProjectId,Minimal,00000000-0000-4000-8000-000000000001,A*%
 %TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2*%
 %TF.Part,Single*%
-%TF.FileFunction,Copper,L2,Bot*%
+%TF.FileFunction,Copper,L2,Bot,Signal*%
 %TF.FilePolarity,Positive*%
 %FSLAX46Y46*%
 %MOMM*%
