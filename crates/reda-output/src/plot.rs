@@ -490,6 +490,26 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, unused: &UnusedLands, g: &mut
         }
     }
 
+    for drop in plot
+        .fills
+        .teardrops
+        .iter()
+        .filter(|d| d.location.layer == layer)
+    {
+        let Some(track) = pcb.track(drop.location.track) else {
+            continue;
+        };
+        let net = net_name(pcb, track.net);
+        for shape in &drop.shapes {
+            g.region_with_holes(
+                &shape.outer,
+                &shape.holes,
+                "Conductor",
+                &net_attribute(&net),
+            );
+        }
+    }
+
     for track in pcb.tracks().filter(|t| t.layer == layer) {
         let net = net_name(pcb, track.net);
         let (from, to, sweep) = match track.geometry {

@@ -227,7 +227,10 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
         );
         typed(ui, editor, Field::InnerCopper, tr!("preset-inner-copper"));
         ui.label("");
-        layout::muted(ui, tr!("preset-inner-copper-tokens"));
+        ui.vertical(|ui| {
+            layout::muted(ui, tr!("preset-inner-copper-tokens"));
+            layout::muted(ui, tr!("preset-inner-copper-empty"));
+        });
         ui.end_row();
     });
     let t = ui.tokens();

@@ -134,6 +134,7 @@ impl Command for TrackAdd {
         for pair in points.windows(2) {
             let uuid = cx.new_id();
             let track = Track {
+                teardrop: true,
                 locked: false,
                 uuid,
                 layer,
@@ -230,6 +231,9 @@ pub struct TrackSet;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackSetParams {
+    /// Allow rule-generated Teardrops on the two ends. False opts out.
+    #[serde(default)]
+    pub teardrop: Option<bool>,
     /// The Track segments' UUIDs; each gets every value given.
     pub tracks: Vec<Uuid>,
     /// The new start point.
@@ -311,6 +315,7 @@ impl Command for TrackSet {
                 )
             })?;
             let mut track = before.clone();
+            track.teardrop = p.teardrop.unwrap_or(track.teardrop);
             track.geometry = moved_ends(&track.geometry, &p, length)?;
             if let Some(width) = width {
                 track.width = width;

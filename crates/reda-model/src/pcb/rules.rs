@@ -9,6 +9,9 @@ use reda_geom::{Millideg, Nm};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+mod teardrop;
+pub use teardrop::{TeardropField, TeardropKind, TeardropValues};
+
 use crate::Uuid;
 use crate::pad::{ConnectionStyle, ZoneConnection};
 
@@ -63,7 +66,11 @@ impl RuleKind {
     pub fn accepts_layers(self) -> bool {
         matches!(
             self,
-            Self::Clearance | Self::TrackWidth | Self::AnnularRing | Self::ZoneConnection
+            Self::Clearance
+                | Self::TrackWidth
+                | Self::AnnularRing
+                | Self::ZoneConnection
+                | Self::Teardrop
         )
     }
 
@@ -162,7 +169,8 @@ impl RuleKind {
             RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
             RuleKind::PasteExpansion => &[Expansion, Percent],
-            RuleKind::ViaSpan | RuleKind::Teardrop => &[],
+            RuleKind::ViaSpan => &[],
+            RuleKind::Teardrop => &teardrop::FIELDS,
             RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
@@ -186,7 +194,8 @@ impl RuleKind {
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
-            RuleKind::PasteExpansion | RuleKind::ViaSpan | RuleKind::MicroviaSize | RuleKind::Teardrop => &[],
+            RuleKind::PasteExpansion | RuleKind::ViaSpan | RuleKind::MicroviaSize => &[],
+            RuleKind::Teardrop => &teardrop::FIELDS,
             RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
@@ -198,6 +207,7 @@ impl RuleKind {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum RuleField {
+    Teardrop(TeardropKind, TeardropField),
     Value,
     HoleVia,
     HolePad,
@@ -324,6 +334,7 @@ impl RuleField {
             RuleField::ViaSpokeWidth => "via.spoke_width",
             RuleField::ViaGap => "via.gap",
             RuleField::ViaAngle => "via.angle",
+            RuleField::Teardrop(kind, field) => field.path(kind),
         }
     }
 
@@ -383,6 +394,8 @@ pub enum RuleValue {
     Length(Nm),
     Flag(bool),
     Percent(i32),
+    /// A nonnegative percentage of a Teardrop target size.
+    UnsignedPercent(u32),
     Mode(SilkMaskMode),
     /// An area in square nanometres.
     Area(i64),
@@ -522,7 +535,7 @@ impl Default for TeardropTarget {
 #[serde(untagged)]
 pub enum ViaRuleValues {
     Connection(ZoneConnection),
-    Teardrop(TeardropTarget),
+    Teardrop(TeardropValues),
 }
 
 /// The values a rule record sets. Which ones a record may hold depends on its kind
@@ -595,11 +608,11 @@ pub struct RuleValues<T = Uuid> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub via: Option<ViaRuleValues>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub through_hole_pad: Option<TeardropTarget>,
+    pub through_hole_pad: Option<TeardropValues>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub smd_pad: Option<TeardropTarget>,
+    pub smd_pad: Option<TeardropValues>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width_change: Option<TeardropTarget>,
+    pub width_change: Option<TeardropValues>,
 }
 
 impl<T> RuleValues<T> {
@@ -642,6 +655,9 @@ impl<T> RuleValues<T> {
 impl RuleValues {
     /// The value at `field`, if this record sets it.
     pub fn get(&self, field: RuleField) -> Option<RuleValue> {
+        if let RuleField::Teardrop(kind, which) = field {
+            return self.teardrop_values(kind)?.get(which);
+        }
         if let Some((target, value)) = field.connection() {
             let c = self.connection(target)?;
             return match value {
@@ -716,6 +732,9 @@ impl RuleValues {
     /// Sets or (with `None`) clears the value at `field`. A value of the wrong type for
     /// the field is refused.
     pub fn set(&mut self, field: RuleField, value: Option<RuleValue>) -> Result<(), String> {
+        if let RuleField::Teardrop(kind, which) = field {
+            return self.set_teardrop(kind, which, value);
+        }
         let wrong = || format!("`{}` takes a {}", field.path(), type_name(field));
         if let Some((target, which)) = field.connection() {
             let mut c = self.connection(target).copied().unwrap_or_default();
@@ -842,6 +861,7 @@ impl RuleValues {
     pub fn set_fields(&self) -> Vec<RuleField> {
         ALL_FIELDS
             .iter()
+            .chain(teardrop::FIELDS.iter())
             .copied()
             .filter(|f| self.get(*f).is_some())
             .collect()

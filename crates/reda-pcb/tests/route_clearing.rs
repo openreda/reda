@@ -234,6 +234,22 @@ fn cleanup_merges_collinear_segments_with_nothing_at_the_joint() {
 }
 
 #[test]
+fn cleanup_preserves_a_teardrop_opt_out_at_a_collinear_joint() {
+    let dir = TempDir::new("cleanup-teardrop");
+    let mut engine = engine(&dir);
+    let net = net(&mut engine, "SIG");
+    let parts = track(&mut engine, net, "0.2mm", &[(0., 0.), (2., 0.), (4., 0.)]);
+    engine.run_ok(
+        "pcb.track.set",
+        json!({"tracks":[parts[0]],"teardrop":false}),
+    );
+    let result = engine.run_ok("pcb.track.cleanup", json!({}));
+    assert_eq!(result["result"]["merged"], json!([]));
+    assert!(!pcb(&engine).track(parts[0]).unwrap().teardrop);
+    assert!(pcb(&engine).track(parts[1]).unwrap().teardrop);
+}
+
+#[test]
 fn cleanup_can_be_limited_to_some_nets() {
     let dir = TempDir::new("cleanup-nets");
     let mut engine = engine(&dir);
