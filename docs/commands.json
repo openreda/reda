@@ -198,17 +198,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -236,6 +225,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {
@@ -1422,17 +1441,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -1460,6 +1468,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {
@@ -1666,17 +1704,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -1704,6 +1731,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {
@@ -2214,17 +2271,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -2252,6 +2298,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {
@@ -2513,17 +2589,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -2551,6 +2616,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {
@@ -22612,7 +22707,8 @@
               },
               "aspect_ratio": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit."
               },
               "clearance": {
                 "$ref": "#/$defs/Severity",
@@ -22676,7 +22772,8 @@
               },
               "max_stack": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via Stack containing more micro Vias than the configured limit."
               },
               "micro_segment": {
                 "$ref": "#/$defs/Severity",
@@ -22685,7 +22782,8 @@
               },
               "microvia_size": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A micro Via diameter or hole outside the configured size limits."
               },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
@@ -22734,7 +22832,8 @@
               },
               "silk_text_height": {
                 "$ref": "#/$defs/Severity",
-                "default": "warning"
+                "default": "warning",
+                "description": "Silkscreen text shorter than the minimum height."
               },
               "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
@@ -22748,7 +22847,8 @@
               },
               "silk_width": {
                 "$ref": "#/$defs/Severity",
-                "default": "warning"
+                "default": "warning",
+                "description": "A silkscreen stroke narrower than the minimum width."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -22767,7 +22867,8 @@
               },
               "via_span": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -30459,7 +30560,8 @@
               },
               "aspect_ratio": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit."
               },
               "clearance": {
                 "$ref": "#/$defs/Severity",
@@ -30523,7 +30625,8 @@
               },
               "max_stack": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via Stack containing more micro Vias than the configured limit."
               },
               "micro_segment": {
                 "$ref": "#/$defs/Severity",
@@ -30532,7 +30635,8 @@
               },
               "microvia_size": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A micro Via diameter or hole outside the configured size limits."
               },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
@@ -30581,7 +30685,8 @@
               },
               "silk_text_height": {
                 "$ref": "#/$defs/Severity",
-                "default": "warning"
+                "default": "warning",
+                "description": "Silkscreen text shorter than the minimum height."
               },
               "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
@@ -30595,7 +30700,8 @@
               },
               "silk_width": {
                 "$ref": "#/$defs/Severity",
-                "default": "warning"
+                "default": "warning",
+                "description": "A silkscreen stroke narrower than the minimum width."
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -30614,7 +30720,8 @@
               },
               "via_span": {
                 "$ref": "#/$defs/Severity",
-                "default": "error"
+                "default": "error",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -54218,17 +54325,6 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
-                "enum": [
-                  "via_span",
-                  "microvia_size",
-                  "aspect_ratio",
-                  "max_stack",
-                  "silk_width",
-                  "silk_text_height"
-                ],
-                "type": "string"
-              },
-              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -54256,6 +54352,36 @@
               {
                 "const": "via_size",
                 "description": "A Via diameter or hole outside the `via_size` range.",
+                "type": "string"
+              },
+              {
+                "const": "via_span",
+                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "type": "string"
+              },
+              {
+                "const": "microvia_size",
+                "description": "A micro Via diameter or hole outside the configured size limits.",
+                "type": "string"
+              },
+              {
+                "const": "aspect_ratio",
+                "description": "A Via whose depth divided by its drill diameter exceeds the limit.",
+                "type": "string"
+              },
+              {
+                "const": "max_stack",
+                "description": "A Via Stack containing more micro Vias than the configured limit.",
+                "type": "string"
+              },
+              {
+                "const": "silk_width",
+                "description": "A silkscreen stroke narrower than the minimum width.",
+                "type": "string"
+              },
+              {
+                "const": "silk_text_height",
+                "description": "Silkscreen text shorter than the minimum height.",
                 "type": "string"
               },
               {

@@ -627,7 +627,8 @@
         },
         "aspect_ratio": {
           "$ref": "#/$defs/Severity",
-          "default": "error"
+          "default": "error",
+          "description": "A Via whose depth divided by its drill diameter exceeds the limit."
         },
         "clearance": {
           "$ref": "#/$defs/Severity",
@@ -691,7 +692,8 @@
         },
         "max_stack": {
           "$ref": "#/$defs/Severity",
-          "default": "error"
+          "default": "error",
+          "description": "A Via Stack containing more micro Vias than the configured limit."
         },
         "micro_segment": {
           "$ref": "#/$defs/Severity",
@@ -700,7 +702,8 @@
         },
         "microvia_size": {
           "$ref": "#/$defs/Severity",
-          "default": "error"
+          "default": "error",
+          "description": "A micro Via diameter or hole outside the configured size limits."
         },
         "net_tie_not_joined": {
           "$ref": "#/$defs/Severity",
@@ -749,7 +752,8 @@
         },
         "silk_text_height": {
           "$ref": "#/$defs/Severity",
-          "default": "warning"
+          "default": "warning",
+          "description": "Silkscreen text shorter than the minimum height."
         },
         "silk_to_edge": {
           "$ref": "#/$defs/Severity",
@@ -763,7 +767,8 @@
         },
         "silk_width": {
           "$ref": "#/$defs/Severity",
-          "default": "warning"
+          "default": "warning",
+          "description": "A silkscreen stroke narrower than the minimum width."
         },
         "track_width": {
           "$ref": "#/$defs/Severity",
@@ -782,7 +787,8 @@
         },
         "via_span": {
           "$ref": "#/$defs/Severity",
-          "default": "error"
+          "default": "error",
+          "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
         },
         "via_under_smd": {
           "$ref": "#/$defs/Severity",

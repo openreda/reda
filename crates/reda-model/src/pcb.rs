@@ -153,11 +153,17 @@ crate::check::severities! {
     track_width => TrackWidth = Error,
     /// A Via diameter or hole outside the `via_size` range.
     via_size => ViaSize = Error,
+    /// A Via span with no matching type, or one outside the Net Class’s allowed list.
     via_span => ViaSpan = Error,
+    /// A micro Via diameter or hole outside the configured size limits.
     microvia_size => MicroviaSize = Error,
+    /// A Via whose depth divided by its drill diameter exceeds the limit.
     aspect_ratio => AspectRatio = Error,
+    /// A Via Stack containing more micro Vias than the configured limit.
     max_stack => MaxStack = Error,
+    /// A silkscreen stroke narrower than the minimum width.
     silk_width => SilkWidth = Warning,
+    /// Silkscreen text shorter than the minimum height.
     silk_text_height => SilkTextHeight = Warning,
     /// A Pad, Free Pad or non-plated hole outside the `hole_size` range.
     hole_size => HoleSize = Error,
