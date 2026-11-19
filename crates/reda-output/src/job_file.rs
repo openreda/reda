@@ -1,12 +1,11 @@
 //! The Gerber job file: `<project>-job.gbrjob`, a minimal JSON file in the publisher's
 //! Job spec form. It holds the generation software, the project ID, the board size, layer
 //! count and thickness, the finish when the Job spec names it, and the path, function and
-//! polarity of each Gerber and drill file in the zip.
+//! polarity of each Gerber and drill file in the zip, and the physical material stack.
 //!
-//! Left out on purpose: `MaterialStackup`, which must be complete when present while v0.1
-//! dielectrics have no material, and `CreationDate`, so the same design and REDA version
-//! give the same bytes (the Output Manifest holds the run's date).
+//! The Output Manifest holds the run date, so this file stays reproducible.
 
+use reda_model::{PcbDocument, StackupEntry};
 use serde::Serialize;
 
 use crate::fab_notes::board_size;
@@ -23,6 +22,7 @@ struct Job {
     header: Header,
     general_specs: GeneralSpecs,
     files_attributes: Vec<FileEntry>,
+    material_stackup: Vec<Material>,
 }
 
 #[derive(Serialize)]
@@ -74,6 +74,70 @@ struct FileEntry {
     path: String,
     file_function: String,
     file_polarity: &'static str,
+}
+
+#[derive(Default, Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct Material {
+    #[serde(rename = "Type")]
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thickness: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    material: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dielectric_constant: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    loss_tangent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    color: Option<String>,
+}
+
+/// Mask and legend exist in the material stack on the sides actually plotted.
+/// Dielectric values come from the authored entry, including its optional thickness.
+fn material_stackup(pcb: &PcbDocument, files: &[OutputFile]) -> Vec<Material> {
+    let stack = pcb.stackup();
+    let outer = |function: &str, kind, color: &Option<String>| {
+        files
+            .iter()
+            .any(|f| f.function == function)
+            .then(|| Material {
+                kind,
+                color: color.clone(),
+                ..Default::default()
+            })
+    };
+    let mut rows = Vec::new();
+    rows.extend(outer("silkscreen_top", "Legend", &stack.silk_color));
+    rows.extend(outer("solder_mask_top", "SolderMask", &stack.mask_color));
+    rows.extend(stack.entries.iter().map(|entry| {
+        match entry {
+            StackupEntry::Copper(c) => Material {
+                kind: "Copper",
+                name: pcb
+                    .layers()
+                    .layer(c.layer)
+                    .and_then(|layer| layer.name.clone())
+                    .or_else(|| pcb.copper_number(c.layer).map(|n| format!("L{n}"))),
+                thickness: Some(mm(c.thickness)),
+                ..Default::default()
+            },
+            StackupEntry::Dielectric(d) => Material {
+                kind: "Dielectric",
+                name: d.name.clone(),
+                thickness: d.thickness.map(mm),
+                material: d.material.clone(),
+                dielectric_constant: d.dk.map(|v| f64::from(v) / 1000.0),
+                loss_tangent: d.df.map(|v| f64::from(v) / 1e6),
+                ..Default::default()
+            },
+        }
+    }));
+    rows.extend(outer("solder_mask_bottom", "SolderMask", &stack.mask_color));
+    rows.extend(outer("silkscreen_bottom", "Legend", &stack.silk_color));
+    rows
 }
 
 /// The finishes the Job spec names, in its spelling.
@@ -149,6 +213,9 @@ pub fn gerber_job_file(plot: &Plot<'_>, files: &[OutputFile]) -> OutputFile {
                 .and_then(|p| p.stackup().finish.as_deref())
                 .and_then(job_finish),
         },
+        material_stackup: pcb
+            .map(|pcb| material_stackup(pcb, files))
+            .unwrap_or_default(),
         files_attributes: files
             .iter()
             .filter_map(|f| {

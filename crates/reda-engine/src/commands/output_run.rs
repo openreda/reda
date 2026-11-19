@@ -294,9 +294,8 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
     // Switching `merge_drill` drops the other form's through files.
     known.extend(reda_output::drill_file_names(&name));
-    let fab_notes_name = reda_output::fab_notes_name(&name);
     known.extend([
-        fab_notes_name.clone(),
+        reda_output::fab_notes_name(&name),
         reda_output::drill_report_name(&name),
         reda_output::gerber_job_name(&name),
         bom.name.clone(),
@@ -338,14 +337,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         }
     }
     if job.outputs.fab_notes {
-        // The Fab Notes list every file in the zip, themselves included.
-        let zip_names: Vec<String> = zipped
-            .iter()
-            .map(|f| f.name.clone())
-            .chain([fab_notes_name])
-            .chain(after.iter().map(|f| f.name.clone()))
-            .collect();
-        zipped.push(reda_output::fab_notes_file(&plot, &zip_names));
+        zipped.push(reda_output::fab_notes_file(&plot, &zipped, &after));
     }
     zipped.extend(after);
     check_zip_names(zipped.iter().map(OutputFile::name_and_function))

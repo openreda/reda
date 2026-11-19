@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use reda_model::geom::{Nm, Point};
-use reda_model::{HoleTolerance, PadKind, SlotCommand};
+use reda_model::{HoleTolerance, LayerSpan, PadKind, PcbDocument, SlotCommand};
 use reda_pcb::placed::{self, PlacedPad};
 
 use crate::plot::{FileAttributes, OutputFile, Plot, SkippedFile, file_attributes};
@@ -43,6 +43,20 @@ pub fn drill_file_names(name: &str) -> [String; 3] {
         format!("{name}-NPTH.drl"),
         format!("{name}.drl"),
     ]
+}
+
+/// The Layer positions in drilling direction. A file groups both directions together.
+pub(crate) fn span_positions(pcb: &PcbDocument, span: LayerSpan) -> (usize, usize) {
+    (
+        pcb.copper_number(span.from)
+            .expect("validated Via starts on copper"),
+        pcb.copper_number(span.to)
+            .expect("validated Via ends on copper"),
+    )
+}
+
+pub(crate) fn partial_file_name(project: &str, from: usize, to: usize) -> String {
+    format!("{project}-L{}-L{}.drl", from.min(to), from.max(to))
 }
 
 /// Drill files in physical order. Through holes come first, split by plating or
@@ -161,7 +175,7 @@ pub(crate) fn drill_sets(plot: &Plot<'_>) -> Vec<DrillSet> {
             ""
         };
         sets.push(DrillSet {
-            name: format!("{name}-L{from}-L{to}.drl"),
+            name: partial_file_name(name, from, to),
             span_description: format!("L{from}-L{to}, {}{micro}", kind.to_ascii_lowercase()),
             function,
             file_function: format!("Plated,{from},{to},{kind}"),
@@ -194,12 +208,7 @@ fn holes(pcb: &reda_model::PcbDocument) -> Vec<DrillHole> {
     let mut holes: Vec<DrillHole> = pcb
         .vias()
         .map(|via| {
-            let from = pcb
-                .copper_number(via.span.from)
-                .expect("validated Via starts on copper");
-            let to = pcb
-                .copper_number(via.span.to)
-                .expect("validated Via ends on copper");
+            let (from, to) = span_positions(pcb, via.span);
             let span = (from.min(to), from.max(to));
             DrillHole {
                 span: (span != (1, layers)).then_some(span),
