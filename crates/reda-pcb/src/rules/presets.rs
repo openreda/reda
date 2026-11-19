@@ -68,12 +68,22 @@ pub fn strictest_limit(
     kind: RuleKind,
     field: RuleField,
 ) -> Option<(Limit, Nm, &str)> {
+    strictest_limit_on(presets, kind, field, false)
+}
+
+pub fn strictest_limit_on(
+    presets: &[PresetRules],
+    kind: RuleKind,
+    field: RuleField,
+    inner: bool,
+) -> Option<(Limit, Nm, &str)> {
     let mut best: Option<(Limit, Nm, &str)> = None;
     for preset in presets {
         for (k, f, limit, bound) in preset_limits(&preset.rules) {
             if k != kind || f != field {
                 continue;
             }
+            let bound = layer_bound(&preset.rules, k, f, bound, inner);
             let stricter = match best {
                 None => true,
                 Some((_, b, _)) => match limit {
@@ -87,6 +97,19 @@ pub fn strictest_limit(
         }
     }
     best
+}
+
+fn layer_bound(rules: &FabRules, kind: RuleKind, field: RuleField, flat: Nm, inner: bool) -> Nm {
+    if inner && let Some(limits) = rules.inner {
+        limits
+            .limits()
+            .into_iter()
+            .find(|(k, f, _)| *k == kind && *f == field)
+            .and_then(|(_, _, v)| v)
+            .unwrap_or(flat)
+    } else {
+        flat
+    }
 }
 
 /// A rule record value that allows less than a preset's limit.
@@ -125,11 +148,45 @@ pub fn outside_presets<'a>(
                 .filter(|(kind, ..)| *kind == record.kind)
                 .find_map(|(_, field, limit, bound)| {
                     let value = record.values.length(field)?;
-                    let outside = match limit {
-                        Limit::Min => value < bound,
-                        Limit::Max => value > bound,
-                    };
-                    outside.then_some((field, value, limit, bound))
+                    pcb.copper_layers()
+                        .filter(|l| {
+                            record
+                                .scope
+                                .layers
+                                .as_ref()
+                                .is_none_or(|s| s.priority(l).is_some())
+                        })
+                        .find_map(|layer| {
+                            // A more specific Layer rule can cover this owner's flat value
+                            // everywhere the preset's inner minimum differs.
+                            let specificity = |s: &reda_model::RuleScope| match &s.layers {
+                                None => Some(0),
+                                Some(layers) => layers.priority(layer),
+                            };
+                            let shadowed = pcb.rules().any(|r| {
+                                r.enabled
+                                    && r.kind == record.kind
+                                    && r.scope.net_class == record.scope.net_class
+                                    && r.scope.net_class_pair == record.scope.net_class_pair
+                                    && specificity(&r.scope) > specificity(&record.scope)
+                                    && r.values.get(field).is_some()
+                            });
+                            if shadowed {
+                                return None;
+                            }
+                            let bound = layer_bound(
+                                &preset.rules,
+                                record.kind,
+                                field,
+                                bound,
+                                layer.side.is_none(),
+                            );
+                            let outside = match limit {
+                                Limit::Min => value < bound,
+                                Limit::Max => value > bound,
+                            };
+                            outside.then_some((field, value, limit, bound))
+                        })
                 });
             if let Some((field, value, limit, preset_limit)) = breach {
                 found.push(OutsidePreset {

@@ -8,7 +8,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use super::{resolve, resolve_pair};
+use super::{resolve_on, resolve_pair_on};
 
 /// The DRC check that reports a kind's limits; `None` for kinds that shape outputs or
 /// fills.
@@ -47,6 +47,8 @@ pub struct Winner {
     /// The record's Net Class; left out for the board-wide record.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
 }
 
 /// A record that sets values another record wins, or a disabled record.
@@ -55,6 +57,8 @@ pub struct Loser {
     pub rule: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
     /// The values it sets that lost; empty for a disabled record.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<String>,
@@ -78,13 +82,21 @@ pub struct Between {
     pub value: RuleValue,
     pub rule: Uuid,
     /// The object whose value applied: 0 or 1. Equal values name the first.
-    pub object: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub net_class_pair: Option<[Uuid; 2]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layers: Option<reda_model::RuleLayers>,
 }
 
 /// One kind of rule as it applies to the objects.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct KindRules {
     pub kind: RuleKind,
+    /// Present when this kind resolves differently across the selected copper Layers.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Uuid>,
     /// The severity of the DRC check that reports it; left out for kinds that shape
     /// outputs.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -99,6 +111,105 @@ pub struct KindRules {
 
 /// The rules for copper on each of the Nets `nets` (one or two), kind by kind.
 pub fn applicable(pcb: &PcbDocument, nets: &[Option<Uuid>]) -> Vec<KindRules> {
+    applicable_on(pcb, nets, &vec![None; nets.len()], true)
+}
+
+/// Selected copper and the Layers where it is measured.
+pub struct Measured {
+    pub net: Option<Uuid>,
+    pub layers: Vec<Uuid>,
+}
+
+impl Measured {
+    pub fn object(pcb: &PcbDocument, id: Uuid) -> Option<Self> {
+        if let Some(t) = pcb.track(id) {
+            return Some(Self {
+                net: t.net,
+                layers: vec![t.layer],
+            });
+        }
+        if let Some(z) = pcb.zone(id) {
+            return Some(Self {
+                net: z.net,
+                layers: vec![z.layer],
+            });
+        }
+        if let Some(v) = pcb.via(id) {
+            return Some(Self {
+                net: v.net,
+                layers: pcb.span_layers(v.span),
+            });
+        }
+        if let Some(p) = pcb.free_pad(id) {
+            return Some(Self::pad(pcb, &crate::placed::placed_free_pad(p)));
+        }
+        pcb.net(id).map(|n| Self {
+            net: Some(n.uuid),
+            layers: pcb.copper_layers().map(|l| l.uuid).collect(),
+        })
+    }
+
+    pub fn pad(pcb: &PcbDocument, p: &crate::placed::PlacedPad) -> Self {
+        Self {
+            net: p.net,
+            layers: pcb
+                .copper_layers()
+                .filter(|l| p.side.is_none() || p.side == l.side)
+                .map(|l| l.uuid)
+                .collect(),
+        }
+    }
+
+    pub fn placed(pcb: &PcbDocument, pad: PadRef) -> Option<Self> {
+        let instance = pcb.footprint(pad.footprint)?;
+        crate::placed::placed_pads(pcb, instance)
+            .iter()
+            .find(|p| p.pad == pad.pad)
+            .map(|p| Self::pad(pcb, p))
+    }
+}
+
+/// Groups identical explanations across shared copper Layers. Objects with no common
+/// Layer retain their own winners and have no between-objects measurement.
+pub fn applicable_objects(pcb: &PcbDocument, objects: &[Measured]) -> Vec<KindRules> {
+    let nets: Vec<_> = objects.iter().map(|o| o.net).collect();
+    let common: Vec<_> = pcb
+        .copper_layers()
+        .map(|l| l.uuid)
+        .filter(|id| objects.iter().all(|o| o.layers.contains(id)))
+        .collect();
+    if common.is_empty() {
+        let layers: Vec<_> = objects.iter().map(|o| o.layers.first().copied()).collect();
+        return applicable_on(pcb, &nets, &layers, false);
+    }
+    let mut groups: Vec<(KindRules, Vec<Uuid>)> = Vec::new();
+    for &layer in &common {
+        for result in applicable_on(pcb, &nets, &vec![Some(layer); nets.len()], true) {
+            if let Some((_, layers)) = groups.iter_mut().find(|(r, _)| r == &result) {
+                layers.push(layer);
+            } else {
+                groups.push((result, vec![layer]));
+            }
+        }
+    }
+    groups.sort_by_key(|(r, _)| r.kind);
+    groups
+        .into_iter()
+        .map(|(mut r, layers)| {
+            if layers.len() != common.len() {
+                r.layers = layers;
+            }
+            r
+        })
+        .collect()
+}
+
+fn applicable_on(
+    pcb: &PcbDocument,
+    nets: &[Option<Uuid>],
+    layers: &[Option<Uuid>],
+    shared: bool,
+) -> Vec<KindRules> {
     RuleKind::ALL
         .into_iter()
         .map(|kind| {
@@ -108,23 +219,30 @@ pub fn applicable(pcb: &PcbDocument, nets: &[Option<Uuid>]) -> Vec<KindRules> {
                 _ => None,
             };
             let between = match (nets, pair_field) {
-                ([a, b], Some(field)) => resolve_pair(pcb, *a, *b, kind, field).map(|s| {
-                    let first = resolve(pcb, *a, kind, field);
-                    Between {
-                        field: field.path().to_owned(),
-                        value: s.value,
-                        rule: s.rule,
-                        object: if first == Some(s) { 0 } else { 1 },
-                    }
-                }),
+                ([a, b], Some(field)) if shared => {
+                    resolve_pair_on(pcb, *a, *b, layers[0], kind, field).map(|s| {
+                        let first = resolve_on(pcb, *a, layers[0], kind, field);
+                        let pair = pcb.rule(s.rule).and_then(|r| r.scope.net_class_pair);
+                        Between {
+                            field: field.path().to_owned(),
+                            value: s.value,
+                            rule: s.rule,
+                            object: pair.is_none().then_some(usize::from(first != Some(s))),
+                            net_class_pair: pair,
+                            layers: pcb.rule(s.rule).and_then(|r| r.scope.layers.clone()),
+                        }
+                    })
+                }
                 _ => None,
             };
             KindRules {
                 kind,
+                layers: Vec::new(),
                 severity: check_of(kind).map(|c| pcb.setup().severities.get(c)),
                 objects: nets
                     .iter()
-                    .map(|net| object_rules(pcb, *net, kind))
+                    .zip(layers)
+                    .map(|(net, layer)| object_rules(pcb, *net, *layer, kind))
                     .collect(),
                 between,
             }
@@ -132,28 +250,24 @@ pub fn applicable(pcb: &PcbDocument, nets: &[Option<Uuid>]) -> Vec<KindRules> {
         .collect()
 }
 
-/// The records of `kind` that can apply to copper on `net`: its classes' records, highest
-/// rank first, then the board-wide record.
-fn candidates(pcb: &PcbDocument, net: Option<Uuid>, kind: RuleKind) -> Vec<&DesignRule> {
-    super::ranked_classes(pcb, net)
-        .into_iter()
-        .filter_map(|c| pcb.class_rule(kind, c))
-        .chain([pcb.board_rule(kind)])
-        .collect()
-}
-
-fn object_rules(pcb: &PcbDocument, net: Option<Uuid>, kind: RuleKind) -> ObjectRules {
+fn object_rules(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    kind: RuleKind,
+) -> ObjectRules {
     let mut values = Vec::new();
     let mut losers: Vec<Loser> = Vec::new();
-    let records = candidates(pcb, net, kind);
+    let records = super::candidates(pcb, &super::ranked_classes(pcb, net), layer, kind);
     for &field in kind.fields() {
-        let winner = resolve(pcb, net, kind, field);
+        let winner = resolve_on(pcb, net, layer, kind, field);
         if let Some(w) = winner {
             values.push(Winner {
                 field: field.path().to_owned(),
                 value: w.value,
                 rule: w.rule,
                 net_class: pcb.rule(w.rule).and_then(|r| r.scope.net_class),
+                layers: pcb.rule(w.rule).and_then(|r| r.scope.layers.clone()),
             });
         }
         for record in records.iter().filter(|r| r.enabled) {
@@ -165,6 +279,7 @@ fn object_rules(pcb: &PcbDocument, net: Option<Uuid>, kind: RuleKind) -> ObjectR
                 None => losers.push(Loser {
                     rule: record.uuid,
                     net_class: record.scope.net_class,
+                    layers: record.scope.layers.clone(),
                     fields: vec![field.path().to_owned()],
                 }),
             }
@@ -176,6 +291,7 @@ fn object_rules(pcb: &PcbDocument, net: Option<Uuid>, kind: RuleKind) -> ObjectR
         .map(|r| Loser {
             rule: r.uuid,
             net_class: r.scope.net_class,
+            layers: r.scope.layers.clone(),
             fields: Vec::new(),
         })
         .collect();
@@ -201,32 +317,51 @@ pub struct Affected {
 /// The copper whose resolved values of some field come from one of `records`: objects
 /// another record overrides in every value are left out.
 pub fn affected(pcb: &PcbDocument, records: &[&DesignRule]) -> Affected {
-    let supplies = |net: Option<Uuid>| {
-        records.iter().any(|record| {
-            record.kind.fields().iter().any(|&field| {
-                resolve(pcb, net, record.kind, field).is_some_and(|s| s.rule == record.uuid)
+    let mut cache = std::collections::BTreeMap::new();
+    let mut supplies = |net: Option<Uuid>, layer: Uuid| {
+        *cache.entry((net, layer)).or_insert_with(|| {
+            records.iter().any(|record| {
+                record.kind.fields().iter().any(|&field| {
+                    if record.scope.net_class_pair.is_some() {
+                        pcb.nets()
+                            .filter(|other| Some(other.uuid) != net)
+                            .any(|other| {
+                                resolve_pair_on(
+                                    pcb,
+                                    net,
+                                    Some(other.uuid),
+                                    Some(layer),
+                                    record.kind,
+                                    field,
+                                )
+                                .is_some_and(|s| s.rule == record.uuid)
+                            })
+                    } else {
+                        resolve_on(pcb, net, Some(layer), record.kind, field)
+                            .is_some_and(|s| s.rule == record.uuid)
+                    }
+                })
             })
         })
     };
-    let nets: Vec<Uuid> = pcb
+    let nets = pcb
         .nets()
+        .filter(|n| pcb.copper_layers().any(|l| supplies(Some(n.uuid), l.uuid)))
         .map(|n| n.uuid)
-        .filter(|n| supplies(Some(*n)))
         .collect();
-    let no_net = supplies(None);
-    let hit = |net: Option<Uuid>| match net {
-        Some(n) => nets.contains(&n),
-        None => no_net,
-    };
-    let mut objects = Vec::new();
-    objects.extend(pcb.tracks().filter(|t| hit(t.net)).map(|t| t.uuid));
-    objects.extend(pcb.vias().filter(|v| hit(v.net)).map(|v| v.uuid));
-    objects.extend(pcb.free_pads().filter(|p| hit(p.net)).map(|p| p.uuid));
-    objects.extend(pcb.zones().filter(|z| hit(z.net)).map(|z| z.uuid));
+    let mut hit = |m: Measured| m.layers.into_iter().any(|l| supplies(m.net, l));
+    let objects = pcb
+        .tracks()
+        .map(|t| t.uuid)
+        .chain(pcb.vias().map(|v| v.uuid))
+        .chain(pcb.free_pads().map(|p| p.uuid))
+        .chain(pcb.zones().map(|z| z.uuid))
+        .filter(|id| Measured::object(pcb, *id).is_some_and(&mut hit))
+        .collect();
     let mut pads = Vec::new();
     for instance in pcb.footprints() {
         for pad in crate::placed::placed_pads(pcb, instance) {
-            if hit(pad.net) {
+            if hit(Measured::pad(pcb, &pad)) {
                 pads.push(PadRef {
                     footprint: instance.uuid,
                     pad: pad.pad,

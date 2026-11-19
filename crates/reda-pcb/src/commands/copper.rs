@@ -228,7 +228,9 @@ impl Command for ClearanceTrack {
         let net = existing_net(pcb, p.net, "/net")?;
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width.default_size(),
+            None => crate::rules::net_rules_on(pcb, net, Some(layer))
+                .track_width
+                .default_size(),
         };
         let geometry = TrackGeometry::Line {
             from: p.from.point(),

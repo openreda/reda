@@ -4551,6 +4551,16 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InnerFabRules"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "mask_expansion": {
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
@@ -4692,6 +4702,37 @@
               "via",
               "pad"
             ],
+            "type": "object"
+          },
+          "InnerFabRules": {
+            "additionalProperties": false,
+            "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+            "properties": {
+              "annular_ring_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "clearance": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "track_width_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "LayerFileName": {
@@ -23393,6 +23434,16 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InnerFabRules"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "mask_expansion": {
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
@@ -25558,6 +25609,37 @@
             ],
             "type": "object"
           },
+          "InnerFabRules": {
+            "additionalProperties": false,
+            "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+            "properties": {
+              "annular_ring_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "clearance": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "track_width_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "InsideEdge": {
             "description": "A Pin decoration just inside the body edge.",
             "oneOf": [
@@ -25649,6 +25731,14 @@
               "name"
             ],
             "type": "object"
+          },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
           },
           "LayerKind": {
             "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
@@ -28339,15 +28429,52 @@
               }
             ]
           },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
           "RuleScope": {
             "additionalProperties": false,
-            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+            "description": "All the filters of one design rule. An empty scope is the board-wide fallback.",
             "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net_class": {
-                "description": "The Net Class whose Nets it applies to.",
                 "format": "uuid",
                 "type": [
                   "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "description": "Two sorted class UUIDs. The nil UUID denotes the implicit Default class.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
                   "null"
                 ]
               }
@@ -31366,6 +31493,16 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "inner": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/InnerFabRules"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "mask_expansion": {
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
@@ -33531,6 +33668,37 @@
             ],
             "type": "object"
           },
+          "InnerFabRules": {
+            "additionalProperties": false,
+            "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+            "properties": {
+              "annular_ring_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "clearance": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "track_width_min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "InsideEdge": {
             "description": "A Pin decoration just inside the body edge.",
             "oneOf": [
@@ -33622,6 +33790,14 @@
               "name"
             ],
             "type": "object"
+          },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
           },
           "LayerKind": {
             "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
@@ -36333,15 +36509,52 @@
               }
             ]
           },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
           "RuleScope": {
             "additionalProperties": false,
-            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+            "description": "All the filters of one design rule. An empty scope is the board-wide fallback.",
             "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net_class": {
-                "description": "The Net Class whose Nets it applies to.",
                 "format": "uuid",
                 "type": [
                   "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "description": "Two sorted class UUIDs. The nil UUID denotes the implicit Default class.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
                   "null"
                 ]
               }
@@ -53288,14 +53501,183 @@
     },
     {
       "category": "pcb",
-      "description": "Lists the copper a rule record (`rule`) or a Net Class's records (`net_class`) affect: the Nets they supply a value to, their Tracks, Vias, Free Pads and Zones (`objects`) and Pads (`pads`, as `selection.set` takes them). Objects whose every value another record overrides are left out. A board-wide record also affects copper on no Net.",
+      "description": "Lists the Nets, objects and placed Pads a rule supplies values to on their copper Layers. Select a record by rule UUID or by kind and scope, or select all records of a Net Class by net_class UUID.",
       "icon": "rules",
       "id": "pcb.rules.affected",
       "kind": "query",
       "params": {
+        "$defs": {
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
+          "ScopeParam": {
+            "additionalProperties": false,
+            "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "net_class": {
+                "default": null,
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "default": null,
+                "description": "Two class names. Default matches every Net.",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RuleKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "net_class": {
             "default": null,
             "description": "A Net Class: what its records affect.",
@@ -53312,6 +53694,16 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ScopeParam"
+              },
+              {
+                "type": "null"
+              }
             ]
           }
         },
@@ -53382,7 +53774,7 @@
     },
     {
       "category": "pcb",
-      "description": "Explains the design rules for one or two copper objects (Tracks, Vias, Free Pads, Zones, Pads as `{footprint, pad}`, or Nets). Per kind: the winning values and the record each comes from, the records that lost, the disabled ones, and the DRC check's severity; for two objects, each one's `clearance` and `hole_to_hole` and which applied (`between`).",
+      "description": "Explains each field on one or two Tracks, Vias, Free Pads, Zones, placed Pads or Nets. Distinct Layer results list their copper Layer UUIDs. Each kind names its winners, overridden and disabled records, and severity. For two objects, between names the winning clearance pair or object.",
       "icon": "rules",
       "id": "pcb.rules.applicable",
       "kind": "query",
@@ -53448,11 +53840,36 @@
               "field": {
                 "type": "string"
               },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "net_class_pair": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
               "object": {
                 "description": "The object whose value applied: 0 or 1. Equal values name the first.",
                 "format": "uint",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "rule": {
                 "format": "uuid",
@@ -53465,8 +53882,7 @@
             "required": [
               "field",
               "value",
-              "rule",
-              "object"
+              "rule"
             ],
             "type": "object"
           },
@@ -53507,6 +53923,14 @@
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
+              "layers": {
+                "description": "Present when this kind resolves differently across the selected copper Layers.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
               "objects": {
                 "description": "One entry per object, in the order given.",
                 "items": {
@@ -53532,6 +53956,14 @@
             ],
             "type": "object"
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "Loser": {
             "description": "A record that sets values another record wins, or a disabled record.",
             "properties": {
@@ -53541,6 +53973,16 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "net_class": {
                 "format": "uuid",
@@ -53686,6 +54128,21 @@
               }
             ]
           },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
           "RuleValue": {
             "anyOf": [
               {
@@ -53757,6 +54214,16 @@
                 "description": "Which value, such as `diameter.min`.",
                 "type": "string"
               },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net_class": {
                 "description": "The record's Net Class; left out for the board-wide record.",
                 "format": "uuid",
@@ -53819,6 +54286,14 @@
       "kind": "edit",
       "params": {
         "$defs": {
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "RowRef": {
             "additionalProperties": false,
             "description": "One row of the preview to apply.",
@@ -53828,6 +54303,17 @@
               },
               "kind": {
                 "$ref": "#/$defs/RuleKind"
+              },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LayerGroup"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
               }
             },
             "required": [
@@ -54055,6 +54541,14 @@
               }
             ]
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -54075,12 +54569,29 @@
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LayerGroup"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "limit": {
                 "description": "Whether it is a limit the preset sets, rather than a preferred size or an output\nseed.",
                 "type": "boolean"
               },
               "preset": {
-                "$ref": "#/$defs/RuleValue",
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
                 "description": "The preset's value."
               },
               "ticked": {
@@ -54441,6 +54952,14 @@
               }
             ]
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "RuleChange": {
             "description": "One board-wide value the preset would change.",
             "properties": {
@@ -54461,12 +54980,29 @@
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/LayerGroup"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "limit": {
                 "description": "Whether it is a limit the preset sets, rather than a preferred size or an output\nseed.",
                 "type": "boolean"
               },
               "preset": {
-                "$ref": "#/$defs/RuleValue",
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleValue"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
                 "description": "The preset's value."
               },
               "ticked": {
@@ -55661,7 +56197,7 @@
     },
     {
       "category": "pcb",
-      "description": "Adds a Fab Preset copy to the Project whose rules are the board-wide design rule values: limits, preferred sizes and mask and paste seeds. Net Class records are left out, because presets have no scope, and so are Track and Via maximums. Its other settings come from `from`. `fab_preset.save_user` then keeps it for new Projects.",
+      "description": "Adds a Fab Preset copy to the Project whose rules are the board-wide design rule values: limits, preferred sizes and mask and paste seeds. The Inner limits are included. Other Layer and class records are omitted, as are Track and Via maximums. Its other settings come from `from`. `fab_preset.save_user` then keeps it for new Projects.",
       "icon": "save",
       "id": "pcb.rules.save_as_preset",
       "kind": "edit",
@@ -55709,7 +56245,7 @@
     },
     {
       "category": "pcb",
-      "description": "Sets values of one design rule record: the board-wide record of `kind`, or with `scope: {net_class}` that Net Class's, created when missing. Values left out keep theirs, and `null` clears one; a Net Class record with nothing left is deleted. Nothing is filled in, and a negative limit, `min` above `max` or `preferred` outside the range is refused. Returns the record, or `null` once deleted.",
+      "description": "Edits a rule record identified by kind and scope. The scope may name a Net Class by UUID, or an unordered clearance pair by class names, and copper Layers by group or UUID list. Omitted fields retain their values. A null clears an override and an empty scoped record is deleted. Invalid effective ranges are refused. Returns the record or null.",
       "icon": "rules",
       "id": "pcb.rules.set",
       "kind": "edit",
@@ -55868,6 +56404,14 @@
               }
             ]
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -55977,15 +56521,53 @@
               }
             ]
           },
-          "RuleScope": {
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
+          "ScopeParam": {
             "additionalProperties": false,
-            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
             "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
               "net_class": {
-                "description": "The Net Class whose Nets it applies to.",
+                "default": null,
                 "format": "uuid",
                 "type": [
                   "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "default": null,
+                "description": "Two class names. Default matches every Net.",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
                   "null"
                 ]
               }
@@ -56264,9 +56846,8 @@
             "$ref": "#/$defs/RuleKind"
           },
           "scope": {
-            "$ref": "#/$defs/RuleScope",
-            "default": {},
-            "description": "Left out, the board-wide record; `{net_class}` names a Net Class's."
+            "$ref": "#/$defs/ScopeParam",
+            "description": "Filter the record by Net Class UUID or class-name pair, and by copper Layers."
           },
           "values": {
             "$ref": "#/$defs/ValuesParam"
@@ -56369,6 +56950,14 @@
             ],
             "type": "object"
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
@@ -56464,15 +57053,52 @@
               }
             ]
           },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
           "RuleScope": {
             "additionalProperties": false,
-            "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+            "description": "All the filters of one design rule. An empty scope is the board-wide fallback.",
             "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "net_class": {
-                "description": "The Net Class whose Nets it applies to.",
                 "format": "uuid",
                 "type": [
                   "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "description": "Two sorted class UUIDs. The nil UUID denotes the implicit Default class.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
                   "null"
                 ]
               }
@@ -56867,10 +57493,190 @@
       "id": "pcb.rules.validate",
       "kind": "query",
       "params": {
+        "$defs": {
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
+          "RuleKind": {
+            "description": "What a rule record limits.",
+            "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
+                "const": "clearance",
+                "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
+                "type": "string"
+              },
+              {
+                "const": "track_width",
+                "description": "Track width: `min`, `preferred`, `max?`.",
+                "type": "string"
+              },
+              {
+                "const": "via_size",
+                "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_size",
+                "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+                "type": "string"
+              },
+              {
+                "const": "annular_ring",
+                "description": "Annular ring: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "hole_to_hole",
+                "description": "Spacing between hole edges: `min`.",
+                "type": "string"
+              },
+              {
+                "const": "edge_clearance",
+                "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_edge",
+                "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "silk_to_mask",
+                "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+                "type": "string"
+              },
+              {
+                "const": "courtyard_clearance",
+                "description": "Spacing between courtyards: `value`.",
+                "type": "string"
+              },
+              {
+                "const": "dangling",
+                "description": "Dangling stubs up to `tolerance` long pass.",
+                "type": "string"
+              },
+              {
+                "const": "micro_segment",
+                "description": "Tracks up to `max_length` long are micro-segments.",
+                "type": "string"
+              },
+              {
+                "const": "dead_copper",
+                "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+                "type": "string"
+              },
+              {
+                "const": "zone_connection",
+                "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "mask_expansion",
+                "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+                "type": "string"
+              },
+              {
+                "const": "paste_expansion",
+                "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+                "type": "string"
+              }
+            ]
+          },
+          "RuleLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Copper Layers selected by a design rule."
+          },
+          "ScopeParam": {
+            "additionalProperties": false,
+            "properties": {
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RuleLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "net_class": {
+                "default": null,
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "default": null,
+                "description": "Two class names. Default matches every Net.",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Params for a Command that takes none: accepts `{}` (or `null`) and refuses any field.",
-        "title": "NoParams",
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RuleKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ScopeParam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ValidateParams",
         "type": "object"
       },
       "presets": [],
@@ -56944,6 +57750,13 @@
           "NoteKind": {
             "description": "What a note is about.",
             "oneOf": [
+              {
+                "enum": [
+                  "no_matching_layers",
+                  "pair_below_class"
+                ],
+                "type": "string"
+              },
               {
                 "const": "outside_preset",
                 "description": "A value allows less than a Fab Preset limit (`preset` names it).",

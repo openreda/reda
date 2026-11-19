@@ -203,3 +203,23 @@ fn the_via_chooser_lists_the_nets_size_then_the_sizes_on_the_board() {
         ]
     );
 }
+
+#[test]
+fn changing_layer_follows_preferred_or_clips_a_chosen_width() {
+    let dir = TempDir::new("layer-width");
+    let (mut engine, net) = board(&dir);
+    let layers: Vec<_> = pcb(&engine).copper_layers().map(|l| l.uuid).collect();
+    let class = pcb(&engine).net_classes().next().unwrap().uuid;
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"net_class":class,"layers":[layers[1]]},
+        "values":{"min":"0.32mm","preferred":"0.42mm","max":"0.48mm"}}),
+    );
+    let change = |width: Option<i64>| {
+        reda_pcb::route::width::changed_layer(pcb(&engine), Some(net), layers[1], width.map(um))
+    };
+    assert_eq!(change(None), um(420));
+    assert_eq!(change(Some(300)), um(320));
+    assert_eq!(change(Some(210)), um(320));
+    assert_eq!(change(Some(450)), um(450));
+}
