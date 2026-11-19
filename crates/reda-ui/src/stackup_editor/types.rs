@@ -20,8 +20,8 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
     widgets::table("via-types")
         .columns([
             Column::fill(),
-            Column::fixed(t.size.of(50.0)),
-            Column::fixed(t.size.of(50.0)),
+            Column::fixed(t.size.of(76.0)),
+            Column::fixed(t.size.of(76.0)),
             Column::fixed(t.size.of(64.0)),
             Column::fixed(t.size.of(64.0)),
         ])
@@ -191,6 +191,11 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                     json!({"via_type":kind.uuid,"before":stack.via_types.get(i+2).map(|v|v.uuid)}),
                 ));
             }
+        }
+    });
+    if let Some(i) = selection {
+        let kind = &stack.via_types[i];
+        ui.horizontal_wrapped(|ui| {
             if let Some(mode) = crate::pcb::unused_layers::via_default(ui, kind.unused_layers) {
                 edits.set(Field::Via(kind.uuid, "unused_layers"), json!(mode));
             }
@@ -204,8 +209,8 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
             {
                 edits.set(Field::Via(kind.uuid, "micro"), json!(micro));
             }
-        }
-    });
+        });
+    }
 }
 
 fn outside_limits(pcb: &PcbDocument, v: &ViaType) -> bool {

@@ -30,6 +30,8 @@ pub enum ColorKey {
     Board(BoardColor),
     /// A Net's own colour (`color` on the Net): not in the palette, never themed.
     Net(Rgba),
+    /// Opaque sRGB ink, including physical material colours in a Stackup cross-section.
+    Fixed([u8; 3]),
 }
 
 impl ColorKey {
@@ -43,15 +45,15 @@ impl ColorKey {
             ColorKey::Board(kind) => BOARD_SLOTS + kind as usize,
             // Not in the palette: it has the Ratsnest's slot, and the GPU word carries
             // the colour itself (see `gpu_word`).
-            ColorKey::Net(_) => BOARD_SLOTS + BoardColor::Ratsnest as usize,
+            ColorKey::Fixed(_) | ColorKey::Net(_) => BOARD_SLOTS + BoardColor::Ratsnest as usize,
         }
     }
 
     /// The colour word an instance carries: the palette slot, or, with the top bit set,
-    /// a Net colour's own `0xRRGGBB`.
+    /// an explicit colour’s `0xRRGGBB`.
     pub fn gpu_word(self) -> u32 {
         match self {
-            ColorKey::Net(Rgba([r, g, b, _])) => {
+            ColorKey::Fixed([r, g, b]) | ColorKey::Net(Rgba([r, g, b, _])) => {
                 0x8000_0000 | (u32::from(r) << 16) | (u32::from(g) << 8) | u32::from(b)
             }
             key => key.slot() as u32,
@@ -70,13 +72,15 @@ impl ColorKey {
             ColorKey::Schematic(kind) => kind.name(),
             ColorKey::Board(kind) => kind.name(),
             ColorKey::Net(_) => "Net",
+            ColorKey::Fixed(_) => "Fixed",
         }
     }
 
-    /// The snapshot label: the name, with a Net colour's `#rrggbb`.
+    /// The snapshot label: the name, with an explicit colour’s `#rrggbb`.
     pub fn label(self) -> String {
         match self {
             ColorKey::Net(Rgba([r, g, b, _])) => format!("Net#{r:02x}{g:02x}{b:02x}"),
+            ColorKey::Fixed([r, g, b]) => format!("Fixed#{r:02x}{g:02x}{b:02x}"),
             key => key.name().to_owned(),
         }
     }
@@ -386,6 +390,7 @@ impl Palette {
         match key {
             ColorKey::Schematic(kind) => kind.shipped(self.theme),
             ColorKey::Board(kind) => kind.shipped(self.theme),
+            ColorKey::Fixed([r, g, b]) => Rgba::rgb(r, g, b),
             ColorKey::Net(color) => color,
         }
     }

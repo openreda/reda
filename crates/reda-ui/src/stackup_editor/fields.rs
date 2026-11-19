@@ -97,6 +97,9 @@ fn scaled(text: &str, places: usize) -> Option<u32> {
 #[derive(Clone, Default)]
 pub(super) struct View {
     pub selected: Option<Uuid>,
+    pub scale: super::preview::Scale,
+    pub section: Option<std::sync::Arc<super::preview::Cached>>,
+    pub split_sheet: Option<Uuid>,
     pub apply_construction: Option<super::apply::Form>,
     pub save_construction: Option<super::construction::SaveForm>,
     pub pending: Option<super::types::Pending>,
