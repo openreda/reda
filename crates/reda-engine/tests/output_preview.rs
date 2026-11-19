@@ -265,7 +265,7 @@ fn preview_names_both_files_in_an_active_zip_clash_and_keeps_empty_plots_out() {
     let why = preview
         .invalid_file_name
         .expect("the preview identifies the name clash");
-    for label in ["Copper,L1,Top", "bom", "Demo-BOM.csv"] {
+    for label in ["Copper,L1,Top", "bom", "DEMO-bom.csv", "Demo-BOM.csv"] {
         assert!(why.contains(label), "{why}");
     }
     let error = engine.run_err("output.job.run", json!({"job":job.uuid}));

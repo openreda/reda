@@ -450,9 +450,10 @@ pub(crate) fn check_zip_names<'a>(
     for (name, function) in entries {
         super::project::check_file_stem(name)
             .map_err(|why| format!("Output file {function} cannot use {name:?}: {why}"))?;
-        if let Some(previous) = names.insert(name.to_lowercase(), function) {
+        if let Some((previous, previous_name)) = names.insert(name.to_lowercase(), (function, name))
+        {
             return Err(format!(
-                "Output files {previous} and {function} both resolve to {name:?}"
+                "Output filenames clash between {previous} ({previous_name:?}) and {function} ({name:?})"
             ));
         }
     }

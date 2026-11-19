@@ -801,14 +801,12 @@ fn thirty_two_layer_board(dir: &TempDir) -> TestEngine {
         .copper_layers()
         .map(|layer| layer.uuid)
         .collect();
-    engine.run_ok(
-        "pcb.layer.set",
-        json!({"layer": layers[1], "role": "plane"}),
-    );
-    engine.run_ok(
-        "pcb.layer.set",
-        json!({"layer": layers[30], "role": "mixed"}),
-    );
+    for (index, role) in [(0, "mixed"), (1, "plane"), (30, "mixed"), (31, "plane")] {
+        engine.run_ok(
+            "pcb.layer.set",
+            json!({"layer": layers[index], "role": role}),
+        );
+    }
     engine.run_ok("pcb.via.add", json!({"at": pt(7.0, 5.0)}));
     engine
 }
@@ -831,8 +829,8 @@ fn thirty_two_copper_plots_read_back_in_stackup_order_with_the_through_via() {
             _ => (format!("Large.g{position}l"), "Inr"),
         };
         let role = match position {
-            2 => "Plane",
-            31 => "Mixed",
+            2 | 32 => "Plane",
+            1 | 31 => "Mixed",
             _ => "Signal",
         };
         assert_eq!(file.name, name, "copper Layer {position}");
