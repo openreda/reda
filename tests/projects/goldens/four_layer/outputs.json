@@ -1,0 +1,103 @@
+[
+  {
+    "destination": "outputs/JLCPCB",
+    "files": [
+      {
+        "function": "copper_top",
+        "path": "fab/FourLayer.gtl"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/FourLayer.g2l"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/FourLayer.g3l"
+      },
+      {
+        "function": "copper_bottom",
+        "path": "fab/FourLayer.gbl"
+      },
+      {
+        "function": "solder_mask_top",
+        "path": "fab/FourLayer.gts"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "path": "fab/FourLayer.gbs"
+      },
+      {
+        "function": "paste_top",
+        "path": "fab/FourLayer.gtp"
+      },
+      {
+        "function": "paste_bottom",
+        "path": "fab/FourLayer.gbp"
+      },
+      {
+        "function": "silkscreen_top",
+        "path": "fab/FourLayer.gto"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "path": "fab/FourLayer.gbo"
+      },
+      {
+        "function": "profile",
+        "path": "fab/FourLayer.gm1"
+      },
+      {
+        "function": "drill_plated",
+        "path": "fab/FourLayer-PTH.drl"
+      },
+      {
+        "function": "drill_non_plated",
+        "path": "fab/FourLayer-NPTH.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/FourLayer-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/FourLayer-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/FourLayer-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "FourLayer-JLCPCB.zip"
+      },
+      {
+        "function": "bom",
+        "path": "FourLayer-JLCPCB-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "path": "FourLayer-JLCPCB-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "FourLayer-JLCPCB-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/FourLayer-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/FourLayer-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/FourLayer-change-list.json"
+      }
+    ],
+    "manifest": "outputs/JLCPCB/manifest.json",
+    "skipped": [],
+    "warnings": [],
+    "zip": "outputs/JLCPCB/FourLayer-JLCPCB.zip"
+  }
+]
