@@ -31,6 +31,10 @@ pub struct DocumentAdd;
 #[serde(deny_unknown_fields)]
 pub struct DocumentAddParams {
     pub kind: DocumentKind,
+    /// The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.
+    #[serde(default)]
+    #[schemars(range(min = 2, max = 32))]
+    pub layers: Option<u8>,
     /// The title. Defaults to "Sheet <n>" for a sheet and the Project name for the PCB
     /// Document.
     #[serde(default)]
@@ -75,10 +79,22 @@ impl Command for DocumentAdd {
         };
         let uuid = cx.new_id();
         let contents = match p.kind {
+            DocumentKind::Schematic if p.layers.is_some() => {
+                return Err(CommandError::invalid_params(
+                    "/layers",
+                    "only a PCB Document has Layers",
+                ));
+            }
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
                 let preset = reda_output::generic();
-                reda_pcb::new_board(uuid, &preset.rules, preset.stackup_seeds(), || cx.new_id())
+                reda_pcb::new_board_with_layers(
+                    uuid,
+                    &preset.rules,
+                    preset.stackup_seeds(),
+                    p.layers.unwrap_or(2),
+                    || cx.new_id(),
+                )?
             }
         };
         let entry = DocumentEntry {

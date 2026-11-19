@@ -872,6 +872,9 @@ impl PcbDocument {
         let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
             return Err("the board has no copper Layers".into());
         };
+        if copper.len() > 32 {
+            return Err("the board accepts at most 32 copper Layers".into());
+        }
         if first == last {
             return Err("the board needs a top and a bottom copper Layer".into());
         }

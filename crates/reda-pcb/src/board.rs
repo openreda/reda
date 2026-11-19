@@ -271,11 +271,43 @@ pub fn new_board(
     document: Uuid,
     rules: &FabRules,
     stackup: StackupSeeds,
-    mut new_id: impl FnMut() -> Uuid,
+    new_id: impl FnMut() -> Uuid,
 ) -> Vec<Object> {
+    new_board_with_layers(document, rules, stackup, 2, new_id).expect("two copper Layers")
+}
+
+/// Build a board with the requested copper count. Until a matching Construction is
+/// selected, multilayer boards use Generic copper and finished thickness.
+pub fn new_board_with_layers(
+    document: Uuid,
+    rules: &FabRules,
+    stackup: StackupSeeds,
+    layers: u8,
+    mut new_id: impl FnMut() -> Uuid,
+) -> Result<Vec<Object>, reda_command::CommandError> {
+    if !(2..=32).contains(&layers) {
+        return Err(reda_command::CommandError::invalid_params(
+            "/layers",
+            "choose 2 to 32 copper Layers",
+        ));
+    }
+    let stackup = if layers == 2 {
+        stackup
+    } else {
+        StackupSeeds::default()
+    };
+    let mut kinds = V01_LAYERS.to_vec();
+    let middle = kinds
+        .iter()
+        .position(|l| *l == (LayerKind::Copper, Some(Side::Bottom)))
+        .unwrap();
+    kinds.splice(
+        middle..middle,
+        std::iter::repeat_n((LayerKind::Copper, None), usize::from(layers - 2)),
+    );
     let layers = LayerSet {
         uuid: new_id(),
-        layers: V01_LAYERS
+        layers: kinds
             .iter()
             .map(|&(kind, side)| Layer {
                 uuid: new_id(),
@@ -313,7 +345,7 @@ pub fn new_board(
     );
     let stackup = seeded_stackup(&layers, stackup, rules.preferred, &mut new_id);
     objects.push(Object::Stackup(InDocument::new(document, stackup)));
-    objects
+    Ok(objects)
 }
 
 /// A Stackup for `layers`: every copper Layer at the seeded copper, with one dielectric left
