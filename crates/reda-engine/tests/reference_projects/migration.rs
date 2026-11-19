@@ -8,6 +8,7 @@ use std::path::Path;
 /// Only the two reference copper files and the plated through drill have a
 /// changed file-function record. Compare all other bytes, including line endings.
 fn permitted_file_function(path: &str, old: &[u8]) -> Option<Vec<u8>> {
+    let text = std::str::from_utf8(old).ok()?;
     let (before, after) = if path.ends_with(".gtl") {
         (
             "TF.FileFunction,Copper,L1,Top*",
@@ -20,13 +21,17 @@ fn permitted_file_function(path: &str, old: &[u8]) -> Option<Vec<u8>> {
         )
     } else if path.ends_with("-PTH.drl") {
         (
-            "TF.FileFunction,Plated,1,2,PTH,Drill\n",
+            [
+                "TF.FileFunction,Plated,1,2,PTH,Drill\n",
+                "TF.FileFunction,Plated,1,2,PTH,Mixed\n",
+            ]
+            .into_iter()
+            .find(|line| text.contains(line))?,
             "TF.FileFunction,Plated,1,2,PTH\n",
         )
     } else {
         return None;
     };
-    let text = std::str::from_utf8(old).ok()?;
     (text.matches(before).count() == 1).then(|| text.replacen(before, after, 1).into_bytes())
 }
 
