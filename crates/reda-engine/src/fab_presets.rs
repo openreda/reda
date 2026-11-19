@@ -230,6 +230,16 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
         match (target.get_mut(key), value) {
             (Some(Value::Object(section)), Value::Object(keys)) => {
                 for (k, v) in keys {
+                    if key == "gerber"
+                        && k == "file_names"
+                        && let Some(patch) = v.as_object()
+                    {
+                        section.insert(
+                            k.clone(),
+                            patch_file_names(&preset.gerber.file_names, patch)?,
+                        );
+                        continue;
+                    }
                     section.insert(k.clone(), v.clone());
                 }
             }
@@ -262,6 +272,55 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
     }
     serde_json::from_value(merged)
         .map_err(|e| CommandError::invalid_params("/values", format!("not a preset value: {e}")))
+}
+
+/// The pattern can be patched by itself. A supplied Layer list replaces the ordinary overrides.
+fn patch_file_names(
+    current: &[reda_model::LayerFileName],
+    patch: &serde_json::Map<String, serde_json::Value>,
+) -> Result<serde_json::Value, CommandError> {
+    use serde_json::Value;
+    const POINTER: &str = "/values/gerber/file_names";
+    if let Some(key) = patch
+        .keys()
+        .find(|k| !matches!(k.as_str(), "inner_copper" | "layers"))
+    {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            format!("unknown file_names field {key:?}"),
+        ));
+    }
+    let mut rows: Vec<reda_model::LayerFileName> = match patch.get("layers") {
+        Some(value) => serde_json::from_value(value.clone()).map_err(|e| {
+            CommandError::invalid_params(POINTER, format!("invalid Layer overrides: {e}"))
+        })?,
+        None => current
+            .iter()
+            .filter(|row| row.layer != "inner_copper")
+            .cloned()
+            .collect(),
+    };
+    let pattern = match patch.get("inner_copper") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value),
+        Some(_) => {
+            return Err(CommandError::invalid_params(
+                POINTER,
+                "expected an inner copper pattern or null",
+            ));
+        }
+        None => current
+            .iter()
+            .find(|row| row.layer == "inner_copper")
+            .map(|row| &row.name),
+    };
+    if let Some(pattern) = pattern {
+        rows.push(reda_model::LayerFileName {
+            layer: "inner_copper".into(),
+            name: pattern.clone(),
+        });
+    }
+    Ok(serde_json::json!(rows))
 }
 
 /// Lays `values` over the user preset `name` ([`edited`]) and writes its file; returns

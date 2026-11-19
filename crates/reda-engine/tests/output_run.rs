@@ -944,3 +944,30 @@ fn a_bom_row_missing_a_required_field_warns_naming_its_designators_and_stays() {
         "no BOM, no warning"
     );
 }
+
+#[test]
+fn colliding_output_names_identify_both_files_and_preserve_the_last_run() {
+    let dir = TempDir::new("output-name-clash");
+    let mut engine = board(&dir);
+    via(&mut engine);
+    let previous = run(&mut engine);
+    let destination = Path::new(previous["destination"].as_str().unwrap());
+    let files = reda_testkit::read_tree(destination);
+    let preset = engine.project().unwrap().fab_presets().next().unwrap().uuid;
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset": preset, "values": {"gerber": {"file_names": [
+            {"layer": "Top Copper", "name": "Demo-PTH.drl"}
+        ]}}}),
+    );
+    let error = engine.run_err("output.job.run", json!({"job": JOB}));
+    assert_eq!(error.code, ErrorCode::Rejected);
+    for label in ["Demo-PTH.drl", "Copper,L1,Top", "Plated,1,2,PTH"] {
+        assert!(
+            error.message.contains(label),
+            "missing {label}: {}",
+            error.message
+        );
+    }
+    assert_eq!(reda_testkit::read_tree(destination), files);
+}

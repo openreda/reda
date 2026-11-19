@@ -37,6 +37,67 @@ pub struct LayerFileName {
     pub name: String,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub(super) enum FileNameOverrides {
+    Rows(Vec<LayerFileName>),
+    Pattern(InnerFileNames),
+}
+
+/// A preset with an inner copper pattern can also keep its per-Layer overrides.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(super) struct InnerFileNames {
+    inner_copper: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    layers: Vec<LayerFileName>,
+}
+
+pub(super) fn write_file_names<S: serde::Serializer>(
+    rows: &[LayerFileName],
+    writer: S,
+) -> Result<S::Ok, S::Error> {
+    if let Some(pattern) = rows.iter().find(|row| row.layer == "inner_copper") {
+        InnerFileNames {
+            inner_copper: pattern.name.clone(),
+            layers: rows
+                .iter()
+                .filter(|row| row.layer != "inner_copper")
+                .cloned()
+                .collect(),
+        }
+        .serialize(writer)
+    } else {
+        rows.serialize(writer)
+    }
+}
+
+pub(super) fn read_file_names<'de, D: serde::Deserializer<'de>>(
+    reader: D,
+) -> Result<Vec<LayerFileName>, D::Error> {
+    let rows = match FileNameOverrides::deserialize(reader)? {
+        FileNameOverrides::Rows(rows) => rows,
+        FileNameOverrides::Pattern(mut values) => {
+            values.layers.push(LayerFileName {
+                layer: "inner_copper".into(),
+                name: values.inner_copper,
+            });
+            values.layers
+        }
+    };
+    let mut inner = rows.iter().filter(|row| row.layer == "inner_copper");
+    if let Some(pattern) = inner.next() {
+        super::GerberSettings::inner_copper_file_name(&pattern.name, "Project", 2)
+            .map_err(serde::de::Error::custom)?;
+        if inner.next().is_some() {
+            return Err(serde::de::Error::custom(
+                "only one inner_copper pattern may be set",
+            ));
+        }
+    }
+    Ok(rows)
+}
+
 /// Suggestions never validate the board or seed its finish or colours.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

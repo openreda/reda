@@ -9,8 +9,8 @@ mod openings;
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument, Project, Side,
-    TrackGeometry, Uuid, ZoneFills,
+    CopperRole, FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument,
+    Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
@@ -112,11 +112,17 @@ pub struct CoordinateOutOfRange {
     pub at: Point,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GerberError {
+    CoordinateOutOfRange(CoordinateOutOfRange),
+    InvalidFileName(String),
+}
+
 /// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and
 /// Silkscreen, then the Profile. Copper, Solder Mask and the Profile are always written,
 /// because a missing mask file could read as "no mask"; an empty Silkscreen or Paste is
 /// left out and listed in `skipped`. A coordinate beyond the format's range is an error.
-pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
+pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     let mut out = Gerbers {
         files: Vec::new(),
         skipped: Vec::new(),
@@ -127,10 +133,13 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     };
     let project = &plot.project.props().name;
     let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
-        let name = file.name(project, plot.gerber);
-        out.layers.push((name.clone(), file.layer));
+        let name = file.name(project, plot.gerber)?;
+        out.layers.push((name.clone(), file.label()));
         if let Some(at) = rendered.out_of_range {
-            return Err(CoordinateOutOfRange { file: name, at });
+            return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
+                file: name,
+                at,
+            }));
         }
         if optional && rendered.empty {
             out.skipped.push(SkippedFile { name, function });
@@ -144,28 +153,33 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
         }
         Ok(())
     };
-    let copper = first.pcb.copper_layers().count();
-    for i in 0..copper {
+    for (i, layer) in first.pcb.copper_layers().enumerate() {
         let number = i + 1;
-        let (file, function, attribute) = match i {
-            0 => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
-            i if i + 1 == copper => (
+        let (file, function, face) = match layer.side {
+            Some(Side::Top) => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
+            Some(Side::Bottom) => (
                 FileName::new("gbl", "Bottom Copper"),
                 "copper_bottom",
                 "Bot",
             ),
-            i => (
+            None => (
                 FileName {
-                    extension: format!("g{i}"),
-                    layer: format!("Inner Copper L{number}"),
+                    extension: format!("g{number}l"),
+                    layer: layer.name.clone().unwrap_or_default(),
+                    inner_position: Some(number),
                 },
                 "copper_inner",
                 "Inr",
             ),
         };
+        let role = match layer.role {
+            CopperRole::Signal => "Signal",
+            CopperRole::Plane => "Plane",
+            CopperRole::Mixed => "Mixed",
+        };
         let rendered = render(
             plot,
-            format!("Copper,L{number},{attribute}"),
+            format!("Copper,L{number},{face},{role}"),
             "Positive",
             |board, g| {
                 if let Some(layer) = board.pcb.copper_layers().nth(i) {
@@ -246,6 +260,8 @@ struct FileName {
     extension: String,
     /// Such as "Top Copper"; what `file_names` and `descriptive` names go by.
     layer: String,
+    /// Physical copper position, counted from one, for an inner Layer.
+    inner_position: Option<usize>,
 }
 
 impl FileName {
@@ -253,6 +269,7 @@ impl FileName {
         FileName {
             extension: extension.into(),
             layer: layer.into(),
+            inner_position: None,
         }
     }
 
@@ -261,23 +278,46 @@ impl FileName {
             Side::Top => "Top",
             Side::Bottom => "Bottom",
         };
-        FileName {
-            extension: extension.into(),
-            layer: format!("{side} {kind}"),
+        Self::new(extension, &format!("{side} {kind}"))
+    }
+
+    fn label(&self) -> String {
+        match self.inner_position {
+            Some(p) if self.layer.is_empty() => format!("L{p}"),
+            Some(p) => format!("L{p} {}", self.layer),
+            None => self.layer.clone(),
         }
     }
 
     /// The file's name under `settings`: a `file_names` entry for its Layer, else
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
-    fn name(&self, project: &str, settings: &GerberSettings) -> String {
-        if let Some(own) = settings.file_names.iter().find(|f| f.layer == self.layer) {
-            return own.name.clone();
+    fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, GerberError> {
+        let layer = if self.layer.is_empty() {
+            self.label()
+        } else {
+            self.layer.clone()
+        };
+        if let Some(own) = settings
+            .file_names
+            .iter()
+            .find(|f| f.layer == layer && f.layer != "inner_copper")
+        {
+            return Ok(own.name.clone());
         }
-        match settings.naming {
+        if let Some(position) = self.inner_position
+            && let Some(pattern) = settings
+                .file_names
+                .iter()
+                .find(|f| f.layer == "inner_copper")
+        {
+            return GerberSettings::inner_copper_file_name(&pattern.name, project, position)
+                .map_err(GerberError::InvalidFileName);
+        }
+        Ok(match settings.naming {
             FileNaming::Classic => format!("{project}.{}", self.extension),
-            FileNaming::Descriptive => format!("{project}-{}.gbr", self.layer.replace(' ', "_")),
-        }
+            FileNaming::Descriptive => format!("{project}-{}.gbr", layer.replace(' ', "_")),
+        })
     }
 }
 

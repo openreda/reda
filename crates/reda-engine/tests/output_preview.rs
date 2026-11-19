@@ -186,3 +186,66 @@ fn the_bom_and_cpl_previews_are_the_writers_rows() {
         assert_eq!(lines.collect::<Vec<_>>(), rows, "{file}");
     }
 }
+
+#[test]
+fn multilayer_preview_matches_the_physical_order_in_the_zip_manifest_and_job() {
+    let dir = TempDir::new("multilayer-preview");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,
+                                         "board":{"width":"20mm","height":"15mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    engine.run_ok(
+        "pcb.layer.set",
+        json!({"layer":inner,"name":"GND Plane","role":"plane"}),
+    );
+    let job = engine
+        .project()
+        .unwrap()
+        .output_jobs()
+        .next()
+        .unwrap()
+        .clone();
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{
+            "gerber":{"naming":"descriptive","x2_attributes":false,"outline_on_every_plot":true}
+        }}),
+    );
+    let names = [
+        "Demo-Top_Copper.gbr",
+        "Demo-GND_Plane.gbr",
+        "Demo-L3.gbr",
+        "Demo-Bottom_Copper.gbr",
+    ];
+    let labels = ["Top Copper", "L2 GND Plane", "L3", "Bottom Copper"];
+    let preview = job_preview(&engine, &job).unwrap();
+    let run = engine.run_ok("output.job.run", json!({"job":job.uuid}));
+    let dest = std::path::Path::new(run["destination"].as_str().unwrap());
+    let read_json =
+        |path| serde_json::from_slice::<Value>(&std::fs::read(dest.join(path)).unwrap()).unwrap();
+    let manifest = read_json("manifest.json");
+    let gerber_job = read_json("fab/Demo-job.gbrjob");
+    let zipped = std::fs::File::open(run["zip"].as_str().unwrap()).unwrap();
+    let mut zip = zip::ZipArchive::new(zipped).unwrap();
+    for (index, (name, label)) in names.iter().zip(labels).enumerate() {
+        assert_eq!(preview.gerber[index].layer, label);
+        assert_eq!(preview.gerber[index].name, *name);
+        assert_eq!(preview.gerber[index].state, FileState::Plotted);
+        assert_eq!(preview.zip[index], *name);
+        assert_eq!(zip.by_index(index).unwrap().name().unwrap(), *name);
+        let path = format!("fab/{name}");
+        assert_eq!(run["files"][index]["path"], path);
+        assert_eq!(manifest["files"][index]["path"], path);
+        assert_eq!(gerber_job["FilesAttributes"][index]["Path"], *name);
+    }
+    let inner_artwork = std::fs::read_to_string(dest.join("fab/Demo-GND_Plane.gbr")).unwrap();
+    assert!(inner_artwork.contains("G04 #@! TF.FileFunction,Copper,L2,Inr,Plane*"));
+    assert!(
+        inner_artwork.contains("D01*"),
+        "the empty inner plane carries the requested board outline"
+    );
+}

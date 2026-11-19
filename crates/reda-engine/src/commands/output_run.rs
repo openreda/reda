@@ -13,6 +13,7 @@ mod checks;
 mod manifest;
 mod run_all;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
@@ -242,7 +243,11 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         part: reda_output::Part::Single,
         not_fitted_paste: job.not_fitted_paste,
     };
-    let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
+    let gerbers = reda_output::gerber_files(&plot).map_err(|problem| {
+        let out = match problem {
+            reda_output::GerberError::InvalidFileName(why) => return CommandError::rejected(why),
+            reda_output::GerberError::CoordinateOutOfRange(out) => out,
+        };
         let blocker = checks::out_of_range(&out);
         let mut err = CommandError::rejected(format!(
             "Output Job \"{}\" cannot run: {} holds a coordinate beyond ±2147.483647 mm, \
@@ -342,6 +347,24 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         zipped.push(reda_output::fab_notes_file(&plot, &zip_names));
     }
     zipped.extend(after);
+    for name in &known {
+        super::project::check_file_stem(name).map_err(|why| {
+            CommandError::rejected(format!("Output file {name:?} cannot be used: {why}"))
+        })?;
+    }
+    let mut names = BTreeMap::new();
+    for file in &zipped {
+        let function = file
+            .attributes
+            .as_ref()
+            .map_or(file.function, |a| &a.function);
+        if let Some(previous) = names.insert(file.name.to_lowercase(), function) {
+            return Err(CommandError::rejected(format!(
+                "Output files {previous} and {function} both resolve to {:?}",
+                file.name
+            )));
+        }
+    }
 
     cx.progress(3.0, Some(STEPS), "Zipping");
     cx.check_cancelled()?;

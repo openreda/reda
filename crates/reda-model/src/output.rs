@@ -105,6 +105,11 @@ pub struct GerberSettings {
     /// Adds the Board Outline to every Gerber plot.
     pub outline_on_every_plot: bool,
     /// Layer name to output file name; portable between boards and Projects.
+    #[serde(
+        serialize_with = "settings::write_file_names",
+        deserialize_with = "settings::read_file_names"
+    )]
+    #[schemars(with = "settings::FileNameOverrides")]
     pub file_names: Vec<LayerFileName>,
 }
 
