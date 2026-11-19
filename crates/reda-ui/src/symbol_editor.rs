@@ -37,8 +37,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::canvas::interact::{BoxMode, Pointer};
-use crate::canvas::{LiveHandle, Overlay, RubberBand};
+use crate::canvas::interact::Pointer;
+use crate::canvas::{LiveHandle, Overlay};
+use crate::element_editor::select::{self, Drag, Editor};
 use crate::element_editor::{self, Invocation};
 use crate::panels::pins::PinSide;
 use crate::shell::Shell;
@@ -55,8 +56,6 @@ pub const PIN_GRID: Nm = Nm::from_mil(50);
 pub const LINE_WIDTH: Nm = Nm::from_mil(10);
 /// The height of placed text: 50 mil.
 pub const TEXT_SIZE: Nm = Nm::from_mil(50);
-/// How close, in points on screen, the pointer must be to pick something.
-const PICK_POINTS: f64 = 5.0;
 /// Where pasted Pins without a position start, and how far apart they go.
 const PASTE_COLUMN_X: Nm = Nm::from_mil(-300);
 const PASTE_PITCH: Nm = Nm::from_mil(100);
@@ -66,20 +65,12 @@ const PASTE_PITCH: Nm = Nm::from_mil(100);
 pub enum Interaction {
     #[default]
     Idle,
-    /// A selection box from `from` to `to`.
-    Boxing {
-        from: P,
-        to: P,
-        modifiers: egui::Modifiers,
-    },
-    /// The selection follows the pointer, `offset` from where it was picked up.
-    Moving {
-        objects: Vec<Uuid>,
-        anchor: Point,
-        offset: Point,
-    },
+    Selecting(Drag),
     /// The corners a drawing Tool has been given so far, snapped.
-    Drafting { tool: Tool, points: Vec<Point> },
+    Drafting {
+        tool: Tool,
+        points: Vec<Point>,
+    },
 }
 
 /// One Symbol tab's editor state.
@@ -221,7 +212,7 @@ pub fn pointer(
         shell,
         symbol: &s,
         unit: unit_in(&s, state.unit),
-        pick: PICK_POINTS * nm_per_point,
+        pick: select::PICK_POINTS * nm_per_point,
         read_only,
         commands: Vec::new(),
     };
@@ -273,12 +264,8 @@ fn event_at(event: Pointer) -> Option<P> {
     }
 }
 
-fn point(p: Point) -> P {
-    (p.x.0 as f64, p.y.0 as f64)
-}
-
 /// The grid `tool` snaps to: Pins to 50 mil, everything else to the tab's grid.
-fn snap_grid(shell: &Shell, symbol: Uuid, tool: Tool) -> Nm {
+pub(crate) fn snap_grid(shell: &Shell, symbol: Uuid, tool: Tool) -> Nm {
     match tool {
         Tool::Pin => PIN_GRID,
         _ => shell.grid(symbol),
@@ -291,17 +278,9 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
     let tool = shell.tool();
     let grid = snap_grid(shell, symbol, tool);
     let state = canvas(shell, symbol);
-    let mode = match &state.interaction {
-        Interaction::Boxing { from, to, .. } => {
-            crate::selection::rules::box_mode(shell, symbol, *from, *to)
-        }
-        _ => BoxMode::Enclose,
-    };
     let rules = crate::snap::rules_on(shell, symbol, grid);
-    let Some(tab) = shell.document_tab_mut(symbol) else {
-        return;
-    };
-    let snapped = tab.cursor.map(|c| rules.to_grid(c));
+    let cursor = shell.document_tab(symbol).and_then(|tab| tab.cursor);
+    let snapped = cursor.map(|c| rules.to_grid(c));
     let drawing = tool != Tool::Select;
     let (moving, offset, overlay) = match &state.interaction {
         Interaction::Idle => (
@@ -312,30 +291,7 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
                 ..Overlay::default()
             },
         ),
-        Interaction::Boxing { from, to, .. } => (
-            Vec::new(),
-            (0.0, 0.0),
-            Overlay {
-                rubber_band: Some(RubberBand {
-                    from: *from,
-                    to: *to,
-                    mode,
-                }),
-                ..Overlay::default()
-            },
-        ),
-        Interaction::Moving {
-            objects,
-            anchor,
-            offset,
-        } => (
-            objects.clone(),
-            point(*offset),
-            Overlay {
-                cursor: Some(*anchor + *offset),
-                ..Overlay::default()
-            },
-        ),
+        Interaction::Selecting(drag) => drag.preview(shell, symbol),
         Interaction::Drafting { points, .. } => {
             let mut path = points.clone();
             path.extend(snapped);
@@ -347,6 +303,9 @@ fn show(shell: &mut Shell, symbol: Uuid, hovered: Option<Uuid>) {
             };
             (Vec::new(), (0.0, 0.0), overlay)
         }
+    };
+    let Some(tab) = shell.document_tab_mut(symbol) else {
+        return;
     };
     if !tab.live.shows(hovered, &moving, &[]) {
         tab.live = LiveHandle::new(hovered, &moving, &[]);
@@ -371,36 +330,18 @@ impl Cx<'_> {
 
     /// `at` snapped onto the Symbol's Pin ends, else its grid (the Pin Tool's own).
     fn snap(&self, at: P) -> Point {
-        self.snap_moving(at, &[])
-    }
-
-    /// `at` snapped as a move of `objects` lands: onto the other Pins' ends.
-    fn snap_moving(&self, at: P, objects: &[Uuid]) -> Point {
-        let tool = self.shell.tool();
-        let pitch = snap_grid(self.shell, self.element(), tool);
-        let rules = crate::snap::rules_on(self.shell, self.element(), pitch);
-        let targets =
-            crate::snap::hotspots::without(crate::snap::hotspots::symbol(self.symbol), objects);
-        crate::snap::snap(at, &targets, &[], &rules).at
+        Editor::Symbol(self.symbol).snap(self.shell, at, &[])
     }
 
     fn run(&mut self, id: &str, params: Value) {
         self.commands.push((id.to_owned(), params));
     }
 
-    fn hit(&self, at: P) -> Option<Uuid> {
-        crate::selection::picking::hit(self.shell, self.element(), at, self.pick)
-    }
-
     /// Drops what a Tool that is no longer active had in flight.
     fn sync_tool(&self, state: Interaction) -> Interaction {
         match state {
             Interaction::Drafting { tool, .. } if tool != self.shell.tool() => Interaction::Idle,
-            Interaction::Moving { .. } | Interaction::Boxing { .. }
-                if self.shell.tool() != Tool::Select =>
-            {
-                Interaction::Idle
-            }
+            Interaction::Selecting(_) if self.shell.tool() != Tool::Select => Interaction::Idle,
             other => other,
         }
     }
@@ -439,7 +380,22 @@ impl Cx<'_> {
                 }
                 Interaction::Idle
             }
-            _ => self.select_step(interaction, event, hovered),
+            _ => {
+                let drag = match interaction {
+                    Interaction::Selecting(drag) => Some(drag),
+                    _ => None,
+                };
+                Editor::Symbol(self.symbol)
+                    .select(
+                        self.shell,
+                        drag,
+                        event,
+                        self.pick,
+                        hovered,
+                        &mut self.commands,
+                    )
+                    .map_or(Interaction::Idle, Interaction::Selecting)
+            }
         };
     }
 
@@ -495,132 +451,6 @@ impl Cx<'_> {
             self.run(&id, params);
         }
         Interaction::Idle
-    }
-
-    fn select_step(
-        &mut self,
-        state: Interaction,
-        event: Pointer,
-        hovered: &mut Option<Uuid>,
-    ) -> Interaction {
-        match (state, event) {
-            (
-                Interaction::Moving {
-                    objects, anchor, ..
-                },
-                Pointer::Drag(at),
-            ) => Interaction::Moving {
-                offset: self.snap_moving(at, &objects) - anchor,
-                objects,
-                anchor,
-            },
-            (
-                Interaction::Moving {
-                    objects, anchor, ..
-                },
-                Pointer::DragEnd(at),
-            ) => {
-                let offset = self.snap_moving(at, &objects) - anchor;
-                if offset != Point::default() && !self.read_only {
-                    self.run(
-                        "library.symbol.move",
-                        json!({"symbol": self.element(), "objects": objects,
-                               "by": json_point(offset)}),
-                    );
-                }
-                Interaction::Idle
-            }
-            (
-                Interaction::Boxing {
-                    from, modifiers, ..
-                },
-                Pointer::Drag(to),
-            ) => Interaction::Boxing {
-                from,
-                to,
-                modifiers,
-            },
-            (
-                Interaction::Boxing {
-                    from, modifiers, ..
-                },
-                Pointer::DragEnd(to),
-            ) => {
-                self.box_select(from, to, modifiers);
-                Interaction::Idle
-            }
-            (Interaction::Idle, Pointer::Hover(at)) => {
-                crate::selection::picking::hover(self.shell, self.element(), at, self.pick);
-                *hovered = self.hit(at);
-                Interaction::Idle
-            }
-            (Interaction::Idle, Pointer::Click { at, modifiers }) => {
-                if let Some(command) = crate::selection::picking::click(
-                    self.shell,
-                    self.element(),
-                    at,
-                    self.pick,
-                    modifiers,
-                ) {
-                    self.commands.push(command);
-                }
-                Interaction::Idle
-            }
-            (
-                Interaction::Idle,
-                Pointer::DragStart {
-                    from,
-                    at,
-                    modifiers,
-                },
-            ) => {
-                *hovered = None;
-                let Some(hit) = crate::selection::picking::movement_hit(
-                    self.shell,
-                    self.element(),
-                    from,
-                    self.pick,
-                ) else {
-                    return Interaction::Boxing {
-                        from,
-                        to: at,
-                        modifiers,
-                    };
-                };
-                let parts = element_editor::parts(self.shell.engine(), self.element());
-                let drag = crate::selection::picking::drag_start(
-                    self.shell,
-                    self.element(),
-                    hit,
-                    modifiers,
-                    |id| parts.contains(&id),
-                );
-                self.commands.extend(drag.select);
-                let objects = drag.objects;
-                if self.read_only {
-                    return Interaction::Idle;
-                }
-                let anchor = self.snap(from);
-                Interaction::Moving {
-                    offset: self.snap_moving(at, &objects) - anchor,
-                    objects,
-                    anchor,
-                }
-            }
-            (state, _) => state,
-        }
-    }
-
-    fn box_select(&mut self, from: P, to: P, modifiers: egui::Modifiers) {
-        if let Some(command) = crate::selection::picking::box_selection(
-            self.shell,
-            self.element(),
-            from,
-            to,
-            modifiers,
-        ) {
-            self.commands.push(command);
-        }
     }
 }
 
