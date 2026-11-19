@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// One font face: its bytes, and the face index within a collection (TTC/OTC).
 #[derive(Clone)]
@@ -30,7 +30,13 @@ impl fmt::Debug for FontFace {
 /// Font faces by family name, matched case-insensitively. Cheap to clone.
 #[derive(Clone, Debug, Default)]
 pub struct Fonts {
-    faces: BTreeMap<String, FontFace>,
+    faces: Arc<BTreeMap<String, RegisteredFace>>,
+}
+
+#[derive(Clone, Debug)]
+struct RegisteredFace {
+    face: FontFace,
+    fingerprint: OnceLock<String>,
 }
 
 impl Fonts {
@@ -47,16 +53,39 @@ impl Fonts {
             bytes: bytes.into(),
             index,
         };
-        self.faces.insert(family.to_lowercase(), face);
+        Arc::make_mut(&mut self.faces).insert(
+            family.to_lowercase(),
+            RegisteredFace {
+                face,
+                fingerprint: OnceLock::new(),
+            },
+        );
     }
 
     /// The face added under this family, compared case-insensitively.
     pub fn get(&self, family: &str) -> Option<&FontFace> {
-        self.faces.get(&family.to_lowercase())
+        self.faces.get(&family.to_lowercase()).map(|f| &f.face)
+    }
+
+    /// Whether two snapshots share their installed faces.
+    pub fn same_faces(&self, other: &Fonts) -> bool {
+        Arc::ptr_eq(&self.faces, &other.faces)
+    }
+
+    /// A stable cache key for geometry that uses this installed family's bytes and index.
+    pub fn fingerprint(&self, family: &str) -> Option<&str> {
+        use std::io::Write;
+        let face = self.faces.get(&family.to_lowercase())?;
+        Some(face.fingerprint.get_or_init(|| {
+            let mut key = crate::Fingerprint::new();
+            key.write_all(&face.face.bytes)
+                .expect("infallible fingerprint");
+            key.add(&face.face.index).finish()
+        }))
     }
 
     /// Every family, as added, sorted case-insensitively.
     pub fn families(&self) -> impl Iterator<Item = &str> {
-        self.faces.values().map(|f| f.family.as_str())
+        self.faces.values().map(|f| f.face.family.as_str())
     }
 }

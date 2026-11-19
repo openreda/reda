@@ -55,7 +55,7 @@ pub(crate) fn board_geometry(
         );
     }
     let fills = project.zone_fills(pcb.uuid);
-    let copper = Copper::of(project).expect("the Project's PCB Document");
+    let copper = Copper::of_with_fonts(project, fonts).expect("the Project's PCB Document");
     out.omitted_lands
         .extend(copper.unused_lands().iter().map(|(item, layer)| {
             let child = match item {
@@ -84,7 +84,7 @@ pub(crate) fn board_geometry(
         })
         .collect();
     out.sheet_labels = sheet_labels::labels(project, pcb);
-    out.zones = zone::status(pcb, fills)
+    out.zones = zone::status_with_fonts(pcb, fills, fonts)
         .zones
         .into_iter()
         .map(|z| {

@@ -12,6 +12,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use reda_command::Fonts;
 use reda_model::geom::Nm;
 use reda_model::{PcbDocument, Uuid, Zone, ZoneFill, ZoneFills};
 
@@ -115,8 +116,19 @@ pub fn refill_only(
     only: Option<&[Uuid]>,
     step: &mut dyn FnMut(usize, usize) -> bool,
 ) -> Option<ZoneFills> {
+    refill_with_fonts(pcb, stored, only, &Fonts::default(), step)
+}
+
+/// Refills with the same installed fonts used to plot the board.
+pub fn refill_with_fonts(
+    pcb: &PcbDocument,
+    stored: Option<&ZoneFills>,
+    only: Option<&[Uuid]>,
+    fonts: &Fonts,
+    step: &mut dyn FnMut(usize, usize) -> bool,
+) -> Option<ZoneFills> {
     let unused = UnusedLands::of(pcb);
-    let hashes = input_hashes_with_lands(pcb, &unused);
+    let hashes = hash_inputs(pcb, fonts, &unused);
     let forced = only.map(|only| dependents(pcb, only));
     let current = |zone: &Zone| {
         let kept = stored.and_then(|s| s.zones.get(&zone.uuid));
@@ -127,7 +139,7 @@ pub fn refill_only(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let copper = (total > 0).then(|| Copper::with_lands(pcb, unused));
+    let copper = (total > 0).then(|| Copper::with_lands(pcb, fonts, unused));
     let holes = if total > 0 {
         crate::drill::holes(pcb)
     } else {
@@ -177,14 +189,17 @@ pub fn refill_only(
 
 /// Each Zone's input hash, by UUID: everything its fill depends on. That is the Zone
 /// itself, the Layers, rules, board edge, Net Classes and Nets, Footprints and Free Pads,
-/// the Tracks, Vias, Keepouts and Zone Cutouts on its Layer, and the hashes of the
-/// higher-priority unshelved Zones on its Layer (whose fills it keeps clear of or merges with). Text, graphics and
-/// copper on other Layers are left out, so an edit there leaves the Zone current.
+/// the Tracks, Vias, Keepouts, Zone Cutouts, text and graphics on its Layer, the installed
+/// fonts those texts draw with, and the hashes of the higher-priority Zones on the Layer.
 pub fn input_hashes(pcb: &PcbDocument) -> BTreeMap<Uuid, String> {
-    input_hashes_with_lands(pcb, &UnusedLands::of(pcb))
+    input_hashes_with_fonts(pcb, &Fonts::default())
 }
 
-fn input_hashes_with_lands(pcb: &PcbDocument, unused: &UnusedLands) -> BTreeMap<Uuid, String> {
+fn input_hashes_with_fonts(pcb: &PcbDocument, fonts: &Fonts) -> BTreeMap<Uuid, String> {
+    hash_inputs(pcb, fonts, &UnusedLands::of(pcb))
+}
+
+fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeMap<Uuid, String> {
     let nets: Vec<_> = pcb.nets().map(|n| (n.uuid, &n.classes)).collect();
     let classes: Vec<_> = pcb.net_classes().map(|c| (c.uuid, c.rank)).collect();
     let rules: Vec<_> = pcb.rules().collect();
@@ -240,6 +255,15 @@ fn input_hashes_with_lands(pcb: &PcbDocument, unused: &UnusedLands) -> BTreeMap<
                     f.add(&item);
                 }
             }
+            for text in pcb.texts().filter(|t| t.layer == zone.layer) {
+                f.add(text);
+                if let Some(face) = crate::text::installed_fingerprint(&text.font, fonts) {
+                    f.add(face);
+                }
+            }
+            for graphic in pcb.graphics().filter(|g| g.layer == zone.layer) {
+                f.add(graphic);
+            }
             f.finish()
         });
         let above = prior.entry(zone.layer).or_default();
@@ -288,7 +312,16 @@ pub enum FillState {
 /// The state of every Zone of `pcb` given the stored `fills`, each judged by its own
 /// input hash.
 pub fn status(pcb: &PcbDocument, fills: Option<&ZoneFills>) -> FillStatus {
-    let hashes = input_hashes(pcb);
+    status_with_fonts(pcb, fills, &Fonts::default())
+}
+
+/// Fill state taking installed copper text fonts into account.
+pub fn status_with_fonts(
+    pcb: &PcbDocument,
+    fills: Option<&ZoneFills>,
+    fonts: &Fonts,
+) -> FillStatus {
+    let hashes = input_hashes_with_fonts(pcb, fonts);
     let zones: Vec<ZoneStatus> = pcb
         .zones()
         .map(|z| {
@@ -316,5 +349,15 @@ pub fn status(pcb: &PcbDocument, fills: Option<&ZoneFills>) -> FillStatus {
 /// stale Zones refilled (never cancelled). DRC and outputs call this so they never see an
 /// old fill.
 pub fn current(pcb: &PcbDocument, stored: Option<&ZoneFills>) -> ZoneFills {
-    refill(pcb, stored, &mut |_, _| true).expect("an uncancelled fill finishes")
+    current_with_fonts(pcb, stored, &Fonts::default())
+}
+
+/// Current Zone fills with copper text laid out using the supplied fonts.
+pub fn current_with_fonts(
+    pcb: &PcbDocument,
+    stored: Option<&ZoneFills>,
+    fonts: &Fonts,
+) -> ZoneFills {
+    refill_with_fonts(pcb, stored, None, fonts, &mut |_, _| true)
+        .expect("an uncancelled fill finishes")
 }
