@@ -106,3 +106,10 @@ pub fn sample_board(engine: &mut TestEngine) -> Board {
         zone,
     }
 }
+
+/// The production HDI coupon with its saved six-Layer Stackup and routed Via Stack.
+pub fn six_layer_hdi() -> (TempDir, TestEngine) {
+    let source =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/six_layer_hdi");
+    reda_testkit::open_reference_copy(&source, "SixLayerHdi.reda")
+}
