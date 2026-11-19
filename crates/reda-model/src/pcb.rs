@@ -41,8 +41,8 @@ pub use rules::{
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
-    ResolvedEntry, Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, ViaDiameter,
-    ViaType,
+    ResolvedEntry, Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, UnusedLayers,
+    ViaDiameter, ViaType,
 };
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
@@ -982,6 +982,17 @@ impl PcbDocument {
                     rule.uuid
                 ));
             }
+            if let Some(allowed) = &rule.values.allowed {
+                let mut seen = std::collections::BTreeSet::new();
+                if allowed.iter().any(|id| {
+                    !seen.insert(id) || !self.stackup().via_types.iter().any(|v| v.uuid == *id)
+                }) {
+                    return Err(format!(
+                        "rule {} needs distinct Via types from this board",
+                        rule.uuid
+                    ));
+                }
+            }
             if !scopes.insert((rule.kind, rule.scope)) {
                 return Err(match rule.scope.net_class {
                     None => format!("two board-wide `{}` rules", rule.kind.id()),
@@ -1029,16 +1040,25 @@ impl PcbDocument {
             if !is_copper(via.span.from) || !is_copper(via.span.to) {
                 return Err(format!("Via {uuid} spans a Layer that is not copper"));
             }
-            let number = |l| self.copper_number(l).unwrap_or(0);
-            if number(via.span.from) >= number(via.span.to) {
-                return Err(format!(
-                    "Via {uuid} must span from an upper copper Layer to a lower one"
-                ));
+            if via.span.from == via.span.to {
+                return Err(format!("Via {uuid} must join two distinct copper Layers"));
             }
             if !net_exists(via.net) {
                 return Err(format!("Via {uuid} is on a Net that does not exist"));
             }
-            if via.hole <= Nm::ZERO || via.diameter.start <= via.hole {
+            if self
+                .stackup()
+                .type_for_span(via.span)
+                .is_some_and(|kind| kind.span() != via.span)
+            {
+                return Err(format!(
+                    "Via {uuid} must follow its Via type’s drilling direction"
+                ));
+            }
+            if let Some((field, why)) = via.zone_connection.and_then(|c| c.problem()) {
+                return Err(format!("Via {uuid} zone_connection{field}: {why}"));
+            }
+            if !via.diameter.fits_hole(via.hole) {
                 return Err(format!(
                     "Via {uuid} needs a hole and a diameter larger than it"
                 ));

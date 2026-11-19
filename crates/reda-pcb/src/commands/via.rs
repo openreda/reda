@@ -3,34 +3,20 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
-use reda_model::{InDocument, LayerSpan, Object, PcbDocument, Uuid, Via};
+use reda_model::{InDocument, LayerSpan, Object, Uuid, Via};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::outline::PointParam;
 use super::track::existing_net;
+use super::via_type::{DiameterParam, check_sizes, check_span};
 use super::{needs_pcb, pcb, positive};
-use crate::rules::net_rules;
+use crate::rules::via_starting_size;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ViaAdd);
     registry.add(ViaDelete);
     registry.add(ViaSet);
-}
-
-/// The span of a through Via: the outermost copper Layers.
-pub(super) fn through(pcb: &PcbDocument) -> Result<LayerSpan, CommandError> {
-    let mut copper = pcb.copper_layers();
-    let first = copper.next();
-    match (first, copper.last()) {
-        (Some(from), Some(to)) => Ok(LayerSpan {
-            from: from.uuid,
-            to: to.uuid,
-        }),
-        _ => Err(CommandError::rejected(
-            "a Via needs two copper Layers to join",
-        )),
-    }
 }
 
 pub struct ViaAdd;
@@ -41,14 +27,19 @@ pub struct ViaAddParams {
     /// The centre.
     pub at: PointParam,
     pub mask: Option<reda_command::MaskParam>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
+    pub teardrop: Option<bool>,
+    pub zone_connection: Option<reda_command::ZoneConnectionParam>,
+    pub from: Option<Uuid>,
+    pub to: Option<Uuid>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
-    /// any copper Layer, or else no Net.
+    /// a copper Layer in its span, or else no Net.
     #[serde(default)]
     pub net: Option<Uuid>,
-    /// The copper diameter; left out, the Net Class's Via diameter, else the board's rule.
+    /// The copper diameters in drilling order, defaulting to the type with the Net Class preference.
     #[serde(default)]
-    pub diameter: Option<Length>,
-    /// The hole; left out, the Net Class's Via hole, else the board's rule.
+    pub diameter: Option<DiameterParam>,
+    /// The hole, defaulting to the Net Class preference or the type’s hole.
     #[serde(default)]
     pub hole: Option<Length>,
 }
@@ -66,8 +57,7 @@ impl Command for ViaAdd {
     const META: Meta = Meta {
         id: "pcb.via.add",
         title: "Add Via",
-        description: "Places a through Via. Its Net defaults to the copper under it, its \
-                      sizes to its Net Class.",
+        description: "Places a Via on the requested span. Its Net defaults to the copper under it.",
         category: "pcb",
         icon: "via",
         kind: Kind::Edit,
@@ -82,7 +72,14 @@ impl Command for ViaAdd {
     fn run(&self, cx: &mut Context<'_>, p: ViaAddParams) -> Result<ViaAddResult, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
-        let span = through(pcb)?;
+        let through = pcb.stackup().through_type();
+        let span = LayerSpan {
+            from: p.from.unwrap_or(through.from),
+            to: p.to.unwrap_or(through.to),
+        };
+        check_span(pcb, span)?;
+        let kind = pcb.stackup().type_for_span(span);
+        let span = kind.map_or(span, |v| v.span());
         let at = p.at.point();
         let net = match existing_net(pcb, p.net, "/net")? {
             Some(net) => Some(net),
@@ -93,36 +90,46 @@ impl Command for ViaAdd {
                     .find_map(|layer| copper.net_at(layer, at))
             }
         };
-        let rules = net_rules(pcb, net);
-        let diameter = p
-            .diameter
-            .map_or(Ok(rules.via_diameter.default_size()), |d| {
-                positive("/diameter", d)
-            })?;
-        let hole = p
-            .hole
-            .map_or(Ok(rules.via_hole.default_size()), |h| positive("/hole", h))?;
-        if diameter <= hole {
-            return Err(CommandError::invalid_params(
-                "/diameter",
-                "the diameter must be larger than the hole",
-            ));
-        }
+        let (default_diameter, default_hole) = via_starting_size(pcb, net, kind.unwrap_or(through));
+        let diameter = p.diameter.map_or(default_diameter, DiameterParam::diameter);
+        let hole = p.hole.map_or(default_hole, Length::nm);
+        check_sizes(diameter, hole, "/diameter")?;
+        let unused_layers = p
+            .unused_layers
+            .or_else(|| kind.map(|k| k.unused_layers))
+            .unwrap_or_default();
+        let zone_connection = connection(p.zone_connection)?;
         let uuid = cx.new_id();
         let via = Via {
             locked: false,
             uuid,
             at,
             net,
-            diameter: diameter.into(),
+            diameter,
             hole,
             span,
             mask: reda_command::mask(p.mask),
+            unused_layers,
+            zone_connection,
+            teardrop: p.teardrop.unwrap_or(true),
         };
         cx.tx()?
             .insert(Object::Via(InDocument::new(document, via)))?;
         Ok(ViaAddResult { uuid, net })
     }
+}
+
+fn connection(
+    param: Option<reda_command::ZoneConnectionParam>,
+) -> Result<Option<reda_model::ZoneConnection>, CommandError> {
+    let value = reda_command::zone_connection(param);
+    if let Some((field, why)) = value.and_then(|v| v.problem()) {
+        return Err(CommandError::invalid_params(
+            &format!("/zone_connection{field}"),
+            why,
+        ));
+    }
+    Ok(value)
 }
 
 pub struct ViaDelete;
@@ -181,7 +188,17 @@ pub struct ViaSetParams {
     pub vias: Vec<Uuid>,
     /// The copper diameter.
     #[serde(default)]
-    pub diameter: Option<Length>,
+    pub diameter: Option<DiameterParam>,
+    pub from: Option<Uuid>,
+    pub to: Option<Uuid>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
+    pub teardrop: Option<bool>,
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<reda_command::MaskParam>")]
+    pub mask: Option<Option<reda_command::MaskParam>>,
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<reda_command::ZoneConnectionParam>")]
+    pub zone_connection: Option<Option<reda_command::ZoneConnectionParam>>,
     /// The drilled hole.
     #[serde(default)]
     pub hole: Option<Length>,
@@ -197,9 +214,7 @@ impl Command for ViaSet {
     const META: Meta = Meta {
         id: "pcb.via.set",
         title: "Set Via",
-        description: "Sets the copper diameter and the hole of Vias. Values left out stay; \
-                      the diameter must stay larger than the hole. Returns the Vias that \
-                      changed.",
+        description: "Updates Via spans, diameters, holes, and overrides. Returns the changed Vias.",
         category: "pcb",
         icon: "via",
         kind: Kind::Edit,
@@ -214,7 +229,7 @@ impl Command for ViaSet {
     fn run(&self, cx: &mut Context<'_>, p: ViaSetParams) -> Result<ViaSetResult, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
-        let diameter = p.diameter.map(|d| positive("/diameter", d)).transpose()?;
+        let diameter = p.diameter.map(DiameterParam::diameter);
         let hole = p.hole.map(|h| positive("/hole", h)).transpose()?;
         let mut changed: Vec<Via> = Vec::new();
         for (i, uuid) in p.vias.iter().enumerate() {
@@ -225,15 +240,27 @@ impl Command for ViaSet {
                 )
             })?;
             let mut via = before.clone();
-            via.diameter.start = diameter.unwrap_or(via.diameter.start);
             via.hole = hole.unwrap_or(via.hole);
-            if via.diameter.start <= via.hole {
-                let pointer = if hole.is_some() { "/hole" } else { "/diameter" };
-                return Err(CommandError::invalid_params(
-                    pointer,
-                    "the diameter must be larger than the hole",
-                ));
+            let span = LayerSpan {
+                from: p.from.unwrap_or(via.span.from),
+                to: p.to.unwrap_or(via.span.to),
+            };
+            check_span(pcb, span)?;
+            via.set_span(pcb.stackup().type_for_span(span).map_or(span, |t| t.span()));
+            via.diameter = diameter.unwrap_or(via.diameter);
+            via.unused_layers = p.unused_layers.unwrap_or(via.unused_layers);
+            via.teardrop = p.teardrop.unwrap_or(via.teardrop);
+            if let Some(mask) = p.mask {
+                via.mask = reda_command::mask(mask);
             }
+            if let Some(param) = p.zone_connection {
+                via.zone_connection = connection(param)?;
+            }
+            check_sizes(
+                via.diameter,
+                via.hole,
+                if hole.is_some() { "/hole" } else { "/diameter" },
+            )?;
             if via != *before && !changed.iter().any(|v| v.uuid == *uuid) {
                 changed.push(via);
             }

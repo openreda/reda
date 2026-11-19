@@ -52,3 +52,42 @@ fn every_scenario_replays_to_its_goldens_and_rebuilds_the_reference_projects() {
          with REDA_BLESS=1 to copy the scripts' goldens over them"
     );
 }
+
+#[test]
+fn via_types_reopen_with_their_drilling_direction_and_independent_sizes() {
+    let folder = repo().join("tests/scenarios/via_types");
+    let (project, _) = reda_engine::store::load(&folder.join("ViaTypes.reda")).unwrap();
+    let pcb = project.pcb().unwrap();
+    let actual: Vec<_> = pcb
+        .vias()
+        .map(|via| {
+            let kind = pcb.stackup().type_for_span(via.span);
+            (
+                pcb.copper_number(via.span.from).unwrap(),
+                pcb.copper_number(via.span.to).unwrap(),
+                kind.map(|v| v.display_name(pcb)),
+                via.hole.0,
+                via.diameter.start.0,
+                via.diameter.middle.map(|d| d.0),
+                via.diameter.end.map(|d| d.0),
+            )
+        })
+        .collect();
+    assert_eq!(
+        actual,
+        [
+            (
+                2,
+                1,
+                Some("Top laser".into()),
+                100_000,
+                280_000,
+                None,
+                Some(300_000)
+            ),
+            (2, 3, Some("Micro 2:3".into()), 120_000, 320_000, None, None),
+            (1, 6, Some("Through".into()), 300_000, 700_000, None, None),
+            (4, 5, None, 300_000, 700_000, Some(800_000), Some(900_000)),
+        ]
+    );
+}

@@ -28,7 +28,7 @@ A plated through-hole Pad has copper on every copper Layer, and a Via on every L
 
 - A Via's copper is round, so its Pad Stack is three diameters: `start`, `middle` and `end`, in the order of its span. A blind Via has no board top or bottom, only the two ends of its span.
 - The Via's v0.1 diameter is `start`. `middle` and `end` are optional and each one left out is the same as `start`.
-- A [Via type's `pad`](via-types.md#what-a-via-type-stores) becomes the same three diameters, with `middle` and `end` optional. A new Via starts with all three.
+- A [Via type](via-types.md#what-a-via-type-stores) stores `hole` and the same `diameter {start, middle?, end?}` as a Via. A new Via starts with all three.
 - A Via with a span of two Layers has no middle.
 
 ### The full stack stays reserved

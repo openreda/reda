@@ -89,6 +89,7 @@ pub struct KindDisplay {
 pub struct LabelView {
     pub pad_nets: bool,
     pub via_nets: bool,
+    pub via_spans: bool,
     pub repeated_net_names: bool,
 }
 
@@ -97,6 +98,7 @@ impl Default for LabelView {
         LabelView {
             pad_nets: true,
             via_nets: true,
+            via_spans: false,
             repeated_net_names: false,
         }
     }

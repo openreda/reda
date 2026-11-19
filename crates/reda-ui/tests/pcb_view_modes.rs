@@ -726,3 +726,48 @@ fn holes_and_their_labels_follow_the_copper_span_in_single_layer_mode() {
         assert!(strength.iter().all(|x| *x == 25));
     }
 }
+
+#[test]
+fn blind_vias_have_two_layer_coloured_half_holes_and_a_switchable_span_label() {
+    let mut b = board();
+    run(&mut b.shell, "document.delete", json!({"document":b.pcb}));
+    run(
+        &mut b.shell,
+        "document.add",
+        json!({"kind":"pcb","layers":4}),
+    );
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    b.pcb = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    run(&mut b.shell, "document.open", json!({"document":b.pcb}));
+    let via = uuid(
+        &run(
+            &mut b.shell,
+            "pcb.via.add",
+            json!({"from":layers[0],"to":layers[2],"at":{"x":0,"y":0}}),
+        )["result"]["uuid"],
+    );
+    let drill = scene(&b)
+        .items_of(via)
+        .filter(|i| i.layer == SceneLayer::Drill)
+        .collect::<Vec<_>>();
+    assert_eq!(drill.len(), 2);
+    assert_ne!(drill[0].color, drill[1].color);
+    assert!(
+        drill
+            .iter()
+            .all(|i| matches!(i.primitive, Primitive::Triangles(_)))
+    );
+    run(&mut b.shell, "pcb.view.via_spans", json!({}));
+    assert!(
+        scene(&b)
+            .items_of(via)
+            .any(|i| matches!(&i.primitive,Primitive::Glyphs(r) if r.view_label && r.text=="1:3"))
+    );
+    run(&mut b.shell, "pcb.view.via_spans", json!({"on":false}));
+    assert!(
+        !scene(&b)
+            .items_of(via)
+            .any(|i| matches!(i.primitive, Primitive::Glyphs(_)))
+    );
+}

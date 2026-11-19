@@ -129,6 +129,7 @@ pub struct NetLabels {
     pub pad_nets: bool,
     /// Net names on Vias.
     pub via_nets: bool,
+    pub via_spans: bool,
     /// Net names repeated along Tracks, rather than once in the middle.
     pub repeated_net_names: bool,
 }
@@ -138,6 +139,7 @@ impl Default for NetLabels {
         NetLabels {
             pad_nets: true,
             via_nets: true,
+            via_spans: false,
             repeated_net_names: false,
         }
     }

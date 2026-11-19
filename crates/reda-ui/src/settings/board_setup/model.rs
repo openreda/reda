@@ -60,6 +60,7 @@ pub struct ClassRow {
     key: ClassKey,
     name: Draft<String>,
     overrides: BTreeMap<RuleField, Draft<String>>,
+    allowed: Draft<Option<Vec<Uuid>>>,
     /// Each record's `enabled` and comment, by kind.
     meta: BTreeMap<RuleKind, Meta>,
     /// Its rank on the board; `None` for a class added in the dialog.
@@ -458,6 +459,7 @@ impl BoardSetupDraft {
                         key,
                         name: Draft::new(class.name.clone()),
                         overrides: BTreeMap::new(),
+                        allowed: Draft::default(),
                         meta: BTreeMap::new(),
                         rank: Some(class.rank),
                         deleted: false,
@@ -466,6 +468,11 @@ impl BoardSetupDraft {
                 }
             };
             row.name.load(class.name.clone(), reset);
+            row.allowed.load(
+                pcb.class_rule(RuleKind::ViaSpan, class.uuid)
+                    .and_then(|rule| rule.values.allowed.clone()),
+                reset,
+            );
             row.rank = Some(class.rank);
             if reset {
                 row.deleted = false;
@@ -651,6 +658,7 @@ impl BoardSetupDraft {
         let mut row = ClassRow {
             key,
             name: Draft::new(String::new()),
+            allowed: Draft::default(),
             overrides: RuleField::ALL
                 .iter()
                 .map(|&f| (f, Draft::default()))
@@ -662,6 +670,18 @@ impl BoardSetupDraft {
         row.name.set(name);
         self.classes.push(row);
         key
+    }
+
+    pub(super) fn allowed_types(&self, key: ClassKey) -> &[Uuid] {
+        self.class_row(key)
+            .and_then(|r| r.allowed.value().as_deref())
+            .unwrap_or_default()
+    }
+
+    pub(super) fn set_allowed_types(&mut self, key: ClassKey, allowed: Vec<Uuid>) {
+        if let Some(row) = self.class_row_mut(key) {
+            row.allowed.set(Some(allowed));
+        }
     }
 
     /// The class's name as typed; empty for an unknown one.
@@ -927,6 +947,13 @@ impl BoardSetupDraft {
             _ => unreachable!("values_param builds an object"),
         })
         .collect();
+        if let Some(row) = class
+            && row.allowed.changed()
+        {
+            out.entry(RuleKind::ViaSpan)
+                .or_default()
+                .insert("allowed".into(), json!(row.allowed.value()));
+        }
         if class.is_none() && self.silk_mode.changed() {
             out.entry(RuleKind::SilkToMask)
                 .or_default()
@@ -1047,7 +1074,7 @@ impl BoardSetupDraft {
             steps.extend(self.record_steps(Some((row, uuid))));
         }
         for row in self.live_classes().filter(|r| !existing(r)) {
-            let rules: Vec<Value> = by_kind(
+            let mut rules: Vec<Value> = by_kind(
                 row.overrides
                     .iter()
                     .filter_map(|(rule, d)| Some((*rule, rule.parse(d.value()).ok()??))),
@@ -1069,6 +1096,9 @@ impl BoardSetupDraft {
                 Value::Object(rule)
             })
             .collect();
+            if let Some(allowed) = row.allowed.value() {
+                rules.push(json!({"kind":"via_span","values":{"allowed":allowed}}));
+            }
             let mut params = Map::new();
             params.insert("name".to_owned(), json!(row.name.value().trim()));
             let nets: Vec<Uuid> = self
