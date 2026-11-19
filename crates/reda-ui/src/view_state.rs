@@ -26,6 +26,13 @@ pub const VIEW_SAVE_DELAY: Duration = Duration::from_secs(1);
 /// The REDA version written into the file; a file from any other version is discarded.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// A choice for the same pair of copper positions in either routing direction.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ViaPairChoice {
+    pub positions: [usize; 2],
+    pub types: Vec<Uuid>,
+}
+
 /// One Document's Layer state in its view.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -45,6 +52,8 @@ pub struct LayerView {
     /// The copper Layer edited before the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub previous: Option<Uuid>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub via_choices: Vec<ViaPairChoice>,
     /// The most recently active copper while a non-copper Layer is active.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_copper: Option<Uuid>,

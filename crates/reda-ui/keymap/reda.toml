@@ -722,11 +722,6 @@ key = "Mod+M"
 command = "tool.activate:measure"
 
 [[bind]]
-context = "pcb"
-key = "V"
-command = "tool.activate:via"
-
-[[bind]]
 context = "tool:route"
 key = "/"
 command = "tool.cycle_corner"
@@ -739,7 +734,32 @@ command = "tool.undo_segment"
 [[bind]]
 context = "tool:route"
 key = "V"
-command = "pcb.route.add_via"
+command = "pcb.route.previous_layer"
+
+[[bind]]
+context = "tool:route"
+key = "2"
+command = "pcb.route.via_stay"
+
+[[bind]]
+context = "tool:route"
+key = "L"
+command = "pcb.route.start_layer"
+
+[[bind]]
+context = "tool:route"
+key = "4"
+command = "pcb.route.mode:via_size"
+
+[[bind]]
+context = "tool:route"
+key = "6"
+command = "pcb.route.cycle_via"
+
+[[bind]]
+context = "tool:route"
+key = "8"
+command = "pcb.route.pick_via"
 
 [[bind]]
 context = "tool:route"
