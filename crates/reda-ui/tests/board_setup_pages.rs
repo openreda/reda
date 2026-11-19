@@ -105,6 +105,38 @@ fn mask_expansion_links_top_and_bottom_and_takes_negative_values() {
 }
 
 #[test]
+fn silkscreen_minimums_can_be_edited_then_reset_to_the_project_preset() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        assert_eq!(board.rule(RuleField::SilkWidth), "0.15");
+        assert_eq!(board.rule(RuleField::SilkTextHeight), "1");
+        board.set_rule(RuleField::SilkWidth, "0.2");
+        board.set_rule(RuleField::SilkTextHeight, "1.2");
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(RuleField::SilkWidth.get(pcb(&shell)).unwrap().0, 200_000);
+    assert_eq!(
+        RuleField::SilkTextHeight.get(pcb(&shell)).unwrap().0,
+        1_200_000
+    );
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.reset_page(Rule::Silkscreen);
+        assert_eq!(board.fab_preview().unwrap().changes.len(), 2);
+        board.accept_fab_preview();
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(RuleField::SilkWidth.get(pcb(&shell)).unwrap().0, 150_000);
+    assert_eq!(
+        RuleField::SilkTextHeight.get(pcb(&shell)).unwrap().0,
+        1_000_000
+    );
+}
+
+#[test]
 fn paste_expansion_is_absolute_or_a_percentage() {
     let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
     let mut shell = shell_with_board(&home, &work);

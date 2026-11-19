@@ -30,7 +30,7 @@ pub fn board_layer(pcb: &PcbDocument, layer: FootprintLayer) -> Option<Uuid> {
     pcb.layers().find(kind, Some(side)).map(|l| l.uuid)
 }
 
-/// Every text a placed Footprint draws, as PCB text retaining each field entry's UUID: the
+/// Every text a placed Footprint draws, as PCB text retaining each graphic or field entry's UUID: the
 /// text shapes of its drawing (Hershey, anchored at the last baseline), then each
 /// of its field texts (centred on its placement) when visible and the instance has that
 /// field. Text on a Layer the board lacks is left out.
@@ -39,7 +39,6 @@ pub fn footprint_texts(
     instance: &FootprintInstance,
     fonts: &Fonts,
 ) -> Vec<PcbText> {
-    let object = instance.uuid;
     let frame = Frame::of(instance);
     let mut out = Vec::new();
     for g in placed::placed_graphics(pcb, instance) {
@@ -54,7 +53,7 @@ pub fn footprint_texts(
         };
         if let Some(layer) = board_layer(pcb, g.layer) {
             out.push(pcb_text(
-                object,
+                g.graphic,
                 layer,
                 text,
                 *at,

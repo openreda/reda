@@ -48,6 +48,8 @@ pub fn generic() -> FabPreset {
     FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(1000000)),
             inner: None,
             microvia_size: None,
             via_aspect_ratio: None,
@@ -125,6 +127,8 @@ fn jlcpcb() -> FabPreset {
     let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(1000000)),
             inner: None,
             microvia_size: None,
             via_aspect_ratio: None,
@@ -201,6 +205,8 @@ fn pcbway() -> FabPreset {
     let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
+            silk_width: Some(Nm(150000)),
+            silk_text_height: Some(Nm(800000)),
             inner: None,
             microvia_size: None,
             via_aspect_ratio: None,
@@ -290,6 +296,8 @@ fn osh_park() -> FabPreset {
         constructions: serde_json::from_str(include_str!("../data/constructions/osh-park.json"))
             .expect("shipped OSH Park Construction catalogue"),
         rules: FabRules {
+            silk_width: Some(Nm(127000)),
+            silk_text_height: None,
             microvia_size: None,
             via_aspect_ratio: None,
             track_width: Nm(152_400),

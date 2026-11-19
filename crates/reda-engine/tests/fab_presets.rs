@@ -1048,3 +1048,41 @@ fn a_user_fab_seeds_inner_limits_on_a_new_multilayer_board() {
             .is_none()
     );
 }
+
+#[test]
+fn a_portable_fab_preset_seeds_the_board_silk_minimum_and_preserves_an_unspecified_height() {
+    let home = TempDir::new("fab-silk-user");
+    let source = TempDir::new("fab-silk-source");
+    let mut engine = test_engine_in(home.path());
+    new_project(&mut engine, &source, json!({"fab_preset":"Generic"}));
+    let osh = engine.run_ok("fab_preset.add", json!({"name":"OSH Park"}))["result"]["uuid"].clone();
+    engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":osh}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"silk_width","values":{"min":"0.18mm"}}),
+    );
+    let saved = engine.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"from":osh,"name":"Local fab"}),
+    );
+    engine.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":saved["result"]["uuid"],"name":"Local fab"}),
+    );
+
+    let target = TempDir::new("fab-silk-target");
+    let mut reopened = test_engine_in(home.path());
+    new_project(&mut reopened, &target, json!({"fab_preset":"Local fab"}));
+    let rules = only_preset(&reopened).rules;
+    assert_eq!(rules.silk_width, Some(Nm(180_000)));
+    assert_eq!(rules.silk_text_height, None);
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.board_rule(RuleKind::SilkWidth).values.min,
+        Some(Nm(180_000))
+    );
+    assert_eq!(
+        board.board_rule(RuleKind::SilkTextHeight).values.min,
+        Some(Nm::ZERO)
+    );
+}

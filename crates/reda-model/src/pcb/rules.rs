@@ -63,6 +63,11 @@ pub enum RuleKind {
 }
 
 impl RuleKind {
+    /// Silkscreen artwork has no Net, so its fabrication minimums are board-wide.
+    pub fn accepts_net_class(self) -> bool {
+        !matches!(self, Self::SilkWidth | Self::SilkTextHeight)
+    }
+
     pub fn accepts_layers(self) -> bool {
         matches!(
             self,
@@ -1053,6 +1058,9 @@ impl DesignRule {
     /// hold, or a board-wide record missing a value its kind requires.
     pub fn problem(&self) -> Option<String> {
         let kind = self.kind.id();
+        if !self.kind.accepts_net_class() && !self.scope.is_board_wide() {
+            return Some(format!("a {kind} rule is board-wide"));
+        }
         if self.scope.layers.is_some() && !self.kind.accepts_layers() {
             return Some(format!("a {kind} rule has no Layer scope"));
         }

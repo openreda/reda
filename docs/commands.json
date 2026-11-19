@@ -4762,6 +4762,22 @@
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
               },
+              "silk_text_height": {
+                "description": "Minimum silk capital height across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "silk_width": {
+                "description": "Minimum silk stroke width across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "track_width": {
                 "description": "Minimum Track width.",
                 "format": "int64",
@@ -24469,6 +24485,22 @@
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
               },
+              "silk_text_height": {
+                "description": "Minimum silk capital height across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "silk_width": {
+                "description": "Minimum silk stroke width across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "track_width": {
                 "description": "Minimum Track width.",
                 "format": "int64",
@@ -32947,6 +32979,22 @@
               "preferred": {
                 "$ref": "#/$defs/PreferredSeeds",
                 "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
+              },
+              "silk_text_height": {
+                "description": "Minimum silk capital height across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "silk_width": {
+                "description": "Minimum silk stroke width across both sides, when specified by the preset.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "track_width": {
                 "description": "Minimum Track width.",
@@ -56223,7 +56271,7 @@
     },
     {
       "category": "pcb",
-      "description": "Lists the Nets, objects and placed Pads a rule supplies values to on their copper Layers. Select a record by rule UUID or by kind and scope, or select all records of a Net Class by net_class UUID.",
+      "description": "Lists the Nets, objects and placed Pads a rule supplies values to on their copper Layers, or the artwork a silkscreen minimum applies to. Select a record by rule UUID or by kind and scope, or select all records of a Net Class by net_class UUID.",
       "icon": "rules",
       "id": "pcb.rules.affected",
       "kind": "query",
@@ -56469,7 +56517,7 @@
             "type": "array"
           },
           "objects": {
-            "description": "The Tracks, Vias, Free Pads and Zones on them, in that order; for a board-wide\nrecord also those on no Net.",
+            "description": "The Tracks, Vias, Free Pads and Zones on them, in that order; for a board-wide\nrecord also those on no Net. Then the placed objects with applicable silkscreen artwork.",
             "items": {
               "format": "uuid",
               "type": "string"
