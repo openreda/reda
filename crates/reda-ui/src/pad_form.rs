@@ -87,6 +87,7 @@ pub fn from_free(free: &FreePad) -> Pad {
         height: free.height,
         middle: free.middle,
         bottom: free.bottom,
+        teardrop: free.teardrop,
         unused_layers: free.unused_layers,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,

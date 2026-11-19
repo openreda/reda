@@ -11,6 +11,7 @@ mod library;
 mod overview;
 pub(crate) mod rules;
 mod sheet_frame;
+mod teardrops;
 mod track;
 mod unit;
 mod via;
@@ -139,6 +140,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         .show(ui, |ui| {
             ui.label(tr!("properties-selected", count = properties.count));
             chips(ui, shell, &properties, &mut out);
+            out.extend(teardrops::show(ui, project, shell.selection()));
             out.extend(crate::pcb::unused_layers::properties(ui, shell));
             for uuid in &shell.selection().objects {
                 if let Some(reda_engine::model::Object::PcbText(text)) = project.object(*uuid) {

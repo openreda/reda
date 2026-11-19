@@ -17,6 +17,12 @@ use crate::{Side, Uuid};
 pub struct Pad {
     pub uuid: Uuid,
     pub number: String,
+    /// False on a locally edited Footprint copy opts this Pad out on every Layer.
+    #[serde(
+        default = "crate::pcb::yes",
+        skip_serializing_if = "crate::pcb::is_true"
+    )]
+    pub teardrop: bool,
     pub kind: PadKind,
     pub shape: PadShape,
     /// Optional copper on all inner Layers, in the Pad's frame.

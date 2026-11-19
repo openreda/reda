@@ -53,6 +53,7 @@ fn write_flawed_library(folder: &Path) {
             height: Nm::from_mm(1),
             middle: None,
             bottom: None,
+            teardrop: true,
             unused_layers: Default::default(),
             corner_ratio: None,
             chamfer_ratio: None,

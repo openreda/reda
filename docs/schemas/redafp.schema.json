@@ -403,6 +403,10 @@
           ],
           "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
         },
+        "teardrop": {
+          "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+          "type": "boolean"
+        },
         "unused_layers": {
           "$ref": "#/$defs/UnusedLayers",
           "description": "Whether unused inner lands of a plated through-hole Pad are removed."
