@@ -1612,3 +1612,267 @@ fn selected_via_type_diameters_support_overrides_inheritance_and_undo() {
     }
     assert_eq!(diameter(&h), expected);
 }
+
+/// Empties the field announced as `label`.
+fn clear(h: &mut Harness<'static, App>, label: &str) {
+    h.get_by_role_and_label(Role::TextInput, label)
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, label).click();
+    h.run();
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.key_press(Key::Backspace);
+    h.run();
+}
+
+fn add_power_class(h: &mut Harness<'static, App>) -> reda_ui::engine::model::Uuid {
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.net_class.add", json!({"name": "Power"}))
+        .unwrap()["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap()
+}
+
+const DRILLED_RATIO: &str = "Maximum Via aspect ratio (depth to hole)";
+const MICRO_RATIO: &str = "Maximum micro Via aspect ratio (depth to hole)";
+const MICRO_STACK: &str = "Maximum micro Vias stacked";
+
+#[test]
+fn the_vias_page_sets_micro_via_limits_aspect_ratios_and_stack_height() {
+    use reda_ui::engine::model::geom::Nm;
+    use reda_ui::engine::model::{RuleField as F, RuleValue};
+    let (home, work) = (TempDir::new("micro-home"), TempDir::new("micro-work"));
+    let mut h = harness(home.path(), work.path(), "Micro");
+    let power = add_power_class(&mut h);
+    open_board_setup(&mut h, "Micro");
+    page(&mut h, "Vias");
+    h.get_by_label("Drilled Vias");
+    h.get_by_label("Micro Vias");
+    // A board-wide preferred size belongs to the Via type, for micro Vias too.
+    for size in ["Micro Via diameter", "Micro Via hole"] {
+        assert!(
+            h.query_by_role_and_label(
+                Role::TextInput,
+                &format!("Board-wide preferred {size} (mm)")
+            )
+            .is_none()
+        );
+    }
+    for (label, text) in [
+        (DRILLED_RATIO, "8.5"),
+        ("Board-wide minimum Micro Via diameter (mm)", "0.25"),
+        ("Board-wide maximum Micro Via diameter (mm)", "0.35"),
+        ("Board-wide minimum Micro Via hole (mm)", "0.1"),
+        ("Board-wide maximum Micro Via hole (mm)", "0.15"),
+        (MICRO_RATIO, "0.9"),
+        (MICRO_STACK, "2"),
+        ("Power: Preferred Micro Via diameter", "0.3"),
+        ("Power: Preferred Micro Via hole", "0.12"),
+        (&format!("Power: {MICRO_RATIO}"), "5.333"),
+        (&format!("Power: {MICRO_STACK}"), "1"),
+    ] {
+        retype(&mut h, label, text);
+    }
+    h.get_by_label("OK").click();
+    h.run();
+    let board = pcb(&h);
+    let drilled = &board.board_rule(RuleKind::ViaSize).values;
+    assert_eq!(
+        drilled.get(F::AspectRatioMax),
+        Some(RuleValue::MilliRatio(8500))
+    );
+    let micro = &board.board_rule(RuleKind::MicroviaSize).values;
+    let lengths = |values: &reda_ui::engine::model::RuleValues, fields: &[F]| {
+        fields.iter().map(|f| values.length(*f)).collect::<Vec<_>>()
+    };
+    let sizes = [
+        F::DiameterMin,
+        F::DiameterPreferred,
+        F::DiameterMax,
+        F::HoleMin,
+        F::HolePreferred,
+        F::HoleMax,
+    ];
+    assert_eq!(
+        lengths(micro, &sizes),
+        [
+            Some(Nm(250_000)),
+            None,
+            Some(Nm(350_000)),
+            Some(Nm(100_000)),
+            None,
+            Some(Nm(150_000)),
+        ]
+    );
+    assert_eq!(
+        micro.get(F::AspectRatioMax),
+        Some(RuleValue::MilliRatio(900))
+    );
+    assert_eq!(micro.get(F::MaxStack), Some(RuleValue::Count(2)));
+    let class = &board
+        .class_rule(RuleKind::MicroviaSize, power)
+        .expect("the class gets a micro Via record")
+        .values;
+    assert_eq!(
+        lengths(class, &[F::DiameterPreferred, F::HolePreferred]),
+        [Some(Nm(300_000)), Some(Nm(120_000))]
+    );
+    assert_eq!(
+        class.get(F::AspectRatioMax),
+        Some(RuleValue::MilliRatio(5333))
+    );
+    assert_eq!(class.get(F::MaxStack), Some(RuleValue::Count(1)));
+    assert!(
+        board.class_rule(RuleKind::ViaSize, power).is_none(),
+        "a micro Via override leaves the drilled kind alone"
+    );
+
+    // Reopened, the values read back as typed, and emptying the optional ones clears them.
+    open_board_setup(&mut h, "Micro");
+    page(&mut h, "Vias");
+    assert_eq!(value(&h, DRILLED_RATIO), "8.5");
+    assert_eq!(value(&h, MICRO_RATIO), "0.9");
+    assert_eq!(value(&h, &format!("Power: {MICRO_RATIO}")), "5.333");
+    for label in [
+        DRILLED_RATIO,
+        "Board-wide maximum Micro Via hole (mm)",
+        MICRO_RATIO,
+        MICRO_STACK,
+        &format!("Power: {MICRO_STACK}"),
+    ] {
+        clear(&mut h, label);
+    }
+    h.get_by_label("OK").click();
+    h.run();
+    let board = pcb(&h);
+    let drilled = &board.board_rule(RuleKind::ViaSize).values;
+    assert_eq!(drilled.get(F::AspectRatioMax), None);
+    let micro = &board.board_rule(RuleKind::MicroviaSize).values;
+    assert_eq!(micro.length(F::HoleMax), None);
+    assert_eq!(
+        micro.length(F::HoleMin),
+        Some(Nm(100_000)),
+        "the minimum stays"
+    );
+    assert_eq!(micro.get(F::AspectRatioMax), None);
+    assert_eq!(micro.get(F::MaxStack), None);
+    let class = &board
+        .class_rule(RuleKind::MicroviaSize, power)
+        .unwrap()
+        .values;
+    assert_eq!(class.get(F::MaxStack), None);
+    assert_eq!(
+        class.get(F::AspectRatioMax),
+        Some(RuleValue::MilliRatio(5333))
+    );
+}
+
+#[test]
+fn a_via_ratio_or_stack_that_is_not_a_positive_number_is_flagged() {
+    let (home, work) = (
+        TempDir::new("micro-bad-home"),
+        TempDir::new("micro-bad-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "MicroBad");
+    open_board_setup(&mut h, "MicroBad");
+    page(&mut h, "Vias");
+    let ratio = "Give a ratio above 0 with up to three decimals, such as 0.9 or 5.333.";
+    for (label, text, message) in [
+        (MICRO_RATIO, "0", ratio),
+        (DRILLED_RATIO, "1.2345", ratio),
+        (DRILLED_RATIO, "8:2", ratio),
+        (MICRO_STACK, "0", "Give a whole number from 1 to 255."),
+        (MICRO_STACK, "1.5", "Give a whole number from 1 to 255."),
+    ] {
+        retype(&mut h, label, text);
+        h.get_by_role_and_label(Role::TreeItem, "Vias (has invalid values)");
+        h.get_by_label(message);
+        clear(&mut h, label);
+    }
+    // A ratio may be written with its `:1`.
+    retype(&mut h, DRILLED_RATIO, "10:1");
+    h.get_by_role_and_label(Role::TreeItem, "Vias");
+    assert_eq!(pending(&h), 1);
+}
+
+#[test]
+fn the_net_classes_grid_has_micro_via_size_columns() {
+    use reda_ui::engine::model::RuleField as F;
+    use reda_ui::engine::model::geom::Nm;
+    let (home, work) = (
+        TempDir::new("micro-grid-home"),
+        TempDir::new("micro-grid-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "MicroGrid");
+    let power = add_power_class(&mut h);
+    open_board_setup(&mut h, "MicroGrid");
+    page(&mut h, "Net Classes");
+    h.get_by_label("Default: Micro Via size enabled");
+    assert!(
+        h.query_by_role_and_label(Role::TextInput, "Default: Preferred Micro Via hole")
+            .is_none(),
+        "the Default row has no preferred micro Via size"
+    );
+    retype(&mut h, "Default: Micro Via diameter", "0.2");
+    // A minimum typed for a class with no record fills its range.
+    retype(&mut h, "Power: Micro Via hole", "0.1");
+    assert_eq!(value(&h, "Power: Preferred Micro Via hole"), "0.1");
+    assert_eq!(value(&h, "Power: Maximum Micro Via hole"), "0.1");
+    h.get_by_label("OK").click();
+    h.run();
+    let board = pcb(&h);
+    assert_eq!(
+        board
+            .board_rule(RuleKind::MicroviaSize)
+            .values
+            .length(F::DiameterMin),
+        Some(Nm(200_000))
+    );
+    let class = &board
+        .class_rule(RuleKind::MicroviaSize, power)
+        .unwrap()
+        .values;
+    assert_eq!(
+        [F::HoleMin, F::HolePreferred, F::HoleMax].map(|f| class.length(f)),
+        [Some(Nm(100_000)); 3]
+    );
+}
+
+#[test]
+fn by_layer_resolves_the_drafted_records_before_apply() {
+    let (home, work) = (TempDir::new("by-layer-home"), TempDir::new("by-layer-work"));
+    let mut h = harness(home.path(), work.path(), "ByLayer");
+    add_power_class(&mut h);
+    let layers = pcb(&h).copper_layers().count();
+    open_board_setup(&mut h, "ByLayer");
+    // Clearance is the first page. Neither value is on the board yet.
+    retype(&mut h, "Board-wide minimum Clearance (mm)", "0.27");
+    retype(&mut h, "Power: Clearance", "0.41");
+    h.get_by_role_and_label(Role::DisclosureTriangle, "By Layer")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::DisclosureTriangle, "By Layer")
+        .click();
+    h.run();
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.27").count(),
+        layers,
+        "the Default class resolves the drafted board-wide clearance on every Layer"
+    );
+    choose(&mut h, "By Layer Net Class", "Power");
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.41").count(),
+        layers,
+        "Power resolves its drafted override"
+    );
+    // Clearing the override falls back to the drafted board-wide value.
+    clear(&mut h, "Power: Clearance");
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.27").count(),
+        layers
+    );
+    assert!(pending(&h) > 0, "nothing is applied yet");
+}

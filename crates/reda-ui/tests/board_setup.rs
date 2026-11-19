@@ -457,10 +457,29 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             ),
             (
                 Rule::Vias,
-                vec![(
-                    Some(DrcCheck::ViaSize),
-                    vec![F::ViaDiameter, F::ViaDiameterMax, F::ViaHole, F::ViaHoleMax]
-                )]
+                vec![
+                    (
+                        Some(DrcCheck::ViaSize),
+                        vec![
+                            F::ViaDiameter,
+                            F::ViaDiameterMax,
+                            F::ViaHole,
+                            F::ViaHoleMax,
+                            F::ViaAspectRatio
+                        ]
+                    ),
+                    (
+                        Some(DrcCheck::MicroviaSize),
+                        vec![
+                            F::MicroDiameter,
+                            F::MicroDiameterMax,
+                            F::MicroHole,
+                            F::MicroHoleMax,
+                            F::MicroAspectRatio,
+                            F::MicroMaxStack
+                        ]
+                    ),
+                ]
             ),
             (
                 Rule::Holes,
@@ -825,11 +844,17 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
             RuleField::ViaHoleMax,
             RuleField::ViaHoleClearance,
             RuleField::PadHoleClearance,
+            RuleField::MicroDiameter,
+            RuleField::MicroDiameterPreferred,
+            RuleField::MicroDiameterMax,
+            RuleField::MicroHole,
+            RuleField::MicroHolePreferred,
+            RuleField::MicroHoleMax,
         ]
     );
     board.selected_rows = [p].into();
     let copied = board.copy_rows();
-    assert_eq!(copied, "0.3\t\t0.5\t\t\t\t\t\t\t\t\t");
+    assert_eq!(copied, format!("0.3\t\t0.5{}", "\t".repeat(15)));
     board.selected_rows = [s].into();
     board.paste_rows(&copied);
     assert_eq!(board.cell(s, RuleField::Clearance), "0.3");
