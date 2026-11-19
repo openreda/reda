@@ -128,7 +128,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     let project = &plot.project.props().name;
     let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
         let name = file.name(project, plot.gerber);
-        out.layers.push((name.clone(), file.layer));
+        out.layers.push((name.clone(), file.label()));
         if let Some(at) = rendered.out_of_range {
             return Err(CoordinateOutOfRange { file: name, at });
         }
@@ -156,7 +156,8 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
             None => (
                 FileName {
                     extension: format!("g{number}l"),
-                    layer: format!("Inner Copper L{number}"),
+                    layer: layer.name.clone().unwrap_or_default(),
+                    inner_position: Some(number),
                 },
                 "copper_inner",
                 "Inr",
@@ -250,6 +251,8 @@ struct FileName {
     extension: String,
     /// Such as "Top Copper"; what `file_names` and `descriptive` names go by.
     layer: String,
+    /// Physical copper position, counted from one, for an inner Layer.
+    inner_position: Option<usize>,
 }
 
 impl FileName {
@@ -257,6 +260,7 @@ impl FileName {
         FileName {
             extension: extension.into(),
             layer: layer.into(),
+            inner_position: None,
         }
     }
 
@@ -265,9 +269,14 @@ impl FileName {
             Side::Top => "Top",
             Side::Bottom => "Bottom",
         };
-        FileName {
-            extension: extension.into(),
-            layer: format!("{side} {kind}"),
+        Self::new(extension, &format!("{side} {kind}"))
+    }
+
+    fn label(&self) -> String {
+        match self.inner_position {
+            Some(p) if self.layer.is_empty() => format!("L{p}"),
+            Some(p) => format!("L{p} {}", self.layer),
+            None => self.layer.clone(),
         }
     }
 
@@ -275,12 +284,17 @@ impl FileName {
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
     fn name(&self, project: &str, settings: &GerberSettings) -> String {
-        if let Some(own) = settings.file_names.iter().find(|f| f.layer == self.layer) {
+        let layer = if self.layer.is_empty() {
+            self.label()
+        } else {
+            self.layer.clone()
+        };
+        if let Some(own) = settings.file_names.iter().find(|f| f.layer == layer) {
             return own.name.clone();
         }
         match settings.naming {
             FileNaming::Classic => format!("{project}.{}", self.extension),
-            FileNaming::Descriptive => format!("{project}-{}.gbr", self.layer.replace(' ', "_")),
+            FileNaming::Descriptive => format!("{project}-{}.gbr", layer.replace(' ', "_")),
         }
     }
 }
