@@ -16,6 +16,7 @@ pub mod copper;
 pub mod dimension;
 pub mod drag;
 pub mod drc;
+pub mod impedance;
 pub mod keepout;
 pub mod lock;
 pub mod net_info;

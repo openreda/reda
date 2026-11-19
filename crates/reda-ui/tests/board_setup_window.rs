@@ -622,6 +622,48 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
 }
 
 #[test]
+fn stackup_shows_the_bare_impedance_and_default_width_on_the_layer_row() {
+    let (home, work) = (TempDir::new("z0-home"), TempDir::new("z0-work"));
+    let mut h = harness(home.path(), work.path(), "Impedance");
+    let board = pcb(&h);
+    let bottom = board.copper_layers().last().unwrap().uuid;
+    let sheet = board.stackup().dielectrics().next().unwrap().uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("pcb.layer.set", json!({"layer":bottom,"role":"plane"}))
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet,"dk":4400,"thickness":200000}]}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"track_width","values":{"preferred":"0.35mm"}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.run();
+    h.get_by_label("Z0");
+    h.get_by_label("50.2 Ω");
+    assert!(h.query_all_by_label_contains("without solder mask").count() > 0);
+    assert!(h.query_all_by_label_contains("0.35 mm").count() > 0);
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet,"dk":null}]}),
+        )
+        .unwrap();
+    h.run();
+    assert!(h.query_all_by_label_contains("≈").count() > 0);
+}
+
+#[test]
 fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new_build() {
     let (home, work) = (
         TempDir::new("build-editor-home"),

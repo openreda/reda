@@ -21,7 +21,7 @@ use reda_engine::model::{
 };
 use serde_json::json;
 
-const TABLE_WIDTH: f32 = 420.0;
+const TABLE_WIDTH: f32 = 468.0;
 const POSITION: f32 = 32.0;
 const KIND: f32 = 96.0;
 const THICKNESS: f32 = 87.0;
@@ -174,6 +174,7 @@ fn entry_name(pcb: &PcbDocument, index: usize) -> String {
 fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, edits: &mut Edits) {
     let t = ui.tokens();
     let stack = pcb.stackup();
+    let impedances = reda_engine::pcb::impedance::layers(pcb, info);
     let mut selected = view.selected;
     widgets::table("layers")
         .columns([
@@ -181,6 +182,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
             Column::fill(),
             Column::fixed(t.size.of(KIND)),
             Column::fixed(t.size.of(THICKNESS)),
+            Column::fixed(t.size.of(56.0)),
         ])
         .show(ui, |table| {
             table.header(|h| {
@@ -189,6 +191,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                 h.text(tr!("board-setup-stackup-kind"));
                 h.text(tr!("stackup-thickness-mm"))
                     .tooltip(tr!("board-setup-stackup-units"));
+                h.text("Z0");
             });
             for (i, entry) in stack.entries.iter().enumerate() {
                 let name = entry_name(pcb, i);
@@ -252,6 +255,29 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                                 )
                                 .gained_focus();
                         });
+                        if let Some(estimate) = impedances
+                            .iter()
+                            .find(|r| r.layer == uuid)
+                            .and_then(|r| r.estimate.as_ref())
+                        {
+                            let prefix = if estimate.approximate { "≈" } else { "" };
+                            let response = row.text(format!("{prefix}{:.1} Ω", estimate.ohms));
+                            if estimate.approximate {
+                                use reda_engine::pcb::impedance::Model;
+                                let mut why = Vec::new();
+                                match estimate.model {
+                                    Model::EmbeddedMicrostrip => {
+                                        why.push(tr!("stackup-z0-embedded"))
+                                    }
+                                    Model::OffsetStripline => why.push(tr!("stackup-z0-offset")),
+                                    _ => {}
+                                }
+                                if estimate.missing_dk {
+                                    why.push(tr!("stackup-z0-missing-dk"));
+                                }
+                                response.tooltip(why.join("\n"));
+                            }
+                        }
                     }
                     StackupEntry::Dielectric(d) => {
                         row.ui(|ui| ui.add(widgets::swatch(preview::color(entry))));
@@ -308,6 +334,27 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                 }
             }
         });
+    let mut widths = std::collections::BTreeMap::<Nm, Vec<String>>::new();
+    for (i, reading) in impedances.iter().enumerate() {
+        widths
+            .entry(reading.width)
+            .or_default()
+            .push(format!("L{}", i + 1));
+    }
+    let several = widths.len() > 1;
+    let widths = widths
+        .into_iter()
+        .map(|(width, layers)| {
+            let mm = width.mm_exact();
+            if several {
+                format!("{} {mm} mm", layers.join(", "))
+            } else {
+                format!("{mm} mm")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    ui.label(tr!("stackup-z0-width", widths = widths.as_str()));
     layer_actions::buttons(ui, pcb, selected, edits);
     let sheet = stack
         .entries

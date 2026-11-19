@@ -440,3 +440,108 @@ fn an_unrepresentable_sum_is_refused_without_losing_the_previous_stackup() {
     assert_eq!(err.code, ErrorCode::InvalidParams);
     assert_eq!(stackup(&engine), &before);
 }
+
+#[test]
+fn impedance_uses_physical_references_and_the_width_on_each_layer() {
+    use reda_pcb::impedance;
+
+    let dir = TempDir::new("stackup-impedance");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let layers: Vec<_> = pcb(&engine).copper_layers().map(|l| l.uuid).collect();
+    let sheets: Vec<_> = stackup(&engine).dielectrics().map(|d| d.uuid).collect();
+    let impedance = |e: &TestEngine| {
+        let board = pcb(e);
+        impedance::layers(board, &board.stackup().info())
+    };
+    assert!(impedance(&engine).iter().all(|r| r.estimate.is_none()));
+    for &id in &[layers[1], layers[3]] {
+        engine.run_ok("pcb.layer.set", json!({"layer":id,"role":"plane"}));
+    }
+    for &id in &sheets {
+        engine.run_ok(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":id,"thickness":200000,"dk":4400,"material":"FR4"}]}),
+        );
+    }
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"inner"},"values":{"preferred":"0.35mm"}}),
+    );
+    let readings = impedance(&engine);
+    assert_eq!(readings[2].width, Nm(350_000));
+    let models = |rows: &[impedance::LayerImpedance]| {
+        rows.iter()
+            .map(|r| r.estimate.as_ref().map(|z| z.model))
+            .collect::<Vec<_>>()
+    };
+    use impedance::Model::*;
+    assert_eq!(
+        models(&readings),
+        [
+            Some(SurfaceMicrostrip),
+            None,
+            Some(CentredStripline),
+            None,
+            Some(EmbeddedMicrostrip),
+            Some(SurfaceMicrostrip)
+        ]
+    );
+    assert_eq!(
+        readings[5].estimate.as_ref().unwrap().references,
+        vec![layers[3]]
+    );
+    assert!(!readings[0].estimate.as_ref().unwrap().missing_dk);
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":sheets[2],"dk":null}]}),
+    );
+    engine.run_ok("pcb.layer.set", json!({"layer":layers[1],"role":"mixed"}));
+    let readings = impedance(&engine);
+    let inner = readings[2].estimate.as_ref().unwrap();
+    assert_eq!(inner.model, OffsetStripline);
+    assert!(inner.missing_dk);
+    assert_eq!(inner.references, vec![layers[1], layers[3]]);
+    assert_eq!(
+        readings[1].estimate.as_ref().unwrap().model,
+        EmbeddedMicrostrip
+    );
+}
+
+#[test]
+fn stackup_query_reports_the_weighted_dk_of_fractional_blank_sheets() {
+    let dir = TempDir::new("stackup-impedance-query");
+    let mut engine = engine(&dir);
+    let (top, bottom, first) = ids(&engine);
+    let document = pcb(&engine).uuid;
+    let second =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":bottom,"role":"plane"}));
+    engine.run_ok("pcb.stackup.set",json!({"thickness":270001,"dielectrics":[{"uuid":first,"dk":4000},{"uuid":second,"dk":4800}]}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","values":{"preferred":350000}}),
+    );
+    let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
+    assert_eq!(info["entries"][1]["thickness"], 100000.5);
+    let signal = &info["impedance"][0];
+    let estimate = &signal["estimate"];
+    assert_eq!(signal["layer"], json!(top));
+    assert_eq!(signal["width"], 350000);
+    assert_eq!(estimate["model"], "surface_microstrip");
+    assert_eq!(estimate["approximate"], false);
+    assert_eq!(estimate["references"], json!([bottom]));
+    assert!((estimate["ohms"].as_f64().unwrap() - 50.20).abs() < 0.01);
+    assert!(info["impedance"][1].get("estimate").is_none());
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":first,"dk":null}]}),
+    );
+    let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
+    assert_eq!(info["impedance"][0]["estimate"]["approximate"], true);
+    assert_eq!(info["impedance"][0]["estimate"]["missing_dk"], true);
+}
