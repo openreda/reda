@@ -146,7 +146,11 @@ fn range(
         min: limit(pcb, net, kind, min),
         preferred: resolve(pcb, net, kind, preferred)
             .and_then(|s| s.value.length())
-            .expect("the board-wide record holds every preferred value"),
+            .unwrap_or_else(|| match preferred {
+                RuleField::DiameterPreferred => pcb.stackup().through_type().diameter.start,
+                RuleField::HolePreferred => pcb.stackup().through_type().hole,
+                _ => unreachable!("the board-wide Track rule holds a preferred width"),
+            }),
         max: limit(pcb, net, kind, max),
     }
 }

@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 1,
+//!   "format": 2,
 //!   "net_classes": [{"name":"Power"}],
 //!   "rules": [
 //!     {"kind":"clearance","values":{"value":160000}},

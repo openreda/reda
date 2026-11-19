@@ -197,7 +197,7 @@ pub fn via_choices(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<ViaChoice> {
     let board: BTreeSet<ViaSize> = pcb
         .vias()
         .map(|v| ViaSize {
-            diameter: v.diameter,
+            diameter: v.diameter.start,
             hole: v.hole,
         })
         .filter(|s| *s != preferred)

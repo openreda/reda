@@ -242,7 +242,7 @@ fn moved(pcb: &PcbDocument, fonts: &Fonts, by: Point) -> Result<Vec<Object>, Com
         }
     }
     for v in pcb.vias() {
-        if board.holds(&Shape::disc(v.at, v.diameter)) {
+        if board.holds(&Shape::disc(v.at, v.diameter.start)) {
             let mut v = v.clone();
             v.at = v.at + by;
             out.push(Object::Via(InDocument::new(doc, v)));

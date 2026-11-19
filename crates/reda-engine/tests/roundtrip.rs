@@ -278,9 +278,19 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             comment: None,
         });
     }
+    rules.extend(reda_engine::pcb::multilayer_rules(doc));
     let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
+    let stack_id = id();
+    let preferred = fab_rules(seed.rules).preferred;
     let stackup = Stackup {
-        uuid: id(),
+        uuid: stack_id,
+        via_types: vec![reda_model::ViaType::through(
+            stack_id,
+            layers.layers[0].uuid,
+            layers.layers[1].uuid,
+            preferred.via_hole,
+            preferred.via_diameter,
+        )],
         thickness: Nm(top.0 + bottom.0 + 1_000_000),
         entries: vec![
             StackupEntry::Copper(CopperEntry {
@@ -288,6 +298,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 thickness: top,
             }),
             StackupEntry::Dielectric(DielectricEntry {
+                kind: reda_model::DielectricKind::Core,
                 uuid: id(),
                 thickness: dielectric,
             }),
@@ -491,7 +502,11 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 uuid: id(),
                 at: from,
                 net,
-                diameter: Nm(width.0 + 1),
+                diameter: reda_model::ViaDiameter {
+                    start: Nm(width.0 + 1),
+                    middle: Some(Nm(width.0 + 2)),
+                    end: Some(Nm(width.0 + 3)),
+                },
                 hole: width,
                 span: LayerSpan {
                     from: layer_ids[0],
@@ -1035,6 +1050,7 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         edge_clearance,
     ] = lengths;
     FabRules {
+        clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),
         clearance,

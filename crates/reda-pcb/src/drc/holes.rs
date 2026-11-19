@@ -76,7 +76,7 @@ fn via_size(board: &Board<'_>, report: &mut Report) {
         for (part, size, range, [min, max]) in [
             (
                 "diameter",
-                via.diameter,
+                via.diameter.start,
                 rules.via_diameter,
                 [DiameterMin, DiameterMax],
             ),
@@ -125,7 +125,7 @@ pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             size,
             net: via.net,
             via: true,
-            ring: Some(Nm((via.diameter.0 - via.hole.0) / 2)),
+            ring: Some(Nm((via.diameter.start.0 - via.hole.0) / 2)),
             shape: hole_shape((via.at, via.at), size),
         });
     }

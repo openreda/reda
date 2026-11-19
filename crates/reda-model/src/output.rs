@@ -16,11 +16,27 @@ mod settings;
 pub use name_template::{NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError};
 pub use settings::*;
 
+/// Clearance to the plated holes of another Net.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HoleClearance {
+    pub via: Nm,
+    pub pad: Nm,
+}
+
+impl HoleClearance {
+    pub const GENERIC: Self = Self {
+        via: Nm(250_000),
+        pad: Nm(250_000),
+    };
+}
+
 /// A Fab Preset's design rules: flat limits with no scope, which a job compares the board
 /// with, and the preferred values a new board's routing starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FabRules {
+    pub clearance_hole: HoleClearance,
     /// Minimum clearance between copper of different Nets.
     pub clearance: Nm,
     /// Minimum Track width.
@@ -173,8 +189,7 @@ pub struct FabPreset {
     pub rules: FabRules,
     /// The thickness and copper a new board's Stackup starts with; left out when the
     /// preset seeds neither.
-    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
-    pub stackup: StackupSeeds,
+    pub constructions: Vec<Construction>,
     /// The Gerber and drill switches.
     pub gerber: GerberSettings,
     /// The Stackup options the fab offers; never checked against the board.
@@ -196,13 +211,80 @@ pub struct ProjectFabPreset {
     /// The name of the preset it was copied from.
     pub name: String,
     pub rules: FabRules,
-    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
-    pub stackup: StackupSeeds,
+    pub constructions: Vec<Construction>,
     pub gerber: GerberSettings,
     pub stackup_suggestions: StackupSuggestions,
     pub zip_assembly: bool,
     pub bom: BomSettings,
     pub cpl: CplSettings,
+}
+
+/// One named physical build offered by a Fab Preset.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Construction {
+    pub name: String,
+    pub default: bool,
+    pub thickness: Nm,
+    pub entries: Vec<ConstructionEntry>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum ConstructionEntry {
+    Copper {
+        copper: Nm,
+    },
+    Dielectric {
+        kind: crate::DielectricKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thickness: Option<Nm>,
+    },
+}
+
+impl Construction {
+    pub fn two_layer(seeds: StackupSeeds) -> Self {
+        let copper = ConstructionEntry::Copper {
+            copper: seeds.copper.unwrap_or(crate::DEFAULT_COPPER),
+        };
+        Self {
+            name: "2 Layer".into(),
+            default: true,
+            thickness: seeds.thickness.unwrap_or(crate::DEFAULT_BOARD_THICKNESS),
+            entries: vec![
+                copper,
+                ConstructionEntry::Dielectric {
+                    kind: crate::DielectricKind::Core,
+                    thickness: None,
+                },
+                copper,
+            ],
+        }
+    }
+}
+
+impl FabPreset {
+    /// The default two-Layer Construction's thickness and outer copper.
+    pub fn stackup_seeds(&self) -> StackupSeeds {
+        self.constructions
+            .iter()
+            .find(|c| {
+                c.default
+                    && c.entries
+                        .iter()
+                        .filter(|e| matches!(e, ConstructionEntry::Copper { .. }))
+                        .count()
+                        == 2
+            })
+            .map(|c| StackupSeeds {
+                thickness: Some(c.thickness),
+                copper: c.entries.iter().find_map(|e| match e {
+                    ConstructionEntry::Copper { copper } => Some(*copper),
+                    _ => None,
+                }),
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl ProjectFabPreset {
@@ -211,7 +293,7 @@ impl ProjectFabPreset {
         let FabPreset {
             name,
             rules,
-            stackup,
+            constructions,
             gerber,
             stackup_suggestions,
             zip_assembly,
@@ -222,7 +304,7 @@ impl ProjectFabPreset {
             uuid,
             name,
             rules,
-            stackup,
+            constructions,
             gerber,
             stackup_suggestions,
             zip_assembly,
@@ -236,7 +318,7 @@ impl ProjectFabPreset {
         FabPreset {
             name: self.name.clone(),
             rules: self.rules,
-            stackup: self.stackup,
+            constructions: self.constructions.clone(),
             gerber: self.gerber.clone(),
             stackup_suggestions: self.stackup_suggestions.clone(),
             zip_assembly: self.zip_assembly,

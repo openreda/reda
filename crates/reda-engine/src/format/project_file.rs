@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 1,
+//!   "format": 2,
 //!   "project": {"uuid":"…"},
 //!   "documents": [
 //!     {"uuid":"…","path":"Demo.redasch","title":"Sheet 1"}

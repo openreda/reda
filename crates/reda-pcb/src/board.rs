@@ -47,9 +47,9 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
         value: Some(value),
         ..RuleValues::default()
     };
-    let bounds = |min, preferred| Bounds {
+    let bounds = |min| Bounds {
         min: Some(min),
-        preferred: Some(preferred),
+        preferred: None,
         max: None,
     };
     let p = rules.preferred;
@@ -66,8 +66,8 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
         (
             RuleKind::ViaSize,
             RuleValues {
-                diameter: Some(bounds(rules.via_diameter, p.via_diameter)),
-                hole: Some(bounds(rules.via_hole, p.via_hole)),
+                diameter: Some(bounds(rules.via_diameter)),
+                hole: Some(bounds(rules.via_hole)),
                 ..RuleValues::default()
             },
         ),
@@ -156,11 +156,47 @@ pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
             RuleValues {
                 through_hole: Some(PAD_CONNECTION_SEED),
                 smd: Some(PAD_CONNECTION_SEED),
-                via: Some(VIA_CONNECTION_SEED),
+                via: Some(reda_model::ViaRuleValues::Connection(VIA_CONNECTION_SEED)),
                 ..RuleValues::default()
             },
         ),
     ]
+}
+
+/// The additional board-wide records introduced by format 2. Existing boards had no
+/// silk minimum. A zero minimum preserves their behaviour until a fab limit is applied.
+pub fn multilayer_rules(document: Uuid) -> Vec<DesignRule> {
+    let target = reda_model::TeardropTarget::default();
+    let silk = RuleValues {
+        min: Some(reda_model::geom::Nm::ZERO),
+        ..Default::default()
+    };
+    [
+        (RuleKind::ViaSpan, RuleValues::default()),
+        (RuleKind::MicroviaSize, RuleValues::default()),
+        (
+            RuleKind::Teardrop,
+            RuleValues {
+                through_hole_pad: Some(target),
+                smd_pad: Some(target),
+                via: Some(reda_model::ViaRuleValues::Teardrop(target)),
+                width_change: Some(target),
+                ..Default::default()
+            },
+        ),
+        (RuleKind::SilkWidth, silk),
+        (RuleKind::SilkTextHeight, silk),
+    ]
+    .into_iter()
+    .map(|(kind, values)| DesignRule {
+        uuid: document.child(kind.id()),
+        kind,
+        scope: RuleScope::BOARD,
+        values,
+        enabled: true,
+        comment: None,
+    })
+    .collect()
 }
 
 /// The seeded `dead_copper` area: 100 square mil (0.0645 mm²), in square nanometres.
@@ -196,6 +232,7 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
     let mask = pcb.board_rule(RuleKind::MaskExpansion).values;
     let paste = pcb.board_rule(RuleKind::PasteExpansion).values;
     FabRules {
+        clearance_hole: reda_model::HoleClearance::GENERIC,
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
         via_diameter: length(RuleKind::ViaSize, DiameterMin),
@@ -207,8 +244,8 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
         edge_clearance: length(RuleKind::EdgeClearance, Value),
         preferred: PreferredSeeds {
             track_width: length(RuleKind::TrackWidth, Preferred),
-            via_diameter: length(RuleKind::ViaSize, DiameterPreferred),
-            via_hole: length(RuleKind::ViaSize, HolePreferred),
+            via_diameter: pcb.stackup().through_type().diameter.start,
+            via_hole: pcb.stackup().through_type().hole,
         },
         mask_expansion: reda_model::MaskExpansion {
             top: mask.top.unwrap_or_default(),
@@ -269,7 +306,12 @@ pub fn new_board(
         };
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
-    let stackup = seeded_stackup(&layers, stackup, &mut new_id);
+    objects.extend(
+        multilayer_rules(document)
+            .into_iter()
+            .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
+    );
+    let stackup = seeded_stackup(&layers, stackup, rules.preferred, &mut new_id);
     objects.push(Object::Stackup(InDocument::new(document, stackup)));
     objects
 }
@@ -280,6 +322,7 @@ pub fn new_board(
 fn seeded_stackup(
     layers: &LayerSet,
     seeds: StackupSeeds,
+    preferred: PreferredSeeds,
     new_id: &mut impl FnMut() -> Uuid,
 ) -> Stackup {
     let copper = seeds.copper.unwrap_or(DEFAULT_COPPER);
@@ -287,6 +330,7 @@ fn seeded_stackup(
     for layer in layers.layers.iter().filter(|l| l.kind == LayerKind::Copper) {
         if !entries.is_empty() {
             entries.push(StackupEntry::Dielectric(DielectricEntry {
+                kind: reda_model::DielectricKind::Core,
                 uuid: new_id(),
                 thickness: None,
             }));
@@ -296,8 +340,24 @@ fn seeded_stackup(
             thickness: copper,
         }));
     }
+    let uuid = new_id();
+    let from = layers
+        .find(LayerKind::Copper, Some(Side::Top))
+        .unwrap()
+        .uuid;
+    let to = layers
+        .find(LayerKind::Copper, Some(Side::Bottom))
+        .unwrap()
+        .uuid;
     Stackup {
-        uuid: new_id(),
+        uuid,
+        via_types: vec![reda_model::ViaType::through(
+            uuid,
+            from,
+            to,
+            preferred.via_hole,
+            preferred.via_diameter,
+        )],
         thickness: seeds.thickness.unwrap_or(DEFAULT_BOARD_THICKNESS),
         entries,
         finish: None,

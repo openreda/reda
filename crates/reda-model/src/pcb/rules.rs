@@ -52,11 +52,16 @@ pub enum RuleKind {
     MaskExpansion,
     /// Solder-paste expansion per edge or signed percent change in area; no DRC severity.
     PasteExpansion,
+    ViaSpan,
+    MicroviaSize,
+    Teardrop,
+    SilkWidth,
+    SilkTextHeight,
 }
 
 impl RuleKind {
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 16] = [
+    pub const ALL: [RuleKind; 21] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -73,6 +78,11 @@ impl RuleKind {
         RuleKind::ZoneConnection,
         RuleKind::MaskExpansion,
         RuleKind::PasteExpansion,
+        RuleKind::ViaSpan,
+        RuleKind::MicroviaSize,
+        RuleKind::Teardrop,
+        RuleKind::SilkWidth,
+        RuleKind::SilkTextHeight,
     ];
 
     /// Its name, as the file and Commands spell it.
@@ -94,6 +104,11 @@ impl RuleKind {
             RuleKind::ZoneConnection => "zone_connection",
             RuleKind::MaskExpansion => "mask_expansion",
             RuleKind::PasteExpansion => "paste_expansion",
+            RuleKind::ViaSpan => "via_span",
+            RuleKind::MicroviaSize => "microvia_size",
+            RuleKind::Teardrop => "teardrop",
+            RuleKind::SilkWidth => "silk_width",
+            RuleKind::SilkTextHeight => "silk_text_height",
         }
     }
 
@@ -103,7 +118,7 @@ impl RuleKind {
         match self {
             RuleKind::Clearance => &[Value, IgnorePadToPad, ZeroKeepoutClearance],
             RuleKind::TrackWidth => &[Min, Preferred, Max],
-            RuleKind::ViaSize => &[
+            RuleKind::ViaSize | RuleKind::MicroviaSize => &[
                 DiameterMin,
                 DiameterPreferred,
                 DiameterMax,
@@ -123,6 +138,8 @@ impl RuleKind {
             RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
             RuleKind::PasteExpansion => &[Expansion, Percent],
+            RuleKind::ViaSpan | RuleKind::Teardrop => &[],
+            RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
 
@@ -141,11 +158,12 @@ impl RuleKind {
             RuleKind::DeadCopper => &[MinArea],
             RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::TrackWidth => &[Min, Preferred],
-            RuleKind::ViaSize => &[DiameterMin, DiameterPreferred, HoleMin, HolePreferred],
+            RuleKind::ViaSize => &[DiameterMin, HoleMin],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
-            RuleKind::PasteExpansion => &[],
+            RuleKind::PasteExpansion | RuleKind::ViaSpan | RuleKind::MicroviaSize | RuleKind::Teardrop => &[],
+            RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
 }
@@ -414,6 +432,41 @@ impl Bounds {
     }
 }
 
+/// The shape and enable switch for one Teardrop target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropTarget {
+    pub enabled: bool,
+    pub length: u32,
+    pub max_length: Nm,
+    pub width: u32,
+    pub max_width: Nm,
+    pub curved: bool,
+    pub skip_ratio: u32,
+}
+
+impl Default for TeardropTarget {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            length: 50,
+            max_length: Nm(1_000_000),
+            width: 100,
+            max_width: Nm(2_000_000),
+            curved: false,
+            skip_ratio: 90,
+        }
+    }
+}
+
+/// The two rule kinds with a nested `via` value use distinct typed shapes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ViaRuleValues {
+    Connection(ZoneConnection),
+    Teardrop(TeardropTarget),
+}
+
 /// The values a rule record sets. Which ones a record may hold depends on its kind
 /// ([`RuleKind::fields`]); every one left out is inherited.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -474,7 +527,13 @@ pub struct RuleValues {
     pub smd: Option<ZoneConnection>,
     /// `zone_connection` only: how fills join Vias.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via: Option<ZoneConnection>,
+    pub via: Option<ViaRuleValues>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub through_hole_pad: Option<TeardropTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub smd_pad: Option<TeardropTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width_change: Option<TeardropTarget>,
 }
 
 impl RuleValues {
@@ -526,16 +585,19 @@ impl RuleValues {
         match target {
             ConnectionTarget::ThroughHole => self.through_hole.as_ref(),
             ConnectionTarget::Smd => self.smd.as_ref(),
-            ConnectionTarget::Via => self.via.as_ref(),
+            ConnectionTarget::Via => match &self.via {
+                Some(ViaRuleValues::Connection(c)) => Some(c),
+                _ => None,
+            },
         }
         .filter(|c| **c != ZoneConnection::default())
     }
 
-    fn connection_mut(&mut self, target: ConnectionTarget) -> &mut Option<ZoneConnection> {
+    fn set_connection(&mut self, target: ConnectionTarget, c: Option<ZoneConnection>) {
         match target {
-            ConnectionTarget::ThroughHole => &mut self.through_hole,
-            ConnectionTarget::Smd => &mut self.smd,
-            ConnectionTarget::Via => &mut self.via,
+            ConnectionTarget::ThroughHole => self.through_hole = c,
+            ConnectionTarget::Smd => self.smd = c,
+            ConnectionTarget::Via => self.via = c.map(ViaRuleValues::Connection),
         }
     }
 
@@ -549,8 +611,7 @@ impl RuleValues {
     pub fn set(&mut self, field: RuleField, value: Option<RuleValue>) -> Result<(), String> {
         let wrong = || format!("`{}` takes a {}", field.path(), type_name(field));
         if let Some((target, which)) = field.connection() {
-            let slot = self.connection_mut(target);
-            let mut c = slot.unwrap_or_default();
+            let mut c = self.connection(target).copied().unwrap_or_default();
             match (which, value) {
                 (ConnectionValue::Style, None) => c.style = None,
                 (ConnectionValue::Style, Some(RuleValue::Style(s))) => c.style = Some(s),
@@ -566,7 +627,7 @@ impl RuleValues {
                 (ConnectionValue::Angle, Some(RuleValue::Angle(a))) => c.angle = Some(a),
                 _ => return Err(wrong()),
             }
-            *slot = (c != ZoneConnection::default()).then_some(c);
+            self.set_connection(target, (c != ZoneConnection::default()).then_some(c));
             return Ok(());
         }
         if field == RuleField::MinArea {
@@ -789,6 +850,33 @@ impl DesignRule {
     /// hold, or a board-wide record missing a value its kind requires.
     pub fn problem(&self) -> Option<String> {
         let kind = self.kind.id();
+        let targets = [
+            self.values.through_hole_pad,
+            self.values.smd_pad,
+            self.values.width_change,
+            match self.values.via {
+                Some(ViaRuleValues::Teardrop(target)) => Some(target),
+                _ => None,
+            },
+        ];
+        if self.kind == RuleKind::Teardrop
+            && self.scope.is_board_wide()
+            && targets.iter().any(Option::is_none)
+        {
+            return Some("a board-wide teardrop rule needs all four targets".into());
+        }
+        if self.kind != RuleKind::Teardrop && targets.iter().any(Option::is_some) {
+            return Some(format!("a {kind} rule has no Teardrop targets"));
+        }
+        if self.kind == RuleKind::ViaSize
+            && self.scope.is_board_wide()
+            && [self.values.diameter, self.values.hole]
+                .into_iter()
+                .flatten()
+                .any(|b| b.preferred.is_some())
+        {
+            return Some("a board-wide Via preference belongs to the through Via type".into());
+        }
         if self.kind == RuleKind::PasteExpansion {
             if self.values.percent.is_some_and(|p| p <= -100) {
                 return Some("paste percent must be above -100".into());

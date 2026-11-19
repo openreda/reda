@@ -49,10 +49,10 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
             at: via.at,
             rotation: Millideg::ZERO,
             outline: CornerRect::uniform(
-                via.diameter,
-                via.diameter,
+                via.diameter.start,
+                via.diameter.start,
                 Point::default(),
-                CornerCut::Round(Nm(via.diameter.0 / 2)),
+                CornerCut::Round(Nm(via.diameter.start.0 / 2)),
             ),
             hole: Some(reda_model::Hole::new(via.hole, via.hole)),
             side: None,
