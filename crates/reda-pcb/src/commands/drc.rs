@@ -65,12 +65,12 @@ fn current(
         return Ok(Checked {
             violations: crate::drc::health(pcb, only),
             refilled: false,
-            design: fingerprint(project, pcb, &state.changes),
+            design: fingerprint(project, pcb, &state.changes, fonts),
         });
     }
     let stored = project.zone_fills(pcb.uuid);
-    let refilled = zone::status(pcb, stored).needs_refill;
-    let fills = zone::current(pcb, stored);
+    let refilled = zone::status_with_fonts(pcb, stored, fonts).needs_refill;
+    let fills = zone::current_with_fonts(pcb, stored, fonts);
     let mut violations = check_only(pcb, &fills, fonts, only);
     // `out_of_sync` is the last check of the DRC table.
     let sync_violation = state.violation.filter(|_| wanted(DrcCheck::OutOfSync));
@@ -89,7 +89,7 @@ fn current(
     Ok(Checked {
         violations,
         refilled,
-        design: fingerprint(project, pcb, &state.changes),
+        design: fingerprint(project, pcb, &state.changes, fonts),
     })
 }
 
@@ -102,16 +102,41 @@ struct Checked {
 
 /// The fingerprint of the board, of the Change List pending against it and of the Fab
 /// Presets its Output Jobs use, which `rule_outside_preset` compares with.
-fn fingerprint(project: &Project, pcb: &reda_model::PcbDocument, changes: &str) -> String {
+fn fingerprint(
+    project: &Project,
+    pcb: &reda_model::PcbDocument,
+    changes: &str,
+    fonts: &reda_command::Fonts,
+) -> String {
     let presets: Vec<_> = crate::rules::presets::job_presets(project, pcb)
         .into_iter()
         .map(|p| (p.name, p.rules))
         .collect();
-    reda_command::Fingerprint::new()
-        .add(&design_fingerprint(pcb))
-        .add(changes)
-        .add(&presets)
-        .finish()
+    let mut key = reda_command::Fingerprint::new();
+    key.add(&design_fingerprint(pcb)).add(changes).add(&presets);
+    let mut add_face = |family: &str| {
+        if let Some(face) = crate::text::installed_fingerprint(family, fonts) {
+            key.add(family).add(face);
+        }
+    };
+    for text in pcb.texts() {
+        add_face(&text.font);
+    }
+    for dimension in pcb.dimensions() {
+        add_face(&dimension.style.font);
+    }
+    for instance in pcb.footprints() {
+        for text in crate::placed::instance_texts(pcb, instance) {
+            if text.visible
+                && text.layer.is_silkscreen()
+                && !reda_model::field_text(&text.field, &instance.designator, &instance.fields)
+                    .is_empty()
+            {
+                add_face(&text.style.font);
+            }
+        }
+    }
+    key.finish()
 }
 
 pub struct DrcRun {
@@ -288,7 +313,7 @@ impl Command for DrcStale {
     fn run(&self, cx: &mut Context<'_>, p: DrcStaleParams) -> Result<DrcStaleResult, CommandError> {
         let changes = (self.sync)(cx.project()?).changes;
         Ok(DrcStaleResult {
-            stale: fingerprint(cx.project()?, pcb(cx)?, &changes) != p.design,
+            stale: fingerprint(cx.project()?, pcb(cx)?, &changes, cx.fonts()) != p.design,
         })
     }
 }

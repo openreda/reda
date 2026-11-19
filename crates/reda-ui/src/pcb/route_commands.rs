@@ -19,9 +19,33 @@ use serde_json::json;
 
 use crate::tools::{ActiveTool, Tool};
 
+crate::tools::typed_commands! {
+    /// The Track Tool's Commands, which the Shell applies to the route after they run.
+    RouteCommand {
+        AddVia => "pcb.route.add_via",
+        PreviousLayer => "pcb.route.previous_layer",
+        ViaStay => "pcb.route.via_stay",
+        StartLayer => "pcb.route.start_layer",
+        CycleVia => "pcb.route.cycle_via",
+        PickVia => "pcb.route.pick_via",
+        Finish => "pcb.route.finish",
+        Width => "pcb.route.width",
+        Mode => "pcb.route.mode",
+        End => "pcb.route.end",
+        ViaEnd => "pcb.route.via_end",
+        Chooser => "pcb.route.chooser",
+        ViaSize => "pcb.route.via_size",
+    }
+}
+
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(AddVia);
+    registry.add(PreviousLayer);
+    registry.add(ViaStay);
+    registry.add(StartLayer);
+    registry.add(CycleVia);
+    registry.add(PickVia);
     registry.add(Finish);
     registry.add(Width);
     registry.add(Mode);
@@ -58,7 +82,7 @@ fn routing(cx: &mut Context<'_>) -> Result<(), CommandError> {
 pub struct Done {}
 
 macro_rules! route_key {
-    ($name:ident, $id:literal, $title:literal, $description:literal, $icon:literal) => {
+    ($name:ident, $id:expr, $title:literal, $description:literal, $icon:literal) => {
         struct $name;
 
         impl Command for $name {
@@ -87,15 +111,43 @@ macro_rules! route_key {
 
 route_key!(
     AddVia,
-    "pcb.route.add_via",
+    RouteCommand::AddVia.id(),
     "Add Via and Switch Layer",
     "Places the route to the cursor, drops a Via there and carries on on the other side \
      of the board.",
     "via"
 );
 route_key!(
+    StartLayer,
+    RouteCommand::StartLayer.id(),
+    "Next Route Start Layer",
+    "Starts on the next copper Layer of the same Pad or Via before placing a segment.",
+    "layer_next"
+);
+route_key!(
+    ViaStay,
+    RouteCommand::ViaStay.id(),
+    "Place Via on This Layer",
+    "Places the proposed Via or stack and continues routing on the current Layer.",
+    "via"
+);
+route_key!(
+    PreviousLayer,
+    RouteCommand::PreviousLayer.id(),
+    "Route to Previous Layer",
+    "Places the proposed Via or stack and continues on the Previous Layer.",
+    "via"
+);
+route_key!(
+    CycleVia,
+    RouteCommand::CycleVia.id(),
+    "Next Via Candidate",
+    "Previews the next permitted Via or stack for this pair of Layers.",
+    "via"
+);
+route_key!(
     Finish,
-    "pcb.route.finish",
+    RouteCommand::Finish.id(),
     "Finish Route",
     "Commits the route placed so far as Tracks (and its Vias), one undo step.",
     "track"
@@ -103,7 +155,7 @@ route_key!(
 
 route_key!(
     End,
-    "pcb.route.end",
+    RouteCommand::End.id(),
     "End Route",
     "Esc or right-click: ends the route and keeps what is placed. With only its start \
      point, drops it; with no route in flight, returns to Select.",
@@ -111,7 +163,7 @@ route_key!(
 );
 route_key!(
     ViaEnd,
-    "pcb.route.via_end",
+    RouteCommand::ViaEnd.id(),
     "Via and End Route",
     "Places the route to the cursor, drops a Via there and ends the route, for dropping \
      into a pour.",
@@ -128,6 +180,8 @@ pub enum RouteMode {
     Posture,
     /// `3`: the next width mode, `pcb.route.width_mode`.
     WidthMode,
+    /// `4`: the next available Via size mode.
+    ViaSize,
     /// Shift+R: the next obstacle mode, `pcb.route.obstacle_mode`.
     ObstacleMode,
     /// Shift+A: `pcb.route.auto_terminate`.
@@ -139,10 +193,11 @@ pub enum RouteMode {
 }
 
 impl RouteMode {
-    pub const ALL: [RouteMode; 7] = [
+    pub const ALL: [RouteMode; 8] = [
         RouteMode::Lookahead,
         RouteMode::Posture,
         RouteMode::WidthMode,
+        RouteMode::ViaSize,
         RouteMode::ObstacleMode,
         RouteMode::AutoTerminate,
         RouteMode::LoopRemoval,
@@ -155,6 +210,7 @@ impl RouteMode {
             RouteMode::Lookahead => "lookahead",
             RouteMode::Posture => "posture",
             RouteMode::WidthMode => "width_mode",
+            RouteMode::ViaSize => "via_size",
             RouteMode::ObstacleMode => "obstacle_mode",
             RouteMode::AutoTerminate => "auto_terminate",
             RouteMode::LoopRemoval => "loop_removal",
@@ -167,6 +223,7 @@ impl RouteMode {
             RouteMode::Lookahead => ("Toggle Look-Ahead", "route_lookahead"),
             RouteMode::Posture => ("Flip Posture", "route_corner_45"),
             RouteMode::WidthMode => ("Next Width Mode", "rule"),
+            RouteMode::ViaSize => ("Next Via Size Mode", "via"),
             RouteMode::ObstacleMode => ("Next Obstacle Mode", "route_obstacle_stop"),
             RouteMode::AutoTerminate => ("Toggle Auto-Terminate", "route_auto_terminate"),
             RouteMode::LoopRemoval => ("Toggle Loop Removal", "route_loop_removal"),
@@ -191,7 +248,7 @@ struct Mode;
 
 impl Command for Mode {
     const META: Meta = Meta {
-        id: "pcb.route.mode",
+        id: RouteCommand::Mode.id(),
         title: "Route Mode",
         description: "Toggles or steps one of the Track Tool's modes: look-ahead, posture, \
                       width mode, obstacle mode, auto-terminate, loop removal or the \
@@ -248,7 +305,7 @@ struct ChooserOpen;
 
 impl Command for ChooserOpen {
     const META: Meta = Meta {
-        id: "pcb.route.chooser",
+        id: RouteCommand::Chooser.id(),
         title: "Route Chooser",
         description: "Opens the width chooser (the Net's widths, the favourites and the \
                       widths on the board) or the Via size chooser (the Net's size and the \
@@ -296,7 +353,7 @@ struct ViaSizeSet;
 
 impl Command for ViaSizeSet {
     const META: Meta = Meta {
-        id: "pcb.route.via_size",
+        id: RouteCommand::ViaSize.id(),
         title: "Route Via Size",
         description: "Sets the size of the Vias the route in flight places from here on, \
                       clipped to the Net's Via size range.",
@@ -358,7 +415,7 @@ struct Width;
 
 impl Command for Width {
     const META: Meta = Meta {
-        id: "pcb.route.width",
+        id: RouteCommand::Width.id(),
         title: "Route Width",
         description: "Changes the width the route in flight continues at: a given width, or \
                       the board's next or previous Track width.",
@@ -406,5 +463,78 @@ impl Command for Width {
             width,
             step: p.step,
         })
+    }
+}
+
+/// With no parameters, open the candidate list for the Previous Layer. A list
+/// row submits its zero-based rank for the displayed destination.
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PickViaParams {
+    pub target: Option<reda_engine::model::Uuid>,
+    pub index: Option<usize>,
+    pub page: Option<usize>,
+}
+
+struct PickVia;
+impl Command for PickVia {
+    const META: Meta = Meta {
+        id: RouteCommand::PickVia.id(),
+        title: "Choose Via or Stack",
+        description: "Lists permitted Vias and stacks for a destination Layer or selects one by rank.",
+        category: "tool",
+        icon: "via",
+        kind: Kind::View,
+    };
+    type Params = PickViaParams;
+    type Output = PickViaParams;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: PickViaParams) -> Result<PickViaParams, CommandError> {
+        routing(cx)?;
+        if p.page.is_some() && p.index.is_some() {
+            return Err(CommandError::invalid_params(
+                "/page",
+                "choose a page or a candidate",
+            ));
+        }
+        if let Some(to) = p.target
+            && cx
+                .project()?
+                .pcb()
+                .and_then(|p| p.copper_number(to))
+                .is_none()
+        {
+            return Err(CommandError::invalid_params(
+                "/target",
+                "choose a copper Layer",
+            ));
+        }
+        Ok(p)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RouteCommand;
+    use reda_engine::command::Registry;
+
+    #[test]
+    fn every_registered_route_command_has_a_typed_action() {
+        let mut registry = Registry::new();
+        super::register_all(&mut registry);
+        let mut ids = 0;
+        for meta in registry
+            .commands()
+            .filter(|m| m.id.starts_with("pcb.route."))
+        {
+            assert_eq!(
+                RouteCommand::from_id(meta.id).map(RouteCommand::id),
+                Some(meta.id)
+            );
+            ids += 1;
+        }
+        assert!(ids > 0);
     }
 }

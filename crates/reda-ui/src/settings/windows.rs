@@ -42,6 +42,7 @@ pub enum Request {
     /// The Output Job window's **Edit preset copy…**: show that page of the Project's Fab
     /// Preset copy in Project Settings.
     EditPreset(Uuid, PresetPage),
+    OpenStackup(Uuid),
 }
 
 /// The open settings windows' state.
@@ -227,6 +228,7 @@ impl SettingsWindows {
                 self.requests.push(Request::PickFile(window, request));
             }
             Outcome::ShowFolder(folder) => self.requests.push(Request::ShowFolder(folder)),
+            Outcome::OpenStackup(pcb) => self.requests.push(Request::OpenStackup(pcb)),
             Outcome::EditPreset(preset, page) => {
                 self.requests.push(Request::EditPreset(preset, page));
             }

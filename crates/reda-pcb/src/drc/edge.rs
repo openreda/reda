@@ -92,7 +92,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     let pcb = board.pcb;
     let edges = Edge::all(pcb);
     // Non-plated holes: copper keeps the edge clearance from their edges too.
-    let bare: Vec<_> = super::holes::holes(board)
+    let bare: Vec<_> = crate::drill::holes(board.pcb)
         .into_iter()
         .filter(|h| h.ring.is_none())
         .collect();
@@ -114,53 +114,69 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(required) = net_rules(pcb, board.copper.net(item)).edge_clearance else {
             continue;
         };
-        let pieces = board.copper.item_pieces(item);
-        let Some((_, shape)) = pieces.first() else {
-            continue;
-        };
-        for hole in &bare {
-            if hole.objects == item_objects(item) {
-                continue;
-            }
-            let gap = shape.distance(&hole.shape);
-            if gap >= required.0 as f64 {
-                continue;
-            }
-            let actual = Nm(gap.max(0.0).floor() as i64);
-            let [a, b] = shape.closest_points(&hole.shape);
-            report.add(DrcCheck::EdgeClearance, |v| {
-                v.length(actual, required, Limit::Min, rule(item))
-                    .distance_points(a, b)
-                    .on_layers(pieces.iter().map(|(l, _)| *l))
-                    .arg("required", required)
-                    .arg("actual", actual)
-                    .objects(item_objects(item))
-                    .objects(hole.objects.iter().copied())
-            });
-        }
-        for edge in &edges {
-            let (gap, [a, b]) = edge.gap(shape);
-            let anchor = match &shape.prims[0].core {
-                Core::Seg(a, _) => *a,
-                Core::Poly(points) => points[0],
-            };
-            let wrong_side = edge.contains(anchor) != edge.keeps_inside;
-            let actual = if wrong_side {
-                Nm::ZERO
-            } else if gap < required.0 as f64 {
-                Nm(gap.max(0.0).floor() as i64)
+        // Measure one shape once and report the physical Layers that carry it.
+        let mut shapes: Vec<(&Shape, Vec<Uuid>)> = Vec::new();
+        for (layer, shape) in board.copper.item_pieces(item) {
+            if let Some((_, layers)) = shapes.iter_mut().find(|(s, _)| *s == shape) {
+                layers.push(layer);
             } else {
-                continue;
-            };
-            report.add(DrcCheck::EdgeClearance, |v| {
-                v.length(actual, required, Limit::Min, rule(item))
-                    .distance_points(a, b)
-                    .on_layers(pieces.iter().map(|(l, _)| *l))
-                    .arg("required", required)
-                    .arg("actual", actual)
-                    .objects(item_objects(item))
-                    .object(edge.uuid)
-            });
+                shapes.push((shape, vec![layer]));
+            }
+        }
+        for (shape, layers) in shapes {
+            for hole in &bare {
+                if hole.objects == item_objects(item) {
+                    continue;
+                }
+                let gap = shape.distance(&hole.shape);
+                if gap >= required.0 as f64 {
+                    continue;
+                }
+                let actual = Nm(gap.max(0.0).floor() as i64);
+                let [a, b] = shape.closest_points(&hole.shape);
+                report.add(DrcCheck::EdgeClearance, |v| {
+                    v.length(actual, required, Limit::Min, rule(item))
+                        .distance_points(a, b)
+                        .on_layers(layers.iter().copied())
+                        .arg("required", required)
+                        .arg("actual", actual)
+                        .objects(item_objects(item))
+                        .objects(hole.objects.iter().copied())
+                });
+            }
+            for edge in &edges {
+                // A label can have one glyph on the board and another wholly outside,
+                // with no stroke crossing the edge between them.
+                let outside = shape.prims.iter().find(|p| {
+                    let anchor = match &p.core {
+                        Core::Seg(a, _) => *a,
+                        Core::Poly(points) => points[0],
+                    };
+                    edge.contains(anchor) != edge.keeps_inside
+                });
+                let (gap, [a, b]) = match outside {
+                    Some(p) => edge.gap(&Shape {
+                        prims: vec![p.clone()],
+                    }),
+                    None => edge.gap(shape),
+                };
+                let actual = if outside.is_some() {
+                    Nm::ZERO
+                } else if gap < required.0 as f64 {
+                    Nm(gap.max(0.0).floor() as i64)
+                } else {
+                    continue;
+                };
+                report.add(DrcCheck::EdgeClearance, |v| {
+                    v.length(actual, required, Limit::Min, rule(item))
+                        .distance_points(a, b)
+                        .on_layers(layers.iter().copied())
+                        .arg("required", required)
+                        .arg("actual", actual)
+                        .objects(item_objects(item))
+                        .object(edge.uuid)
+                });
+            }
         }
     }
 }

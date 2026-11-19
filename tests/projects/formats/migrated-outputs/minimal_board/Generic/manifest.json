@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "reda": "0.0.0-test",
+  "job": {"uuid":"00000000-0000-4000-8000-000000000028","name":"Generic"},
+  "fab_preset": {"name":"Generic","sha256":"985d33c7d70e47ae10acea97370568d71af4d4eafe35e763d734e73a615dab38"},
+  "pcb": "00000000-0000-4000-8000-000000000003",
+  "revision": "A",
+  "date": "2026-01-01T00:00:00Z",
+  "zip": {"path":"Minimal-Generic.zip","sha256":"700a6d3ebab04d490bc1481e7a3665a8526ed8a26f8df71b82e9fd416ab638ff"},
+  "files": [
+    {"path":"fab/Minimal.gtl","size":1470,"sha256":"ea7ee0110035bc84b5a8a39258399d3f3698071844e6a72cc4dbc46a993d36b7","kind":"copper_top"},
+    {"path":"fab/Minimal.gbl","size":534,"sha256":"ff7298327968ad2ebed98d5425d62fc7a32b5c40a10c1ea7c2fa3df322686e8e","kind":"copper_bottom"},
+    {"path":"fab/Minimal.gts","size":973,"sha256":"bfc38fb916a5f57622bc667fb4266bb7a71851728dc6387328b6e4543553859f","kind":"solder_mask_top"},
+    {"path":"fab/Minimal.gbs","size":464,"sha256":"a5511f28240416d3ce5d330edc153252c2bfa80924b3cd90e28b3d26707eabdc","kind":"solder_mask_bottom"},
+    {"path":"fab/Minimal.gtp","size":800,"sha256":"2a77b8b495dd7b12cbd8b41734801473285ac88e9e69814072417f07f4e3d8cc","kind":"paste_top"},
+    {"path":"fab/Minimal.gto","size":3056,"sha256":"54a9d20fc69080a5b7290d70d601a2e466e2b9be15a0ac143a4aa5db2314d5bc","kind":"silkscreen_top"},
+    {"path":"fab/Minimal.gm1","size":593,"sha256":"c57e42896c8682d74d58e77cf6b17702e8e55aaf5e30d6c66a5e9a197375db4d","kind":"profile"},
+    {"path":"fab/Minimal-PTH.drl","size":363,"sha256":"cb9c4dfbecef214efaf72db7a90bedc64d318b671a764888089311aba9bc0681","kind":"drill_plated"},
+    {"path":"fab/Minimal-fab-notes.txt","size":1083,"sha256":"c214d8c12124f99b8dde96abcb733f1d89eb462b06767b2315a264fe21e3e212","kind":"fab_notes"},
+    {"path":"fab/Minimal-drill-report.txt","size":399,"sha256":"11bebc4542cf78d1e453d61bebb7d9cba107180d1747f65bbb600e6b63db7ba9","kind":"drill_report"},
+    {"path":"fab/Minimal-job.gbrjob","size":1700,"sha256":"0302e2c6efa9ff90b0292900a8d4fe29b1a2436a0e95e352c5e4a445265782d9","kind":"gerber_job"},
+    {"path":"Minimal-Generic.zip","size":5837,"sha256":"700a6d3ebab04d490bc1481e7a3665a8526ed8a26f8df71b82e9fd416ab638ff","kind":"zip"},
+    {"path":"Minimal-Generic-BOM.csv","size":181,"sha256":"30d26df0e4c15861178a1cce6a4b02375572998cb24ff2b158eb0f147f58b1a3","kind":"bom"},
+    {"path":"Minimal-Generic-CPL.csv","size":135,"sha256":"550b541a61b5d1b57f63b70d4f30ac586fc2a02d1b614f9f24e555e0d0d1ee7e","kind":"cpl"},
+    {"path":"Minimal-Generic-schematic.pdf","size":306917,"sha256":"c4c4d112166d50a79b5dbba8a72c101ad4d75f464960eee1693266a802083063","kind":"schematic_pdf"},
+    {"path":"reports/Minimal-erc.json","size":196,"sha256":"31da4d98793d2709345bae853428e256fa350954dfaa8ae0aa9279bffedbef4d","kind":"erc_report"},
+    {"path":"reports/Minimal-drc.json","size":241,"sha256":"b6602f99179fc9b7ab6f2cd4608534e863447abd9669c865df0f1ac2736e3d7e","kind":"drc_report"},
+    {"path":"reports/Minimal-change-list.json","size":180,"sha256":"4fda508af5a26d8e6b609777fe51a2d36ca32de72df55a21ec9f4f3880ec3a04","kind":"change_list_report"}
+  ],
+  "warnings": []
+}

@@ -3,9 +3,10 @@
 use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_copper};
 
 use super::{Board, Report, item_objects};
-use crate::copper::shape::{BoardShape as _, Shape};
+use crate::copper::Item;
+use crate::copper::shape::Shape;
 use crate::keepout;
-use crate::rules::{net_rules, resolve, resolve_pair};
+use crate::rules::{net_rules_on, resolve_on};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);
@@ -22,22 +23,21 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
         return;
     }
     for gap in board.copper.gaps(board.pcb) {
-        let source = resolve_pair(
-            board.pcb,
-            board.copper.net(gap.a),
-            board.copper.net(gap.b),
-            RuleKind::Clearance,
-            RuleField::Value,
-        )
-        .expect("gap has a limit");
+        let pieces: Vec<_> = board
+            .copper
+            .item_pieces(gap.a)
+            .into_iter()
+            .filter(|(layer, _)| gap.layers.contains(layer))
+            .collect();
         let found = closest_gap(
-            &board.copper.item_pieces(gap.a),
+            &pieces,
             &board.copper.item_pieces(gap.b),
             gap.required,
+            gap.a.is_artwork() || gap.b.is_artwork(),
         )
         .expect("gap shares a Layer");
         report.add(DrcCheck::Clearance, |v| {
-            v.length(gap.actual, gap.required, Limit::Min, source.rule)
+            v.length(gap.actual, gap.required, Limit::Min, gap.rule)
                 .distance_points(found.points[0], found.points[1])
                 .on_layers(found.layers)
                 .arg("required", gap.required)
@@ -56,13 +56,12 @@ struct GapAt {
     layers: Vec<reda_model::Uuid>,
 }
 
-/// The [`GapAt`] of two items' pieces, by Layer, closer than `required` without touching
-/// (touching pieces are a short or a connection, as for [`crate::copper::Copper::gaps`]);
-/// none if no pair is.
+/// The [`GapAt`] of two items' pieces that breach clearance on a shared Layer.
 fn closest_gap(
     a: &[(reda_model::Uuid, &Shape)],
     b: &[(reda_model::Uuid, &Shape)],
     required: reda_model::geom::Nm,
+    artwork: bool,
 ) -> Option<GapAt> {
     let pairs: Vec<_> = (a.iter())
         .flat_map(|&(layer, a)| {
@@ -70,7 +69,7 @@ fn closest_gap(
                 .filter(move |(l, _)| *l == layer)
                 .map(move |&(_, b)| (layer, a, b))
         })
-        .filter(|(_, a, b)| !a.touches(b) && a.distance(b) < required.0 as f64)
+        .filter(|(_, a, b)| crate::copper::breaches_clearance(a.distance(b), required, artwork))
         .collect();
     let (_, a, b) = pairs
         .iter()
@@ -100,29 +99,23 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
         if na == nb || ties.same_tie(a, b) {
             continue;
         }
-        for (layer, pa) in copper.item_pieces(a) {
-            for (_, pb) in copper
-                .item_pieces(b)
-                .into_iter()
-                .filter(|(l, pb)| *l == layer && pa.touches(pb))
-            {
-                let key = (na.min(nb), na.max(nb), layer);
-                let short = match shorts.iter_mut().position(|s| s.key() == key) {
-                    Some(i) => &mut shorts[i],
-                    None => {
-                        shorts.push(Short {
-                            nets: (na, nb),
-                            layer,
-                            at: pa.closest_points(pb)[0],
-                            items: Vec::new(),
-                        });
-                        shorts.last_mut().expect("just pushed")
-                    }
-                };
-                for item in [a, b] {
-                    if !short.items.contains(&item) {
-                        short.items.push(item);
-                    }
+        for (layer, pa, pb) in touching_pieces(copper, a, b) {
+            let key = (na.min(nb), na.max(nb), layer);
+            let short = match shorts.iter_mut().position(|s| s.key() == key) {
+                Some(i) => &mut shorts[i],
+                None => {
+                    shorts.push(Short {
+                        nets: (na, nb),
+                        layer,
+                        at: pa.closest_points(pb)[0],
+                        items: Vec::new(),
+                    });
+                    shorts.last_mut().expect("just pushed")
+                }
+            };
+            for item in [a, b] {
+                if !short.items.contains(&item) {
+                    short.items.push(item);
                 }
             }
         }
@@ -136,6 +129,24 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
                 .objects(short.items.into_iter().flat_map(item_objects))
         });
     }
+}
+
+/// Both items' indexed copper on each physical Layer where it actually touches.
+fn touching_pieces(
+    copper: &crate::Copper,
+    a: Item,
+    b: Item,
+) -> impl Iterator<Item = (reda_model::Uuid, &Shape, &Shape)> {
+    let other = copper.item_pieces(b);
+    copper
+        .item_pieces(a)
+        .into_iter()
+        .filter_map(move |(layer, first)| {
+            let (_, second) = other
+                .iter()
+                .find(|(l, shape)| *l == layer && first.touches(shape))?;
+            Some((layer, first, *second))
+        })
 }
 
 /// The copper of one Net pair touching on one Layer.
@@ -155,8 +166,8 @@ impl Short {
 }
 
 /// `shorted_copper` and `net_tie_not_joined` on each placed Footprint, read from its copy
-/// with the same geometry as the Library check, so a Footprint swap or a type change is
-/// caught. One `shorted_copper` per touching pair, objects as for a short.
+/// and its indexed copper. Each touching pair of differently numbered Pads produces
+/// one `shorted_copper` on the Layers where the two lands meet.
 fn footprint_copper(board: &Board<'_>, report: &mut Report) {
     let pcb = board.pcb;
     for instance in pcb.footprints() {
@@ -177,16 +188,42 @@ fn footprint_copper(board: &Board<'_>, report: &mut Report) {
         if report.is_off(DrcCheck::ShortedCopper) {
             continue;
         }
-        for (a, b) in footprint_copper::shorted_pads(footprint) {
-            let (a, b) = (&footprint.pads[a], &footprint.pads[b]);
-            let [at, _] = Shape::pad(instance, a).closest_points(&Shape::pad(instance, b));
-            report.add(DrcCheck::ShortedCopper, |v| {
-                v.located(pcb.uuid, at)
-                    .arg("pad_a", a.number.as_str())
-                    .arg("pad_b", b.number.as_str())
-                    .arg("footprint", footprint.name.as_str())
-                    .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
-            });
+        for a in &footprint.pads {
+            let item = Item::Pad {
+                footprint: instance.uuid,
+                pad: a.uuid,
+            };
+            for other in board.copper.contacts(item) {
+                let Item::Pad {
+                    footprint: owner,
+                    pad,
+                } = other
+                else {
+                    continue;
+                };
+                if owner != instance.uuid || pad <= a.uuid {
+                    continue;
+                }
+                let Some(b) = footprint
+                    .pads
+                    .iter()
+                    .find(|p| p.uuid == pad && p.number != a.number)
+                else {
+                    continue;
+                };
+                let mut hits = touching_pieces(board.copper, item, other);
+                let Some((layer, pa, pb)) = hits.next() else {
+                    continue;
+                };
+                report.add(DrcCheck::ShortedCopper, |v| {
+                    v.located(pcb.uuid, pa.closest_points(pb)[0])
+                        .on_layers(std::iter::once(layer).chain(hits.map(|(l, _, _)| l)))
+                        .arg("pad_a", a.number.as_str())
+                        .arg("pad_b", b.number.as_str())
+                        .arg("footprint", footprint.name.as_str())
+                        .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
+                });
+            }
         }
     }
 }
@@ -195,7 +232,7 @@ fn footprint_copper(board: &Board<'_>, report: &mut Report) {
 /// to their Net.
 fn track_width(board: &Board<'_>, report: &mut Report) {
     for track in board.pcb.tracks() {
-        let range = net_rules(board.pcb, track.net).track_width;
+        let range = net_rules_on(board.pcb, track.net, Some(track.layer)).track_width;
         let Some(found) = range.breach(track.width) else {
             continue;
         };
@@ -203,8 +240,14 @@ fn track_width(board: &Board<'_>, report: &mut Report) {
             Limit::Min => RuleField::Min,
             Limit::Max => RuleField::Max,
         };
-        let source = resolve(board.pcb, track.net, RuleKind::TrackWidth, field)
-            .expect("a breached limit applies");
+        let source = resolve_on(
+            board.pcb,
+            track.net,
+            Some(track.layer),
+            RuleKind::TrackWidth,
+            field,
+        )
+        .expect("a breached limit applies");
         report.add(DrcCheck::TrackWidth, |v| {
             breach(v, track.width, found, source.rule).object(track.uuid)
         });
@@ -281,6 +324,7 @@ mod tests {
             &[(top, &a), (bottom, &a)],
             &[(top, &b_top), (bottom, &b_bottom)],
             Nm(200_000),
+            false,
         );
         assert_eq!(
             found,

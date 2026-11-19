@@ -6,7 +6,7 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Fonts, Kind, Length, Meta, Registry,
     Unavailable,
 };
-use reda_model::geom::grown::{Core, P, Prim};
+use reda_model::geom::grown::{Core, Prim};
 use reda_model::geom::{Bounds, Millideg, Nm, Point, Vertex};
 use reda_model::{GraphicShape, InDocument, KeepoutShape, Object, PcbDocument, TrackGeometry};
 use schemars::JsonSchema;
@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use super::Placed;
 use crate::commands::{needs_pcb, pcb};
-use crate::copper::shape::{BoardShape as _, Shape, arc_points};
+use crate::copper::shape::{BoardShape as _, Shape, arc_points, graphic_shape};
 use crate::placed::{footprint_bounds, placed_graphics, placed_pads};
 use crate::zone::poly::{self, Area};
 
@@ -94,10 +94,6 @@ impl Board {
     }
 }
 
-fn xy(p: Point) -> P {
-    [p.x.0, p.y.0]
-}
-
 /// A filled box, as a shape.
 fn boxed(b: Bounds) -> Prim {
     let (lo, hi) = (b.min, b.max);
@@ -123,57 +119,14 @@ fn stroke(from: Point, to: Point, sweep: Millideg, width: Nm) -> Shape {
     Shape::chain(&points, width.0 / 2)
 }
 
-fn graphic_shape(shape: &GraphicShape, width: Nm) -> Shape {
-    match *shape {
-        GraphicShape::Line { from, to } => stroke(from, to, Millideg::ZERO, width),
-        GraphicShape::Arc { from, to, sweep } => stroke(from, to, sweep, width),
-        GraphicShape::Rect { from, to, filled } => {
-            let corners = [
-                from,
-                Point::new(to.x, from.y),
-                to,
-                Point::new(from.x, to.y),
-                from,
-            ];
-            let mut shape = Shape::chain(&corners, width.0 / 2);
-            if filled {
-                shape.prims.push(Prim {
-                    core: Core::Poly(corners[..4].iter().map(|p| xy(*p)).collect()),
-                    radius: 0,
-                });
-            }
-            shape
-        }
-    }
-}
-
 /// Free text as drawn: its strokes and filled glyphs, or its anchor when it draws nothing.
 fn text_shape(text: &reda_model::PcbText, fonts: &Fonts) -> Shape {
-    let drawn = crate::text_geometry(text, fonts);
-    let mut prims: Vec<Prim> = drawn
-        .strokes
-        .iter()
-        .map(|s| Prim {
-            core: Core::Seg(xy(s.a), xy(s.b)),
-            radius: drawn.stroke_width.0 / 2,
-        })
-        .collect();
-    for tri in drawn.fill.indices.chunks(3) {
-        let corner = |i: u32| xy(drawn.fill.points[i as usize]);
-        if let [a, b, c] = *tri {
-            prims.push(Prim {
-                core: Core::Poly(vec![corner(a), corner(b), corner(c)]),
-                radius: 0,
-            });
-        }
+    let shape = crate::text_geometry(text, fonts).shape();
+    if shape.prims.is_empty() {
+        Shape::disc(text.position, Nm::ZERO)
+    } else {
+        shape
     }
-    if prims.is_empty() {
-        prims.push(Prim {
-            core: Core::Seg(xy(text.position), xy(text.position)),
-            radius: 0,
-        });
-    }
-    Shape { prims }
 }
 
 fn shift(vertices: &mut [Vertex], by: Point) {
@@ -242,7 +195,7 @@ fn moved(pcb: &PcbDocument, fonts: &Fonts, by: Point) -> Result<Vec<Object>, Com
         }
     }
     for v in pcb.vias() {
-        if board.holds(&Shape::disc(v.at, v.diameter)) {
+        if board.holds(&Shape::disc(v.at, v.diameter.start)) {
             let mut v = v.clone();
             v.at = v.at + by;
             out.push(Object::Via(InDocument::new(doc, v)));

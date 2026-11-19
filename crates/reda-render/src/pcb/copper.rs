@@ -3,7 +3,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{LayerKind, PadKind, Side, TrackGeometry};
 
-use super::{BoardOpening, BoardPad, Builder, capsule};
+use super::{BoardGeometry, BoardPad, Builder, capsule};
 use crate::arc;
 use crate::color::BoardColor;
 use crate::polygon::triangulate;
@@ -28,9 +28,13 @@ pub(super) fn tracks(b: &mut Builder) {
 
 /// Each Pad's copper, and its mask and paste: the `openings` given, else the copper's
 /// shape on its mask and paste Layers.
-pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardOpening]>) {
-    for pad in pads {
-        let shape = pad_shape(pad);
+pub(super) fn pads(b: &mut Builder, geometry: &BoardGeometry) {
+    let openings = geometry.openings.as_deref();
+    for pad in &geometry.pads {
+        let child = match pad.child {
+            Some(crate::Child::Pad { pad, .. }) => Some(pad),
+            _ => None,
+        };
         let both = [Some(Side::Top), Some(Side::Bottom)];
         let (copper, mask, paste): (Vec<_>, Vec<_>, Vec<_>) = match (pad.kind, pad.side) {
             (PadKind::Smd, side) => (
@@ -51,7 +55,15 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardO
         };
         let first = b.scene.items.len();
         for layer in copper.iter().copied().flatten() {
-            b.on_layer(pad.object, layer, shape.clone());
+            if geometry.omitted_lands.contains(&(pad.object, child, layer)) {
+                continue;
+            }
+            let side = b.pcb.layers().layer(layer).expect("Pad Layer").side;
+            b.on_layer(
+                pad.object,
+                layer,
+                outline_shape(pad.at, pad.rotation, pad.outline_on(side)),
+            );
             if let Some(item) = b.scene.items.last_mut() {
                 item.child = pad.child.clone();
             }
@@ -61,7 +73,12 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardO
             continue;
         }
         for layer in mask.into_iter().chain(paste).flatten() {
-            b.on_layer(pad.object, layer, shape.clone());
+            let side = b.pcb.layers().layer(layer).expect("Pad Layer").side;
+            b.on_layer(
+                pad.object,
+                layer,
+                outline_shape(pad.at, pad.rotation, pad.outline_on(side)),
+            );
             if let Some(item) = b.scene.items.last_mut() {
                 item.child = pad.child.clone();
             }
@@ -77,12 +94,6 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardO
             b.on_layer(opening.object, layer, shape);
         }
     }
-}
-
-/// A Pad's copper as one primitive: a disc, a rounded rectangle, or triangles when its
-/// corners differ.
-fn pad_shape(pad: &BoardPad) -> Primitive {
-    outline_shape(pad.at, pad.rotation, &pad.outline)
 }
 
 /// An outline in a Pad's frame, anchored at `at` and turned by `rotation`, as one
@@ -118,14 +129,17 @@ fn outline_shape(at: Point, rotation: Millideg, o: &reda_model::geom::CornerRect
 /// How far a drawn Pad's chords may stray from its rounded corners.
 const PAD_ARC_TOLERANCE: Nm = Nm(1_000);
 
-pub(super) fn vias(b: &mut Builder) {
+pub(super) fn vias(b: &mut Builder, geometry: &BoardGeometry) {
     let pcb = b.pcb;
     for via in pcb.vias() {
         let first = b.scene.items.len();
         for layer in pcb.span_layers(via.span) {
+            if geometry.omitted_lands.contains(&(via.uuid, None, layer)) {
+                continue;
+            }
             let disc = Primitive::Ring {
                 center: via.at,
-                outer: Nm(via.diameter.0 / 2),
+                outer: Nm(via.diameter_on(layer).0 / 2),
                 inner: Nm(0),
             };
             b.on_layer(via.uuid, layer, disc);
@@ -160,9 +174,26 @@ pub(super) fn holes(b: &mut Builder, pads: &[BoardPad]) {
     }
     let pcb = b.pcb;
     for via in pcb.vias() {
+        let radius = Nm(via.hole.0 / 2);
+        if !via.span.joins(pcb.stackup().through_type().span()) {
+            let start = Point::new(via.at.x + radius, via.at.y);
+            for (id, sweep) in [(via.span.from, 180_000), (via.span.to, -180_000)] {
+                if let Some(layer) = b.layer(id) {
+                    let color = BoardColor::for_layer(pcb, layer);
+                    let points = arc::about(via.at, start, Millideg(sweep));
+                    b.push(
+                        via.uuid,
+                        SceneLayer::Drill,
+                        color,
+                        Primitive::Triangles(triangulate(&points)),
+                    );
+                }
+            }
+            continue;
+        }
         let disc = Primitive::Ring {
             center: via.at,
-            outer: Nm(via.hole.0 / 2),
+            outer: radius,
             inner: Nm(0),
         };
         b.push(via.uuid, SceneLayer::Drill, BoardColor::Hole, disc);

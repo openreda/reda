@@ -5,6 +5,10 @@
 //! Editors read [`Shell::tool`](crate::shell::Shell::tool) and keep what a Tool has in
 //! flight themselves; a Tool that is no longer active drops it.
 
+mod command;
+
+pub(crate) use command::{ToolCommand, typed_commands};
+
 use reda_engine::command::{
     Angle, Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
 };
@@ -310,7 +314,7 @@ struct ToolRotateAbout;
 
 impl Command for ToolRotateAbout {
     const META: Meta = Meta {
-        id: "tool.rotate_about",
+        id: ToolCommand::RotateAbout.id(),
         title: "Rotate About a Point",
         description: "Turns the selection on the board by a typed `angle` (counter-clockwise) \
                       about a centre picked with the next click, as one `pcb.rotate`.",
@@ -371,7 +375,7 @@ pub struct ToolActivateResult {
 }
 
 /// What `tool.activate` did to a run in flight.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RunChange {
     Suspended,
@@ -383,7 +387,7 @@ struct ToolActivate;
 
 impl Command for ToolActivate {
     const META: Meta = Meta {
-        id: "tool.activate",
+        id: ToolCommand::Activate.id(),
         title: "Activate Tool",
         description: "Makes a canvas Tool active. Move and Drag pick up the selection, which \
                       then follows the pointer until a click puts it down; Route and Via \
@@ -562,7 +566,7 @@ struct ToolRotate;
 
 impl Command for ToolRotate {
     const META: Meta = Meta {
-        id: "tool.rotate",
+        id: ToolCommand::Rotate.id(),
         title: "Rotate",
         description: "Turns what the active Tool carries by 90°, or else the selection, on \
                       the active board or sheet.",
@@ -585,7 +589,7 @@ struct ToolFlipSide;
 
 impl Command for ToolFlipSide {
     const META: Meta = Meta {
-        id: "tool.flip_side",
+        id: ToolCommand::FlipSide.id(),
         title: "Flip Side",
         description: "Flips what the active Tool carries, or else the selection, to the \
                       other side of the active board.",
@@ -640,7 +644,7 @@ struct ToolMirrorX;
 
 impl Command for ToolMirrorX {
     const META: Meta = Meta {
-        id: "tool.mirror_x",
+        id: ToolCommand::MirrorX.id(),
         title: "Mirror X",
         description: "Flips what the active Tool carries (a Part being placed, a move or \
                       drag, a label or Port being placed), or else the selection, left to \
@@ -664,7 +668,7 @@ struct ToolMirrorY;
 
 impl Command for ToolMirrorY {
     const META: Meta = Meta {
-        id: "tool.mirror_y",
+        id: ToolCommand::MirrorY.id(),
         title: "Mirror Y",
         description: "Flips what the active Tool carries (a Part being placed, a move or \
                       drag, a label or Port being placed), or else the selection, top to \
@@ -690,7 +694,7 @@ struct ToolMoveBoardShape;
 
 impl Command for ToolMoveBoardShape {
     const META: Meta = Meta {
-        id: "tool.move_board_shape",
+        id: ToolCommand::MoveBoardShape.id(),
         title: "Move Board Shape",
         description: "Picks up the Board Outline alone, with any selected Board Cutouts: \
                       it follows the pointer, turning and flipping with the rotate and flip \
@@ -727,7 +731,7 @@ struct ToolMoveBoard;
 
 impl Command for ToolMoveBoard {
     const META: Meta = Meta {
-        id: "tool.move_board",
+        id: ToolCommand::MoveBoard.id(),
         title: "Move Board",
         description: "Picks up the whole board: its outline follows the pointer until a \
                       click puts it down, and then `pcb.board.move` moves the Board \
@@ -751,7 +755,7 @@ struct ToolCycleCorner;
 
 impl Command for ToolCycleCorner {
     const META: Meta = Meta {
-        id: "tool.cycle_corner",
+        id: ToolCommand::CycleCorner.id(),
         title: "Cycle Corner Mode",
         description: "Switches the corners of the Wire run or route in flight: a 90° Wire \
                       run between horizontal-then-vertical and vertical-then-horizontal, a \
@@ -777,7 +781,7 @@ struct ToolUndoSegment;
 
 impl Command for ToolUndoSegment {
     const META: Meta = Meta {
-        id: "tool.undo_segment",
+        id: ToolCommand::UndoSegment.id(),
         title: "Remove Last Point",
         description: "Takes back the last corner or point the active Tool has put down: a \
                       Wire run's last segment (with none left, the run ends without drawing \
@@ -800,7 +804,7 @@ struct ToolFinish;
 
 impl Command for ToolFinish {
     const META: Meta = Meta {
-        id: "tool.finish",
+        id: ToolCommand::Finish.id(),
         title: "Finish Shape",
         description: "Finishes the shape the active Tool is drawing, such as closing a \
                       polygon. In the Wire Tool it fixes a corner where the pointer is, as \
@@ -846,7 +850,7 @@ struct ToolCycleWireMode;
 
 impl Command for ToolCycleWireMode {
     const META: Meta = Meta {
-        id: "tool.cycle_wire_mode",
+        id: ToolCommand::CycleWireMode.id(),
         title: "Cycle Wire Mode",
         description: "Switches the Wire Tool to its next mode: 90°, 45°, Any Angle, then Auto \
                       Wire, which routes each click from the last vertex around placed \
@@ -878,7 +882,7 @@ struct ToolCycleCuttingLength;
 
 impl Command for ToolCycleCuttingLength {
     const META: Meta = Meta {
-        id: "tool.cycle_cutting_length",
+        id: ToolCommand::CycleCuttingLength.id(),
         title: "Cycle Cutting Length",
         description: "Steps the Break Wire Tool's Cutting Length: Snap To Segment, Snap Grid \
                       Size Multiple, Fixed Length. The window writes it straight back to the \
@@ -903,7 +907,7 @@ struct ToolInsertVertex;
 
 impl Command for ToolInsertVertex {
     const META: Meta = Meta {
-        id: "tool.insert_vertex",
+        id: ToolCommand::InsertVertex.id(),
         title: "Insert Vertex",
         description: "Adds a vertex to the Wire run in flight where the pointer is, keeping \
                       the corner on the way there, or starts a run there. With the Select \
@@ -935,7 +939,7 @@ struct ToolEditProperties;
 
 impl Command for ToolEditProperties {
     const META: Meta = Meta {
-        id: "tool.edit_properties",
+        id: ToolCommand::EditProperties.id(),
         title: "Edit Tool Properties",
         description: "Shows the active Tool's properties in flight: the Wire Tool's Auto \
                       Wire options (Time Out After and Avoid cutting wires), opened or \
@@ -997,7 +1001,7 @@ struct ToolAutoWireSet;
 
 impl Command for ToolAutoWireSet {
     const META: Meta = Meta {
-        id: "tool.auto_wire.set",
+        id: ToolCommand::SetAutoWire.id(),
         title: "Set Auto Wire Options",
         description: "Sets the Wire Tool's Auto Wire options for the session: Time Out After \
                       (`timeout_ms`, 100 to 60000, 3000 at first) and Avoid cutting wires \

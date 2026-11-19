@@ -49,6 +49,9 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
             let page = model::page(kind.kind);
             ui.horizontal(|ui| {
                 ui.label(t.ty.body_strong.rich(kind.kind.id()));
+                if !kind.layer_names.is_empty() {
+                    ui.label(kind.layer_names.join(", "));
+                }
                 if let Some(severity) = kind.severity {
                     severity_dot(ui, severity);
                     ui.weak(severity_label(severity));
@@ -59,7 +62,16 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     .class
                     .clone()
                     .unwrap_or_else(|| tr!("properties-rules-board"));
+                let source = row
+                    .layers
+                    .as_ref()
+                    .map_or_else(|| source.clone(), |l| format!("{source} · {l}"));
                 let mut text = match (&row.value, row.standing) {
+                    (None, Standing::Won) if row.text.is_some() => format!(
+                        "{} = {}  ({source})",
+                        row.fields.join(", "),
+                        row.text.as_deref().unwrap_or_default()
+                    ),
                     (Some(value), _) => format!(
                         "{} = {}  ({source})",
                         row.fields.join(", "),
@@ -96,13 +108,23 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     )));
                 }
             }
-            if let Some((field, value, object)) = &kind.between {
-                ui.weak(tr!(
-                    "properties-rules-between",
-                    field = field.clone(),
-                    value = value_text(value, units),
-                    object = (object + 1) as i64
-                ));
+            for model::PairLimit {
+                field,
+                value,
+                object,
+                pair,
+            } in kind.between.iter().chain(&kind.between_holes)
+            {
+                if let Some(pair) = pair {
+                    ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
+                } else if let Some(object) = object {
+                    ui.weak(tr!(
+                        "properties-rules-between",
+                        field = field.clone(),
+                        value = value_text(value, units),
+                        object = (object + 1) as i64
+                    ));
+                }
             }
             ui.add_space(t.space.gap / 2.0);
         }
@@ -127,6 +149,10 @@ fn value_text(value: &RuleValue, units: Units) -> String {
         RuleValue::Flag(on) => on.to_string(),
         RuleValue::Percent(p) => format!("{p}%"),
         RuleValue::Area(nm2) => format!("{} mm2", *nm2 as f64 / 1e12),
+        RuleValue::MilliRatio(n) => format!(
+            "{}:1",
+            reda_engine::model::geom::exact_decimal(i64::from(*n), 1000)
+        ),
         RuleValue::Count(n) => n.to_string(),
         RuleValue::Angle(md) => format!("{} deg", md.0 as f64 / 1000.0),
         other => match serde_json::to_value(other) {

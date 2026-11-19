@@ -46,8 +46,8 @@ use reda_library::{LibraryFiles, LibraryRoot, Origin, scan};
 use reda_model::{Footprint, LibraryElement, LibraryInfo, Part, Symbol, Uuid};
 
 use crate::format::library::{
-    read_footprint, read_library_info, read_part, read_symbol, write_footprint, write_part,
-    write_symbol,
+    encode_footprint, encode_part, encode_symbol, read_footprint, read_library_info, read_part,
+    read_symbol, write_footprint, write_part, write_symbol,
 };
 use crate::fs::write_atomic;
 use crate::preferences;
@@ -303,6 +303,11 @@ pub fn library_statuses(
     reda_schematic::library_statuses(project, &parts)
 }
 
+/// Historical prefix for content hashes embedded in Documents. The native file version
+/// changes independently of a Library element's content. Keep the byte prefix used by
+/// released Projects so placing an unchanged Part continues to share the same copies.
+const CONTENT_HASH_FORMAT: u32 = 1;
+
 /// The Part `uuid` of the scanned Libraries, copied with its Symbol and Footprints and
 /// hashed: each Footprint over its canonical file bytes without its `generator`, the Part
 /// over its own file, its Symbol's file and its Footprints' hashes.
@@ -326,9 +331,9 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
         None => None,
     };
     let mut hasher = ContentHash::new();
-    hasher.write(&write_part(part).map_err(internal)?);
+    hasher.write(&encode_part(part, CONTENT_HASH_FORMAT).map_err(internal)?);
     if let Some(symbol) = symbol {
-        hasher.write(&write_symbol(symbol).map_err(internal)?);
+        hasher.write(&encode_symbol(symbol, CONTENT_HASH_FORMAT).map_err(internal)?);
     }
     let mut footprints = Vec::with_capacity(part.footprints.len());
     for &footprint in &part.footprints {
@@ -351,13 +356,19 @@ pub fn copy_part(index: &LibraryIndex, uuid: Uuid) -> Result<PartCopy, CommandEr
 /// file bytes, leaving out how it was generated, which a Document's copy doesn't hold.
 fn copy_footprint(footprint: &Footprint) -> Result<FootprintCopyData, CommandError> {
     let footprint = footprint.without_generator();
-    let bytes = write_footprint(&footprint).map_err(|e| CommandError::internal(e.to_string()))?;
-    let mut hasher = ContentHash::new();
-    hasher.write(&bytes);
     Ok(FootprintCopyData {
-        hash: hasher.finish(),
+        hash: footprint_hash(&footprint)?,
         footprint,
     })
+}
+
+/// Hash shared by placed Library Footprints and local edits to their copies.
+pub(crate) fn footprint_hash(footprint: &Footprint) -> Result<String, CommandError> {
+    let bytes = encode_footprint(footprint, CONTENT_HASH_FORMAT)
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+    let mut hasher = ContentHash::new();
+    hasher.write(&bytes);
+    Ok(hasher.finish())
 }
 
 /// A 128-bit FNV-1a content hash, written as 32 lowercase hex digits. It tells copies of

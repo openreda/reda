@@ -13,13 +13,14 @@ mod checks;
 mod manifest;
 mod run_all;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
     Unavailable,
 };
-use reda_model::{Uuid, Violation};
+use reda_model::{Severity, Uuid, Violation};
 use reda_output::{OutputFile, Plot};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,7 +53,7 @@ pub struct WrittenFile {
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,
     /// `silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`
-    /// (with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
+    /// (with `merge_drill`), `drill_blind`, `drill_buried`, `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
     /// `schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.
     pub function: &'static str,
 }
@@ -104,9 +105,10 @@ impl Command for JobRun {
                       Profile; an empty Silkscreen or Paste is left out and listed in \
                       `skipped`), named by the preset's `naming` (`classic`: `<project>.gtl` \
                       … `.gm1`; `descriptive`: `<project>-<Layer>.gbr`) and `file_names`, \
-                      and the Excellon drill files (plated and non-plated, or one file with \
-                      the preset's `merge_drill`; a drill file with no holes is left out and \
-                      listed in `skipped`), then the files for the fab: \
+                      and one Excellon drill file per occupied blind or buried Via Span. Plated \
+                      and non-plated through holes use separate files or share one file with \
+                      the preset's `merge_drill`. Empty through files are listed in `skipped`. \
+                      The job also writes the files for the fab: \
                       `<project>-fab-notes.txt` (board, Stackup, minimum features, hole \
                       tolerances, Net Ties as deliberate shorts, the files in the zip and \
                       the board's `fab_notes` text), `<project>-drill-report.txt` (each \
@@ -135,8 +137,9 @@ impl Command for JobRun {
                       preset, and for a `relative` one the Output Origin, or the lower-left \
                       of the Board Outline while none is placed. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
-                      Board Outline, a Footprint the PCB cannot resolve and a coordinate \
-                      beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run \
+                      Board Outline, a Footprint the PCB cannot resolve, a coordinate \
+                      beyond ±2147.483647 mm (`coordinate_out_of_range`) and two output \
+                      files that resolve to one name (`file_name_clash`) block the run \
                       (`rejected`, `details.blockers`). Other problems, such as an \
                       out-of-sync PCB or a Component without a Footprint, are listed as \
                       `warnings`. \
@@ -213,7 +216,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     let stored = project.zone_fills(pcb.uuid).cloned();
     cx.progress(1.0, Some(STEPS), "Refilling Zones");
     cx.check_cancelled()?;
-    let fills = reda_pcb::zone::current(&pcb, stored.as_ref());
+    let fills = reda_pcb::zone::current_with_fonts(&pcb, stored.as_ref(), cx.fonts());
     if stored.as_ref() != Some(&fills)
         && let Some(project) = cx.session()?.project.as_mut()
     {
@@ -242,7 +245,11 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         part: reda_output::Part::Single,
         not_fitted_paste: job.not_fitted_paste,
     };
-    let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
+    let gerbers = reda_output::gerber_files(&plot).map_err(|problem| {
+        let out = match problem {
+            reda_output::GerberError::InvalidFileName(why) => return CommandError::rejected(why),
+            reda_output::GerberError::CoordinateOutOfRange(out) => out,
+        };
         let blocker = checks::out_of_range(&out);
         let mut err = CommandError::rejected(format!(
             "Output Job \"{}\" cannot run: {} holds a coordinate beyond ±2147.483647 mm, \
@@ -253,7 +260,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         err
     })?;
     let bom = reda_output::bom_file(project, &pcb, &preset.bom).file;
-    let cpl = reda_output::cpl_file(project, &instances, &preset.cpl, &preset.bom.mount_values);
+    let cpl = reda_output::Cpl::for_preset(&instances, &preset).file(project);
     let drills = reda_output::drill_files(&plot);
     let date = manifest::iso_date(created);
     let (stem, destination) = {
@@ -286,11 +293,10 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     // its old file.
     let mut known: Vec<String> = Vec::new();
     known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
-    // Every drill name, so switching `merge_drill` drops the other form's old files.
+    // Switching `merge_drill` drops the other form's through files.
     known.extend(reda_output::drill_file_names(&name));
-    let fab_notes_name = reda_output::fab_notes_name(&name);
     known.extend([
-        fab_notes_name.clone(),
+        reda_output::fab_notes_name(&name),
         reda_output::drill_report_name(&name),
         reda_output::gerber_job_name(&name),
         bom.name.clone(),
@@ -332,16 +338,22 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         }
     }
     if job.outputs.fab_notes {
-        // The Fab Notes list every file in the zip, themselves included.
-        let zip_names: Vec<String> = zipped
-            .iter()
-            .map(|f| f.name.clone())
-            .chain([fab_notes_name])
-            .chain(after.iter().map(|f| f.name.clone()))
-            .collect();
-        zipped.push(reda_output::fab_notes_file(&plot, &zip_names));
+        zipped.push(reda_output::fab_notes_file(&plot, &zipped, &after));
     }
     zipped.extend(after);
+    check_zip_names(zipped.iter().map(OutputFile::name_and_function)).map_err(|problem| {
+        let mut err = CommandError::rejected(problem.to_string());
+        // A clash blocks the run, as the other pre-run checks do.
+        if let ZipNameProblem::Clash { first, second } = &problem {
+            let blocker = Violation::new("file_name_clash", Severity::Error)
+                .arg("first", first.0.as_str())
+                .arg("first_function", first.1.as_str())
+                .arg("second", second.0.as_str())
+                .arg("second_function", second.1.as_str());
+            err.details = Some(json!({"blockers": [blocker], "warnings": warnings}));
+        }
+        err
+    })?;
 
     cx.progress(3.0, Some(STEPS), "Zipping");
     cx.check_cancelled()?;
@@ -402,7 +414,10 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     cx.check_cancelled()?;
     let destination: PathBuf = folder.join(destination).components().collect();
     let mut stale: Vec<String> = Vec::new();
-    for name in &known {
+    for name in known
+        .iter()
+        .filter(|name| super::project::check_file_stem(name).is_ok())
+    {
         // The top level too: runs before `fab/` wrote the files there.
         stale.push(name.clone());
         stale.push(format!("{FAB}/{name}"));
@@ -430,6 +445,51 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         skipped,
         warnings,
     })
+}
+
+/// Checks that the active zip entries have usable, distinct filenames.
+pub(crate) fn check_zip_names<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Result<(), ZipNameProblem> {
+    let mut names = BTreeMap::new();
+    for (name, function) in entries {
+        super::project::check_file_stem(name).map_err(|why| {
+            ZipNameProblem::Invalid(format!("Output file {function} cannot use {name:?}: {why}"))
+        })?;
+        if let Some((previous, previous_name)) = names.insert(name.to_lowercase(), (function, name))
+        {
+            return Err(ZipNameProblem::Clash {
+                first: (previous_name.to_owned(), previous.to_owned()),
+                second: (name.to_owned(), function.to_owned()),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Why the files of a run can't take their names.
+#[derive(Debug)]
+pub(crate) enum ZipNameProblem {
+    /// A name that is not a usable file name.
+    Invalid(String),
+    /// Two files, each `(name, function)`, that resolve to the same name.
+    Clash {
+        first: (String, String),
+        second: (String, String),
+    },
+}
+
+impl std::fmt::Display for ZipNameProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Invalid(why) => f.write_str(why),
+            Self::Clash { first, second } => write!(
+                f,
+                "Output filenames clash between {} ({:?}) and {} ({:?})",
+                first.1, first.0, second.1, second.0
+            ),
+        }
+    }
 }
 
 /// The folder in the destination that holds loose copies of the zip's files.

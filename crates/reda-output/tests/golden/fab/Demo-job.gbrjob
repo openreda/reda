@@ -23,12 +23,12 @@
   "FilesAttributes": [
     {
       "Path": "Demo.gtl",
-      "FileFunction": "Copper,L1,Top",
+      "FileFunction": "Copper,L1,Top,Signal",
       "FilePolarity": "Positive"
     },
     {
       "Path": "Demo.gbl",
-      "FileFunction": "Copper,L2,Bot",
+      "FileFunction": "Copper,L2,Bot,Signal",
       "FilePolarity": "Positive"
     },
     {
@@ -65,6 +65,34 @@
       "Path": "Demo-NPTH.drl",
       "FileFunction": "NonPlated,1,2,NPTH,Mixed",
       "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend",
+      "Color": "White"
+    },
+    {
+      "Type": "SolderMask",
+      "Color": "Matte black"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 1.53
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask",
+      "Color": "Matte black"
     }
   ]
 }

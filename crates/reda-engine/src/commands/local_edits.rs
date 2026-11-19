@@ -19,7 +19,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::library::ContentHash;
+pub(crate) use crate::library::footprint_hash;
 use crate::sync::NO_PCB;
 
 pub(crate) fn register_all(registry: &mut Registry) {
@@ -45,16 +45,6 @@ pub(crate) fn pcb<'a>(cx: &'a Context<'_>) -> Result<&'a PcbDocument, CommandErr
     cx.project()?
         .pcb()
         .ok_or_else(|| CommandError::unavailable(NO_PCB))
-}
-
-/// The content hash of a Footprint as a Document copies it: over its canonical file bytes,
-/// as [`crate::library::copy_part`] hashes a Library Footprint.
-pub(crate) fn footprint_hash(footprint: &Footprint) -> Result<String, CommandError> {
-    let bytes = crate::format::library::write_footprint(footprint)
-        .map_err(|e| CommandError::internal(e.to_string()))?;
-    let mut hasher = ContentHash::new();
-    hasher.write(&bytes);
-    Ok(hasher.finish())
 }
 
 /// The copy a PCB copy came from: its `edited_from` copy, or itself when it isn't edited.
@@ -173,6 +163,18 @@ pub struct PcbPadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
+    /// Replaces the entire inner copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    /// Replaces the entire bottom copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
+    /// False opts this placed Pad out of derived Teardrops on every Layer.
+    pub teardrop: Option<bool>,
+    /// Allow a locked Footprint's unused Pad copper to be changed.
+    #[serde(default)]
+    pub include_locked: bool,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -246,6 +248,16 @@ impl Command for PcbPadEdit {
                     instance.designator, p.pad
                 ))
             })?;
+        if p.unused_layers
+            .is_some_and(|mode| mode != footprint.pads[index].unused_layers)
+        {
+            reda_pcb::lock::refuse(
+                pcb,
+                [instance.uuid],
+                p.include_locked,
+                "change unused copper on",
+            )?;
+        }
         let patch = PadPatch {
             kind: p.kind,
             shape: p.shape,
@@ -261,9 +273,15 @@ impl Command for PcbPadEdit {
             side: p.side,
             mask: p.mask,
             paste: p.paste,
+            middle: p.middle,
+            bottom: p.bottom,
+            unused_layers: p.unused_layers,
             zone_connection: p.zone_connection,
         };
         footprint.pads[index] = patch.apply(footprint.pads[index].clone())?;
+        if let Some(allow) = p.teardrop {
+            footprint.pads[index].teardrop = allow;
+        }
         place_edited(cx, p.instance, footprint)
     }
 }

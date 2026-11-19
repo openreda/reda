@@ -257,6 +257,18 @@ fn rule_pages_hold_each_check_with_values_preset_limits_overrides_and_severity()
     h.get_by_role_and_label(Role::TextInput, "Power: Maximum Track width");
     h.get_by_label("Generic limit: at least 0.2");
     h.get_by_label("Track Width: Error");
+    page(&mut h, "Vias");
+    for size in ["Via diameter", "Via hole"] {
+        h.get_by_role_and_label(Role::TextInput, &format!("Board-wide minimum {size} (mm)"));
+        assert!(
+            h.query_by_role_and_label(
+                Role::TextInput,
+                &format!("Board-wide preferred {size} (mm)")
+            )
+            .is_none()
+        );
+        h.get_by_role_and_label(Role::TextInput, &format!("Power: Preferred {size}"));
+    }
     page(&mut h, "Holes");
     for check in ["Hole Size", "Annular Ring", "Hole to Hole"] {
         h.get_by_label(&format!("{check}: Error"));
@@ -269,6 +281,15 @@ fn rule_pages_hold_each_check_with_values_preset_limits_overrides_and_severity()
     h.get_by_label("Silkscreen to Edge: Warning");
     h.get_by_role_and_label(Role::TextInput, "Power: Silkscreen to edge");
     page(&mut h, "Silkscreen");
+    for minimum in [
+        "Minimum silkscreen stroke width",
+        "Minimum silkscreen text height",
+    ] {
+        assert!(
+            h.query_by_role_and_label(Role::TextInput, &format!("Power: {minimum}"))
+                .is_none()
+        );
+    }
     h.get_by_label("Silkscreen to Mask: Warning").click();
     h.run();
     h.get_by_role_and_label(Role::ComboBox, "Measure silkscreen to");
@@ -368,6 +389,13 @@ fn the_net_classes_grid_has_a_bold_default_row_and_grey_inherited_values() {
         strong
     );
     assert_eq!(value(&h, "Default: Clearance"), "0.16");
+    for size in ["Via diameter", "Via hole"] {
+        h.get_by_role_and_label(Role::TextInput, &format!("Power: Preferred {size}"));
+        assert!(
+            h.query_by_role_and_label(Role::TextInput, &format!("Default: Preferred {size}"))
+                .is_none()
+        );
+    }
     // Power overrides clearance (normal) and inherits Track width (grey).
     let track = h
         .get_by_role_and_label(Role::TextInput, "Power: Track width")
@@ -395,7 +423,7 @@ fn the_net_classes_grid_has_a_bold_default_row_and_grey_inherited_values() {
     let clearance = board.class_rule(RuleKind::Clearance, power).unwrap();
     assert!(!clearance.enabled);
     assert_eq!(clearance.comment.as_deref(), Some("HV"));
-    let track = board
+    let track = &board
         .class_rule(RuleKind::TrackWidth, power)
         .unwrap()
         .values;
@@ -501,7 +529,7 @@ fn grid_rows_copy_paste_and_clear_from_the_keyboard() {
             _ => None,
         })
         .collect();
-    assert_eq!(copied, ["0.3\t\t\t\t\t\t\t\t\t"]);
+    assert_eq!(copied, [format!("0.3{}", "\t".repeat(17))]);
     h.run();
     h.get_by_label("Select or drag Signal").click();
     h.run();
@@ -585,4 +613,49 @@ fn the_net_table_makes_a_class_from_selected_nets_and_assigns_by_pattern() {
     assert_eq!(board.net(usb_n).unwrap().classes, [usb]);
     assert_eq!(board.net(vcc).unwrap().classes, [power]);
     assert!(board.net(gnd).unwrap().classes.is_empty());
+}
+
+#[test]
+fn the_clearance_pair_grid_commits_its_edited_cell() {
+    let (home, work) = (
+        TempDir::new("pair-grid-home"),
+        TempDir::new("pair-grid-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Pairs");
+    let hv = uuid_of(&run(
+        &mut h,
+        "pcb.net_class.add",
+        serde_json::json!({"name":"HV"}),
+    ));
+    open_board_setup(&mut h, "Pairs");
+    h.get_by_label("Class pairs").scroll_to_me();
+    h.run();
+    h.get_by_label("Class pairs").click();
+    h.run();
+    type_into(&mut h, "HV / HV", "0.125");
+    type_into(&mut h, "HV / HV Via hole clearance", "0.35");
+    h.get_by_label("OK").click();
+    h.run();
+    let scope = reda_ui::engine::model::RuleScope {
+        net_class_pair: Some([hv, hv]),
+        ..Default::default()
+    };
+    assert_eq!(
+        pcb(&h)
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .hole
+            .unwrap()
+            .via,
+        Some(Nm(350000))
+    );
+    assert_eq!(
+        pcb(&h)
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value,
+        Some(Nm(125000))
+    );
 }

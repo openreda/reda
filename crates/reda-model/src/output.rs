@@ -10,19 +10,100 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StackupSeeds, Uuid};
 
+mod construction;
+pub use construction::{Construction, ConstructionEntry, ConstructionViaType};
+
 mod name_template;
+mod placement;
 mod settings;
 
 pub use name_template::{NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError};
+pub use placement::{PlacementAdjustment, PlacementCorrection, PlacementMatch};
 pub use settings::*;
+
+/// Clearance to the plated holes of another Net.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HoleClearance {
+    pub via: Nm,
+    pub pad: Nm,
+}
+
+impl HoleClearance {
+    pub const GENERIC: Self = Self {
+        via: Nm(250_000),
+        pad: Nm(250_000),
+    };
+}
+
+/// Limits that differ on inner copper. Each missing field inherits its flat limit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InnerFabRules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_width_min: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clearance: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annular_ring_min: Option<Nm>,
+}
+
+impl InnerFabRules {
+    pub fn limits(self) -> [(crate::RuleKind, crate::RuleField, Option<Nm>); 3] {
+        use crate::{RuleField, RuleKind};
+        [
+            (RuleKind::TrackWidth, RuleField::Min, self.track_width_min),
+            (RuleKind::Clearance, RuleField::Value, self.clearance),
+            (RuleKind::AnnularRing, RuleField::Min, self.annular_ring_min),
+        ]
+    }
+}
+
+/// Published minimum and maximum dimensions for a laser-drilled hole or its land.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FabSizeLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<Nm>,
+}
+
+/// A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MicroviaLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diameter: Option<FabSizeLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hole: Option<FabSizeLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<crate::AspectRatioLimit>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_stack: Option<u8>,
+}
 
 /// A Fab Preset's design rules: flat limits with no scope, which a job compares the board
 /// with, and the preferred values a new board's routing starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FabRules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inner: Option<InnerFabRules>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub microvia_size: Option<MicroviaLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via_aspect_ratio: Option<crate::AspectRatioLimit>,
+    pub clearance_hole: HoleClearance,
     /// Minimum clearance between copper of different Nets.
     pub clearance: Nm,
+    /// Minimum silk stroke width across both sides, when specified by the preset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub silk_width: Option<Nm>,
+    /// Minimum silk capital height across both sides, when specified by the preset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub silk_text_height: Option<Nm>,
     /// Minimum Track width.
     pub track_width: Nm,
     /// Minimum Via diameter.
@@ -82,12 +163,18 @@ pub struct GerberSettings {
     pub file_origin: FileOrigin,
     /// How the drill file writes slots.
     pub slot_command: SlotCommand,
-    /// One drill file with plated and non-plated holes, instead of PTH and NPTH.
+    /// Merge the plated and non-plated through holes into one drill file.
+    /// Blind and buried spans keep separate files.
     pub merge_drill: bool,
     /// Adds the Board Outline to every Gerber plot.
     pub outline_on_every_plot: bool,
     /// Layer name to output file name; portable between boards and Projects.
-    pub file_names: Vec<LayerFileName>,
+    #[serde(
+        serialize_with = "settings::write_file_names",
+        deserialize_with = "settings::read_file_names"
+    )]
+    #[schemars(with = "settings::FileNameOverrides")]
+    pub file_names: GerberFileNames,
 }
 
 impl Default for GerberSettings {
@@ -99,7 +186,7 @@ impl Default for GerberSettings {
             slot_command: SlotCommand::Route,
             merge_drill: false,
             outline_on_every_plot: false,
-            file_names: Vec::new(),
+            file_names: GerberFileNames::default(),
         }
     }
 }
@@ -171,10 +258,10 @@ pub struct FabPreset {
     pub name: String,
     /// The limits a job checks the board against, and the seeds of a new board's rules.
     pub rules: FabRules,
-    /// The thickness and copper a new board's Stackup starts with; left out when the
-    /// preset seeds neither.
-    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
-    pub stackup: StackupSeeds,
+    /// The named physical builds available when creating or editing a board.
+    #[serde(deserialize_with = "Construction::read_list")]
+    #[schemars(with = "Vec<Construction>")]
+    pub constructions: Vec<Construction>,
     /// The Gerber and drill switches.
     pub gerber: GerberSettings,
     /// The Stackup options the fab offers; never checked against the board.
@@ -185,6 +272,9 @@ pub struct FabPreset {
     pub bom: BomSettings,
     /// The CPL table form, columns and position conventions.
     pub cpl: CplSettings,
+    /// Ordered, fab-specific adjustments to CPL rotation and centre.
+    #[serde(default)]
+    pub placement_corrections: Vec<PlacementCorrection>,
 }
 
 /// The Project's own copy of a Fab Preset, so outputs come out the same on any machine.
@@ -196,13 +286,45 @@ pub struct ProjectFabPreset {
     /// The name of the preset it was copied from.
     pub name: String,
     pub rules: FabRules,
-    #[serde(default, skip_serializing_if = "StackupSeeds::is_empty")]
-    pub stackup: StackupSeeds,
+    #[serde(deserialize_with = "Construction::read_list")]
+    #[schemars(with = "Vec<Construction>")]
+    pub constructions: Vec<Construction>,
     pub gerber: GerberSettings,
     pub stackup_suggestions: StackupSuggestions,
     pub zip_assembly: bool,
     pub bom: BomSettings,
     pub cpl: CplSettings,
+    /// Ordered, fab-specific adjustments to CPL rotation and centre.
+    #[serde(default)]
+    pub placement_corrections: Vec<PlacementCorrection>,
+}
+
+impl FabPreset {
+    /// Construction identity is local to a Fab Preset and ignores case.
+    pub fn construction(&self, name: &str) -> Option<&Construction> {
+        self.constructions
+            .iter()
+            .find(|build| build.name.eq_ignore_ascii_case(name))
+    }
+
+    pub fn default_construction(&self, layers: usize) -> Option<&Construction> {
+        self.constructions
+            .iter()
+            .find(|build| build.default && build.layer_count() == layers)
+    }
+
+    /// The default two-Layer Construction's thickness and outer copper.
+    pub fn stackup_seeds(&self) -> StackupSeeds {
+        self.default_construction(2)
+            .map(|c| StackupSeeds {
+                thickness: Some(c.thickness),
+                copper: c.entries.iter().find_map(|e| match e {
+                    ConstructionEntry::Copper { copper } => Some(*copper),
+                    _ => None,
+                }),
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl ProjectFabPreset {
@@ -211,23 +333,25 @@ impl ProjectFabPreset {
         let FabPreset {
             name,
             rules,
-            stackup,
+            constructions,
             gerber,
             stackup_suggestions,
             zip_assembly,
             bom,
             cpl,
+            placement_corrections,
         } = preset;
         ProjectFabPreset {
             uuid,
             name,
             rules,
-            stackup,
+            constructions,
             gerber,
             stackup_suggestions,
             zip_assembly,
             bom,
             cpl,
+            placement_corrections,
         }
     }
 
@@ -236,12 +360,13 @@ impl ProjectFabPreset {
         FabPreset {
             name: self.name.clone(),
             rules: self.rules,
-            stackup: self.stackup,
+            constructions: self.constructions.clone(),
             gerber: self.gerber.clone(),
             stackup_suggestions: self.stackup_suggestions.clone(),
             zip_assembly: self.zip_assembly,
             bom: self.bom.clone(),
             cpl: self.cpl.clone(),
+            placement_corrections: self.placement_corrections.clone(),
         }
     }
 }

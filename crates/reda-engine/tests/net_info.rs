@@ -115,3 +115,27 @@ fn the_current_estimate_halves_k_on_inner_copper() {
     let inner = reda_pcb::net_info::max_current(w, t, false, 10.0);
     assert!((inner * 2.0 - outer).abs() < 1e-12);
 }
+
+#[test]
+fn the_default_width_follows_a_track_width_record_on_the_layer_measured() {
+    let home = TempDir::new("net-info-layer-home");
+    let work = TempDir::new("net-info-layer-work");
+    let mut engine = engine(home.path(), work.path());
+    let net = uuid(&engine.run_ok("test.net.add", json!({"name": "SIG"}))["result"]["uuid"]);
+    let top = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .next()
+        .unwrap()
+        .uuid;
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind": "track_width", "scope": {"layers": [top]},
+               "values": {"preferred": "0.4mm"}}),
+    );
+    let info = engine.run_ok("pcb.net.info", json!({"net": net}));
+    assert_eq!(info["width"], json!(400_000), "{info}");
+}

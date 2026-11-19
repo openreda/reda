@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "AspectRatioLimit": {
+      "additionalProperties": false,
+      "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+      "properties": {
+        "max": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "Bounds": {
       "additionalProperties": false,
       "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -59,6 +74,11 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "An annular ring below the minimum."
+        },
+        "aspect_ratio": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Via whose depth divided by its drill diameter exceeds the limit."
         },
         "clearance": {
           "$ref": "#/$defs/Severity",
@@ -120,10 +140,20 @@
           "default": "error",
           "description": "An object inside a Keepout that forbids it."
         },
+        "max_stack": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Via Stack containing more micro Vias than the configured limit."
+        },
         "micro_segment": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "Health check: a Track no longer than the `micro_segment` length."
+        },
+        "microvia_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A micro Via diameter or hole outside the configured size limits."
         },
         "net_tie_not_joined": {
           "$ref": "#/$defs/Severity",
@@ -170,6 +200,11 @@
           "default": "error",
           "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
         },
+        "silk_text_height": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Silkscreen text shorter than the minimum height."
+        },
         "silk_to_edge": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -179,6 +214,11 @@
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
+        },
+        "silk_width": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A silkscreen stroke narrower than the minimum width."
         },
         "track_width": {
           "$ref": "#/$defs/Severity",
@@ -194,6 +234,11 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "A Via diameter or hole outside the `via_size` range."
+        },
+        "via_span": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
         },
         "via_under_smd": {
           "$ref": "#/$defs/Severity",
@@ -213,6 +258,61 @@
       },
       "type": "object"
     },
+    "HoleRuleValues": {
+      "additionalProperties": false,
+      "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "pad": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "via": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "LayerGroup": {
+      "enum": [
+        "outer",
+        "inner",
+        "plane"
+      ],
+      "type": "string"
+    },
     "PortableClass": {
       "additionalProperties": false,
       "description": "A Net Class as a [`RuleSet`] names it: by name only, since its Nets differ per board.",
@@ -225,6 +325,23 @@
         "name"
       ],
       "type": "object"
+    },
+    "PortableLayers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayerGroup"
+        },
+        {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "An explicit Layer filter in a Rules File counts copper positions from the top."
     },
     "PortableRule": {
       "additionalProperties": false,
@@ -243,10 +360,31 @@
         "kind": {
           "$ref": "#/$defs/RuleKind"
         },
+        "layers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PortableLayers"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "net_class": {
           "description": "The Net Class it applies to, by name; left out for a board-wide record.",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "net_class_pair": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
             "null"
           ]
         },
@@ -260,9 +398,46 @@
       ],
       "type": "object"
     },
+    "PortableSpan": {
+      "additionalProperties": false,
+      "description": "A Via permission in a Rules File, identified by physical span and drilling process.",
+      "properties": {
+        "from": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "micro": {
+          "type": "boolean"
+        },
+        "to": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "micro"
+      ],
+      "type": "object"
+    },
     "RuleKind": {
       "description": "What a rule record limits.",
       "oneOf": [
+        {
+          "enum": [
+            "via_span",
+            "microvia_size",
+            "teardrop",
+            "silk_width",
+            "silk_text_height"
+          ],
+          "type": "string"
+        },
         {
           "const": "clearance",
           "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
@@ -349,6 +524,26 @@
       "additionalProperties": false,
       "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
       "properties": {
+        "allowed": {
+          "description": "The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.",
+          "items": {
+            "$ref": "#/$defs/PortableSpan"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
@@ -385,13 +580,13 @@
         "hole": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Bounds"
+              "$ref": "#/$defs/HoleRuleValues"
             },
             {
               "type": "null"
             }
           ],
-          "description": "Via size only: the Via's drilled hole."
+          "description": "Via size limits or clearance to a plated hole."
         },
         "ignore_pad_to_pad": {
           "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -411,6 +606,16 @@
         "max_length": {
           "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
           "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_stack": {
+          "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
           "type": [
             "integer",
             "null"
@@ -470,6 +675,16 @@
           ],
           "description": "`zone_connection` only: how fills join SMD Pads."
         },
+        "smd_pad": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropValues"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "tent_vias_bottom": {
           "type": [
             "boolean",
@@ -492,6 +707,16 @@
             }
           ],
           "description": "`zone_connection` only: how fills join through-hole Pads."
+        },
+        "through_hole_pad": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropValues"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "tolerance": {
           "description": "`dangling` only: stubs up to this long pass.",
@@ -520,13 +745,23 @@
         "via": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ZoneConnection"
+              "$ref": "#/$defs/ViaRuleValues"
             },
             {
               "type": "null"
             }
           ],
           "description": "`zone_connection` only: how fills join Vias."
+        },
+        "width_change": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropValues"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "zero_keepout_clearance": {
           "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -561,6 +796,75 @@
           "type": "string"
         }
       ]
+    },
+    "TeardropValues": {
+      "additionalProperties": false,
+      "properties": {
+        "curved": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "length": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_length": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "skip_ratio": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "width": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ViaRuleValues": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ZoneConnection"
+        },
+        {
+          "$ref": "#/$defs/TeardropValues"
+        }
+      ],
+      "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
     },
     "ZoneConnection": {
       "additionalProperties": false,
@@ -618,8 +922,15 @@
   "additionalProperties": false,
   "description": "A REDA rules file (`.redarules`).",
   "properties": {
+    "copper_layers": {
+      "description": "Source copper count. Required for a record with Layer positions or allowed Via spans.\nA migrated file with position-independent rules can omit it.",
+      "format": "uint8",
+      "maximum": 32,
+      "minimum": 2,
+      "type": "integer"
+    },
     "format": {
-      "const": 1,
+      "const": 2,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

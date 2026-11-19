@@ -344,3 +344,243 @@ fn a_dimension_on_the_silkscreen_is_checked_like_its_lines_and_text() {
         "{run:#}"
     );
 }
+
+#[test]
+fn silk_minimums_measure_lines_and_stroke_text_on_both_sides_and_skip_outline_strokes() {
+    let dir = TempDir::new("silk-limits");
+    let mut e = reda_testkit::probe_engine();
+    e.run_ok("project.new", json!({"name":"Silk","path":dir.path()}));
+    for (kind, min) in [("silk_width", "0.15mm"), ("silk_text_height", "1mm")] {
+        e.run_ok("pcb.rules.set", json!({"kind":kind,"values":{"min":min}}));
+    }
+    let mut text = |layer: &str, font: &str, x: i32| {
+        created(&e.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":layer,"text":"X","font":font,"x":x*1_000_000,"y":"4mm",
+                "height":"0.8mm","thickness":"0.10mm"
+            }),
+        ))
+    };
+    let stroke = text("silkscreen_bottom", reda_model::HERSHEY_FONT, 1);
+    let outline = text("silkscreen_top", reda_model::NOTO_SANS_FONT, 3);
+    let copper = text("copper_top", reda_model::HERSHEY_FONT, 5);
+    let line = created(&e.run_ok(
+        "pcb.graphic.add_line",
+        json!({
+            "layer":"silkscreen_top","from":{"x":0,"y":0},"to":{"x":"1mm","y":0},"width":"0.14mm"
+        }),
+    ));
+    let fp = uuid(&e.run_ok("test.footprint.add",json!({
+        "at":{"x":"10mm","y":"10mm"},"pads":[],"graphics":[{"layer":"silkscreen_bottom","width":"0.12mm",
+        "shape":{"kind":"line","start":{"x":0,"y":0},"end":{"x":1000000,"y":1000000}}}]
+    }))["result"]["footprint"]);
+    let affected = |e: &mut TestEngine, kind: &str| {
+        let found = e.run_ok("pcb.rules.affected", json!({"kind":kind}));
+        assert_eq!(found["nets"], json!([]));
+        assert_eq!(found["pads"], json!([]));
+        found["objects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(uuid)
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_eq!(affected(&mut e, "silk_width"), [fp, line, stroke].into());
+    assert_eq!(
+        affected(&mut e, "silk_text_height"),
+        [fp, stroke, outline].into()
+    );
+    let checks = drc(&mut e);
+    let widths = objects_of(&checks, "silk_width");
+    assert!(widths.contains(&vec![line]));
+    assert!(widths.iter().any(|objects| objects.first() == Some(&fp)));
+    assert!(widths.contains(&vec![stroke]));
+    assert!(!widths.contains(&vec![outline]));
+    assert!(!widths.contains(&vec![copper]));
+    let heights = objects_of(&checks, "silk_text_height");
+    assert!(heights.contains(&vec![stroke]));
+    assert!(heights.contains(&vec![outline]));
+    assert!(!heights.contains(&vec![copper]));
+    for check in ["silk_width", "silk_text_height"] {
+        for row in of(&checks, check) {
+            assert_eq!(row["severity"], "warning");
+            assert_eq!(row["layers"].as_array().unwrap().len(), 1);
+        }
+    }
+}
+
+#[test]
+fn a_filled_silkscreen_rectangle_without_an_outline_has_no_stroke_width_to_check() {
+    let dir = TempDir::new("silk-filled-rectangle");
+    let mut engine = engine(&dir);
+    engine.run_ok(
+        "pcb.graphic.add_rect",
+        json!({
+            "layer": "silkscreen_bottom", "from": {"x": 0, "y": 0},
+            "to": {"x": "3mm", "y": "1mm"}, "filled": true, "width": 0
+        }),
+    );
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    assert_eq!(report["violations"], json!([]));
+}
+
+#[test]
+fn knockout_text_keeps_the_stroke_fonts_width_for_silkscreen_checks() {
+    let dir = TempDir::new("silk-knockout");
+    let mut engine = engine(&dir);
+    let mut place = |font: &str| {
+        created(&engine.run_ok(
+            "pcb.text.add",
+            json!({"layer":"silkscreen_bottom","text":"R","x":0,"y":0,
+                   "font":font,"height":"1mm","thickness":"0.1mm",
+                   "knockout":{"margin":"0.3mm"}}),
+        ))
+    };
+    let stroke = place(reda_model::HERSHEY_FONT);
+    place(reda_model::NOTO_SANS_FONT);
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    assert_eq!(objects_of(&report, "silk_width"), [vec![stroke]]);
+}
+
+#[test]
+fn waiving_one_narrow_footprint_stroke_leaves_the_other_stroke_visible() {
+    let dir = TempDir::new("silk-footprint-waiver");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"name":"Silk","path":dir.path()}));
+    let graphic = |y: i32| {
+        json!({"layer":"silkscreen_top","width":"0.12mm",
+               "shape":{"kind":"line","start":{"x":0,"y":y},"end":{"x":1000000,"y":y}}})
+    };
+    engine.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":0,"y":0},"pads":[],"graphics":[graphic(0), graphic(1_000_000)]
+        }),
+    );
+    let checks = json!({"checks":["silk_width"]});
+    let report = engine.run_ok("drc.run", checks.clone());
+    let rows = of(&report, "silk_width");
+    assert_eq!(rows.len(), 2);
+    engine.run_ok(
+        "drc.waive",
+        json!({"violations":[{"check":"silk_width","objects":rows[0]["objects"]}],
+                                    "reason":"Qualified this stroke"}),
+    );
+    let report = engine.run_ok("drc.run", checks.clone());
+    assert_eq!(report["waived"], 1);
+    assert_eq!(report["violations"], json!([rows[1]]));
+
+    let footprint = &rows[0]["objects"][0];
+    engine.run_ok(
+        "pcb.move",
+        json!({"objects":[footprint],"by":{"x":"2mm","y":0}}),
+    );
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.close", json!({}));
+    engine.run_ok(
+        "project.open",
+        json!({"path":dir.path().join("Silk/Silk.reda")}),
+    );
+    let moved = engine.run_ok("drc.run", checks);
+    assert_eq!(moved["waived"], 1);
+    assert_eq!(
+        objects_of(&moved, "silk_width"),
+        objects_of(&report, "silk_width")
+    );
+    assert_ne!(moved["violations"][0]["at"], rows[1]["at"]);
+}
+
+#[test]
+fn a_one_nanometre_silkscreen_line_is_still_measured() {
+    let dir = TempDir::new("silk-one-nm");
+    let mut engine = engine(&dir);
+    let line = created(&engine.run_ok("pcb.graphic.add_line", json!({
+        "layer":"silkscreen_top","from":{"x":"2mm","y":"3mm"},"to":{"x":"4mm","y":"3mm"},"width":1
+    })));
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    let rows = of(&report, "silk_width");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["objects"], json!([line]));
+    assert_eq!(rows[0]["measured"]["length"], 1);
+    assert_eq!(rows[0]["at"], json!({"x":3_000_000,"y":3_000_000}));
+}
+
+#[test]
+fn a_knockout_frame_without_any_fitting_glyph_has_no_text_height_to_measure() {
+    let dir = TempDir::new("silk-empty-knockout");
+    let mut engine = engine(&dir);
+    engine.run_ok(
+        "pcb.text.add",
+        json!({
+            "layer":"silkscreen_top","text":"X","x":0,"y":0,"height":"0.8mm",
+            "frame":{"width":"3mm","height":"0.4mm"},"knockout":{"margin":0}
+        }),
+    );
+    let run = engine.run_ok(
+        "drc.run",
+        json!({"checks":["silk_width","silk_text_height"]}),
+    );
+    assert_eq!(run["violations"], json!([]));
+}
+
+#[test]
+fn a_zero_width_footprint_line_is_measured_and_a_filled_disc_has_no_pen() {
+    let dir = TempDir::new("silk-footprint-hairline");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"name":"Silk","path":dir.path()}));
+    let added = engine.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":0,"y":0},"pads":[],"graphics":[
+                {"layer":"silkscreen_top","width":0,
+                 "shape":{"kind":"line","start":{"x":0,"y":0},"end":{"x":1000000,"y":0}}},
+                {"layer":"silkscreen_top","width":100000,"fill":true,
+                 "shape":{"kind":"circle","center":{"x":0,"y":2000000},"radius":1000000}}
+            ]
+        }),
+    );
+    let run = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    let rows = of(&run, "silk_width");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["objects"][0], added["result"]["footprint"]);
+    assert_eq!(rows[0]["measured"]["length"], 0);
+}
+
+#[test]
+fn changing_a_footprint_silkscreen_font_makes_its_size_report_stale() {
+    let dir = TempDir::new("silk-installed-font");
+    let mut engine = engine(&dir);
+    let ids = synced(&mut engine, 1);
+    engine.run_ok(
+        "pcb.footprint.text.set",
+        json!({"instances":ids,"field":"Designator",
+        "style":{"font":"Test Board Mono","height":"0.8mm"}}),
+    );
+    let run = engine.run_ok("drc.run", json!({"checks":["silk_text_height"]}));
+    assert!(!of(&run, "silk_text_height").is_empty());
+    engine.fonts_mut().add(
+        "Test Board Mono",
+        &include_bytes!("../../reda-ui/fonts/jetbrains-mono/JetBrainsMonoNL-Regular.ttf")[..],
+    );
+    assert_eq!(
+        engine.run_ok("drc.stale", json!({"design":run["design"]}))["stale"],
+        true
+    );
+}
+
+#[test]
+fn a_dimension_reports_its_narrowest_plotted_stroke_once() {
+    let dir = TempDir::new("silk-dimension-width");
+    let mut engine = engine(&dir);
+    let dim = created(&engine.run_ok(
+        "pcb.dimension.add",
+        json!({
+            "layer":"silkscreen_bottom","a":{"point":{"x":0,"y":0}},
+            "b":{"point":{"x":"5mm","y":0}},"width":"0.12mm","extension_width":"0.1mm"
+        }),
+    ));
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    assert_eq!(objects_of(&report, "silk_width"), [vec![dim]]);
+    assert_eq!(report["violations"][0]["measured"]["length"], 100_000);
+}

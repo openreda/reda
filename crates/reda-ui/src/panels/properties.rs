@@ -11,8 +11,10 @@ mod library;
 mod overview;
 pub(crate) mod rules;
 mod sheet_frame;
+mod teardrops;
 mod track;
 mod unit;
+mod via;
 mod zone;
 
 use std::collections::BTreeSet;
@@ -97,6 +99,9 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
     if let Some(placing) = crate::placement::placing(shell) {
         return run(placing_section(ui, placing));
     }
+    if let Some(commands) = via::tool_options(ui, shell) {
+        return commands;
+    }
     if let Some(commands) = zone::tool_options(ui, shell) {
         return run(commands);
     }
@@ -135,6 +140,8 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         .show(ui, |ui| {
             ui.label(tr!("properties-selected", count = properties.count));
             chips(ui, shell, &properties, &mut out);
+            out.extend(teardrops::show(ui, project, shell.selection()));
+            out.extend(crate::pcb::unused_layers::properties(ui, shell));
             for uuid in &shell.selection().objects {
                 if let Some(reda_engine::model::Object::PcbText(text)) = project.object(*uuid) {
                     let omitted = reda_engine::pcb::text_geometry(&text, shell.engine().fonts())
@@ -147,7 +154,14 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     }
                 }
             }
-            let general = properties.component.is_some()
+            let selected_via = match shell.selection().objects.as_slice() {
+                [id] => project
+                    .pcb()
+                    .and_then(|pcb| pcb.via(*id).map(|via| (pcb, via))),
+                _ => None,
+            };
+            let general = selected_via.is_some()
+                || properties.component.is_some()
                 || properties.net_class.is_some()
                 || properties.local_edits.is_some();
             if general {
@@ -157,6 +171,9 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                     "general",
                     tr!("properties-region-general"),
                     |ui| {
+                        if let Some((pcb, v)) = selected_via {
+                            via::selected(ui, shell, pcb, v, &mut out);
+                        }
                         if let Some(component) = &properties.component {
                             component_section(ui, shell, component, &mut edits, &mut out);
                         }
@@ -201,6 +218,12 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                             units(shell),
                             &mut numbers,
                         );
+                        if region_of == Region::Graphical
+                            && let Some((pcb, via)) = selected_via
+                        {
+                            widgets::form(("via-diameters", via.uuid))
+                                .show(ui, |ui| via::diameter_rows(ui, shell, pcb, via, &mut out));
+                        }
                     });
                 }
             }
@@ -512,8 +535,8 @@ fn number_label(name: &str) -> String {
         "y" => tr!("properties-y"),
         "width" => tr!("properties-width"),
         "length" => tr!("properties-length"),
-        "diameter" => tr!("properties-diameter"),
-        "hole" => tr!("properties-hole"),
+        "diameter" => tr!("via-start-diameter"),
+        "hole" => tr!("via-hole-size"),
         "offset" => tr!("properties-dimension-offset"),
         "extension_width" => tr!("properties-dimension-extension-width"),
         "gap" => tr!("properties-dimension-gap"),

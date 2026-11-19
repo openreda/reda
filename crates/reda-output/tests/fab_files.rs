@@ -115,14 +115,14 @@ fn with_plot<T>(
     })
 }
 
-fn zip_names() -> Vec<String> {
-    ["Demo.gtl", "Demo-PTH.drl", "Demo-fab-notes.txt"]
-        .map(String::from)
-        .to_vec()
+fn notes_file(plot: &Plot<'_>) -> OutputFile {
+    let mut files = gerber_files(plot).unwrap().files;
+    files.extend(reda_output::drill_files(plot).files);
+    fab_notes_file(plot, &files, &[])
 }
 
 fn fab_notes(engine: &TestEngine) -> String {
-    let file = with_plot(engine, |_| {}, |plot| fab_notes_file(plot, &zip_names()));
+    let file = with_plot(engine, |_| {}, notes_file);
     assert_eq!(file.name, "Demo-fab-notes.txt");
     String::from_utf8(file.bytes).unwrap()
 }
@@ -148,6 +148,19 @@ fn section(text: &str, heading: &str) -> Vec<String> {
         .collect()
 }
 
+/// A plain-text table in the notes, in the same order the fab sees it.
+fn table(text: &str, heading: &str) -> Vec<Vec<String>> {
+    section(text, heading)
+        .iter()
+        .map(|line| {
+            line.trim_matches('|')
+                .split('|')
+                .map(|s| s.trim().to_owned())
+                .collect()
+        })
+        .collect()
+}
+
 #[test]
 fn fab_notes_list_the_board_and_its_stackup_values() {
     let dir = TempDir::new("fab-notes-board");
@@ -163,11 +176,20 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
             "Size: 30 x 20 mm",
             "Copper layers: 2",
             "Thickness: 1.2 mm",
-            "Copper L1 (top): 1 oz (35 µm)",
-            "Copper L2 (bottom): 1 oz (35 µm)",
+            "Symmetry: Symmetric",
+            "Thickness check: Outside 10% tolerance",
             "Finish: ENIG",
             "Solder mask colour: Matte black",
             "Silkscreen colour: White",
+        ]
+    );
+    assert_eq!(
+        table(&notes, "Stackup"),
+        [
+            ["Layer", "Kind", "Role", "Thickness", "Material", "Dk"],
+            ["L1 (top)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
+            ["", "Core", "", "1.53 mm", "", ""],
+            ["L2 (bottom)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
         ]
     );
 }
@@ -176,18 +198,14 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
 fn fab_notes_leave_out_stackup_values_that_are_unset_and_show_odd_copper_in_um() {
     let dir = TempDir::new("fab-notes-unset");
     let mut engine = bare(&dir);
-    let layers = engine
-        .project()
-        .unwrap()
-        .pcb()
-        .unwrap()
-        .copper_layers()
-        .map(|l| l.uuid)
-        .collect::<Vec<_>>();
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let sheet = pcb.stackup().dielectrics().next().unwrap().uuid;
     engine.run_ok(
         "pcb.stackup.set",
         json!({"copper": [{"layer": layers[0], "thickness": "18um"},
-                          {"layer": layers[1], "thickness": "2.5oz"}]}),
+                          {"layer": layers[1], "thickness": "2.5oz"}],
+               "dielectrics": [{"uuid":sheet,"thickness":null}]}),
     );
     let notes = fab_notes(&engine);
     assert_eq!(
@@ -196,13 +214,54 @@ fn fab_notes_leave_out_stackup_values_that_are_unset_and_show_odd_copper_in_um()
             "Size: 30 x 20 mm",
             "Copper layers: 2",
             "Thickness: 1.6 mm",
-            "Copper L1 (top): 18 µm",
-            "Copper L2 (bottom): 2.5 oz (87.5 µm)",
+            "Symmetry: Not symmetric",
+            "Thickness check: Within 10% tolerance"
         ]
     );
+    let stack = table(&notes, "Stackup");
+    assert_eq!(stack[1][3], "18 µm");
+    assert_eq!(stack[2], ["", "Core", "", "", "", ""]);
+    assert_eq!(stack[3][3], "2.5 oz (87.5 µm)");
     for absent in ["Hole tolerances", "Deliberate shorts", "\nNotes"] {
         assert!(!notes.contains(absent), "{absent} in:\n{notes}");
     }
+}
+
+#[test]
+fn fab_notes_identify_the_unmodified_build_and_print_its_current_checks() {
+    let dir = TempDir::new("fab-notes-build");
+    let mut engine = bare(&dir);
+    let original = fab_notes(&engine);
+    let board = section(&original, "Board");
+    for line in [
+        "Construction: 2 Layer",
+        "Symmetry: Symmetric",
+        "Thickness check: Within 10% tolerance",
+    ] {
+        assert!(board.iter().any(|row| row == line), "{original}");
+    }
+
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let top = pcb.copper_layers().next().unwrap().uuid;
+    let first = pcb.stackup().dielectrics().next().unwrap().uuid;
+    let second =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":top, "role":"mixed"}));
+    engine.run_ok("pcb.stackup.set", json!({"dielectrics":[
+        {"uuid":first,"kind":"prepreg","name":"Bond","material":"2116","dk":4180,"thickness":"0.13mm"},
+        {"uuid":second,"kind":"core","thickness":"0.5mm"}]}));
+    let modified = fab_notes(&engine);
+    assert!(!modified.contains("Construction:"), "{modified}");
+    assert!(modified.contains("Symmetry: Not symmetric"), "{modified}");
+    assert!(
+        modified.contains("Thickness check: Outside 10% tolerance"),
+        "{modified}"
+    );
+    let stack = table(&modified, "Stackup");
+    assert_eq!(stack[1][2], "Mixed");
+    assert_eq!(stack[2], ["Bond", "Prepreg", "", "0.13 mm", "2116", "4.18"]);
+    assert_eq!(stack[3], ["", "Core", "", "0.5 mm", "", ""]);
 }
 
 #[test]
@@ -212,7 +271,7 @@ fn fab_notes_list_the_minimum_features_of_the_board_wide_rules() {
     let notes = fab_notes(&engine);
     let pcb = engine.project().unwrap().pcb().unwrap();
     use reda_model::RuleKind::*;
-    let v = |k| pcb.board_rule(k).values;
+    let v = |k| &pcb.board_rule(k).values;
     let expected = [
         format!(
             "Clearance: {} mm",
@@ -273,7 +332,21 @@ fn fab_notes_list_the_zip_and_end_with_the_boards_own_text() {
     let dir = TempDir::new("fab-notes-text");
     let engine = demo(&dir);
     let notes = fab_notes(&engine);
-    assert_eq!(section(&notes, "Files in the zip"), zip_names());
+    assert_eq!(
+        section(&notes, "Files in the zip"),
+        [
+            "Demo.gtl",
+            "Demo.gbl",
+            "Demo.gts",
+            "Demo.gbs",
+            "Demo.gtp",
+            "Demo.gto",
+            "Demo.gm1",
+            "Demo-PTH.drl",
+            "Demo-NPTH.drl",
+            "Demo-fab-notes.txt"
+        ]
+    );
     assert!(
         notes.ends_with("\n\nNotes\nPlease keep the slot ends square.\nNo X-outs.\n"),
         "{notes}"
@@ -281,14 +354,109 @@ fn fab_notes_list_the_zip_and_end_with_the_boards_own_text() {
 }
 
 #[test]
+fn fab_notes_list_the_written_copper_files_in_physical_order() {
+    let dir = TempDir::new("fab-notes-copper-files");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let notes = with_plot(
+        &engine,
+        |g| g.file_names.inner_copper = Some("layer-${inner}.ger".into()),
+        |plot| {
+            let files = gerber_files(plot).unwrap().files;
+            String::from_utf8(fab_notes_file(plot, &files, &[]).bytes).unwrap()
+        },
+    );
+    assert_eq!(
+        section(&notes, "Copper files in order"),
+        ["Demo.gtl", "layer-1.ger", "layer-2.ger", "Demo.gbl"]
+    );
+}
+
+#[test]
+fn fab_notes_count_vias_by_span_and_name_only_the_drill_files_in_the_job() {
+    let dir = TempDir::new("fab-notes-vias");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|layer| layer.uuid).collect();
+    engine.run_ok("pcb.via_type.add", json!({"document":document, "name":"Laser", "from":layers[1],"to":layers[0],"micro":true,"hole":"0.1mm","diameter":{"start":"0.22mm","end":"0.18mm"}}));
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document, "from":layers[2],"to":layers[3]}),
+    );
+    for (x, from, to) in [
+        (1.0, 1, 4),
+        (2.0, 2, 1),
+        (3.0, 1, 2),
+        (4.0, 3, 2),
+        (5.0, 2, 3),
+    ] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":pt(x,8.0),"from":layers[from-1],"to":layers[to-1]}),
+        );
+    }
+    for (merge, file) in [(false, "Demo-PTH.drl"), (true, "Demo.drl")] {
+        let notes = with_plot(
+            &engine,
+            |g| g.merge_drill = merge,
+            |plot| String::from_utf8(notes_file(plot).bytes).unwrap(),
+        );
+        let rows = table(&notes, "Via types");
+        assert_eq!(
+            rows,
+            [
+                [
+                    "Name",
+                    "Span",
+                    "Micro",
+                    "Drill (mm)",
+                    "Pad (mm)",
+                    "Vias",
+                    "Drill file"
+                ],
+                ["Through", "L1-L4", "No", "0.3", "0.7", "1", file],
+                [
+                    "Laser",
+                    "L2-L1",
+                    "Yes",
+                    "0.1",
+                    "0.22 (end 0.18)",
+                    "2",
+                    "Demo-L1-L2.drl"
+                ],
+                ["Blind 3:4", "L3-L4", "No", "0.3", "0.7", "0", ""],
+                ["Unmatched", "L2-L3", "No", "", "", "2", "Demo-L2-L3.drl"],
+            ]
+        );
+    }
+    let notes = with_plot(
+        &engine,
+        |_| {},
+        |plot| String::from_utf8(fab_notes_file(plot, &[], &[]).bytes).unwrap(),
+    );
+    assert!(
+        table(&notes, "Via types")
+            .iter()
+            .skip(1)
+            .all(|row| row[6].is_empty()),
+        "{notes}"
+    );
+    assert!(!notes.contains("Copper files in order"), "{notes}");
+}
+
+#[test]
 fn fab_notes_match_their_golden_byte_for_byte() {
     let dir = TempDir::new("fab-notes-golden");
     let engine = demo(&dir);
-    golden(&with_plot(
-        &engine,
-        |_| {},
-        |plot| fab_notes_file(plot, &zip_names()),
-    ));
+    golden(&with_plot(&engine, |_| {}, notes_file));
 }
 
 fn drill_report(engine: &TestEngine, set: impl FnOnce(&mut GerberSettings)) -> String {
@@ -313,7 +481,7 @@ fn the_drill_report_lists_every_tool_of_each_file_with_its_counts_and_the_totals
     let report = drill_report(&engine, |_| {});
     let row = |r: &[&str]| r.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     assert_eq!(
-        rows(&report, "Demo-PTH.drl"),
+        rows(&report, "Demo-PTH.drl (L1-L2, through)"),
         [
             // The new board's Via hole, then J1's two holes (one with a tolerance), J2's slot.
             row(&["T1", "0.300", "plated", "via", "1", "0", "-"]),
@@ -340,7 +508,7 @@ fn the_drill_report_lists_every_tool_of_each_file_with_its_counts_and_the_totals
         ]
     );
     assert_eq!(
-        rows(&report, "Demo-NPTH.drl"),
+        rows(&report, "Demo-NPTH.drl (L1-L2, through)"),
         [
             row(&["T1", "1.000", "non-plated", "mechanical", "0", "1", "-"]),
             row(&[
@@ -379,7 +547,7 @@ fn the_drill_report_follows_merge_drill_and_says_when_a_file_has_no_holes() {
     let merged = drill_report(&engine, |g| g.merge_drill = true);
     assert!(!merged.contains("Demo-PTH.drl"), "{merged}");
     assert_eq!(
-        rows(&merged, "Demo.drl").last().unwrap(),
+        rows(&merged, "Demo.drl (L1-L2, through)").last().unwrap(),
         &["Total", "4", "2"]
     );
 
@@ -388,7 +556,7 @@ fn the_drill_report_follows_merge_drill_and_says_when_a_file_has_no_holes() {
     engine.run_ok("pcb.via.add", json!({"at": pt(10.0, 6.0)}));
     let report = drill_report(&engine, |_| {});
     assert_eq!(
-        section(&report, "Demo-NPTH.drl"),
+        section(&report, "Demo-NPTH.drl (L1-L2, through)"),
         ["No holes: the file is not written."]
     );
 }
@@ -408,7 +576,7 @@ fn job(engine: &TestEngine) -> OutputFile {
         |plot| {
             let mut files = gerber_files(plot).unwrap().files;
             files.extend(reda_output::drill_files(plot).files);
-            files.push(fab_notes_file(plot, &[]));
+            files.push(fab_notes_file(plot, &files, &[]));
             gerber_job_file(plot, &files)
         },
     )
@@ -434,11 +602,19 @@ fn the_job_file_is_minimal_json_in_the_job_spec_form() {
                "Finish": "ENIG"})
     );
     let keys: Vec<&String> = value.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["FilesAttributes", "GeneralSpecs", "Header"]);
+    assert_eq!(
+        keys,
+        [
+            "FilesAttributes",
+            "GeneralSpecs",
+            "Header",
+            "MaterialStackup"
+        ]
+    );
     let entries = value["FilesAttributes"].as_array().unwrap();
     assert_eq!(
         entries[0],
-        json!({"Path": "Demo.gtl", "FileFunction": "Copper,L1,Top", "FilePolarity": "Positive"})
+        json!({"Path": "Demo.gtl", "FileFunction": "Copper,L1,Top,Signal", "FilePolarity": "Positive"})
     );
     let find = |path: &str| entries.iter().find(|e| e["Path"] == path).cloned();
     assert_eq!(
@@ -478,4 +654,127 @@ fn the_job_file_matches_its_golden_byte_for_byte() {
     let dir = TempDir::new("job-file-golden");
     let engine = demo(&dir);
     golden(&job(&engine));
+}
+
+#[test]
+fn drill_report_labels_the_actual_micro_and_unmatched_spans() {
+    let dir = TempDir::new("span-report");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document,"from":layers[1],"to":layers[0],"micro":true}),
+    );
+    for (from, to) in [(1, 0), (1, 2)] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":pt(5.0,7.0),"from":layers[from],"to":layers[to]}),
+        );
+    }
+    let report = drill_report(&engine, |_| {});
+    assert!(report.contains("Demo-PTH.drl (L1-L4, through)"), "{report}");
+    assert!(
+        report.contains("Demo-L1-L2.drl (L1-L2, blind, micro)"),
+        "{report}"
+    );
+    assert!(
+        report.contains("Demo-L2-L3.drl (L2-L3, buried)"),
+        "{report}"
+    );
+    assert!(report.contains("All files: 2 holes, 0 slots"));
+}
+
+mod job_reader;
+
+#[test]
+fn the_job_reader_matches_all_physical_sheets_and_actual_outer_files() {
+    use reda_model::StackupEntry;
+    let dir = TempDir::new("multilayer-job-readback");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let first = pcb.stackup().dielectrics().next().unwrap().uuid;
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    let extra =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"name":"Return"}));
+    engine.run_ok("pcb.stackup.set",json!({
+        "mask_color":"Black","silk_color":"White",
+        "dielectrics":[{"uuid":first,"name":"Bond","material":"1080","thickness":"0.10mm","dk":4210,"df":19500},
+                       {"uuid":extra,"thickness":null}]
+    }));
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer":"silkscreen_top","text":"REDA","x":"1mm","y":"3mm"}),
+    );
+    with_plot(
+        &engine,
+        |_| {},
+        |plot| {
+            let pcb = plot.instances[0].pcb;
+            let mut files = gerber_files(plot).unwrap().files;
+            files.extend(reda_output::drill_files(plot).files);
+            let read = job_reader::read(&gerber_job_file(plot, &files).bytes);
+            let files_written: Vec<_> = files
+                .iter()
+                .filter_map(|f| {
+                    f.attributes
+                        .as_ref()
+                        .map(|a| (f.name.as_str(), a.function.as_str()))
+                })
+                .collect();
+            assert_eq!(
+                read.files_attributes
+                    .iter()
+                    .map(|f| (f.path.as_str(), f.file_function.as_str()))
+                    .collect::<Vec<_>>(),
+                files_written
+            );
+            assert_eq!(read.general_specs.layer_number, pcb.copper_layers().count());
+            let rows = read.material_stackup;
+            assert_eq!(rows.len(), pcb.stackup().entries.len() + 3);
+            assert_eq!(
+                (&*rows[0].kind, rows[0].color.as_deref()),
+                ("Legend", Some("White"))
+            );
+            for i in [1, rows.len() - 1] {
+                assert_eq!(
+                    (&*rows[i].kind, rows[i].color.as_deref()),
+                    ("SolderMask", Some("Black"))
+                );
+            }
+            for (entry, row) in pcb.stackup().entries.iter().zip(&rows[2..]) {
+                match entry {
+                    StackupEntry::Copper(copper) => {
+                        assert_eq!(row.kind, "Copper");
+                        assert_eq!(row.thickness, Some(copper.thickness.0 as f64 / 1e6));
+                        if copper.layer == inner {
+                            assert_eq!(row.name.as_deref(), Some("Return"));
+                        }
+                    }
+                    StackupEntry::Dielectric(sheet) => {
+                        assert_eq!(row.kind, "Dielectric");
+                        assert_eq!(row.name, sheet.name);
+                        assert_eq!(row.material, sheet.material);
+                        assert_eq!(row.thickness, sheet.thickness.map(|v| v.0 as f64 / 1e6));
+                        assert_eq!(
+                            row.dielectric_constant,
+                            sheet.dk.map(|v| f64::from(v) / 1000.0)
+                        );
+                        assert_eq!(row.loss_tangent, sheet.df.map(|v| f64::from(v) / 1e6));
+                    }
+                }
+            }
+        },
+    );
 }

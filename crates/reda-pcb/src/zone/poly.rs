@@ -21,6 +21,31 @@ pub(crate) type Contour = Vec<IntPoint<i64>>;
 /// Shapes of outer contour + holes, as `i_overlay` returns them.
 pub(crate) type Area = Vec<Vec<Contour>>;
 
+/// A Zone outline or poured area queried repeatedly for contact with physical lands.
+#[derive(Clone, Debug)]
+pub(crate) struct ZoneArea {
+    area: Area,
+    edges: Shape,
+    bounds: (P, P),
+}
+
+impl ZoneArea {
+    pub(crate) fn new(area: Area) -> Option<Self> {
+        Some(Self {
+            bounds: bounds(&area)?,
+            edges: boundary(&area),
+            area,
+        })
+    }
+
+    /// A connected land meets the area if one of its points lies inside or its
+    /// copper touches a boundary, including the boundary of a hole.
+    pub(crate) fn covers(&self, land: &Shape, point_on_land: Point, land_bounds: (P, P)) -> bool {
+        boxes_within(self.bounds, land_bounds, 0)
+            && (inside(&self.area, point_on_land) || self.edges.touches(land))
+    }
+}
+
 /// How far a circumscribed polygon may stray outside its circle: the fill's arc tolerance.
 const ROUND_TOLERANCE: f64 = super::ARC_TOLERANCE.0 as f64;
 

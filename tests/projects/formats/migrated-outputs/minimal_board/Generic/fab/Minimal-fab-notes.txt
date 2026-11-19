@@ -1,0 +1,47 @@
+Fab Notes for Minimal
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 30 x 20 mm
+  Copper layers: 2
+  Thickness: 1.6 mm
+  Symmetry: Symmetric
+  Thickness check: Within 10% tolerance
+
+Stackup
+  | Layer       | Kind   | Role   | Thickness    | Material | Dk |
+  | L1 (top)    | Copper | Signal | 1 oz (35 µm) |          |    |
+  |             | Core   |        |              |          |    |
+  | L2 (bottom) | Copper | Signal | 1 oz (35 µm) |          |    |
+
+Via types
+  | Name    | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file |
+  | Through | L1-L2 | No    | 0.3        | 0.7      | 0    |            |
+
+Minimum features
+  Clearance: 0.16 mm
+  Track width: 0.2 mm
+  Via diameter: 0.7 mm
+  Via hole: 0.3 mm
+  Hole size: 0.5 mm
+  Annular ring: 0.2 mm
+  Hole to hole: 0.5 mm
+  Copper to board edge: 0.4 mm
+
+Copper files in order
+  Minimal.gtl
+  Minimal.gbl
+
+Files in the zip
+  Minimal.gtl
+  Minimal.gbl
+  Minimal.gts
+  Minimal.gbs
+  Minimal.gtp
+  Minimal.gto
+  Minimal.gm1
+  Minimal-PTH.drl
+  Minimal-fab-notes.txt
+  Minimal-drill-report.txt
+  Minimal-job.gbrjob

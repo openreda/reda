@@ -12,10 +12,13 @@
 mod board;
 pub mod cluster;
 mod commands;
+pub mod construction;
 pub mod copper;
 pub mod dimension;
 pub mod drag;
 pub mod drc;
+mod drill;
+pub mod impedance;
 pub mod keepout;
 pub mod lock;
 pub mod net_info;
@@ -25,13 +28,15 @@ pub mod route;
 pub mod rules;
 pub mod select;
 pub mod silkscreen;
+pub mod teardrop;
 mod text;
 pub mod unwind;
 pub mod zone;
 
 pub use board::{
     DEAD_COPPER_MIN_AREA, DEFAULT_NET_CLASS, PAD_CONNECTION_SEED, V01_LAYERS, VIA_CONNECTION_SEED,
-    board_fab_rules, default_rules, new_board, seed_rules,
+    board_fab_rules, default_rules, multilayer_rules, new_board, new_board_from_preset,
+    new_board_with_layers, seed_rules, silk_rules,
 };
 pub use commands::layer::LayerRef;
 pub use commands::placement::arrange::natural_cmp;

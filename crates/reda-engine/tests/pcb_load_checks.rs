@@ -114,8 +114,10 @@ fn inner_copper_is_copper_with_no_side_and_is_numbered_from_its_position() {
         let layers = f["layers"]["layers"].as_array_mut().unwrap();
         layers.insert(i, json!({"uuid": inner, "kind": "copper"}));
         let entries = f["stackups"][0]["entries"].as_array_mut().unwrap();
+        // Let both gaps share the thickness left after adding the third foil.
+        entries[1].as_object_mut().unwrap().remove("thickness");
         entries.insert(2, json!({"layer": inner, "thickness": 35_000}));
-        entries.insert(3, json!({"uuid": dielectric}));
+        entries.insert(3, json!({"uuid": dielectric, "kind": "core"}));
     })
     .unwrap();
     let pcb = engine.project().unwrap().pcb().unwrap();
@@ -166,9 +168,15 @@ fn the_stackup_names_every_copper_layer_in_order() {
 #[test]
 fn a_stored_negative_remainder_is_refused() {
     let (_dir, path) = saved("load-remainder");
-    let err = open_after(&path, |f| f["stackups"][0]["thickness"] = json!(50_000))
-        .err()
-        .expect("refused");
+    let err = open_after(&path, |f| {
+        f["stackups"][0]["entries"][1]
+            .as_object_mut()
+            .unwrap()
+            .remove("thickness");
+        f["stackups"][0]["thickness"] = json!(50_000);
+    })
+    .err()
+    .expect("refused");
     assert!(err.contains("exceed"), "{err}");
 }
 
@@ -186,7 +194,7 @@ fn a_through_via_is_stored_top_to_bottom() {
     })
     .err()
     .expect("refused");
-    assert!(err.contains("upper copper Layer to a lower one"), "{err}");
+    assert!(err.contains("drilling direction"), "{err}");
 }
 
 #[test]

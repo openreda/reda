@@ -27,11 +27,13 @@ pub mod delete;
 pub mod dimension_edit;
 pub mod draw;
 pub mod layer_control;
+pub(crate) mod layer_hover;
 pub mod live_hover;
 pub mod marks;
 pub mod measure;
 pub mod placement_bar;
 pub mod placing;
+pub(crate) mod plane;
 pub mod polygon_edit;
 pub mod route;
 pub mod route_commands;
@@ -59,3 +61,20 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
     delete::register_all(registry);
 }
 pub use view::BoardView;
+
+pub(crate) mod unused_layers;
+
+/// The table name shown throughout the app, with generated names in the current language.
+pub(crate) fn via_type_name(
+    pcb: &reda_engine::model::PcbDocument,
+    kind: &reda_engine::model::ViaType,
+) -> String {
+    use reda_engine::model::ViaTypeName::*;
+    match kind.table_name(pcb) {
+        Named(name) => name.into(),
+        Through => crate::tr!("via-name-through"),
+        Blind(from, to) => crate::tr!("via-name-blind", from = from, to = to),
+        Buried(from, to) => crate::tr!("via-name-buried", from = from, to = to),
+        Micro(from, to) => crate::tr!("via-name-micro", from = from, to = to),
+    }
+}

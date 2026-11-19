@@ -98,26 +98,20 @@ These names are held for later milestones. They are additive, so they stay out o
 
 | Where | Names | Intended for |
 |---|---|---|
-| Layer | `role` (signal, plane, mixed), inner-Layer colour keys | v0.2 |
 | Layer | `purpose` on Mechanical and Documentation Layers | v0.3 |
-| Stackup dielectric | `material`, core or prepreg type, `dk` (milli-units), `df` (micro-units), test frequency (Hz) | v0.2 |
 | Stackup and board | further stacks and regions, coverlay as a mask option, stiffeners as new objects | after 1.0 |
-| Rule record | `layers`; `net_class_pair` scope filter | v0.2 |
 | Rule record | `priority`; `footprint`, `pcb_net` and other scope filters | later |
-| Rule kinds | `silk_width`, `silk_text_height` | v0.2 |
 | Rule values | `slot` under `hole_size`, `by_object` under `edge_clearance` | later |
 | Rule record | `through_hole_paste` on `paste_expansion` | v0.6 |
 | Via | `protection` (IPC-4761 type) | later |
 | Pad and Via | `testpoint` | v0.7 |
-| Placed copper | teardrop opt-out | v0.2 |
 | Placed objects | `group` | v0.5 |
 | PCB Document | `grids`, `guides` | later |
 | Pad | Polygon shape | v0.6 |
 | Pad | `jumper_id` | v0.6 |
-| Pad | per-Layer pad stack mode | later |
+| Pad | full per-Layer Pad Stack mode | later |
 | Pad | `through_hole_paste` | v0.6 |
 | Pad | `mask_shape`, `paste_shape` | v0.6 |
-| Via | `zone_connection` | later |
 | Zone | `fill_mode` values beyond solid | later |
 | Rule record | `zone` and `keepout` scope filters | later |
 | PCB Document | a copper polygon that doesn't pour | later |

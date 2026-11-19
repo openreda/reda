@@ -91,6 +91,31 @@ pub fn context_menu<R>(
     .show(add)
 }
 
+/// A row's context menu also opens over its cells, including embedded controls
+/// that receive the pointer event ahead of the row.
+pub fn row_context_menu<R>(
+    row: &Response,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<InnerResponse<R>> {
+    let mut popup = Popup::context_menu(row);
+    if row.enabled()
+        && row
+            .ctx
+            .rect_contains_pointer(row.layer_id, row.interact_rect)
+        && row
+            .ctx
+            .input(|i| i.pointer.button_clicked(egui::PointerButton::Secondary))
+    {
+        popup = popup.open_memory(Some(SetOpenCommand::Bool(true)));
+    }
+    Menu {
+        popup,
+        fill: false,
+        anchor: None,
+    }
+    .show(add)
+}
+
 #[must_use = "call .show()"]
 pub struct Menu<'a> {
     popup: Popup<'a>,
@@ -103,9 +128,21 @@ pub struct Menu<'a> {
 }
 
 impl Menu<'_> {
+    /// Horizontal space to reserve for a scrolling menu's vertical scrollbar.
+    pub fn scrollbar_width(ui: &Ui) -> f32 {
+        ui.spacing().scroll.allocated_width()
+    }
+
     /// The popup's id, instead of one made from the anchor's.
     pub fn id(mut self, id: Id) -> Self {
         self.popup = self.popup.id(id);
+        self
+    }
+
+    /// Opens at the pointer position when the menu was requested by a key.
+    pub fn at_position(mut self, position: egui::Pos2) -> Self {
+        self.popup = self.popup.at_position(position).open_memory(None);
+        self.anchor = None;
         self
     }
 

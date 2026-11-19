@@ -43,9 +43,58 @@ pub fn net_classes_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetup
     ui.add_space(t.space.stack);
     class_grid(ui, cx, board);
     grid_keys(ui, board);
+    allowed_types(ui, cx, board);
     layout::muted(ui, tr!("board-setup-grid-note"));
     ui.add_space(t.space.section);
     net_table(ui, board);
+}
+
+fn allowed_types(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
+    let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb()) else {
+        return;
+    };
+    if pcb.stackup().via_types.len() < 2 {
+        return;
+    }
+    let selected: Vec<_> = board
+        .selected_rows
+        .iter()
+        .copied()
+        .filter(|k| *k != ClassKey::Default)
+        .collect();
+    for key in selected {
+        ui.push_id(("via-permissions", key), |ui| {
+            strong(ui, tr!("via-allowed", class = board.class_name(key)));
+            ui.horizontal_wrapped(|ui| {
+                for kind in &pcb.stackup().via_types {
+                    let allowed = board.allowed_types(key);
+                    let mut on = allowed.is_empty() || allowed.contains(&kind.uuid);
+                    if ui
+                        .add(widgets::checkbox(
+                            &mut on,
+                            tr!("via-allow", name = crate::pcb::via_type_name(pcb, kind)),
+                        ))
+                        .changed()
+                    {
+                        let mut list = if allowed.is_empty() {
+                            pcb.stackup().via_types.iter().map(|v| v.uuid).collect()
+                        } else {
+                            allowed.to_vec()
+                        };
+                        if on {
+                            list.push(kind.uuid);
+                        } else {
+                            list.retain(|id| *id != kind.uuid);
+                        }
+                        if list.len() == pcb.stackup().via_types.len() {
+                            list.clear();
+                        }
+                        board.set_allowed_types(key, list);
+                    }
+                }
+            });
+        });
+    }
 }
 
 fn toolbar(ui: &mut Ui, board: &mut BoardSetupDraft) {
@@ -177,15 +226,18 @@ fn cell(
 fn column_name(f: RuleField) -> String {
     use RuleField as F;
     match f {
+        F::ViaHoleClearance | F::PadHoleClearance => f.name(),
         F::TrackWidth => tr!("board-setup-col-min"),
         F::TrackPreferred => tr!("board-setup-col-preferred"),
         F::TrackMax => tr!("board-setup-col-max"),
-        F::ViaDiameter => tr!("board-setup-col-diameter-min"),
-        F::ViaDiameterPreferred => tr!("board-setup-col-diameter-preferred"),
-        F::ViaDiameterMax => tr!("board-setup-col-diameter-max"),
-        F::ViaHole => tr!("board-setup-col-hole-min"),
-        F::ViaHolePreferred => tr!("board-setup-col-hole-preferred"),
-        F::ViaHoleMax => tr!("board-setup-col-hole-max"),
+        F::ViaDiameter | F::MicroDiameter => tr!("board-setup-col-diameter-min"),
+        F::ViaDiameterPreferred | F::MicroDiameterPreferred => {
+            tr!("board-setup-col-diameter-preferred")
+        }
+        F::ViaDiameterMax | F::MicroDiameterMax => tr!("board-setup-col-diameter-max"),
+        F::ViaHole | F::MicroHole => tr!("board-setup-col-hole-min"),
+        F::ViaHolePreferred | F::MicroHolePreferred => tr!("board-setup-col-hole-preferred"),
+        F::ViaHoleMax | F::MicroHoleMax => tr!("board-setup-col-hole-max"),
         _ => tr!("board-setup-col-value"),
     }
 }
@@ -199,6 +251,7 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
         .collect();
     let number = |key: ClassKey| numbers.iter().find(|(k, _)| *k == key).map_or(0, |n| n.1);
     let drag_id = ui.scope_id().with("board-setup-drag");
+    let context = ui.ctx().clone();
     let dragging: Option<ClassKey> = ui.data(|d| d.get_temp(drag_id));
     let mut row_rects: Vec<(ClassKey, Rect)> = Vec::new();
     let mut clicked: Option<(ClassKey, Modifiers)> = None;
@@ -264,6 +317,10 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                         } else {
                             tr!("board-setup-drag-row", class = name.as_str())
                         };
+                        let open_key = drag_id.with(("class-layer-rules", key));
+                        let mut expanded = context
+                            .data(|d| d.get_temp::<bool>(open_key))
+                            .unwrap_or(false);
                         table.row(|row| {
                             row.ui(|ui| {
                                 let grip = handle(ui, selected, &label, !default);
@@ -284,9 +341,19 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                                 let label = tr!("board-setup-class-name", number = number(key));
                                 let problem = cx.problem(&class_field(key, "name"));
                                 row.ui(|ui| {
-                                    if let Some(value) = board.class_name_mut(key) {
-                                        field(ui, &label, value, NAME_WIDTH, problem);
-                                    }
+                                    ui.horizontal(|ui| {
+                                        if let Some(value) = board.class_name_mut(key) {
+                                            field(ui, &label, value, NAME_WIDTH, problem);
+                                        }
+                                        if matches!(key, ClassKey::Existing(_))
+                                            && ui
+                                                .add(widgets::button(tr!("board-rule-layers")))
+                                                .clicked()
+                                        {
+                                            expanded = !expanded;
+                                            ui.data_mut(|d| d.insert_temp(open_key, expanded));
+                                        }
+                                    });
                                 });
                             }
                             for kind in GRID_KINDS {
@@ -309,6 +376,10 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                                     row.empty();
                                 }
                                 for &f in fields(kind) {
+                                    if default && !f.applies_board_wide() {
+                                        row.empty();
+                                        continue;
+                                    }
                                     let label = tr!(
                                         "board-setup-override",
                                         class = name.as_str(),
@@ -361,6 +432,17 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                             let shown = board.shown_row(key);
                             row.ui(|ui| super::show_button(ui, cx, &name, shown));
                         });
+                        if expanded
+                            && let ClassKey::Existing(class) = key
+                            && let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb())
+                        {
+                            table.row(|row| {
+                                row.empty();
+                                row.ui(|ui| {
+                                    super::scoped::class_section(ui, pcb, board, class);
+                                });
+                            });
+                        }
                     }
                 });
         });

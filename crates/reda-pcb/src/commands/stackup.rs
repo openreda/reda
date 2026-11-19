@@ -2,6 +2,10 @@
 //! colours; and `pcb.fab_notes.set`, the free text for the Fab Notes, which sits beside
 //! them on the Stackup page of Board Setup.
 
+mod construction;
+pub(super) mod preview;
+mod sheets;
+
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, CopperThickness, Kind, Length, Meta,
     Registry, Unavailable,
@@ -9,20 +13,19 @@ use reda_command::{
 use reda_model::geom::Nm;
 use reda_model::{BoardSetup, InDocument, Object, Stackup, StackupEntry, StackupTotals, Uuid};
 use schemars::JsonSchema;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
-use super::{needs_pcb, pcb};
+use super::{needs_pcb, nullable, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
+    registry.add(Info);
+    registry.add(construction::Save);
+    registry.add(super::layer_count::construction::Apply);
+    registry.add(preview::Preview);
+    registry.add(sheets::SheetAdd);
+    registry.add(sheets::SheetRemove);
     registry.add(FabNotesSet);
-}
-
-/// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
-fn nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<Option<T>>, D::Error> {
-    Option::<T>::deserialize(d).map(Some)
 }
 
 pub struct StackupSet;
@@ -37,7 +40,7 @@ pub struct StackupSetParams {
     /// New copper thicknesses, by copper Layer.
     #[serde(default)]
     pub copper: Vec<CopperParam>,
-    /// New dielectric thicknesses, by dielectric UUID.
+    /// Sheets to update, by dielectric UUID. Omit each field to retain its value.
     #[serde(default)]
     pub dielectrics: Vec<DielectricParam>,
     /// The surface finish, as free text such as `"ENIG"`; `null` or empty clears it.
@@ -64,15 +67,38 @@ pub struct CopperParam {
     pub thickness: CopperThickness,
 }
 
-/// One dielectric's new thickness.
+/// A patch to one dielectric. Omitted fields retain their stored values.
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DielectricParam {
     /// The dielectric entry's UUID.
     pub uuid: Uuid,
-    /// Its thickness, or `null` to leave it blank so it takes the remainder.
+    /// Core or Prepreg.
+    pub kind: Option<reda_model::DielectricKind>,
+    /// The optional name shown in the Stackup.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<String>")]
+    pub name: Option<Option<String>>,
+    /// Finished thickness, or null to share the remainder.
+    #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
-    pub thickness: Option<Length>,
+    pub thickness: Option<Option<Length>>,
+    /// The material or glass style as specified by the fab.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<String>")]
+    pub material: Option<Option<String>>,
+    /// Relative permittivity in milli-units.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub dk: Option<Option<u32>>,
+    /// Loss tangent in micro-units.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub df: Option<Option<u32>>,
+    /// The measurement frequency for Dk and Df, in Hz.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u64>")]
+    pub test_frequency: Option<Option<u64>>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -106,14 +132,11 @@ impl Command for StackupSet {
     const META: Meta = Meta {
         id: "pcb.stackup.set",
         title: "Set Stackup",
-        description: "Sets the board's Stackup: the finished `thickness`, the `copper` of \
-                      each copper Layer (in nm, a length, or oz at exactly 35 µm per oz), \
-                      the `dielectrics` (`null` leaves one blank, to take the remainder of \
-                      the thickness), and the free-text `finish`, `mask_color` and \
-                      `silk_color`. Values left out keep theirs. Refuses a thickness the \
-                      copper and typed dielectrics already exceed while a dielectric is \
-                      blank; warns when every dielectric is typed in and they do not add up \
-                      to the thickness. Returns the Stackup, its totals and the warnings.",
+        description: "Sets the ordered thickness, copper thicknesses, dielectric materials and \
+                      electrical properties, finish and colours. Omitted fields retain their \
+                      values. A null dielectric thickness shares the unassigned thickness. \
+                      Refuses a negative remainder and reports the totals and any mismatch \
+                      when every sheet has a specified thickness.",
         category: "pcb",
         icon: "layers",
         kind: Kind::Edit,
@@ -155,16 +178,6 @@ impl Command for StackupSet {
             entry.thickness = thickness;
         }
         for (i, dielectric) in p.dielectrics.into_iter().enumerate() {
-            let thickness = dielectric
-                .thickness
-                .map(|t| {
-                    positive(
-                        format!("/dielectrics/{i}/thickness"),
-                        t.nm(),
-                        "dielectric thickness",
-                    )
-                })
-                .transpose()?;
             let entry = stackup.entries.iter_mut().find_map(|e| match e {
                 StackupEntry::Dielectric(d) if d.uuid == dielectric.uuid => Some(d),
                 _ => None,
@@ -175,7 +188,35 @@ impl Command for StackupSet {
                     format!("{} is not a dielectric of the Stackup", dielectric.uuid),
                 ));
             };
-            entry.thickness = thickness;
+            if let Some(kind) = dielectric.kind {
+                entry.kind = kind;
+            }
+            if let Some(value) = dielectric.thickness {
+                entry.thickness = value
+                    .map(|t| {
+                        positive(
+                            format!("/dielectrics/{i}/thickness"),
+                            t.nm(),
+                            "dielectric thickness",
+                        )
+                    })
+                    .transpose()?;
+            }
+            if let Some(value) = dielectric.name {
+                entry.name = text(value);
+            }
+            if let Some(value) = dielectric.material {
+                entry.material = text(value);
+            }
+            if let Some(value) = dielectric.dk {
+                entry.dk = value;
+            }
+            if let Some(value) = dielectric.df {
+                entry.df = value;
+            }
+            if let Some(value) = dielectric.test_frequency {
+                entry.test_frequency = value;
+            }
         }
         for (value, field) in [
             (p.finish, &mut stackup.finish),
@@ -186,7 +227,12 @@ impl Command for StackupSet {
                 *field = text(value);
             }
         }
-        let totals = stackup.totals();
+        let totals = stackup.checked_totals().ok_or_else(|| {
+            CommandError::invalid_params(
+                "/thickness",
+                "the sum of Stackup thicknesses exceeds the supported range",
+            )
+        })?;
         if let Some(remainder) = totals.remainder
             && remainder < Nm::ZERO
         {
@@ -208,6 +254,58 @@ impl Command for StackupSet {
             stackup,
             totals,
             warnings,
+        })
+    }
+}
+
+struct Info;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InfoParams {
+    /// The PCB Document whose Stackup to inspect.
+    pub document: Uuid,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct InfoOutput {
+    #[serde(flatten)]
+    physical: reda_model::StackupInfo,
+    /// Bare Track impedance and the Default Net Class width on each copper Layer.
+    impedance: Vec<crate::impedance::LayerImpedance>,
+    /// Original Construction name, including while the Stackup is modified.
+    construction: Option<String>,
+    /// Whether a Project copy still offers the named physical build.
+    construction_matches: bool,
+}
+
+impl Command for Info {
+    const META: Meta = Meta {
+        id: "pcb.stackup.info",
+        title: "Stackup Information",
+        description: "Reports physical thickness, symmetry, the ordered-thickness check, Construction match and Track impedance without solder mask per copper Layer.",
+        category: "pcb",
+        icon: "inspect",
+        kind: Kind::Query,
+    };
+    type Params = InfoParams;
+    type Output = InfoOutput;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Self::Output, CommandError> {
+        let pcb = cx.project()?.pcb_document(p.document).ok_or_else(|| {
+            CommandError::not_found(format!("no PCB Document has UUID {}", p.document))
+        })?;
+        let stack = pcb.stackup();
+        let physical = stack.info();
+        Ok(InfoOutput {
+            impedance: crate::impedance::layers(pcb, &physical),
+            physical,
+            construction: stack.construction.clone(),
+            construction_matches: cx.project()?.construction_matches(stack),
         })
     }
 }

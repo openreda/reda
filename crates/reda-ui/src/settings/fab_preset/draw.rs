@@ -3,11 +3,11 @@
 use egui::{Role, Ui, WidgetInfo};
 use reda_engine::model::{
     BomLayout, BottomPosition, BottomRotation, Column, ColumnSource, CplUnits, FileNaming,
-    FileOrigin, LayerFileName, NotFittedBom, PasteExpansion, SlotCommand,
+    FileOrigin, LayerFileName, NotFittedBom, PasteExpansion, Side, SlotCommand,
 };
 
 use super::{Field, PresetEditor, PresetPage};
-use crate::settings::{dropdown, field, layout, strong};
+use crate::settings::{dropdown, field, layout, mono, strong};
 use crate::theme::TokensExt as _;
 use crate::tr;
 use crate::widgets::{self, Column as TableColumn, Tooltip as _};
@@ -38,6 +38,7 @@ pub fn page(ui: &mut Ui, editor: &mut PresetEditor, page: PresetPage) {
         PresetPage::Drill => drill(ui, editor),
         PresetPage::Bom => bom(ui, editor),
         PresetPage::Cpl => cpl(ui, editor),
+        PresetPage::Placement => super::placement::grid(ui, editor),
         PresetPage::Packaging => packaging(ui, editor),
     }
 }
@@ -115,6 +116,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
     rows(ui, "preset-rules", |ui| {
         for (f, label) in [
             (Field::Clearance, tr!("preset-clearance")),
+            (Field::ViaHoleClearance, tr!("rule-via-hole-clearance")),
+            (Field::PadHoleClearance, tr!("rule-pad-hole-clearance")),
             (Field::TrackWidth, tr!("preset-track-width")),
             (Field::ViaDiameter, tr!("preset-via-diameter")),
             (Field::ViaHole, tr!("preset-via-hole")),
@@ -123,8 +126,18 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
             (Field::AnnularRing, tr!("preset-annular-ring")),
             (Field::HoleToHole, tr!("preset-hole-to-hole")),
             (Field::EdgeClearance, tr!("preset-edge-clearance")),
+            (Field::SilkWidth, tr!("board-setup-silk-width")),
+            (Field::SilkTextHeight, tr!("board-setup-silk-text-height")),
         ] {
             typed(ui, editor, f, label);
+        }
+        subheading(ui, tr!("board-layer-inner"));
+        for (field, label) in [
+            (Field::InnerTrackWidth, tr!("preset-track-width")),
+            (Field::InnerClearance, tr!("preset-clearance")),
+            (Field::InnerAnnularRing, tr!("preset-annular-ring")),
+        ] {
+            typed(ui, editor, field, label);
         }
         subheading(ui, tr!("preset-preferred"));
         for (f, label) in [
@@ -171,15 +184,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
 }
 
 fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
+    editor.construction_list.show(ui, &mut editor.value);
     rows(ui, "preset-stackup", |ui| {
-        subheading(ui, tr!("preset-seeds"));
-        typed(
-            ui,
-            editor,
-            Field::SeedThickness,
-            tr!("preset-seed-thickness"),
-        );
-        typed(ui, editor, Field::SeedCopper, tr!("preset-seed-copper"));
         subheading(ui, tr!("preset-suggestions"));
         for (f, label) in [
             (Field::SuggestThickness, tr!("preset-suggest-thickness")),
@@ -191,13 +197,12 @@ fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
             typed(ui, editor, f, label);
         }
     });
-    note(ui, tr!("preset-seeds-note"));
     note(ui, tr!("preset-suggestions-note"));
 }
 
 fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
-    let g = &mut editor.value_mut().gerber;
     rows(ui, "preset-gerber", |ui| {
+        let g = &mut editor.value_mut().gerber;
         choice(
             ui,
             tr!("preset-naming"),
@@ -222,11 +227,39 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
             tr!("preset-outline-every"),
             &mut g.outline_on_every_plot,
         );
+        typed(ui, editor, Field::InnerCopper, tr!("preset-inner-copper"));
+        ui.label("");
+        ui.vertical(|ui| {
+            layout::muted(ui, tr!("preset-inner-copper-tokens"));
+            layout::muted(ui, tr!("preset-inner-copper-empty"));
+        });
+        ui.end_row();
     });
     let t = ui.tokens();
     ui.add_space(t.space.section);
     strong(ui, tr!("preset-file-names"));
-    file_names(ui, &mut g.file_names);
+    file_names(ui, &mut editor.value_mut().gerber.file_names.layers);
+    if editor.problem(Field::InnerCopper).is_none() {
+        ui.add_space(t.space.section);
+        strong(ui, tr!("preset-four-layer-preview"));
+        let sides = [Some(Side::Top), None, None, Some(Side::Bottom)];
+        for (i, side) in sides.into_iter().enumerate() {
+            match reda_engine::output::copper_file_name(
+                "Board",
+                &editor.value().gerber,
+                i + 1,
+                side,
+                None,
+            ) {
+                Ok(name) => {
+                    mono(ui, name);
+                }
+                Err(why) => {
+                    layout::error(ui, why);
+                }
+            }
+        }
+    }
 }
 
 fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {

@@ -121,3 +121,343 @@ fn a_net_whose_classes_combine_into_an_invalid_range_is_a_note_naming_it() {
         "{out:#}"
     );
 }
+
+#[test]
+fn named_layer_ranges_inherit_the_plane_and_inner_values() {
+    let dir = TempDir::new("validate-layer-ranges");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let inner = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"role":"plane"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"inner"},"values":{"preferred":"0.4mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"plane"},"values":{"preferred":"0.5mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":[inner]},"values":{"min":"0.45mm"}}),
+    );
+    let invalid = engine.run_err(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"plane"},"values":{"preferred":null}}),
+    );
+    assert_eq!(invalid.code, reda_command::ErrorCode::InvalidParams);
+    assert_eq!(
+        engine.run_ok("pcb.rules.validate", json!({}))["problems"],
+        json!([])
+    );
+}
+
+#[test]
+fn validation_explains_an_empty_layer_group_and_a_relaxed_pair() {
+    let dir = TempDir::new("layer-pair-notes");
+    let mut engine = engine(&dir);
+    let power = class(&mut engine, "Power", &[]);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"net_class":power},"values":{"value":"1mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"value":"0.2mm"}}),
+    );
+    let scope = json!({"net_class_pair":["Default","Power"]});
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.4mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(
+        notes(&out).iter().any(|(n, _)| n == "pair_below_class"),
+        "{out}"
+    );
+    // A pair equal to the board still relaxes Power. With no pair it inherits Power's 1 mm.
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.16mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(!notes(&out).iter().any(|(n, _)| n == "same_as_inherited"));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"1mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(notes(&out).iter().any(|(n, _)| n == "same_as_inherited"));
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":{"layers":"inner"}}));
+    assert!(
+        notes(&out).iter().any(|(n, _)| n == "no_matching_layers"),
+        "{out}"
+    );
+}
+
+#[test]
+fn an_inner_fab_limit_is_compared_only_where_the_record_supplies_it() {
+    let dir = TempDir::new("layer-preset-limits");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":{"clearance":300000}}}}),
+    );
+    let outside = |e: &mut TestEngine| {
+        e.run_ok("pcb.rules.validate", json!({}))["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|n| n["note"] == "outside_preset")
+            .count()
+    };
+    assert_eq!(outside(&mut e), 1);
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(outside(&mut e), 0);
+}
+
+#[test]
+fn overlapping_named_layers_and_invalid_scope_combinations_are_refused() {
+    let dir = TempDir::new("layer-scope-validation");
+    let mut e = engine(&dir);
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let class = class(&mut e, "Power", &[]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"layers":layers},"values":{"value":"0.2mm"}}),
+    );
+    for (kind, scope, values) in [
+        (
+            "clearance",
+            json!({"layers":[layers[0]]}),
+            json!({"value":"0.5mm"}),
+        ),
+        (
+            "clearance",
+            json!({"layers":[class]}),
+            json!({"value":"0.5mm"}),
+        ),
+        (
+            "clearance",
+            json!({"net_class":class,"net_class_pair":["Default","Power"]}),
+            json!({"value":"0.2mm"}),
+        ),
+        (
+            "clearance",
+            json!({"net_class_pair":["Default","Power"]}),
+            json!({"ignore_pad_to_pad":true}),
+        ),
+        (
+            "track_width",
+            json!({"net_class_pair":["Default","Power"]}),
+            json!({"min":"0.2mm"}),
+        ),
+        (
+            "hole_size",
+            json!({"layers":"outer"}),
+            json!({"min":"0.2mm"}),
+        ),
+    ] {
+        let err = e.run_err(
+            "pcb.rules.set",
+            json!({"kind":kind,"scope":scope,"values":values}),
+        );
+        assert_eq!(err.code, reda_command::ErrorCode::InvalidParams, "{err:?}");
+    }
+    // A class pair outside clearance, or with a single class, is the pair's fault.
+    for (kind, scope, pointer) in [
+        (
+            "clearance",
+            json!({"net_class":class,"net_class_pair":["Default","Power"]}),
+            "/scope/net_class_pair",
+        ),
+        (
+            "track_width",
+            json!({"net_class_pair":["Default","Power"]}),
+            "/scope/net_class_pair",
+        ),
+        ("clearance", json!({"layers":[layers[0]]}), "/scope/layers"),
+    ] {
+        let err = e.run_err(
+            "pcb.rules.set",
+            json!({"kind":kind,"scope":scope,"values":{"min":"0.2mm","value":"0.2mm"}}),
+        );
+        assert_eq!(err.details.unwrap()["pointer"], pointer, "{kind} {scope}");
+    }
+    // Same class, same list in reverse order edits the original record.
+    e.run_ok("pcb.rules.set",json!({"kind":"clearance","scope":{"layers":[layers[1],layers[0]]},"values":{"value":"0.55mm"}}));
+    assert_eq!(
+        e.project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .rules()
+            .filter(|r| r.scope.layers.is_some())
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn silkscreen_size_rules_are_board_wide_on_both_sides() {
+    let dir = TempDir::new("unscoped-silk-minima");
+    let mut e = engine(&dir);
+    let class = class(&mut e, "Signal", &[]);
+    for kind in ["silk_width", "silk_text_height"] {
+        for scope in [json!({"net_class":class}), json!({"layers":"outer"})] {
+            let error = e.run_err(
+                "pcb.rules.set",
+                json!({"kind":kind,"scope":scope,"values":{"min":"0.1mm"}}),
+            );
+            assert_eq!(error.code, reda_command::ErrorCode::InvalidParams);
+        }
+    }
+}
+
+#[test]
+fn optional_fab_hdi_limits_apply_and_save_back_to_a_portable_preset() {
+    let dir = TempDir::new("hdi-fab-limits");
+    let home = TempDir::new("hdi-preset-home");
+    let mut e = reda_testkit::test_engine_in(home.path());
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"HDI","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    let micro = json!({"diameter":{"min":200000,"max":600000},"hole":{"max":250000},"aspect_ratio":{"max":900},"max_stack":2});
+    e.run_ok("fab_preset.set",json!({"preset":preset,"values":{"rules":{"microvia_size":micro,"via_aspect_ratio":{"max":8500}}}}));
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let via = &pcb.board_rule(reda_model::RuleKind::ViaSize).values;
+    let laser = &pcb.board_rule(reda_model::RuleKind::MicroviaSize).values;
+    assert_eq!(
+        serde_json::to_value(via).unwrap()["aspect_ratio"],
+        json!({"max":8500})
+    );
+    assert_eq!(serde_json::to_value(laser).unwrap(), micro);
+    let saved = e.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"name":"House HDI","from":preset}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let project = e.project().unwrap();
+    let stored = serde_json::to_value(project.fab_preset(saved).unwrap().rules).unwrap();
+    assert_eq!(stored["microvia_size"], micro);
+    assert_eq!(stored["via_aspect_ratio"]["max"], 8500);
+
+    e.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":saved, "name":"HDI Shop"}),
+    );
+    let mut reopened = reda_testkit::test_engine_in(home.path());
+    reopened.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Seeded","layers":6,"fab_preset":"HDI Shop"}),
+    );
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        serde_json::to_value(&board.board_rule(reda_model::RuleKind::MicroviaSize).values).unwrap(),
+        micro
+    );
+    assert_eq!(
+        board
+            .board_rule(reda_model::RuleKind::ViaSize)
+            .values
+            .aspect_ratio
+            .unwrap()
+            .max,
+        Some(8500)
+    );
+
+    // Selecting a preset with unpublished HDI limits clears the optional values.
+    let generic =
+        reopened.run_ok("fab_preset.add", json!({"name":"Generic"}))["result"]["uuid"].clone();
+    reopened.run_ok("pcb.rules.apply_fab_preset", json!({"preset":generic}));
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.board_rule(reda_model::RuleKind::MicroviaSize).values,
+        Default::default()
+    );
+    assert!(
+        board
+            .board_rule(reda_model::RuleKind::ViaSize)
+            .values
+            .aspect_ratio
+            .is_none()
+    );
+}
+
+#[test]
+fn a_job_presets_optional_drill_limits_are_compared_in_their_own_units() {
+    let dir = TempDir::new("hdi-preset-checks");
+    let mut e = engine(&dir);
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{
+            "via_aspect_ratio":{"max":8250},
+            "microvia_size":{"hole":{"min":100000},"max_stack":2}
+        }}}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"via_size","values":{"aspect_ratio":{"max":9000}}}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"max_stack":3}}),
+    );
+    let report = e.run_ok("drc.run", json!({"checks":["rule_outside_preset"]}));
+    let found = report["violations"].as_array().unwrap();
+    let ratio = found
+        .iter()
+        .find(|v| v["args"]["value"] == "aspect_ratio.max")
+        .unwrap();
+    assert_eq!(ratio["measured"], json!({"ratio_millionths":9_000_000}));
+    assert_eq!(ratio["required"], json!({"ratio_millionths":8_250_000}));
+    let stack = found
+        .iter()
+        .find(|v| v["args"]["value"] == "max_stack")
+        .unwrap();
+    assert_eq!(stack["measured"], json!({"count":3}));
+    assert_eq!(stack["required"], json!({"count":2}));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"max_stack":2,"hole":{"min":90_000}}}),
+    );
+    let report = e.run_ok("drc.run", json!({"checks":["rule_outside_preset"]}));
+    let hole = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["args"]["value"] == "hole.min")
+        .unwrap();
+    assert_eq!(hole["measured"], json!({"length":90_000}));
+    assert_eq!(hole["required"], json!({"length":100_000}));
+}

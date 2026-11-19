@@ -27,6 +27,22 @@ pub(crate) struct TextStyle {
 /// Lines are this many capital heights apart (the same pitch as PCB text).
 pub(crate) const LINE_PITCH: (i64, i64) = (8, 5);
 
+impl GlyphRun {
+    /// A horizontal label in the bundled Noto Sans, with its geometry in Scene coordinates.
+    pub fn label(text: &str, at: Point, height: Nm, align: Align) -> Self {
+        glyph_run(
+            text,
+            at,
+            TextStyle {
+                height,
+                align,
+                rotation: Millideg(0),
+                view_label: false,
+            },
+        )
+    }
+}
+
 /// Lays out `text` (`\n` starts a new line, below the first) in Noto Sans, aligned on `at`.
 ///
 /// Text never reads upside down: a direction in (90°, 270°] is turned half a turn, with

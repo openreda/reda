@@ -156,7 +156,7 @@ fn affected_leaves_out_objects_another_record_overrides() {
     let hv_class = class(&mut engine, "HV", &[hv]);
     let hv_rule = set(
         &mut engine,
-        json!({"kind": "clearance", "scope": {"net_class": hv_class}, "values": {"value": "0.5mm"}}),
+        json!({"kind": "clearance", "scope": {"net_class": hv_class}, "values": {"value": "0.5mm", "hole": {"via":"0.5mm","pad":"0.5mm"}}}),
     );
     let board = set(&mut engine, json!({"kind": "clearance"}));
     let on_gnd = track(&mut engine, Some(gnd), "0mm");
@@ -173,4 +173,190 @@ fn affected_leaves_out_objects_another_record_overrides() {
     assert_eq!(by_board["nets"], json!([gnd]));
     assert_eq!(by_board["objects"], json!([on_gnd, loose]));
     assert_eq!(by_board["pads"], json!([]));
+}
+
+#[test]
+fn a_pair_can_relax_both_classes_on_the_measured_layer() {
+    let dir = TempDir::new("pair-clearance");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "P");
+    let b = net(&mut engine, "N");
+    let hv = class(&mut engine, "Power", &[a, b]);
+    set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class":hv},"values":{"value":"1mm"}}),
+    );
+    set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Default","Power"]},"values":{"value":"0.6mm"}}),
+    );
+    let pair = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Power","Power"],"layers":"outer"},"values":{"value":"0.2mm"}}),
+    );
+    let ta = track(&mut engine, Some(a), "0mm");
+    let tb = track(&mut engine, Some(b), "1mm");
+    let out = engine.run_ok("pcb.rules.applicable", json!({"objects":[tb,ta]}));
+    let between = &kind(&out, "clearance")["between"];
+    assert_eq!(between["rule"], json!(pair));
+    assert_eq!(between["layers"], "outer");
+    assert_eq!(between["value"], 200_000);
+    assert_eq!(between["net_class_pair"], json!([hv, hv]));
+    assert!(between.get("object").is_none());
+}
+
+#[test]
+fn affected_limits_a_class_pairs_tracks_to_its_named_layer() {
+    let dir = TempDir::new("affected-by-layer");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    class(&mut engine, "HV", &[a]);
+    let top = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .next()
+        .unwrap()
+        .uuid;
+    let scope = json!({"net_class_pair":["Default","HV"],"layers":[top]});
+    let id = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.3mm"}}),
+    );
+    let first = track(&mut engine, Some(a), "0mm");
+    let second = track(&mut engine, Some(b), "2mm");
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer":"copper_bottom","net":a,
+        "points":[{"x":0,"y":0},{"x":"4mm","y":0}]}),
+    );
+    let out = engine.run_ok(
+        "pcb.rules.affected",
+        json!({"kind":"clearance","scope":scope}),
+    );
+    assert_eq!(out["objects"], json!([first, second]));
+    assert_eq!(out, engine.run_ok("pcb.rules.affected", json!({"rule":id})));
+}
+
+#[test]
+fn a_through_via_lists_each_distinct_layer_result_once() {
+    let dir = TempDir::new("via-layer-explanation");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Via","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let inner = set(
+        &mut e,
+        json!({"kind":"annular_ring","scope":{"layers":"inner"},"values":{"min":"0.35mm"}}),
+    );
+    let via = uuid(&e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0}}))["result"]["uuid"]);
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[via]}));
+    let groups = out["kinds"].as_array().unwrap();
+    let rings: Vec<_> = groups
+        .iter()
+        .filter(|k| k["kind"] == "annular_ring")
+        .collect();
+    assert_eq!(rings.len(), 2);
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[3]]));
+    assert_eq!(rings[1]["layers"], json!([layers[1], layers[2]]));
+    assert_eq!(rings[1]["objects"][0]["values"][0]["rule"], json!(inner));
+    assert_eq!(
+        groups.iter().filter(|k| k["kind"] == "track_width").count(),
+        1
+    );
+    assert!(kind(&out, "track_width").get("layers").is_none());
+}
+
+#[test]
+fn clearance_explains_a_class_pair_hole_override_only_on_the_drilled_layers() {
+    let dir = TempDir::new("applicable-hole-pair");
+    let mut e = engine(&dir);
+    let gnd = net(&mut e, "GND");
+    let sig = net(&mut e, "Signal");
+    class(&mut e, "Return", &[gnd]);
+    let via =
+        e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0},"net":gnd}))["result"]["uuid"].clone();
+    let t = track(&mut e, Some(sig), "1mm");
+    let pair = set(
+        &mut e,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Return","Default"]},"values":{"hole":{"via":"0.19mm"}}}),
+    );
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[via,t]}));
+    let holes = &kind(&out, "clearance")["between_holes"];
+    assert_eq!(holes[0]["field"], "hole.via");
+    assert_eq!(holes[0]["value"], 190000);
+    assert_eq!(holes[0]["rule"], pair.to_string());
+    assert_eq!(holes.as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn a_via_shows_its_classes_allowed_types_and_only_its_own_size_kind() {
+    let dir = TempDir::new("applicable-via-span");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Via","layers":4}),
+    );
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let l: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let laser = uuid(
+        &e.run_ok(
+            "pcb.via_type.add",
+            json!({"document":doc,"from":l[0],"to":l[1],"micro":true}),
+        )["result"]["uuid"],
+    );
+    let signal = net(&mut e, "SIG");
+    let fast = class(&mut e, "Fast", &[signal]);
+    let rule = set(
+        &mut e,
+        json!({"kind":"via_span","scope":{"net_class":fast},"values":{"allowed":[laser]}}),
+    );
+    let micro = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":0,"y":0},"from":l[0],"to":l[1],"net":signal}),
+        )["result"]["uuid"],
+    );
+    let through = uuid(&e.run_ok("pcb.via.add", json!({"at":{"x":"5mm","y":0}}))["result"]["uuid"]);
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[micro]}));
+    let allowed = &kind(&out, "via_span")["objects"][0]["allowed"];
+    assert_eq!(
+        allowed,
+        &json!({"via_types":[laser],"rule":rule,"net_class":fast}),
+        "{out:#}"
+    );
+    let has = |out: &Value, k: &str| {
+        out["kinds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["kind"] == k)
+    };
+    assert!(
+        has(&out, "microvia_size") && !has(&out, "via_size"),
+        "{out:#}"
+    );
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[through]}));
+    assert!(
+        has(&out, "via_size") && !has(&out, "microvia_size"),
+        "{out:#}"
+    );
+    assert!(
+        kind(&out, "via_span")["objects"][0]
+            .get("allowed")
+            .is_none()
+    );
 }

@@ -3,8 +3,81 @@
 //! board is active).
 
 use super::*;
+use crate::pcb::route_commands::RouteCommand;
+use crate::pcb::view::RouteLayer;
 
 impl Shell {
+    pub(crate) fn design_generation(&self) -> u64 {
+        self.edits
+    }
+
+    pub(super) fn prepare_route_command(&mut self) {
+        self.board_view_mut().route_layer =
+            if self.router.routing() && self.tool_preview().is_some() {
+                RouteLayer::Routing
+            } else {
+                RouteLayer::Inactive
+            };
+    }
+
+    /// A Layer Command already resolved visibility, direction and presets. Apply its
+    /// destination to the route first, switching the view only for a successful jump.
+    pub(super) fn apply_route_command(&mut self, command: Option<RouteCommand>, out: &mut Value) {
+        if let RouteLayer::Requested(target) =
+            std::mem::take(&mut self.board_view_mut().route_layer)
+        {
+            self.with_router(|r, shell| {
+                r.jump(shell, target, true);
+            });
+            out["layer"] = json!(
+                self.engine
+                    .project()
+                    .and_then(|p| self.board_view().active_layer(p))
+            );
+        }
+        let Some(command) = command else { return };
+        match command {
+            RouteCommand::ViaEnd => self.with_router(|r, shell| r.via_end(shell)),
+            RouteCommand::End => self.with_router(|r, shell| r.end(shell)),
+            RouteCommand::Mode => {
+                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
+                    self.with_router(|r, shell| r.change_mode(shell, mode));
+                }
+            }
+            RouteCommand::Chooser => {
+                if let Ok(kind) = serde_json::from_value(out["kind"].clone()) {
+                    self.with_router(|r, shell| r.open_chooser(shell, kind));
+                }
+            }
+            RouteCommand::ViaSize => {
+                if let (Some(d), Some(h)) = (out["diameter"].as_i64(), out["hole"].as_i64()) {
+                    self.with_router(|r, shell| r.set_via_size(shell, Nm(d), Nm(h)));
+                }
+            }
+            RouteCommand::Finish => self.with_router(|r, shell| r.finish(shell)),
+            RouteCommand::Width => {
+                let width = out["width"].as_i64().map(Nm);
+                let step = match out["step"].as_str() {
+                    Some("next") => Some(1),
+                    Some("previous") => Some(-1),
+                    _ => None,
+                };
+                self.with_router(|r, shell| r.set_width(shell, width, step));
+            }
+            RouteCommand::PreviousLayer | RouteCommand::AddVia => {
+                self.with_router(|r, s| r.add_via(s))
+            }
+            RouteCommand::StartLayer => self.with_router(|r, s| r.start_layer(s)),
+            RouteCommand::ViaStay => self.with_router(|r, s| r.via_stay(s)),
+            RouteCommand::PickVia => {
+                if let Ok(params) = serde_json::from_value(out.clone()) {
+                    self.with_router(|r, s| r.pick_via(s, params));
+                }
+            }
+            RouteCommand::CycleVia => self.with_router(|r, s| r.cycle_via(s)),
+        }
+    }
+
     /// The rubber band's corners while one is drawn.
     pub fn pcb_band(&self) -> Option<(Point, Point)> {
         self.pcb_tool.band()
@@ -13,6 +86,10 @@ impl Shell {
     /// The cursor moved to the board point `at` while routing or placing Vias.
     pub fn route_hover(&mut self, at: Point) {
         self.with_router(|r, shell| r.hover(shell, at));
+    }
+
+    pub(crate) fn route_hover_layer(&mut self, layer: Option<Uuid>) {
+        self.with_router(|r, shell| r.hover_layer(shell, layer));
     }
 
     /// A click at the board point `at` while routing or placing Vias.

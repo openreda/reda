@@ -30,6 +30,8 @@ pub fn register_with_layouts(registry: &mut Registry, dirs: Option<UserDirs>) {
     registry.add(Collapse);
     registry.add(ShowPanel);
     registry.add(OpenDocument);
+    registry.add(OpenStackup);
+    crate::stackup_editor::commands::register(registry);
     registry.add(SaveLayout);
     registry.add(ApplyLayout { dirs });
     registry.add(super::focus::CycleFocus);
@@ -72,6 +74,55 @@ impl Command for OpenDocument {
         }
         let group = layout(cx)?.open_document(p.document);
         Ok(TabPlaced { group })
+    }
+}
+
+struct OpenStackup;
+
+/// Rows the Stackup editor can select immediately, including identities allocated
+/// by New Project. Returning them lets Journal replay remap subsequent table edits.
+#[derive(Serialize, JsonSchema)]
+pub struct OpenedStackup {
+    pub group: GroupId,
+    pub layers: Vec<Uuid>,
+    pub dielectrics: Vec<Uuid>,
+    pub via_types: Vec<Uuid>,
+    pub presets: Vec<Uuid>,
+}
+
+impl Command for OpenStackup {
+    const META: Meta = Meta {
+        id: "pcb.stackup.open",
+        title: "Open Stackup editor",
+        description: "Opens or focuses the Stackup editor for this PCB Document.",
+        category: "layout",
+        icon: "layers",
+        kind: Kind::View,
+    };
+    type Params = OpenDocumentParams;
+    type Output = OpenedStackup;
+
+    fn run(
+        &self,
+        cx: &mut Context<'_>,
+        p: OpenDocumentParams,
+    ) -> Result<OpenedStackup, CommandError> {
+        let project = cx.project()?;
+        let pcb = project
+            .pcb_document(p.document)
+            .ok_or_else(|| CommandError::not_found(format!("no PCB Document {}", p.document)))?;
+        let layers = pcb.copper_layers().map(|l| l.uuid).collect();
+        let dielectrics = pcb.stackup().dielectrics().map(|d| d.uuid).collect();
+        let via_types = pcb.stackup().via_types.iter().map(|t| t.uuid).collect();
+        let presets = project.fab_presets().map(|p| p.uuid).collect();
+        let group = layout(cx)?.open_in_document_group(TabKey::Stackup(p.document));
+        Ok(OpenedStackup {
+            group,
+            layers,
+            dielectrics,
+            via_types,
+            presets,
+        })
     }
 }
 

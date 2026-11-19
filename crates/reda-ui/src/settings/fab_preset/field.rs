@@ -2,7 +2,7 @@
 //! and writes text back, or says why the text is not a value.
 
 use reda_engine::model::geom::Nm;
-use reda_engine::model::{BomGroup, ColumnSource, FabPreset, PasteExpansion};
+use reda_engine::model::{BomGroup, ColumnSource, FabPreset, GerberSettings, PasteExpansion};
 
 use super::PresetPage;
 use crate::footprint_editor::inspector::format_mm;
@@ -12,6 +12,8 @@ use crate::tr;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
     Clearance,
+    ViaHoleClearance,
+    PadHoleClearance,
     TrackWidth,
     ViaDiameter,
     ViaHole,
@@ -20,6 +22,12 @@ pub enum Field {
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    SilkWidth,
+    SilkTextHeight,
+    InnerTrackWidth,
+    InnerClearance,
+    InnerAnnularRing,
+
     PreferredTrackWidth,
     PreferredViaDiameter,
     PreferredViaHole,
@@ -34,6 +42,7 @@ pub enum Field {
     SuggestFinish,
     SuggestMaskColour,
     SuggestSilkColour,
+    InnerCopper,
     GroupBy,
     Sort,
     LineStart,
@@ -43,8 +52,10 @@ pub enum Field {
 
 impl Field {
     /// Every typed field, in page order.
-    pub const ALL: [Field; 27] = [
+    pub const ALL: [Field; 35] = [
         Field::Clearance,
+        Field::ViaHoleClearance,
+        Field::PadHoleClearance,
         Field::TrackWidth,
         Field::ViaDiameter,
         Field::ViaHole,
@@ -53,6 +64,11 @@ impl Field {
         Field::AnnularRing,
         Field::HoleToHole,
         Field::EdgeClearance,
+        Field::SilkWidth,
+        Field::SilkTextHeight,
+        Field::InnerTrackWidth,
+        Field::InnerClearance,
+        Field::InnerAnnularRing,
         Field::PreferredTrackWidth,
         Field::PreferredViaDiameter,
         Field::PreferredViaHole,
@@ -66,6 +82,7 @@ impl Field {
         Field::SuggestFinish,
         Field::SuggestMaskColour,
         Field::SuggestSilkColour,
+        Field::InnerCopper,
         Field::GroupBy,
         Field::Sort,
         Field::LineStart,
@@ -78,6 +95,9 @@ impl Field {
     pub fn id(self) -> &'static str {
         match self {
             Field::Clearance => "rules.clearance",
+            Field::ViaHoleClearance => "rules.clearance_hole.via",
+            Field::PadHoleClearance => "rules.clearance_hole.pad",
+
             Field::TrackWidth => "rules.track_width",
             Field::ViaDiameter => "rules.via_diameter",
             Field::ViaHole => "rules.via_hole",
@@ -86,19 +106,26 @@ impl Field {
             Field::AnnularRing => "rules.annular_ring",
             Field::HoleToHole => "rules.hole_to_hole",
             Field::EdgeClearance => "rules.edge_clearance",
+            Field::SilkWidth => "rules.silk_width",
+            Field::SilkTextHeight => "rules.silk_text_height",
+            Field::InnerTrackWidth => "rules.inner.track_width_min",
+            Field::InnerClearance => "rules.inner.clearance",
+            Field::InnerAnnularRing => "rules.inner.annular_ring_min",
+
             Field::PreferredTrackWidth => "rules.preferred.track_width",
             Field::PreferredViaDiameter => "rules.preferred.via_diameter",
             Field::PreferredViaHole => "rules.preferred.via_hole",
             Field::MaskTop => "rules.mask_expansion.top",
             Field::MaskBottom => "rules.mask_expansion.bottom",
             Field::Paste => "rules.paste_expansion",
-            Field::SeedThickness => "stackup.thickness",
-            Field::SeedCopper => "stackup.copper",
+            Field::SeedThickness => "constructions.thickness",
+            Field::SeedCopper => "constructions.copper",
             Field::SuggestThickness => "stackup_suggestions.thickness",
             Field::SuggestCopper => "stackup_suggestions.copper",
             Field::SuggestFinish => "stackup_suggestions.finish",
             Field::SuggestMaskColour => "stackup_suggestions.mask_color",
             Field::SuggestSilkColour => "stackup_suggestions.silk_color",
+            Field::InnerCopper => "gerber.file_names.inner_copper",
             Field::GroupBy => "bom.group_by",
             Field::Sort => "bom.sort",
             Field::LineStart => "bom.line_numbers.start",
@@ -122,6 +149,9 @@ impl Field {
         let list = |items: &[String]| items.join(", ");
         match self {
             Field::Clearance => format_mm(r.clearance),
+            Field::ViaHoleClearance => format_mm(r.clearance_hole.via),
+            Field::PadHoleClearance => format_mm(r.clearance_hole.pad),
+
             Field::TrackWidth => format_mm(r.track_width),
             Field::ViaDiameter => format_mm(r.via_diameter),
             Field::ViaHole => format_mm(r.via_hole),
@@ -130,6 +160,24 @@ impl Field {
             Field::AnnularRing => format_mm(r.annular_ring),
             Field::HoleToHole => format_mm(r.hole_to_hole),
             Field::EdgeClearance => format_mm(r.edge_clearance),
+            Field::SilkWidth => r.silk_width.map(format_mm).unwrap_or_default(),
+            Field::SilkTextHeight => r.silk_text_height.map(format_mm).unwrap_or_default(),
+            Field::InnerTrackWidth => r
+                .inner
+                .and_then(|inner| inner.track_width_min)
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::InnerClearance => r
+                .inner
+                .and_then(|inner| inner.clearance)
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::InnerAnnularRing => r
+                .inner
+                .and_then(|inner| inner.annular_ring_min)
+                .map(format_mm)
+                .unwrap_or_default(),
+
             Field::PreferredTrackWidth => format_mm(r.preferred.track_width),
             Field::PreferredViaDiameter => format_mm(r.preferred.via_diameter),
             Field::PreferredViaHole => format_mm(r.preferred.via_hole),
@@ -139,13 +187,27 @@ impl Field {
                 PasteExpansion::Expansion { expansion } => format_mm(expansion),
                 PasteExpansion::Percent { percent } => percent.to_string(),
             },
-            Field::SeedThickness => preset.stackup.thickness.map(format_mm).unwrap_or_default(),
-            Field::SeedCopper => preset.stackup.copper.map(copper_text).unwrap_or_default(),
+            Field::SeedThickness => preset
+                .stackup_seeds()
+                .thickness
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::SeedCopper => preset
+                .stackup_seeds()
+                .copper
+                .map(copper_text)
+                .unwrap_or_default(),
             Field::SuggestThickness => lengths(&preset.stackup_suggestions.thickness, format_mm),
             Field::SuggestCopper => lengths(&preset.stackup_suggestions.copper, copper_text),
             Field::SuggestFinish => list(&preset.stackup_suggestions.finish),
             Field::SuggestMaskColour => list(&preset.stackup_suggestions.mask_color),
             Field::SuggestSilkColour => list(&preset.stackup_suggestions.silk_color),
+            Field::InnerCopper => preset
+                .gerber
+                .file_names
+                .inner_copper
+                .clone()
+                .unwrap_or_default(),
             Field::GroupBy => preset
                 .bom
                 .group_by
@@ -179,6 +241,9 @@ impl Field {
         };
         match self {
             Field::Clearance => r.clearance = size(text)?,
+            Field::ViaHoleClearance => r.clearance_hole.via = size(text)?,
+            Field::PadHoleClearance => r.clearance_hole.pad = size(text)?,
+
             Field::TrackWidth => r.track_width = size(text)?,
             Field::ViaDiameter => r.via_diameter = size(text)?,
             Field::ViaHole => r.via_hole = size(text)?,
@@ -187,6 +252,18 @@ impl Field {
             Field::AnnularRing => r.annular_ring = size(text)?,
             Field::HoleToHole => r.hole_to_hole = size(text)?,
             Field::EdgeClearance => r.edge_clearance = size(text)?,
+            Field::SilkWidth => r.silk_width = optional(text, size)?,
+            Field::SilkTextHeight => r.silk_text_height = optional(text, size)?,
+            Field::InnerClearance | Field::InnerTrackWidth | Field::InnerAnnularRing => {
+                let mut inner = r.inner.unwrap_or_default();
+                let value = optional(text, size)?;
+                match self {
+                    Field::InnerClearance => inner.clearance = value,
+                    Field::InnerTrackWidth => inner.track_width_min = value,
+                    _ => inner.annular_ring_min = value,
+                }
+                r.inner = (inner != Default::default()).then_some(inner);
+            }
             Field::PreferredTrackWidth => r.preferred.track_width = size(text)?,
             Field::PreferredViaDiameter => r.preferred.via_diameter = size(text)?,
             Field::PreferredViaHole => r.preferred.via_hole = size(text)?,
@@ -207,8 +284,46 @@ impl Field {
                     },
                 }
             }
-            Field::SeedThickness => preset.stackup.thickness = optional(text, size)?,
-            Field::SeedCopper => preset.stackup.copper = optional(text, copper)?,
+            Field::SeedThickness | Field::SeedCopper => {
+                use reda_engine::model::{
+                    ConstructionEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
+                };
+                let value = optional(
+                    text,
+                    if self == Field::SeedThickness {
+                        size
+                    } else {
+                        copper
+                    },
+                )?;
+                let index = preset
+                    .constructions
+                    .iter()
+                    .position(|c| {
+                        c.default
+                            && c.entries
+                                .iter()
+                                .filter(|e| matches!(e, ConstructionEntry::Copper { .. }))
+                                .count()
+                                == 2
+                    })
+                    .unwrap_or_else(|| {
+                        preset
+                            .constructions
+                            .push(reda_engine::pcb::construction::two_layer(Default::default()));
+                        preset.constructions.len() - 1
+                    });
+                let construction = &mut preset.constructions[index];
+                if self == Field::SeedThickness {
+                    construction.thickness = value.unwrap_or(DEFAULT_BOARD_THICKNESS);
+                } else {
+                    for entry in &mut construction.entries {
+                        if let ConstructionEntry::Copper { copper } = entry {
+                            *copper = value.unwrap_or(DEFAULT_COPPER);
+                        }
+                    }
+                }
+            }
             Field::SuggestThickness => {
                 preset.stackup_suggestions.thickness = each(text, size)?;
             }
@@ -216,6 +331,12 @@ impl Field {
             Field::SuggestFinish => preset.stackup_suggestions.finish = names(text),
             Field::SuggestMaskColour => preset.stackup_suggestions.mask_color = names(text),
             Field::SuggestSilkColour => preset.stackup_suggestions.silk_color = names(text),
+            Field::InnerCopper => {
+                if !text.is_empty() {
+                    GerberSettings::inner_copper_file_name(text, "Board", 2)?;
+                }
+                preset.gerber.file_names.inner_copper = (!text.is_empty()).then(|| text.to_owned());
+            }
             Field::GroupBy => preset.bom.group_by = each(text, group)?,
             Field::Sort => preset.bom.sort = each(text, source)?,
             Field::LineStart => preset.bom.line_numbers.start = count(text, 0)?,

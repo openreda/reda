@@ -26,10 +26,21 @@ pub const VIEW_SAVE_DELAY: Duration = Duration::from_secs(1);
 /// The REDA version written into the file; a file from any other version is discarded.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// A choice for the same pair of copper positions in either routing direction.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ViaPairChoice {
+    pub positions: [usize; 2],
+    pub types: Vec<Uuid>,
+}
+
 /// One Document's Layer state in its view.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LayerView {
+    /// Last known physical order, used to recover a removed active Layer after
+    /// a script changed the board while the editor was closed.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub copper_order: Vec<Uuid>,
     /// The Layers hidden, by UUID.
     pub hidden: BTreeSet<Uuid>,
     /// How Layers other than the active one are drawn; unset follows the Preference.
@@ -38,6 +49,14 @@ pub struct LayerView {
     /// The Layer edited; unset is the top copper.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active: Option<Uuid>,
+    /// The copper Layer edited before the current one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous: Option<Uuid>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub via_choices: Vec<ViaPairChoice>,
+    /// The most recently active copper while a non-copper Layer is active.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_copper: Option<Uuid>,
     /// The board is seen from below: mirrored, with the physical Layer order reversed.
     #[serde(skip_serializing_if = "is_default")]
     pub from_bottom: bool,
@@ -83,6 +102,7 @@ pub struct KindDisplay {
 pub struct LabelView {
     pub pad_nets: bool,
     pub via_nets: bool,
+    pub via_spans: bool,
     pub repeated_net_names: bool,
 }
 
@@ -91,6 +111,7 @@ impl Default for LabelView {
         LabelView {
             pad_nets: true,
             via_nets: true,
+            via_spans: false,
             repeated_net_names: false,
         }
     }

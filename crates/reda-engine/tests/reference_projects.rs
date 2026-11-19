@@ -27,21 +27,28 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use reda_engine::Engine;
-use reda_engine::command::{FixedClock, SeededIds};
 use reda_engine::format::FORMAT;
 use reda_engine::store;
 use reda_testkit::{
-    TempDir, TestEngine, assert_golden, read_tree, starter_library, test_engine_with_library,
+    TempDir, TestEngine, assert_golden, open_reference_copy, read_tree, starter_library,
+    test_engine_with_library,
 };
 use serde_json::{Value, json};
 
-/// Every reference Project: its folder under `tests/projects/` and its Project file.
+#[path = "reference_projects/migration.rs"]
+mod migration;
+
+/// Every current reference Project, in release order: its folder and Project file.
 const PROJECTS: &[(&str, &str)] = &[
     ("minimal_board", "Minimal.reda"),
     ("blinky_555", "Blinky.reda"),
     ("usb_c_mcu", "UsbMcu.reda"),
+    ("four_layer", "FourLayer.reda"),
+    ("six_layer_hdi", "SixLayerHdi.reda"),
 ];
+
+/// The three Projects shipped with format 1 and frozen for its migration tests.
+const V1_PROJECTS: &[(&str, &str)] = PROJECTS.split_at(3).0;
 
 /// Folders under `tests/projects/` that are not Projects.
 const NOT_PROJECTS: &[&str] = &["goldens", "formats"];
@@ -66,25 +73,7 @@ fn copy_tree(from: &Path, to: &Path) {
 /// Opens a copy of the reference Project in a fresh folder, so runs never write into
 /// the repo.
 fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
-    let work = TempDir::new(&format!("reference-{dir}"));
-    copy_tree(&projects_dir().join(dir), work.path());
-    // The Projects were made on seed 0; another seed keeps new objects' UUIDs clear of
-    // theirs.
-    let mut engine = TestEngine(
-        Engine::builder()
-            .version(reda_testkit::TEST_VERSION)
-            .ids(SeededIds::new(1 << 32))
-            .clock(FixedClock::EPOCH)
-            .user_dirs(None)
-            .starter_library(Some(starter_library()))
-            .build(),
-    );
-    let opened = engine.run_ok("project.open", json!({"path": work.path().join(file)}));
-    assert!(
-        opened.get("missing").is_none(),
-        "{dir}: Documents are missing: {opened}"
-    );
-    (work, engine)
+    open_reference_copy(&projects_dir().join(dir), file)
 }
 
 /// Pretty JSON with a final newline, for goldens.
@@ -294,7 +283,8 @@ fn every_older_format_has_a_frozen_copy_that_opens_and_saves() {
     // Empty while REDA is on its first format.
     #[allow(clippy::reversed_empty_ranges)]
     for n in 1..FORMAT {
-        for (dir, file) in PROJECTS {
+        let released_projects = if n == 1 { V1_PROJECTS } else { PROJECTS };
+        for (dir, file) in released_projects {
             let frozen = projects_dir()
                 .join("formats")
                 .join(format!("v{n}"))
@@ -365,4 +355,155 @@ fn time_drc_after_a_track_edit() {
             engine.run_ok("drc.run", json!({}))
         });
     }
+}
+
+#[test]
+fn six_layer_hdi_is_a_clean_six_layer_board() {
+    check_clean_board("six_layer_hdi", "SixLayerHdi.reda", 6);
+}
+
+#[test]
+fn four_layer_is_clean_and_uses_the_signal_to_return_clearance() {
+    use reda_engine::model::{RuleKind, RuleScope, UnusedLayers, geom::Nm};
+    use reda_engine::pcb::rules::{clearance_between_on, net_rules_on};
+
+    check_clean_board("four_layer", "FourLayer.reda", 4);
+    let (_work, engine) = open_copy("four_layer", "FourLayer.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let net = |name| pcb.nets().find(|n| n.name == name).unwrap();
+    let signal = net("SIGNAL");
+    let ret = net("RETURN");
+    let mut classes = [
+        pcb.net_class_named("Signal").unwrap().uuid,
+        pcb.net_class_named("Return").unwrap().uuid,
+    ];
+    assert_eq!(signal.classes, [classes[0]]);
+    assert_eq!(ret.classes, [classes[1]]);
+    classes.sort();
+    assert!(
+        pcb.scoped_rule(
+            RuleKind::Clearance,
+            &RuleScope {
+                net_class_pair: Some(classes),
+                ..RuleScope::BOARD
+            }
+        )
+        .unwrap()
+        .enabled
+    );
+    assert!(
+        pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
+            .unwrap()
+            .enabled
+    );
+    let layer = pcb.copper_layers().nth(1).unwrap().uuid;
+    let width = net_rules_on(pcb, Some(signal.uuid), Some(layer)).track_width;
+    assert_eq!(
+        (width.min, width.preferred),
+        (Some(Nm(150_000)), Nm(250_000))
+    );
+    assert_eq!(
+        clearance_between_on(pcb, Some(signal.uuid), Some(ret.uuid), Some(layer)),
+        Some(Nm(250_000))
+    );
+    assert_eq!(pcb.stackup().via_types.len(), 1);
+    assert_eq!(pcb.vias().count(), 2);
+    for via in pcb.vias() {
+        assert_eq!(via.span, pcb.stackup().through_type().span());
+        assert_eq!(via.unused_layers, UnusedLayers::Remove);
+    }
+    // The through-hole Free Pad leaves out its unconnected inner lands.
+    let pad = pcb
+        .free_pads()
+        .find(|p| p.unused_layers == UnusedLayers::Remove)
+        .unwrap();
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let item = reda_engine::pcb::Item::FreePad { uuid: pad.uuid };
+    let lands: Vec<bool> = pcb
+        .copper_layers()
+        .map(|l| copper.items_at(l.uuid, pad.at).contains(&item))
+        .collect();
+    assert_eq!(lands, [true, false, false, true]);
+}
+
+fn check_clean_board(name: &str, file: &str, expected_layers: usize) {
+    let (_work, mut engine) = open_copy(name, file);
+    assert_eq!(
+        engine
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .copper_layers()
+            .count(),
+        expected_layers
+    );
+    for check in ["erc.run", "drc.run"] {
+        let report = engine.run_ok(check, json!({}));
+        assert_eq!(report["violations"], json!([]), "{check}: {report}");
+        assert_eq!(report["waived"], 0, "{check}: {report}");
+    }
+    assert_eq!(engine.run_ok("sync.preview", json!({}))["count"], 0);
+    assert_eq!(engine.run_ok("pcb.ratsnest", json!({}))["lines"], json!([]));
+}
+
+#[test]
+fn six_layer_hdi_routes_its_allowed_types_through_a_stacked_laser_pair() {
+    use reda_engine::model::{CopperRole, PadKind, PadShape, RuleKind};
+    use std::collections::BTreeSet;
+
+    let (_work, engine) = open_copy("six_layer_hdi", "SixLayerHdi.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().collect();
+    assert_eq!(layers[2].name.as_deref(), Some("HDI breakout"));
+    assert_eq!(layers[2].role, CopperRole::Mixed);
+
+    let net = pcb.nets().find(|n| n.name == "HDI_PATH").unwrap();
+    let class = pcb.net_class_named("HDI signal").unwrap();
+    assert_eq!(net.classes, [class.uuid]);
+    let allowed = pcb
+        .rules()
+        .find(|r| r.enabled && r.kind == RuleKind::ViaSpan && r.scope.net_class == Some(class.uuid))
+        .unwrap()
+        .values
+        .allowed
+        .as_ref()
+        .unwrap();
+    let mut spans = BTreeMap::new();
+    let mut used = BTreeSet::new();
+    for via in pcb.vias() {
+        assert_eq!(via.net, Some(net.uuid));
+        let kind = pcb.stackup().type_for_span(via.span).unwrap();
+        let span = (
+            pcb.copper_number(via.span.from).unwrap(),
+            pcb.copper_number(via.span.to).unwrap(),
+        );
+        assert!(spans.insert(span, (kind.micro, via.at)).is_none());
+        used.insert(kind.uuid);
+    }
+    assert_eq!(
+        spans.keys().copied().collect::<Vec<_>>(),
+        [(1, 2), (2, 3), (3, 5), (6, 5)]
+    );
+    assert!(spans[&(1, 2)].0 && spans[&(2, 3)].0);
+    assert_eq!(
+        spans[&(1, 2)].1,
+        spans[&(2, 3)].1,
+        "end-to-end Micro Vias share a centre"
+    );
+    assert!(!spans[&(3, 5)].0 && !spans[&(6, 5)].0);
+    assert_eq!(allowed.iter().copied().collect::<BTreeSet<_>>(), used);
+
+    let pad = pcb
+        .free_pads()
+        .find(|p| p.kind == PadKind::PlatedThroughHole)
+        .unwrap();
+    assert_eq!(
+        (
+            pad.shape,
+            pad.middle.unwrap().shape,
+            pad.bottom.unwrap().shape
+        ),
+        (PadShape::Oval, PadShape::Rect, PadShape::Circle)
+    );
 }

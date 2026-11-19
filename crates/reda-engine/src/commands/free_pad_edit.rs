@@ -31,6 +31,15 @@ pub struct FreePadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
+    /// Replaces the entire inner copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    /// Replaces the entire bottom copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
+    pub unused_layers: Option<reda_model::UnusedLayers>,
+    /// False opts this Pad out of derived Teardrops on every Layer.
+    pub teardrop: Option<bool>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -58,7 +67,7 @@ pub struct FreePadEditParams {
     /// Replaces the whole Zone connection; `null` inherits every value.
     #[serde(default, deserialize_with = "present")]
     pub zone_connection: Option<Option<ZoneConnectionParam>>,
-    /// Edits a locked Free Pad too; without it a locked one refuses.
+    /// Edits a locked Free Pad too. Changing only its Teardrop permission needs no unlock.
     #[serde(default)]
     pub include_locked: bool,
 }
@@ -91,7 +100,6 @@ impl Command for FreePadEdit {
             .free_pad(p.pad)
             .ok_or_else(|| CommandError::not_found(format!("the PCB has no Free Pad {}", p.pad)))?
             .clone();
-        reda_pcb::lock::refuse(pcb, [free.uuid], p.include_locked, "edit")?;
         let patch = PadPatch {
             kind: p.kind,
             shape: p.shape,
@@ -107,18 +115,25 @@ impl Command for FreePadEdit {
             side: p.side,
             mask: p.mask,
             paste: p.paste,
+            middle: p.middle,
+            bottom: p.bottom,
+            unused_layers: p.unused_layers,
             zone_connection: p.zone_connection,
         };
         let pad = patch.apply(as_pad(&free))?;
-        let edited = FreePad {
+        let mut edited = FreePad {
             uuid: free.uuid,
             locked: free.locked,
+            teardrop: free.teardrop,
             kind: pad.kind,
             shape: pad.shape,
             at: pad.at,
             rotation: pad.rotation,
             width: pad.width,
             height: pad.height,
+            middle: pad.middle,
+            bottom: pad.bottom,
+            unused_layers: pad.unused_layers,
             corner_ratio: pad.corner_ratio,
             chamfer_ratio: pad.chamfer_ratio,
             corners: pad.corners,
@@ -130,6 +145,11 @@ impl Command for FreePadEdit {
             paste: pad.paste,
             zone_connection: pad.zone_connection,
         };
+        // A Lock allows the derived Teardrops to change while protecting the Pad itself.
+        if p.teardrop.is_none() || edited != free {
+            reda_pcb::lock::refuse(pcb, [free.uuid], p.include_locked, "edit")?;
+        }
+        edited.teardrop = p.teardrop.unwrap_or(free.teardrop);
         if let Some((pointer, problem)) = edited.problem() {
             return Err(CommandError::invalid_params(&pointer, problem));
         }
@@ -150,6 +170,10 @@ fn as_pad(free: &FreePad) -> Pad {
         rotation: free.rotation,
         width: free.width,
         height: free.height,
+        middle: free.middle,
+        bottom: free.bottom,
+        teardrop: free.teardrop,
+        unused_layers: free.unused_layers,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,

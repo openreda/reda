@@ -26,9 +26,9 @@ mod length;
 mod model;
 
 pub use model::{
-    ANGLES, Band, BoardSetupDraft, ClassKey, ClassRow, CrossBand, FabPreview, GRID_FIELDS,
-    GRID_KINDS, ImportPreview, NetRow, PasteMode, RuleChange, RuleField, SPOKES, STYLES,
-    StackupDraft, StackupRow, ValueKind, class_field, kind_name,
+    ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS,
+    ImportPreview, NetRow, PasteMode, RuleChange, RuleField, SPOKES, STYLES, ValueKind,
+    class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -39,6 +39,8 @@ type Shared = Rc<RefCell<BoardSetupDraft>>;
 pub enum Rule {
     Clearance,
     TrackWidth,
+    /// Drilled Vias (`via_size`) and micro Vias (`microvia_size`), each with its sizes,
+    /// aspect ratio and Net Class overrides; micro Vias also limit their stack height.
     Vias,
     /// Hole size, annular ring and hole-to-hole spacing.
     Holes,
@@ -51,6 +53,7 @@ pub enum Rule {
     /// How fills join through-hole Pads, SMD Pads and Vias, and the Zone naming scheme.
     /// No DRC severity.
     ZoneConnections,
+    Teardrops,
 }
 
 /// One check on a rule page: its board-wide values, a Net Class override table and its
@@ -65,6 +68,14 @@ pub struct Section {
 }
 
 impl Section {
+    /// Values editable on the board-wide record. The override table uses all fields.
+    pub fn board_fields(&self) -> impl Iterator<Item = RuleField> {
+        self.fields
+            .iter()
+            .copied()
+            .filter(|f| f.applies_board_wide())
+    }
+
     const fn check(check: DrcCheck, fields: &'static [RuleField]) -> Section {
         Section {
             check: Some(check),
@@ -83,7 +94,7 @@ impl Section {
 }
 
 impl Rule {
-    pub const ALL: [Rule; 8] = [
+    pub const ALL: [Rule; 9] = [
         Rule::Clearance,
         Rule::TrackWidth,
         Rule::Vias,
@@ -92,6 +103,7 @@ impl Rule {
         Rule::MaskPaste,
         Rule::Silkscreen,
         Rule::ZoneConnections,
+        Rule::Teardrops,
     ];
 
     /// The checks on the page, each with its values.
@@ -111,22 +123,41 @@ impl Rule {
         const TH: [RuleField; 5] = connection(T::ThroughHole);
         const SMD: [RuleField; 5] = connection(T::Smd);
         const VIA: [RuleField; 5] = connection(T::Via);
-        const CLEARANCE: &[Section] = &[Section::check(DrcCheck::Clearance, &[F::Clearance])];
+        const CLEARANCE: &[Section] = &[Section::check(
+            DrcCheck::Clearance,
+            &[F::Clearance, F::ViaHoleClearance, F::PadHoleClearance],
+        )];
         const TRACK_WIDTH: &[Section] = &[Section::check(
             DrcCheck::TrackWidth,
             &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
         )];
-        const VIAS: &[Section] = &[Section::check(
-            DrcCheck::ViaSize,
-            &[
-                F::ViaDiameter,
-                F::ViaDiameterPreferred,
-                F::ViaDiameterMax,
-                F::ViaHole,
-                F::ViaHolePreferred,
-                F::ViaHoleMax,
-            ],
-        )];
+        const VIAS: &[Section] = &[
+            Section::check(
+                DrcCheck::ViaSize,
+                &[
+                    F::ViaDiameter,
+                    F::ViaDiameterPreferred,
+                    F::ViaDiameterMax,
+                    F::ViaHole,
+                    F::ViaHolePreferred,
+                    F::ViaHoleMax,
+                    F::ViaAspectRatio,
+                ],
+            ),
+            Section::check(
+                DrcCheck::MicroviaSize,
+                &[
+                    F::MicroDiameter,
+                    F::MicroDiameterPreferred,
+                    F::MicroDiameterMax,
+                    F::MicroHole,
+                    F::MicroHolePreferred,
+                    F::MicroHoleMax,
+                    F::MicroAspectRatio,
+                    F::MicroMaxStack,
+                ],
+            ),
+        ];
         const HOLES: &[Section] = &[
             Section::check(DrcCheck::HoleSize, &[F::HoleMin, F::HoleMax]),
             Section::check(DrcCheck::AnnularRing, &[F::AnnularRing]),
@@ -149,7 +180,30 @@ impl Rule {
             ),
             Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
         ];
-        const SILKSCREEN: &[Section] = &[Section::check(DrcCheck::SilkToMask, &[F::SilkToMask])];
+        const SILKSCREEN: &[Section] = &[
+            Section::check(DrcCheck::SilkToMask, &[F::SilkToMask]),
+            Section::check(DrcCheck::SilkWidth, &[F::SilkWidth]),
+            Section::check(DrcCheck::SilkTextHeight, &[F::SilkTextHeight]),
+        ];
+        const fn teardrop(kind: reda_engine::model::TeardropKind) -> [RuleField; 7] {
+            use reda_engine::model::TeardropField::*;
+            [
+                F::Teardrop(kind, Enabled),
+                F::Teardrop(kind, Length),
+                F::Teardrop(kind, MaxLength),
+                F::Teardrop(kind, Width),
+                F::Teardrop(kind, MaxWidth),
+                F::Teardrop(kind, Curved),
+                F::Teardrop(kind, SkipRatio),
+            ]
+        }
+        use reda_engine::model::TeardropKind as K;
+        const TEARDROPS: &[Section] = &[
+            Section::plain(None, &teardrop(K::ThroughHolePad)),
+            Section::plain(None, &teardrop(K::SmdPad)),
+            Section::plain(None, &teardrop(K::Via)),
+            Section::plain(None, &teardrop(K::WidthChange)),
+        ];
         const ZONE_CONNECTIONS: &[Section] = &[
             Section::plain(Some(T::ThroughHole), &TH),
             Section::plain(Some(T::Smd), &SMD),
@@ -164,6 +218,7 @@ impl Rule {
             Rule::MaskPaste => MASK_PASTE,
             Rule::Silkscreen => SILKSCREEN,
             Rule::ZoneConnections => ZONE_CONNECTIONS,
+            Rule::Teardrops => TEARDROPS,
         }
     }
 
@@ -184,6 +239,7 @@ impl Rule {
             Rule::Silkscreen => tr!("board-setup-page-silkscreen"),
             Rule::MaskPaste => tr!("board-setup-page-mask-paste"),
             Rule::ZoneConnections => tr!("board-setup-page-zone-connections"),
+            Rule::Teardrops => tr!("board-setup-page-teardrops"),
         }
     }
 
@@ -348,8 +404,7 @@ impl Page for NetClassesPage {
     }
 }
 
-/// The Stackup page: the copper and dielectric thicknesses with their totals and a
-/// cross-section, the finish and colours, and the Fab Notes text.
+/// The Stackup summary and the board’s Fab Notes.
 pub struct StackupPage {
     view: View,
 }
@@ -361,6 +416,10 @@ impl StackupPage {
 }
 
 impl Page for StackupPage {
+    fn problems(&self) -> Vec<Problem> {
+        Vec::new()
+    }
+
     fn title(&self) -> String {
         tr!("board-setup-page-stackup")
     }
@@ -383,12 +442,6 @@ impl Page for StackupPage {
 
     fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
         self.view.picked_file(shell, request, path);
-    }
-
-    fn problems(&self) -> Vec<Problem> {
-        let problems = self.view.board.borrow().problems();
-        let ours = |p: &Problem| p.field.starts_with("stackup/");
-        problems.into_iter().filter(ours).collect()
     }
 
     fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {

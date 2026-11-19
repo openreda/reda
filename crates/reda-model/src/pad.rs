@@ -17,8 +17,23 @@ use crate::{Side, Uuid};
 pub struct Pad {
     pub uuid: Uuid,
     pub number: String,
+    /// False on a locally edited Footprint copy opts this Pad out on every Layer.
+    #[serde(
+        default = "crate::pcb::yes",
+        skip_serializing_if = "crate::pcb::is_true"
+    )]
+    pub teardrop: bool,
     pub kind: PadKind,
     pub shape: PadShape,
+    /// Optional copper on all inner Layers, in the Pad's frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middle: Option<PadCopperShape>,
+    /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<PadCopperShape>,
+    /// Whether unused inner lands of a plated through-hole Pad are removed.
+    #[serde(default, skip_serializing_if = "crate::UnusedLayers::is_keep")]
+    pub unused_layers: crate::UnusedLayers,
     /// The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks
     /// connect there and the Pad turns about it.
     pub at: Point,
@@ -59,13 +74,33 @@ pub struct Pad {
 
 impl Pad {
     pub fn problem(&self) -> Option<(String, String)> {
-        self.form().problem().or_else(|| {
-            crate::opening_problem(
-                self.kind,
-                self.side,
-                self.mask.as_ref(),
-                self.paste.as_ref(),
-            )
+        self.form()
+            .stack_problem(self.middle, self.bottom)
+            .or_else(|| self.stored_problem())
+    }
+
+    /// Structural errors on a stored Pad. Its dimensional checks also run in the
+    /// Library checker, so an authored Footprint can be opened for repair.
+    pub fn stored_problem(&self) -> Option<(String, String)> {
+        self.form()
+            .stack_kind_problem(self.middle, self.bottom)
+            .or_else(|| self.unused_layers.pad_problem(self.kind))
+            .or_else(|| {
+                crate::opening_problem(
+                    self.kind,
+                    self.side,
+                    self.mask.as_ref(),
+                    self.paste.as_ref(),
+                )
+            })
+    }
+
+    /// The Pad's copper and shared hole on an outer side or any inner Layer.
+    pub fn form_on(&self, side: Option<Side>) -> PadForm {
+        self.form().with_copper(match side {
+            Some(Side::Top) => None,
+            Some(Side::Bottom) => self.bottom,
+            None => self.middle,
         })
     }
 
@@ -161,6 +196,17 @@ impl Hole {
     /// The drill diameter: the shorter side.
     pub fn diameter(&self) -> Nm {
         self.width.min(self.height)
+    }
+
+    /// The slot's axis-aligned extents: its rotated centre line plus the cutter diameter.
+    fn rotated_size(&self) -> (Nm, Nm) {
+        let diameter = self.diameter();
+        let (x, y) = reda_geom::rotate(
+            (self.width - diameter).0,
+            (self.height - diameter).0,
+            self.rotation,
+        );
+        (Nm(x.abs()) + diameter, Nm(y.abs()) + diameter)
     }
 
     /// The ends of a slot's centre line in the Pad's frame, about the anchor; both at the
@@ -373,7 +419,9 @@ impl JsonSchema for Corners {
 
 /// How a Zone fill joins a Pad of its own Net. Each value left out inherits from the
 /// `zone_connection` rule.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -415,7 +463,9 @@ impl ZoneConnection {
 }
 
 /// How a fill meets a Pad or Via.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionStyle {
     /// Through spokes across a clear ring, so the Pad solders easily.
@@ -424,6 +474,22 @@ pub enum ConnectionStyle {
     Solid,
     /// The fill keeps the gap clear and doesn't connect.
     None,
+}
+
+/// The complete copper shape of one Pad Stack group. Its anchor, offset and hole
+/// belong to the Pad and are shared by every group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PadCopperShape {
+    pub shape: PadShape,
+    pub width: Nm,
+    pub height: Nm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corner_ratio: Option<Ratio>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chamfer_ratio: Option<Ratio>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corners: Option<Corners>,
 }
 
 /// The shape fields every Pad has, Footprint Pad or Free Pad.
@@ -443,6 +509,68 @@ pub struct PadForm {
 }
 
 impl PadForm {
+    /// The copper group, without the anchor, offset and hole shared by the Pad Stack.
+    pub fn copper(&self) -> PadCopperShape {
+        PadCopperShape {
+            shape: self.shape,
+            width: self.width,
+            height: self.height,
+            corner_ratio: self.corner_ratio,
+            chamfer_ratio: self.chamfer_ratio,
+            corners: self.corners,
+        }
+    }
+
+    pub(crate) fn with_copper(self, copper: Option<PadCopperShape>) -> Self {
+        let Some(c) = copper else { return self };
+        Self {
+            shape: c.shape,
+            width: c.width,
+            height: c.height,
+            corner_ratio: c.corner_ratio,
+            chamfer_ratio: c.chamfer_ratio,
+            corners: c.corners,
+            ..self
+        }
+    }
+
+    fn stack_kind_problem(
+        self,
+        middle: Option<PadCopperShape>,
+        bottom: Option<PadCopperShape>,
+    ) -> Option<(String, String)> {
+        if self.kind != PadKind::PlatedThroughHole {
+            let group = middle
+                .map(|_| "/middle")
+                .or_else(|| bottom.map(|_| "/bottom"))?;
+            return Some((
+                group.into(),
+                "only plated through-hole Pads have a Pad Stack".into(),
+            ));
+        }
+        None
+    }
+
+    pub(crate) fn stack_problem(
+        self,
+        middle: Option<PadCopperShape>,
+        bottom: Option<PadCopperShape>,
+    ) -> Option<(String, String)> {
+        if let Some(problem) = self
+            .problem()
+            .or_else(|| self.stack_kind_problem(middle, bottom))
+        {
+            return Some(problem);
+        }
+        for (group, copper) in [("middle", middle), ("bottom", bottom)] {
+            let Some(copper) = copper else { continue };
+            if let Some((pointer, message)) = self.with_copper(Some(copper)).problem() {
+                return Some((format!("/{group}{pointer}"), message));
+            }
+        }
+        None
+    }
+
     /// The copper outline in the Pad's frame, the anchor at the origin.
     pub fn outline(&self) -> CornerRect {
         let (w, h) = (self.width, self.height);
@@ -566,7 +694,7 @@ impl PadForm {
                 {
                     return at("/hole/tolerance", "a tolerance cannot be negative");
                 }
-                let (hw, hh) = turned_size(hole.width, hole.height, hole.rotation);
+                let (hw, hh) = hole.rotated_size();
                 if hw > self.width || hh > self.height {
                     return at("/hole", "the hole is larger than the Pad");
                 }
@@ -588,15 +716,6 @@ impl PadForm {
         }
         None
     }
-}
-
-/// The box a `width` × `height` rectangle turned by `rotation` fills, to the nanometre.
-fn turned_size(width: Nm, height: Nm, rotation: Millideg) -> (Nm, Nm) {
-    let (hw, hh) = (width.0 / 2, height.0 / 2);
-    let corners = [(hw, hh), (hw, -hh)].map(|(x, y)| reda_geom::rotate(x, y, rotation));
-    let x = corners.iter().map(|c| c.0.abs()).max().unwrap_or(0);
-    let y = corners.iter().map(|c| c.1.abs()).max().unwrap_or(0);
-    (Nm(2 * x), Nm(2 * y))
 }
 
 #[cfg(test)]

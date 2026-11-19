@@ -3,7 +3,6 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
-use reda_model::geom::Nm;
 use reda_model::{PcbDocument, TrackGeometry, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -13,7 +12,6 @@ use super::outline::PointParam;
 use super::track::{copper_layer, existing_net};
 use super::{needs_pcb, pcb, positive};
 use crate::copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine};
-use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(Connected);
@@ -171,8 +169,13 @@ pub struct ClearanceResult {
     pub keepouts: Vec<Uuid>,
 }
 
-fn check(pcb: &PcbDocument, proposal: Proposal, ignore: &[Uuid]) -> ClearanceResult {
-    let hits = Copper::build(pcb).clearance(pcb, &proposal, ignore);
+fn check(
+    copper: &Copper,
+    pcb: &PcbDocument,
+    proposal: Proposal,
+    ignore: &[Uuid],
+) -> ClearanceResult {
+    let hits = copper.clearance(pcb, &proposal, ignore);
     let keepouts = crate::keepout::keepouts_hit(pcb, &proposal);
     ClearanceResult {
         clear: hits.is_empty() && keepouts.is_empty(),
@@ -228,7 +231,9 @@ impl Command for ClearanceTrack {
         let net = existing_net(pcb, p.net, "/net")?;
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width.default_size(),
+            None => crate::rules::net_rules_on(pcb, net, Some(layer))
+                .track_width
+                .default_size(),
         };
         let geometry = TrackGeometry::Line {
             from: p.from.point(),
@@ -240,7 +245,12 @@ impl Command for ClearanceTrack {
             width,
             net,
         };
-        Ok(check(pcb, proposal, &p.ignore))
+        Ok(check(
+            super::board_copper(cx)?.as_ref(),
+            pcb,
+            proposal,
+            &p.ignore,
+        ))
     }
 }
 
@@ -285,15 +295,19 @@ impl Command for ClearanceVia {
     ) -> Result<ClearanceResult, CommandError> {
         let pcb = pcb(cx)?;
         let net = existing_net(pcb, p.net, "/net")?;
-        let diameter: Nm = match p.diameter {
-            Some(d) => positive("/diameter", d)?,
-            None => net_rules(pcb, net).via_diameter.default_size(),
-        };
-        let proposal = Proposal::Via {
-            at: p.at.point(),
+        let kind = pcb.stackup().through_type();
+        let (mut diameter, hole) = crate::rules::via_starting_size(pcb, net, kind);
+        if let Some(d) = p.diameter {
+            diameter = positive("/diameter", d)?.into();
+        }
+        let copper = super::board_copper(cx)?;
+        let via = crate::route::RouteVia {
+            span: kind.span(),
             diameter,
-            net,
+            hole,
+            unused_layers: kind.unused_layers,
         };
-        Ok(check(pcb, proposal, &p.ignore))
+        let proposal = copper.propose_via(pcb, p.at.point(), net, via, &[]);
+        Ok(check(&copper, pcb, proposal, &p.ignore))
     }
 }

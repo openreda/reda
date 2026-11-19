@@ -285,3 +285,14 @@ fn a_zoomed_board_shows_pad_labels() {
                "view": {"objects": [board.fp1.to_string()]}}),
     );
 }
+
+#[test]
+fn six_layer_hdi_from_the_top() {
+    let (_dir, mut engine) = common::six_layer_hdi();
+    let pcb = engine.project().unwrap().pcb().unwrap().uuid;
+    snapshot(
+        "six_layer_hdi",
+        &mut engine,
+        json!({"document":pcb, "size":800}),
+    );
+}

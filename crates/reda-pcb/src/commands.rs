@@ -11,6 +11,7 @@ mod free_pad;
 pub mod from_graphics;
 mod graphic;
 pub(crate) mod layer;
+mod layer_count;
 mod measure;
 mod mechanical;
 mod net;
@@ -26,6 +27,7 @@ mod text_geometry;
 mod track;
 mod track_edit;
 mod via;
+mod via_type;
 mod zone;
 pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
@@ -63,6 +65,10 @@ pub fn register_all_with_user(
     outline::register_all(registry);
     rules::register_all(registry);
     stackup::register_all(registry);
+    registry.add(layer::LayerSetCommand);
+    registry.add(layer_count::Add);
+    registry.add(layer_count::Remove);
+    registry.add(layer_count::Move);
     net_class::register_all(registry);
     net::register_all(registry);
     text::register_all(registry);
@@ -72,6 +78,10 @@ pub fn register_all_with_user(
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);
+    registry.add(via_type::Add);
+    registry.add(via_type::Set);
+    registry.add(via_type::Remove);
+    registry.add(via_type::Reorder);
     copper::register_all(registry);
     board_info::register_all(registry);
     clipboard::register_all(registry);
@@ -113,7 +123,8 @@ fn pcb<'c>(cx: &'c Context<'_>) -> Result<&'c PcbDocument, CommandError> {
 /// too: they stay copper until the next fill), kept in the Project between edits.
 fn board_copper(cx: &Context<'_>) -> Result<std::sync::Arc<crate::Copper>, CommandError> {
     pcb(cx)?;
-    crate::Copper::of(cx.project()?).ok_or_else(|| CommandError::unavailable(NO_PCB))
+    crate::Copper::of_with_fonts(cx.project()?, cx.fonts())
+        .ok_or_else(|| CommandError::unavailable(NO_PCB))
 }
 
 /// What a Command that creates one object returns.

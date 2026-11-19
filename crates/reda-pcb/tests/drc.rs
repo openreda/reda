@@ -908,3 +908,591 @@ fn a_keepout_marker_names_only_the_layer_where_a_via_enters_it() {
     let top = pcb.copper_layers().next().unwrap().uuid;
     assert_eq!(of(&drc(&mut e), "keepout")[0]["layers"], json!([top]));
 }
+
+#[test]
+fn annular_ring_measures_each_inner_land_against_the_shared_hole() {
+    let dir = TempDir::new("pad-stack-ring");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner: Vec<_> = pcb
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"3mm","at":{"x":"5mm","y":"5mm"},
+        "hole":{"width":"1mm"},"middle":{"shape":"rect","width":"1.1mm","height":"3mm"}}),
+    );
+    let violations = of(&drc(&mut engine), "annular_ring");
+    assert_eq!(violations.len(), 1, "{violations:?}");
+    assert_eq!(violations[0]["measured"]["length"], 50000);
+    assert_eq!(violations[0]["layers"], json!(inner));
+}
+
+#[test]
+fn a_different_inner_via_land_is_not_duplicate_copper() {
+    let dir = TempDir::new("pad-stack-duplicate");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    for middle in ["0.7mm", "1.4mm"] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"hole":"0.3mm",
+            "diameter":{"start":"0.7mm","middle":middle}}),
+        );
+    }
+    assert!(of(&drc(&mut engine), "duplicate_copper").is_empty());
+}
+
+#[test]
+fn only_the_oversized_inner_lands_break_board_edge_clearance() {
+    let dir = TempDir::new("pad-stack-edge");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new",json!({"name":"Demo","path":dir.path(),"layers":4,"board":{"width":"20mm","height":"10mm"}}));
+    let inner: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    engine.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","width":"1mm","at":{"x":"1.5mm","y":"5mm"},"hole":{"width":"0.5mm"},
+        "middle":{"shape":"rect","width":"2.4mm","height":"1mm"}}));
+    let violations = of(&drc(&mut engine), "edge_clearance");
+    assert_eq!(violations.len(), 1, "{violations:?}");
+    assert_eq!(violations[0]["measured"]["length"], 300000);
+    assert_eq!(violations[0]["layers"], json!(inner));
+}
+
+#[test]
+fn via_span_distinguishes_missing_types_class_permissions_and_stretched_micro_types() {
+    let dir = TempDir::new("via-span-reasons");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let l: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let laser = uuid(
+        &engine.run_ok(
+            "pcb.via_type.add",
+            json!({"document":doc,"from":l[0],"to":l[1],"micro":true}),
+        )["result"]["uuid"],
+    );
+    let signal = net(&mut engine, "SIG");
+    let class=uuid(&engine.run_ok("pcb.net_class.add",json!({"name":"Laser","nets":[signal],"rules":[{"kind":"via_span","values":{"allowed":[laser]}}]}))["result"]["uuid"]);
+    let mut place = |x, from, to| {
+        uuid(
+            &engine.run_ok(
+                "pcb.via.add",
+                json!({"at":{"x":x,"y":0},"from":from,"to":to,"net":signal}),
+            )["result"]["uuid"],
+        )
+    };
+    let valid = place(1000000, l[0], l[1]);
+    let disallowed = place(2000000, l[0], l[5]);
+    let unmatched = place(3000000, l[2], l[3]);
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let class_rule = pcb
+        .class_rule(reda_model::RuleKind::ViaSpan, class)
+        .unwrap()
+        .uuid;
+    let found = of(&drc(&mut engine), "via_span");
+    assert_eq!(found.len(), 2, "{found:?}");
+    let forbidden = found.iter().find(|v| objects(v) == [disallowed]).unwrap();
+    assert_eq!(forbidden["args"]["reason"], "not_allowed");
+    assert_eq!(forbidden["rule"], json!(class_rule));
+    let none = found.iter().find(|v| objects(v) == [unmatched]).unwrap();
+    assert_eq!(none["args"]["reason"], "no_type");
+    assert_eq!(none["layers"], json!([l[2], l[3]]));
+    engine.run_ok("project.save", json!({}));
+    let project = dir.path().join("Demo");
+    let file = project.join("Demo.redapcb");
+    let mut saved: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    // This is the stored result of inserting inner Layers into a formerly adjacent laser span.
+    let kind = saved["stackups"][0]["via_types"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|v| v["uuid"] == json!(laser))
+        .unwrap();
+    kind["to"] = json!(l[3]);
+    let via = saved["vias"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|v| v["uuid"] == json!(valid))
+        .unwrap();
+    via["span"]["to"] = json!(l[3]);
+    std::fs::write(file, serde_json::to_vec(&saved).unwrap()).unwrap();
+    let mut reopened = probe_engine();
+    reopened.run_ok("project.open", json!({"path":project.join("Demo.reda")}));
+    let found = of(&drc(&mut reopened), "via_span");
+    let stretched = found.iter().find(|v| objects(v) == [valid]).unwrap();
+    assert_eq!(stretched["args"]["reason"], "micro_too_long");
+    assert_eq!(stretched["layers"], json!(&l[..4]));
+}
+
+#[test]
+fn hole_spacing_exempts_end_to_end_vias_of_one_net_at_the_same_centre() {
+    let dir = TempDir::new("stack-hole-spacing");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let layers: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    let mut via = |x: i64, signal, from: usize, to: usize| {
+        uuid(
+            &engine.run_ok(
+                "pcb.via.add",
+                json!({
+        "at":{"x":x,"y":0},"net":signal,"from":layers[from-1],"to":layers[to-1]}),
+            )["result"]["uuid"],
+        )
+    };
+    via(1_000_000, a, 2, 1);
+    via(1_000_000, a, 3, 2);
+    via(1_000_000, a, 4, 3);
+    let overlap = vec![via(4_000_000, a, 1, 3), via(4_000_000, a, 2, 4)];
+    let different_nets = vec![via(8_000_000, a, 1, 2), via(8_000_000, b, 2, 3)];
+    let offset = vec![via(12_000_000, a, 1, 2), via(12_050_000, a, 2, 3)];
+    let found = of(&drc(&mut engine), "hole_to_hole");
+    let pairs: Vec<_> = found.iter().map(objects).collect();
+    assert_eq!(pairs, [overlap, different_nets, offset]);
+    assert_eq!(found[0]["layers"], json!(&layers[1..3]));
+    assert_eq!(found[1]["layers"], json!([layers[1]]));
+    assert_eq!(found[2]["layers"], json!([layers[1]]));
+}
+
+#[test]
+fn via_size_checks_each_physical_diameter_with_the_actual_drilling_method() {
+    let dir = TempDir::new("via-size-groups");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":doc,"from":layers[2],"to":layers[0],"micro":true}),
+    );
+    engine.run_ok("pcb.rules.set",json!({"kind":"microvia_size","values":{"diameter":{"min":"0.25mm","max":"0.35mm"},"hole":{"max":"0.11mm"}}}));
+    let laser = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"2mm","y":0},"from":layers[0],"to":layers[2],
+        "diameter":{"start":"0.28mm","middle":"0.46mm","end":"0.55mm"},"hole":"0.12mm"}),
+        )["result"]["uuid"],
+    );
+    let drilled = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"7mm","y":0},"from":layers[2],"to":layers[5],
+        "diameter":{"start":"0.8mm","middle":"0.45mm","end":"0.5mm"},"hole":"0.3mm"}),
+        )["result"]["uuid"],
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"annular_ring","values":{"min":"0.2mm"}}),
+    );
+    let run = drc(&mut engine);
+    let mut rings: Vec<_> = of(&run, "annular_ring")
+        .into_iter()
+        .filter(|v| objects(v) == [drilled])
+        .map(|v| {
+            (
+                v["measured"]["length"].as_i64().unwrap(),
+                v["layers"].clone(),
+            )
+        })
+        .collect();
+    rings.sort_by_key(|(actual, _)| *actual);
+    assert_eq!(
+        rings,
+        [
+            (75_000, json!(&layers[3..5])),
+            (100_000, json!([layers[5]]))
+        ]
+    );
+    let sizes = |id, check| {
+        let mut result: Vec<_> = of(&run, check)
+            .into_iter()
+            .map(|v| {
+                assert_eq!(objects(&v), [id]);
+                (
+                    v["measured"]["length"].as_i64().unwrap(),
+                    v["layers"].clone(),
+                )
+            })
+            .collect();
+        result.sort_by_key(|(measured, _)| *measured);
+        result
+    };
+    assert_eq!(
+        sizes(laser, "microvia_size"),
+        [
+            (120_000, json!(&layers[..3])),
+            (460_000, json!([layers[1]])),
+            (550_000, json!([layers[0]]))
+        ]
+    );
+    assert_eq!(
+        sizes(drilled, "via_size"),
+        [
+            (450_000, json!(&layers[3..5])),
+            (500_000, json!([layers[5]]))
+        ]
+    );
+}
+
+#[test]
+fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes() {
+    let dir = TempDir::new("drc-via-hdi");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    // Five equal blank sheets share 1,390,001 nm. L1:L2 includes both 35 µm copper foils.
+    let sheets: Vec<_> = pcb
+        .stackup()
+        .dielectrics()
+        .map(|d| json!({"uuid":d.uuid, "thickness":null}))
+        .collect();
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"thickness":1600001, "dielectrics":sheets}),
+    );
+    let signal = net(&mut engine, "HDI");
+    for (a, b, micro) in [(0, 1, true), (1, 2, true), (2, 3, false), (3, 4, true)] {
+        engine.run_ok(
+            "pcb.via_type.add",
+            json!({"document":document,"from":layers[a],"to":layers[b],"micro":micro}),
+        );
+    }
+    let mut place = |x: i64, a: usize, b: usize| {
+        uuid(
+            &engine.run_ok(
+                "pcb.via.add",
+                json!({
+                    "at":{"x":x,"y":0},"net":signal,"from":layers[a],"to":layers[b],
+                    "diameter":"0.6mm","hole":"0.2mm"
+                }),
+            )["result"]["uuid"],
+        )
+    };
+    let first = place(1_000_000, 0, 1);
+    let second = place(1_000_000, 1, 2);
+    let bridge = place(1_000_000, 2, 3);
+    let last = place(1_000_000, 3, 4);
+    let independent = place(5_000_000, 4, 3);
+    // An unlisted mechanical span between two lasers does not join their stacks.
+    let unconnected_first = place(9_000_000, 0, 1);
+    place(9_000_000, 1, 3);
+    let unconnected_last = place(9_000_000, 3, 4);
+    let clean = drc(&mut engine);
+    assert!(of(&clean, "aspect_ratio").is_empty());
+    assert!(of(&clean, "max_stack").is_empty());
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":1740},"max_stack":1}}),
+    );
+    let run = drc(&mut engine);
+    let ratios = of(&run, "aspect_ratio");
+    // The fractional share puts the ratio just over 1.740:1, with no nm rounding.
+    let mut actual: Vec<_> = ratios.iter().map(|v| objects(v)[0]).collect();
+    actual.sort();
+    let mut expected = vec![
+        first,
+        second,
+        last,
+        independent,
+        unconnected_first,
+        unconnected_last,
+    ];
+    expected.sort();
+    assert_eq!(actual, expected);
+    assert!(
+        ratios
+            .iter()
+            .all(|v| v["limit"] == "max" && !objects(v).contains(&bridge))
+    );
+    let stacks = of(&run, "max_stack");
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0]["args"]["actual"], 3);
+    assert_eq!(stacks[0]["args"]["maximum"], 1);
+    assert_eq!(stacks[0]["layers"], json!(&layers[..5]));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":null},"max_stack":null}}),
+    );
+    let cleared = drc(&mut engine);
+    assert!(of(&cleared, "aspect_ratio").is_empty());
+    assert!(of(&cleared, "max_stack").is_empty());
+}
+
+#[test]
+fn etched_lettering_and_graphics_report_clearance_without_joining_copper() {
+    use reda_pcb::{Copper, Item};
+    let dir = TempDir::new("drc-free-drawing");
+    let mut engine = engine(&dir);
+    let sig = net(&mut engine, "SIG");
+    class(
+        &mut engine,
+        json!({"name":"Wide","rules":[{"kind":"clearance","values":{"value":"0.5mm"}}]}),
+        &[sig],
+    );
+    let t1 = track(&mut engine, Some(sig), "1mm", "1mm", "8mm");
+    let t2 = track(&mut engine, Some(sig), "3mm", "1mm", "8mm");
+    let text = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":"copper_top", "text":"I","x":"3mm","y":0,"height":"4mm"
+            }),
+        )["result"]["uuid"],
+    );
+    let line = uuid(&engine.run_ok("pcb.graphic.add_line", json!({
+        "layer":"copper_top","from":{"x":"2mm","y":"2mm"},"to":{"x":"6mm","y":"2mm"},"width":"0.2mm"
+    }))["result"]["uuid"]);
+    let item = Item::Track { uuid: t1 };
+    let copper = Copper::of(engine.project().unwrap()).unwrap();
+    let run = drc(&mut engine);
+    let found = of(&run, "clearance");
+    for (other, required) in [(t1, 500_000), (t2, 500_000), (line, 160_000)] {
+        let hit = found
+            .iter()
+            .find(|v| objects(v).contains(&text) && objects(v).contains(&other))
+            .unwrap_or_else(|| panic!("missing clearance between {text} and {other}: {found:#?}"));
+        assert_eq!(hit["measured"]["length"], 0);
+        assert_eq!(hit["required"]["length"], required);
+    }
+    assert_eq!(copper.connected(item), [item]);
+    assert_eq!(copper.islands(sig).len(), 2);
+    assert!(of(&run, "short_circuit").is_empty());
+}
+
+#[test]
+fn every_disconnected_glyph_keeps_clear_of_the_board_edge() {
+    let dir = TempDir::new("drc-outside-glyph");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Outline","layers":4,
+        "board":{"width":"10mm","height":"10mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let edge = pcb.outline().unwrap().uuid;
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    let text = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({"layer":inner,
+        "text":"I                I","x":"4mm","y":"4mm","height":"2mm"}),
+        )["result"]["uuid"],
+    );
+    // The first I is inside and the last is fully outside. No stroke crosses the outline.
+    let hits = of(&drc(&mut engine), "edge_clearance");
+    assert!(
+        hits.iter().any(|v| objects(v) == [text, edge]
+            && v["layers"] == json!([inner])
+            && v["measured"]["length"] == 0),
+        "{hits:#?}"
+    );
+}
+
+#[test]
+fn a_free_graphic_keeps_plated_and_nonplated_hole_clearance_on_its_layer() {
+    let dir = TempDir::new("drc-copper-drawing-holes");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Holes","layers":4}),
+    );
+    let inner = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    engine.run_ok("pcb.rules.set",json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"hole":{"via":"1mm","pad":"0.9mm"}}}));
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"2mm","y":"3mm"},
+        "diameter":"0.7mm","hole":"0.3mm"}),
+        )["result"]["uuid"],
+    );
+    let mut pads = Vec::new();
+    for (kind, x) in [("plated_through_hole", "6mm"), ("non_plated", "10mm")] {
+        pads.push(uuid(
+            &engine.run_ok(
+                "pcb.free_pad.add",
+                json!({"kind":kind,
+            "at":{"x":x,"y":"3mm"},"width":"1mm","hole":{"width":"0.8mm"}}),
+            )["result"]["uuid"],
+        ));
+    }
+    let line = uuid(
+        &engine.run_ok(
+            "pcb.graphic.add_line",
+            json!({"layer":inner,
+        "from":{"x":"1mm","y":"3.8mm"},"to":{"x":"11mm","y":"3.8mm"},"width":"0.2mm"}),
+        )["result"]["uuid"],
+    );
+    let run = drc(&mut engine);
+    for (check, object, actual) in [
+        ("clearance", via, 550_000),
+        ("clearance", pads[0], 300_000),
+        ("edge_clearance", pads[1], 300_000),
+    ] {
+        let hits = of(&run, check);
+        assert!(
+            hits.iter().any(|v| objects(v).contains(&object)
+                && objects(v).contains(&line)
+                && v["layers"] == json!([inner])
+                && v["measured"]["length"] == actual),
+            "{hits:#?}"
+        );
+    }
+}
+
+#[test]
+fn only_retained_lands_have_annular_ring_checks_but_an_omitted_layer_keeps_hole_clearance() {
+    let dir = TempDir::new("unused-ring-and-hole");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let sig = net(&mut e, "SIG");
+    let via = e.run_ok(
+        "pcb.via.add",
+        json!({"net":sig,"at":{"x":"5mm","y":"5mm"},
+        "hole":"0.4mm","diameter":"0.5mm","unused_layers":"remove_keep_ends"}),
+    )["result"]["uuid"]
+        .clone();
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.4mm"}}}),
+    );
+    e.run_ok("pcb.track.add",json!({"layer":layers[1],"net":sig,"width":"0.1mm","points":[{"x":"4mm","y":"5.5mm"},{"x":"6mm","y":"5.5mm"}]}));
+    let connected = e.run_ok("pcb.track.add",json!({"layer":layers[2],"net":sig,"width":"0.1mm","points":[{"x":"5mm","y":"5mm"},{"x":"6mm","y":"5mm"}]}));
+    let report = drc(&mut e);
+    let rings = of(&report, "annular_ring");
+    assert_eq!(rings.len(), 1);
+    assert_eq!(rings[0]["objects"], json!([via]));
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[2], layers[3]]));
+    let hits = of(&report, "clearance");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["args"]["part"], "hole.via");
+    assert_eq!(hits[0]["layers"], json!([layers[1]]));
+    assert_eq!(hits[0]["measured"]["length"], 250000);
+
+    // With every land removed the drill remains subject to the same clearance.
+    e.run_ok(
+        "pcb.track.delete",
+        json!({"tracks":connected["result"]["tracks"]}),
+    );
+    e.run_ok(
+        "pcb.via.set",
+        json!({"vias":[via],"unused_layers":"remove"}),
+    );
+    let report = drc(&mut e);
+    assert!(of(&report, "annular_ring").is_empty());
+    let holes = of(&report, "clearance");
+    assert!(holes.iter().any(|hit| hit["args"]["part"] == "hole.via"
+        && hit["layers"] == json!([layers[1]])
+        && hit["measured"]["length"] == 250_000));
+}
+
+#[test]
+fn a_via_with_missing_lands_is_not_duplicate_copper() {
+    let dir = TempDir::new("drc-duplicate-unused");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    for mode in ["remove_keep_ends", "keep"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"unused_layers":mode}),
+        );
+    }
+    assert!(of(&drc(&mut e), "duplicate_copper").is_empty());
+}
+
+#[test]
+fn markers_locate_a_via_with_all_lands_removed_by_its_bore() {
+    let dir = TempDir::new("drc-landless-via-marker");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let inner: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .filter(|layer| layer.side.is_none())
+        .map(|layer| layer.uuid)
+        .collect();
+    let at = json!({"x":5_000_000, "y":7_000_000});
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({
+            "at":at, "from":inner[0], "to":inner[1], "unused_layers":"remove"
+        }),
+    )["result"]["uuid"]
+        .clone();
+    let run = drc(&mut engine);
+    for check in ["dangling", "copper_without_net"] {
+        let hits = of(&run, check);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["objects"], json!([via]));
+        assert_eq!(hits[0]["at"], at);
+        assert_eq!(hits[0]["layers"], json!(inner));
+    }
+}

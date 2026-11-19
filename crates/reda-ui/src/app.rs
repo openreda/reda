@@ -150,6 +150,7 @@ impl App {
                 schematic_dialogs::register_dialogs(&mut dialogs);
                 projects_panel::register_package_dialog(&mut dialogs);
                 crate::pcb::silkscreen::register_dialogs(&mut dialogs);
+                crate::pcb::unused_layers::register(&mut dialogs);
                 dialogs
             },
             schematic_dialog: None,
@@ -349,6 +350,7 @@ impl App {
             .max_rect(status)
             .id_salt("status-bar-content");
         ui.scope_builder(builder, |ui| self.status_bar(ui));
+        crate::pcb::layer_hover::finish(&ctx, &mut self.shell);
         tab_switcher::show(&ctx, &mut self.shell);
         title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
@@ -727,6 +729,21 @@ impl App {
                         .unwrap_or_default();
                     self.files
                         .start_save(ctx, Pick::SettingsFile(window, request), name);
+                }
+                SettingsRequest::OpenStackup(pcb) => {
+                    if self
+                        .shell
+                        .run_reporting("pcb.stackup.open", json!({"document": pcb}))
+                        .is_ok()
+                    {
+                        let viewport = self
+                            .shell
+                            .layout()
+                            .window_of(&TabKey::Stackup(pcb))
+                            .map_or(egui::ViewportId::ROOT, docking::viewport_of);
+                        ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Focus);
+                    }
                 }
                 SettingsRequest::ShowFolder(folder) => {
                     let _ = std::fs::create_dir_all(&folder);
@@ -1310,7 +1327,7 @@ pub fn run(
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
-    eframe::run_native(
+    crate::keymap::native::run(
         "REDA",
         options,
         Box::new(move |cc| {

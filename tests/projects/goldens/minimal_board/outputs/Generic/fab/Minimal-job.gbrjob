@@ -22,12 +22,12 @@
   "FilesAttributes": [
     {
       "Path": "Minimal.gtl",
-      "FileFunction": "Copper,L1,Top",
+      "FileFunction": "Copper,L1,Top,Signal",
       "FilePolarity": "Positive"
     },
     {
       "Path": "Minimal.gbl",
-      "FileFunction": "Copper,L2,Bot",
+      "FileFunction": "Copper,L2,Bot,Signal",
       "FilePolarity": "Positive"
     },
     {
@@ -59,6 +59,31 @@
       "Path": "Minimal-PTH.drl",
       "FileFunction": "Plated,1,2,PTH,Drill",
       "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend"
+    },
+    {
+      "Type": "SolderMask"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 1.53
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask"
     }
   ]
 }

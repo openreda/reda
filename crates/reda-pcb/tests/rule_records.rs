@@ -53,15 +53,16 @@ fn a_new_board_has_one_board_wide_record_per_kind_seeded_from_the_preset() {
         assert!(rule.scope.is_board_wide());
         assert!(rule.enabled);
     }
-    let track = pcb.board_rule(RuleKind::TrackWidth).values;
+    let track = &pcb.board_rule(RuleKind::TrackWidth).values;
     assert_eq!(
         (track.min, track.preferred, track.max),
         (Some(um(200)), Some(um(250)), None)
     );
-    let via = pcb.board_rule(RuleKind::ViaSize).values;
-    assert_eq!(via.diameter.unwrap().preferred, Some(um(700)));
+    let via = &pcb.board_rule(RuleKind::ViaSize).values;
+    assert_eq!(via.diameter.unwrap().preferred, None);
+    assert_eq!(pcb.stackup().through_type().diameter.start, um(700));
     assert_eq!(via.hole.unwrap().min, Some(um(300)));
-    let holes = pcb.board_rule(RuleKind::HoleSize).values;
+    let holes = &pcb.board_rule(RuleKind::HoleSize).values;
     assert_eq!((holes.min, holes.max), (Some(um(500)), Some(um(6300))));
 }
 
@@ -81,7 +82,7 @@ fn new_tracks_and_vias_take_the_preferred_size() {
     assert_eq!(pcb(&engine).track(track).unwrap().width, um(250));
     let out = engine.run_ok("pcb.via.add", json!({"at": {"x": "10mm", "y": "0mm"}}));
     let via = pcb(&engine).via(uuid(&out)).unwrap().clone();
-    assert_eq!((via.diameter, via.hole), (um(700), um(300)));
+    assert_eq!((via.diameter.start, via.hole), (um(700), um(300)));
 }
 
 #[test]
@@ -215,18 +216,15 @@ fn rules_set_changes_only_the_values_given_and_null_clears_one() {
     );
     assert_eq!(
         rule["values"],
-        json!({"diameter": {"min": 700000, "preferred": 700000, "max": 2000000},
-               "hole": {"min": 300000, "preferred": 300000}})
+        json!({"diameter": {"min": 700000, "max": 2000000},
+               "hole": {"min": 300000}})
     );
     assert_eq!(rule["comment"], "fab");
     let rule = set(
         &mut engine,
         json!({"kind": "via_size", "values": {"diameter": {"max": null}}, "comment": null}),
     );
-    assert_eq!(
-        rule["values"]["diameter"],
-        json!({"min": 700000, "preferred": 700000})
-    );
+    assert_eq!(rule["values"]["diameter"], json!({"min": 700000}));
     assert!(rule.get("comment").is_none());
 }
 
@@ -293,6 +291,11 @@ fn rules_set_refuses_what_it_cannot_store_or_what_blocks() {
         &mut engine,
         json!({"kind": "hole_size", "values": {"max": "0.4mm"}}),
         "/values/min",
+    );
+    refused(
+        &mut engine,
+        json!({"kind":"microvia_size", "values":{"hole":{"min":"0.15mm","max":"0.10mm"}}}),
+        "/values/hole/min",
     );
     // A class record is judged on its values over the board-wide record.
     let power = class(&mut engine, "Power", &[]);
@@ -407,13 +410,16 @@ fn mask_and_paste_preset_seeds_match_the_specification_table() {
     }
 }
 
-/// A JLCPCB board with the Generic preset copied into the Project: Generic raises the
-/// limits (Track 0.10 to 0.20 mm, Via diameter 0.51 to 0.70 mm).
+/// A JLCPCB board whose preferred Track width falls below Generic's 0.20 mm minimum.
 fn jlcpcb_board(dir: &TempDir) -> (TestEngine, Uuid) {
     let mut engine = probe_engine();
     engine.run_ok(
         "project.new",
         json!({"path": dir.path(), "name": "Demo", "fab_preset": "JLCPCB"}),
+    );
+    set(
+        &mut engine,
+        json!({"kind": "track_width", "values": {"preferred": "0.15mm"}}),
     );
     let generic = uuid(&engine.run_ok("fab_preset.add", json!({"name": "Generic"})));
     (engine, generic)
@@ -449,11 +455,10 @@ fn the_preview_ticks_limits_and_only_preferred_sizes_that_fall_outside() {
     };
     assert_eq!(row("track_width", "min"), Some((true, true)), "{diff:#}");
     assert_eq!(row("via_size", "diameter_min"), Some((true, true)));
-    // 0.66 mm falls below the new 0.70 mm minimum.
-    assert_eq!(row("via_size", "diameter_preferred"), Some((false, true)));
-    // The board's 0.30 mm hole stays inside the new range... and is already Generic's.
+    assert_eq!(row("track_width", "preferred"), Some((false, true)));
+    // Via starting sizes belong to the through type in the Stackup.
+    assert_eq!(row("via_size", "diameter_preferred"), None);
     assert_eq!(row("via_size", "hole_preferred"), None);
-    assert_eq!(row("track_width", "preferred"), None);
 }
 
 #[test]
@@ -496,7 +501,7 @@ fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks
     // A row that would leave the board's own record blocking is refused.
     let err = engine.run_err(
         "pcb.rules.apply_fab_preset",
-        json!({"preset": generic, "rows": [{"kind": "via_size", "field": "diameter_min"}]}),
+        json!({"preset": generic, "rows": [{"kind": "track_width", "field": "min"}]}),
     );
     assert_eq!(err.code, ErrorCode::InvalidParams, "{}", err.message);
 
@@ -509,6 +514,10 @@ fn applying_a_fab_preset_takes_the_chosen_rows_and_flags_class_records_it_breaks
         Some(um(200))
     );
     assert_eq!(board.rule(narrow).unwrap().values.max, Some(um(150)));
+    assert_eq!(board.stackup().through_type().diameter.start, um(660));
+    // The Command keeps the type's size, outside the new limits, for DRC to flag.
+    let via = uuid(&engine.run_ok("pcb.via.add", json!({"at": {"x": 0, "y": 0}})));
+    assert_eq!(pcb(&engine).via(via).unwrap().diameter.start, um(660));
 }
 
 #[test]
@@ -558,4 +567,184 @@ fn saving_rules_as_a_fab_preset_writes_board_wide_values_only() {
 
     let err = engine.run_err("pcb.rules.save_as_preset", json!({"name": " "}));
     assert_eq!(err.code, ErrorCode::InvalidParams);
+}
+
+#[test]
+fn new_tracks_take_the_preferred_width_on_their_copper_layer() {
+    let dir = TempDir::new("preferred-by-layer");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let layers: Vec<_> = pcb(&engine).copper_layers().map(|l| l.uuid).collect();
+    set(
+        &mut engine,
+        json!({"kind":"track_width","scope":{"layers":"inner"},
+                            "values":{"preferred":"0.4mm"}}),
+    );
+    for (layer, width) in [(layers[0], 250), (layers[1], 400), (layers[3], 250)] {
+        let out = engine.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,
+                "points":[{"x":"0mm","y":"0mm"},{"x":"1mm","y":"0mm"}]}),
+        );
+        let track: Uuid = serde_json::from_value(out["result"]["tracks"][0].clone()).unwrap();
+        assert_eq!(pcb(&engine).track(track).unwrap().width, um(width));
+    }
+}
+
+#[test]
+fn drc_measures_other_net_clearance_on_the_tracks_layer() {
+    let dir = TempDir::new("clearance-drc-layer");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    class(&mut engine, "Power", &[a, b]);
+    let board = pcb(&engine);
+    let bottom = board.copper_layers().last().unwrap().uuid;
+    let record = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"layers":[bottom],"net_class_pair":["Power","Power"]},"values":{"value":"1mm"}}),
+    );
+    for layer in ["copper_top", "copper_bottom"] {
+        for (n, y) in [(a, 0), (b, 500_000)] {
+            engine.run_ok("pcb.track.add",json!({"layer":layer,"net":n,"width":"0.2mm","points":[{"x":0,"y":y},{"x":"2mm","y":y}]}));
+        }
+    }
+    let out = engine.run_ok("drc.run", json!({}));
+    let hits: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "clearance")
+        .collect();
+    assert_eq!(hits.len(), 1, "{out}");
+    assert_eq!(hits[0]["layers"], json!([bottom]));
+    assert!(
+        hits[0]
+            .to_string()
+            .contains(record["uuid"].as_str().unwrap())
+    );
+}
+
+#[test]
+fn applying_and_saving_inner_fab_limits_preserves_an_independent_layer_override() {
+    let dir = TempDir::new("inner-fab");
+    let mut e = engine(&dir);
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":{"clearance":125000}}}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    let changes = diff["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 1, "{diff}");
+    assert_eq!(changes[0]["layers"], "inner");
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    set(
+        &mut e,
+        json!({"kind":"clearance","scope":{"layers":"outer"},"values":{"value":"0.45mm"}}),
+    );
+    let saved = uuid(&e.run_ok("pcb.rules.save_as_preset", json!({"name":"My process"})));
+    let data = serde_json::to_value(e.project().unwrap().fab_preset(saved).unwrap()).unwrap();
+    assert_eq!(data["rules"]["inner"], json!({"clearance":125000}));
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":null}}}),
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    let records: Vec<_> = pcb(&e)
+        .rules()
+        .filter(|r| r.kind == RuleKind::Clearance)
+        .collect();
+    assert_eq!(records.len(), 2);
+}
+
+#[test]
+fn applying_inner_minimums_takes_the_preferred_width_when_needed() {
+    let dir = TempDir::new("preset-inner-preferred");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{
+            "inner":{"track_width_min":350000},"preferred":{"track_width":400000,"via_diameter":700000,"via_hole":300000}
+        }}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    assert!(
+        rows(&diff)
+            .iter()
+            .any(|r| r.0 == "track_width" && r.1 == "preferred" && r.3)
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(
+        pcb(&e).board_rule(RuleKind::TrackWidth).values.preferred,
+        Some(um(400))
+    );
+}
+
+#[test]
+fn the_preset_seeds_applies_and_saves_each_plated_hole_limit() {
+    let dir = TempDir::new("preset-plated-holes");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","fab_preset":"JLCPCB"}),
+    );
+    let rule = |e: &TestEngine| {
+        serde_json::to_value(&pcb(e).board_rule(RuleKind::Clearance).values).unwrap()
+    };
+    assert_eq!(rule(&e)["hole"], json!({"via":200000,"pad":300000}));
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    set(
+        &mut e,
+        json!({"kind":"clearance","values":{"hole":{"via":"0.17mm"}}}),
+    );
+    let saved = uuid(&e.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"name":"My drill process"}),
+    ));
+    let data = serde_json::to_value(e.project().unwrap().fab_preset(saved).unwrap()).unwrap();
+    assert_eq!(
+        data["rules"]["clearance_hole"],
+        json!({"via":170000,"pad":300000})
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    assert_eq!(diff["changes"][0]["field"], "hole_via");
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(rule(&e)["hole"], json!({"via":200000,"pad":300000}));
+}
+
+#[test]
+fn a_teardrop_rule_can_override_one_target_value_and_clear_it_to_inherit() {
+    let dir = TempDir::new("teardrop-record");
+    let mut e = engine(&dir);
+    let layer = pcb(&e).copper_layers().next().unwrap().uuid;
+    set(
+        &mut e,
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"max_length":"1.5mm"}}}),
+    );
+    let r = set(
+        &mut e,
+        json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"length":65},"via":{"curved":true}}}),
+    );
+    assert_eq!(r["values"]["width_change"], json!({"length":65}));
+    assert_eq!(r["values"]["via"], json!({"curved":true}));
+    let r = set(
+        &mut e,
+        json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"length":null}}}),
+    );
+    assert!(r["values"].get("width_change").is_none());
+    let shape =
+        reda_pcb::rules::teardrop(pcb(&e), None, layer, reda_model::TeardropKind::WidthChange);
+    assert!(shape.enabled);
+    assert_eq!(shape.length, 50);
+    assert_eq!(shape.max_length, um(1500));
+    assert!(reda_pcb::rules::teardrop(pcb(&e), None, layer, reda_model::TeardropKind::Via).curved);
 }

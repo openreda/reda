@@ -228,8 +228,27 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
     };
     for (key, value) in values {
         match (target.get_mut(key), value) {
+            (Some(current), patch) if key == "constructions" => {
+                let patch = patch.as_object().ok_or_else(|| {
+                    CommandError::invalid_params(
+                        "/values/constructions",
+                        "expected an object keyed by Construction name",
+                    )
+                })?;
+                *current = serde_json::json!(patch_constructions(&preset.constructions, patch)?);
+            }
             (Some(Value::Object(section)), Value::Object(keys)) => {
                 for (k, v) in keys {
+                    if key == "gerber"
+                        && k == "file_names"
+                        && let Some(patch) = v.as_object()
+                    {
+                        section.insert(
+                            k.clone(),
+                            patch_file_names(&preset.gerber.file_names, patch)?,
+                        );
+                        continue;
+                    }
                     section.insert(k.clone(), v.clone());
                 }
             }
@@ -238,8 +257,139 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
             }
         }
     }
+    if let Some(rows) = merged["placement_corrections"].as_array_mut() {
+        for (index, row) in rows.iter_mut().enumerate() {
+            let pointer = format!("/values/placement_corrections/{index}");
+            if let Some(angle) = row["rotation"].as_str() {
+                row["rotation"] =
+                    serde_json::json!(reda_model::geom::Millideg::parse(angle).map_err(|e| {
+                        CommandError::invalid_params(&format!("{pointer}/rotation"), e.to_string())
+                    })?);
+            }
+            for axis in ["x", "y"] {
+                if let Some(length) = row["offset"][axis].as_str() {
+                    row["offset"][axis] =
+                        serde_json::json!(reda_model::geom::Nm::parse(length).map_err(|e| {
+                            CommandError::invalid_params(
+                                &format!("{pointer}/offset/{axis}"),
+                                e.to_string(),
+                            )
+                        })?);
+                }
+            }
+        }
+    }
     serde_json::from_value(merged)
         .map_err(|e| CommandError::invalid_params("/values", format!("not a preset value: {e}")))
+}
+
+/// A Construction is replaced as a whole at its existing position. New names follow the
+/// existing rows, and a null entry removes only the named Construction.
+fn patch_constructions(
+    current: &[reda_model::Construction],
+    patch: &serde_json::Map<String, serde_json::Value>,
+) -> Result<Vec<reda_model::Construction>, CommandError> {
+    let pointer = "/values/constructions";
+    let mut rows = current.to_vec();
+    let mut names = std::collections::BTreeSet::new();
+    for (name, value) in patch {
+        if name.trim().is_empty() || !names.insert(name.to_ascii_lowercase()) {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!("Construction name {name:?} is empty or repeated"),
+            ));
+        }
+        let at = rows
+            .iter()
+            .position(|row| row.name.eq_ignore_ascii_case(name));
+        if value.is_null() {
+            if let Some(at) = at {
+                rows.remove(at);
+            }
+            continue;
+        }
+        let mut values = value.as_object().cloned().ok_or_else(|| {
+            CommandError::invalid_params(
+                pointer,
+                format!("expected an object or null for {name:?}"),
+            )
+        })?;
+        if let Some(stored) = values.get("name")
+            && !stored
+                .as_str()
+                .is_some_and(|stored| stored.eq_ignore_ascii_case(name))
+        {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!("the Construction name must match its key {name:?}"),
+            ));
+        }
+        values.insert("name".into(), serde_json::json!(name));
+        let build = serde_json::from_value(serde_json::Value::Object(values)).map_err(|error| {
+            CommandError::invalid_params(pointer, format!("invalid Construction {name:?}: {error}"))
+        })?;
+        if let Some(at) = at {
+            rows[at] = build;
+        } else {
+            rows.push(build);
+        }
+    }
+    let mut defaults = std::collections::BTreeSet::new();
+    for build in &rows {
+        if build.default && !defaults.insert(build.layer_count()) {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!(
+                    "more than one default Construction for {} Layers",
+                    build.layer_count()
+                ),
+            ));
+        }
+    }
+    Ok(rows)
+}
+
+/// The pattern can be patched by itself. A supplied Layer list replaces the ordinary overrides.
+fn patch_file_names(
+    current: &reda_model::GerberFileNames,
+    patch: &serde_json::Map<String, serde_json::Value>,
+) -> Result<serde_json::Value, CommandError> {
+    use serde_json::Value;
+    const POINTER: &str = "/values/gerber/file_names";
+    if let Some(key) = patch
+        .keys()
+        .find(|k| !matches!(k.as_str(), "inner_copper" | "layers"))
+    {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            format!("unknown file_names field {key:?}"),
+        ));
+    }
+    let layers = patch
+        .get("layers")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!(current.layers));
+    if !layers.is_array() {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            "expected an array of Layer overrides",
+        ));
+    }
+    let pattern = match patch.get("inner_copper") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value),
+        Some(_) => {
+            return Err(CommandError::invalid_params(
+                POINTER,
+                "expected an inner copper pattern or null",
+            ));
+        }
+        None => current.inner_copper.as_ref(),
+    };
+    Ok(match pattern {
+        Some(inner) => serde_json::json!({"inner_copper": inner, "layers": layers}),
+        None => layers,
+    })
 }
 
 /// Lays `values` over the user preset `name` ([`edited`]) and writes its file; returns

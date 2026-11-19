@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"9719be04-dd42-44b1-99a3-55cfa74b40c1","name":"NMOS","designator_prefix":"Q","description":"N-channel enhancement MOSFET"},
   "units": [
     {"uuid":"732d8370-9c9e-4d05-baa9-4bddf5ff2b46","name":"A"}

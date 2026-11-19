@@ -743,3 +743,320 @@ fn free_pads_get_relief_and_bare_holes_keep_their_clearance() {
     assert!(!filled(s, at(16.9, 5.0)), "0.5 mm clear of the hole");
     assert!(filled(s, at(17.1, 5.0)));
 }
+
+#[test]
+fn inner_relief_spokes_reach_the_fill_across_the_inner_land_gap() {
+    let dir = TempDir::new("pad-stack-relief");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let layer = pcb(&engine).copper_layers().nth(1).unwrap().uuid;
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 15.0, 10.0),
+        json!({"layer":layer}),
+    );
+    engine.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","width":"1mm","at":{"x":"5mm","y":"5mm"},
+        "net":gnd,"hole":{"width":"0.5mm"},"middle":{"shape":"rect","width":"4mm","height":"1mm"},
+        "zone_connection":{"style":"relief","gap":"0.5mm","angle":"0deg","spokes":2,"spoke_width":"0.3mm"}}));
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(7.25, 5.0)), "spoke to the wide inner land");
+    assert!(!filled(s, at(7.25, 5.3)), "relief gap off the spoke");
+}
+
+#[test]
+fn edits_to_free_copper_drawings_refill_only_their_layer() {
+    let dir = TempDir::new("zone-copper-drawing");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 20., 15.),
+        json!({"remove_unconnected":false}),
+    );
+    let before = fill(&engine);
+    let rect = engine.run_ok("pcb.graphic.add_rect", json!({
+        "layer":"copper_top","from":{"x":"4mm","y":"3mm"},"to":{"x":"12mm","y":"10mm"},"width":"0.4mm"
+    }))["result"]["uuid"].clone();
+    let after = reda_pcb::zone::current(pcb(&engine), Some(&before));
+    let copper = shapes(&after, z);
+    assert!(
+        !filled(copper, at(6., 10.6)),
+        "0.4 mm from the graphic's edge is inside its clearance"
+    );
+    assert!(filled(copper, at(6., 10.8)));
+    assert!(
+        filled(copper, at(8., 6.)),
+        "the rectangle is only an outline"
+    );
+    engine.run_ok("pcb.graphic.delete", json!({"uuid":rect}));
+    assert!(reda_pcb::zone::status(pcb(&engine), Some(&after)).needs_refill);
+    let text = engine.run_ok(
+        "pcb.text.add",
+        json!({
+            "layer":"copper_bottom","font":"Noto Sans","text":"O","x":"4mm","y":"3mm","height":"7mm"
+        }),
+    )["result"]["uuid"]
+        .clone();
+    assert!(!reda_pcb::zone::status(pcb(&engine), Some(&before)).needs_refill);
+    engine.run_ok("pcb.text.set", json!({"uuid":text,"layer":"copper_top"}));
+    let after = reda_pcb::zone::current(pcb(&engine), Some(&before));
+    assert!(
+        !filled(shapes(&after, z), at(4.8, 6.5)),
+        "the left side of the O clears the fill"
+    );
+    assert!(
+        filled(shapes(&after, z), at(7.8, 6.5)),
+        "the counter still fills"
+    );
+}
+
+#[test]
+fn an_installed_copper_font_changes_clearance_and_invalidates_the_fallback_fill() {
+    let dir = TempDir::new("zone-installed-font");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 16., 15.),
+        json!({"remove_unconnected":false}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer":"copper_top","x":0,"y":0,
+        "text":"I","height":"10mm","font":"Board Mono"}),
+    );
+    let probe = json!({"layer":"copper_top","from":{"x":"4.1mm","y":"4mm"},
+        "to":{"x":"4.1mm","y":"6mm"},"width":"0.1mm"});
+    // At a 10 mm cap height, the centre stroke is at x=2.37 mm for the fallback
+    // Noto Sans I and x=4.11 mm for JetBrains Mono.
+    assert_eq!(
+        engine.run_ok("pcb.clearance.track", probe.clone())["clear"],
+        true
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    assert!(filled(
+        shapes(
+            engine
+                .project()
+                .unwrap()
+                .zone_fills(pcb(&engine).uuid)
+                .unwrap(),
+            z
+        ),
+        at(4.1, 5.)
+    ));
+    let previous = engine.run_ok("drc.run", json!({"checks":["clearance"]}))["design"].clone();
+    engine.fonts_mut().add(
+        "Board Mono",
+        &include_bytes!("../../reda-ui/fonts/jetbrains-mono/JetBrainsMonoNL-Regular.ttf")[..],
+    );
+    assert_eq!(
+        engine.run_ok("drc.stale", json!({"design":previous}))["stale"],
+        true
+    );
+    assert_eq!(engine.run_ok("pcb.clearance.track", probe)["clear"], false);
+    assert_eq!(
+        engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
+        true
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    let stored = engine
+        .project()
+        .unwrap()
+        .zone_fills(pcb(&engine).uuid)
+        .unwrap();
+    assert!(!filled(shapes(stored, z), at(4.1, 5.)));
+    assert!(filled(shapes(stored, z), at(2.37, 5.)));
+    assert_eq!(
+        engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
+        false
+    );
+}
+
+#[test]
+fn supplied_zone_copper_touching_a_graphic_is_a_clearance_violation() {
+    let dir = TempDir::new("drc-zone-free-drawing");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 12., 12.),
+        json!({"remove_unconnected":false}),
+    );
+    let before = fill(&engine);
+    let graphic = uuid(
+        &engine.run_ok(
+            "pcb.graphic.add_arc",
+            json!({
+                "layer":"copper_top","from":{"x":"3mm","y":"5mm"},"to":{"x":"9mm","y":"5mm"},
+                "sweep":"180deg","width":"0.2mm"
+            }),
+        )["result"]["uuid"],
+    );
+    let pcb = pcb(&engine);
+    let reports = |fills| {
+        reda_pcb::drc::check_only(
+            pcb,
+            fills,
+            engine.fonts(),
+            Some(&[reda_model::DrcCheck::Clearance]),
+        )
+    };
+    let hits = reports(&before);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(hits[0].objects.contains(&z) && hits[0].objects.contains(&graphic));
+    let fresh = reda_pcb::zone::current(pcb, Some(&before));
+    assert!(reports(&fresh).is_empty());
+    assert!(!filled(shapes(&fresh, z), at(6., 2.)));
+    assert!(filled(shapes(&fresh, z), at(6., 5.)));
+}
+
+#[test]
+fn restoring_a_via_land_from_a_lower_zone_invalidates_the_upper_fill() {
+    let dir = TempDir::new("fill-unused-lower-zone");
+    let mut e = engine_with_pcb(&dir);
+    let ground = add_net(&mut e, "GND");
+    let power = add_net(&mut e, "VCC");
+    e.run_ok(
+        "pcb.via.add",
+        json!({"at":{"x":"5mm","y":"5mm"},"net":power,
+        "hole":"0.4mm","diameter":"2mm","unused_layers":"remove"}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.3mm"}}}),
+    );
+    let high = zone(
+        &mut e,
+        Some(ground),
+        rect(0., 0., 10., 10.),
+        json!({"priority":2,"remove_unconnected":false}),
+    );
+    let initial = fill(&e);
+    assert!(
+        !filled(shapes(&initial, high), at(5.45, 5.)),
+        "0.3 mm hole clearance"
+    );
+    assert!(
+        filled(shapes(&initial, high), at(5.7, 5.)),
+        "only the drill blocks this Layer"
+    );
+    zone(
+        &mut e,
+        Some(power),
+        rect(1., 1., 9., 9.),
+        json!({"priority":1}),
+    );
+    let current = reda_pcb::zone::current(pcb(&e), Some(&initial));
+    assert!(
+        !filled(shapes(&current, high), at(5.7, 5.)),
+        "the restored land keeps copper clear"
+    );
+}
+
+#[test]
+fn a_disconnected_same_net_zone_measures_its_gap_from_the_omitted_lands_hole() {
+    let dir = TempDir::new("fill-omitted-hole-gap");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let inner = pcb(&e).copper_layers().nth(1).unwrap().uuid;
+    let net = add_net(&mut e, "GND");
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"2mm",
+        "at":{"x":"5mm","y":"5mm"},"hole":{"width":"0.4mm"},"unused_layers":"remove","net":net,
+        "zone_connection":{"style":"none","gap":"0.6mm"}}),
+    );
+    let z = zone(
+        &mut e,
+        Some(net),
+        rect(0., 0., 10., 10.),
+        json!({"layer":inner,"remove_unconnected":false}),
+    );
+    let fills = fill(&e);
+    let s = shapes(&fills, z);
+    assert!(
+        !filled(s, at(5.75, 5.)),
+        "0.2 mm bore radius plus the 0.6 mm connection gap"
+    );
+    assert!(
+        filled(s, at(5.9, 5.)),
+        "the removed 1 mm land radius adds no gap"
+    );
+}
+
+#[test]
+fn a_zero_clearance_zone_does_not_touch_netless_artwork() {
+    let dir = TempDir::new("zone-artwork-contact");
+    let mut engine = engine_with_pcb(&dir);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"value":0}}),
+    );
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 12., 12.),
+        json!({
+            "clearance":0, "min_width":1, "remove_unconnected":false
+        }),
+    );
+    engine.run_ok(
+        "pcb.graphic.add_rect",
+        json!({
+            "layer":"copper_top","from":{"x":"4mm","y":"4mm"},"to":{"x":"8mm","y":"8mm"},
+            "filled":true, "width":0
+        }),
+    );
+    let fills = fill(&engine);
+    assert!(filled(shapes(&fills, z), at(3.99, 6.)));
+    assert!(!filled(shapes(&fills, z), at(6., 6.)));
+    let hits = reda_pcb::drc::check_only(
+        pcb(&engine),
+        &fills,
+        engine.fonts(),
+        Some(&[reda_model::DrcCheck::Clearance]),
+    );
+    assert!(hits.is_empty(), "{hits:?}");
+}
+
+#[test]
+fn a_zone_reaching_the_edge_of_a_land_restores_its_copper() {
+    let dir = TempDir::new("zone-reaching-land-edge");
+    let mut engine = engine_with_pcb(&dir);
+    let net = add_net(&mut engine, "GND");
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":at(5.,5.), "net":net, "hole":"0.4mm", "diameter":"2mm",
+               "unused_layers":"remove","zone_connection":{"style":"solid"}}),
+        )["result"]["uuid"],
+    );
+    let z = zone(&mut engine, Some(net), rect(5.5, 4., 9., 6.), json!({}));
+    let layer = pcb(&engine).zone(z).unwrap().layer;
+    let has_land = |engine: &TestEngine| {
+        Copper::build(pcb(engine))
+            .items_at(layer, at(5., 5.))
+            .contains(&Item::Via { uuid: via })
+    };
+    assert!(has_land(&engine));
+    assert!(
+        filled(shapes(&fill(&engine), z), at(8., 5.)),
+        "the Zone connects through that edge"
+    );
+    engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer":layer,"vertices":rect(4.,3.,6.1,7.)}),
+    );
+    assert!(!has_land(&engine));
+    assert!(shapes(&fill(&engine), z).is_empty());
+}

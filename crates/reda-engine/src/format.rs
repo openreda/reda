@@ -11,6 +11,7 @@ mod project_file;
 mod rules_file;
 mod schema;
 mod sheet_file;
+mod v2;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -31,7 +32,7 @@ pub(crate) use sheet_file::{read_sheet_file, write_sheet_file};
 /// `crates/reda-engine/tests/golden/formats/v<old>/` and each reference Project under
 /// `tests/projects/formats/v<old>/<project>/` (see `tests/migrations.rs` and
 /// `tests/reference_projects.rs`).
-pub const FORMAT: u32 = 1;
+pub const FORMAT: u32 = 2;
 
 /// The kinds of file REDA reads and writes, each with one typed shape and one JSON Schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -90,8 +91,8 @@ impl FileKind {
 pub type Migration = fn(FileKind, Value) -> Result<Value, String>;
 
 /// `MIGRATIONS[i]` turns format `i + 1` into `i + 2`. Steps are kept forever, and each one
-/// gets golden files under `crates/reda-engine/tests/golden/migrations/`.
-pub const MIGRATIONS: &[Migration] = &[];
+/// gets frozen inputs and migrated output goldens under `tests/projects/formats/`.
+pub const MIGRATIONS: &[Migration] = &[v2::migrate];
 
 const _: () = assert!(MIGRATIONS.len() == FORMAT as usize - 1);
 

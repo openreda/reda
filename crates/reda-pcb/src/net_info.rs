@@ -92,11 +92,6 @@ pub fn net_info(
         ),
         None => None,
     };
-    let width = width.or(track.map(|t| t.width)).unwrap_or_else(|| {
-        crate::rules::net_rules(pcb, Some(net))
-            .track_width
-            .default_size()
-    });
     let layer = match track {
         Some(t) => t.layer,
         None => pcb
@@ -105,6 +100,11 @@ pub fn net_info(
             .map(|l| l.uuid)
             .ok_or("the board has no copper Layer")?,
     };
+    let width = width.or(track.map(|t| t.width)).unwrap_or_else(|| {
+        crate::rules::net_rules_on(pcb, Some(net), Some(layer))
+            .track_width
+            .default_size()
+    });
     let outer = pcb
         .layers()
         .layers

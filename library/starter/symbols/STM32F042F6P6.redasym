@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"9fd3dcb8-089c-4b98-a972-c514dd97fbbc","name":"STM32F042F6P6","designator_prefix":"U","description":"STM32F042F6P6 Cortex-M0 microcontroller with USB, TSSOP-20 pinout"},
   "units": [
     {"uuid":"924ca7cc-ad2a-46a9-8a94-0536ac9c9141","name":"A"}

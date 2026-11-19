@@ -3,6 +3,7 @@
 //! the Journal export.
 
 use super::*;
+use crate::pcb::route_commands::RouteCommand;
 
 impl Shell {
     /// Runs a Command an agent sent over the bridge, as [`Shell::run`] does, with its
@@ -20,8 +21,11 @@ impl Shell {
                 "only the user can run {id}, from the app"
             )));
         }
-        let out = self.engine.run_from(source, id, params, signals)?;
-        self.after_run(id);
+        let base = id.split(':').next().unwrap_or(id);
+        self.prepare_route_command();
+        let mut out = self.engine.run_from(source, id, params, signals)?;
+        self.apply_route_command(RouteCommand::from_id(base), &mut out);
+        self.after_run(id, &out);
         if let Some(tool) = &self.tool
             && tool.touched_by(&out)
         {
@@ -44,6 +48,7 @@ impl Shell {
             self.save_view();
         }
         let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let tool_command = ToolCommand::from_id(base);
         let params = self.with_wiring(base, params);
         if base == "selection.cycle"
             && let Some(document) = params
@@ -53,7 +58,7 @@ impl Shell {
         {
             selection::picking::prepare_cycle(self, document);
         }
-        if base == "tool.activate" {
+        if tool_command == Some(ToolCommand::Activate) {
             // The Tool stack needs to know whether a run is in flight.
             let run = self
                 .active_sheet()
@@ -73,7 +78,11 @@ impl Shell {
             }
             return Ok(out);
         }
-        if matches!(base, "tool.mirror_x" | "tool.mirror_y") && self.board_mirror_refused() {
+        if matches!(
+            tool_command,
+            Some(ToolCommand::MirrorX | ToolCommand::MirrorY)
+        ) && self.board_mirror_refused()
+        {
             return Err(CommandError::rejected(
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
@@ -99,6 +108,7 @@ impl Shell {
             .then(|| params.clone());
         let shown = self.preferences().editing.highlight.clone();
         self.engine.view_mut().set(shown);
+        self.prepare_route_command();
         let out = self.engine.run(id, params.clone());
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -107,12 +117,18 @@ impl Shell {
         if let Err(e) = &out {
             self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
-        let out = out?;
+        let mut out = out?;
+        self.apply_route_command(RouteCommand::from_id(base), &mut out);
         if base == "pcb.route.unroute" {
             pcb::placing::ask_about_locked_unroute(self, &params, &out);
         }
-        self.after_edit(base, &out);
-        self.after_run(id);
+        if let Some(command) = tool_command {
+            self.after_tool(command, &out);
+        } else {
+            self.after_edit(base, &out);
+        }
+        self.prune_selection_and_highlight(base == "schematic.delete");
+        self.after_run(id, &out);
         if matches!(base, "library.element.open" | "library.element.new") {
             crate::element_editor::after_open(self, &out);
         }
@@ -209,7 +225,7 @@ impl Shell {
     }
 
     /// Refreshes what a successful run of `id` may have changed.
-    pub(super) fn after_run(&mut self, id: &str) {
+    pub(super) fn after_run(&mut self, id: &str, out: &Value) {
         let base = id.split(':').next().unwrap_or(id);
         // First, so the Scenes the refresh below rebuilds are drawn with them.
         if matches!(
@@ -248,6 +264,16 @@ impl Shell {
                 }
                 _ => self.refresh(),
             },
+        }
+        if base == "view.footprint_tool.set"
+            && let Some(uuid) = out["preview"]["footprint"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+        {
+            let scene = self.scene_of(uuid);
+            if let Some(tab) = self.document_tab_mut(uuid) {
+                tab.scene = scene;
+            }
         }
         if base.starts_with("library.")
             || base.starts_with("project.")
@@ -288,7 +314,7 @@ impl Shell {
             return dialog;
         }
         match &self.layout().focus {
-            Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
+            Some(TabKey::Document(uuid) | TabKey::Stackup(uuid)) => Some(Scope::Document(*uuid)),
             // Board Setup's changes go on the PCB Document's stack.
             Some(TabKey::Settings(SettingsWindow::BoardSetup)) => {
                 let pcb = self.engine.project().and_then(|p| p.pcb());

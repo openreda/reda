@@ -36,7 +36,7 @@ This file gives the Command ids, the additions to `.redapcb`, `.redafab`, `.reda
 
 ### Via type and Via
 
-One pair of names is used everywhere a Via's size appears: `hole` and `diameter`. The other v0.2 files say `drill` and `pad` for a Via type's fields; those are column headings in the Stackup editor, not stored names.
+One pair of names is used everywhere a Via's size appears: `hole` and `diameter`. The [Stackup editor](stackup-editor.md#via-types-table) labels these columns **Drill** and **Pad**.
 
 - **Via type:** `{uuid, name?, from, to, micro?, hole, diameter {start, middle?, end?}, unused_layers?}`. `from` and `to` are Layer UUIDs.
 - **Via** gains to its v0.1 fields:
@@ -77,6 +77,7 @@ One pair of names is used everywhere a Via's size appears: `hole` and `diameter`
 | `teardrop` | `through_hole_pad`, `smd_pad`, `via`, `width_change`, each `{enabled, length, max_length, width, max_width, curved, skip_ratio}` |
 | `silk_width`, `silk_text_height` | `min` |
 
+- `aspect_ratio.max` is the maximum depth divided by hole diameter, in thousandths. For example, `8000` is 8:1 and `750` is 0.75:1. The comparison uses the exact shared dielectric thickness.
 - `length`, `width` and `skip_ratio` are whole percent. The DRC severities table gains `via_span`, `microvia_size`, `aspect_ratio`, `max_stack`, `silk_width` and `silk_text_height`.
 
 ## `.redafab`
@@ -232,4 +233,3 @@ View Commands, in the app's registry.
 
 - Goldens for the migration step, the new schema and the new Commands: [Which tests does v0.2 add for multilayer boards?](https://github.com/openreda/reda/issues/353).
 - The values in the shipped presets' `constructions`, `silk_width` and `silk_text_height`: the shipped Fab Preset data on the [v0.2 map](https://github.com/openreda/reda/issues/319).
-- Replacing `drill` and `pad` with `hole` and `diameter` where [via-types](via-types.md) and [inner-layers](inner-layers.md) name a Via type's stored fields: when the spec is assembled.

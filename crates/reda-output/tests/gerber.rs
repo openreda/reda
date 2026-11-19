@@ -81,10 +81,10 @@ fn the_files_are_named_the_protel_way() {
     );
     let top = read(&file(&files, "Demo.gtl").bytes);
     assert!(top.ended);
-    assert_eq!(top.file[".FileFunction"], "Copper,L1,Top");
+    assert_eq!(top.file[".FileFunction"], "Copper,L1,Top,Signal");
     assert_eq!(top.file[".FilePolarity"], "Positive");
     let bottom = read(&file(&files, "Demo.gbl").bytes);
-    assert_eq!(bottom.file[".FileFunction"], "Copper,L2,Bot");
+    assert_eq!(bottom.file[".FileFunction"], "Copper,L2,Bot,Signal");
     let profile = read(&file(&files, "Demo.gm1").bytes);
     assert_eq!(profile.file[".FileFunction"], "Profile,NP");
 }
@@ -784,4 +784,209 @@ fn keepouts_and_zone_cutouts_are_never_plotted() {
 
 fn names_of(files: &[(String, Vec<u8>)]) -> Vec<&str> {
     files.iter().map(|(n, _)| n.as_str()).collect()
+}
+
+fn thirty_two_layer_board(dir: &TempDir) -> TestEngine {
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Large", "layers": 32,
+               "board": {"width": "30mm", "height": "20mm"}}),
+    );
+    let layers: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|layer| layer.uuid)
+        .collect();
+    for (index, role) in [(0, "mixed"), (1, "plane"), (30, "mixed"), (31, "plane")] {
+        engine.run_ok(
+            "pcb.layer.set",
+            json!({"layer": layers[index], "role": role}),
+        );
+    }
+    engine.run_ok("pcb.via.add", json!({"at": pt(7.0, 5.0)}));
+    engine
+}
+
+#[test]
+fn thirty_two_copper_plots_read_back_in_stackup_order_with_the_through_via() {
+    let dir = TempDir::new("gerber-thirty-two-layers");
+    let engine = thirty_two_layer_board(&dir);
+    let files = plot(&engine);
+    let copper: Vec<_> = files
+        .iter()
+        .filter(|file| file.function.starts_with("copper_"))
+        .collect();
+    assert_eq!(copper.len(), 32);
+    for (index, file) in copper.iter().enumerate() {
+        let position = index + 1;
+        let (name, face) = match position {
+            1 => ("Large.gtl".into(), "Top"),
+            32 => ("Large.gbl".into(), "Bot"),
+            _ => (format!("Large.g{position}l"), "Inr"),
+        };
+        let role = match position {
+            2 | 32 => "Plane",
+            1 | 31 => "Mixed",
+            _ => "Signal",
+        };
+        assert_eq!(file.name, name, "copper Layer {position}");
+        let artwork = read(&file.bytes);
+        assert_eq!(
+            artwork.file[".FileFunction"],
+            format!("Copper,L{position},{face},{role}")
+        );
+        assert_eq!(artwork.file[".FilePolarity"], "Positive");
+        assert!(artwork.ended);
+        let vias: Vec<_> = artwork
+            .flashes()
+            .filter_map(|item| match item {
+                Object::Flash { at, function, .. } if function.as_deref() == Some("ViaPad") => {
+                    Some(*at)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(vias, [(mm(7.0), mm(5.0))], "through Via on L{position}");
+    }
+}
+
+#[test]
+#[ignore = "local 32-Layer plotting timing; no performance gate"]
+fn thirty_two_layer_gerber_timing() {
+    let dir = TempDir::new("gerber-thirty-two-timing");
+    let engine = thirty_two_layer_board(&dir);
+    let start = std::time::Instant::now();
+    let files = plot(&engine);
+    eprintln!("Plotted {} files in {:?}", files.len(), start.elapsed());
+}
+
+#[test]
+fn a_stale_width_change_plots_an_attributed_conductor_region_only_on_its_layer() {
+    let dir = TempDir::new("gerber-teardrop");
+    let mut engine = board(&dir);
+    let sig = net(&mut engine, "SIG");
+    for (a, b, width) in [(3., 5., "1mm"), (5., 8., "0.1mm")] {
+        engine.run_ok(
+            "pcb.track.add",
+            json!({"layer":"copper_top","net":sig,"width":width,
+            "points":[pt(a,5.),pt(b,5.)]}),
+        );
+    }
+    engine.run_ok("pcb.zone.fill", json!({}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"length":100}}}),
+    );
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.gtl").bytes);
+    let regions: Vec<_> = layer.regions().collect();
+    let [
+        Object::Region {
+            points,
+            function,
+            attributes,
+            dark,
+            ..
+        },
+    ] = regions[..]
+    else {
+        panic!("expected a single Teardrop region");
+    };
+    assert!(dark);
+    assert_eq!(function.as_deref(), Some("Conductor"));
+    assert_eq!(attributes[".N"], "SIG");
+    for expected in [(5., 4.5), (5., 5.5), (6., 5.05), (6., 4.95)] {
+        assert!(points.contains(&(mm(expected.0), mm(expected.1))));
+    }
+    assert_eq!(read(&file(&files, "Demo.gbl").bytes).regions().count(), 0);
+}
+
+#[test]
+fn all_four_targets_read_back_as_plain_conductor_regions_only_on_their_copper_layer() {
+    let dir = TempDir::new("gerber-land-teardrops");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Drops","layers":4,
+        "board":{"width":"20mm","height":"20mm"}}),
+    );
+    let sig = net(&mut e, "SIG");
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":layers[0],"net":sig,"width":"1mm",
+        "points":[pt(2.,3.),pt(5.,3.)]}),
+    );
+    e.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","net":sig,"at":pt(5.,7.),
+        "width":"1mm","hole":{"width":"0.4mm"},"middle":{"shape":"rect","width":"1.4mm","height":"1mm"}}));
+    e.run_ok("pcb.via.add",json!({"net":sig,"at":pt(5.,11.),"hole":"0.3mm","diameter":{"start":"0.6mm","middle":"0.8mm"}}));
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","side":"bottom","shape":"rect","width":"1mm",
+        "height":"1.2mm","net":sig,"at":pt(5.,15.)}),
+    );
+    for (&layer, y) in layers.iter().zip([3., 7., 11., 15.]) {
+        e.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,"net":sig,"width":"0.1mm",
+            "points":[pt(5.,y),pt(10.,y)]}),
+        );
+    }
+    let before = plot(&e);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"length":100},
+        "through_hole_pad":{"enabled":true},"via":{"enabled":true},"smd_pad":{"enabled":true}}}),
+    );
+    let after = plot(&e);
+    for (original, generated) in before.iter().zip(&after) {
+        if !original.function.starts_with("copper_") {
+            assert_eq!(original.bytes, generated.bytes, "{}", original.name);
+        }
+    }
+    for (name, x, y, base, tip) in [
+        ("Drops.gtl", 5., 3., 1., 6.),
+        ("Drops.g2l", 5.7, 7., 1., 6.2),
+        // A round land meets its Teardrop at the tangent points, above and below its centre.
+        ("Drops.g3l", 5., 11., 0.8, 5.8),
+        ("Drops.gbl", 5.5, 15., 1.2, 6.1),
+    ] {
+        let artwork = read(&file(&after, name).bytes);
+        let conductors:Vec<_> = artwork.regions().filter(|r| matches!(r,Object::Region{function,..} if function.as_deref()==Some("Conductor"))).collect();
+        let [
+            Object::Region {
+                dark,
+                points,
+                attributes,
+                ..
+            },
+        ] = conductors[..]
+        else {
+            panic!("expected one conductor region on {name}")
+        };
+        assert!(*dark);
+        assert_eq!(attributes[".N"], "SIG");
+        for point in [
+            (x, y - base / 2.),
+            (x, y + base / 2.),
+            (tip, y - 0.05),
+            (tip, y + 0.05),
+        ] {
+            assert!(
+                points.contains(&(mm(point.0), mm(point.1))),
+                "{name}: {point:?} missing from {points:?}"
+            );
+        }
+    }
 }

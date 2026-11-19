@@ -1,5 +1,5 @@
 //! The Fab Preset pages (docs/spec/v0.1/outputs.md#fab-preset-pages): Rules, Stackup,
-//! Gerber, Drill, BOM, CPL and Packaging, the same for a Project copy (in Project
+//! Gerber, Drill, BOM, CPL, Placement and Packaging, the same for a Project copy (in Project
 //! Settings, committed on Apply with `fab_preset.set`) and a user preset (in Preferences,
 //! written with `fab_preset.set_user`).
 //!
@@ -16,8 +16,10 @@ use serde_json::{Map, Value};
 use crate::settings::Problem;
 use crate::tr;
 
+mod constructions;
 pub mod draw;
 mod field;
+pub(crate) mod placement;
 
 pub use field::{Field, source_token};
 
@@ -30,17 +32,19 @@ pub enum PresetPage {
     Drill,
     Bom,
     Cpl,
+    Placement,
     Packaging,
 }
 
 impl PresetPage {
-    pub const ALL: [PresetPage; 7] = [
+    pub const ALL: [PresetPage; 8] = [
         PresetPage::Rules,
         PresetPage::Stackup,
         PresetPage::Gerber,
         PresetPage::Drill,
         PresetPage::Bom,
         PresetPage::Cpl,
+        PresetPage::Placement,
         PresetPage::Packaging,
     ];
 
@@ -52,6 +56,7 @@ impl PresetPage {
             PresetPage::Drill => tr!("preset-page-drill"),
             PresetPage::Bom => tr!("preset-page-bom"),
             PresetPage::Cpl => tr!("preset-page-cpl"),
+            PresetPage::Placement => tr!("preset-page-placement"),
             PresetPage::Packaging => tr!("preset-page-packaging"),
         }
     }
@@ -61,7 +66,7 @@ impl PresetPage {
     pub fn keys(self) -> &'static [&'static str] {
         match self {
             PresetPage::Rules => &["rules"],
-            PresetPage::Stackup => &["stackup", "stackup_suggestions"],
+            PresetPage::Stackup => &["constructions", "stackup_suggestions"],
             PresetPage::Gerber => &[
                 "gerber.naming",
                 "gerber.file_names",
@@ -72,6 +77,7 @@ impl PresetPage {
             PresetPage::Drill => &["gerber.slot_command", "gerber.merge_drill"],
             PresetPage::Bom => &["bom"],
             PresetPage::Cpl => &["cpl"],
+            PresetPage::Placement => &["placement_corrections"],
             PresetPage::Packaging => &["zip_assembly"],
         }
     }
@@ -88,6 +94,8 @@ impl PresetPage {
 /// fields.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PresetEditor {
+    correction: Option<placement::CorrectionForm>,
+    construction_list: constructions::List,
     base: FabPreset,
     value: FabPreset,
     /// Text typed into a field, kept while it is being typed or is not a value.
@@ -99,6 +107,8 @@ pub struct PresetEditor {
 impl PresetEditor {
     pub fn new(preset: FabPreset) -> PresetEditor {
         PresetEditor {
+            correction: None,
+            construction_list: Default::default(),
             base: preset.clone(),
             value: preset,
             texts: BTreeMap::new(),
@@ -132,6 +142,7 @@ impl PresetEditor {
             return;
         }
         if reset || !self.changed() {
+            self.correction = None;
             self.value = fresh.clone();
             self.texts.clear();
             self.problems.clear();
@@ -194,6 +205,23 @@ impl PresetEditor {
         let (value, base) = (json(&self.value), json(&self.base));
         let mut out = Map::new();
         for key in page.keys() {
+            if *key == "constructions" {
+                let mut patch = Map::new();
+                for build in &self.value.constructions {
+                    if self.base.construction(&build.name) != Some(build) {
+                        patch.insert(build.name.clone(), serde_json::json!(build));
+                    }
+                }
+                for old in &self.base.constructions {
+                    if self.value.construction(&old.name).is_none() {
+                        patch.insert(old.name.clone(), Value::Null);
+                    }
+                }
+                if !patch.is_empty() {
+                    out.insert("constructions".into(), Value::Object(patch));
+                }
+                continue;
+            }
             for (section, key) in expand(key, &value, &base) {
                 let now = lookup(&value, &section, key.as_deref());
                 if now == lookup(&base, &section, key.as_deref()) {
@@ -212,6 +240,15 @@ impl PresetEditor {
                     }
                 }
             }
+        }
+        // A stored pattern omits empty Layer overrides. In a command patch, omitting
+        // them means "keep the old rows", so removing the last one needs an explicit [].
+        if let Some(Value::Object(names)) =
+            out.get_mut("gerber").and_then(|g| g.get_mut("file_names"))
+        {
+            names
+                .entry("layers")
+                .or_insert_with(|| Value::Array(Vec::new()));
         }
         (!out.is_empty()).then_some(Value::Object(out))
     }
@@ -237,6 +274,9 @@ impl PresetEditor {
 
     /// Reset page to source: the page's keys take `source`'s values, as pending edits.
     pub fn reset_page(&mut self, page: PresetPage, source: &FabPreset) {
+        if page == PresetPage::Placement {
+            self.correction = None;
+        }
         let mut value = json(&self.value);
         let from = json(source);
         for key in page.keys() {

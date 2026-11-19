@@ -178,7 +178,7 @@ fn board_cutouts_are_separate_objects() {
 }
 
 fn board_value(engine: &TestEngine, kind: RuleKind) -> Option<Nm> {
-    let values = pcb(engine).board_rule(kind).values;
+    let values = &pcb(engine).board_rule(kind).values;
     values.value.or(values.min)
 }
 

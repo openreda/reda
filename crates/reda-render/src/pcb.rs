@@ -9,7 +9,7 @@ mod drawing;
 mod labels;
 mod zones;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::{CornerRect, Millideg, Nm, Point};
 use reda_model::{Hole, Layer, LayerKind, PadKind, PcbDocument, Project, Shape, Side, Uuid};
@@ -23,6 +23,8 @@ use crate::scene::{Primitive, Scene, SceneLayer, SceneSource};
 pub struct BoardGeometry {
     /// Every Pad on the board: Footprint Pads and Free Pads.
     pub pads: Vec<BoardPad>,
+    /// Copper omitted on the board, as (owner, child Pad if placed, Layer).
+    pub omitted_lands: BTreeSet<(Uuid, Option<Uuid>, Uuid)>,
     /// Every Footprint's drawing, on board Layers.
     pub graphics: Vec<BoardGraphic>,
     /// Every text on the board, laid out: free text, Designators and Footprint text.
@@ -129,6 +131,7 @@ pub struct NetLabels {
     pub pad_nets: bool,
     /// Net names on Vias.
     pub via_nets: bool,
+    pub via_spans: bool,
     /// Net names repeated along Tracks, rather than once in the middle.
     pub repeated_net_names: bool,
 }
@@ -138,6 +141,7 @@ impl Default for NetLabels {
         NetLabels {
             pad_nets: true,
             via_nets: true,
+            via_spans: false,
             repeated_net_names: false,
         }
     }
@@ -156,6 +160,9 @@ pub struct BoardPad {
     pub rotation: Millideg,
     /// The copper outline in the Pad's frame on the board, about `at`.
     pub outline: CornerRect,
+    /// Physical inner and bottom outlines when different from the top.
+    pub middle: Option<CornerRect>,
+    pub bottom: Option<CornerRect>,
     /// The hole, its slot turned in the Pad's frame.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole.
@@ -164,6 +171,15 @@ pub struct BoardPad {
 }
 
 impl BoardPad {
+    fn outline_on(&self, side: Option<Side>) -> &CornerRect {
+        match side {
+            Some(Side::Top) => None,
+            Some(Side::Bottom) => self.bottom.as_ref(),
+            None => self.middle.as_ref(),
+        }
+        .unwrap_or(&self.outline)
+    }
+
     /// The centre of the copper on the board.
     pub fn copper_center(&self) -> Point {
         (self.outline.center + self.at).rotated_about(self.at, self.rotation)
@@ -251,8 +267,8 @@ pub fn pcb_scene_styled(
     };
     zones::build(&mut b, project.zone_fills(document), &geometry.zones);
     copper::tracks(&mut b);
-    copper::pads(&mut b, &geometry.pads, geometry.openings.as_deref());
-    copper::vias(&mut b);
+    copper::pads(&mut b, geometry);
+    copper::vias(&mut b, geometry);
     drawing::graphics(&mut b, &geometry.graphics);
     drawing::texts(&mut b, &geometry.texts);
     drawing::outline(&mut b);
@@ -308,7 +324,7 @@ impl Builder<'_> {
     /// Pushes onto a board Layer in that Layer's colour; nothing for an unknown Layer.
     fn on_layer(&mut self, object: Uuid, layer: Uuid, primitive: Primitive) {
         if let Some(l) = self.layers.get(&layer) {
-            let color = BoardColor::layer(l.kind, l.side);
+            let color = BoardColor::for_layer(self.pcb, l);
             self.push(object, SceneLayer::Board(layer), color, primitive);
         }
     }

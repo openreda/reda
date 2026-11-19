@@ -1,0 +1,63 @@
+{
+  "locally_edited": [],
+  "partial": false,
+  "refilled": false,
+  "unmatched_waivers": [],
+  "violations": [
+    {
+      "args": {
+        "actual": 100000,
+        "required": 150000
+      },
+      "at": {
+        "x": 2000000,
+        "y": 2000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 100000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-0000000000a2"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-00000000002a",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 700000,
+        "required": 1000000
+      },
+      "at": {
+        "x": 1642157,
+        "y": 5345098
+      },
+      "check": "silk_text_height",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 700000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-0000000000a3"
+      ],
+      "required": {
+        "length": 1000000
+      },
+      "rule": "00000000-0000-4000-8000-00000000002b",
+      "severity": "warning"
+    }
+  ],
+  "waived": 0
+}

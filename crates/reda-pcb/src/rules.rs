@@ -30,11 +30,13 @@ pub struct Sourced<T> {
 
 /// The Net Classes of `net`, highest rank first; none for no Net or an unknown one.
 pub fn ranked_classes(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<Uuid> {
-    let Some(net) = net.and_then(|n| pcb.net(n)) else {
-        return Vec::new();
-    };
-    let mut classes: Vec<(u32, Uuid)> = net
-        .classes
+    net.and_then(|id| pcb.net(id))
+        .map(|net| rank_classes(pcb, &net.classes))
+        .unwrap_or_default()
+}
+
+fn rank_classes(pcb: &PcbDocument, members: &[Uuid]) -> Vec<Uuid> {
+    let mut classes: Vec<(u32, Uuid)> = members
         .iter()
         .filter_map(|c| pcb.net_class(*c).map(|class| (class.rank, class.uuid)))
         .collect();
@@ -51,23 +53,63 @@ pub fn resolve(
     kind: RuleKind,
     field: RuleField,
 ) -> Option<Sourced<RuleValue>> {
-    let from_class = ranked_classes(pcb, net).into_iter().find_map(|class| {
-        let rule = pcb.class_rule(kind, class).filter(|r| r.enabled)?;
-        rule.values.get(field).map(|value| Sourced {
-            value,
-            rule: rule.uuid,
+    resolve_on(pcb, net, None, kind, field)
+}
+
+/// The records for these classes on the measured Layer, in inheritance order.
+pub fn candidates<'a>(
+    pcb: &'a PcbDocument,
+    classes: &[Uuid],
+    layer: Option<Uuid>,
+    kind: RuleKind,
+) -> Vec<&'a DesignRule> {
+    let layer = layer.and_then(|id| pcb.layers().layer(id));
+    let mut matches: Vec<_> = pcb
+        .rules()
+        .filter(|r| r.kind == kind && r.scope.net_class_pair.is_none())
+        .filter_map(|r| {
+            let owner = match r.scope.net_class {
+                Some(c) => classes.iter().position(|id| *id == c)?,
+                None => classes.len(),
+            };
+            let specificity = match &r.scope.layers {
+                Some(layers) => layers.priority(layer?)?,
+                None => 0,
+            };
+            Some(((owner, std::cmp::Reverse(specificity)), r))
         })
-    });
-    from_class.or_else(|| {
-        let rule = pcb.board_rule(kind);
-        (rule.enabled || field.is_preferred())
-            .then(|| rule.values.get(field))
-            .flatten()
-            .map(|value| Sourced {
+        .collect();
+    matches.sort_by_key(|(rank, _)| *rank);
+    matches.into_iter().map(|(_, r)| r).collect()
+}
+
+/// Resolves a single field on the copper Layer where it is measured.
+pub fn resolve_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+) -> Option<Sourced<RuleValue>> {
+    resolve_for_classes(pcb, &ranked_classes(pcb, net), layer, kind, field)
+}
+
+pub fn resolve_for_classes(
+    pcb: &PcbDocument,
+    classes: &[Uuid],
+    layer: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+) -> Option<Sourced<RuleValue>> {
+    candidates(pcb, classes, layer, kind)
+        .into_iter()
+        .filter(|r| r.enabled || (field.is_preferred() && r.scope.is_board_wide()))
+        .find_map(|r| {
+            r.values.get(field).map(|value| Sourced {
                 value,
-                rule: rule.uuid,
+                rule: r.uuid,
             })
-    })
+        })
 }
 
 /// The length limit of `kind`'s `field` for copper on `net`; `None` where it is absent.
@@ -140,15 +182,118 @@ fn range(
     pcb: &PcbDocument,
     net: Option<Uuid>,
     kind: RuleKind,
+    layer: Option<Uuid>,
     [min, preferred, max]: [RuleField; 3],
+    fallback: Option<Nm>,
 ) -> SizeRange {
     SizeRange {
-        min: limit(pcb, net, kind, min),
-        preferred: resolve(pcb, net, kind, preferred)
+        min: resolve_on(pcb, net, layer, kind, min).and_then(|s| s.value.length()),
+        preferred: resolve_on(pcb, net, layer, kind, preferred)
             .and_then(|s| s.value.length())
-            .expect("the board-wide record holds every preferred value"),
-        max: limit(pcb, net, kind, max),
+            .or(fallback)
+            .expect("Track rules and Via types supply a starting size"),
+        max: resolve_on(pcb, net, layer, kind, max).and_then(|s| s.value.length()),
     }
+}
+
+/// Resolves the seven independent attributes of one Teardrop on the Track's Layer.
+pub fn teardrop(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Uuid,
+    kind: reda_model::TeardropKind,
+) -> reda_model::TeardropTarget {
+    let mut shape = reda_model::TeardropTarget::default();
+    for record in candidates(
+        pcb,
+        &ranked_classes(pcb, net),
+        Some(layer),
+        RuleKind::Teardrop,
+    )
+    .into_iter()
+    .rev()
+    .filter(|r| r.enabled)
+    {
+        if let Some(values) = record.values.teardrop_values(kind) {
+            values.apply(&mut shape);
+        }
+    }
+    shape
+}
+
+/// The first enabled Via Span permission list in Net Class rank order applies.
+pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool {
+    via_span_permission(pcb, net).is_none_or(|(_, list)| list.is_empty() || list.contains(&id))
+}
+
+/// The rule and list used for both routing permission and DRC attribution.
+pub(crate) fn via_span_permission(pcb: &PcbDocument, net: Option<Uuid>) -> Option<(Uuid, &[Uuid])> {
+    ranked_classes(pcb, net).into_iter().find_map(|class| {
+        let rule = pcb
+            .class_rule(RuleKind::ViaSpan, class)
+            .filter(|r| r.enabled)?;
+        Some((rule.uuid, rule.values.allowed.as_deref()?))
+    })
+}
+
+pub fn via_ranges(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (SizeRange, SizeRange) {
+    use RuleField::*;
+    let kind = if via_type.micro {
+        RuleKind::MicroviaSize
+    } else {
+        RuleKind::ViaSize
+    };
+    (
+        range(
+            pcb,
+            net,
+            kind,
+            None,
+            [DiameterMin, DiameterPreferred, DiameterMax],
+            Some(via_type.diameter.start),
+        ),
+        range(
+            pcb,
+            net,
+            kind,
+            None,
+            [HoleMin, HolePreferred, HoleMax],
+            Some(via_type.hole),
+        ),
+    )
+}
+
+/// The starting size of a new Via, as given: the highest-ranked Net Class preference for
+/// the drilling method, else the type's sizes. Commands use it unclipped, so DRC flags a
+/// size outside the limits.
+pub fn via_preferred_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let (pads, hole) = via_ranges(pcb, net, via_type);
+    let mut diameter = via_type.diameter;
+    diameter.start = pads.preferred;
+    (diameter, hole.preferred)
+}
+
+/// The starting size the routing and stitching Tools use: [`via_preferred_size`] with
+/// every pad and the hole clipped to the effective limits for the drilling method.
+pub fn via_starting_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let (pads, hole) = via_ranges(pcb, net, via_type);
+    let mut diameter = via_type.diameter;
+    diameter.start = pads.default_size();
+    diameter.middle = diameter.middle.map(|d| pads.clip(d));
+    diameter.end = diameter.end.map(|d| pads.clip(d));
+    (diameter, hole.default_size())
 }
 
 /// Every rule value that applies to copper on one Net.
@@ -171,28 +316,32 @@ pub struct NetRules {
 
 /// The rules for copper on `net` (or on no Net, which takes the board-wide records).
 pub fn net_rules(pcb: &PcbDocument, net: Option<Uuid>) -> NetRules {
+    net_rules_on(pcb, net, None)
+}
+
+pub fn net_rules_on(pcb: &PcbDocument, net: Option<Uuid>, layer: Option<Uuid>) -> NetRules {
     use RuleField::*;
+    let (via_diameter, via_hole) = via_ranges(pcb, net, pcb.stackup().through_type());
     NetRules {
-        clearance: limit(pcb, net, RuleKind::Clearance, Value),
+        clearance: resolve_on(pcb, net, layer, RuleKind::Clearance, Value)
+            .and_then(|s| s.value.length()),
         ignore_pad_to_pad: resolve(pcb, net, RuleKind::Clearance, IgnorePadToPad)
             .and_then(|s| s.value.flag())
             .unwrap_or(false),
-        track_width: range(pcb, net, RuleKind::TrackWidth, [Min, Preferred, Max]),
-        via_diameter: range(
+        track_width: range(
             pcb,
             net,
-            RuleKind::ViaSize,
-            [DiameterMin, DiameterPreferred, DiameterMax],
+            RuleKind::TrackWidth,
+            layer,
+            [Min, Preferred, Max],
+            None,
         ),
-        via_hole: range(
-            pcb,
-            net,
-            RuleKind::ViaSize,
-            [HoleMin, HolePreferred, HoleMax],
-        ),
+        via_diameter,
+        via_hole,
         hole_min: limit(pcb, net, RuleKind::HoleSize, Min),
         hole_max: limit(pcb, net, RuleKind::HoleSize, Max),
-        annular_ring: limit(pcb, net, RuleKind::AnnularRing, Min),
+        annular_ring: resolve_on(pcb, net, layer, RuleKind::AnnularRing, Min)
+            .and_then(|s| s.value.length()),
         hole_to_hole: limit(pcb, net, RuleKind::HoleToHole, Min),
         edge_clearance: limit(pcb, net, RuleKind::EdgeClearance, Value),
     }
@@ -221,9 +370,19 @@ pub fn zone_connection(
     target: ConnectionTarget,
     own: Option<&ZoneConnection>,
 ) -> Connection {
+    zone_connection_on(pcb, net, None, target, own)
+}
+
+pub fn zone_connection_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    target: ConnectionTarget,
+    own: Option<&ZoneConnection>,
+) -> Connection {
     let value = |which: ConnectionValue| {
         let field = RuleField::connection_field(target, which);
-        resolve(pcb, net, RuleKind::ZoneConnection, field)
+        resolve_on(pcb, net, layer, RuleKind::ZoneConnection, field)
             .map(|s| s.value)
             .or_else(|| pcb.board_rule(RuleKind::ZoneConnection).values.get(field))
     };
@@ -281,7 +440,17 @@ fn larger(a: Option<Nm>, b: Option<Nm>) -> Option<Nm> {
 /// The clearance required between copper on Nets `a` and `b`: the larger of their
 /// values; `None` where neither has one.
 pub fn clearance_between(pcb: &PcbDocument, a: Option<Uuid>, b: Option<Uuid>) -> Option<Nm> {
-    larger(net_rules(pcb, a).clearance, net_rules(pcb, b).clearance)
+    clearance_between_on(pcb, a, b, None)
+}
+
+pub fn clearance_between_on(
+    pcb: &PcbDocument,
+    a: Option<Uuid>,
+    b: Option<Uuid>,
+    layer: Option<Uuid>,
+) -> Option<Nm> {
+    resolve_pair_on(pcb, a, b, layer, RuleKind::Clearance, RuleField::Value)
+        .and_then(|s| s.value.length())
 }
 
 /// The hole-to-hole spacing required between holes on Nets `a` and `b`: the larger.
@@ -305,7 +474,7 @@ pub fn largest(pcb: &PcbDocument, kind: RuleKind, field: RuleField) -> Nm {
 /// The values of `record` as they apply: its own, and for a Net Class record those of
 /// `board` (the board-wide record of its kind) where it sets none.
 pub fn effective_values(board: &DesignRule, record: &DesignRule) -> RuleValues {
-    let mut values = record.values;
+    let mut values = record.values.clone();
     if !record.scope.is_board_wide() {
         for &field in record.kind.fields() {
             if record.kind == RuleKind::PasteExpansion && !record.values.is_empty() {
@@ -361,7 +530,7 @@ pub(crate) fn triples(kind: RuleKind) -> &'static [[Option<RuleField>; 3]] {
     match kind {
         RuleKind::TrackWidth => &[[Some(Min), Some(Preferred), Some(Max)]],
         RuleKind::HoleSize => &[[Some(Min), None, Some(Max)]],
-        RuleKind::ViaSize => &[
+        RuleKind::ViaSize | RuleKind::MicroviaSize => &[
             [
                 Some(DiameterMin),
                 Some(DiameterPreferred),
@@ -433,7 +602,78 @@ pub fn resolve_pair(
     kind: RuleKind,
     field: RuleField,
 ) -> Option<Sourced<RuleValue>> {
-    match (resolve(pcb, a, kind, field), resolve(pcb, b, kind, field)) {
+    resolve_pair_on(pcb, a, b, None, kind, field)
+}
+
+pub fn resolve_pair_on(
+    pcb: &PcbDocument,
+    a: Option<Uuid>,
+    b: Option<Uuid>,
+    layer: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+) -> Option<Sourced<RuleValue>> {
+    let classes = [a, b].map(|id| {
+        id.and_then(|id| pcb.net(id))
+            .map(|net| rank_classes(pcb, &net.classes))
+    });
+    resolve_class_pair(
+        pcb,
+        [classes[0].as_deref(), classes[1].as_deref()],
+        layer,
+        kind,
+        field,
+        None,
+    )
+}
+
+/// Resolve between two class memberships. Excluding a pair record shows the value it inherits.
+fn resolve_class_pair(
+    pcb: &PcbDocument,
+    classes: [Option<&[Uuid]>; 2],
+    layer: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+    except: Option<Uuid>,
+) -> Option<Sourced<RuleValue>> {
+    if kind == RuleKind::Clearance
+        && let [Some(a), Some(b)] = classes
+    {
+        let has = |classes: &[Uuid], id| id == Uuid::NIL || classes.contains(&id);
+        let rank = |id| pcb.net_class(id).map_or(u32::MAX, |c| c.rank);
+        let layer = layer.and_then(|id| pcb.layers().layer(id));
+        let best = pcb
+            .rules()
+            .filter(|r| r.kind == kind && r.enabled && Some(r.uuid) != except)
+            .filter_map(|r| {
+                let [x, y] = r.scope.net_class_pair?;
+                if !(has(a, x) && has(b, y) || has(b, x) && has(a, y)) {
+                    return None;
+                }
+                let value = r.values.get(field)?;
+                let specificity = match &r.scope.layers {
+                    Some(layers) => layers.priority(layer?)?,
+                    None => 0,
+                };
+                let mut ranks = [rank(x), rank(y)];
+                ranks.sort();
+                Some((
+                    (ranks, std::cmp::Reverse(specificity)),
+                    Sourced {
+                        value,
+                        rule: r.uuid,
+                    },
+                ))
+            })
+            .min_by_key(|(priority, _)| *priority);
+        if let Some((_, source)) = best {
+            return Some(source);
+        }
+    }
+    match (
+        resolve_for_classes(pcb, classes[0].unwrap_or_default(), layer, kind, field),
+        resolve_for_classes(pcb, classes[1].unwrap_or_default(), layer, kind, field),
+    ) {
         (Some(a), Some(b)) => Some(if a.value.length() >= b.value.length() {
             a
         } else {

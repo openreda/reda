@@ -68,6 +68,7 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Mask & Paste",
             "Silkscreen",
             "Zone Connections",
+            "Teardrops",
             "Stackup",
             "Net Classes",
             "DRC"
@@ -228,7 +229,7 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
     shell
         .run(
             "pcb.rules.set",
-            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm"}}}),
         )
         .unwrap();
     let mut d = dialog(&shell);
@@ -244,13 +245,11 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
             .iter()
             .map(|c| (c.rule, c.board.as_str(), c.preset.as_str(), c.ticked))
             .collect();
-        // The preferred hole stays inside the new range, so it starts unticked.
         assert_eq!(
             changes,
             [
                 (RuleField::Clearance, "0.3", "0.16", true),
                 (RuleField::ViaHole, "0.4", "0.3", true),
-                (RuleField::ViaHolePreferred, "0.4", "0.3", false),
             ]
         );
     }
@@ -434,7 +433,7 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             let sections = r
                 .sections()
                 .iter()
-                .map(|s| (s.check, s.fields.to_vec()))
+                .map(|s| (s.check, s.board_fields().collect()))
                 .collect();
             (*r, sections)
         })
@@ -444,7 +443,10 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
         [
             (
                 Rule::Clearance,
-                vec![(Some(DrcCheck::Clearance), vec![F::Clearance])]
+                vec![(
+                    Some(DrcCheck::Clearance),
+                    vec![F::Clearance, F::ViaHoleClearance, F::PadHoleClearance]
+                )]
             ),
             (
                 Rule::TrackWidth,
@@ -455,17 +457,29 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             ),
             (
                 Rule::Vias,
-                vec![(
-                    Some(DrcCheck::ViaSize),
-                    vec![
-                        F::ViaDiameter,
-                        F::ViaDiameterPreferred,
-                        F::ViaDiameterMax,
-                        F::ViaHole,
-                        F::ViaHolePreferred,
-                        F::ViaHoleMax
-                    ]
-                )]
+                vec![
+                    (
+                        Some(DrcCheck::ViaSize),
+                        vec![
+                            F::ViaDiameter,
+                            F::ViaDiameterMax,
+                            F::ViaHole,
+                            F::ViaHoleMax,
+                            F::ViaAspectRatio
+                        ]
+                    ),
+                    (
+                        Some(DrcCheck::MicroviaSize),
+                        vec![
+                            F::MicroDiameter,
+                            F::MicroDiameterMax,
+                            F::MicroHole,
+                            F::MicroHoleMax,
+                            F::MicroAspectRatio,
+                            F::MicroMaxStack
+                        ]
+                    ),
+                ]
             ),
             (
                 Rule::Holes,
@@ -500,7 +514,11 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             ),
             (
                 Rule::Silkscreen,
-                vec![(Some(DrcCheck::SilkToMask), vec![F::SilkToMask])]
+                vec![
+                    (Some(DrcCheck::SilkToMask), vec![F::SilkToMask]),
+                    (Some(DrcCheck::SilkWidth), vec![F::SilkWidth]),
+                    (Some(DrcCheck::SilkTextHeight), vec![F::SilkTextHeight]),
+                ]
             ),
             (
                 Rule::ZoneConnections,
@@ -511,6 +529,18 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
                 ]
                 .map(|t| (None, RuleField::connection(t).to_vec()))
                 .to_vec()
+            ),
+            (
+                Rule::Teardrops,
+                reda_engine::model::TeardropKind::ALL
+                    .into_iter()
+                    .map(|kind| (
+                        None,
+                        reda_engine::model::TeardropField::ALL
+                            .map(|f| F::Teardrop(kind, f))
+                            .to_vec()
+                    ))
+                    .collect()
             ),
         ]
     );
@@ -542,7 +572,7 @@ fn silkscreen_maximums_and_drc_values_apply_through_pcb_rules_set() {
     }
     d.apply(&mut shell).unwrap();
     let pcb = pcb(&shell);
-    let value = |kind| pcb.board_rule(kind).values;
+    let value = |kind| &pcb.board_rule(kind).values;
     assert_eq!(value(RuleKind::TrackWidth).max, Some(Nm::from_um(1000)));
     assert_eq!(value(RuleKind::SilkToEdge).value, Some(Nm::from_um(300)));
     assert_eq!(
@@ -812,11 +842,19 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
             RuleField::ViaHole,
             RuleField::ViaHolePreferred,
             RuleField::ViaHoleMax,
+            RuleField::ViaHoleClearance,
+            RuleField::PadHoleClearance,
+            RuleField::MicroDiameter,
+            RuleField::MicroDiameterPreferred,
+            RuleField::MicroDiameterMax,
+            RuleField::MicroHole,
+            RuleField::MicroHolePreferred,
+            RuleField::MicroHoleMax,
         ]
     );
     board.selected_rows = [p].into();
     let copied = board.copy_rows();
-    assert_eq!(copied, "0.3\t\t0.5\t\t\t\t\t\t\t");
+    assert_eq!(copied, format!("0.3\t\t0.5{}", "\t".repeat(15)));
     board.selected_rows = [s].into();
     board.paste_rows(&copied);
     assert_eq!(board.cell(s, RuleField::Clearance), "0.3");
@@ -835,6 +873,37 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
     board.clear_rows();
     assert_eq!(board.cell(p, RuleField::Clearance), "");
     assert_eq!(board.cell(s, RuleField::TrackPreferred), "");
+}
+
+#[test]
+fn pasting_via_sizes_sets_preferred_values_only_on_named_net_classes() {
+    let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let power = add_class(&mut shell, json!({"name": "Power"}));
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<NetClassesPage>().unwrap().board();
+        board.selected_rows = [ClassKey::Default].into();
+        let row = "0.16\t0.2\t0.25\t\t0.5\t0.9\t1\t0.3\t0.4\t0.5";
+        board.paste_rows(&format!("{row}\n{row}"));
+    }
+    d.apply(&mut shell).unwrap();
+    let pcb = pcb(&shell);
+    let board = &pcb.board_rule(RuleKind::ViaSize).values;
+    let class = &pcb.class_rule(RuleKind::ViaSize, power).unwrap().values;
+    let (diameter, hole) = (board.diameter.unwrap(), board.hole.unwrap());
+    assert_eq!(
+        (diameter.max, hole.max),
+        (Some(Nm(1_000_000)), Some(Nm(500_000)))
+    );
+    assert_eq!((diameter.preferred, hole.preferred), (None, None));
+    assert_eq!(
+        (
+            class.diameter.unwrap().preferred,
+            class.hole.unwrap().preferred
+        ),
+        (Some(Nm(900_000)), Some(Nm(400_000)))
+    );
 }
 
 #[test]
@@ -890,4 +959,108 @@ fn the_net_table_makes_a_class_from_the_selection_and_assigns_by_pattern() {
     assert_eq!(pcb.net(usb_n).unwrap().classes, [usb]);
     assert_eq!(pcb.net(vcc).unwrap().classes, [power]);
     assert_eq!(pcb.net(gnd).unwrap().classes, [power]);
+}
+
+#[test]
+fn layer_and_pair_edits_in_board_setup_commit_in_one_batch() {
+    use reda_ui::engine::model::RuleScope;
+    let (home, work) = (TempDir::new("scoped-home"), TempDir::new("scoped-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let hv: Uuid = serde_json::from_value(
+        shell
+            .run("pcb.net_class.add", json!({"name":"HV"}))
+            .unwrap()["result"]["uuid"]
+            .clone(),
+    )
+    .unwrap();
+    let pair = RuleScope {
+        net_class_pair: Some([Uuid::NIL, hv]),
+        ..RuleScope::BOARD
+    };
+    let inner_hv = RuleScope {
+        net_class: Some(hv),
+        ..RuleScope::INNER
+    };
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.set_scoped(&RuleScope::INNER, RuleField::TrackWidth, "0.125");
+        board.set_scoped(&pair, RuleField::Clearance, "0.75");
+        let field = RuleField::Teardrop(
+            reda_ui::engine::model::TeardropKind::WidthChange,
+            reda_ui::engine::model::TeardropField::Enabled,
+        );
+        board.set_scoped(&inner_hv, field, "true");
+    }
+    assert!(d.apply(&mut shell).is_ok());
+    let pcb = pcb(&shell);
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::Teardrop, &inner_hv)
+            .unwrap()
+            .values
+            .width_change
+            .unwrap()
+            .enabled,
+        Some(true)
+    );
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
+            .unwrap()
+            .values
+            .min,
+        Some(Nm(125000))
+    );
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::Clearance, &pair)
+            .unwrap()
+            .values
+            .value,
+        Some(Nm(750000))
+    );
+}
+
+#[test]
+fn an_inner_minimum_ticks_the_preferred_width_in_the_dialog_and_command() {
+    let (home, work) = (TempDir::new("bs-inner-home"), TempDir::new("bs-inner-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let four = TempDir::new("bs-four-layer");
+    shell
+        .run(
+            "project.new",
+            json!({"path":four.path(),"name":"Four","layers":4}),
+        )
+        .unwrap();
+    let preset = shell
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    shell
+        .run(
+            "fab_preset.set",
+            json!({"preset":preset,"values":{"rules":{
+                "inner":{"track_width_min":350000},"preferred":{"track_width":400000,"via_diameter":700000,"via_hole":300000}
+            }}}),
+        )
+        .unwrap();
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.preview_fab_preset(preset);
+        let changes = &board.fab_preview().unwrap().changes;
+        assert!(
+            changes
+                .iter()
+                .any(|r| r.rule == RuleField::TrackPreferred && r.ticked)
+        );
+        board.accept_fab_preview();
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(
+        board_value(&shell, RuleField::TrackPreferred),
+        Some(Nm::from_um(400))
+    );
 }

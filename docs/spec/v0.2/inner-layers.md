@@ -28,7 +28,7 @@ A plated through-hole Pad has copper on every copper Layer, and a Via on every L
 
 - A Via's copper is round, so its Pad Stack is three diameters: `start`, `middle` and `end`, in the order of its span. A blind Via has no board top or bottom, only the two ends of its span.
 - The Via's v0.1 diameter is `start`. `middle` and `end` are optional and each one left out is the same as `start`.
-- A [Via type's `pad`](via-types.md#what-a-via-type-stores) becomes the same three diameters, with `middle` and `end` optional. A new Via starts with all three.
+- A [Via type](via-types.md#what-a-via-type-stores) stores `hole` and the same `diameter {start, middle?, end?}` as a Via. A new Via starts with all three.
 - A Via with a span of two Layers has no middle.
 
 ### The full stack stays reserved
@@ -50,7 +50,8 @@ A pad on an inner Layer that joins nothing can be left out, which gives room for
 - **A Pad's top and bottom copper always stay,** because they are its solder lands. `remove` on a Pad affects inner Layers only.
 - **A Via under `remove`** can lose unconnected copper on its end Layers too, including on the board's outer Layers.
 - **Connected, on one Layer,** means either:
-  - a Track of the same Net ends on it, or
+  - a Track of the same Net ends on it,
+  - a Via of the same Net ends on that Layer with its copper overlapping it, as in an end-to-end stack of Micro Vias (each Via of the stack keeps its land there), or
   - a Zone of the same Net covers it and the [Zone connection](#zone-connections) that applies there is `relief` or `solid`.
 
   This is defined by what is meant to connect, not by the finished fill, so the fill and the pad never depend on each other.

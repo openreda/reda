@@ -192,7 +192,7 @@
       "type": "array"
     },
     "format": {
-      "const": 1,
+      "const": 2,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

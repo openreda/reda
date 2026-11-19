@@ -408,6 +408,12 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
     });
     let document = new_id();
     let rules = FabRules {
+        inner: None,
+        silk_width: None,
+        silk_text_height: None,
+        microvia_size: None,
+        via_aspect_ratio: None,
+        clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),
         clearance: Nm(0),
@@ -421,8 +427,8 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
         edge_clearance: Nm(0),
         preferred: PreferredSeeds {
             track_width: Nm(0),
-            via_diameter: Nm(0),
-            via_hole: Nm(0),
+            // Every board carries a physical through Via type, including this preview board.
+            ..reda_output::generic().rules.preferred
         },
     };
     let copy = FootprintCopy {

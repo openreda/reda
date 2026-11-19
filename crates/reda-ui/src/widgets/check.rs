@@ -133,6 +133,11 @@ impl Widget for Checkbox<'_> {
                 }
             },
         );
+        if mixed {
+            ui.ctx().accesskit_node_builder(response.id, |node| {
+                node.set_toggled(egui::accesskit::Toggled::Mixed);
+            });
+        }
         if response.clicked() {
             *self.checked = !*self.checked;
             response.mark_changed();

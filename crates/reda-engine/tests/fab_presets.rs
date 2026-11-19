@@ -50,14 +50,8 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
         value(RuleKind::ViaSize, RuleField::HoleMin),
         Some(Nm::from_um(150))
     );
-    assert_eq!(
-        value(RuleKind::ViaSize, RuleField::DiameterPreferred),
-        Some(Nm::from_um(660))
-    );
-    assert_eq!(
-        value(RuleKind::ViaSize, RuleField::HolePreferred),
-        Some(Nm::from_um(300))
-    );
+    assert_eq!(value(RuleKind::ViaSize, RuleField::DiameterPreferred), None);
+    assert_eq!(value(RuleKind::ViaSize, RuleField::HolePreferred), None);
     assert_eq!(
         value(RuleKind::HoleSize, RuleField::Min),
         Some(Nm::from_um(200))
@@ -66,6 +60,10 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
         value(RuleKind::HoleSize, RuleField::Max),
         Some(Nm::from_um(6300))
     );
+
+    let through = pcb.stackup().through_type();
+    assert_eq!(through.diameter.start, Nm::from_um(660));
+    assert_eq!(through.hole, Nm::from_um(300));
 
     let preset = only_preset(&engine);
     assert_eq!(preset.name, "JLCPCB");
@@ -86,7 +84,7 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
 /// (a 0.18 mm ring) because 0.60/0.30 mm left 0.15 mm, under JLCPCB's 0.18 mm.
 #[test]
 fn a_default_via_on_every_shipped_preset_has_enough_annular_ring() {
-    for preset in ["Generic", "JLCPCB", "PCBWay"] {
+    for preset in ["Generic", "JLCPCB", "PCBWay", "OSH Park"] {
         let dir = TempDir::new("fab-via");
         let mut engine = test_engine();
         new_project(
@@ -201,7 +199,7 @@ fn the_last_used_preset_is_remembered_and_listed_as_the_default() {
         .iter()
         .map(|p| p["preset"]["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Generic", "JLCPCB", "PCBWay"]);
+    assert_eq!(names, ["Generic", "JLCPCB", "PCBWay", "OSH Park"]);
 }
 
 #[test]
@@ -224,7 +222,10 @@ fn a_project_copy_saved_as_a_user_preset_can_seed_a_new_project() {
     assert_eq!(out["path"], json!(path));
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(
-        text.starts_with("{\n  \"format\": 1,\n  \"name\": \"My JLC\",\n"),
+        text.starts_with(&format!(
+            "{{\n  \"format\": {},\n  \"name\": \"My JLC\",\n",
+            reda_engine::format::FORMAT
+        )),
         "{text}"
     );
 
@@ -424,12 +425,12 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     assert!(generic.copper().all(|c| c.thickness == Nm::from_um(35)));
 
     let path = home.path().join("config/fab-presets/My JLC.redafab");
-    let text = std::fs::read_to_string(&path).unwrap();
-    let text = text.replace(
-        "\"stackup\": {\"thickness\":1600000,\"copper\":35000}",
-        "\"stackup\": {\"thickness\":800000,\"copper\":70000}",
-    );
-    std::fs::write(&path, text).unwrap();
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let build = &mut file["constructions"][0];
+    build["thickness"] = json!(800_000);
+    build["entries"][0]["copper"] = json!(70_000);
+    build["entries"][2]["copper"] = json!(70_000);
+    std::fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();
 
     let other = TempDir::new("fab-stackup-2");
     new_project(&mut engine, &other, json!({"fab_preset": "My JLC"}));
@@ -438,14 +439,17 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     let copper: Vec<Nm> = stackup.copper().map(|c| c.thickness).collect();
     assert_eq!(copper, [Nm::from_um(70), Nm::from_um(70)]);
     assert_eq!(stackup.dielectrics().count(), 1);
-    assert_eq!(only_preset(&engine).stackup.copper, Some(Nm::from_um(70)));
-    // The copy keeps the seeds, and they come back after save and open.
+    assert_eq!(
+        only_preset(&engine).preset().stackup_seeds().copper,
+        Some(Nm::from_um(70))
+    );
+    // The Project's copy retains the edited Construction across save and open.
     let folder = other.path().join("work/Demo");
     engine.run_ok("project.save", json!({}));
     let mut reopened = test_engine();
     reopened.run_ok("project.open", json!({"path": folder}));
     assert_eq!(
-        only_preset(&reopened).stackup.thickness,
+        only_preset(&reopened).preset().stackup_seeds().thickness,
         Some(Nm::from_um(800))
     );
     let board = reopened.project().unwrap().pcb().unwrap().stackup().clone();
@@ -658,14 +662,19 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
                 json!([])
             }
         );
-        if name == "Generic" {
-            assert!(preset.get("stackup").is_none());
-        } else {
-            assert_eq!(
-                preset["stackup"],
-                json!({"thickness":1600000,"copper":35000})
-            );
-        }
+        assert_eq!(preset["placement_corrections"], json!([]));
+        let standard = preset["constructions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "2 Layer")
+            .unwrap();
+        assert_eq!(standard["default"], true);
+        assert_eq!(standard["thickness"], 1_600_000);
+        assert_eq!(
+            standard["entries"],
+            json!([{"copper":35_000},{"kind":"core","thickness":1_530_000},{"copper":35_000}])
+        );
     }
 }
 
@@ -699,6 +708,10 @@ fn custom_output_conventions_survive_user_and_project_file_roundtrips() {
     file["cpl"]["bottom_rotation"] = json!("stored");
     file["cpl"]["bottom_position"] = json!("negate_x");
     file["cpl"]["exclude_through_hole"] = json!(true);
+    file["placement_corrections"] = json!([
+        {"footprint": "SOT-23*", "rotation": 90000},
+        {"field": "LCSC", "value": "C123", "rotation": -45000, "offset": {"x": 125000, "y": -200000}}
+    ]);
     file["zip_assembly"] = json!(true);
     std::fs::write(&source, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
     let destination = TempDir::new("fab-conventions-project");
@@ -803,5 +816,273 @@ fn a_user_preset_file_is_edited_key_by_key() {
         err.code,
         ErrorCode::NotFound,
         "a shipped preset is not edited"
+    );
+}
+
+#[test]
+fn source_update_keeps_local_placement_rows_and_reports_what_will_be_written() {
+    let (home, work) = (TempDir::new("fab-merge-home"), TempDir::new("fab-merge"));
+    let mut engine = with_user_preset(&home, &work);
+    let preset =
+        engine.run_ok("fab_preset.add", json!({"name":"My JLC"}))["result"]["uuid"].clone();
+    let local = json!({"footprint":"LOCAL*","rotation":0});
+    let shared = json!({"field":"LCSC","value":" C12 ","rotation":10000});
+    let changed = json!({"field":"lcsc","value":"c12","rotation":20000});
+    let new = json!({"footprint":"NEW","rotation":30000});
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"placement_corrections":[shared,local]}}),
+    );
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name":"My JLC","values":{"placement_corrections":[new,changed]}}),
+    );
+    let diff = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    let expected = json!([changed, local, new]);
+    assert_eq!(diff["kept_placement_corrections"], json!([local]));
+    assert_eq!(diff["changes"][0]["source"], expected);
+    let applied = engine.run_ok("fab_preset.update_from_source", json!({"preset":preset}));
+    assert_eq!(applied["result"], diff);
+    let copy = engine
+        .project()
+        .unwrap()
+        .fab_preset(serde_json::from_value(preset.clone()).unwrap())
+        .unwrap();
+    assert_eq!(json!(copy.placement_corrections), expected);
+    let again = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    assert_eq!(again["changes"], json!([]));
+    assert_eq!(again["kept_placement_corrections"], json!([local]));
+}
+
+#[test]
+fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
+    let dir = TempDir::new("placement-units");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"placement_corrections":[
+            {"footprint":"*","rotation":"-22.5deg","offset":{"x":"1.25mm","y":"-10mil"}}
+        ]}}),
+    );
+    assert_eq!(
+        json!(only_preset(&engine).placement_corrections),
+        json!([
+            {"footprint":"*","rotation":-22500,"offset":{"x":1250000,"y":-254000}}
+        ])
+    );
+    for invalid in [
+        json!({"footprint":"*","field":"LCSC","value":"C7","rotation":0}),
+        json!({"field":"LCSC","rotation":0}),
+        json!({"footprint":"*","rotation":0,"other":1}),
+    ] {
+        let err = engine.run_err(
+            "fab_preset.set",
+            json!({"preset":preset,"values":{"placement_corrections":[invalid]}}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
+}
+
+#[test]
+fn construction_patches_are_case_insensitive_ordered_and_atomic() {
+    let dir = TempDir::new("construction-patches");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let baseline = only_preset(&engine);
+    let original_count = baseline.constructions.len();
+    let uuid = baseline.uuid;
+    let patch = |values| json!({"preset":uuid,"values":{"constructions":values}});
+    let build = json!({"default":false,"thickness":1800000,
+        "entries":[{"copper":35000},{"kind":"core","thickness":1730000},{"copper":35000}]});
+    engine.run_ok("fab_preset.set", patch(json!({"Custom":build})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), original_count + 1);
+    assert_eq!(
+        preset.constructions[..original_count],
+        baseline.constructions
+    );
+    assert_eq!(preset.constructions[original_count].name, "Custom");
+    let mut updated = build.clone();
+    updated["thickness"] = json!(1600000);
+    engine.run_ok("fab_preset.set", patch(json!({"CUSTOM":updated})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), original_count + 1);
+    assert_eq!(
+        preset.constructions[original_count].thickness,
+        Nm(1_600_000)
+    );
+    for bad in [
+        json!([]),
+        json!({"custom":null,"Broken":{"entries":[]}}),
+        json!({"Dupe":build,"dupe":build}),
+    ] {
+        assert_eq!(
+            engine.run_err("fab_preset.set", patch(bad)).code,
+            ErrorCode::InvalidParams
+        );
+        assert_eq!(only_preset(&engine), preset);
+    }
+    engine.run_ok("fab_preset.set", patch(json!({"custom":null})));
+    assert_eq!(only_preset(&engine), baseline);
+}
+
+#[test]
+fn the_inner_copper_pattern_is_checked_and_preserves_existing_layer_names() {
+    let dir = TempDir::new("gerber-pattern-preset");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    let set = |names| json!({"preset":preset,"values":{"gerber":{"file_names":names}}});
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!([{"layer":"Top Copper","name":"top.grb"}])),
+    );
+    let original = only_preset(&engine);
+    for invalid in [
+        "copper.gbr",
+        "$${position}.gbr",
+        "${layer}.gbr",
+        "L${inner",
+        "sub/L${inner}.gbr",
+    ] {
+        let error = engine.run_err("fab_preset.set", set(json!({"inner_copper":invalid})));
+        assert_eq!(error.code, ErrorCode::InvalidParams);
+        assert_eq!(only_preset(&engine), original);
+    }
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!({"inner_copper":"${project}.g${position}l"})),
+    );
+    assert_eq!(
+        json!(only_preset(&engine).gerber)["file_names"],
+        json!({"inner_copper":"${project}.g${position}l","layers":[{"layer":"Top Copper","name":"top.grb"}]})
+    );
+    engine.run_ok("fab_preset.set", set(json!({"inner_copper":null})));
+    assert_eq!(only_preset(&engine), original);
+}
+
+#[test]
+fn a_reopened_user_pattern_can_override_a_layer_named_inner_copper() {
+    let (home, dir) = (
+        TempDir::new("fab-pattern-home"),
+        TempDir::new("fab-pattern-source"),
+    );
+    let mut engine = with_user_preset(&home, &dir);
+    let names = json!({
+        "inner_copper": "plane${inner}.ger",
+        "layers": [{"layer":"inner_copper","name":"ground.ger"}]
+    });
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name":"My JLC","values":{"gerber":{"file_names":names}}}),
+    );
+    drop(engine);
+
+    let destination = TempDir::new("fab-pattern-board");
+    let mut reopened = test_engine_in(home.path());
+    new_project(
+        &mut reopened,
+        &destination,
+        json!({"fab_preset":"My JLC","layers":4}),
+    );
+    let layer = reopened
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    reopened.run_ok(
+        "pcb.layer.set",
+        json!({"layer":layer,"name":"inner_copper"}),
+    );
+    let project = reopened.project().unwrap();
+    let job = project.output_jobs().next().unwrap();
+    let preview = reda_engine::output_preview::job_preview(&reopened, job).unwrap();
+    assert_eq!(
+        &preview.zip[..4],
+        ["Demo.gtl", "ground.ger", "plane2.ger", "Demo.gbl"]
+    );
+    assert_eq!(json!(only_preset(&reopened).gerber)["file_names"], names);
+}
+
+#[test]
+fn a_user_fab_seeds_inner_limits_on_a_new_multilayer_board() {
+    let home = TempDir::new("inner-process-home");
+    let dir = TempDir::new("inner-process-source");
+    let mut e = test_engine_in(home.path());
+    new_project(&mut e, &dir, json!({}));
+    let preset = only_preset(&e).uuid;
+    e.run_ok("fab_preset.set",json!({"preset":preset,"values":{"rules":{"inner":{"track_width_min":125000,"annular_ring_min":110000}}}}));
+    e.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":preset,"name":"Inner process"}),
+    );
+    let dir = TempDir::new("inner-process-board");
+    new_project(
+        &mut e,
+        &dir,
+        json!({"layers":4,"fab_preset":"Inner process"}),
+    );
+    let board = e.project().unwrap().pcb().unwrap();
+    for (kind, want) in [
+        (RuleKind::TrackWidth, 125000),
+        (RuleKind::AnnularRing, 110000),
+    ] {
+        assert_eq!(
+            board
+                .scoped_rule(kind, &reda_model::RuleScope::INNER)
+                .unwrap()
+                .values
+                .min,
+            Some(Nm(want))
+        );
+    }
+    assert!(
+        board
+            .scoped_rule(RuleKind::Clearance, &reda_model::RuleScope::INNER)
+            .is_none()
+    );
+}
+
+#[test]
+fn a_portable_fab_preset_seeds_the_board_silk_minimum_and_preserves_an_unspecified_height() {
+    let home = TempDir::new("fab-silk-user");
+    let source = TempDir::new("fab-silk-source");
+    let mut engine = test_engine_in(home.path());
+    new_project(&mut engine, &source, json!({"fab_preset":"Generic"}));
+    let osh = engine.run_ok("fab_preset.add", json!({"name":"OSH Park"}))["result"]["uuid"].clone();
+    engine.run_ok("pcb.rules.apply_fab_preset", json!({"preset":osh}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"silk_width","values":{"min":"0.18mm"}}),
+    );
+    let saved = engine.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"from":osh,"name":"Local fab"}),
+    );
+    engine.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":saved["result"]["uuid"],"name":"Local fab"}),
+    );
+
+    let target = TempDir::new("fab-silk-target");
+    let mut reopened = test_engine_in(home.path());
+    new_project(&mut reopened, &target, json!({"fab_preset":"Local fab"}));
+    let rules = only_preset(&reopened).rules;
+    assert_eq!(rules.silk_width, Some(Nm(180_000)));
+    assert_eq!(rules.silk_text_height, None);
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.board_rule(RuleKind::SilkWidth).values.min,
+        Some(Nm(180_000))
+    );
+    assert_eq!(
+        board.board_rule(RuleKind::SilkTextHeight).values.min,
+        Some(Nm::ZERO)
     );
 }

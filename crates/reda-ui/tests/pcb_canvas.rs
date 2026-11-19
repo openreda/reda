@@ -38,6 +38,10 @@ fn window() -> Window {
 }
 
 fn window_with_step(step: f32) -> Window {
+    window_with_layers(step, 2)
+}
+
+fn window_with_layers(step: f32, layers: u8) -> Window {
     let home = TempDir::new("pcb-canvas-home");
     let work = TempDir::new("pcb-canvas-work");
     let engine = Engine::builder()
@@ -47,7 +51,12 @@ fn window_with_step(step: f32) -> Window {
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
-    shell.new_project(work.path(), "Board").unwrap();
+    shell
+        .run(
+            "project.new",
+            json!({"path":work.path(), "name":"Board", "layers":layers}),
+        )
+        .unwrap();
     let out = shell
         .run(
             "test.footprint.add",
@@ -498,7 +507,7 @@ fn the_view_keys_run_their_commands_on_the_focused_board() {
     // The Keymap binds logical keys: "+" is egui's Key::Plus (typed with Shift or not).
     w.h.key_press_modifiers(Modifiers::SHIFT, Key::Plus);
     w.h.run();
-    assert_eq!(last_command(&w), "pcb.layer.step:next");
+    assert_eq!(last_command(&w), "pcb.layer.next");
     let bottom = {
         let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
         pcb.layers()
@@ -939,10 +948,8 @@ fn double_clicking_a_single_board_object_selects_it_and_opens_properties() {
     let free = free_pad(&mut w, "8mm");
     let before = journal_len(&w);
     let at = on_screen(&w, Point::new(mm(8.0), mm(0.0)));
-    w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
-    for _ in 0..2 {
-        click(&mut w, at);
-    }
+    click_after(&mut w, at, 1.0);
+    click_after(&mut w, at, 0.05);
     assert_eq!(shell(&w).selection().objects, [free]);
     assert!(
         shell(&w).engine().journal()[before..]
@@ -1159,4 +1166,250 @@ fn move_board_shape_takes_selected_cutouts_and_turns_in_flight() {
         pcb.cutout(cutout).unwrap().vertices[0].point(),
         Point::new(mm(3.0), mm(-9.0))
     );
+}
+
+#[test]
+fn layer_keys_follow_the_shown_copper_and_signal_roles_outside_a_route() {
+    let mut w = window_with_layers(0.25, 6);
+    let copper: Vec<_> = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let shell_mut = w.h.state_mut().shell_mut();
+    for &layer in &copper[1..3] {
+        shell_mut
+            .run("pcb.layer.set", json!({"layer":layer, "role":"plane"}))
+            .unwrap();
+    }
+    shell_mut
+        .run("pcb.layer.set", json!({"layer":copper[3], "role":"mixed"}))
+        .unwrap();
+    shell_mut
+        .run(
+            "pcb.layer.show",
+            json!({"layer":copper[1], "visible":false}),
+        )
+        .unwrap();
+    w.h.run();
+    let empty = w.h.get_by_role(Role::Canvas).rect().left_bottom() + egui::vec2(30.0, -60.0);
+    w.h.drag_at(empty);
+    w.h.drop_at(empty);
+    w.h.run();
+    let current = |w: &Window| {
+        shell(w)
+            .board_view()
+            .active_layer(shell(w).engine().project().unwrap())
+            .unwrap()
+    };
+    w.h.key_press(Key::Plus);
+    w.h.run();
+    assert_eq!(current(&w), copper[2]);
+    // The native adapter marks whether Shift typed '*' on the current layout
+    // (F22), or modified a dedicated multiply key (F23).
+    w.h.input_mut()
+        .events
+        .push(egui::Event::ModifiersChanged(Modifiers::SHIFT));
+    w.h.input_mut().events.push(egui::Event::Key {
+        key: Key::F22,
+        physical_key: Some(Key::F24),
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::SHIFT,
+    });
+    w.h.input_mut().events.push(egui::Event::Text("*".into()));
+    w.h.run();
+    assert_eq!(current(&w), copper[3]);
+    assert_eq!(last_command(&w), "pcb.layer.next_signal");
+    // A fast shifted multiply can be released before the next repaint.
+    w.h.input_mut().events.extend([
+        egui::Event::ModifiersChanged(Modifiers::SHIFT),
+        egui::Event::Key {
+            key: Key::F23,
+            physical_key: Some(Key::F24),
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::SHIFT,
+        },
+        egui::Event::Text("*".into()),
+        egui::Event::ModifiersChanged(Modifiers::NONE),
+    ]);
+    w.h.run();
+    assert_eq!(current(&w), copper[0]);
+    assert_eq!(last_command(&w), "pcb.layer.previous_signal");
+    w.h.event(egui::Event::ModifiersChanged(Modifiers::NONE));
+    w.h.key_press(Key::Minus);
+    w.h.run();
+    assert_eq!(current(&w), copper[5]);
+    assert_eq!(last_command(&w), "pcb.layer.previous");
+    w.h.key_press(Key::V);
+    w.h.run();
+    assert_eq!(current(&w), copper[5]);
+}
+
+#[test]
+fn layer_list_at_cursor_jumps_beyond_l9_and_reveals_the_named_layer() {
+    let mut w = window_with_layers(0.25, 12);
+    let target = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(9)
+        .unwrap()
+        .uuid;
+    let s = w.h.state_mut().shell_mut();
+    s.run(
+        "pcb.layer.set",
+        json!({"layer":target,"name":"GND","role":"plane"}),
+    )
+    .unwrap();
+    s.run("pcb.layer.show", json!({"layer":target,"visible":false}))
+        .unwrap();
+    w.h.run();
+    let at = w.h.get_by_role(Role::Canvas).rect().center();
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    w.h.key_press_modifiers(Modifiers::COMMAND, Key::L);
+    w.h.run();
+    assert_eq!(last_command(&w), "pcb.layer.pick");
+    let row = w.h.get_by_label("Layer: L10 GND");
+    assert!(row.rect().left() >= at.x - 8.0);
+    row.click();
+    w.h.run();
+    assert_eq!(shell(&w).board_view().layers.active, Some(target));
+    assert!(!shell(&w).board_view().layers.hidden.contains(&target));
+}
+
+#[test]
+fn a_keypad_digit_jumps_and_the_same_main_row_digit_leaves_the_layer_alone() {
+    let mut w = window_with_layers(0.25, 4);
+    w.h.run();
+    let at = w.h.get_by_role(Role::Canvas).rect().center();
+    w.h.drag_at(at);
+    w.h.drop_at(at);
+    w.h.run();
+    w.h.key_press(Key::Num3);
+    w.h.run();
+    let copper: Vec<_> = shell(&w)
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let active = |w: &Window| {
+        shell(w)
+            .board_view()
+            .active_layer(shell(w).engine().project().unwrap())
+    };
+    assert_eq!(active(&w), Some(copper[0]));
+    // The native adapter preserves the numpad location in the physical key.
+    w.h.event(egui::Event::Key {
+        key: Key::Num3,
+        physical_key: Some(Key::F24),
+        pressed: true,
+        repeat: false,
+        modifiers: Modifiers::NONE,
+    });
+    w.h.run();
+    assert_eq!(active(&w), Some(copper[2]));
+}
+
+#[test]
+fn resting_on_a_layer_row_solos_it_with_pins_until_the_pointer_leaves() {
+    use reda_ui::engine::render::SceneLayer;
+    let mut w = window_with_layers(0.05, 4);
+    let (copper, outline) = {
+        let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+        (
+            pcb.copper_layers().map(|l| l.uuid).collect::<Vec<_>>(),
+            pcb.layers()
+                .find(LayerKind::BoardOutline, None)
+                .unwrap()
+                .uuid,
+        )
+    };
+    w.h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.pin", json!({"layer":outline}))
+        .unwrap();
+    w.h.run();
+    let shown = |w: &Window| {
+        shell(w)
+            .document_tab(w.pcb)
+            .unwrap()
+            .scene
+            .layers
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter_map(|c| match c.layer {
+                SceneLayer::Board(id) => Some(id),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let all = shown(&w);
+    let entries = journal_len(&w);
+    let row = w.h.get_by_label("L2").rect().center();
+    w.h.hover_at(row);
+    w.h.step();
+    assert_eq!(shown(&w), all);
+    for _ in 0..9 {
+        w.h.step();
+    }
+    assert_eq!(shown(&w), [outline, copper[1]]);
+    assert_eq!(journal_len(&w), entries);
+    let empty = w.h.get_by_role(Role::Canvas).rect().center();
+    w.h.hover_at(empty);
+    w.h.step();
+    assert_eq!(shown(&w), all);
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "app.preferences.set",
+            json!({"key":"pcb.layer.hover_solo","value":false}),
+        )
+        .unwrap();
+    w.h.hover_at(row);
+    for _ in 0..9 {
+        w.h.step();
+    }
+    assert_eq!(shown(&w), all);
+}
+
+#[test]
+fn a_crowded_strip_scrolls_to_the_active_chip_and_the_copper_group_collapses() {
+    let mut w = window_with_layers(0.25, 32);
+    let s = w.h.state_mut().shell_mut();
+    s.run(
+        "app.preferences.set",
+        json!({"key":"pcb.view.layer_control","value":"strip"}),
+    )
+    .unwrap();
+    w.h.run();
+    w.h.get_by_label("Scroll Layers right").click();
+    w.h.run();
+    w.h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.activate", json!({"position":30}))
+        .unwrap();
+    w.h.run();
+    let chip = w.h.get_by_label("Layer: L30");
+    let canvas = w.h.get_by_role(Role::Canvas).rect();
+    assert!(canvas.x_range().contains(chip.rect().center().x));
+    w.h.get_by_label("Copper Layers").click();
+    w.h.run();
+    assert!(w.h.query_by_label("Show L2").is_none());
+    assert!(w.h.query_by_label("Show Top Silkscreen").is_some());
 }

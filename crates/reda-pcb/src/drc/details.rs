@@ -59,7 +59,15 @@ pub(super) fn complete(board: &Board<'_>, check: DrcCheck, v: &mut Violation) {
         }
     });
     for item in pads.chain(stored) {
-        for (layer, shape) in board.copper.item_pieces(item) {
+        let pieces = board.copper.item_pieces(item);
+        if pieces.is_empty()
+            && let Item::Via { uuid } = item
+        {
+            let via = pcb.via(uuid).expect("stored Via");
+            candidates.push(via.at);
+            layers.extend(pcb.span_layers(via.span));
+        }
+        for (layer, shape) in pieces {
             let envelope = shape.envelope();
             candidates.push(Point::from(envelope.lower()).midpoint(envelope.upper().into()));
             layers.push(layer);

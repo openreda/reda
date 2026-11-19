@@ -1,0 +1,1046 @@
+//! Width changes as seen through the fill commands and the copper index.
+use reda_model::Uuid;
+use reda_model::geom::{Nm, Point};
+use reda_pcb::{Copper, copper::Item};
+use reda_testkit::{TempDir, TestEngine, probe_engine};
+use serde_json::{Value, json};
+
+fn uuid(v: &Value) -> Uuid {
+    v.as_str().unwrap().parse().unwrap()
+}
+
+fn track(engine: &mut TestEngine, net: Uuid, width: i64, pts: &[(i64, i64)]) -> Vec<Uuid> {
+    let points: Vec<_> = pts
+        .iter()
+        .map(|(x, y)| json!({"x":x+10_000_000, "y":y+10_000_000}))
+        .collect();
+    let v = engine.run_ok(
+        "pcb.track.add",
+        json!({"layer":"copper_top", "net":net, "width":width, "points":points}),
+    );
+    v["result"]["tracks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(uuid)
+        .collect()
+}
+
+fn board(dir: &TempDir) -> (TestEngine, Uuid) {
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"path":dir.path(),"name":"Board"}));
+    let net = uuid(&engine.run_ok("test.net.add", json!({"name":"SIG"}))["result"]["uuid"]);
+    (engine, net)
+}
+
+fn enable(engine: &mut TestEngine, shape: Value) {
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":shape}}),
+    );
+}
+
+#[test]
+fn width_change_makes_copper_belonging_to_the_narrow_track() {
+    let dir = TempDir::new("teardrop-copper");
+    let (mut engine, net) = board(&dir);
+    track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    let narrow = track(&mut engine, net, 100_000, &[(0, 0), (3_000_000, 0)])[0];
+    // At 0.75 mm beyond the junction the wide Track's round cap no longer reaches.
+    let point = Point::new(Nm(10_750_000), Nm(10_120_000));
+    let pick = |engine: &TestEngine| {
+        let project = engine.project().unwrap();
+        let layer = project.pcb().unwrap().track(narrow).unwrap().layer;
+        Copper::of(project).unwrap().items_at(layer, point)
+    };
+    assert!(pick(&engine).is_empty());
+    enable(&mut engine, json!({"enabled":true,"length":100}));
+    engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(pick(&engine), [Item::Track { uuid: narrow }]);
+    assert_eq!(
+        engine.run_ok("pcb.teardrop.status", json!({}))["generated"],
+        1
+    );
+}
+
+#[test]
+fn branch_halfway_along_the_narrow_segment_stops_the_taper() {
+    let dir = TempDir::new("teardrop-branch");
+    let (mut engine, net) = board(&dir);
+    track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(&mut engine, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    track(
+        &mut engine,
+        net,
+        100_000,
+        &[(300_000, 0), (300_000, 1_000_000)],
+    );
+    enable(&mut engine, json!({"enabled":true,"length":100}));
+    let fill = engine.run_ok("pcb.zone.fill", json!({}));
+    // Stopping at the branch is the Teardrop's full extent, not a clearance cut.
+    assert_eq!(fill["teardrops"]["shortened"], 0);
+    assert_eq!(fill["teardrops"]["generated"], 1);
+    let project = engine.project().unwrap();
+    let drops = &project
+        .zone_fills(project.pcb().unwrap().uuid)
+        .unwrap()
+        .teardrops;
+    assert_eq!(
+        drops[0].shapes[0].outer.iter().map(|p| p.x.0).max(),
+        Some(10_300_000)
+    );
+}
+
+#[test]
+fn reopening_a_cache_preserves_local_freshness_and_locks_allow_refill() {
+    let dir = TempDir::new("teardrop-reopen");
+    let (mut engine, net) = board(&dir);
+    let wide = track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)])[0];
+    let narrow = track(&mut engine, net, 100_000, &[(0, 0), (3_000_000, 0)])[0];
+    engine.run_ok("pcb.lock", json!({"objects":[wide,narrow],"locked":true}));
+    enable(&mut engine, json!({"enabled":true,"length":100}));
+    let stale = |e: &mut TestEngine| {
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"]
+            .as_u64()
+            .unwrap()
+    };
+    assert_eq!(stale(&mut engine), 1);
+    engine.run_ok("pcb.zone.fill", json!({}));
+    engine.run_ok("project.save", json!({}));
+    let folder = engine.location().unwrap().to_owned();
+    engine.run_ok("project.close", json!({}));
+    engine.run_ok("project.open", json!({"path":folder}));
+    assert_eq!(stale(&mut engine), 0);
+    let other = uuid(&engine.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(
+        &mut engine,
+        other,
+        100_000,
+        &[(5_000_000, 5_000_000), (8_000_000, 5_000_000)],
+    );
+    assert_eq!(stale(&mut engine), 0);
+    track(
+        &mut engine,
+        other,
+        100_000,
+        &[(750_000, 300_000), (750_000, 1_300_000)],
+    );
+    assert_eq!(stale(&mut engine), 1);
+    let fill = engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(fill["teardrops"]["shortened"], 1);
+    engine.run_ok("pcb.track.set", json!({"tracks":[wide],"teardrop":false}));
+    assert_eq!(stale(&mut engine), 1);
+    let fill = engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(fill["teardrops"]["shortened"], 0);
+    assert_eq!(stale(&mut engine), 0);
+    engine.run_ok("pcb.track.set", json!({"tracks":[wide],"teardrop":true}));
+    let fill = engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(
+        fill["teardrops"]["shortened_items"][0]["track"],
+        json!(narrow)
+    );
+}
+
+#[test]
+fn curved_taper_follows_the_bend_and_obeys_both_shape_caps() {
+    let dir = TempDir::new("teardrop-bend");
+    let (mut engine, net) = board(&dir);
+    track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    let parts = track(
+        &mut engine,
+        net,
+        100_000,
+        &[(0, 0), (300_000, 0), (300_000, 3_000_000)],
+    );
+    enable(
+        &mut engine,
+        json!({"enabled":true,"curved":true,"length":200,"max_length":"1mm","max_width":"0.6mm"}),
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    let project = engine.project().unwrap();
+    let board = project.pcb().unwrap();
+    let drops = &project.zone_fills(board.uuid).unwrap().teardrops;
+    assert_eq!(drops.len(), 1);
+    let ring = &drops[0].shapes[0].outer;
+    let max_y = ring.iter().map(|p| p.y.0).max().unwrap();
+    assert_eq!(max_y, 10_700_000);
+    assert!(
+        ring.iter()
+            .any(|p| p.x.0 == 10_000_000 && p.y.0 == 10_300_000)
+    );
+    assert!(ring.len() > 10, "curved edges need several chords");
+    // Halfway down the path the quadratic has 0.1125 mm half-width.
+    let copper = Copper::of(project).unwrap();
+    let layer = board.track(parts[0]).unwrap().layer;
+    let picks = |x| {
+        copper
+            .items_at(layer, Point::from([x, 10_200_000]))
+            .contains(&Item::Track { uuid: parts[0] })
+    };
+    assert!(picks(10_400_000));
+    assert!(!picks(10_430_000));
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config { cases: 32, ..Default::default() })]
+    #[test]
+    fn teardrops_never_add_a_clearance_violation(
+        x in 715_000i64..1_200_000, y in 265_000i64..600_000,
+        curved in proptest::prelude::any::<bool>(), length in 100u32..210
+    ) {
+        let dir = TempDir::new("teardrop-clearance");
+        let (mut engine, net) = board(&dir);
+        let other = uuid(&engine.run_ok("test.net.add",json!({"name":"OTHER"}))["result"]["uuid"]);
+        track(&mut engine,net,1_000_000,&[(-2_000_000,0),(0,0)]);
+        track(&mut engine,net,100_000,&[(0,0),(3_000_000,0)]);
+        track(&mut engine,other,100_000,&[(x,y),(x,y+1_000_000)]);
+        let violations = |e: &mut TestEngine| {
+            let v = e.run_ok("drc.run",json!({}));
+            v["violations"].as_array().unwrap().iter().filter(|v|matches!(v["check"].as_str(),Some("clearance"|"short_circuit"))).count()
+        };
+        proptest::prop_assert_eq!(violations(&mut engine),0);
+        enable(&mut engine,json!({"enabled":true,"length":length,"max_length":"2mm","curved":curved}));
+        // DRC runs on current copper even though the user has not requested a fill.
+        proptest::prop_assert_eq!(violations(&mut engine),0);
+        engine.run_ok("pcb.zone.fill", json!({}));
+        let project = engine.project().unwrap();
+        let fills = project.zone_fills(project.pcb().unwrap().uuid).unwrap();
+        proptest::prop_assert_eq!(fills.teardrops.len(),1);
+        let shapes = &fills.teardrops[0].shapes;
+        proptest::prop_assert!(!shapes.is_empty(),"a shortened taper fits between these Tracks");
+        // Against the obstacle's round cap, independently measure each plotted edge.
+        let probe = [x as f64+10_000_000.,y as f64+10_000_000.];
+        for shape in shapes {
+            for (a,b) in shape.outer.iter().zip(shape.outer.iter().cycle().skip(1)) {
+                let (dx,dy) = ((b.x.0-a.x.0) as f64,(b.y.0-a.y.0) as f64);
+                let (px,py) = (probe[0]-a.x.0 as f64,probe[1]-a.y.0 as f64);
+                let t = ((dx*px+dy*py)/(dx*dx+dy*dy)).clamp(0.,1.);
+                proptest::prop_assert!((px-t*dx).hypot(py-t*dy)>=210_000.,"violates 0.16 mm copper clearance");
+            }
+        }
+    }
+}
+
+#[test]
+fn keepout_covering_the_junction_leaves_it_out_and_reports_its_location() {
+    let dir = TempDir::new("teardrop-omit");
+    let (mut engine, net) = board(&dir);
+    let wide = track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)])[0];
+    let narrow = track(&mut engine, net, 100_000, &[(0, 0), (3_000_000, 0)])[0];
+    engine.run_ok("pcb.keepout.add",json!({"layer":"copper_top","shape":"polygon","restrict":["tracks"],"vertices":[{"x":"9.9mm","y":"9.9mm"},{"x":"10.1mm","y":"9.9mm"},{"x":"10.1mm","y":"10.1mm"},{"x":"9.9mm","y":"10.1mm"}]}));
+    enable(&mut engine, json!({"enabled":true}));
+    engine.run_ok("pcb.zone.fill", json!({}));
+    let status = engine.run_ok("pcb.teardrop.status", json!({}));
+    assert_eq!(status["left_out"], 1);
+    assert_eq!(status["left_out_items"][0]["track"], json!(narrow));
+    assert_eq!(status["left_out_items"][0]["target"], json!(wide));
+}
+
+#[test]
+fn the_zone_and_route_clear_the_generated_copper() {
+    let dir = TempDir::new("teardrop-zone-route");
+    let (mut engine, net) = board(&dir);
+    let other = uuid(&engine.run_ok("test.net.add", json!({"name":"GND"}))["result"]["uuid"]);
+    track(&mut engine, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    let narrow = track(&mut engine, net, 100_000, &[(0, 0), (3_000_000, 0)])[0];
+    let zone = uuid(&engine.run_ok("pcb.zone.add",json!({"net":other,"layer":"copper_top","remove_unconnected":false,
+        "vertices":[{"x":"7mm","y":"8mm"},{"x":"14mm","y":"8mm"},{"x":"14mm","y":"12mm"},{"x":"7mm","y":"12mm"}]}))["result"]["uuid"]);
+    let probe = |e: &TestEngine| {
+        let project = e.project().unwrap();
+        let pcb = project.pcb().unwrap();
+        let layer = pcb.track(narrow).unwrap().layer;
+        let copper = Copper::of(project).unwrap();
+        let point = Point::from([10_750_000, 10_310_000]);
+        let poured = copper
+            .items_at(layer, point)
+            .iter()
+            .any(|i| matches!(i,Item::Zone{zone:z,..} if *z==zone));
+        let route = reda_pcb::Proposal::Track {
+            layer,
+            net: Some(other),
+            width: Nm(50_000),
+            geometry: reda_model::TrackGeometry::Line {
+                from: point,
+                to: Point::from([10_750_000, 11_310_000]),
+            },
+        };
+        (
+            poured,
+            copper
+                .clearance(pcb, &route, &[])
+                .iter()
+                .any(|h| h.item == Item::Track { uuid: narrow }),
+        )
+    };
+    engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(probe(&engine), (true, false));
+    enable(
+        &mut engine,
+        json!({"enabled":true,"length":200,"max_length":"2mm"}),
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(probe(&engine), (false, true));
+}
+
+#[test]
+fn holes_and_board_cutouts_shorten_an_otherwise_clear_taper() {
+    for (command, obstacle) in [
+        (
+            "pcb.free_pad.add",
+            json!({"kind":"non_plated","shape":"circle","at":{"x":"10.9mm","y":"10.56mm"},"width":"0.16mm","hole":{"width":"0.16mm"}}),
+        ),
+        (
+            "pcb.board_cutout.add",
+            json!({"vertices":[{"x":"10.9mm","y":"10.49mm"},{"x":"11mm","y":"10.49mm"},{"x":"11mm","y":"11mm"},{"x":"10.9mm","y":"11mm"}]}),
+        ),
+    ] {
+        let dir = TempDir::new("teardrop-edge");
+        let (mut e, net) = board(&dir);
+        track(&mut e, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+        track(&mut e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+        enable(
+            &mut e,
+            json!({"enabled":true,"length":200,"max_length":"2mm"}),
+        );
+        assert_eq!(
+            e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+            1
+        );
+        e.run_ok(command, obstacle);
+        assert_eq!(
+            e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["shortened"],
+            1,
+            "{command}"
+        );
+        let drc = e.run_ok("drc.run", json!({}));
+        assert!(
+            drc["violations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|v| v["check"] != "edge_clearance"),
+            "{drc}"
+        );
+    }
+}
+
+#[test]
+fn a_taper_reduced_entirely_inside_the_wide_cap_is_left_out() {
+    let dir = TempDir::new("teardrop-no-room");
+    let (mut e, net) = board(&dir);
+    track(&mut e, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(
+        &mut e,
+        other,
+        100_000,
+        &[(250_000, 210_000), (250_000, 800_000)],
+    );
+    enable(&mut e, json!({"enabled":true,"length":100}));
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["left_out"],
+        1
+    );
+}
+
+#[test]
+fn imported_board_and_net_class_rules_control_the_next_fill() {
+    let source = TempDir::new("teardrop-import");
+    let (mut e, _) = board(&source);
+    let class = uuid(&e.run_ok("pcb.net_class.add", json!({"name":"RF"}))["result"]["uuid"]);
+    let top = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .next()
+        .unwrap()
+        .uuid;
+    enable(&mut e, json!({"enabled":true,"length":100}));
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":class,"layers":[top]},"values":{"width_change":{"enabled":false}}}));
+    let path = source.path().join("house.redarules");
+    e.run_ok("pcb.rules.export", json!({"path":path}));
+    let target = TempDir::new("teardrop-import-board");
+    let (mut e, digital) = board(&target);
+    let rf = uuid(&e.run_ok("test.net.add", json!({"name":"RF_IN"}))["result"]["uuid"]);
+    e.run_ok("pcb.net_class.add", json!({"name":"RF","nets":[rf]}));
+    for (net, y) in [(rf, 0), (digital, 3_000_000)] {
+        track(&mut e, net, 1_000_000, &[(-2_000_000, y), (0, y)]);
+        track(&mut e, net, 100_000, &[(0, y), (3_000_000, y)]);
+    }
+    let bottom = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .last()
+        .unwrap()
+        .uuid;
+    let mut bottom_tracks = track(&mut e, rf, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    bottom_tracks.extend(track(&mut e, rf, 100_000, &[(0, 0), (3_000_000, 0)]));
+    e.run_ok(
+        "pcb.track.set",
+        json!({"tracks":bottom_tracks,"layer":bottom}),
+    );
+    e.run_ok(
+        "pcb.rules.import",
+        json!({"path":path,"kinds":["teardrop"]}),
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        2
+    );
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let junctions = &project.zone_fills(pcb.uuid).unwrap().teardrops;
+    assert!(
+        junctions
+            .iter()
+            .any(|d| pcb.track(d.location.track).unwrap().net == Some(digital))
+    );
+    assert!(junctions.iter().any(
+        |d| d.location.layer == bottom && pcb.track(d.location.track).unwrap().net == Some(rf)
+    ));
+}
+
+#[test]
+fn importing_outer_layer_teardrop_rules_enables_the_next_fill() {
+    let source = TempDir::new("teardrop-rules-source");
+    let (mut e, _) = board(&source);
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"enabled":true,"length":100}}}));
+    let path = source.path().join("teardrops.redarules");
+    e.run_ok("pcb.rules.export", json!({"path":path}));
+    let target = TempDir::new("teardrop-rules-target");
+    let (mut e, net) = board(&target);
+    track(&mut e, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    e.run_ok(
+        "pcb.rules.import",
+        json!({"path":path,"kinds":["teardrop"]}),
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        1
+    );
+}
+
+#[test]
+fn opposing_tapers_keep_clear_of_each_other_and_reuse_their_fills() {
+    let dir = TempDir::new("teardrop-neighbours");
+    let (mut e, a) = board(&dir);
+    let b = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(&mut e, a, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(
+        &mut e,
+        a,
+        100_000,
+        &[(0, 0), (600_000, 400_000), (3_000_000, 400_000)],
+    );
+    track(
+        &mut e,
+        b,
+        1_000_000,
+        &[(-2_000_000, 1_420_000), (0, 1_420_000)],
+    );
+    track(
+        &mut e,
+        b,
+        100_000,
+        &[(0, 1_420_000), (600_000, 1_020_000), (3_000_000, 1_020_000)],
+    );
+    enable(
+        &mut e,
+        json!({"enabled":true,"max_length":"2mm","length":200}),
+    );
+    let out = e.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(out["teardrops"]["generated"], 1);
+    assert_eq!(out["teardrops"]["shortened"], 1);
+    assert_eq!(
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
+        0
+    );
+    let drc = e.run_ok("drc.run", json!({}));
+    assert!(
+        drc["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|v| v["check"] != "clearance" && v["check"] != "short_circuit"),
+        "{drc}"
+    );
+}
+
+#[test]
+fn a_track_ending_off_centre_on_a_free_pad_uses_the_physical_lands_edge_and_transverse_size() {
+    let dir = TempDir::new("off-centre-pad-teardrop");
+    let (mut e, net) = board(&dir);
+    let pad = e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","net":net,"shape":"rect","width":"2mm","height":"1mm",
+        "hole":{"width":"0.4mm"},"at":{"x":"10mm","y":"10mm"}}),
+    )["result"]["uuid"]
+        .clone();
+    let narrow = track(&mut e, net, 100_000, &[(500_000, 0), (3_000_000, 0)])[0];
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"through_hole_pad":{"enabled":true}}}),
+    );
+    let fill = e.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(fill["teardrops"]["generated"], 1);
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let drop = &project.zone_fills(pcb.uuid).unwrap().teardrops[0];
+    assert_eq!(drop.location.track, narrow);
+    assert_eq!(json!(drop.location.target), pad);
+    let points = &drop.shapes[0].outer;
+    assert!(
+        points
+            .iter()
+            .map(|p| p.x.0)
+            .min()
+            .unwrap()
+            .abs_diff(11_000_000)
+            <= 1
+    );
+    assert!(
+        points
+            .iter()
+            .map(|p| p.x.0)
+            .max()
+            .unwrap()
+            .abs_diff(11_500_000)
+            <= 1
+    );
+    assert_eq!(points.iter().map(|p| p.y.0).min(), Some(9_500_000));
+    assert_eq!(points.iter().map(|p| p.y.0).max(), Some(10_500_000));
+
+    e.run_ok("pcb.free_pad.edit", json!({"pad":pad,"rotation":"90deg"}));
+    e.run_ok("pcb.zone.fill", json!({}));
+    let project = e.project().unwrap();
+    let rotated = &project
+        .zone_fills(project.pcb().unwrap().uuid)
+        .unwrap()
+        .teardrops[0];
+    assert_eq!(
+        rotated.location.at,
+        Point::new(Nm(10_500_000), Nm(10_000_000))
+    );
+    let side = &rotated.shapes[0].outer;
+    assert_eq!(side.iter().map(|p| p.y.0).min(), Some(9_000_000));
+    assert_eq!(side.iter().map(|p| p.y.0).max(), Some(11_000_000));
+}
+
+fn pad_with_zone(e: &mut TestEngine, net: Uuid, style: &str) -> Uuid {
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","net":net,"width":"2mm",
+        "hole":{"width":"0.4mm"},"at":{"x":"10mm","y":"10mm"},
+        "zone_connection":{"style":style,"gap":"0.25mm","spokes":2,"angle":"90deg"}}),
+    );
+    track(e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"through_hole_pad":{"enabled":true,"length":100}}}),
+    );
+    uuid(&e.run_ok("pcb.zone.add",json!({"layer":"copper_top","net":net,"remove_unconnected":false,"vertices":[
+        {"x":"5mm","y":"5mm"},{"x":"15mm","y":"5mm"},{"x":"15mm","y":"15mm"},{"x":"5mm","y":"15mm"}]}))["result"]["uuid"])
+}
+
+#[test]
+fn only_a_solid_connection_to_actual_poured_copper_suppresses_the_pad_taper() {
+    let dir = TempDir::new("solid-pad-teardrop");
+    let (mut e, net) = board(&dir);
+    pad_with_zone(&mut e, net, "solid");
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(e.run_ok("pcb.teardrop.status", json!({}))["generated"], 0);
+    e.run_ok("pcb.zone_cutout.add",json!({"layer":"copper_top","vertices":[
+        {"x":"8mm","y":"8mm"},{"x":"12mm","y":"8mm"},{"x":"12mm","y":"12mm"},{"x":"8mm","y":"12mm"}]}));
+    assert_eq!(
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
+        1
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        1
+    );
+}
+
+#[test]
+fn a_solid_pour_must_reach_the_round_land_to_suppress_its_teardrop() {
+    let dir = TempDir::new("solid-round-land-contact");
+    let (mut e, net) = board(&dir);
+    let zone = pad_with_zone(&mut e, net, "solid");
+    // The 2 mm Pad ends at x = 11 mm. Both outlines are within the filler's
+    // polygon flattening tolerance of its copper edge.
+    for (x, expected) in [(11_000_100, 1), (10_999_900, 0)] {
+        e.run_ok(
+            "pcb.zone.set",
+            json!({"zone": zone, "min_width": 1, "pour_over":"all", "vertices": [
+                {"x":x, "y":"5mm"}, {"x":"15mm", "y":"5mm"},
+                {"x":"15mm", "y":"15mm"}, {"x":x, "y":"15mm"}
+            ]}),
+        );
+        e.run_ok("pcb.zone.fill", json!({}));
+        assert_eq!(
+            e.run_ok("pcb.teardrop.status", json!({}))["generated"],
+            expected,
+            "x={x}"
+        );
+    }
+}
+
+#[test]
+fn the_zone_gap_includes_the_taper_of_a_relieved_or_disconnected_pad() {
+    for style in ["relief", "none"] {
+        let dir = TempDir::new("gap-pad-teardrop");
+        let (mut e, net) = board(&dir);
+        let zone = pad_with_zone(&mut e, net, style);
+        assert_eq!(
+            e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+            1
+        );
+        let project = e.project().unwrap();
+        let layer = project.pcb().unwrap().zone(zone).unwrap().layer;
+        let copper = Copper::of(project).unwrap();
+        let in_zone = |x, y| {
+            copper
+                .items_at(layer, Point::new(Nm(x), Nm(y)))
+                .iter()
+                .any(|i| matches!(i,Item::Zone{zone:z,..} if *z==zone))
+        };
+        // The taper's side runs from the tangent point (10, 11) to the tip at
+        // (12, 10.05), so at x = 11.5 its edge is at y = 10.2875; the gap goes 0.25 beyond.
+        assert!(
+            !in_zone(11_500_000, 10_480_000),
+            "{style} gap must continue along taper"
+        );
+        assert!(
+            in_zone(11_500_000, 11_250_000),
+            "{style} should still fill outside the gap"
+        );
+    }
+}
+
+#[test]
+fn tapers_follow_a_nonuniform_vias_actual_copper_on_each_layer() {
+    let dir = TempDir::new("via-diameter-teardrops");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Vias","layers":4}),
+    );
+    let net = uuid(&e.run_ok("test.net.add", json!({"name":"SIG"}))["result"]["uuid"]);
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let at = json!({"x":"10mm","y":"10mm"});
+    let via = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":at,"hole":"0.25mm",
+        "diameter":{"start":"0.6mm","middle":"1mm","end":"1.4mm"},"unused_layers":"remove"}),
+        )["result"]["uuid"],
+    );
+    for layer in [layers[0], layers[1], layers[3]] {
+        e.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,"net":net,"width":"0.10mm","points":[at,{"x":"14mm","y":"10mm"}]}),
+        );
+    }
+    e.run_ok("pcb.lock", json!({"objects":[via],"locked":true}));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"annular_ring","values":{"min":"0.2mm"}}),
+    );
+    let ring_violations = |e: &mut TestEngine| {
+        e.run_ok("drc.run", json!({"checks":["annular_ring"]}))["violations"].clone()
+    };
+    let before = ring_violations(&mut e);
+    assert_eq!(before.as_array().unwrap().len(), 1);
+    assert_eq!(before[0]["args"]["actual"], 175_000);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        3
+    );
+    assert_eq!(ring_violations(&mut e), before);
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let fills = project.zone_fills(pcb.uuid).unwrap();
+    let copper = Copper::of(project).unwrap();
+    assert!(
+        !copper
+            .items_at(layers[2], Point::new(Nm(10_000_000), Nm(10_000_000)))
+            .contains(&Item::Via { uuid: via })
+    );
+    for (layer, radius) in [
+        (layers[0], 300_000),
+        (layers[1], 500_000),
+        (layers[3], 700_000),
+    ] {
+        let drop = fills
+            .teardrops
+            .iter()
+            .find(|d| d.location.layer == layer && d.location.target == via)
+            .unwrap();
+        assert!(drop.location.at.x.0.abs_diff(10_000_000 + radius) <= 1);
+        let max = drop.shapes[0].outer.iter().map(|p| p.y.0).max().unwrap();
+        assert_eq!(max, 10_000_000 + radius);
+    }
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config { cases: 24, ..Default::default() })]
+    #[test]
+    fn enabling_pad_and_via_tapers_keeps_other_net_tracks_clear(
+        x in 715_000i64..1_200_000, y in 275_000i64..640_000,
+        offset in -190_000i64..190_000, curved in proptest::prelude::any::<bool>(),
+        length in 80u32..180,
+    ) {
+        for kind in ["via", "through_hole_pad", "smd_pad"] {
+            let dir = TempDir::new("land-clearance-property");
+            let (mut e, net) = board(&dir);
+            let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+            let at=json!({"x":"10mm","y":"10mm"});
+            match kind {
+                "via" => { e.run_ok("pcb.via.add",json!({"net":net,"at":at,"hole":"0.3mm","diameter":"1mm"})); },
+                "through_hole_pad" => { e.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","net":net,"at":at,"hole":{"width":"0.4mm"},"width":"1mm","shape":"rect"})); },
+                _ => { e.run_ok("pcb.free_pad.add",json!({"kind":"smd","net":net,"at":at,"width":"1mm","shape":"rounded_rect"})); },
+            };
+            track(&mut e,net,100_000,&[(0,offset),(3_000_000,offset)]);
+            track(&mut e,other,100_000,&[(x,y+offset),(x,y+offset+1_000_000)]);
+            let report=|e:&mut TestEngine| {
+                let value=e.run_ok("drc.run",json!({}));
+                value["violations"].as_array().unwrap().iter()
+                    .filter(|v|matches!(v["check"].as_str(),Some("clearance"|"short_circuit")))
+                    .cloned().collect::<Vec<_>>()
+            };
+            let before=report(&mut e);
+            // The other Track stays outside the original 1 mm land and the narrow route.
+            proptest::prop_assert!(before.is_empty(),"{kind}: {before:?}");
+            e.run_ok("pcb.rules.set",json!({"kind":"teardrop","values":{kind:{"enabled":true,"length":length,"max_length":"2mm","curved":curved}}}));
+            proptest::prop_assert_eq!(report(&mut e),before);
+            e.run_ok("pcb.zone.fill",json!({}));
+            let project=e.project().unwrap();
+            let fills=project.zone_fills(project.pcb().unwrap().uuid).unwrap();
+            proptest::prop_assert_eq!(fills.teardrops.len(),1);
+        }
+    }
+}
+
+#[test]
+fn a_pad_opt_out_removes_every_attached_taper_and_leaves_other_targets_alone() {
+    let dir = TempDir::new("teardrop-pad-opt-outs");
+    let (mut e, net) = board(&dir);
+    let part = e.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":"10mm","y":"10mm"}, "pads":[{
+                "at":{"x":0,"y":0},"width":"1mm","height":"1mm","net":net
+            }]
+        }),
+    )["result"]
+        .clone();
+    let free = e.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind":"plated_through_hole","net":net,"width":"1mm","hole":{"width":"0.4mm"},
+            "at":{"x":"16mm","y":"10mm"}
+        }),
+    )["result"]["uuid"]
+        .clone();
+    track(&mut e, net, 100_000, &[(-3_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (6_000_000, 0)]);
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":"copper_bottom","net":net,"width":"0.1mm",
+        "points":[{"x":"16mm","y":"10mm"},{"x":"16mm","y":"7mm"}]}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop",
+        "values":{"through_hole_pad":{"enabled":true},"smd_pad":{"enabled":true}}}),
+    );
+    let counts = |e: &mut TestEngine| {
+        e.run_ok("pcb.zone.fill", json!({}));
+        e.run_ok("pcb.teardrop.status", json!({}))["generated"]
+            .as_u64()
+            .unwrap()
+    };
+    assert_eq!(counts(&mut e), 4);
+    e.run_ok(
+        "pcb.lock",
+        json!({"objects":[part["footprint"],free],"locked":true}),
+    );
+    let denied = e.run_err(
+        "pcb.free_pad.edit",
+        json!({"pad":free,"width":"2mm","teardrop":false}),
+    );
+    assert_eq!(denied.code, reda_command::ErrorCode::Rejected);
+
+    e.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":false}),
+    );
+    assert_eq!(counts(&mut e), 2);
+    e.run_ok("pcb.free_pad.edit", json!({"pad":free,"teardrop":false}));
+    assert_eq!(counts(&mut e), 0);
+    e.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":true}),
+    );
+    assert_eq!(counts(&mut e), 2);
+}
+
+#[test]
+fn coincident_pads_of_one_footprint_keep_distinct_locations_in_status_and_cache() {
+    let dir = TempDir::new("coincident-shortened-pads");
+    let (mut e, net) = board(&dir);
+    let pad = json!({"at":{"x":0,"y":0},"width":"1mm","height":"1mm","net":net});
+    let part = e.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":"10mm","y":"10mm"},"pads":[pad,pad]
+        }),
+    )["result"]
+        .clone();
+    let owner = track(&mut e, net, 100_000, &[(0, 0), (750_000, 0)])[0];
+    // Another Net's Track beside the tip makes both Teardrops give way to clearance.
+    let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(
+        &mut e,
+        other,
+        100_000,
+        &[(750_000, 300_000), (750_000, 1_300_000)],
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    let status = e.run_ok("pcb.teardrop.status", json!({}));
+    assert_eq!(status["shortened"], 2);
+    let items = status["shortened_items"].as_array().unwrap();
+    for (item, pad) in items.iter().zip(part["pads"].as_array().unwrap()) {
+        assert_eq!(item["target"], part["footprint"]);
+        assert_eq!(item["track"], json!(owner));
+        assert_eq!(item["pad"], *pad);
+        assert_eq!(item["at"], json!({"x":10_500_000,"y":10_000_000}));
+    }
+    assert_eq!(
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
+        0
+    );
+}
+
+/// Whether `p` lies inside the closed polygon `outline`, by crossing parity.
+fn in_polygon(outline: &[Point], p: [f64; 2]) -> bool {
+    let mut inside = false;
+    for i in 0..outline.len() {
+        let a = outline[i];
+        let b = outline[(i + 1) % outline.len()];
+        let (ax, ay, bx, by) = (a.x.0 as f64, a.y.0 as f64, b.x.0 as f64, b.y.0 as f64);
+        if (ay > p[1]) != (by > p[1]) && p[0] < ax + (p[1] - ay) * (bx - ax) / (by - ay) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+/// The single Teardrop on the board must flare from its land: every vertex short
+/// of the tip lies on or inside the land (within 1 nm), and across the middle of
+/// the base the copper just outside the land belongs to the Teardrop, so the two
+/// meet along an edge rather than at a point and leave no notch between them.
+fn assert_flares_from_land(e: &TestEngine, target: Item, far: (i64, i64)) {
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let drops = &project.zone_fills(pcb.uuid).unwrap().teardrops;
+    assert_eq!(drops.len(), 1);
+    let drop = &drops[0];
+    assert!(!drop.shortened);
+    assert_eq!(drop.shapes.len(), 1, "one piece");
+    assert!(drop.shapes[0].holes.is_empty());
+    let outline = &drop.shapes[0].outer;
+    let copper = Copper::of(project).unwrap();
+    let layer = drop.location.layer;
+    let land = |p: [f64; 2]| {
+        let p = Point::new(Nm(p[0].round() as i64), Nm(p[1].round() as i64));
+        copper.items_at(layer, p).contains(&target)
+    };
+    let at = drop.location.at;
+    let origin = [at.x.0 as f64, at.y.0 as f64];
+    let (dx, dy) = (
+        (far.0 + 10_000_000) as f64 - origin[0],
+        (far.1 + 10_000_000) as f64 - origin[1],
+    );
+    let d = dx.hypot(dy);
+    let (u, n) = ([dx / d, dy / d], [-dy / d, dx / d]);
+    let local = |p: &Point| {
+        let (x, y) = (p.x.0 as f64 - origin[0], p.y.0 as f64 - origin[1]);
+        (x * u[0] + y * u[1], x * n[0] + y * n[1])
+    };
+    let tip = outline.iter().map(|p| local(p).0).fold(f64::MIN, f64::max);
+    let mut base = (f64::INFINITY, f64::NEG_INFINITY);
+    for p in outline {
+        let (along, across) = local(p);
+        if along > tip - 2. {
+            continue;
+        }
+        let near =
+            (-1..=1).any(|i| (-1..=1).any(|j| land([(p.x.0 + i) as f64, (p.y.0 + j) as f64])));
+        assert!(near, "base vertex {p:?} lies outside the land: {outline:?}");
+        base = (base.0.min(across), base.1.max(across));
+    }
+    assert!(
+        base.1 - base.0 > 100_000.,
+        "the base spans the land: {base:?}"
+    );
+    for k in 0..=10 {
+        let across = base.0 / 2. + (base.1 - base.0) / 2. * k as f64 / 10.;
+        let point = |t: f64| {
+            [
+                origin[0] + t * u[0] + across * n[0],
+                origin[1] + t * u[1] + across * n[1],
+            ]
+        };
+        // Walk out of the land along the Track, then step just past its edge.
+        let mut lo = [0., -250_000., -500_000.]
+            .into_iter()
+            .find(|&t| land(point(t)))
+            .expect("the line across the base meets the land");
+        let mut hi = 2_000_000.;
+        while hi - lo > 1. {
+            let mid = (lo + hi) / 2.;
+            if land(point(mid)) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        let outside = point(hi + 2_000.);
+        assert!(!land(outside));
+        assert!(
+            in_polygon(outline, outside),
+            "no Teardrop just outside the land at {across} across: {outline:?}"
+        );
+    }
+}
+
+fn single_outline(e: &TestEngine) -> Vec<(i64, i64)> {
+    let project = e.project().unwrap();
+    project
+        .zone_fills(project.pcb().unwrap().uuid)
+        .unwrap()
+        .teardrops[0]
+        .shapes[0]
+        .outer
+        .iter()
+        .map(|p| (p.x.0, p.y.0))
+        .collect()
+}
+
+#[test]
+fn a_round_vias_teardrop_meets_it_at_the_tangent_points() {
+    let dir = TempDir::new("teardrop-round-via-base");
+    let (mut e, net) = board(&dir);
+    let via = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":{"x":"10mm","y":"10mm"},"hole":"0.3mm","diameter":"1mm"}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 0), (5_000_000, 0)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::Via { uuid: via }, (5_000_000, 0));
+    // The base runs between the tangent points (cx, cy ± r), the tip 0.5 mm past the edge.
+    let mut points = single_outline(&e);
+    points.sort();
+    let expected = [
+        (10_000_000, 9_500_000),
+        (10_000_000, 10_500_000),
+        (11_000_000, 9_900_000),
+        (11_000_000, 10_100_000),
+    ];
+    assert_eq!(points.len(), 4, "{points:?}");
+    for (p, q) in points.iter().zip(expected) {
+        assert!(
+            p.0.abs_diff(q.0) <= 2 && p.1.abs_diff(q.1) <= 2,
+            "{points:?}"
+        );
+    }
+}
+
+#[test]
+fn an_off_centre_track_on_a_rect_pad_keeps_its_base_on_the_pad() {
+    let dir = TempDir::new("teardrop-off-centre-rect-base");
+    let (mut e, net) = board(&dir);
+    let pad = uuid(
+        &e.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind":"smd","net":net,"shape":"rect","width":"2mm","height":"1mm",
+            "at":{"x":"10mm","y":"10mm"}}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 350_000), (4_000_000, 350_000)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::FreePad { uuid: pad }, (4_000_000, 350_000));
+    // The full 1 mm base covers the Pad's edge instead of running past its top.
+    let points = single_outline(&e);
+    assert_eq!(points.iter().map(|p| p.1).max(), Some(10_500_000));
+    assert_eq!(points.iter().map(|p| p.1).min(), Some(9_500_000));
+}
+
+#[test]
+fn a_diagonal_track_on_a_rect_pad_keeps_both_base_corners_on_the_pad() {
+    let dir = TempDir::new("teardrop-diagonal-rect-base");
+    let (mut e, net) = board(&dir);
+    let pad = uuid(
+        &e.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind":"smd","net":net,"shape":"rect","width":"1mm","height":"1mm",
+            "at":{"x":"10mm","y":"10mm"}}),
+        )["result"]["uuid"],
+    );
+    track(&mut e, net, 200_000, &[(0, 0), (3_000_000, 1_500_000)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    assert_flares_from_land(&e, Item::FreePad { uuid: pad }, (3_000_000, 1_500_000));
+}
+
+#[test]
+fn a_teardrop_cut_short_only_by_the_track_reaching_another_via_is_complete() {
+    let dir = TempDir::new("teardrop-short-path-complete");
+    let (mut e, net) = board(&dir);
+    for x in ["10mm", "11.1mm"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"net":net,"at":{"x":x,"y":"10mm"},"hole":"0.3mm","diameter":"0.8mm"}),
+        );
+    }
+    track(&mut e, net, 100_000, &[(0, 0), (1_100_000, 0)]);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    let status = e.run_ok("pcb.teardrop.status", json!({}));
+    assert_eq!(status["generated"], 2, "{status}");
+    assert_eq!(status["shortened"], 0, "{status}");
+    assert_eq!(status["shortened_items"], json!([]));
+}

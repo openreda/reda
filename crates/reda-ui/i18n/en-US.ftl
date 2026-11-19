@@ -463,7 +463,6 @@ properties-x = X
 properties-y = Y
 properties-width = Width
 properties-length = Length
-properties-diameter = Diameter
 properties-hole = Hole
 properties-region-general = General
 properties-region-location = Location
@@ -546,6 +545,7 @@ properties-track-layer = Layer
 properties-track-net = Net
 properties-track-no-net = No Net
 properties-track-pick-net = Pick
+properties-allow-teardrops = Allow Teardrops
 properties-track-pick-net-hint = Click copper on the board to give these Tracks its Net (Esc cancels)
 properties-pick-net-none = No copper with a Net there: the Tracks keep their Net.
 properties-net-name = Net
@@ -564,6 +564,7 @@ properties-rules-board = Board
 properties-rules-won = Applies
 properties-rules-lost = Overridden
 properties-rules-disabled = Disabled
+properties-rules-allowed-every = every Via type
 properties-rules-open = Open { $page } in Board Setup
 properties-rules-between = Between them: { $field } = { $value }, from object { $object }
 properties-severity-error = Error
@@ -755,6 +756,13 @@ layer-control-active = Active Layer: { $layer }
 pcb-grid-readout = Grid readout
 layers-set-all = All
 layers-set-signal = Signal
+layers-set-plane = Plane
+layers-role-plane = Plane
+layers-role-mixed = Mixed
+layers-role-signal = Signal
+layers-copper-group = Copper Layers
+layers-scroll-left = Scroll Layers left
+layers-scroll-right = Scroll Layers right
 layers-set-non-signal = NonSignal
 layers-set-mechanical = Mechanical
 layers-set-top = Top
@@ -898,6 +906,22 @@ violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
     }
+violation-via-span = { $reason ->
+        [not_allowed] This Net Class does not allow the Via type
+        [micro_too_long] The micro Via type spans more than a micro Via can
+       *[no_type] No Via type matches this span
+    }
+violation-microvia-size = Micro Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-aspect-ratio = Via depth-to-hole ratio { $actual }:1 exceeds the { $maximum }:1 limit
+violation-max-stack = The Via Stack contains { $actual } micro Vias and allows at most { $maximum }
+violation-silk-width = The silkscreen stroke is narrower than the minimum width
+violation-silk-text-height = The silkscreen text is shorter than the minimum height
 violation-via-size = Via { $part ->
         [hole] hole
        *[diameter] diameter
@@ -1300,6 +1324,10 @@ preset-origin-absolute = Design zero
 preset-origin-relative = Output Origin, else the board's lower-left corner
 preset-file-origin-note = The file origin also places the drill and CPL coordinates.
 preset-outline-every = Board Outline on every plot
+preset-inner-copper = Inner copper file name
+preset-inner-copper-tokens = Layer number: ${"{"}position{"}"} or ${"{"}inner{"}"}. Project name: ${"{"}project{"}"}.
+preset-inner-copper-empty = Leave blank to use the naming setting.
+preset-four-layer-preview = Four-Layer copper file preview
 preset-file-names = File names by Layer
 preset-layer = Layer
 preset-file-name = File name
@@ -1311,11 +1339,11 @@ preset-remove = Remove
 preset-slot-command = Slot command
 preset-slot-route = Routed (G00, M15, G01, M16)
 preset-slot-g85 = Canned slot (G85)
-preset-merge-drill = Merge plated and non-plated holes into one file
+preset-merge-drill = Merge plated and non-plated through holes
 preset-set-on-gerber = set on the Gerber page
 preset-set-on-bom = set on the BOM page
-preset-drill-merged = Writes one drill file, <project>.drl.
-preset-drill-split = Writes a plated and a non-plated drill file.
+preset-drill-merged = Through holes share <project>.drl. Each occupied blind or buried span has its own file.
+preset-drill-split = Plated and non-plated through holes use separate files. Each occupied blind or buried span has its own file.
 preset-columns = Columns
 preset-source = Source
 preset-header = Header
@@ -1573,6 +1601,7 @@ pref-pcb-place-ratsnest-mode-hidden = Hidden
 pref-pcb-place-ratsnest-mode-pad-to-pad = Pad To Pad
 pref-pcb-ratsnest = Ratsnest
 pref-pcb-ratsnest-smart-track-ends = Smart Track Ends
+pref-pcb-layer-hover-solo = Solo a Layer while hovering over its chip
 pref-pcb-view = View
 pref-pcb-view-net-color-pattern = Net colour pattern on copper
 pref-pcb-view-net-color-pattern-solid = Solid
@@ -2020,6 +2049,13 @@ board-setup-clearance = Clearance
 board-setup-track-width = Track width
 board-setup-via-diameter = Via diameter
 board-setup-via-hole = Via hole
+board-setup-via-aspect-ratio = Maximum Via aspect ratio (depth to hole)
+board-setup-microvia-diameter = Micro Via diameter
+board-setup-microvia-hole = Micro Via hole
+board-setup-microvia-aspect-ratio = Maximum micro Via aspect ratio (depth to hole)
+board-setup-microvia-max-stack = Maximum micro Vias stacked
+board-setup-drilled-vias = Drilled Vias
+board-setup-micro-vias = Micro Vias
 board-setup-pad-hole = Pad hole
 board-setup-annular-ring = Annular ring
 board-setup-hole-to-hole = Hole-to-hole spacing
@@ -2031,7 +2067,10 @@ board-setup-board-wide-preferred = Board-wide preferred { $rule } (mm)
 board-setup-board-wide-maximum = Board-wide maximum { $rule } (mm)
 board-setup-overrides = Net Class overrides (mm)
 board-setup-override = { $class }: { $rule }
-board-setup-overrides-note = Net Class values override the board value. Leave one empty to use the board value. Where a Net is in several Net Classes, the highest-ranked one that sets a value wins, and where two Nets meet, the larger clearance applies.
+board-setup-overrides-note = The highest-ranked matching Net Class supplies each override.
+    Leave a field empty to inherit. Class-pair rules can set clearance between two Nets.
+board-setup-via-overrides-note = Leave a limit empty to use the board-wide limit. A Via starts at its type’s diameter and hole unless a Net Class sets a preferred size. When several classes set a value, the highest-ranked one wins.
+board-setup-microvia-overrides-note = Leave a limit empty to use the board-wide limit. A micro Via starts at its type’s diameter and hole unless a Net Class sets a preferred micro Via size; a preferred Via size leaves micro Vias as they are. When several classes set a value, the highest-ranked one wins.
 board-setup-no-classes = The board has no Net Classes yet. Add them on the Net Classes page.
 board-setup-net-class = Net Class
 board-setup-severity = DRC severity of { $check }:
@@ -2063,6 +2102,9 @@ board-setup-no-nets = The board has no Nets yet.
 board-setup-class-of = Net Class of { $net }
 board-setup-default-class-name = Default
 board-setup-via-size = Via size
+board-setup-microvia-size = Micro Via size
+board-setup-silk-width = Minimum silkscreen stroke width
+board-setup-silk-text-height = Minimum silkscreen text height
 board-setup-silk-to-edge = Silkscreen to edge
 board-setup-silk-to-mask = Silkscreen to mask
 board-setup-courtyard-clearance = Courtyard clearance
@@ -2103,6 +2145,20 @@ board-setup-pattern-class = Net Class
 board-setup-assign = Assign
 board-setup-pattern-note = * matches any run of characters and ? one character, ignoring case. Only the Nets that exist now are assigned.
 board-setup-page-mask-paste = Mask & Paste
+board-setup-teardrop-counts = { $generated } generated, { $shortened } shortened, { $omitted } left out
+board-setup-teardrop-shortened = Shortened Teardrops
+board-setup-teardrop-omitted = Teardrops left out
+board-setup-teardrop-location = L{ $layer } · X { $x } mm · Y { $y } mm
+board-setup-page-teardrops = Teardrops
+board-setup-teardrop-width-change = Track width changes
+board-setup-teardrop-enabled = Generate Teardrops
+board-setup-teardrop-length = Length
+board-setup-teardrop-max-length = Maximum length
+board-setup-teardrop-width = Width at target
+board-setup-teardrop-max-width = Maximum width
+board-setup-teardrop-curved = Curved edges
+board-setup-teardrop-skip-ratio = Skip above Track-to-target ratio
+board-setup-not-a-size-percent = Enter a nonnegative whole percentage.
 board-setup-page-zone-connections = Zone Connections
 board-setup-mask-expansion = Mask expansion
 board-setup-paste-expansion = Paste expansion
@@ -2125,6 +2181,8 @@ board-setup-not-a-style = Give relief, solid or none.
 board-setup-not-spokes = Give 2 or 4 spokes.
 board-setup-not-an-angle = Give 0, 45 or 90 degrees.
 board-setup-required-value = Give a value.
+board-setup-not-a-ratio = Give a ratio above 0 with up to three decimals, such as 0.9 or 5.333.
+board-setup-not-a-count = Give a whole number from 1 to 255.
 board-setup-mask-top = Top mask expansion
 board-setup-mask-bottom = Bottom mask expansion
 board-setup-mask-from-hole-edge = Expand from the hole edge
@@ -2170,6 +2228,16 @@ board-setup-typed = { $what }, typed
 board-setup-fab-notes = Fab Notes text
 board-setup-fab-notes-note = Free text copied into the Fab Notes, such as impedance or panelisation requests.
 board-setup-import-class-record = { $rule } of Net Class { $class }
+board-setup-import-pair-record = { $rule } between { $first } and { $second }
+board-setup-import-layer-record = { $rule } · { $layer }
+board-setup-import-laser-span = { $span } (laser)
+board-setup-import-allowed = { $rule } · { $spans }
+board-setup-import-unrestricted = { $rule } · All Via types
+board-setup-import-count-mismatch = The source and target have different copper Layer counts.
+board-setup-import-missing-layers = Unavailable Layer positions will be dropped: { $layers }.
+board-setup-import-missing-types = Missing Via types will be dropped: { $spans }.
+board-setup-import-choose-positions = { $error }. Choose which position-dependent records to import.
+board-setup-import-skipped = No matching positions or Via types remain. This record will be skipped.
 board-setup-import-board-record = Board-wide { $rule }
 board-setup-import-new-class = New Net Class { $class }
 board-setup-import-severity = Severity of { $check }: { $before } to { $after }
@@ -2187,7 +2255,7 @@ board-setup-import = Import Rules…
 board-setup-take-row = Take { $rule }
 board-setup-preset-name = Fab Preset name
 board-setup-save = Save Preset
-board-setup-save-preset-note = The new Fab Preset holds the board-wide rules; Net Class values stay on the board.
+board-setup-save-preset-note = Saves board-wide values and Inner limits. Other Layer rules and Net Class rules are left out.
 board-setup-import-preview = Importing { $path } changes:
 board-setup-import-nothing = Nothing: the board already has these rules.
 board-setup-import-confirm = Import
@@ -2218,6 +2286,7 @@ output-job-plotted = Plotted
 output-job-plotted-empty = Empty, left out
 output-job-plotted-off = Off in this job
 output-job-out-of-range = { $file } holds a coordinate beyond ±2147.483647 mm, which a Gerber file can't hold; the run would be blocked.
+output-job-column-span = Span
 output-job-column-layer = Layer
 output-job-column-file = File name
 output-job-column-plotted = Plotted
@@ -2230,8 +2299,8 @@ output-job-slot-command = Slot command
 output-job-slot-route = Routed (G00, M15, G01, M16, G05)
 output-job-slot-g85 = G85 canned slot
 output-job-drill-files = Drill files
-output-job-drill-merged = Merged: one file with plated and non-plated holes
-output-job-drill-split = Split: plated and non-plated files
+output-job-drill-merged = Plated and non-plated through holes share one file
+output-job-drill-split = Plated and non-plated through holes use separate files
 output-job-assembly-off = This job does not write this file; the preview shows what it would hold.
 output-job-assembly-no-rows = No rows: nothing on this board goes into this file.
 output-job-not-run = Not run yet
@@ -2720,6 +2789,12 @@ pref-editing-delta = Show ΔX/ΔY from the last click
 pref-editing-display-precision-mm = Display Precision (mm decimals)
 pref-editing-display-precision-mil = Display Precision (mil decimals)
 check-opening-collapsed = Mask or paste opening collapsed
+check-via-span = Via span
+check-microvia-size = Microvia size
+check-aspect-ratio = Via aspect ratio
+check-max-stack = Microvia stack height
+check-silk-width = Silkscreen width
+check-silk-text-height = Silkscreen text height
 check-via-size = Via Size
 check-rule-invalid = Invalid Rule
 check-rule-outside-preset = Rule Outside Fab Preset
@@ -2986,3 +3061,237 @@ pref-pcb-route-auto-terminate = Auto-terminate routing
 pref-pcb-route-clearance-display = Display clearance boundaries
 pref-pcb-route-clearance-display-near = Near the cursor
 pref-cross-select-reposition = Reposition
+
+stackup-summary = { $count } copper Layers · { $thickness } mm ordered
+stackup-open = Open Stackup editor
+stackup-copper-layers = Copper Layers
+stackup-layer-range = 2–32
+stackup-add-pcb = Add PCB
+stackup-entry-name = { $entry } name
+stackup-entry-kind = { $entry } kind
+stackup-signal = Signal
+stackup-plane = Plane
+stackup-mixed = Mixed
+stackup-core = Core
+stackup-prepreg = Prepreg
+stackup-material = Material
+stackup-dk = Dk
+stackup-df = Df
+stackup-frequency = Test frequency (Hz)
+stackup-electrical-number = Enter a nonnegative number with up to { $places } decimal places.
+stackup-frequency-integer = Enter the measurement frequency in whole Hz.
+stackup-add-layer = Add Layer
+stackup-remove-layer = Remove Layer
+stackup-layer-change = Confirm Layer change
+layer-types-stretched = Via types stretched: { $count }
+layer-types-shortened = Via types shortened: { $count }
+layer-types-removed = Via types removed: { $count }
+layer-vias-stretched = Vias stretched: { $count }
+layer-vias-shortened = { $count ->
+    [one] { $count } Via shortened.
+   *[other] { $count } Vias shortened.
+}
+layer-vias-deleted = { $count ->
+    [one] { $count } Via deleted.
+   *[other] { $count } Vias deleted.
+}
+layer-vias-shortened-deleted = { $shortened ->
+    [one] { $shortened } Via
+   *[other] { $shortened } Vias
+} shortened, { $deleted } deleted.
+layer-vias-crossed = Vias crossing a Layer: { $count }
+layer-rules-changed = Rules changed: { $count }
+layer-rules-removed = Rules deleted: { $count }
+layer-objects-deleted = { $objects } on { $layer } will be deleted.
+layer-count-tracks = { $count ->
+    [one] { $count } Track
+   *[other] { $count } Tracks
+}
+layer-count-zones = { $count ->
+    [one] { $count } Zone
+   *[other] { $count } Zones
+}
+layer-count-cutouts = { $count ->
+    [one] { $count } Zone Cutout
+   *[other] { $count } Zone Cutouts
+}
+layer-count-keepouts = { $count ->
+    [one] { $count } Keepout
+   *[other] { $count } Keepouts
+}
+layer-count-texts = { $count ->
+    [one] { $count } text
+   *[other] { $count } texts
+}
+layer-count-graphics = { $count ->
+    [one] { $count } graphic
+   *[other] { $count } graphics
+}
+layer-count-dimensions = { $count ->
+    [one] { $count } Dimension
+   *[other] { $count } Dimensions
+}
+layer-class-all = Net Class { $name } will allow every Via type.
+layer-micro-stretched = Micro Via type spans more than a micro Via can.
+stackup-add-sheet = Add sheet
+stackup-remove-sheet = Remove sheet
+stackup-keep-sheet = Keep at least one dielectric sheet between consecutive copper Layers.
+stackup-outside-tolerance = Outside 10% tolerance
+stackup-within-tolerance = Within 10% tolerance
+stackup-symmetric = Symmetric
+stackup-asymmetric = Not symmetric
+stackup-odd = Odd copper Layer count
+stackup-suggestions = Suggestions
+stackup-section-total = { $thickness } mm total · to scale
+stackup-z0-width = Default Track width { $widths } · without solder mask
+stackup-z0-embedded = Approximate embedded microstrip with a reference on one side.
+stackup-z0-offset = Approximate stripline with unequal plane gaps or different dielectric materials.
+stackup-z0-missing-dk = A dielectric has no Dk specified. The estimate uses 4.5 for that sheet.
+stackup-thickness-mm = Thickness (mm)
+stackup-resolved = Blank sheet · { $thickness } mm resolved
+
+via-types = Via types
+via-from = From
+via-to = To
+via-drill = Drill
+via-pad = Pad
+via-from-field = { $name } from
+via-to-field = { $name } to
+via-drill-field = { $name } drill
+via-pad-field = { $name } pad
+via-limits = { $name } has a drill or pad outside the board’s size limits.
+via-add-type = Add Via type
+via-remove-type = Remove Via type
+via-move-up = Move up
+via-move-down = Move down
+via-micro = Micro
+via-change-title = Change Via span
+via-using-span = { $count } Vias use this span.
+via-allowed-emptied = { $count } Net Class permission lists will allow every Via type.
+via-move-vias = Move Vias
+via-leave-vias = Leave Vias in place
+via-span-labels = Via Span labels
+via-type-disallowed = The Net Class does not allow this Via type.
+footprint-copper-layer = Copper Layer
+pad-copper-top-group = Top copper
+pad-copper-middle = Middle
+pad-copper-bottom = Bottom
+pad-copper-group = { $group } copper
+pad-copper-inherit = Same as Top
+pad-copper-customize = Customize { $group } copper
+pad-copper-clear = Clear { $group } copper
+pad-copper-shape = { $group } shape
+pad-copper-width = { $group } width
+pad-copper-height = { $group } height
+pad-copper-corner = { $group } corner ratio
+pad-copper-chamfer = { $group } chamfer ratio
+pad-copper-corners = { $group } corners
+via-start-diameter = Start diameter
+via-middle-diameter = Middle diameter
+via-end-diameter = End diameter
+via-hole-size = Hole diameter
+via-type = Via type
+via-no-type = no Via type
+via-top-mask = Top solder mask
+via-bottom-mask = Bottom solder mask
+via-allowed = Allowed Via types for { $class }
+via-allow = Allow { $name }
+preset-placement-kept = Kept from Project: { $name }
+preset-page-placement = Placement
+placement-kind = Match kind
+placement-field-name = Field name
+placement-field-value = Field value
+placement-pattern = Footprint pattern
+placement-rotation = Rotation (°)
+placement-offset-x = Offset X (mm)
+placement-offset-y = Offset Y (mm)
+placement-save = Save correction
+placement-add = Add correction…
+placement-edit = Edit
+placement-duplicate = This match already has a correction.
+placement-stored = Stored rotation
+placement-written = Written rotation
+placement-correction = Correction
+placement-match = Matched row
+placement-match-value = Pattern or field and value
+
+construction-title = Construction
+construction-generic = Generic evenly spaced build
+construction-list = Constructions
+construction-count = { $name } · { $layers } Layers
+construction-default = Set as default
+construction-remove = Remove Construction
+construction-name = Construction name
+construction-add = Add Construction
+construction-duplicate = Duplicate Construction
+construction-save-action = Save as Construction…
+construction-save-title = Save as Construction
+construction-save = Save Construction
+construction-modified = Modified from { $name }
+construction-started = Construction: { $name }
+construction-project-copy = { $name } (Project)
+construction-user-preset = { $name } (user preset)
+construction-no-presets = Add a Fab Preset to this Project to save a Construction.
+
+board-layer-inner = Inner
+board-layer-outer = Outer
+board-layer-plane = Plane
+board-rule-by-layer = By Layer
+board-rule-by-layer-class = By Layer Net Class
+board-rule-add-layer = Add Layer rule
+board-rule-class-pairs = Class pairs
+board-rule-layers = Layer rules
+board-rule-named = Pick Layers
+board-rule-add = Add
+board-rule-pair-lower = Below a class's own clearance
+stackup-to-scale = To scale
+stackup-schematic = Schematic
+stackup-select-band = Select band { $name }
+stackup-select-via = Select Via type { $name }
+stackup-split-sheet = + Layer
+construction-apply-action = Apply Construction…
+construction-apply-title = Apply Construction
+construction-revert = Revert
+construction-choice = { $preset } · { $name } ({ $layers } Layers)
+construction-unavailable = This Construction is no longer in the Project preset.
+construction-choose-removals = { $count ->
+    [one] Choose 1 inner Layer to remove.
+   *[other] Choose { $count } inner Layers to remove.
+    }
+construction-layer-objects = { $layer } · { $count ->
+    [one] 1 object
+   *[other] { $count } objects
+    }
+construction-apply-types = Apply Via types
+construction-types-changed = Via types changed: { $count }
+construction-vias-unmatched = Vias left without a type: { $count }
+
+plane-fill-layer = Fill Layer with plane…
+plane-net = Plane Net
+plane-select-net = Choose a Net
+plane-create-zone = Create Zone
+rule-via-hole-clearance = Via hole clearance
+rule-pad-hole-clearance = Plated Pad hole clearance
+unused-lands-title = Set Unused Copper…
+unused-lands-include-locked = Include locked objects
+unused-lands-board = Whole board
+unused-lands-selection = Selection
+unused-lands-pads = Unconnected Pad lands
+unused-lands-vias = Unconnected Via lands
+unused-lands-keep = Keep all lands
+unused-lands-remove = Remove unconnected lands
+unused-lands-ends = Remove and keep both ends
+unused-lands-unchanged = Leave unchanged
+unused-lands-via-default = New Via lands
+route-no-via = No permitted Via or stack joins these Layers.
+route-via-destination = Via to Layer
+route-via-previous-page = Previous
+route-via-next-page = Next
+route-via-page = Candidate page
+route-via-invalid-size = The Via hole must fit inside every land after applying the size limits.
+
+via-name-through = Through
+via-name-blind = Blind { $from }:{ $to }
+via-name-buried = Buried { $from }:{ $to }
+via-name-micro = Micro { $from }:{ $to }
+stackup-length-mm = { $field } (mm)

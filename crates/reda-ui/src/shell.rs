@@ -19,6 +19,7 @@ mod refresh;
 mod route;
 mod run;
 mod tabs;
+mod tool_dispatch;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -50,7 +51,7 @@ use crate::selection::{self, Selection};
 use crate::snap::Snapped;
 pub use crate::theme::fonts::Source as FontSource;
 pub use crate::tool_preview::ToolPreview;
-use crate::tools::{self, ActiveTool, PowerPortName, Tool};
+use crate::tools::{self, ActiveTool, PowerPortName, Tool, ToolCommand};
 use crate::tr;
 use crate::user_preferences::Watched;
 use crate::view_state::{self, Debounce, DocumentView, ViewFile};
@@ -319,7 +320,7 @@ impl Shell {
         if engine.registry().get("selection.set").is_none() {
             engine.register(selection::register_all);
         }
-        if engine.registry().get("tool.activate").is_none() {
+        if engine.registry().get(ToolCommand::Activate.id()).is_none() {
             engine.register(tools::register_all);
         }
         if engine.registry().get("view.highlight").is_none() {
@@ -336,7 +337,7 @@ impl Shell {
         {
             engine.register(crate::port_partner::register_all);
         }
-        if engine.registry().get("tool.place").is_none() {
+        if engine.registry().get(ToolCommand::Place.id()).is_none() {
             engine.register(crate::placement::register_all);
         }
         if engine.registry().get("view.cross_select.toggle").is_none() {
@@ -366,7 +367,7 @@ impl Shell {
         if engine.registry().get("view.messages.show_waived").is_none() {
             engine.register(messages::register_all);
         }
-        if engine.registry().get("tool.paste").is_none() {
+        if engine.registry().get(ToolCommand::Paste.id()).is_none() {
             engine.register(crate::schematic_editor::register_all);
         }
         if engine.registry().get("view.keys_card.toggle").is_none() {
@@ -380,6 +381,9 @@ impl Shell {
         }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
+        engine
+            .view_mut()
+            .set(crate::stackup_editor::commands::Displays::default());
         engine.view_mut().set(Selection::default());
         engine
             .view_mut()
@@ -602,7 +606,7 @@ impl Shell {
             .expect("the Shell installs its BoardView")
     }
 
-    fn board_view_mut(&mut self) -> &mut BoardView {
+    pub(crate) fn board_view_mut(&mut self) -> &mut BoardView {
         self.engine
             .view_mut()
             .get_mut::<BoardView>()

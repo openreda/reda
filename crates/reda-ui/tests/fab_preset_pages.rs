@@ -34,7 +34,7 @@ fn last_journal_id(shell: &Shell) -> String {
 }
 
 #[test]
-fn every_copy_has_the_seven_pages_under_its_name() {
+fn every_copy_has_the_preset_pages_under_its_name() {
     let (home, work) = (TempDir::new("fpp-home"), TempDir::new("fpp-work"));
     let shell = shell_with_project(&home, &work);
     let d = project::dialog(shell.engine().project().unwrap());
@@ -52,6 +52,7 @@ fn every_copy_has_the_seven_pages_under_its_name() {
             "Drill",
             "BOM",
             "CPL",
+            "Placement",
             "Packaging"
         ]
     );
@@ -125,16 +126,21 @@ fn reset_page_to_source_puts_back_only_that_pages_keys() {
 fn typed_values_are_parsed_and_bad_ones_flagged_on_their_page() {
     let generic = reda_ui::engine::output::shipped().remove(0);
     let mut editor = PresetEditor::new(generic);
+    assert_eq!(editor.text(Field::SilkWidth), "0.15");
+    editor.set_text(Field::SilkWidth, "0.125");
+    editor.set_text(Field::SilkTextHeight, "");
+    assert_eq!(editor.value().rules.silk_width, Some(Nm::from_um(125)));
+    assert_eq!(editor.value().rules.silk_text_height, None);
     editor.set_text(Field::Clearance, "0.2");
     assert_eq!(editor.value().rules.clearance, Nm::from_um(200));
     editor.set_text(Field::SeedCopper, "2oz");
-    assert_eq!(editor.value().stackup.copper, Some(Nm(70_000)));
+    assert_eq!(editor.value().stackup_seeds().copper, Some(Nm(70_000)));
     assert_eq!(editor.text(Field::SeedCopper), "2oz");
     editor.set_text(Field::SeedThickness, "");
     assert_eq!(
-        editor.value().stackup.thickness,
-        None,
-        "blank seeds nothing"
+        editor.value().stackup_seeds().thickness,
+        Some(Nm::from_um(1600)),
+        "clearing the field restores the default Construction thickness"
     );
     editor.set_text(Field::GroupBy, "part, field:LCSC");
     assert_eq!(
@@ -197,4 +203,56 @@ fn update_from_source_on_the_fab_presets_page_refreshes_the_copy_pages() {
         .unwrap();
     let editor = drill.editor().borrow();
     assert_eq!(editor.value().gerber.slot_command, SlotCommand::Route);
+}
+
+#[test]
+fn resetting_cpl_preserves_placement_and_placement_has_its_own_reset() {
+    let (home, work) = (
+        TempDir::new("placement-home"),
+        TempDir::new("placement-pages"),
+    );
+    let mut shell = shell_with_project(&home, &work);
+    let uuid = copy(&shell).uuid;
+    shell
+        .run(
+            "fab_preset.set",
+            json!({"preset":uuid,"values":{
+                "placement_corrections":[{"footprint":"SOT-*","rotation":90000}],
+                "cpl":{"bottom_rotation":"negate"}
+            }}),
+        )
+        .unwrap();
+    let mut d = project::dialog(shell.engine().project().unwrap());
+    let page = d.pages().iter().position(|p| p.title() == "CPL").unwrap();
+    d.select(page);
+    d.reset_page(&mut shell);
+    d.apply(&mut shell).unwrap();
+    assert_eq!(copy(&shell).placement_corrections.len(), 1);
+    let page = d
+        .pages()
+        .iter()
+        .position(|p| p.title() == "Placement")
+        .expect("a Placement page");
+    d.select(page);
+    d.reset_page(&mut shell);
+    assert_eq!(
+        d.steps()[0].params["values"],
+        json!({"placement_corrections":[]})
+    );
+    d.apply(&mut shell).unwrap();
+    assert!(copy(&shell).placement_corrections.is_empty());
+}
+
+#[test]
+fn a_fab_can_set_one_inner_limit_and_clear_it_again() {
+    let (home, work) = (TempDir::new("inner-home"), TempDir::new("inner-work"));
+    let shell = shell_with_project(&home, &work);
+    let mut editor = PresetEditor::new(copy(&shell).preset());
+    editor.set_text(Field::InnerClearance, "0.125");
+    assert_eq!(
+        editor.changes(PresetPage::Rules),
+        Some(json!({"rules":{"inner":{"clearance":125000}}}))
+    );
+    editor.set_text(Field::InnerClearance, "");
+    assert_eq!(editor.changes(PresetPage::Rules), None);
 }

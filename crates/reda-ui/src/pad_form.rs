@@ -85,6 +85,10 @@ pub fn from_free(free: &FreePad) -> Pad {
         rotation: free.rotation,
         width: free.width,
         height: free.height,
+        middle: free.middle,
+        bottom: free.bottom,
+        teardrop: free.teardrop,
+        unused_layers: free.unused_layers,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,
@@ -180,6 +184,20 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
                 return None;
             }
             set("kind", json!(kind));
+            if *kind != PadKind::PlatedThroughHole {
+                if !pad.unused_layers.is_keep() {
+                    set(
+                        "unused_layers",
+                        json!(reda_engine::model::UnusedLayers::Keep),
+                    );
+                }
+                if pad.middle.is_some() {
+                    set("middle", Value::Null);
+                }
+                if pad.bottom.is_some() {
+                    set("bottom", Value::Null);
+                }
+            }
             match (kind, pad.hole) {
                 // An SMD Pad has no hole, no bottom-side override and no hole-edge mask.
                 (PadKind::Smd, _) => {
@@ -358,30 +376,27 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
         | PadEdit::ZoneSpokeWidth(_)
         | PadEdit::ZoneGap(_)
         | PadEdit::ZoneAngle(_) => {
-            let before = pad.zone_connection.unwrap_or_default();
-            let mut z = before;
-            match edit {
-                PadEdit::ZoneStyle(s) => z.style = *s,
-                PadEdit::ZoneSpokes(s) => z.spokes = *s,
-                PadEdit::ZoneSpokeWidth(w) => z.spoke_width = *w,
-                PadEdit::ZoneGap(g) => z.gap = *g,
-                PadEdit::ZoneAngle(a) => z.angle = *a,
-                _ => unreachable!("a Zone connection edit"),
-            }
-            if z == before {
+            let mut z = pad.zone_connection.unwrap_or_default();
+            apply_zone_edit(&mut z, edit);
+            let next = (z != ZoneConnection::default()).then_some(z);
+            if next == pad.zone_connection {
                 return None;
             }
-            set(
-                "zone_connection",
-                if z == ZoneConnection::default() {
-                    Value::Null
-                } else {
-                    json!(z)
-                },
-            );
+            set("zone_connection", json!(next));
         }
     }
     Some(p)
+}
+
+fn apply_zone_edit(z: &mut ZoneConnection, edit: &PadEdit) {
+    match edit {
+        PadEdit::ZoneStyle(s) => z.style = *s,
+        PadEdit::ZoneSpokes(s) => z.spokes = *s,
+        PadEdit::ZoneSpokeWidth(w) => z.spoke_width = *w,
+        PadEdit::ZoneGap(g) => z.gap = *g,
+        PadEdit::ZoneAngle(a) => z.angle = *a,
+        _ => unreachable!("a Zone connection edit"),
+    }
 }
 
 fn changed(

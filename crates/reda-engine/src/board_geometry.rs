@@ -55,7 +55,15 @@ pub(crate) fn board_geometry(
         );
     }
     let fills = project.zone_fills(pcb.uuid);
-    let copper = Copper::of(project).expect("the Project's PCB Document");
+    let copper = Copper::of_with_fonts(project, fonts).expect("the Project's PCB Document");
+    out.omitted_lands
+        .extend(copper.unused_lands().iter().map(|(item, layer)| {
+            let child = match item {
+                Item::Pad { pad, .. } => Some(pad),
+                _ => None,
+            };
+            (item.object(), child, layer)
+        }));
     let ends = if style.smart_track_ends {
         RatsnestEnds::SmartTrackEnds
     } else {
@@ -76,7 +84,7 @@ pub(crate) fn board_geometry(
         })
         .collect();
     out.sheet_labels = sheet_labels::labels(project, pcb);
-    out.zones = zone::status(pcb, fills)
+    out.zones = zone::status_with_fonts(pcb, fills, fonts)
         .zones
         .into_iter()
         .map(|z| {
@@ -149,6 +157,8 @@ fn board_pad(object: Uuid, p: PlacedPad) -> BoardPad {
         at: p.at,
         rotation: p.rotation,
         outline: p.outline,
+        middle: p.middle.map(|(_, outline)| outline),
+        bottom: p.bottom.map(|(_, outline)| outline),
         hole: p.hole,
         side: p.side,
         net: p.net,

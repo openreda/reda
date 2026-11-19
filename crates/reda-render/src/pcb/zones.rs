@@ -31,7 +31,7 @@ pub(super) fn build(
             continue;
         };
         let color = match state {
-            ZoneFillState::Filled => BoardColor::layer(layer.kind, layer.side),
+            ZoneFillState::Filled => BoardColor::for_layer(pcb, layer),
             ZoneFillState::Stale => BoardColor::stale_fill(layer.side),
             ZoneFillState::Unfilled => continue,
         };
@@ -46,6 +46,31 @@ pub(super) fn build(
         if state == ZoneFillState::Filled {
             b.net_overlay(zone.net, first);
         }
+    }
+    for drop in fills.into_iter().flat_map(|f| &f.teardrops) {
+        let Some(track) = pcb.track(drop.location.track) else {
+            continue;
+        };
+        if track.layer != drop.location.layer {
+            continue;
+        }
+        let Some(layer) = b.layer(track.layer) else {
+            continue;
+        };
+        let color = BoardColor::for_layer(pcb, layer);
+        let first = b.scene.items.len();
+        for shape in &drop.shapes {
+            let mesh = triangulate_with_holes(&shape.outer, &shape.holes);
+            if !mesh.is_empty() {
+                b.push(
+                    track.uuid,
+                    SceneLayer::Board(track.layer),
+                    color,
+                    Primitive::Triangles(mesh),
+                );
+            }
+        }
+        b.net_overlay(track.net, first);
     }
     for zone in pcb.active_zones() {
         let points = arc::contour(pcb.zone_vertices(zone));

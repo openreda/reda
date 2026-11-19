@@ -13,7 +13,7 @@ use reda_model::{DocumentEntry, DocumentKind, Object, Project, Scope, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::project::check_file_stem;
+use super::project::{SeededBoard, check_file_stem};
 use crate::builders::{add_document, remove_document};
 use crate::format::{read_bytes, read_pcb_file, read_sheet_file};
 
@@ -31,10 +31,27 @@ pub struct DocumentAdd;
 #[serde(deny_unknown_fields)]
 pub struct DocumentAddParams {
     pub kind: DocumentKind,
+    /// The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.
+    #[serde(default)]
+    #[schemars(range(min = 2, max = 32))]
+    pub layers: Option<u8>,
+    /// A Project Fab Preset copy by UUID, or a shipped or user preset by name. If its
+    /// source is unavailable, a Project copy can also be selected by name. Defaults to Generic.
+    pub fab_preset: Option<String>,
+    /// The Construction name in that preset. Defaults to its build for this count.
+    pub construction: Option<String>,
     /// The title. Defaults to "Sheet <n>" for a sheet and the Project name for the PCB
     /// Document.
     #[serde(default)]
     pub title: Option<String>,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct AddedDocument {
+    #[serde(flatten)]
+    document: DocumentEntry,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seeded: Option<SeededBoard>,
 }
 
 impl Command for DocumentAdd {
@@ -50,13 +67,13 @@ impl Command for DocumentAdd {
         kind: Kind::Edit,
     };
     type Params = DocumentAddParams;
-    type Output = DocumentEntry;
+    type Output = AddedDocument;
 
     fn run(
         &self,
         cx: &mut Context<'_>,
         p: DocumentAddParams,
-    ) -> Result<DocumentEntry, CommandError> {
+    ) -> Result<AddedDocument, CommandError> {
         let project = cx.project()?;
         if p.kind == DocumentKind::Pcb && project.pcb().is_some() {
             return Err(CommandError::unavailable(
@@ -74,11 +91,60 @@ impl Command for DocumentAdd {
             None => default_names(project, p.kind),
         };
         let uuid = cx.new_id();
+        let mut new_copy = None;
+        let mut preset_id = None;
         let contents = match p.kind {
+            DocumentKind::Schematic if p.layers.is_some() => {
+                return Err(CommandError::invalid_params(
+                    "/layers",
+                    "only a PCB Document has Layers",
+                ));
+            }
+            DocumentKind::Schematic if p.fab_preset.is_some() || p.construction.is_some() => {
+                return Err(CommandError::invalid_params(
+                    if p.fab_preset.is_some() {
+                        "/fab_preset"
+                    } else {
+                        "/construction"
+                    },
+                    "only a PCB Document has a Construction",
+                ));
+            }
             DocumentKind::Schematic => vec![],
             DocumentKind::Pcb => {
-                let preset = reda_output::generic();
-                reda_pcb::new_board(uuid, &preset.rules, preset.stackup, || cx.new_id())
+                let name = p.fab_preset.as_deref().unwrap_or(reda_output::GENERIC_NAME);
+                let project = cx.project()?;
+                let preset = match name.parse().ok().and_then(|id| project.fab_preset(id)) {
+                    Some(copy) => copy.preset(),
+                    None => crate::fab_presets::find_or_fail("/fab_preset", name, cx.user_dirs())
+                        .map(|source| source.preset)
+                        .or_else(|error| {
+                            project
+                                .fab_presets()
+                                .find(|p| p.name.eq_ignore_ascii_case(name))
+                                .map(reda_model::ProjectFabPreset::preset)
+                                .ok_or(error)
+                        })?,
+                };
+                preset_id = project
+                    .fab_presets()
+                    .find(|copy| {
+                        copy.name.eq_ignore_ascii_case(&preset.name) && copy.preset() == preset
+                    })
+                    .map(|copy| copy.uuid);
+                let objects = reda_pcb::new_board_from_preset(
+                    uuid,
+                    &preset,
+                    p.layers.unwrap_or(2),
+                    p.construction.as_deref(),
+                    || cx.new_id(),
+                )?;
+                if preset_id.is_none() {
+                    let id = cx.new_id();
+                    preset_id = Some(id);
+                    new_copy = Some(reda_model::ProjectFabPreset::new(id, preset));
+                }
+                objects
             }
         };
         let entry = DocumentEntry {
@@ -89,6 +155,9 @@ impl Command for DocumentAdd {
         };
         let tx = cx.tx()?;
         add_document(tx, entry.clone())?;
+        if let Some(copy) = new_copy {
+            tx.insert(Object::FabPreset(copy))?;
+        }
         for object in contents {
             tx.insert(object)?;
         }
@@ -105,7 +174,13 @@ impl Command for DocumentAdd {
                 tx.replace(Object::Project(props))?;
             }
         }
-        Ok(entry)
+        let seeded = preset_id.map(|id| {
+            SeededBoard::new(tx.project().pcb_document(uuid).expect("inserted board"), id)
+        });
+        Ok(AddedDocument {
+            document: entry,
+            seeded,
+        })
     }
 }
 

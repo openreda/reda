@@ -9,7 +9,7 @@
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::geom::expr::{self, Attr, Field};
-use reda_engine::model::{Object, TrackGeometry, Uuid};
+use reda_engine::model::{Object, TrackGeometry, Uuid, ViaDiameter};
 use reda_engine::preferences::Units;
 use serde_json::{Value, json};
 
@@ -77,6 +77,8 @@ struct Target {
     uuid: Uuid,
     editable: &'static [(&'static str, Kind, Apply)],
     attributes: Vec<(&'static str, Attr)>,
+    /// Preserve the other lands when a numeric expression changes a Via's start diameter.
+    via_stack: Option<ViaDiameter>,
 }
 
 impl Target {
@@ -184,7 +186,7 @@ impl Target {
                 v.object.uuid,
                 &[("diameter", Length, Set), ("hole", Length, Set)][..],
                 vec![
-                    ("diameter", Some(Attr::Length(v.object.diameter))),
+                    ("diameter", Some(Attr::Length(v.object.diameter.start))),
                     ("hole", Some(Attr::Length(v.object.hole))),
                 ],
             ),
@@ -212,6 +214,14 @@ impl Target {
             list,
             uuid,
             editable,
+            via_stack: match object {
+                Object::Via(v)
+                    if v.object.diameter.middle.is_some() || v.object.diameter.end.is_some() =>
+                {
+                    Some(v.object.diameter)
+                }
+                _ => None,
+            },
             attributes: attributes
                 .into_iter()
                 .filter_map(|(name, value)| Some((name, value?)))
@@ -248,7 +258,13 @@ impl Target {
                 } else {
                     json!(self.uuid)
                 };
-                params[name] = json!(value);
+                params[name] = match (name, self.via_stack) {
+                    ("diameter", Some(stack)) => json!(ViaDiameter {
+                        start: Nm(value),
+                        ..stack
+                    }),
+                    _ => json!(value),
+                };
                 Some((self.command, params))
             }
             _ if by == 0 => None,

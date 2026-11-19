@@ -3,7 +3,7 @@
 
 use reda_engine::model::geom::Nm;
 use reda_engine::model::{PcbDocument, Side, Uuid, ZoneFills};
-use reda_engine::pcb::{RatsnestVisibility, ZoneListing, natural_cmp, select, zone_listing};
+use reda_engine::pcb::{RatsnestVisibility, ZoneListing, natural_cmp, select};
 use serde_json::json;
 
 use super::Invocation;
@@ -103,8 +103,13 @@ pub fn footprints(pcb: &PcbDocument, search: &str) -> Vec<FootprintRow> {
 
 /// The Zones per copper Layer in pour order, as `pcb.zone.list` gives them, keeping the
 /// ones whose name or Net name matches `search`. Layers with no Zones are left out.
-pub fn zones(pcb: &PcbDocument, fills: Option<&ZoneFills>, search: &str) -> ZoneListing {
-    let mut listing = zone_listing(pcb, fills, None);
+pub(super) fn zones(
+    pcb: &PcbDocument,
+    fills: Option<&ZoneFills>,
+    search: &str,
+    fonts: &reda_engine::command::Fonts,
+) -> ZoneListing {
+    let mut listing = ZoneListing::with_fonts(pcb, fills, None, fonts);
     for layer in &mut listing.layers {
         layer.zones.retain(|z| {
             let net = z.net.and_then(|n| pcb.net(n)).map(|n| n.name.as_str());

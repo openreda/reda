@@ -17,18 +17,18 @@ use serde_json::{Map, Value, json};
 mod actions;
 mod field;
 mod grid;
-pub use actions::ImportPreview;
-mod stackup;
+mod scoped;
+type ScopedRows = BTreeMap<(m::RuleScope, RuleKind), BTreeMap<RuleField, Draft<String>>>;
 use super::Rule;
 use crate::settings::{Draft, Problem, Step};
 use crate::show_on_board::Shown;
 use crate::tr;
+pub use actions::ImportPreview;
 pub use field::{
     ANGLES, GRID_FIELDS, GRID_KINDS, RuleField, SPOKES, STYLES, ValueKind, connection_value_name,
-    kind_name, style_name, target_name,
+    kind_name, style_name, target_name, tear_target_name,
 };
 use field::{by_kind, values_param};
-pub use stackup::{Band, CrossBand, StackupDraft, StackupRow};
 
 /// A Net Class row: the Default Net Class, one the board has, or one added in the dialog
 /// and not applied yet.
@@ -62,6 +62,7 @@ pub struct ClassRow {
     key: ClassKey,
     name: Draft<String>,
     overrides: BTreeMap<RuleField, Draft<String>>,
+    allowed: Draft<Option<Vec<Uuid>>>,
     /// Each record's `enabled` and comment, by kind.
     meta: BTreeMap<RuleKind, Meta>,
     /// Its rank on the board; `None` for a class added in the dialog.
@@ -153,6 +154,7 @@ impl NetRow {
 /// One rule a Fab Preset would change.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuleChange {
+    pub inner: bool,
     pub rule: RuleField,
     /// The value in the dialog now, as typed.
     pub board: String,
@@ -179,7 +181,9 @@ pub struct FabPreview {
 pub struct BoardSetupDraft {
     /// The PCB Document, while there is one.
     pcb: Option<Uuid>,
+    has_inner_layers: bool,
     rules: BTreeMap<RuleField, Draft<String>>,
+    scoped: ScopedRows,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
     /// The board-wide records' `enabled` and comment, by kind.
     board_meta: BTreeMap<RuleKind, Meta>,
@@ -213,7 +217,7 @@ pub struct BoardSetupDraft {
     mask_linked: bool,
     /// How Zones with no typed name are named.
     zone_scheme: Draft<ZoneNameScheme>,
-    stackup: StackupDraft,
+    fab_notes: Draft<String>,
     /// The board's rule records, by Net Class (`None` board-wide) and kind.
     records: BTreeMap<(Option<Uuid>, RuleKind), Uuid>,
     /// What the last rule action reported.
@@ -233,6 +237,7 @@ pub struct BoardSetupDraft {
 #[derive(Clone, Debug, PartialEq)]
 struct Edits {
     rules: BTreeMap<RuleField, Draft<String>>,
+    scoped: ScopedRows,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
     board_meta: BTreeMap<RuleKind, Meta>,
     silk_mode: Draft<SilkMaskMode>,
@@ -242,7 +247,7 @@ struct Edits {
     follow: BTreeSet<(ClassKey, RuleField)>,
     mask_linked: bool,
     zone_scheme: Draft<ZoneNameScheme>,
-    stackup: StackupDraft,
+    fab_notes: Draft<String>,
 }
 
 /// Loads a value's draft from `fresh` text; a typed value that means the same (`0.20`
@@ -313,8 +318,11 @@ impl BoardSetupDraft {
             self.follow.clear();
         }
         let setup = pcb.setup();
+        self.has_inner_layers = pcb.copper_layers().any(|l| l.side.is_none());
+        self.load_scoped(pcb, reset);
         self.records = pcb
             .rules()
+            .filter(|r| r.scope.layers.is_none() && r.scope.net_class_pair.is_none())
             .filter_map(|r| {
                 let class = match r.scope.net_class {
                     None if r.scope.is_board_wide() => None,
@@ -324,7 +332,10 @@ impl BoardSetupDraft {
                 Some(((class, r.kind), r.uuid))
             })
             .collect();
-        for field in RuleField::ALL {
+        for field in RuleField::ALL
+            .into_iter()
+            .filter(|f| f.applies_board_wide())
+        {
             let draft = self.rules.entry(field).or_default();
             load_text(field, draft, field.board_text(pcb), reset);
             let kind = field.rule().0;
@@ -348,7 +359,8 @@ impl BoardSetupDraft {
         for (check, draft) in &mut self.severities {
             draft.load(setup.severities.get(*check), reset);
         }
-        self.stackup.load(project, pcb, reset);
+        self.fab_notes
+            .load(pcb.setup().fab_notes.clone().unwrap_or_default(), reset);
         self.load_classes(pcb, reset);
         self.load_nets(pcb, reset);
     }
@@ -356,6 +368,7 @@ impl BoardSetupDraft {
     fn edits(&self) -> Edits {
         Edits {
             rules: self.rules.clone(),
+            scoped: self.scoped.clone(),
             severities: self.severities.clone(),
             board_meta: self.board_meta.clone(),
             silk_mode: self.silk_mode.clone(),
@@ -365,12 +378,13 @@ impl BoardSetupDraft {
             follow: self.follow.clone(),
             mask_linked: self.mask_linked,
             zone_scheme: self.zone_scheme.clone(),
-            stackup: self.stackup.clone(),
+            fab_notes: self.fab_notes.clone(),
         }
     }
 
     fn restore(&mut self, edits: Edits) {
         self.rules = edits.rules;
+        self.scoped = edits.scoped;
         self.severities = edits.severities;
         self.board_meta = edits.board_meta;
         self.silk_mode = edits.silk_mode;
@@ -380,7 +394,7 @@ impl BoardSetupDraft {
         self.follow = edits.follow;
         self.mask_linked = edits.mask_linked;
         self.zone_scheme = edits.zone_scheme;
-        self.stackup = edits.stackup;
+        self.fab_notes = edits.fab_notes;
     }
 
     /// Notes the edits as they are now: a change since the last check becomes one step
@@ -433,13 +447,9 @@ impl BoardSetupDraft {
         }
     }
 
-    /// The Stackup page's drafts.
-    pub fn stackup(&self) -> &StackupDraft {
-        &self.stackup
-    }
-
-    pub fn stackup_mut(&mut self) -> &mut StackupDraft {
-        &mut self.stackup
+    /// Free text included in the board's fabrication notes.
+    pub fn fab_notes_mut(&mut self) -> &mut String {
+        self.fab_notes.value_mut()
     }
 
     fn load_classes(&mut self, pcb: &PcbDocument, reset: bool) {
@@ -460,6 +470,7 @@ impl BoardSetupDraft {
                         key,
                         name: Draft::new(class.name.clone()),
                         overrides: BTreeMap::new(),
+                        allowed: Draft::default(),
                         meta: BTreeMap::new(),
                         rank: Some(class.rank),
                         deleted: false,
@@ -468,6 +479,11 @@ impl BoardSetupDraft {
                 }
             };
             row.name.load(class.name.clone(), reset);
+            row.allowed.load(
+                pcb.class_rule(RuleKind::ViaSpan, class.uuid)
+                    .and_then(|rule| rule.values.allowed.clone()),
+                reset,
+            );
             row.rank = Some(class.rank);
             if reset {
                 row.deleted = false;
@@ -546,7 +562,9 @@ impl BoardSetupDraft {
             }
             return;
         }
-        self.rules.entry(rule).or_default().set(text);
+        if let Some(draft) = self.rules.get_mut(&rule) {
+            draft.set(text);
+        }
     }
 
     /// Whether the top and bottom mask expansions are edited together.
@@ -597,8 +615,11 @@ impl BoardSetupDraft {
         self.zone_scheme.set(scheme);
     }
 
-    pub fn rule_mut(&mut self, rule: RuleField) -> &mut String {
-        self.rules.entry(rule).or_default().value_mut()
+    pub(super) fn rule_mut(&mut self, rule: RuleField) -> &mut String {
+        self.rules
+            .get_mut(&rule)
+            .expect("a board-wide field")
+            .value_mut()
     }
 
     /// The severity drafted for `check`.
@@ -648,6 +669,7 @@ impl BoardSetupDraft {
         let mut row = ClassRow {
             key,
             name: Draft::new(String::new()),
+            allowed: Draft::default(),
             overrides: RuleField::ALL
                 .iter()
                 .map(|&f| (f, Draft::default()))
@@ -659,6 +681,18 @@ impl BoardSetupDraft {
         row.name.set(name);
         self.classes.push(row);
         key
+    }
+
+    pub(super) fn allowed_types(&self, key: ClassKey) -> &[Uuid] {
+        self.class_row(key)
+            .and_then(|r| r.allowed.value().as_deref())
+            .unwrap_or_default()
+    }
+
+    pub(super) fn set_allowed_types(&mut self, key: ClassKey, allowed: Vec<Uuid>) {
+        if let Some(row) = self.class_row_mut(key) {
+            row.allowed.set(Some(allowed));
+        }
     }
 
     /// The class's name as typed; empty for an unknown one.
@@ -708,6 +742,9 @@ impl BoardSetupDraft {
     }
 
     pub fn class_override_mut(&mut self, key: ClassKey, rule: RuleField) -> Option<&mut String> {
+        if !rule.rule().0.accepts_net_class() {
+            return None;
+        }
         self.class_row_mut(key)
             .and_then(|r| r.overrides.get_mut(&rule))
             .map(|d| d.value_mut())
@@ -793,6 +830,7 @@ impl BoardSetupDraft {
                 let typed = self.rule(rule);
                 (rule.parse(typed).ok().flatten() != rule.parse(&to).ok().flatten()).then(|| {
                     RuleChange {
+                        inner: false,
                         rule,
                         board: typed.to_owned(),
                         preset: to,
@@ -801,6 +839,29 @@ impl BoardSetupDraft {
                 })
             })
             .collect();
+        for (field, to) in [
+            (
+                RuleField::TrackWidth,
+                rules.inner.and_then(|r| r.track_width_min),
+            ),
+            (RuleField::Clearance, rules.inner.and_then(|r| r.clearance)),
+            (
+                RuleField::AnnularRing,
+                rules.inner.and_then(|r| r.annular_ring_min),
+            ),
+        ] {
+            let board = self.scoped_value(&m::RuleScope::INNER, field);
+            let preset = to.map(super::length::mm).unwrap_or_default();
+            if on_page(field) && field.changed(&preset, board).is_some() {
+                changes.push(RuleChange {
+                    inner: true,
+                    rule: field,
+                    board: board.into(),
+                    preset,
+                    ticked: true,
+                });
+            }
+        }
         // A preferred row is ticked when the dialog's value would fall outside the range
         // the ticked limits make.
         let outside: Vec<bool> = changes
@@ -821,10 +882,28 @@ impl BoardSetupDraft {
     /// Whether the preferred value `rule` as drafted falls outside its range once the
     /// ticked rows of `changes` are taken.
     fn outside_new_range(&self, rule: RuleField, changes: &[RuleChange]) -> bool {
+        if rule == RuleField::TrackPreferred
+            && self.has_inner_layers
+            && self.scoped_value(&m::RuleScope::INNER, rule).is_empty()
+        {
+            let inner_min = changes
+                .iter()
+                .find(|c| c.inner && c.rule == RuleField::TrackWidth && c.ticked)
+                .map_or_else(
+                    || self.scoped_value(&m::RuleScope::INNER, RuleField::TrackWidth),
+                    |c| c.preset.as_str(),
+                );
+            let length = |text| super::length::optional(text).ok().flatten();
+            if let (Some(preferred), Some(min)) = (length(self.rule(rule)), length(inner_min))
+                && preferred < min
+            {
+                return true;
+            }
+        }
         let value = |f: RuleField| {
             let text = changes
                 .iter()
-                .find(|c| c.rule == f && c.ticked)
+                .find(|c| !c.inner && c.rule == f && c.ticked)
                 .map_or(self.rule(f), |c| c.preset.as_str());
             super::length::optional(text).ok().flatten()
         };
@@ -851,6 +930,10 @@ impl BoardSetupDraft {
     pub fn accept_fab_preview(&mut self) {
         if let Some(preview) = self.preview.take() {
             for change in preview.changes.into_iter().filter(|c| c.ticked) {
+                if change.inner {
+                    self.set_scoped(&m::RuleScope::INNER, change.rule, &change.preset);
+                    continue;
+                }
                 // The paste opening is sized one way or the other.
                 match change.rule {
                     RuleField::PasteExpansion => self.set_rule(RuleField::PastePercent, ""),
@@ -868,7 +951,7 @@ impl BoardSetupDraft {
 
     /// Every invalid value, by problem field.
     pub fn problems(&self) -> Vec<Problem> {
-        let mut problems = Vec::new();
+        let mut problems = self.scoped_problems();
         for (rule, draft) in &self.rules {
             // The paste opening needs one of its two values.
             let required = match rule {
@@ -879,7 +962,6 @@ impl BoardSetupDraft {
                 problems.push(Problem::new(rule.problem_field(), message));
             }
         }
-        problems.extend(self.stackup.problems());
         // No class may take the Default Net Class's name.
         let mut seen: BTreeMap<String, ClassKey> = BTreeMap::from([(
             reda_engine::pcb::DEFAULT_NET_CLASS.to_lowercase(),
@@ -925,6 +1007,13 @@ impl BoardSetupDraft {
             _ => unreachable!("values_param builds an object"),
         })
         .collect();
+        if let Some(row) = class
+            && row.allowed.changed()
+        {
+            out.entry(RuleKind::ViaSpan)
+                .or_default()
+                .insert("allowed".into(), json!(row.allowed.value()));
+        }
         if class.is_none() && self.silk_mode.changed() {
             out.entry(RuleKind::SilkToMask)
                 .or_default()
@@ -986,7 +1075,13 @@ impl BoardSetupDraft {
                 ));
             }
         }
-        steps.extend(self.stackup.steps());
+        if self.fab_notes.value().trim() != self.fab_notes.base().trim() {
+            let text = self.fab_notes.value().trim();
+            steps.push(Step::new(
+                "pcb.fab_notes.set",
+                json!({"text": (!text.is_empty()).then_some(text)}),
+            ));
+        }
         if self.zone_scheme.changed() {
             steps.push(Step::new(
                 "pcb.zone.set_name_scheme",
@@ -1039,7 +1134,7 @@ impl BoardSetupDraft {
             steps.extend(self.record_steps(Some((row, uuid))));
         }
         for row in self.live_classes().filter(|r| !existing(r)) {
-            let rules: Vec<Value> = by_kind(
+            let mut rules: Vec<Value> = by_kind(
                 row.overrides
                     .iter()
                     .filter_map(|(rule, d)| Some((*rule, rule.parse(d.value()).ok()??))),
@@ -1061,6 +1156,9 @@ impl BoardSetupDraft {
                 Value::Object(rule)
             })
             .collect();
+            if let Some(allowed) = row.allowed.value() {
+                rules.push(json!({"kind":"via_span","values":{"allowed":allowed}}));
+            }
             let mut params = Map::new();
             params.insert("name".to_owned(), json!(row.name.value().trim()));
             let nets: Vec<Uuid> = self
@@ -1119,6 +1217,7 @@ impl BoardSetupDraft {
                 json!({"nets": nets, "class": class}),
             ));
         }
+        steps.extend(self.scoped_steps());
         steps
     }
 

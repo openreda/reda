@@ -250,6 +250,10 @@ impl Command for Paste {
         }
         for v in &mut c.vias {
             v.net = net(v.net);
+            super::via_type::check_span(pcb, v.span)?;
+            if let Some(kind) = pcb.stackup().type_for_span(v.span) {
+                v.set_span(kind.span());
+            }
         }
         for z in &mut c.zones {
             z.net = net(z.net);

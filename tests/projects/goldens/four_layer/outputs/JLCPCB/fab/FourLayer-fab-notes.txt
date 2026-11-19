@@ -1,0 +1,59 @@
+Fab Notes for FourLayer
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 21 x 12 mm
+  Copper layers: 4
+  Thickness: 1.6 mm
+  Construction: JLC04161H-7628
+  Symmetry: Symmetric
+  Thickness check: Within 10% tolerance
+
+Stackup
+  | Layer       | Kind    | Role   | Thickness    | Material | Dk  |
+  | L1 (top)    | Copper  | Signal | 1 oz (35 µm) |          |     |
+  |             | Prepreg |        | 0.2104 mm    | 7628     | 4.4 |
+  | L2          | Copper  | Plane  | 15.2 µm      |          |     |
+  |             | Core    |        | 1.065 mm     | FR-4     | 4.6 |
+  | L3          | Copper  | Plane  | 15.2 µm      |          |     |
+  |             | Prepreg |        | 0.2104 mm    | 7628     | 4.4 |
+  | L4 (bottom) | Copper  | Signal | 1 oz (35 µm) |          |     |
+
+Via types
+  | Name    | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file        |
+  | Through | L1-L4 | No    | 0.3        | 0.66     | 2    | FourLayer-PTH.drl |
+
+Minimum features
+  Clearance: 0.1 mm
+  Track width: 0.1 mm
+  Via diameter: 0.51 mm
+  Via hole: 0.15 mm
+  Hole size: 0.2 mm
+  Annular ring: 0.18 mm
+  Hole to hole: 0.45 mm
+  Copper to board edge: 0.2 mm
+
+Copper files in order
+  FourLayer.gtl
+  FourLayer.g2l
+  FourLayer.g3l
+  FourLayer.gbl
+
+Files in the zip
+  FourLayer.gtl
+  FourLayer.g2l
+  FourLayer.g3l
+  FourLayer.gbl
+  FourLayer.gts
+  FourLayer.gbs
+  FourLayer.gtp
+  FourLayer.gbp
+  FourLayer.gto
+  FourLayer.gbo
+  FourLayer.gm1
+  FourLayer-PTH.drl
+  FourLayer-NPTH.drl
+  FourLayer-fab-notes.txt
+  FourLayer-drill-report.txt
+  FourLayer-job.gbrjob

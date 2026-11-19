@@ -4,10 +4,33 @@
 //! or two copper objects (Tracks, Vias, Free Pads, Zones, Pads or highlighted Nets), and
 //! hides above two.
 
-use reda_engine::model::{Object, PcbDocument, Project, RuleKind, RuleValue, Severity, Uuid};
+use reda_engine::model::{PcbDocument, Project, RuleKind, RuleValue, Severity, Uuid};
 use reda_engine::pcb::rules::explain::{self, KindRules};
 
 use crate::selection::Selection;
+use crate::tr;
+use reda_engine::model::{LayerGroup, RuleLayers};
+
+pub(crate) fn layer_name(pcb: &PcbDocument, id: Uuid) -> String {
+    pcb.layers()
+        .layer(id)
+        .map(|l| crate::panels::layers::layer_name(pcb, l))
+        .unwrap_or_default()
+}
+
+pub(crate) fn layer_scope_label(pcb: &PcbDocument, layers: &RuleLayers) -> String {
+    match layers {
+        RuleLayers::Group(LayerGroup::Outer) => tr!("board-layer-outer"),
+        RuleLayers::Group(LayerGroup::Inner) => tr!("board-layer-inner"),
+        RuleLayers::Group(LayerGroup::Plane) => tr!("board-layer-plane"),
+        RuleLayers::Named(ids) => pcb
+            .copper_layers()
+            .filter(|l| ids.contains(&l.uuid))
+            .map(|l| layer_name(pcb, l.uuid))
+            .collect::<Vec<_>>()
+            .join(", "),
+    }
+}
 
 /// Whether a record applies.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,21 +53,35 @@ pub struct RuleRow {
     pub rule: Uuid,
     /// Its Net Class's name, or `None` for the board-wide record.
     pub class: Option<String>,
+    pub layers: Option<String>,
     /// The values it sets, such as `min` or `diameter.min`: the one won, or those lost.
     pub fields: Vec<String>,
     /// The value it supplies, for a record that won.
     pub value: Option<RuleValue>,
+    /// A won value shown as text instead, such as a `via_span` record's allowed Via types.
+    pub text: Option<String>,
+}
+
+/// A clearance between two selected objects and the source that supplied it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairLimit {
+    pub field: String,
+    pub value: RuleValue,
+    pub object: Option<usize>,
+    pub pair: Option<String>,
 }
 
 /// One kind of rule as it applies to the selection.
 #[derive(Clone, Debug, PartialEq)]
 pub struct KindRows {
     pub kind: RuleKind,
+    pub layer_names: Vec<String>,
     /// The DRC check's severity; `None` for kinds that shape outputs.
     pub severity: Option<Severity>,
     pub rows: Vec<RuleRow>,
+    pub between_holes: Vec<PairLimit>,
     /// For two objects: the value that applies between them and the object it came from.
-    pub between: Option<(String, RuleValue, usize)>,
+    pub between: Option<PairLimit>,
 }
 
 /// The Rules region's content.
@@ -59,33 +96,23 @@ impl Rules {
     /// The rules for the selection, when it is one or two copper objects on the board.
     pub fn of(project: &Project, selection: &Selection) -> Option<Rules> {
         let pcb = project.pcb()?;
-        let mut nets: Vec<Option<Uuid>> = Vec::new();
-        for uuid in &selection.objects {
-            nets.push(match project.object(*uuid)? {
-                Object::Track(t) => t.object.net,
-                Object::Via(v) => v.object.net,
-                Object::FreePad(p) => p.object.net,
-                Object::Zone(z) => z.object.net,
-                _ => return None,
-            });
+        let mut objects = Vec::new();
+        for &id in selection.objects.iter().chain(&selection.nets) {
+            objects.push(explain::Measured::object(pcb, id)?);
         }
-        for pad in &selection.pads {
-            nets.push(pcb.footprint(pad.footprint)?.pad_net(pad.pad));
+        for &pad in &selection.pads {
+            objects.push(explain::Measured::placed(pcb, pad)?);
         }
-        for net in &selection.nets {
-            pcb.net(*net)?;
-            nets.push(Some(*net));
-        }
-        if !(1..=2).contains(&nets.len()) {
+        if !(1..=2).contains(&objects.len()) {
             return None;
         }
-        let kinds = explain::applicable(pcb, &nets)
+        let kinds = explain::applicable_objects(pcb, &objects)
             .into_iter()
             .map(|k| rows(pcb, k))
             .filter(|k| !k.rows.is_empty())
             .collect();
         Some(Rules {
-            objects: nets.len(),
+            objects: objects.len(),
             kinds,
         })
     }
@@ -106,8 +133,33 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                 object,
                 rule: winner.rule,
                 class: class(winner.net_class),
+                layers: winner.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                 fields: vec![winner.field],
                 value: Some(winner.value),
+                text: None,
+            });
+        }
+        if let Some(allowed) = rules.allowed {
+            let names: Vec<String> = allowed
+                .via_types
+                .iter()
+                .filter_map(|id| pcb.stackup().via_types.iter().find(|t| t.uuid == *id))
+                .map(|t| crate::pcb::via_type_name(pcb, t))
+                .collect();
+            let text = if names.is_empty() {
+                crate::tr!("properties-rules-allowed-every")
+            } else {
+                names.join(", ")
+            };
+            rows.push(RuleRow {
+                standing: Standing::Won,
+                object,
+                rule: allowed.rule,
+                class: class(allowed.net_class),
+                layers: None,
+                fields: vec!["allowed".to_owned()],
+                value: None,
+                text: Some(text),
             });
         }
         for (standing, list) in [
@@ -120,17 +172,40 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                     object,
                     rule: loser.rule,
                     class: class(loser.net_class),
+                    layers: loser.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                     fields: loser.fields,
                     value: None,
+                    text: None,
                 });
             }
         }
     }
+    let pair_label = |b: &explain::Between| {
+        let ids = b.net_class_pair?;
+        let names = ids
+            .map(|id| {
+                pcb.net_class(id)
+                    .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
+            })
+            .join(" / ");
+        Some(match &b.layers {
+            Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
+            None => names,
+        })
+    };
+    let limit = |b: explain::Between| PairLimit {
+        pair: pair_label(&b),
+        field: b.field,
+        value: b.value,
+        object: b.object,
+    };
     KindRows {
         kind: kind.kind,
+        layer_names: kind.layers.iter().map(|id| layer_name(pcb, *id)).collect(),
+        between_holes: kind.between_holes.into_iter().map(limit).collect(),
         severity: kind.severity,
         rows,
-        between: kind.between.map(|b| (b.field, b.value, b.object)),
+        between: kind.between.map(limit),
     }
 }
 
@@ -140,12 +215,13 @@ pub fn page(kind: RuleKind) -> String {
     let rule = match kind {
         RuleKind::Clearance => Rule::Clearance,
         RuleKind::TrackWidth => Rule::TrackWidth,
-        RuleKind::ViaSize => Rule::Vias,
+        RuleKind::ViaSize | RuleKind::MicroviaSize | RuleKind::ViaSpan => Rule::Vias,
         RuleKind::HoleSize | RuleKind::AnnularRing | RuleKind::HoleToHole => Rule::Holes,
         RuleKind::EdgeClearance | RuleKind::SilkToEdge => Rule::BoardEdge,
-        RuleKind::SilkToMask => Rule::Silkscreen,
+        RuleKind::SilkToMask | RuleKind::SilkWidth | RuleKind::SilkTextHeight => Rule::Silkscreen,
         RuleKind::MaskExpansion | RuleKind::PasteExpansion => Rule::MaskPaste,
         RuleKind::ZoneConnection => Rule::ZoneConnections,
+        RuleKind::Teardrop => Rule::Teardrops,
         RuleKind::CourtyardClearance
         | RuleKind::Dangling
         | RuleKind::MicroSegment

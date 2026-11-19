@@ -151,7 +151,12 @@ fn tracks_and_vias_on_a_ties_net_need_no_clearance_to_its_other_pads_but_still_s
         net(&mut engine, "C"),
     );
     let (fp, pads) = tie(&mut engine, "net_tie", a, b, "0.25mm");
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.5mm"}}}),
+    );
     // Leaving Pad 1 upwards 0.1 mm from Pad 2, and a Via 0.1 mm above Pad 2.
+    // The tie exempts both the Via's land and its hole from the clearance to Pad 2.
     track(&mut engine, a, &[("-0.2mm", "0mm"), ("-0.2mm", "2mm")]);
     engine.run_ok(
         "pcb.via.add",
@@ -240,4 +245,36 @@ fn zones_keep_their_clearance_and_the_nets_stay_separate() {
     let unrouted = of(&run, "unrouted");
     assert_eq!(unrouted.len(), 1, "{run:#}");
     assert_eq!(unrouted[0]["args"]["net"], "B");
+}
+
+#[test]
+fn two_numbered_pads_can_short_only_on_the_inner_layers() {
+    let dir = TempDir::new("pad-stack-shorted-copper");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let pad = |x| {
+        json!({"at":{"x":x,"y":0},"width":"1mm","height":"1mm","kind":"plated_through_hole",
+        "hole":{"width":500000,"height":500000}})
+    };
+    let placed = engine.run_ok(
+        "test.footprint.add",
+        json!({"at":{"x":0,"y":0},"pads":[pad(0),pad(2000000)]}),
+    );
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":placed["result"]["footprint"],"pad":placed["result"]["pads"][0],
+        "middle":{"shape":"rect","width":"3.5mm","height":"1mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner: Vec<_> = pcb
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    let hits = of(&drc(&mut engine), "shorted_copper");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["layers"], json!(inner));
 }

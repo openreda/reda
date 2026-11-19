@@ -4,7 +4,7 @@ Source: [What do multilayer outputs contain?](https://github.com/openreda/reda/i
 
 This file says what the v0.1 output set adds for a board with inner Layers or with Vias that aren't through: the copper file functions and names, the drill files per Via Span, the material stackup in the Gerber job file, and the new parts of Fab Notes and the drill report. Everything in the v0.1 file that is not named here is unchanged. The Command ids and schema are decided in their own ticket on the [v0.2 map](https://github.com/openreda/reda/issues/319). CPL corrections are in [placement-corrections](placement-corrections.md).
 
-A 2-Layer board with only through Vias gets the same files as in v0.1, apart from the copper type in the file function, the `PTH` file function on the plated drill file and the job file's material stackup.
+A 2-Layer board with only through Vias gets the same files as in v0.1, apart from the copper type in the file function and the job file's material stackup. v0.1 already wrote the `PTH` and `NPTH` file functions.
 
 ## Copper Gerbers
 
@@ -40,6 +40,7 @@ A 2-Layer board with only through Vias gets the same files as in v0.1, apart fro
   | a span ending on an outer Layer | `<project>-L<from>-L<to>.drl` | `Plated,<from>,<to>,Blind` |
   | a span between inner Layers | `<project>-L<from>-L<to>.drl` | `Plated,<from>,<to>,Buried` |
 
+  - Each file function ends, as in v0.1, with `Drill`, `Rout` or `Mixed` for the file's holes, slots or both: `Plated,1,4,PTH,Drill`.
   - `from` and `to` are physical positions with `from` the smaller, so both ends are in the name, as JLCPCB's HDI service asks.
 - **The files follow the Vias, not the Via types.**
   - A file is written for every span that at least one Via on the board has. That includes a Via that matches no Via type, which [`via_span`](via-types.md#drc) reports.

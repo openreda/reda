@@ -28,7 +28,7 @@ The step from format 1 to 2 is in [commands](commands.md#format-version).
   - one of each Library file kind.
 - **Goldens:** the migrated files.
 - **Unchanged outputs:** a test runs the outputs of each migrated board and compares them with the outputs `0.1.0` wrote.
-  - The Gerber, drill, BOM and CPL files must be byte-identical apart from what [outputs](outputs.md) says a 2-Layer board gains: the copper type in the file function and the `PTH` file function on the plated drill file.
+  - The Gerber, drill, BOM and CPL files must be byte-identical apart from what [outputs](outputs.md) says a 2-Layer board gains: the copper type in the copper file function.
   - The job file, Fab Notes and the Output Manifest may differ, and are goldens of their own.
 - `proptest` covers the migration with the new fields, as it covers save → load → save identity.
 
@@ -102,9 +102,9 @@ A Rust scenario generates a 32-Layer board. It is not a reference Project.
 ## Impedance and shipped data
 
 - **Impedance readout:** unit tests against the reference values in [the formula research](https://github.com/openreda/reda/issues/329), within a stated tolerance, including the cases the readout marks as rough.
-- **Shipped Constructions:** a data test loads every one, checks that its entries sum to its stated thickness, and checks symmetry where the fab publishes it as symmetric.
+- **Shipped Constructions:** a data test loads every build and checks its copper-plus-dielectric total against the 1.6 mm order at the Stackup’s 10% warning threshold. The sum excludes mask, silk and unmodelled process allowances. The verified sums span 1.4462–1.6542 mm for JLCPCB multilayer and 1.4830–1.6030 mm for PCBWay multilayer. OSH Park totals are 1.5952, 1.5118 and 1.5066 mm at two, four and six Layers. Tests also check published mirror pairs and the unequal prepreg ply in `JLC06161H-3313C`.
 
-The tolerance and the Construction values are set with the shipped Fab Preset data on the [v0.2 map](https://github.com/openreda/reda/issues/319).
+The [shipped Construction tables](stackup.md#shipped-constructions) give the dimensions. The test also compares each exact total with [the sums calculated from the fabrication tables](../../../crates/reda-output/tests/golden/construction-thicknesses.tsv).
 
 ## UI tests
 

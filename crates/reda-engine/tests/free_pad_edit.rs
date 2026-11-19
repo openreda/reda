@@ -94,3 +94,54 @@ fn a_free_pad_changes_kind_with_its_hole_and_bad_values_are_refused() {
     );
     assert_eq!(unknown.code, ErrorCode::NotFound);
 }
+
+#[test]
+fn only_plated_pads_can_remove_unused_inner_lands_and_their_ends_always_stay() {
+    let dir = TempDir::new("free-pad-unused");
+    let mut engine = board(&dir);
+    let pad = engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole", "at":{"x":0,"y":0}, "width":"2mm",
+               "hole":{"width":"1mm"}, "unused_layers":"remove"}),
+    )["result"]["uuid"]
+        .clone();
+    assert_eq!(free_pad(&mut engine, &pad)["unused_layers"], "remove");
+    for patch in [
+        json!({"kind":"smd","hole":null}),
+        json!({"unused_layers":"remove_keep_ends"}),
+    ] {
+        let mut params = patch;
+        params["pad"] = pad.clone();
+        let err = engine.run_err("pcb.free_pad.edit", params);
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+        assert_eq!(err.details.unwrap()["pointer"], "/unused_layers");
+    }
+    engine.run_ok(
+        "pcb.free_pad.edit",
+        json!({"pad":pad,"unused_layers":"keep"}),
+    );
+    assert!(free_pad(&mut engine, &pad).get("unused_layers").is_none());
+}
+
+#[test]
+fn a_free_pad_can_opt_out_at_placement_and_undo_restores_its_opt_out() {
+    let dir = TempDir::new("free-pad-teardrop");
+    let mut engine = board(&dir);
+    let uuid = engine.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind":"smd", "at":{"x":"5mm","y":"5mm"}, "width":"1mm", "teardrop":false,
+            "mask":{"top":"tent"}, "zone_connection":{"style":"none"}
+        }),
+    )["result"]["uuid"]
+        .clone();
+    let opted_out = free_pad(&mut engine, &uuid);
+    assert_eq!(opted_out["teardrop"], false);
+    engine.run_ok("pcb.free_pad.edit", json!({"pad":uuid,"teardrop":true}));
+    let enabled = free_pad(&mut engine, &uuid);
+    assert!(enabled.get("teardrop").is_none());
+    assert_eq!(enabled["mask"], opted_out["mask"]);
+    assert_eq!(enabled["zone_connection"], opted_out["zone_connection"]);
+    engine.run_ok("edit.undo", json!({"document":PCB}));
+    assert_eq!(free_pad(&mut engine, &uuid), opted_out);
+}

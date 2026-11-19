@@ -57,6 +57,7 @@ struct PanelState {
     focus_rename: bool,
     /// A sheet waiting for the user to confirm its delete.
     confirm_delete: Option<Uuid>,
+    new_pcb: Option<(Uuid, crate::new_project::NewPcbForm)>,
 }
 
 /// The payload of a dragged sheet.
@@ -69,7 +70,7 @@ fn state_id() -> Id {
 /// Whether one of the panel's dialogs is open. Mod+Z then uses the Project stack.
 pub fn dialog_open(ctx: &egui::Context) -> bool {
     ctx.data(|d| d.get_temp::<PanelState>(state_id()))
-        .is_some_and(|s| s.confirm_delete.is_some())
+        .is_some_and(|s| s.confirm_delete.is_some() || s.new_pcb.is_some())
 }
 
 /// Commands the panel wants run, in order.
@@ -97,6 +98,7 @@ pub fn show(ui: &mut Ui, shell: &Shell, commands: &mut Commands) -> Option<Proje
         .auto_shrink(false)
         .show(ui, |ui| widgets::rows(ui, |ui| tree.root(ui)));
     tree.confirm_delete(ui.ctx());
+    tree.new_pcb(ui.ctx());
     let action = tree.action.take();
     ui.data_mut(|d| d.insert_temp(state_id(), state));
     action
@@ -452,7 +454,13 @@ impl Tree<'_> {
         widgets::context_menu(&group.row, |ui| {
             let refused = present.is_some().then(|| tr!("projects-pcb-exists"));
             if item(ui, tr!("projects-add-pcb"), refused) {
-                self.run("document.add", json!({"kind": "pcb"}));
+                self.state.new_pcb = Some((
+                    self.project.uuid(),
+                    crate::new_project::NewPcbForm::new(
+                        self.project,
+                        self.shell.engine().user_dirs(),
+                    ),
+                ));
             }
         });
     }
@@ -552,6 +560,41 @@ impl Tree<'_> {
     }
 
     /// Asks before deleting a sheet that holds Components.
+    fn new_pcb(&mut self, ctx: &egui::Context) {
+        let Some((project, form)) = &mut self.state.new_pcb else {
+            return;
+        };
+        if *project != self.project.uuid() || self.project.pcb().is_some() {
+            self.state.new_pcb = None;
+            return;
+        }
+        let mut close = false;
+        let modal = crate::modal::Dialog::new(Id::NULL.with("new-pcb"), tr!("projects-add-pcb"))
+            .show(ctx, |ui| {
+                form.show(ui);
+                crate::modal::buttons(ui, |ui| {
+                    let params = form.params();
+                    if ui
+                        .add_enabled(
+                            params.is_some(),
+                            widgets::button(tr!("stackup-add-pcb")).primary(),
+                        )
+                        .clicked()
+                        && let Some(params) = params
+                    {
+                        self.commands.push(("document.add", params));
+                        close = true;
+                    }
+                    if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
+                        close = true;
+                    }
+                });
+            });
+        if close || modal.should_close() {
+            self.state.new_pcb = None;
+        }
+    }
+
     fn confirm_delete(&mut self, ctx: &egui::Context) {
         let Some(sheet) = self.state.confirm_delete else {
             return;

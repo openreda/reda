@@ -302,6 +302,17 @@ impl Project {
         self.fab_presets.get(&uuid)
     }
 
+    /// Whether any Project copy still offers the named build with these physical values.
+    pub fn construction_matches(&self, stack: &crate::Stackup) -> bool {
+        stack.construction.as_ref().is_some_and(|name| {
+            self.fab_presets().any(|p| {
+                p.constructions
+                    .iter()
+                    .any(|c| c.name.eq_ignore_ascii_case(name) && c.matches_stackup(stack))
+            })
+        })
+    }
+
     /// The Output Jobs, by UUID.
     pub fn output_jobs(&self) -> impl Iterator<Item = &OutputJob> {
         self.output_jobs.values()
@@ -377,6 +388,18 @@ impl Project {
         self.documents()
             .find(|d| d.kind == DocumentKind::Pcb)
             .and_then(|d| self.pcb_documents.get(&d.uuid))
+    }
+
+    /// Whether an object, or an individually addressable child of a PCB table,
+    /// already owns this identity.
+    pub fn identity_in_use(&self, uuid: Uuid) -> bool {
+        self.pcb_documents.values().any(|pcb| {
+            pcb.layer_sets.values().any(|set| set.layer(uuid).is_some())
+                || pcb.stackups().any(|stack| {
+                    stack.dielectrics().any(|d| d.uuid == uuid)
+                        || stack.via_types.iter().any(|v| v.uuid == uuid)
+                })
+        }) || self.object(uuid).is_some()
     }
 
     /// The object with this UUID, cloned, wherever it lives.

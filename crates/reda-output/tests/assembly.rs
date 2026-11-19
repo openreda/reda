@@ -1126,7 +1126,7 @@ fn required_fields_skip_mechanical_rows() {
 }
 
 #[test]
-fn list_unplaced_is_on_for_generic_and_off_for_jlcpcb_and_pcbway() {
+fn shipped_presets_list_unplaced_components_when_the_bom_is_generic() {
     let shipped: Vec<(String, bool)> = reda_output::shipped()
         .into_iter()
         .map(|p| (p.name, p.bom.list_unplaced))
@@ -1137,6 +1137,7 @@ fn list_unplaced_is_on_for_generic_and_off_for_jlcpcb_and_pcbway() {
             ("Generic".to_string(), true),
             ("JLCPCB".to_string(), false),
             ("PCBWay".to_string(), false),
+            ("OSH Park".to_string(), true),
         ]
     );
 }

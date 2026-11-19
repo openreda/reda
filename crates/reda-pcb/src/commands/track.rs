@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use super::layer::LayerRef;
 use super::outline::PointParam;
 use super::{needs_pcb, pcb, positive};
-use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(TrackAdd);
@@ -61,8 +60,10 @@ pub struct TrackAddParams {
     /// The Net's UUID. Left out, the route takes the Net of the copper under its first
     /// point on this Layer (a Pad, Track or Via), or else of the copper under its last
     /// point; on neither, it is on no Net.
-    #[serde(default)]
-    pub net: Option<Uuid>,
+    /// Explicit `null` keeps a route on no Net.
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<Uuid>")]
+    pub net: Option<Option<Uuid>>,
     /// The width; left out, the Net Class's track width, else the board's rule.
     #[serde(default)]
     pub width: Option<Length>,
@@ -112,25 +113,35 @@ impl Command for TrackAdd {
                 "the point repeats the one before it",
             ));
         }
-        let net = match existing_net(pcb, p.net, "/net")? {
-            Some(net) => Some(net),
+        let net = match p.net {
+            Some(net) => existing_net(pcb, net, "/net")?,
             None => {
                 let copper = super::board_copper(cx)?;
                 let first = points[0];
                 let last = points[points.len() - 1];
-                copper
-                    .net_at(layer, first)
-                    .or_else(|| copper.net_at(layer, last))
+                // A removed land is live: a Track reaching it brings it back.
+                let net_at = |at| {
+                    copper.net_at(layer, at).or_else(|| {
+                        copper
+                            .removed_lands_at(pcb, layer, at)
+                            .into_iter()
+                            .find_map(|item| copper.net(item))
+                    })
+                };
+                net_at(first).or_else(|| net_at(last))
             }
         };
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width.default_size(),
+            None => crate::rules::net_rules_on(pcb, net, Some(layer))
+                .track_width
+                .default_size(),
         };
         let mut tracks = Vec::new();
         for pair in points.windows(2) {
             let uuid = cx.new_id();
             let track = Track {
+                teardrop: true,
                 locked: false,
                 uuid,
                 layer,
@@ -227,6 +238,9 @@ pub struct TrackSet;
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackSetParams {
+    /// Allow rule-generated Teardrops on the two ends. False opts out.
+    #[serde(default)]
+    pub teardrop: Option<bool>,
     /// The Track segments' UUIDs; each gets every value given.
     pub tracks: Vec<Uuid>,
     /// The new start point.
@@ -308,6 +322,7 @@ impl Command for TrackSet {
                 )
             })?;
             let mut track = before.clone();
+            track.teardrop = p.teardrop.unwrap_or(track.teardrop);
             track.geometry = moved_ends(&track.geometry, &p, length)?;
             if let Some(width) = width {
                 track.width = width;

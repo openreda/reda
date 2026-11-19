@@ -37,10 +37,11 @@ pub use inputs::SystemClock;
 pub use inputs::{Clock, FixedClock, IdSource, RandomIds, SeededIds, Timestamp};
 pub use library::{ElementLocation, FootprintCopyData, NoLibraries, PartCopy, PartSource};
 pub use pad::{
-    HoleParam, HoleToleranceParam, MaskParam, PasteParam, RatioParam, ZoneConnectionParam, mask,
-    paste, zone_connection,
+    HoleParam, HoleToleranceParam, MaskParam, PadCopperParam, PasteParam, RatioParam,
+    ZoneConnectionParam, mask, paste, zone_connection,
 };
 pub use registry::{Registry, Settle, scope_key};
+pub use schema::{Mismatch as SchemaMismatch, check as check_schema};
 pub use signals::{CancelToken, Progress, Signals};
 pub use trash::Trash;
 pub use units::{Angle, AreaValue, CopperThickness, Length};

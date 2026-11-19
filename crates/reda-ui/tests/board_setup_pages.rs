@@ -55,6 +55,7 @@ fn the_rules_group_gains_mask_and_paste_and_zone_connections_then_stackup() {
             "Mask & Paste",
             "Silkscreen",
             "Zone Connections",
+            "Teardrops",
             "Stackup",
             "Net Classes",
             "DRC"
@@ -98,9 +99,41 @@ fn mask_expansion_links_top_and_bottom_and_takes_negative_values() {
         )]
     );
     d.apply(&mut shell).unwrap();
-    let mask = pcb(&shell).board_rule(RuleKind::MaskExpansion).values;
+    let mask = &pcb(&shell).board_rule(RuleKind::MaskExpansion).values;
     assert_eq!(mask.bottom.unwrap().0, -20_000);
     assert_eq!(mask.tent_vias_bottom, Some(false));
+}
+
+#[test]
+fn silkscreen_minimums_can_be_edited_then_reset_to_the_project_preset() {
+    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        assert_eq!(board.rule(RuleField::SilkWidth), "0.15");
+        assert_eq!(board.rule(RuleField::SilkTextHeight), "1");
+        board.set_rule(RuleField::SilkWidth, "0.2");
+        board.set_rule(RuleField::SilkTextHeight, "1.2");
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(RuleField::SilkWidth.get(pcb(&shell)).unwrap().0, 200_000);
+    assert_eq!(
+        RuleField::SilkTextHeight.get(pcb(&shell)).unwrap().0,
+        1_200_000
+    );
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.reset_page(Rule::Silkscreen);
+        assert_eq!(board.fab_preview().unwrap().changes.len(), 2);
+        board.accept_fab_preview();
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(RuleField::SilkWidth.get(pcb(&shell)).unwrap().0, 150_000);
+    assert_eq!(
+        RuleField::SilkTextHeight.get(pcb(&shell)).unwrap().0,
+        1_000_000
+    );
 }
 
 #[test]
@@ -139,7 +172,7 @@ fn paste_expansion_is_absolute_or_a_percentage() {
         )]
     );
     d.apply(&mut shell).unwrap();
-    let paste = pcb(&shell).board_rule(RuleKind::PasteExpansion).values;
+    let paste = &pcb(&shell).board_rule(RuleKind::PasteExpansion).values;
     assert_eq!((paste.expansion, paste.percent), (None, Some(-10)));
     let board = d.page::<DrcPage>().unwrap().board();
     assert_eq!(board.paste_mode(), PasteMode::Percent);
@@ -226,120 +259,6 @@ fn a_bad_zone_connection_value_is_flagged_on_its_page() {
 }
 
 #[test]
-fn the_stackup_page_edits_thicknesses_with_live_totals_finish_colours_and_fab_notes() {
-    use reda_ui::engine::model::geom::Nm;
-    use reda_ui::settings::board_setup::Band;
-    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
-    let mut shell = shell_with_board(&home, &work);
-    let top = pcb(&shell).stackup().copper().next().unwrap().layer;
-    let mut d = dialog(&shell);
-    {
-        let mut board = d.page::<DrcPage>().unwrap().board();
-        let stackup = board.stackup_mut();
-        let rows: Vec<(String, bool, String)> = stackup
-            .rows()
-            .iter()
-            .map(|r| (r.name.clone(), r.copper, r.thickness().to_owned()))
-            .collect();
-        assert_eq!(
-            rows,
-            [
-                ("Top Copper".to_owned(), true, "0.035".to_owned()),
-                ("Dielectric 1".to_owned(), false, String::new()),
-                ("Bottom Copper".to_owned(), true, "0.035".to_owned()),
-            ]
-        );
-        assert_eq!(stackup.target(), "1.6");
-        let totals = stackup.totals().unwrap();
-        assert_eq!(totals.copper, Nm::from_um(70));
-        assert_eq!(totals.remainder, Some(Nm::from_um(1530)));
-        // Copper takes oz; the blank dielectric's remainder follows as you type.
-        stackup.set_row(0, "2oz");
-        let totals = stackup.totals().unwrap();
-        assert_eq!(totals.copper, Nm::from_um(105));
-        assert_eq!(totals.remainder, Some(Nm::from_um(1495)));
-        assert_eq!(totals.total, Nm::from_um(1600));
-        assert!(stackup.warning().is_none());
-        // Every dielectric typed in: the total shows against the target, with a warning.
-        stackup.set_row(1, "1.6");
-        assert_eq!(stackup.totals().unwrap().total, Nm::from_um(1705));
-        assert!(stackup.warning().is_some());
-        stackup.set_row(1, "");
-        // The cross-section lists mask and silkscreen outside the copper.
-        let bands: Vec<(Band, String)> = stackup
-            .cross_section()
-            .into_iter()
-            .map(|b| (b.band, b.thickness))
-            .collect();
-        assert_eq!(
-            bands,
-            [
-                (Band::Silkscreen, String::new()),
-                (Band::Mask, String::new()),
-                (Band::Copper, "0.07".to_owned()),
-                (Band::Dielectric, "1.495".to_owned()),
-                (Band::Copper, "0.035".to_owned()),
-                (Band::Mask, String::new()),
-                (Band::Silkscreen, String::new()),
-            ]
-        );
-        assert!(!stackup.suggestions().finish.is_empty());
-        stackup.set_finish("ENIG");
-        stackup.set_mask_color("Green");
-        stackup.set_fab_notes("Impedance control not needed.");
-    }
-    assert!(d.problems().is_empty(), "{:?}", d.problems());
-    assert_eq!(
-        d.steps(),
-        [
-            Step::new(
-                "pcb.stackup.set",
-                json!({"copper": [{"layer": top, "thickness": 70_000}],
-                       "finish": "ENIG", "mask_color": "Green"})
-            ),
-            Step::new(
-                "pcb.fab_notes.set",
-                json!({"text": "Impedance control not needed."})
-            ),
-        ]
-    );
-    d.apply(&mut shell).unwrap();
-    let board = pcb(&shell);
-    assert_eq!(board.stackup().finish.as_deref(), Some("ENIG"));
-    assert_eq!(
-        board.setup().fab_notes.as_deref(),
-        Some("Impedance control not needed.")
-    );
-    assert!(!d.has_changes());
-}
-
-#[test]
-fn a_stackup_that_leaves_nothing_for_the_blank_dielectric_is_flagged() {
-    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
-    let shell = shell_with_board(&home, &work);
-    let d = dialog(&shell);
-    {
-        let mut board = d.page::<DrcPage>().unwrap().board();
-        let stackup = board.stackup_mut();
-        stackup.set_target("0.06");
-        stackup.set_row(0, "2oz");
-        stackup.set_row(2, "thick");
-    }
-    let flagged: Vec<(String, String)> = d
-        .problems()
-        .into_iter()
-        .map(|(page, p)| (page, p.field))
-        .collect();
-    assert_eq!(
-        flagged,
-        [
-            ("Stackup".to_owned(), "stackup/row/2".to_owned()),
-            ("Stackup".to_owned(), "stackup/thickness".to_owned()),
-        ]
-    );
-}
-
-#[test]
 fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
     let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
     let mut shell = shell_with_board(&home, &work);
@@ -353,7 +272,7 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         board.set_rule(RuleField::TrackWidth, "0.3");
-        board.stackup_mut().set_finish("ENIG");
+        *board.fab_notes_mut() = "Do not panelize".into();
     }
     d.checkpoint();
     // A check with no change in between adds no step.
@@ -366,7 +285,7 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
             json!({"kind": "clearance", "values": {"value": 200_000}})
         )]
     );
-    assert_eq!(d.page::<DrcPage>().unwrap().board().stackup().finish(), "");
+    assert_eq!(d.page::<DrcPage>().unwrap().board().fab_notes_mut(), "");
     assert!(d.step_back());
     assert!(!d.has_changes());
     assert!(!d.step_back());
@@ -411,13 +330,14 @@ fn the_fab_preset_preview_ticks_limits_and_applies_only_the_ticked_rows() {
     shell
         .run(
             "pcb.rules.set",
-            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm"}}}),
         )
         .unwrap();
     let preset = preset(&shell);
     let d = dialog(&shell);
     let mut board = d.page::<DrcPage>().unwrap().board();
     board.set_rule(RuleField::Clearance, "0.3");
+    board.set_rule(RuleField::TrackPreferred, "0.4");
     board.set_rule(RuleField::MaskTop, "0.1");
     board.preview_fab_preset(preset);
     let rows: Vec<(RuleField, String, bool)> = board
@@ -427,23 +347,23 @@ fn the_fab_preset_preview_ticks_limits_and_applies_only_the_ticked_rows() {
         .iter()
         .map(|c| (c.rule, c.preset.clone(), c.ticked))
         .collect();
-    // The preferred hole stays inside the new range, so its row starts unticked.
+    // The preferred Track width stays inside the new range, so it starts unticked.
     assert_eq!(
         rows,
         [
             (RuleField::Clearance, "0.16".to_owned(), true),
+            (RuleField::TrackPreferred, "0.25".to_owned(), false),
             (RuleField::ViaHole, "0.3".to_owned(), true),
-            (RuleField::ViaHolePreferred, "0.3".to_owned(), false),
             (RuleField::MaskTop, "0.05".to_owned(), true),
             (RuleField::MaskBottom, "0.05".to_owned(), true),
         ]
     );
     board.set_preview_ticked(0, false);
-    board.set_preview_ticked(2, true);
+    board.set_preview_ticked(1, true);
     board.accept_fab_preview();
     assert_eq!(board.rule(RuleField::Clearance), "0.3", "unticked");
     assert_eq!(board.rule(RuleField::ViaHole), "0.3");
-    assert_eq!(board.rule(RuleField::ViaHolePreferred), "0.3");
+    assert_eq!(board.rule(RuleField::TrackPreferred), "0.25");
     assert_eq!(board.rule(RuleField::MaskTop), "0.05");
 }
 
@@ -563,4 +483,102 @@ fn show_on_board_counts_what_a_row_affects() {
     let rule = pcb(&shell).board_rule(RuleKind::Clearance).uuid;
     shell.show_on_board(&[Shown::Rule(rule)]);
     assert_eq!(shell.shown_on_board(), Some(1));
+}
+
+#[test]
+fn selecting_a_rules_file_position_refreshes_the_preview_and_applies_only_that_row() {
+    use reda_ui::settings::FileRequest;
+    let (home, work) = (TempDir::new("bsp-map-home"), TempDir::new("bsp-map-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let path = work.path().join("four-layer.redarules");
+    std::fs::write(
+        &path,
+        json!({"format":2,"copper_layers":4,"net_classes":[{"name":"RF"}],"severities":{},
+        "rules":[{"kind":"clearance","net_class":"RF","layers":[1,3],"values":{"value":450000}},
+                 {"kind":"clearance","layers":[3,4],"values":{"value":750000}}] })
+        .to_string(),
+    )
+    .unwrap();
+    let mut d = dialog(&shell);
+    d.picked_file(&mut shell, FileRequest::ImportRules, &path);
+    let page = d.page::<DrcPage>().unwrap();
+    let mut board = page.board();
+    let view = board.import_preview().unwrap();
+    assert_eq!(view.positions.len(), 2);
+    assert!(!view.positions[0].selected);
+    assert!(!view.positions[1].available);
+    assert!(view.rows.is_empty());
+    board.select_import_position(&mut shell, 0, true);
+    let view = board.import_preview().unwrap();
+    assert!(view.positions[0].selected);
+    assert!(view.rows.iter().any(|s| s.contains("RF")));
+    board.confirm_import(&mut shell);
+    let target = pcb(&shell);
+    let rf = target.net_class_named("RF").unwrap().uuid;
+    let layer = target.copper_layers().next().unwrap().uuid;
+    let scope = reda_engine::model::RuleScope {
+        net_class: Some(rf),
+        net_class_pair: None,
+        layers: Some(reda_engine::model::RuleLayers::Named(vec![layer])),
+    };
+    assert_eq!(
+        target
+            .scoped_rule(reda_engine::model::RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value
+            .unwrap()
+            .0,
+        450_000
+    );
+}
+
+#[test]
+fn a_conflict_in_the_default_selection_still_allows_importing_other_rows() {
+    use reda_ui::settings::FileRequest;
+    let (home, work) = (
+        TempDir::new("bsp-conflict-home"),
+        TempDir::new("bsp-conflict-work"),
+    );
+    let mut shell = shell_with_board(&home, &work);
+    let first = pcb(&shell).copper_layers().next().unwrap().uuid;
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"clearance","scope":{"layers":[first]},
+        "values":{"value":"0.3mm"}}),
+        )
+        .unwrap();
+    let path = work.path().join("scoped.redarules");
+    let file = json!({"format":2,"copper_layers":2,"net_classes":[{"name":"RF"}],"severities":{},"rules":[
+        {"kind":"clearance","layers":[1,2],"values":{"value":400000}},
+        {"kind":"clearance","net_class":"RF","layers":[1],"values":{"value":500000}}]});
+    std::fs::write(&path, file.to_string()).unwrap();
+    let mut d = dialog(&shell);
+    d.picked_file(&mut shell, FileRequest::ImportRules, &path);
+    let page = d.page::<DrcPage>().unwrap();
+    let mut board = page.board();
+    assert!(board.notice().unwrap().contains("Layer"));
+    let view = board.import_preview().unwrap();
+    assert_eq!(view.positions.len(), 2);
+    assert!(view.positions.iter().all(|row| !row.selected));
+    board.select_import_position(&mut shell, 1, true);
+    board.confirm_import(&mut shell);
+    let target = pcb(&shell);
+    let class = target.net_class_named("RF").unwrap();
+    let scope = reda_engine::model::RuleScope {
+        net_class: Some(class.uuid),
+        layers: Some(reda_engine::model::RuleLayers::Named(vec![first])),
+        ..Default::default()
+    };
+    assert_eq!(
+        target
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value
+            .unwrap()
+            .0,
+        500_000
+    );
 }

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"0e644f21-6432-456f-a5a2-ca83fb776142","name":"PMOS","designator_prefix":"Q","description":"P-channel enhancement MOSFET"},
   "units": [
     {"uuid":"ac7d8909-d057-4fd4-b3a8-734730ceaae9","name":"A"}

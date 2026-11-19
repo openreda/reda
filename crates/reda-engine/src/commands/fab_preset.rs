@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use reda_command::{Command, CommandError, Context, Kind, Meta, NoParams, Registry};
-use reda_model::{FabPreset, Object, Project, ProjectFabPreset, Uuid};
+use reda_model::{FabPreset, Object, PlacementCorrection, Project, ProjectFabPreset, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -59,7 +59,7 @@ impl Command for PresetList {
         id: "fab_preset.list",
         title: "List Fab Presets",
         description: "Lists the Fab Presets a new Project or a job can use: the shipped \
-                      Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. \
+                      Generic, JLCPCB, PCBWay and OSH Park, then the user's `.redafab` presets. \
                       `default` is the last one used for a new Project, else Generic.",
         category: "output",
         icon: "fab_preset",
@@ -301,6 +301,9 @@ pub struct SourceDiff {
     pub origin: Origin,
     /// Every field that differs; empty when the copy is up to date.
     pub changes: Vec<FieldChange>,
+    /// Corrections specific to this Project that the update keeps in their original order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub kept_placement_corrections: Vec<PlacementCorrection>,
 }
 
 /// The fields that differ between two presets, rules and Gerber switches one by one.
@@ -371,6 +374,33 @@ fn with_source(
     Ok((copy, source))
 }
 
+/// Keep Project order, replace shared matches in place, then append the new source rows.
+fn merged_source(copy: &ProjectFabPreset, mut source: Available) -> (FabPreset, SourceDiff) {
+    let mut incoming = std::mem::take(&mut source.preset.placement_corrections);
+    let mut kept = Vec::new();
+    let mut merged = Vec::new();
+    for row in &copy.placement_corrections {
+        let matcher = row.matcher();
+        if let Some(index) = incoming
+            .iter()
+            .position(|r| r.matcher().same_match(&matcher))
+        {
+            merged.push(incoming.remove(index));
+        } else {
+            kept.push(row.clone());
+            merged.push(row.clone());
+        }
+    }
+    merged.append(&mut incoming);
+    source.preset.placement_corrections = merged;
+    let preview = SourceDiff {
+        origin: source.origin,
+        changes: diff(&copy.preset(), &source.preset),
+        kept_placement_corrections: kept,
+    };
+    (source.preset, preview)
+}
+
 pub struct PresetSourceDiff;
 
 impl Command for PresetSourceDiff {
@@ -389,10 +419,7 @@ impl Command for PresetSourceDiff {
 
     fn run(&self, cx: &mut Context<'_>, p: PresetRef) -> Result<SourceDiff, CommandError> {
         let (copy, source) = with_source(cx, p.preset)?;
-        Ok(SourceDiff {
-            origin: source.origin,
-            changes: diff(&copy.preset(), &source.preset),
-        })
+        Ok(merged_source(&copy, source).1)
     }
 }
 
@@ -402,9 +429,9 @@ impl Command for PresetUpdateFromSource {
     const META: Meta = Meta {
         id: "fab_preset.update_from_source",
         title: "Update from Source",
-        description: "Replaces one of the Project's Fab Preset copies with the current \
+        description: "Updates one of the Project's Fab Preset copies with the current \
                       values of the preset it came from, after `fab_preset.source_diff` has \
-                      shown what changes. The board's own rules are not touched; use \
+                      shown what changes. Local placement matches the source lacks are kept. The board's own rules are not touched; use \
                       `pcb.rules.apply_fab_preset` for those. Returns the changes.",
         category: "output",
         icon: "fab_preset_update",
@@ -415,15 +442,12 @@ impl Command for PresetUpdateFromSource {
 
     fn run(&self, cx: &mut Context<'_>, p: PresetRef) -> Result<SourceDiff, CommandError> {
         let (copy, source) = with_source(cx, p.preset)?;
-        let changes = diff(&copy.preset(), &source.preset);
-        if !changes.is_empty() {
-            let updated = ProjectFabPreset::new(copy.uuid, source.preset);
+        let (preset, preview) = merged_source(&copy, source);
+        if !preview.changes.is_empty() {
+            let updated = ProjectFabPreset::new(copy.uuid, preset);
             cx.tx()?.replace(Object::FabPreset(updated))?;
         }
-        Ok(SourceDiff {
-            origin: source.origin,
-            changes,
-        })
+        Ok(preview)
     }
 }
 
@@ -434,10 +458,11 @@ pub struct PresetSet;
 pub struct PresetSetParams {
     /// The Project copy's UUID.
     pub preset: Uuid,
-    /// Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,
-    /// `gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each
-    /// whole, such as `{"gerber": {"slot_command": "g85"}}`; `zip_assembly` is set as it
-    /// is. The name cannot be set.
+    /// Preset keys to change. Sections such as `rules` and `gerber` change only the keys
+    /// supplied. `constructions` is an object keyed by case-insensitive Construction name.
+    /// Each value replaces or adds the named Construction, and null removes it.
+    /// `placement_corrections` replaces the whole list, with integer base units or unit
+    /// strings for rotation and offsets. The preset name cannot be set.
     pub values: Value,
 }
 

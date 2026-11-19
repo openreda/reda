@@ -18,7 +18,10 @@ use crate::tr;
 /// One rule value the dialog edits: a value of one rule kind's records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RuleField {
+    Teardrop(m::TeardropKind, m::TeardropField),
     Clearance,
+    ViaHoleClearance,
+    PadHoleClearance,
     TrackWidth,
     TrackPreferred,
     TrackMax,
@@ -28,11 +31,25 @@ pub enum RuleField {
     ViaHole,
     ViaHolePreferred,
     ViaHoleMax,
+    /// The drilled Vias' maximum depth-to-hole ratio.
+    ViaAspectRatio,
+    MicroDiameter,
+    MicroDiameterPreferred,
+    MicroDiameterMax,
+    MicroHole,
+    MicroHolePreferred,
+    MicroHoleMax,
+    /// The micro Vias' maximum depth-to-hole ratio.
+    MicroAspectRatio,
+    /// How many micro Vias may meet end to end in one Via Stack.
+    MicroMaxStack,
     HoleMin,
     HoleMax,
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    SilkWidth,
+    SilkTextHeight,
     SilkToEdge,
     SilkToMask,
     CourtyardClearance,
@@ -54,6 +71,8 @@ pub enum RuleField {
 /// What a value holds, which picks its widget and how its text is read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValueKind {
+    /// A nonnegative percentage of target size.
+    SizePercent,
     /// A length, never negative.
     Length,
     /// A length that may be negative (a mask or paste expansion).
@@ -67,10 +86,15 @@ pub enum ValueKind {
     Spokes,
     /// 0, 45 or 90 degrees.
     Angle,
+    /// A ratio above 0 such as `0.9`, stored in thousandths.
+    Ratio,
+    /// A whole number from 1 to 255.
+    Count,
 }
 
-/// The values the Net Classes grid has a column for: clearance, Track width and Via size.
-pub const GRID_FIELDS: [RuleField; 10] = [
+/// The values the Net Classes grid has a column for: clearance, Track width, Via size and
+/// micro Via size. Copy and paste take them in this order.
+pub const GRID_FIELDS: [RuleField; 18] = [
     RuleField::Clearance,
     RuleField::TrackWidth,
     RuleField::TrackPreferred,
@@ -81,11 +105,23 @@ pub const GRID_FIELDS: [RuleField; 10] = [
     RuleField::ViaHole,
     RuleField::ViaHolePreferred,
     RuleField::ViaHoleMax,
+    RuleField::ViaHoleClearance,
+    RuleField::PadHoleClearance,
+    RuleField::MicroDiameter,
+    RuleField::MicroDiameterPreferred,
+    RuleField::MicroDiameterMax,
+    RuleField::MicroHole,
+    RuleField::MicroHolePreferred,
+    RuleField::MicroHoleMax,
 ];
 
 /// The rule kinds of the grid's columns, each with its own `enabled` and comment.
-pub const GRID_KINDS: [RuleKind; 3] =
-    [RuleKind::Clearance, RuleKind::TrackWidth, RuleKind::ViaSize];
+pub const GRID_KINDS: [RuleKind; 4] = [
+    RuleKind::Clearance,
+    RuleKind::TrackWidth,
+    RuleKind::ViaSize,
+    RuleKind::MicroviaSize,
+];
 
 /// The connection styles, as drafted.
 pub const STYLES: [&str; 3] = ["relief", "solid", "none"];
@@ -100,10 +136,33 @@ pub fn kind_name(kind: RuleKind) -> String {
         RuleKind::Clearance => tr!("board-setup-clearance"),
         RuleKind::TrackWidth => tr!("board-setup-track-width"),
         RuleKind::ViaSize => tr!("board-setup-via-size"),
+        RuleKind::MicroviaSize => tr!("board-setup-microvia-size"),
         RuleKind::MaskExpansion => tr!("board-setup-mask-expansion"),
         RuleKind::PasteExpansion => tr!("board-setup-paste-expansion"),
         RuleKind::ZoneConnection => tr!("board-setup-zone-connection"),
+        RuleKind::Teardrop => tr!("board-setup-page-teardrops"),
         other => other.id().to_owned(),
+    }
+}
+
+pub fn tear_field_name(field: m::TeardropField) -> String {
+    match field {
+        m::TeardropField::Enabled => tr!("board-setup-teardrop-enabled"),
+        m::TeardropField::Length => tr!("board-setup-teardrop-length"),
+        m::TeardropField::MaxLength => tr!("board-setup-teardrop-max-length"),
+        m::TeardropField::Width => tr!("board-setup-teardrop-width"),
+        m::TeardropField::MaxWidth => tr!("board-setup-teardrop-max-width"),
+        m::TeardropField::Curved => tr!("board-setup-teardrop-curved"),
+        m::TeardropField::SkipRatio => tr!("board-setup-teardrop-skip-ratio"),
+    }
+}
+
+pub fn tear_target_name(kind: m::TeardropKind) -> String {
+    match kind {
+        m::TeardropKind::ThroughHolePad => tr!("board-setup-target-through-hole"),
+        m::TeardropKind::SmdPad => tr!("board-setup-target-smd"),
+        m::TeardropKind::Via => tr!("board-setup-target-via"),
+        m::TeardropKind::WidthChange => tr!("board-setup-teardrop-width-change"),
     }
 }
 
@@ -138,12 +197,14 @@ pub fn style_name(style: &str) -> String {
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 42] = {
+    pub const ALL: [RuleField; 83] = {
         use ConnectionTarget as T;
         use ConnectionValue as V;
         use RuleField as R;
         [
             R::Clearance,
+            R::ViaHoleClearance,
+            R::PadHoleClearance,
             R::TrackWidth,
             R::TrackPreferred,
             R::TrackMax,
@@ -153,11 +214,22 @@ impl RuleField {
             R::ViaHole,
             R::ViaHolePreferred,
             R::ViaHoleMax,
+            R::ViaAspectRatio,
+            R::MicroDiameter,
+            R::MicroDiameterPreferred,
+            R::MicroDiameterMax,
+            R::MicroHole,
+            R::MicroHolePreferred,
+            R::MicroHoleMax,
+            R::MicroAspectRatio,
+            R::MicroMaxStack,
             R::HoleMin,
             R::HoleMax,
             R::AnnularRing,
             R::HoleToHole,
             R::EdgeClearance,
+            R::SilkWidth,
+            R::SilkTextHeight,
             R::SilkToEdge,
             R::SilkToMask,
             R::CourtyardClearance,
@@ -185,6 +257,34 @@ impl RuleField {
             R::Connection(T::Via, V::SpokeWidth),
             R::Connection(T::Via, V::Gap),
             R::Connection(T::Via, V::Angle),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::SkipRatio),
         ]
     };
 
@@ -207,6 +307,14 @@ impl RuleField {
             R::ViaHole | R::ViaHolePreferred | R::ViaHoleMax => {
                 &[R::ViaHole, R::ViaHolePreferred, R::ViaHoleMax]
             }
+            R::MicroDiameter | R::MicroDiameterPreferred | R::MicroDiameterMax => &[
+                R::MicroDiameter,
+                R::MicroDiameterPreferred,
+                R::MicroDiameterMax,
+            ],
+            R::MicroHole | R::MicroHolePreferred | R::MicroHoleMax => {
+                &[R::MicroHole, R::MicroHolePreferred, R::MicroHoleMax]
+            }
             _ => &[],
         }
     }
@@ -226,6 +334,13 @@ impl RuleField {
             R::MaskTop | R::MaskBottom | R::PasteExpansion => ValueKind::Signed,
             R::MaskFromHoleEdge | R::TentViasTop | R::TentViasBottom => ValueKind::Flag,
             R::PastePercent => ValueKind::Percent,
+            R::ViaAspectRatio | R::MicroAspectRatio => ValueKind::Ratio,
+            R::MicroMaxStack => ValueKind::Count,
+            R::Teardrop(_, m::TeardropField::Enabled | m::TeardropField::Curved) => ValueKind::Flag,
+            R::Teardrop(
+                _,
+                m::TeardropField::Length | m::TeardropField::Width | m::TeardropField::SkipRatio,
+            ) => ValueKind::SizePercent,
             R::Connection(_, ConnectionValue::Style) => ValueKind::Style,
             R::Connection(_, ConnectionValue::Spokes) => ValueKind::Spokes,
             R::Connection(_, ConnectionValue::Angle) => ValueKind::Angle,
@@ -237,7 +352,10 @@ impl RuleField {
     pub fn rule(self) -> (RuleKind, m::RuleField) {
         use m::RuleField as F;
         match self {
+            RuleField::Teardrop(kind, field) => (RuleKind::Teardrop, F::Teardrop(kind, field)),
             RuleField::Clearance => (RuleKind::Clearance, F::Value),
+            RuleField::ViaHoleClearance => (RuleKind::Clearance, F::HoleVia),
+            RuleField::PadHoleClearance => (RuleKind::Clearance, F::HolePad),
             RuleField::TrackWidth => (RuleKind::TrackWidth, F::Min),
             RuleField::TrackPreferred => (RuleKind::TrackWidth, F::Preferred),
             RuleField::TrackMax => (RuleKind::TrackWidth, F::Max),
@@ -247,11 +365,22 @@ impl RuleField {
             RuleField::ViaHole => (RuleKind::ViaSize, F::HoleMin),
             RuleField::ViaHolePreferred => (RuleKind::ViaSize, F::HolePreferred),
             RuleField::ViaHoleMax => (RuleKind::ViaSize, F::HoleMax),
+            RuleField::ViaAspectRatio => (RuleKind::ViaSize, F::AspectRatioMax),
+            RuleField::MicroDiameter => (RuleKind::MicroviaSize, F::DiameterMin),
+            RuleField::MicroDiameterPreferred => (RuleKind::MicroviaSize, F::DiameterPreferred),
+            RuleField::MicroDiameterMax => (RuleKind::MicroviaSize, F::DiameterMax),
+            RuleField::MicroHole => (RuleKind::MicroviaSize, F::HoleMin),
+            RuleField::MicroHolePreferred => (RuleKind::MicroviaSize, F::HolePreferred),
+            RuleField::MicroHoleMax => (RuleKind::MicroviaSize, F::HoleMax),
+            RuleField::MicroAspectRatio => (RuleKind::MicroviaSize, F::AspectRatioMax),
+            RuleField::MicroMaxStack => (RuleKind::MicroviaSize, F::MaxStack),
             RuleField::HoleMin => (RuleKind::HoleSize, F::Min),
             RuleField::HoleMax => (RuleKind::HoleSize, F::Max),
             RuleField::AnnularRing => (RuleKind::AnnularRing, F::Min),
             RuleField::HoleToHole => (RuleKind::HoleToHole, F::Min),
             RuleField::EdgeClearance => (RuleKind::EdgeClearance, F::Value),
+            RuleField::SilkWidth => (RuleKind::SilkWidth, F::Min),
+            RuleField::SilkTextHeight => (RuleKind::SilkTextHeight, F::Min),
             RuleField::SilkToEdge => (RuleKind::SilkToEdge, F::Value),
             RuleField::SilkToMask => (RuleKind::SilkToMask, F::Value),
             RuleField::CourtyardClearance => (RuleKind::CourtyardClearance, F::Value),
@@ -289,6 +418,8 @@ impl RuleField {
             RuleValue::Length(n) => mm(n),
             RuleValue::Flag(b) => b.to_string(),
             RuleValue::Percent(p) => p.to_string(),
+            RuleValue::UnsignedPercent(p) => p.to_string(),
+            RuleValue::MilliRatio(n) => reda_engine::model::geom::exact_decimal(i64::from(n), 1000),
             RuleValue::Count(n) => n.to_string(),
             RuleValue::Angle(a) => mm(Nm(a.0 * 1000)),
             RuleValue::Style(s) => serde_json::to_value(s)
@@ -325,6 +456,7 @@ impl RuleField {
         let kind = self.rule().0;
         reda_engine::pcb::seed_rules(rules)
             .into_iter()
+            .chain(reda_engine::pcb::silk_rules(rules))
             .find(|(k, _)| *k == kind)
             .map(|(_, v)| v)
     }
@@ -347,6 +479,12 @@ impl RuleField {
                 "false" => json!(false),
                 _ => return Err(tr!("board-setup-not-a-flag")),
             },
+            ValueKind::SizePercent => json!(
+                text.trim_end_matches('%')
+                    .trim()
+                    .parse::<u32>()
+                    .map_err(|_| tr!("board-setup-not-a-size-percent"))?
+            ),
             ValueKind::Percent => {
                 let number = text.trim_end_matches('%').trim().parse::<i32>();
                 match number {
@@ -366,6 +504,36 @@ impl RuleField {
                 one_of(&ANGLES, tr!("board-setup-not-an-angle"))?;
                 json!(text.parse::<i64>().expect("a listed angle") * 1000)
             }
+            ValueKind::Ratio => {
+                json!(milli_ratio(text).ok_or_else(|| tr!("board-setup-not-a-ratio"))?)
+            }
+            ValueKind::Count => match text.parse::<u8>() {
+                Ok(n) if n > 0 => json!(n),
+                _ => return Err(tr!("board-setup-not-a-count")),
+            },
+        }))
+    }
+
+    /// Typed `text` as the value a record holds; `Ok(None)` when it is empty.
+    pub fn value(self, text: &str) -> Result<Option<RuleValue>, String> {
+        let Some(param) = self.parse(text)? else {
+            return Ok(None);
+        };
+        let int = param.as_i64().unwrap_or_default();
+        let narrow = |n: i64| u32::try_from(n).unwrap_or_default();
+        Ok(Some(match self.kind() {
+            ValueKind::Length | ValueKind::Signed => RuleValue::Length(Nm(int)),
+            ValueKind::Flag => RuleValue::Flag(param.as_bool().unwrap_or_default()),
+            ValueKind::SizePercent => RuleValue::UnsignedPercent(narrow(int)),
+            ValueKind::Percent => RuleValue::Percent(i32::try_from(int).unwrap_or_default()),
+            ValueKind::Style => {
+                RuleValue::Style(serde_json::from_value(param).map_err(|e| e.to_string())?)
+            }
+            ValueKind::Spokes | ValueKind::Count => {
+                RuleValue::Count(u8::try_from(int).unwrap_or_default())
+            }
+            ValueKind::Angle => RuleValue::Angle(reda_engine::model::geom::Millideg(int)),
+            ValueKind::Ratio => RuleValue::MilliRatio(narrow(int)),
         }))
     }
 
@@ -381,6 +549,18 @@ impl RuleField {
         }
     }
 
+    /// Whether a board-wide record can hold this field. A Via type supplies its
+    /// starting size unless a Net Class overrides it, for drilled and micro Vias alike.
+    pub fn applies_board_wide(self) -> bool {
+        !matches!(
+            self,
+            Self::ViaDiameterPreferred
+                | Self::ViaHolePreferred
+                | Self::MicroDiameterPreferred
+                | Self::MicroHolePreferred
+        )
+    }
+
     /// Whether the board-wide record must hold it.
     pub fn required(self) -> bool {
         let (kind, field) = self.rule();
@@ -392,6 +572,8 @@ impl RuleField {
     fn base_name(self) -> String {
         match self {
             RuleField::Clearance => tr!("board-setup-clearance"),
+            RuleField::ViaHoleClearance => tr!("rule-via-hole-clearance"),
+            RuleField::PadHoleClearance => tr!("rule-pad-hole-clearance"),
             RuleField::TrackWidth | RuleField::TrackPreferred | RuleField::TrackMax => {
                 tr!("board-setup-track-width")
             }
@@ -403,10 +585,21 @@ impl RuleField {
             RuleField::ViaHole | RuleField::ViaHolePreferred | RuleField::ViaHoleMax => {
                 tr!("board-setup-via-hole")
             }
+            RuleField::ViaAspectRatio => tr!("board-setup-via-aspect-ratio"),
+            RuleField::MicroDiameter
+            | RuleField::MicroDiameterPreferred
+            | RuleField::MicroDiameterMax => tr!("board-setup-microvia-diameter"),
+            RuleField::MicroHole | RuleField::MicroHolePreferred | RuleField::MicroHoleMax => {
+                tr!("board-setup-microvia-hole")
+            }
+            RuleField::MicroAspectRatio => tr!("board-setup-microvia-aspect-ratio"),
+            RuleField::MicroMaxStack => tr!("board-setup-microvia-max-stack"),
             RuleField::HoleMin | RuleField::HoleMax => tr!("board-setup-pad-hole"),
             RuleField::AnnularRing => tr!("board-setup-annular-ring"),
             RuleField::HoleToHole => tr!("board-setup-hole-to-hole"),
             RuleField::EdgeClearance => tr!("board-setup-edge-clearance"),
+            RuleField::SilkWidth => tr!("board-setup-silk-width"),
+            RuleField::SilkTextHeight => tr!("board-setup-silk-text-height"),
             RuleField::SilkToEdge => tr!("board-setup-silk-to-edge"),
             RuleField::SilkToMask => tr!("board-setup-silk-to-mask"),
             RuleField::CourtyardClearance => tr!("board-setup-courtyard-clearance"),
@@ -419,6 +612,7 @@ impl RuleField {
             RuleField::TentViasBottom => tr!("board-setup-tent-bottom"),
             RuleField::PasteExpansion => tr!("board-setup-paste-expansion"),
             RuleField::PastePercent => tr!("board-setup-paste-percent"),
+            RuleField::Teardrop(_, field) => tear_field_name(field),
             RuleField::Connection(t, v) => tr!(
                 "board-setup-connection",
                 target = target_name(t),
@@ -428,17 +622,22 @@ impl RuleField {
     }
 
     /// Whether it is one of the values outside the min/preferred/max families, which
-    /// are named plainly.
+    /// are named plainly: so are a Via aspect ratio and the micro Via stack, whose names
+    /// already say they are maximums.
     fn plain(self) -> bool {
-        matches!(
-            self.rule().0,
-            RuleKind::CourtyardClearance
-                | RuleKind::Dangling
-                | RuleKind::MicroSegment
-                | RuleKind::MaskExpansion
-                | RuleKind::PasteExpansion
-                | RuleKind::ZoneConnection
-        )
+        matches!(self.kind(), ValueKind::Ratio | ValueKind::Count)
+            || matches!(
+                self.rule().0,
+                RuleKind::SilkWidth
+                    | RuleKind::SilkTextHeight
+                    | RuleKind::CourtyardClearance
+                    | RuleKind::Dangling
+                    | RuleKind::MicroSegment
+                    | RuleKind::MaskExpansion
+                    | RuleKind::PasteExpansion
+                    | RuleKind::ZoneConnection
+                    | RuleKind::Teardrop
+            )
     }
 
     /// Its name for the user: "Track width" for a minimum, "Preferred Track width".
@@ -462,7 +661,9 @@ impl RuleField {
         if self.plain() {
             return match self.kind() {
                 ValueKind::Length | ValueKind::Signed => tr!("board-setup-value", rule = rule),
-                ValueKind::Percent => tr!("board-setup-value-percent", rule = rule),
+                ValueKind::Percent | ValueKind::SizePercent => {
+                    tr!("board-setup-value-percent", rule = rule)
+                }
                 ValueKind::Angle => tr!("board-setup-value-degrees", rule = rule),
                 _ => rule,
             };
@@ -488,6 +689,29 @@ impl RuleField {
         let was = self.parse(base).ok().flatten();
         (now != was).then(|| now.unwrap_or(Value::Null))
     }
+}
+
+/// A ratio typed as a decimal, such as `0.9` or `5.333` (a trailing `:1` is allowed), in
+/// thousandths; `None` unless it is above 0 with at most three decimals.
+fn milli_ratio(text: &str) -> Option<u32> {
+    let text = text.strip_suffix(":1").unwrap_or(text).trim();
+    let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
+    let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
+    if (whole.is_empty() && fraction.is_empty())
+        || !digits(whole)
+        || !digits(fraction)
+        || fraction.len() > 3
+    {
+        return None;
+    }
+    let whole: u32 = if whole.is_empty() {
+        0
+    } else {
+        whole.parse().ok()?
+    };
+    let fraction: u32 = format!("{fraction:0<3}").parse().ok()?;
+    let value = whole.checked_mul(1000)?.checked_add(fraction)?;
+    (value > 0).then_some(value)
 }
 
 /// `values` as `pcb.rules.set` takes them: `{"min": 1}` or `{"diameter": {"min": 1}}`.

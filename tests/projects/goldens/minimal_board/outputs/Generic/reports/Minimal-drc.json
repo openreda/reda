@@ -6,8 +6,156 @@
   "project": "Minimal",
   "refilled": false,
   "stale_waivers": [],
-  "summary": [],
+  "summary": [
+    {
+      "check": "silk_width",
+      "count": 5,
+      "severity": "warning",
+      "waived": 0
+    }
+  ],
   "unmatched_waivers": [],
-  "violations": [],
+  "violations": [
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 13490000,
+        "y": 7000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-000000000053",
+        "97e0fd39-2f51-4d23-98ba-6e9bb646d80e"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-000000000028",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 5000000,
+        "y": 12600000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-000000000055",
+        "3de0a0dc-b35c-4c58-a85a-44bd5b7115c3"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-000000000028",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 3670000,
+        "y": 10000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-000000000055",
+        "6eb6d194-3724-4bb3-8bf9-c59ea1508eb4"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-000000000028",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 5000000,
+        "y": 7400000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-000000000055",
+        "9a3665e3-0a88-481e-bfef-1b617b009b41"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-000000000028",
+      "severity": "warning"
+    },
+    {
+      "args": {
+        "actual": 120000,
+        "required": 150000
+      },
+      "at": {
+        "x": 6330000,
+        "y": 10000000
+      },
+      "check": "silk_width",
+      "document": "00000000-0000-4000-8000-000000000003",
+      "layers": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "limit": "min",
+      "measured": {
+        "length": 120000
+      },
+      "objects": [
+        "00000000-0000-4000-8000-000000000055",
+        "9b9ef4fe-875f-41b0-a28f-bb40df71df33"
+      ],
+      "required": {
+        "length": 150000
+      },
+      "rule": "00000000-0000-4000-8000-000000000028",
+      "severity": "warning"
+    }
+  ],
   "waived": 0
 }

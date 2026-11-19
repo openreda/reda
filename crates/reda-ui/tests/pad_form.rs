@@ -94,6 +94,11 @@ fn corners_side_offset_and_hole_edits_name_the_whole_new_value() {
         fields(&th, PadEdit::Kind(PadKind::Smd)),
         json!({"kind": "smd", "hole": null})
     );
+    th.middle = Some(th.form().copper());
+    assert_eq!(
+        fields(&th, PadEdit::Kind(PadKind::Smd)),
+        json!({"kind": "smd", "hole": null, "middle": null})
+    );
 }
 
 #[test]

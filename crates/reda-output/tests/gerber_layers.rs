@@ -617,34 +617,11 @@ fn distance(p: (i64, i64), a: (i64, i64), b: (i64, i64)) -> f64 {
 #[test]
 fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
     let dir = TempDir::new("gerber-inner");
-    let mut engine = board(&dir);
-    engine.run_ok("project.save", json!({}));
-    let path = dir.path().join("Demo/Demo.redapcb");
-    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    let layers = file["layers"]["layers"].as_array_mut().unwrap();
-    let bottom = layers
-        .iter()
-        .position(|l| l["kind"] == "copper" && l["side"] == "bottom")
-        .unwrap();
-    let inner = [
-        "00000000-0000-4000-8000-0000000000a1",
-        "00000000-0000-4000-8000-0000000000a2",
-    ];
-    for (i, uuid) in inner.iter().enumerate() {
-        layers.insert(bottom + i, json!({"uuid": uuid, "kind": "copper"}));
-    }
-    let entries = file["stackups"][0]["entries"].as_array_mut().unwrap();
-    for (i, uuid) in inner.iter().enumerate() {
-        entries.insert(2 + 2 * i, json!({"layer": uuid, "thickness": 17_500}));
-        entries.insert(
-            3 + 2 * i,
-            json!({"uuid": format!("00000000-0000-4000-8000-0000000000b{i}")}),
-        );
-    }
-    std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
     let mut engine = probe_engine();
-    engine.run_ok("project.open", json!({"path": dir.path().join("Demo")}));
-
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name": "Demo", "layers": 4}),
+    );
     let files = plot(&engine);
     let copper: Vec<(&str, &str)> = files
         .iter()
@@ -655,16 +632,16 @@ fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
         copper,
         [
             ("Demo.gtl", "copper_top"),
-            ("Demo.g1", "copper_inner"),
-            ("Demo.g2", "copper_inner"),
+            ("Demo.g2l", "copper_inner"),
+            ("Demo.g3l", "copper_inner"),
             ("Demo.gbl", "copper_bottom"),
         ]
     );
     for (name, function) in [
-        ("Demo.gtl", "Copper,L1,Top"),
-        ("Demo.g1", "Copper,L2,Inr"),
-        ("Demo.g2", "Copper,L3,Inr"),
-        ("Demo.gbl", "Copper,L4,Bot"),
+        ("Demo.gtl", "Copper,L1,Top,Signal"),
+        ("Demo.g2l", "Copper,L2,Inr,Signal"),
+        ("Demo.g3l", "Copper,L3,Inr,Signal"),
+        ("Demo.gbl", "Copper,L4,Bot,Signal"),
     ] {
         let file = files.iter().find(|f| f.name == name).unwrap();
         let text = String::from_utf8_lossy(&file.bytes);
@@ -832,4 +809,132 @@ fn dimensions_plot_as_their_lines_and_text_on_their_layer() {
     let copper_bottom = pcb.copper_layers().last().unwrap().uuid;
     assert_eq!(bottom.draws().count(), expected(copper_bottom).len());
     assert!(layer(&files, "Demo.gtl").draws().next().is_none());
+}
+
+#[test]
+fn the_copper_gerbers_flash_pad_stacks_in_physical_layer_order() {
+    let dir = TempDir::new("gerber-pad-stacks");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let middle = json!({"shape":"rect","width":"4mm","height":"2mm"});
+    let bottom = json!({"shape":"oval","width":"2mm","height":"3mm"});
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","shape":"circle",
+        "width":"2mm","hole":{"width":"0.5mm"},"at":pt(4.0,5.0),"middle":middle,"bottom":bottom}),
+    );
+    let placed = engine.run_ok("test.footprint.add",json!({"side":"bottom","at":pt(12.0,5.0),
+        "pads":[{"at":pt(0.0,0.0),"offset":pt(0.25,0.0),"kind":"plated_through_hole","shape":"circle",
+        "width":"2mm","height":"2mm","hole":{"width":500000,"height":500000}}]}));
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":placed["result"]["footprint"],
+        "pad":placed["result"]["pads"][0],"middle":middle,"bottom":bottom}),
+    );
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(20.0,5.0),"hole":"0.3mm",
+        "diameter":{"start":"0.7mm","middle":"1mm","end":"1.4mm"}}),
+    );
+    let files = plot(&engine);
+    let round = Aperture::Circle(2e6);
+    let rect = Aperture::Rect(4e6, 2e6);
+    let oval = Aperture::Oval(2e6, 3e6);
+    for (name, free, flipped, via) in [
+        ("Demo.gtl", &round, &oval, 700000.0),
+        ("Demo.g2l", &rect, &rect, 1e6),
+        ("Demo.g3l", &rect, &rect, 1e6),
+        ("Demo.gbl", &oval, &round, 1400000.0),
+    ] {
+        let copper = layer(&files, name);
+        for (x, expected) in [
+            (4.0, free),
+            (11.75, flipped),
+            (20.0, &Aperture::Circle(via)),
+        ] {
+            assert_eq!(
+                flash_at(&copper, (mm(x), mm(5.0))).unwrap().0,
+                expected,
+                "{name} x={x}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_plated_pads_mask_opens_over_the_land_on_each_physical_side() {
+    let dir = TempDir::new("pad-stack-mask");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"at":pt(5.0,5.0),"kind":"plated_through_hole",
+        "width":"2mm","hole":{"width":"1mm"},"bottom":{"shape":"rect","width":"4mm","height":"3mm"},
+        "mask":{"top":{"expansion":0},"bottom":{"expansion":0}}}),
+    );
+    let files = plot(&engine);
+    for (name, expected) in [
+        ("Demo.gts", Aperture::Circle(2e6)),
+        ("Demo.gbs", Aperture::Rect(4e6, 3e6)),
+    ] {
+        let mask = layer(&files, name);
+        assert_eq!(
+            flash_at(&mask, (mm(5.0), mm(5.0))).unwrap().0,
+            &expected,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn copper_gerbers_only_flash_retained_pad_and_via_lands() {
+    let dir = TempDir::new("gerber-unused-lands");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let net = e.run_ok("test.net.add", json!({"name":"A"}))["result"]["uuid"].clone();
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"2mm","hole":{"width":"0.5mm"},
+        "at":pt(4.,5.),"unused_layers":"remove","net":net}),
+    );
+    let placed=e.run_ok("test.footprint.add",json!({"side":"bottom","at":pt(10.,5.),
+        "pads":[{"at":pt(0.,0.),"net":net,"kind":"plated_through_hole","width":"2mm","height":"2mm","hole":{"width":500000,"height":500000}}]}));
+    e.run_ok("pcb.pad.edit",json!({"instance":placed["result"]["footprint"],"pad":placed["result"]["pads"][0],"unused_layers":"remove"}));
+    e.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(18.,5.),"net":net,"unused_layers":"remove"}),
+    );
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":layers[2],"net":net,"points":[pt(4.,5.),pt(18.,5.)]}),
+    );
+    let files = plot(&e);
+    for (layer_file, free, placed, via) in [
+        ("Demo.gtl", true, true, false),
+        ("Demo.g2l", false, false, false),
+        ("Demo.g3l", true, false, true),
+        ("Demo.gbl", true, true, false),
+    ] {
+        let plot = layer(&files, layer_file);
+        for (x, expected) in [(4., free), (10., placed), (18., via)] {
+            assert_eq!(
+                flash_at(&plot, (mm(x), mm(5.))).is_some(),
+                expected,
+                "{layer_file} x={x}"
+            );
+        }
+    }
 }

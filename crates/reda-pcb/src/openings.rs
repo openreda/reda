@@ -34,26 +34,29 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
     let mut out = Vec::new();
     for instance in pcb.footprints() {
         for pad in placed_pads(pcb, instance) {
-            pad_openings(pcb, &pad, vec![instance.uuid, pad.pad], false, &mut out);
+            pad_openings(pcb, &pad, vec![instance.uuid, pad.pad], None, &mut out);
         }
     }
     for pad in pcb.free_pads().map(placed_free_pad) {
-        pad_openings(pcb, &pad, vec![pad.pad], false, &mut out);
+        pad_openings(pcb, &pad, vec![pad.pad], None, &mut out);
     }
     for via in pcb.vias() {
         let pad = PlacedPad {
             pad: via.uuid,
+            unused_layers: via.unused_layers,
             number: String::new(),
             kind: PadKind::PlatedThroughHole,
             shape: PadShape::Circle,
             at: via.at,
             rotation: Millideg::ZERO,
             outline: CornerRect::uniform(
-                via.diameter,
-                via.diameter,
+                via.diameter.start,
+                via.diameter.start,
                 Point::default(),
-                CornerCut::Round(Nm(via.diameter.0 / 2)),
+                CornerCut::Round(Nm(via.diameter.start.0 / 2)),
             ),
+            middle: None,
+            bottom: None,
             hole: Some(reda_model::Hole::new(via.hole, via.hole)),
             side: None,
             net: via.net,
@@ -61,7 +64,7 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
             paste: None,
             zone_connection: None,
         };
-        pad_openings(pcb, &pad, vec![via.uuid], true, &mut out);
+        pad_openings(pcb, &pad, vec![via.uuid], Some(via), &mut out);
     }
     out
 }
@@ -73,12 +76,17 @@ pub fn element_openings(pcb: &PcbDocument, footprint: &reda_model::Footprint) ->
     for pad in &footprint.pads {
         let placed = PlacedPad {
             pad: pad.uuid,
+            unused_layers: pad.unused_layers,
             number: pad.number.clone(),
             kind: pad.kind,
             shape: pad.shape,
             at: pad.at,
             rotation: pad.rotation,
             outline: pad.outline(),
+            middle: pad.middle.map(|c| (c.shape, pad.form_on(None).outline())),
+            bottom: pad
+                .bottom
+                .map(|c| (c.shape, pad.form_on(Some(Side::Bottom)).outline())),
             hole: pad.hole,
             side: pad.copper_side(),
             net: None,
@@ -86,7 +94,7 @@ pub fn element_openings(pcb: &PcbDocument, footprint: &reda_model::Footprint) ->
             paste: pad.paste.clone(),
             zone_connection: pad.zone_connection,
         };
-        pad_openings(pcb, &placed, vec![pad.uuid], false, &mut out);
+        pad_openings(pcb, &placed, vec![pad.uuid], None, &mut out);
     }
     out
 }
@@ -101,12 +109,12 @@ fn pad_openings(
     pcb: &PcbDocument,
     pad: &PlacedPad,
     objects: Vec<Uuid>,
-    via: bool,
+    via: Option<&reda_model::Via>,
     out: &mut Vec<Opening>,
 ) {
     let mask = pad.mask.unwrap_or_default();
     for side in [Side::Top, Side::Bottom] {
-        if pad.side.is_some_and(|s| s != side) {
+        if pad.side.is_some_and(|s| s != side) || via.is_some_and(|v| !v.span.reaches(pcb, side)) {
             continue;
         }
         let (own, field, tent) = match side {
@@ -116,13 +124,24 @@ fn pad_openings(
         let expansion = match own {
             Some(MaskSide::Mode(_)) => continue,
             Some(MaskSide::Expansion { expansion }) => expansion,
-            None if via && flag(pcb, pad.net, tent) => continue,
+            None if via.is_some() && flag(pcb, pad.net, tent) => continue,
             None => limit(pcb, pad.net, RuleKind::MaskExpansion, field).unwrap_or(Nm::ZERO),
         };
         let from_hole = mask
             .from_hole_edge
             .unwrap_or_else(|| flag(pcb, pad.net, RuleField::FromHoleEdge));
-        let mut opening = pad.clone();
+        let mut copper = pad.clone().on_side(Some(side));
+        if let Some(via) = via
+            && let Some(end) = via.diameter.end
+            && pcb
+                .layers()
+                .layer(via.span.to)
+                .is_some_and(|l| l.side == Some(side))
+        {
+            copper.outline =
+                CornerRect::uniform(end, end, Point::default(), CornerCut::Round(Nm(end.0 / 2)));
+        }
+        let mut opening = copper.clone();
         if from_hole && let Some(hole) = pad.hole {
             opening.outline = CornerRect::uniform(
                 hole.width,
@@ -141,7 +160,7 @@ fn pad_openings(
             side,
             kind: Kind::Mask,
             geometry,
-            copper: pad.clone(),
+            copper,
             at: pad.at,
         });
     }

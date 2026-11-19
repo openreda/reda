@@ -21,13 +21,17 @@ use serde_json::json;
 const JOB: &str = "Generic";
 
 fn harness(home: &Path, work: &Path, board: bool) -> Harness<'static, App> {
+    harness_with_layers(home, work, board, 2)
+}
+
+fn harness_with_layers(home: &Path, work: &Path, board: bool, layers: u8) -> Harness<'static, App> {
     let engine = Engine::builder()
         .user_dirs(Some(UserDirs::under(home)))
         .starter_library(None)
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
-    let mut params = json!({"path": work, "name": "Jobs"});
+    let mut params = json!({"path": work, "name": "Jobs", "layers": layers});
     if board {
         params["board"] = json!({"width": "30mm", "height": "20mm"});
     }
@@ -325,7 +329,20 @@ fn general_previews_the_paths_and_flags_the_name_template_inline() {
 #[test]
 fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     let (home, work) = (TempDir::new("jd-home"), TempDir::new("jd-work"));
-    let mut h = harness(home.path(), work.path(), true);
+    let mut h = harness_with_layers(home.path(), work.path(), true, 4);
+    let board = h.state().shell().engine().project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.set", json!({"layer":"copper_l2","name":"GND"}))
+        .unwrap();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.via.add",
+            json!({"at":{"x":"4mm","y":"4mm"}, "from":layers[1],"to":layers[2]}),
+        )
+        .unwrap();
     job_menu(&mut h, "Edit…");
     h.run();
     page(&mut h, "Gerber");
@@ -334,6 +351,12 @@ fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
         "File name",
         "Top Copper",
         "Jobs.gtl",
+        "L2 GND",
+        "Jobs.g2l",
+        "L3",
+        "Jobs.g3l",
+        "Bottom Copper",
+        "Jobs.gbl",
         "Board Outline",
         "Jobs.gm1",
     ] {
@@ -343,8 +366,12 @@ fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     h.get_by_label("Edit preset copy…");
     page(&mut h, "Drill");
     h.get_by_label("Routed (G00, M15, G01, M16, G05)");
-    h.get_by_label("Split: plated and non-plated files");
+    h.get_by_label("Plated and non-plated through holes use separate files");
+    h.get_by_label("Span");
     h.get_by_label("Jobs-PTH.drl");
+    h.get_by_label("Jobs-NPTH.drl");
+    h.get_by_label("Jobs-L2-L3.drl");
+    h.get_by_label("L2-L3, buried");
 }
 
 #[test]
@@ -494,4 +521,58 @@ fn show_in_folder_on_last_run_asks_for_the_destination() {
         h.state().outcome,
         reda_ui::settings::Outcome::ShowFolder(folder)
     );
+}
+
+#[test]
+fn add_correction_on_a_preview_row_edits_the_project_copy_and_refreshes_the_preview() {
+    let (home, work) = (TempDir::new("cpl-form-home"), TempDir::new("cpl-form"));
+    let mut h = harness_with_parts(home.path(), work.path());
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    let wildcard = json!({"footprint":"RES*","rotation":45000});
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "fab_preset.set",
+            json!({"preset":preset,
+        "values":{"placement_corrections":[wildcard]}}),
+        )
+        .unwrap();
+    job_menu(&mut h, "Edit…");
+    h.run();
+    page(&mut h, "CPL");
+    for angle in ["90", "-15"] {
+        h.get_all_by_role_and_label(Role::Button, "Add correction…")
+            .next()
+            .unwrap()
+            .click();
+        h.run();
+        retype(&mut h, "Rotation (°)", angle);
+        h.get_by_role_and_label(Role::Button, "Save correction")
+            .click();
+        h.run();
+        assert_eq!(last_journal_id(&h), "fab_preset.set");
+        let copy = h
+            .state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .fab_presets()
+            .next()
+            .unwrap();
+        assert_eq!(
+            json!(copy.placement_corrections),
+            json!([{"footprint":"RESC1608X55N","rotation":angle.parse::<i64>().unwrap()*1000},wildcard])
+        );
+    }
+    assert_eq!(h.get_all_by_label("345.000").count(), 2);
 }

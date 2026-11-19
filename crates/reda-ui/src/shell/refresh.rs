@@ -27,10 +27,12 @@ impl Shell {
             .flat_map(|p| p.documents())
             .map(|d| (d.uuid, d.title.clone()))
             .collect();
+        let pcb = project.and_then(|p| p.pcb()).map(|p| p.uuid);
         open.extend(elements);
         self.layout_mut().retain_tabs(|t| match t {
             // The Start page stays beside Library element tabs while no Project is open.
             TabKey::Start => no_project,
+            TabKey::Stackup(uuid) => Some(*uuid) == pcb,
             TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
             TabKey::Panel(_) => true,
             // The Project's settings windows close with it.
@@ -52,7 +54,8 @@ impl Shell {
             .and_then(|p| p.pcb())
             .is_some_and(|pcb| {
                 let fills = self.engine.project().and_then(|p| p.zone_fills(pcb.uuid));
-                reda_engine::pcb::zone::status(pcb, fills).needs_refill
+                reda_engine::pcb::zone::status_with_fonts(pcb, fills, self.engine.fonts())
+                    .needs_refill
             });
         self.change_list = self.engine.project().and_then(reda_engine::sync::plan);
         self.edits += 1;
@@ -60,114 +63,11 @@ impl Shell {
         self.update_markers();
     }
 
-    /// Keeps the clipboard from a copy or cut, cancels what is in flight when the Tool
-    /// changes, selects what a paste or duplicate made and drops what a delete or cut
-    /// removed from the selection.
+    /// Applies canvas edits and view changes to the window after the Command runs.
     pub(super) fn after_edit(&mut self, id: &str, out: &Value) {
         match id {
             "schematic.copy" | "pcb.copy" => self.clipboard = Some(out.clone()),
             "schematic.cut" => self.clipboard = Some(out["result"].clone()),
-            // Escape (and any Tool change) puts back what the canvases have in flight.
-            "tool.activate" if out["run"] == "ended" => {
-                if let Some(sheet) = self.active_sheet() {
-                    for (id, params) in crate::schematic_editor::end_run(self, sheet) {
-                        let _ = self.run_reporting(&id, params);
-                    }
-                }
-            }
-            "tool.activate" | "tool.rotate_about" => {
-                if out["run"] == "suspended"
-                    && let Some(sheet) = self.active_sheet()
-                {
-                    crate::schematic_editor::suspend(self, sheet);
-                }
-                selection::picking::cancel(self);
-                let documents: Vec<Uuid> = self.documents.iter().map(|t| t.document).collect();
-                for document in documents {
-                    crate::schematic_editor::cancel(self, document);
-                    crate::element_editor::cancel(self, document);
-                }
-                self.pcb_cancel();
-                self.with_router(|r, shell| r.cancel(shell));
-                crate::placement::refresh(self);
-                let tool = self.tool();
-                self.pcb_draw.start(tool);
-                if tool == Tool::Swap {
-                    self.swap_selected_pair();
-                }
-                if out["run"] == "resumed"
-                    && let Some(sheet) = self.active_sheet()
-                {
-                    crate::schematic_editor::resume(self, sheet);
-                }
-            }
-            // The Symbol editor's Pin Tool turns the next Pin, and its polygon takes back
-            // a corner or closes.
-            "tool.rotate" | "tool.undo_segment" | "tool.finish"
-                if crate::element_editor::active_symbol(self).is_some() =>
-            {
-                let symbol = crate::element_editor::active_symbol(self).expect("checked");
-                match id {
-                    "tool.rotate" => crate::symbol_editor::rotate(self, symbol),
-                    "tool.undo_segment" => crate::symbol_editor::undo_segment(self, symbol),
-                    _ => {
-                        if let Some((id, params)) = crate::symbol_editor::finish(self, symbol) {
-                            let _ = self.run_reporting(&id, params);
-                        }
-                    }
-                }
-            }
-            // The Footprint editor's polygon closes on Enter.
-            "tool.finish" if crate::element_editor::active_footprint(self).is_some() => {
-                let footprint = crate::element_editor::active_footprint(self).expect("checked");
-                if let Some((id, params)) = crate::footprint_editor::finish(self, footprint) {
-                    let _ = self.run_reporting(&id, params);
-                }
-            }
-            "tool.cycle_corner" if self.tool() == Tool::Route => {
-                self.with_router(|r, shell| r.cycle_corner(shell))
-            }
-            "tool.cycle_corner"
-            | "tool.undo_segment"
-            | "tool.cycle_wire_mode"
-            | "tool.insert_vertex"
-            | "tool.finish"
-                if self.tool() == Tool::Wire && self.active_sheet().is_some() =>
-            {
-                let sheet = self.active_sheet().expect("checked above");
-                let commands = match id {
-                    "tool.cycle_corner" => {
-                        crate::schematic_editor::corner(self, sheet);
-                        Vec::new()
-                    }
-                    "tool.undo_segment" => {
-                        crate::schematic_editor::remove_last(self, sheet);
-                        Vec::new()
-                    }
-                    "tool.cycle_wire_mode" => {
-                        crate::schematic_editor::restate_wiring(self, sheet);
-                        Vec::new()
-                    }
-                    "tool.insert_vertex" => crate::schematic_editor::insert_vertex(self, sheet),
-                    _ => crate::schematic_editor::fix_corner(self, sheet),
-                };
-                for (id, params) in commands {
-                    let _ = self.run_reporting(&id, params);
-                }
-            }
-            "tool.cycle_cutting_length" => {
-                let (id, params) = crate::schematic_editor::cycle_cutting_length(self);
-                let _ = self.run_reporting(&id, params);
-            }
-            // With no segment held, Insert resets the delta, as it does off a sheet.
-            "tool.insert_vertex" if self.tool() == Tool::Select => {
-                let held = self
-                    .active_sheet()
-                    .is_some_and(|sheet| crate::schematic_editor::insert_held_vertex(self, sheet));
-                if !held && let Some(sheet) = self.active_sheet() {
-                    crate::delta::reset(self, sheet);
-                }
-            }
             "view.delta.reset" => crate::delta::apply_resets(self),
             // A custom grid's range at or above its step is kept, with this advice.
             "view.grid.custom" => {
@@ -175,53 +75,11 @@ impl Shell {
                     self.set_note(warning.to_owned());
                 }
             }
-            "tool.edit_properties"
-                if matches!(self.tool(), Tool::NetLabel | Tool::Port | Tool::PowerPort) =>
-            {
-                if let Some(sheet) = self.active_sheet() {
-                    crate::schematic_editor::pause_placing(self, sheet);
-                }
-            }
             "schematic.edit_in_place" => {
                 if let Some(sheet) = self.active_sheet() {
                     crate::schematic_editor::edit_selected(self, sheet);
                 }
             }
-            "tool.edit_properties" if self.tool() == Tool::Place => {
-                let _ = self.run_reporting("panel.show:properties", json!({}));
-            }
-            "tool.undo_segment" | "tool.finish" if self.sheet_drawing().is_some() => {
-                let sheet = self.sheet_drawing().expect("checked above");
-                if id == "tool.finish" {
-                    for (id, params) in crate::schematic_editor::finish(self, sheet) {
-                        let _ = self.run_reporting(&id, params);
-                    }
-                } else {
-                    crate::schematic_editor::undo_point(self, sheet);
-                }
-            }
-            "tool.undo_segment" if self.tool() == Tool::Route => {
-                self.with_router(|r, shell| r.undo_segment(shell))
-            }
-            "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
-            "pcb.route.via_end" => self.with_router(|r, shell| r.via_end(shell)),
-            "pcb.route.end" => self.with_router(|r, shell| r.end(shell)),
-            "pcb.route.mode" => {
-                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
-                    self.with_router(|r, shell| r.change_mode(shell, mode));
-                }
-            }
-            "pcb.route.chooser" => {
-                if let Ok(kind) = serde_json::from_value(out["kind"].clone()) {
-                    self.with_router(|r, shell| r.open_chooser(shell, kind));
-                }
-            }
-            "pcb.route.via_size" => {
-                if let (Some(d), Some(h)) = (out["diameter"].as_i64(), out["hole"].as_i64()) {
-                    self.with_router(|r, shell| r.set_via_size(shell, Nm(d), Nm(h)));
-                }
-            }
-            "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
             "pcb.drag.mode" => {
                 if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
                     self.with_pcb_tool(|t, shell| t.drag_mode(shell, mode));
@@ -237,46 +95,9 @@ impl Shell {
                     .engine
                     .run("selection.set", json!({ "objects": objects }));
             }
-            "pcb.route.width" => {
-                let width = out["width"].as_i64().map(Nm);
-                let step = match out["step"].as_str() {
-                    Some("next") => Some(1),
-                    Some("previous") => Some(-1),
-                    _ => None,
-                };
-                self.with_router(|r, shell| r.set_width(shell, width, step));
-            }
-            "tool.undo_segment" if self.drawing() => self.pcb_draw.undo_segment(),
-            "tool.finish" if self.drawing() => self.with_draw(|draw, shell| draw.finish(shell)),
-            // What the placement Tool carries turned in the Command; draw it anew.
-            "tool.place" | "tool.place.set" => crate::placement::refresh(self),
-            // A Part being placed takes Space, X, Y and L; the selection stays as it is.
-            "tool.rotate" | "tool.mirror_x" | "tool.mirror_y" | "tool.flip_side"
-                if crate::placement::placing(self).is_some() =>
-            {
-                crate::placement::refresh(self);
-            }
-            "tool.rotate" if self.board_is_active() => self.pcb_rotate(),
-            "tool.rotate" | "tool.mirror_x" | "tool.mirror_y" => {
-                if let Some(sheet) = self.active_sheet() {
-                    match id {
-                        "tool.mirror_x" => self.sheet_turn(sheet, Turn::MirrorX),
-                        "tool.mirror_y" => self.sheet_turn(sheet, Turn::MirrorY),
-                        _ => self.sheet_turn(sheet, Turn::Rotate),
-                    }
-                }
-            }
-            "tool.flip_side" if self.board_is_active() => self.pcb_flip(),
-            "tool.move_board_shape" => self.pcb_move_board_shape(false),
-            "tool.move_board" => self.pcb_move_board_shape(true),
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "pcb.delete.confirm" => pcb::delete::after_confirm(self, out),
             "schematic.port.go_to_partner" => crate::port_partner::after_go(self, out),
-            "tool.cycle_corner" => {
-                if let Some(sheet) = self.active_sheet() {
-                    crate::schematic_editor::flip_corners(self, sheet);
-                }
-            }
             "schematic.nudge" => {
                 let objects: Vec<Uuid> =
                     serde_json::from_value(out["objects"].clone()).unwrap_or_default();
@@ -284,21 +105,6 @@ impl Shell {
                 if let (Some(sheet), Ok(direction)) = (self.active_sheet(), direction) {
                     let steps = out["steps"].as_i64().unwrap_or(1);
                     crate::schematic_editor::nudge(self, sheet, objects, direction, steps);
-                }
-            }
-            "tool.copy" | "tool.duplicate" => {
-                let objects: Vec<Uuid> =
-                    serde_json::from_value(out["objects"].clone()).unwrap_or_default();
-                if id == "tool.copy" {
-                    crate::schematic_editor::copy(self, objects, out["cut"] == true);
-                } else {
-                    crate::schematic_editor::duplicate(self, objects);
-                }
-            }
-            "tool.paste" => {
-                if let Some(document) = out["document"].as_str().and_then(|s| s.parse().ok()) {
-                    let clipboard = out["clipboard"].clone();
-                    crate::schematic_editor::paste(self, document, clipboard);
                 }
             }
             "schematic.copy_as_text" => {
@@ -315,6 +121,10 @@ impl Shell {
             }
             _ => {}
         }
+    }
+
+    /// Drops deleted objects and Wire segments from the selection and highlight.
+    pub(super) fn prune_selection_and_highlight(&mut self, clear_segments: bool) {
         let Some(project) = self.engine.elements() else {
             return;
         };
@@ -330,7 +140,7 @@ impl Shell {
         // A deleted segment, or one its Wire no longer has, is no longer selected.
         let segments: Vec<_> = (self.selection().segments.iter().copied())
             .filter(|s| {
-                id != "schematic.delete"
+                !clear_segments
                     && project.object(s.wire).is_some_and(|o| match o {
                         reda_engine::model::Object::Wire(w) => {
                             s.index + 1 < w.object.vertices.len()
@@ -477,9 +287,42 @@ impl Shell {
     /// Hands the PCB tab the board's Layer state after a Command changed it, and redraws
     /// the board with it.
     pub(super) fn sync_board_view(&mut self) {
-        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid) else {
-            return;
-        };
+        let pcb = self.engine.project().and_then(|p| p.pcb());
+        let document = pcb.map(|p| p.uuid);
+        if self.board_view().document != document {
+            let units = self.preferences().pcb.default_units;
+            let next = pcb.map_or_else(
+                || BoardView::new(units),
+                |pcb| BoardView::for_document(pcb, self.closed_views.get(&pcb.uuid), units),
+            );
+            let old = std::mem::replace(self.board_view_mut(), next);
+            if let Some(id) = old.document
+                && self.engine.project().is_some()
+            {
+                // Undoing a PCB deletion brings back its last view, even if
+                // another PCB was created in this Project in the meantime.
+                let saved = self.closed_views.entry(id).or_default();
+                saved.layers = old.layers;
+                saved.units = Some(old.units);
+            }
+        }
+        if let Some(pcb) = self.engine.project().and_then(|p| p.pcb())
+            && !self
+                .board_view()
+                .layers
+                .copper_order
+                .iter()
+                .copied()
+                .eq(pcb.copper_layers().map(|l| l.uuid))
+        {
+            let current = pcb.copper_layers().map(|l| l.uuid).collect();
+            let opposite_outer = self.board_view().opposite_outer(pcb.layers());
+            // Saved Layer Sets record inner Layers by position and are never
+            // rewritten here: they apply to the positions this board has.
+            self.board_view_mut()
+                .update_copper_order(current, opposite_outer);
+        }
+        let Some(pcb) = document else { return };
         let layers = self.board_view().layers.clone();
         if self.document_tab(pcb).is_some_and(|t| t.layers != layers) {
             let scene = self.scene_of(pcb);
@@ -539,9 +382,10 @@ impl Shell {
         .unwrap_or_default();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
-            board
-                .composites(pcb, self.preferences.values().display.inactive_layer_mode)
-                .into()
+            let layers =
+                board.composites(pcb, self.preferences.values().display.inactive_layer_mode);
+            crate::pcb::view::filter_drills(pcb, &mut scene, &layers);
+            layers.into()
         });
         SceneHandle {
             generation: 0,

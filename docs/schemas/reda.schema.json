@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "AspectRatioLimit": {
+      "additionalProperties": false,
+      "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+      "properties": {
+        "max": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "BomGroup": {
       "description": "Sources shared by Components on a grouped BOM row.",
       "oneOf": [
@@ -291,6 +306,166 @@
         }
       ]
     },
+    "Construction": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "boolean"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/ConstructionEntry"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thickness": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via_types": {
+          "items": {
+            "$ref": "#/$defs/ConstructionViaType"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "default",
+        "thickness",
+        "entries"
+      ],
+      "type": "object"
+    },
+    "ConstructionEntry": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "copper": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "copper"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "df": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "dk": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "kind": {
+              "$ref": "#/$defs/DielectricKind"
+            },
+            "material": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "test_frequency": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "thickness": {
+              "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ConstructionViaType": {
+      "additionalProperties": false,
+      "description": "Portable Via type, with drilling direction expressed as one-based copper positions.",
+      "properties": {
+        "diameter": {
+          "$ref": "#/$defs/ViaDiameter"
+        },
+        "from": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hole": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "micro": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "hole",
+        "diameter"
+      ],
+      "type": "object"
+    },
     "CplSettings": {
       "additionalProperties": false,
       "description": "A Fab Preset's CPL: its columns and position conventions.",
@@ -374,6 +549,13 @@
         }
       },
       "type": "object"
+    },
+    "DielectricKind": {
+      "enum": [
+        "core",
+        "prepreg"
+      ],
+      "type": "string"
     },
     "DocumentRow": {
       "additionalProperties": false,
@@ -524,6 +706,9 @@
           "format": "int64",
           "type": "integer"
         },
+        "clearance_hole": {
+          "$ref": "#/$defs/HoleClearance"
+        },
         "edge_clearance": {
           "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
           "format": "int64",
@@ -544,9 +729,29 @@
           "format": "int64",
           "type": "integer"
         },
+        "inner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InnerFabRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "mask_expansion": {
           "$ref": "#/$defs/MaskExpansion",
           "description": "The Solder Mask expansion and Via tenting a new board starts with."
+        },
+        "microvia_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MicroviaLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "paste_expansion": {
           "$ref": "#/$defs/PasteExpansion",
@@ -556,10 +761,36 @@
           "$ref": "#/$defs/PreferredSeeds",
           "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
         },
+        "silk_text_height": {
+          "description": "Minimum silk capital height across both sides, when specified by the preset.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "silk_width": {
+          "description": "Minimum silk stroke width across both sides, when specified by the preset.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "track_width": {
           "description": "Minimum Track width.",
           "format": "int64",
           "type": "integer"
+        },
+        "via_aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "via_diameter": {
           "description": "Minimum Via diameter.",
@@ -573,6 +804,7 @@
         }
       },
       "required": [
+        "clearance_hole",
         "clearance",
         "track_width",
         "via_diameter",
@@ -587,6 +819,42 @@
         "paste_expansion"
       ],
       "type": "object"
+    },
+    "FabSizeLimits": {
+      "additionalProperties": false,
+      "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FileNameOverrides": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/InnerFileNames"
+        }
+      ]
     },
     "FileNaming": {
       "description": "How the Gerber and drill files of a job are named.",
@@ -638,18 +906,15 @@
       "description": "The Gerber and drill switches of a Fab Preset.",
       "properties": {
         "file_names": {
-          "description": "Layer name to output file name; portable between boards and Projects.",
-          "items": {
-            "$ref": "#/$defs/LayerFileName"
-          },
-          "type": "array"
+          "$ref": "#/$defs/FileNameOverrides",
+          "description": "Layer name to output file name; portable between boards and Projects."
         },
         "file_origin": {
           "$ref": "#/$defs/FileOrigin",
           "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
         },
         "merge_drill": {
-          "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
+          "description": "Merge the plated and non-plated through holes into one drill file.\nBlind and buried spans keep separate files.",
           "type": "boolean"
         },
         "naming": {
@@ -677,6 +942,77 @@
         "merge_drill",
         "outline_on_every_plot",
         "file_names"
+      ],
+      "type": "object"
+    },
+    "HoleClearance": {
+      "additionalProperties": false,
+      "description": "Clearance to the plated holes of another Net.",
+      "properties": {
+        "pad": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "via": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "via",
+        "pad"
+      ],
+      "type": "object"
+    },
+    "InnerFabRules": {
+      "additionalProperties": false,
+      "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+      "properties": {
+        "annular_ring_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "clearance": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "track_width_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "InnerFileNames": {
+      "additionalProperties": false,
+      "description": "A preset with an inner copper pattern can also keep its per-Layer overrides.",
+      "properties": {
+        "inner_copper": {
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "inner_copper"
       ],
       "type": "object"
     },
@@ -885,6 +1221,53 @@
         "tent_vias_top",
         "tent_vias_bottom"
       ],
+      "type": "object"
+    },
+    "MicroviaLimits": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+      "properties": {
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FabSizeLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FabSizeLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_stack": {
+          "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "Mode": {
@@ -1484,6 +1867,91 @@
       },
       "type": "object"
     },
+    "PlacementCorrection": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "footprint": {
+              "type": "string"
+            },
+            "offset": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "footprint",
+            "rotation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "offset": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "value",
+            "rotation"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
     "PreferredSeeds": {
       "additionalProperties": false,
       "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
@@ -1518,6 +1986,12 @@
         "bom": {
           "$ref": "#/$defs/BomSettings"
         },
+        "constructions": {
+          "items": {
+            "$ref": "#/$defs/Construction"
+          },
+          "type": "array"
+        },
         "cpl": {
           "$ref": "#/$defs/CplSettings"
         },
@@ -1528,11 +2002,16 @@
           "description": "The name of the preset it was copied from.",
           "type": "string"
         },
+        "placement_corrections": {
+          "default": [],
+          "description": "Ordered, fab-specific adjustments to CPL rotation and centre.",
+          "items": {
+            "$ref": "#/$defs/PlacementCorrection"
+          },
+          "type": "array"
+        },
         "rules": {
           "$ref": "#/$defs/FabRules"
-        },
-        "stackup": {
-          "$ref": "#/$defs/StackupSeeds"
         },
         "stackup_suggestions": {
           "$ref": "#/$defs/StackupSuggestions"
@@ -1549,6 +2028,7 @@
         "uuid",
         "name",
         "rules",
+        "constructions",
         "gerber",
         "stackup_suggestions",
         "zip_assembly",
@@ -1845,29 +2325,6 @@
         }
       ]
     },
-    "StackupSeeds": {
-      "additionalProperties": false,
-      "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
-      "properties": {
-        "copper": {
-          "description": "The copper thickness of every copper Layer.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "thickness": {
-          "description": "The finished board thickness.",
-          "format": "int64",
-          "type": [
-            "integer",
-            "null"
-          ]
-        }
-      },
-      "type": "object"
-    },
     "StackupSuggestions": {
       "additionalProperties": false,
       "description": "Suggestions never validate the board or seed its finish or colours.",
@@ -1920,6 +2377,45 @@
         "silk_color"
       ],
       "type": "object"
+    },
+    "UnusedLayers": {
+      "enum": [
+        "keep",
+        "remove",
+        "remove_keep_ends"
+      ],
+      "type": "string"
+    },
+    "ViaDiameter": {
+      "additionalProperties": false,
+      "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+      "properties": {
+        "end": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "middle": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "start": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1968,7 +2464,7 @@
       "type": "array"
     },
     "format": {
-      "const": 1,
+      "const": 2,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

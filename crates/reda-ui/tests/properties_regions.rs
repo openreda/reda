@@ -102,7 +102,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
     run(
         &mut shell,
         "pcb.via.set",
-        json!({"vias": [b], "diameter": "0.8mm"}),
+        json!({"vias": [b], "diameter": {"start":"0.8mm","end":"1mm"}}),
     );
     run(&mut shell, "selection.set", json!({"objects": [a, b]}));
     let p = properties(&shell);
@@ -112,7 +112,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
 
     let diameter_a = {
         let project = shell.engine().project().unwrap();
-        project.pcb().unwrap().via(a).unwrap().diameter.0
+        project.pcb().unwrap().via(a).unwrap().diameter.start.0
     };
     let command = p
         .numbers
@@ -125,13 +125,13 @@ fn via_and_track_sizes_take_numeric_expressions() {
             "batch",
             json!({"commands": [
                 {"id": "pcb.via.set", "params": {"vias": [a], "diameter": diameter_a + 100_000}},
-                {"id": "pcb.via.set", "params": {"vias": [b], "diameter": 900_000}},
+                {"id": "pcb.via.set", "params": {"vias": [b], "diameter": {"start":900_000,"end":1_000_000}}},
             ]})
         )
     );
     commit(&mut shell, command);
     let pcb = shell.engine().project().unwrap().pcb().unwrap();
-    assert_eq!(pcb.via(b).unwrap().diameter.0, 900_000);
+    assert_eq!(pcb.via(b).unwrap().diameter.start.0, 900_000);
 
     let t = track(&mut shell, None);
     run(&mut shell, "selection.set", json!({"objects": [t]}));
@@ -457,4 +457,49 @@ fn ready_for_fab_lists_what_stands_between_the_board_and_fab() {
     );
     let figures = BoardFigures::of(shell.engine().project().unwrap()).unwrap();
     assert!(!ready_for_fab(&shell, &figures)[3].ok);
+}
+
+#[test]
+fn the_rules_region_shows_a_vias_allowed_types() {
+    let dir = TempDir::new("properties-regions-allowed");
+    let mut shell = shell(&dir);
+    let sig = uuid(&run(&mut shell, "test.net.add", json!({"name": "SIG"}))["uuid"]);
+    let fast = uuid(
+        &run(
+            &mut shell,
+            "pcb.net_class.add",
+            json!({"name": "Fast", "nets": [sig]}),
+        )["uuid"],
+    );
+    let through = {
+        let pcb = shell.engine().project().unwrap().pcb().unwrap();
+        pcb.stackup().via_types[0].uuid
+    };
+    let rule = uuid(
+        &run(
+            &mut shell,
+            "pcb.rules.set",
+            json!({"kind": "via_span", "scope": {"net_class": fast},
+               "values": {"allowed": [through]}}),
+        )["rule"]["uuid"],
+    );
+    let v = via(&mut shell, "3mm", Some(sig));
+    run(&mut shell, "selection.set", json!({"objects": [v]}));
+
+    let rules = properties(&shell)
+        .rules
+        .expect("a Rules region for one Via");
+    let span = rules
+        .kinds
+        .iter()
+        .find(|k| k.kind == RuleKind::ViaSpan)
+        .expect("via_span is shown");
+    let row = span
+        .rows
+        .iter()
+        .find(|r| r.fields == ["allowed"])
+        .expect("an allowed row");
+    assert_eq!(row.standing, Standing::Won);
+    assert_eq!((row.rule, row.class.as_deref()), (rule, Some("Fast")));
+    assert_eq!(row.text.as_deref(), Some("Through"));
 }

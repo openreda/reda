@@ -9,6 +9,9 @@ use reda_geom::{Millideg, Nm};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+mod teardrop;
+pub use teardrop::{TeardropField, TeardropKind, TeardropValues};
+
 use crate::Uuid;
 use crate::pad::{ConnectionStyle, ZoneConnection};
 
@@ -52,11 +55,32 @@ pub enum RuleKind {
     MaskExpansion,
     /// Solder-paste expansion per edge or signed percent change in area; no DRC severity.
     PasteExpansion,
+    ViaSpan,
+    MicroviaSize,
+    Teardrop,
+    SilkWidth,
+    SilkTextHeight,
 }
 
 impl RuleKind {
+    /// Silkscreen artwork has no Net, so its fabrication minimums are board-wide.
+    pub fn accepts_net_class(self) -> bool {
+        !matches!(self, Self::SilkWidth | Self::SilkTextHeight)
+    }
+
+    pub fn accepts_layers(self) -> bool {
+        matches!(
+            self,
+            Self::Clearance
+                | Self::TrackWidth
+                | Self::AnnularRing
+                | Self::ZoneConnection
+                | Self::Teardrop
+        )
+    }
+
     /// Every kind, in file order.
-    pub const ALL: [RuleKind; 16] = [
+    pub const ALL: [RuleKind; 21] = [
         RuleKind::Clearance,
         RuleKind::TrackWidth,
         RuleKind::ViaSize,
@@ -73,6 +97,11 @@ impl RuleKind {
         RuleKind::ZoneConnection,
         RuleKind::MaskExpansion,
         RuleKind::PasteExpansion,
+        RuleKind::ViaSpan,
+        RuleKind::MicroviaSize,
+        RuleKind::Teardrop,
+        RuleKind::SilkWidth,
+        RuleKind::SilkTextHeight,
     ];
 
     /// Its name, as the file and Commands spell it.
@@ -94,6 +123,11 @@ impl RuleKind {
             RuleKind::ZoneConnection => "zone_connection",
             RuleKind::MaskExpansion => "mask_expansion",
             RuleKind::PasteExpansion => "paste_expansion",
+            RuleKind::ViaSpan => "via_span",
+            RuleKind::MicroviaSize => "microvia_size",
+            RuleKind::Teardrop => "teardrop",
+            RuleKind::SilkWidth => "silk_width",
+            RuleKind::SilkTextHeight => "silk_text_height",
         }
     }
 
@@ -101,7 +135,13 @@ impl RuleKind {
     pub fn fields(self) -> &'static [RuleField] {
         use RuleField::*;
         match self {
-            RuleKind::Clearance => &[Value, IgnorePadToPad, ZeroKeepoutClearance],
+            RuleKind::Clearance => &[
+                Value,
+                HoleVia,
+                HolePad,
+                IgnorePadToPad,
+                ZeroKeepoutClearance,
+            ],
             RuleKind::TrackWidth => &[Min, Preferred, Max],
             RuleKind::ViaSize => &[
                 DiameterMin,
@@ -110,6 +150,17 @@ impl RuleKind {
                 HoleMin,
                 HolePreferred,
                 HoleMax,
+                AspectRatioMax,
+            ],
+            RuleKind::MicroviaSize => &[
+                DiameterMin,
+                DiameterPreferred,
+                DiameterMax,
+                HoleMin,
+                HolePreferred,
+                HoleMax,
+                AspectRatioMax,
+                MaxStack,
             ],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
@@ -123,6 +174,9 @@ impl RuleKind {
             RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
             RuleKind::PasteExpansion => &[Expansion, Percent],
+            RuleKind::ViaSpan => &[],
+            RuleKind::Teardrop => &teardrop::FIELDS,
+            RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
 
@@ -141,11 +195,13 @@ impl RuleKind {
             RuleKind::DeadCopper => &[MinArea],
             RuleKind::ZoneConnection => &RuleField::CONNECTION,
             RuleKind::TrackWidth => &[Min, Preferred],
-            RuleKind::ViaSize => &[DiameterMin, DiameterPreferred, HoleMin, HolePreferred],
+            RuleKind::ViaSize => &[DiameterMin, HoleMin],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
             RuleKind::MaskExpansion => &[Top, Bottom, FromHoleEdge, TentViasTop, TentViasBottom],
-            RuleKind::PasteExpansion => &[],
+            RuleKind::PasteExpansion | RuleKind::ViaSpan | RuleKind::MicroviaSize => &[],
+            RuleKind::Teardrop => &teardrop::FIELDS,
+            RuleKind::SilkWidth | RuleKind::SilkTextHeight => &[Min],
         }
     }
 }
@@ -156,7 +212,10 @@ impl RuleKind {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum RuleField {
+    Teardrop(TeardropKind, TeardropField),
     Value,
+    HoleVia,
+    HolePad,
     IgnorePadToPad,
     ZeroKeepoutClearance,
     Min,
@@ -168,6 +227,8 @@ pub enum RuleField {
     HoleMin,
     HolePreferred,
     HoleMax,
+    AspectRatioMax,
+    MaxStack,
     Top,
     Bottom,
     FromHoleEdge,
@@ -237,6 +298,8 @@ impl RuleField {
     pub fn path(self) -> &'static str {
         match self {
             RuleField::Value => "value",
+            RuleField::HoleVia => "hole.via",
+            RuleField::HolePad => "hole.pad",
             RuleField::IgnorePadToPad => "ignore_pad_to_pad",
             RuleField::ZeroKeepoutClearance => "zero_keepout_clearance",
             RuleField::Min => "min",
@@ -248,6 +311,8 @@ impl RuleField {
             RuleField::HoleMin => "hole.min",
             RuleField::HolePreferred => "hole.preferred",
             RuleField::HoleMax => "hole.max",
+            RuleField::AspectRatioMax => "aspect_ratio.max",
+            RuleField::MaxStack => "max_stack",
             RuleField::Top => "top",
             RuleField::Bottom => "bottom",
             RuleField::FromHoleEdge => "from_hole_edge",
@@ -274,6 +339,7 @@ impl RuleField {
             RuleField::ViaSpokeWidth => "via.spoke_width",
             RuleField::ViaGap => "via.gap",
             RuleField::ViaAngle => "via.angle",
+            RuleField::Teardrop(kind, field) => field.path(kind),
         }
     }
 
@@ -333,12 +399,16 @@ pub enum RuleValue {
     Length(Nm),
     Flag(bool),
     Percent(i32),
+    /// A nonnegative percentage of a Teardrop target size.
+    UnsignedPercent(u32),
     Mode(SilkMaskMode),
     /// An area in square nanometres.
     Area(i64),
     Style(ConnectionStyle),
     /// A spoke count.
     Count(u8),
+    /// Depth-to-diameter ratio in thousandths (8000 is 8:1).
+    MilliRatio(u32),
     Angle(Millideg),
 }
 
@@ -414,11 +484,73 @@ impl Bounds {
     }
 }
 
-/// The values a rule record sets. Which ones a record may hold depends on its kind
-/// ([`RuleKind::fields`]); every one left out is inherited.
+/// Optional depth-to-hole ratio, in thousandths, for one drilling method.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct RuleValues {
+pub struct AspectRatioLimit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<u32>,
+}
+
+/// A drilled size range (Via size rules) or per-object edge clearances (clearance rules).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HoleRuleValues {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pad: Option<Nm>,
+}
+
+/// The shape and enable switch for one Teardrop target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropTarget {
+    pub enabled: bool,
+    pub length: u32,
+    pub max_length: Nm,
+    pub width: u32,
+    pub max_width: Nm,
+    pub curved: bool,
+    pub skip_ratio: u32,
+}
+
+impl Default for TeardropTarget {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            length: 50,
+            max_length: Nm(1_000_000),
+            width: 100,
+            max_width: Nm(2_000_000),
+            curved: false,
+            skip_ratio: 90,
+        }
+    }
+}
+
+/// The two rule kinds with a nested `via` value use distinct typed shapes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ViaRuleValues {
+    Connection(ZoneConnection),
+    Teardrop(TeardropValues),
+}
+
+/// The values a rule record sets. Which ones a record may hold depends on its kind
+/// ([`RuleKind::fields`]); every one left out is inherited.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuleValues<T = Uuid> {
+    /// The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed: Option<Vec<T>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Nm>,
     /// Clearance only: Pads within one Footprint need no clearance from each other.
@@ -436,9 +568,14 @@ pub struct RuleValues {
     /// Via size only: the Via's copper diameter.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diameter: Option<Bounds>,
-    /// Via size only: the Via's drilled hole.
+    /// Via size limits or clearance to a plated hole.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hole: Option<Bounds>,
+    pub hole: Option<HoleRuleValues>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<AspectRatioLimit>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_stack: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top: Option<Nm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -474,12 +611,58 @@ pub struct RuleValues {
     pub smd: Option<ZoneConnection>,
     /// `zone_connection` only: how fills join Vias.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub via: Option<ZoneConnection>,
+    pub via: Option<ViaRuleValues>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub through_hole_pad: Option<TeardropValues>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub smd_pad: Option<TeardropValues>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width_change: Option<TeardropValues>,
+}
+
+impl<T> RuleValues<T> {
+    /// Retain every scalar setting while translating Via type permissions between
+    /// board-local identities and the physical spans in a Rules File.
+    pub fn with_allowed<U>(self, allowed: Option<Vec<U>>) -> RuleValues<U> {
+        RuleValues {
+            allowed,
+            value: self.value,
+            ignore_pad_to_pad: self.ignore_pad_to_pad,
+            zero_keepout_clearance: self.zero_keepout_clearance,
+            min: self.min,
+            preferred: self.preferred,
+            max: self.max,
+            diameter: self.diameter,
+            hole: self.hole,
+            aspect_ratio: self.aspect_ratio,
+            max_stack: self.max_stack,
+            top: self.top,
+            bottom: self.bottom,
+            from_hole_edge: self.from_hole_edge,
+            tent_vias_top: self.tent_vias_top,
+            tent_vias_bottom: self.tent_vias_bottom,
+            expansion: self.expansion,
+            percent: self.percent,
+            mode: self.mode,
+            tolerance: self.tolerance,
+            max_length: self.max_length,
+            min_area: self.min_area,
+            through_hole: self.through_hole,
+            smd: self.smd,
+            via: self.via,
+            through_hole_pad: self.through_hole_pad,
+            smd_pad: self.smd_pad,
+            width_change: self.width_change,
+        }
+    }
 }
 
 impl RuleValues {
     /// The value at `field`, if this record sets it.
     pub fn get(&self, field: RuleField) -> Option<RuleValue> {
+        if let RuleField::Teardrop(kind, which) = field {
+            return self.teardrop_values(kind)?.get(which);
+        }
         if let Some((target, value)) = field.connection() {
             let c = self.connection(target)?;
             return match value {
@@ -503,9 +686,13 @@ impl RuleValues {
             RuleField::DiameterMin => length(diameter.min),
             RuleField::DiameterPreferred => length(diameter.preferred),
             RuleField::DiameterMax => length(diameter.max),
+            RuleField::HoleVia => length(hole.via),
+            RuleField::HolePad => length(hole.pad),
             RuleField::HoleMin => length(hole.min),
             RuleField::HolePreferred => length(hole.preferred),
             RuleField::HoleMax => length(hole.max),
+            RuleField::AspectRatioMax => self.aspect_ratio?.max.map(RuleValue::MilliRatio),
+            RuleField::MaxStack => self.max_stack.map(RuleValue::Count),
             RuleField::Top => length(self.top),
             RuleField::Bottom => length(self.bottom),
             RuleField::FromHoleEdge => self.from_hole_edge.map(RuleValue::Flag),
@@ -526,16 +713,19 @@ impl RuleValues {
         match target {
             ConnectionTarget::ThroughHole => self.through_hole.as_ref(),
             ConnectionTarget::Smd => self.smd.as_ref(),
-            ConnectionTarget::Via => self.via.as_ref(),
+            ConnectionTarget::Via => match &self.via {
+                Some(ViaRuleValues::Connection(c)) => Some(c),
+                _ => None,
+            },
         }
         .filter(|c| **c != ZoneConnection::default())
     }
 
-    fn connection_mut(&mut self, target: ConnectionTarget) -> &mut Option<ZoneConnection> {
+    fn set_connection(&mut self, target: ConnectionTarget, c: Option<ZoneConnection>) {
         match target {
-            ConnectionTarget::ThroughHole => &mut self.through_hole,
-            ConnectionTarget::Smd => &mut self.smd,
-            ConnectionTarget::Via => &mut self.via,
+            ConnectionTarget::ThroughHole => self.through_hole = c,
+            ConnectionTarget::Smd => self.smd = c,
+            ConnectionTarget::Via => self.via = c.map(ViaRuleValues::Connection),
         }
     }
 
@@ -547,10 +737,12 @@ impl RuleValues {
     /// Sets or (with `None`) clears the value at `field`. A value of the wrong type for
     /// the field is refused.
     pub fn set(&mut self, field: RuleField, value: Option<RuleValue>) -> Result<(), String> {
+        if let RuleField::Teardrop(kind, which) = field {
+            return self.set_teardrop(kind, which, value);
+        }
         let wrong = || format!("`{}` takes a {}", field.path(), type_name(field));
         if let Some((target, which)) = field.connection() {
-            let slot = self.connection_mut(target);
-            let mut c = slot.unwrap_or_default();
+            let mut c = self.connection(target).copied().unwrap_or_default();
             match (which, value) {
                 (ConnectionValue::Style, None) => c.style = None,
                 (ConnectionValue::Style, Some(RuleValue::Style(s))) => c.style = Some(s),
@@ -566,7 +758,7 @@ impl RuleValues {
                 (ConnectionValue::Angle, Some(RuleValue::Angle(a))) => c.angle = Some(a),
                 _ => return Err(wrong()),
             }
-            *slot = (c != ZoneConnection::default()).then_some(c);
+            self.set_connection(target, (c != ZoneConnection::default()).then_some(c));
             return Ok(());
         }
         if field == RuleField::MinArea {
@@ -600,6 +792,22 @@ impl RuleValues {
             }
             return Ok(());
         }
+        if field == RuleField::AspectRatioMax {
+            self.aspect_ratio = match value {
+                Some(RuleValue::MilliRatio(max)) => Some(AspectRatioLimit { max: Some(max) }),
+                None => None,
+                _ => return Err(wrong()),
+            };
+            return Ok(());
+        }
+        if field == RuleField::MaxStack {
+            self.max_stack = match value {
+                Some(RuleValue::Count(count)) => Some(count),
+                None => None,
+                _ => return Err(wrong()),
+            };
+            return Ok(());
+        }
         if field == RuleField::Mode {
             self.mode = match value {
                 None => None,
@@ -626,7 +834,14 @@ impl RuleValues {
             *pick(&mut b) = n;
             *bounds = (!b.is_empty()).then_some(b);
         };
+        let mut in_hole = |pick: fn(&mut HoleRuleValues) -> &mut Option<Nm>| {
+            let mut h = self.hole.unwrap_or_default();
+            *pick(&mut h) = n;
+            self.hole = (h != HoleRuleValues::default()).then_some(h);
+        };
         match field {
+            RuleField::HoleVia => in_hole(|h| &mut h.via),
+            RuleField::HolePad => in_hole(|h| &mut h.pad),
             RuleField::Value => self.value = n,
             RuleField::Min => self.min = n,
             RuleField::Preferred => self.preferred = n,
@@ -634,9 +849,9 @@ impl RuleValues {
             RuleField::DiameterMin => in_bounds(&mut self.diameter, |b| &mut b.min),
             RuleField::DiameterPreferred => in_bounds(&mut self.diameter, |b| &mut b.preferred),
             RuleField::DiameterMax => in_bounds(&mut self.diameter, |b| &mut b.max),
-            RuleField::HoleMin => in_bounds(&mut self.hole, |b| &mut b.min),
-            RuleField::HolePreferred => in_bounds(&mut self.hole, |b| &mut b.preferred),
-            RuleField::HoleMax => in_bounds(&mut self.hole, |b| &mut b.max),
+            RuleField::HoleMin => in_hole(|b| &mut b.min),
+            RuleField::HolePreferred => in_hole(|b| &mut b.preferred),
+            RuleField::HoleMax => in_hole(|b| &mut b.max),
             RuleField::Top => self.top = n,
             RuleField::Bottom => self.bottom = n,
             RuleField::Expansion => self.expansion = n,
@@ -651,6 +866,7 @@ impl RuleValues {
     pub fn set_fields(&self) -> Vec<RuleField> {
         ALL_FIELDS
             .iter()
+            .chain(teardrop::FIELDS.iter())
             .copied()
             .filter(|f| self.get(*f).is_some())
             .collect()
@@ -671,6 +887,8 @@ fn type_name(field: RuleField) -> &'static str {
         RuleField::Percent => "percentage",
         RuleField::Mode => "mode (`exposed_copper` or `mask_opening`)",
         RuleField::MinArea => "area",
+        RuleField::AspectRatioMax => "ratio in thousandths",
+        RuleField::MaxStack => "count",
         f => match f.connection() {
             Some((_, ConnectionValue::Style)) => "style (`relief`, `solid` or `none`)",
             Some((_, ConnectionValue::Spokes)) => "spoke count",
@@ -680,7 +898,9 @@ fn type_name(field: RuleField) -> &'static str {
     }
 }
 
-const ALL_FIELDS: [RuleField; 38] = [
+const ALL_FIELDS: [RuleField; 42] = [
+    RuleField::HoleVia,
+    RuleField::HolePad,
     RuleField::Value,
     RuleField::IgnorePadToPad,
     RuleField::ZeroKeepoutClearance,
@@ -693,6 +913,8 @@ const ALL_FIELDS: [RuleField; 38] = [
     RuleField::HoleMin,
     RuleField::HolePreferred,
     RuleField::HoleMax,
+    RuleField::AspectRatioMax,
+    RuleField::MaxStack,
     RuleField::Top,
     RuleField::Bottom,
     RuleField::FromHoleEdge,
@@ -721,41 +943,88 @@ const ALL_FIELDS: [RuleField; 38] = [
     RuleField::ViaAngle,
 ];
 
-/// Where a rule record applies: filters that must all match. Empty is board-wide; v0.1
-/// accepts only empty or `{net_class}`.
+/// Copper Layers selected by a design rule.
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    JsonSchema,
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(untagged)]
+pub enum RuleLayers {
+    Group(LayerGroup),
+    Named(
+        #[serde(deserialize_with = "named_layers")]
+        #[schemars(with = "Vec<Uuid>")]
+        Vec<Uuid>,
+    ),
+}
+
+fn named_layers<'de, D: serde::Deserializer<'de>>(de: D) -> Result<Vec<Uuid>, D::Error> {
+    let mut ids = Vec::<Uuid>::deserialize(de)?;
+    ids.sort();
+    Ok(ids)
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerGroup {
+    Outer,
+    Inner,
+    Plane,
+}
+
+impl RuleLayers {
+    /// Specificity on the measured Layer, highest for an explicit Layer UUID.
+    pub fn priority(&self, layer: &super::Layer) -> Option<u8> {
+        if layer.kind != super::LayerKind::Copper {
+            return None;
+        }
+        match self {
+            Self::Named(ids) if ids.contains(&layer.uuid) => Some(3),
+            Self::Group(LayerGroup::Plane) if layer.role == super::CopperRole::Plane => Some(2),
+            Self::Group(LayerGroup::Inner) if layer.side.is_none() => Some(1),
+            Self::Group(LayerGroup::Outer) if layer.side.is_some() => Some(1),
+            _ => None,
+        }
+    }
+}
+
+/// All the filters of one design rule. An empty scope is the board-wide fallback.
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct RuleScope {
-    /// The Net Class whose Nets it applies to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layers: Option<RuleLayers>,
+    /// Two sorted class UUIDs. The nil UUID denotes the implicit Default class.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_class_pair: Option<[Uuid; 2]>,
 }
 
 impl RuleScope {
-    /// The board-wide scope.
-    pub const BOARD: RuleScope = RuleScope { net_class: None };
+    pub const INNER: RuleScope = RuleScope {
+        layers: Some(RuleLayers::Group(LayerGroup::Inner)),
+        ..Self::BOARD
+    };
+
+    pub const BOARD: RuleScope = RuleScope {
+        net_class: None,
+        layers: None,
+        net_class_pair: None,
+    };
 
     pub fn class(class: Uuid) -> RuleScope {
         RuleScope {
             net_class: Some(class),
+            ..Self::BOARD
         }
     }
 
     pub fn is_board_wide(&self) -> bool {
-        self.net_class.is_none()
+        *self == Self::BOARD
     }
 }
 
@@ -789,6 +1058,56 @@ impl DesignRule {
     /// hold, or a board-wide record missing a value its kind requires.
     pub fn problem(&self) -> Option<String> {
         let kind = self.kind.id();
+        if !self.kind.accepts_net_class() && !self.scope.is_board_wide() {
+            return Some(format!("a {kind} rule is board-wide"));
+        }
+        if self.scope.layers.is_some() && !self.kind.accepts_layers() {
+            return Some(format!("a {kind} rule has no Layer scope"));
+        }
+        if self.scope.layers.is_some() && self.values.ignore_pad_to_pad.is_some() {
+            return Some("ignore_pad_to_pad does not take a Layer scope".into());
+        }
+        if let Some(pair) = self.scope.net_class_pair {
+            if self.scope.net_class.is_some() || self.kind != RuleKind::Clearance {
+                return Some("a class pair scopes only clearance, without a single class".into());
+            }
+            if pair[0] > pair[1] {
+                return Some("class pair UUIDs must be sorted".into());
+            }
+            if self.values.ignore_pad_to_pad.is_some() {
+                return Some("ignore_pad_to_pad is not a class pair value".into());
+            }
+        }
+        if self.values.allowed.is_some()
+            && (self.kind != RuleKind::ViaSpan || self.scope.net_class.is_none())
+        {
+            return Some("allowed Via types belong only to a Via Span Net Class record".into());
+        }
+        let targets = [
+            self.values.through_hole_pad,
+            self.values.smd_pad,
+            self.values.width_change,
+            match self.values.via {
+                Some(ViaRuleValues::Teardrop(target)) => Some(target),
+                _ => None,
+            },
+        ];
+        if self.kind == RuleKind::Teardrop
+            && self.scope.is_board_wide()
+            && targets.iter().any(Option::is_none)
+        {
+            return Some("a board-wide teardrop rule needs all four targets".into());
+        }
+        if self.kind != RuleKind::Teardrop && targets.iter().any(Option::is_some) {
+            return Some(format!("a {kind} rule has no Teardrop targets"));
+        }
+        if matches!(self.kind, RuleKind::ViaSize | RuleKind::MicroviaSize)
+            && self.scope.is_board_wide()
+            && (self.values.diameter.is_some_and(|b| b.preferred.is_some())
+                || self.values.hole.is_some_and(|b| b.preferred.is_some()))
+        {
+            return Some("a board-wide Via preference belongs to the through Via type".into());
+        }
         if self.kind == RuleKind::PasteExpansion {
             if self.values.percent.is_some_and(|p| p <= -100) {
                 return Some("paste percent must be above -100".into());
@@ -848,6 +1167,25 @@ pub struct PortableClass {
     pub name: String,
 }
 
+/// An explicit Layer filter in a Rules File counts copper positions from the top.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PortableLayers {
+    Group(LayerGroup),
+    Positions(Vec<u8>),
+}
+
+/// A Via permission in a Rules File, identified by physical span and drilling process.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct PortableSpan {
+    pub from: u8,
+    pub to: u8,
+    pub micro: bool,
+}
+
 /// A rule record as a [`RuleSet`] holds it: its Net Class by name, and no UUID.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -856,7 +1194,11 @@ pub struct PortableRule {
     /// The Net Class it applies to, by name; left out for a board-wide record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_class: Option<String>,
-    pub values: RuleValues,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_class_pair: Option<[String; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layers: Option<PortableLayers>,
+    pub values: RuleValues<PortableSpan>,
     /// Whether the record counts; left out when it does.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub enabled: bool,
@@ -864,11 +1206,19 @@ pub struct PortableRule {
     pub comment: Option<String>,
 }
 
+impl PortableRule {
+    /// Whether importing this record depends on the source board's copper positions.
+    pub fn uses_copper_positions(&self) -> bool {
+        matches!(self.layers, Some(PortableLayers::Positions(_))) || self.values.allowed.is_some()
+    }
+}
+
 /// A board's rules made portable between boards (a `.redarules` file): the rule records,
 /// the Net Class names they need, in rank order, and the DRC severities. It holds no Net
 /// membership, because Net names differ per board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuleSet {
+    pub copper_layers: u8,
     pub net_classes: Vec<PortableClass>,
     pub rules: Vec<PortableRule>,
     pub severities: crate::DrcSeverities,

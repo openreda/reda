@@ -113,7 +113,7 @@ fn a_new_board_holds_the_rules_no_preset_seeds_at_their_defaults() {
             .rules()
             .find(|r| r.kind.id() == kind && r.scope.is_board_wide())
             .unwrap_or_else(|| panic!("no board-wide `{kind}` rule"));
-        serde_json::to_value(rule.values).unwrap()
+        serde_json::to_value(&rule.values).unwrap()
     };
     assert_eq!(values("silk_to_edge"), json!({"value": 254_000}));
     assert_eq!(
@@ -377,4 +377,28 @@ fn stubs_up_to_the_dangling_tolerance_pass() {
     set_rule(&mut engine, "dangling", json!({"tolerance": "1mm"}));
     let run = drc(&mut engine);
     assert_eq!(dangling(&run), [long[1]], "{run:#}");
+}
+
+#[test]
+fn silkscreen_at_an_omitted_outer_via_land_only_meets_the_mask_opening() {
+    let dir = TempDir::new("drc-silk-missing-land");
+    let mut engine = engine(&dir);
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"}, "diameter":"2mm", "hole":"0.3mm",
+               "unused_layers":"remove", "mask":{"top":{"expansion":0}}}),
+        )["result"]["uuid"],
+    );
+    let line = silk_line(
+        &mut engine,
+        ("5.7mm", "4.9mm"),
+        ("5.7mm", "5.1mm"),
+        "0.15mm",
+    );
+    assert!(of(&drc(&mut engine), "silk_to_mask").is_empty());
+    set_rule(&mut engine, "silk_to_mask", json!({"mode":"mask_opening"}));
+    let found = of(&drc(&mut engine), "silk_to_mask");
+    assert_eq!(found.len(), 1);
+    assert_eq!(objects(&found[0]), [line, via]);
 }

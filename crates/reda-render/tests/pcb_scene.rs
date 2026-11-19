@@ -244,3 +244,30 @@ fn the_ratsnest_joins_unrouted_pads_on_its_own_layer() {
         .count();
     assert_eq!(holes, 2, "the mounting hole and the Via");
 }
+
+#[test]
+fn six_layer_hdi_copper_and_drills() {
+    let (_dir, engine) = common::six_layer_hdi();
+    reference_copper_scene(&engine, "six_layer_hdi.scene");
+}
+
+#[test]
+fn four_layer_copper_includes_filled_teardrops_and_omitted_lands() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/four_layer");
+    let (_dir, mut engine) = reda_testkit::open_reference_copy(&source, "FourLayer.reda");
+    engine.run_ok("pcb.zone.fill", json!({}));
+    reference_copper_scene(&engine, "four_layer.scene");
+}
+
+fn reference_copper_scene(engine: &reda_testkit::TestEngine, name: &str) {
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let scene = engine.document_scene(pcb.uuid).unwrap();
+    let mut snapshot = scene.to_text();
+    for layer in pcb.copper_layers() {
+        if let Some(label) = pcb.inner_layer_label(layer.uuid) {
+            use std::fmt::Write;
+            writeln!(snapshot, "layer:{} {label}", layer.uuid).unwrap();
+        }
+    }
+    assert_golden(golden(name), snapshot.as_bytes());
+}

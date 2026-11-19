@@ -258,10 +258,12 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
             .count()
     };
     let other_copper = |layer: Uuid, p: Point| {
-        copper
-            .items_at(layer, p)
-            .into_iter()
-            .any(|i| !matches!(i, Item::Track { .. } | Item::Zone { .. }))
+        copper.items_at(layer, p).into_iter().any(|i| {
+            matches!(
+                i,
+                Item::Pad { .. } | Item::FreePad { .. } | Item::Via { .. }
+            )
+        })
     };
     let mut changed: BTreeSet<Uuid> = BTreeSet::new();
     'merge: loop {
@@ -269,7 +271,11 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
         for (i, ua) in uuids.iter().enumerate() {
             for ub in &uuids[i + 1..] {
                 let (ta, tb) = (&tracks[ua], &tracks[ub]);
-                if ta.layer != tb.layer || ta.net != tb.net || ta.width != tb.width {
+                if ta.layer != tb.layer
+                    || ta.net != tb.net
+                    || ta.width != tb.width
+                    || ta.teardrop != tb.teardrop
+                {
                     continue;
                 }
                 let Some((from, joint, to)) = joined(ta, tb) else {

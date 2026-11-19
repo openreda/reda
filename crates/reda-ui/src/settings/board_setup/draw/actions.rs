@@ -117,7 +117,11 @@ fn preset_preview(ui: &mut Ui, board: &mut BoardSetupDraft) {
                             if response.changed() {
                                 toggled = Some((i, ticked));
                             }
-                            row.text(c.rule.name());
+                            row.text(if c.inner {
+                                format!("{} · {}", tr!("board-layer-inner"), c.rule.name())
+                            } else {
+                                c.rule.name()
+                            });
                             row.ui(|ui| mono(ui, &c.board));
                             row.ui(|ui| mono(ui, &c.preset));
                         });
@@ -182,12 +186,24 @@ fn import_preview(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft)
         return;
     };
     let (mut import, mut cancel) = (false, false);
+    let mut toggled = None;
     let t = ui.tokens();
     widgets::card_frame(&t).show(ui, |ui| {
         let path = preview.path.display().to_string();
         layout::text(ui, tr!("board-setup-import-preview", path = path));
-        if preview.rows.is_empty() {
+        if preview.rows.is_empty() && preview.positions.is_empty() {
             layout::muted(ui, tr!("board-setup-import-nothing"));
+        }
+        for record in &preview.positions {
+            let mut ticked = record.selected;
+            let label = super::super::model::ImportPreview::label(record);
+            let response = ui.add_enabled(record.available, widgets::checkbox(&mut ticked, label));
+            if response.changed() {
+                toggled = Some((record.index, ticked));
+            }
+            for warning in super::super::model::ImportPreview::warnings(record) {
+                layout::muted(ui, warning);
+            }
         }
         for row in &preview.rows {
             layout::text(ui, row);
@@ -198,6 +214,9 @@ fn import_preview(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft)
             cancel = ui.add(widgets::button(tr!("dialog-cancel"))).clicked();
         });
     });
+    if let Some((index, ticked)) = toggled {
+        board.select_import_position(cx.shell, index, ticked);
+    }
     if import {
         board.confirm_import(cx.shell);
     } else if cancel {

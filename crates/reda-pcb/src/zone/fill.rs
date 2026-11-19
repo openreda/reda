@@ -18,7 +18,7 @@ use super::poly::{
 use crate::copper::shape::{self as copper_shape, Core, P, Prim, Shape};
 use crate::copper::{Copper, Item};
 use crate::placed;
-use crate::rules::{Connection, clearance_between, net_rules, zone_connection};
+use crate::rules::{Connection, clearance_between_on, net_rules, net_rules_on, zone_connection_on};
 
 /// A fill already made on the same Layer by a Zone of higher priority.
 pub(super) struct Filled<'a> {
@@ -29,25 +29,20 @@ pub(super) struct Filled<'a> {
 /// The clearance `zone` keeps from copper on `net`: the rule's, or the Zone's own where
 /// that is larger.
 fn clearance_to(pcb: &PcbDocument, zone: &Zone, net: Option<Uuid>) -> Nm {
-    let rule = clearance_between(pcb, zone.net, net).unwrap_or(Nm::ZERO);
+    let rule = clearance_between_on(pcb, zone.net, net, Some(zone.layer)).unwrap_or(Nm::ZERO);
     zone.clearance.map_or(rule, |own| own.max(rule))
 }
 
 /// The narrowest copper `zone` may leave: its own, else its Net's `track_width` minimum.
 pub(super) fn min_width(pcb: &PcbDocument, zone: &Zone) -> Nm {
     zone.min_width.unwrap_or_else(|| {
-        let range = net_rules(pcb, zone.net).track_width;
+        let range = net_rules_on(pcb, zone.net, Some(zone.layer)).track_width;
         range.min.unwrap_or(range.preferred)
     })
 }
 
-/// The fill of `zone`, as `i_overlay` shapes.
-pub(super) fn fill_zone(
-    pcb: &PcbDocument,
-    copper: &Copper,
-    zone: &Zone,
-    before: &[Filled<'_>],
-) -> Area {
+/// The area the Zone is intended to cover, before any copper or thermal clearances.
+pub(crate) fn outline_area(pcb: &PcbDocument, zone: &Zone) -> Area {
     let layer = zone.layer;
     let vertices = pcb.zone_vertices(zone);
     if vertices.is_empty() {
@@ -75,6 +70,19 @@ pub(super) fn fill_zone(
     if !keepouts.is_empty() {
         area = difference(&area, &union(keepouts));
     }
+    area
+}
+
+/// The fill of `zone`, as `i_overlay` shapes.
+pub(super) fn fill_zone(
+    pcb: &PcbDocument,
+    copper: &Copper,
+    zone: &Zone,
+    before: &[Filled<'_>],
+    holes: &[crate::drill::DrillHole],
+) -> Area {
+    let layer = zone.layer;
+    let area = outline_area(pcb, zone);
     let Some((lo, hi)) = bounds(&area) else {
         return Vec::new();
     };
@@ -88,7 +96,7 @@ pub(super) fn fill_zone(
     for (item, shape) in copper.pieces_on(layer) {
         let net = copper.net(item);
         if same_net(net) {
-            if let Some(frame) = frame(pcb, zone, item) {
+            if let Some(frame) = frame(pcb, zone.net, layer, item) {
                 match frame.connection.style {
                     ConnectionStyle::Relief => {
                         connectors.push(shape);
@@ -105,17 +113,102 @@ pub(super) fn fill_zone(
                 continue;
             }
         }
+        // Even at zero rule clearance the fill must not touch a netless drawing.
         let clearance = clearance_to(pcb, zone, net);
+        let clearance = if item.is_artwork() {
+            clearance.max(Nm(1))
+        } else {
+            clearance
+        };
         if !near(shape, clearance.0, lo, hi) {
             continue;
         }
         others.extend(grown(shape, clearance.0));
     }
-    // Bare (non-plated) holes are no copper, but the fill keeps its clearance from them.
-    let hole_clearance = clearance_to(pcb, zone, None);
-    for hole in bare_holes(pcb) {
-        if near(&hole, hole_clearance.0, lo, hi) {
-            others.extend(grown(&hole, hole_clearance.0));
+    for drop in copper.teardrops() {
+        let loc = &drop.location;
+        if loc.layer != layer
+            || drop.shapes.is_empty()
+            || !same_net(pcb.track(loc.track).and_then(|t| t.net))
+        {
+            continue;
+        }
+        let target = if let Some(pad) = loc.pad {
+            Item::Pad {
+                footprint: loc.target,
+                pad,
+            }
+        } else if pcb.via(loc.target).is_some() {
+            Item::Via { uuid: loc.target }
+        } else if pcb.free_pad(loc.target).is_some() {
+            Item::FreePad { uuid: loc.target }
+        } else {
+            continue;
+        };
+        if let Some(frame) = frame(pcb, zone.net, layer, target)
+            && matches!(
+                frame.connection.style,
+                ConnectionStyle::Relief | ConnectionStyle::None
+            )
+        {
+            gaps.extend(dilated(&to_area(&drop.shapes), frame.connection.gap.0));
+        }
+    }
+    // A v0.1 board migrates without clearance.hole until an explicit edit or preset
+    // Apply. Its plots must reproduce v0.1 byte-for-byte: that filler grew the
+    // non-plated Pad outline by copper clearance. DRC has always used the bore
+    // and edge_clearance. New boards start with the preset's hole rules.
+    let legacy = !pcb
+        .rules()
+        .any(|r| r.kind == reda_model::RuleKind::Clearance && r.values.hole.is_some());
+    if legacy {
+        let clearance = clearance_to(pcb, zone, None);
+        for shape in legacy_bare_pads(pcb) {
+            if near(&shape, clearance.0, lo, hi) {
+                others.extend(grown(&shape, clearance.0));
+            }
+        }
+    }
+    for hole in holes.iter().filter(|h| h.layers(pcb).contains(&layer)) {
+        let clearance = if hole.ring.is_none() {
+            if legacy {
+                continue;
+            }
+            net_rules(pcb, zone.net)
+                .edge_clearance
+                .unwrap_or_default()
+                .max(zone.clearance.unwrap_or_default())
+        } else {
+            let mut gap = Nm::ZERO;
+            if same_net(hole.net) {
+                let connection = hole.connection(pcb, layer);
+                let has_land = copper
+                    .item_pieces(hole.item)
+                    .iter()
+                    .any(|(l, _)| *l == layer);
+                if has_land && connection.style != ConnectionStyle::None {
+                    continue;
+                }
+                if !has_land && connection.style == ConnectionStyle::None {
+                    gap = connection.gap;
+                }
+            }
+            let limit = crate::rules::resolve_pair_on(
+                pcb,
+                zone.net,
+                hole.net,
+                Some(layer),
+                reda_model::RuleKind::Clearance,
+                hole.field(),
+            )
+            .and_then(|v| v.value.length());
+            if limit.is_none() && gap == Nm::ZERO {
+                continue;
+            }
+            limit.unwrap_or_default().max(gap)
+        };
+        if near(&hole.shape, clearance.0, lo, hi) {
+            others.extend(grown(&hole.shape, clearance.0));
         }
     }
     let merges = |prior: &Filled<'_>| same_net(prior.zone.net) && zone.pour_over != PourOver::None;
@@ -123,7 +216,8 @@ pub(super) fn fill_zone(
         if merges(prior) {
             continue;
         }
-        let rule = clearance_between(pcb, zone.net, prior.zone.net).unwrap_or(Nm::ZERO);
+        let rule = clearance_between_on(pcb, zone.net, prior.zone.net, Some(zone.layer))
+            .unwrap_or(Nm::ZERO);
         let clearance = [zone.clearance, prior.zone.clearance]
             .into_iter()
             .flatten()
@@ -237,23 +331,28 @@ struct Frame {
 
 /// The frame of a Pad, Free Pad or Via item, with its resolved Zone connection; `None`
 /// for other copper.
-fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
+fn frame(pcb: &PcbDocument, net: Option<Uuid>, layer: Uuid, item: Item) -> Option<Frame> {
+    let side = pcb.layers().layer(layer)?.side;
     let placed = match item {
         Item::Pad { footprint, pad } => {
             let instance = pcb.footprint(footprint)?;
-            placed::placed_pads(pcb, instance)
-                .into_iter()
-                .find(|p| p.pad == pad)?
+            placed::placed_pads_on(pcb, instance, side).find(|p| p.pad == pad)?
         }
-        Item::FreePad { uuid } => placed::placed_free_pad(pcb.free_pad(uuid)?),
+        Item::FreePad { uuid } => placed::placed_free_pad_on(pcb.free_pad(uuid)?, side),
         Item::Via { uuid } => {
             let via = pcb.via(uuid)?;
-            let r = via.diameter.0 / 2;
+            let r = via.diameter_on(layer).0 / 2;
             return Some(Frame {
                 centre: [via.at.x.0, via.at.y.0],
                 angle: Millideg::ZERO,
                 half: (r, r),
-                connection: zone_connection(pcb, zone.net, ConnectionTarget::Via, None),
+                connection: zone_connection_on(
+                    pcb,
+                    net,
+                    Some(layer),
+                    ConnectionTarget::Via,
+                    via.zone_connection.as_ref(),
+                ),
             });
         }
         _ => return None,
@@ -268,12 +367,21 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         centre: [centre.x.0, centre.y.0],
         angle: placed.rotation,
         half: (placed.outline.width.0 / 2, placed.outline.height.0 / 2),
-        connection: zone_connection(pcb, zone.net, target, own.as_ref()),
+        connection: zone_connection_on(pcb, net, Some(layer), target, own.as_ref()),
     })
 }
 
+pub(super) fn connection_style(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Uuid,
+    item: Item,
+) -> Option<ConnectionStyle> {
+    frame(pcb, net, layer, item).map(|f| f.connection.style)
+}
+
 /// The outlines of the non-plated Pads (Footprint and Free), which have no copper.
-fn bare_holes(pcb: &PcbDocument) -> Vec<Shape> {
+fn legacy_bare_pads(pcb: &PcbDocument) -> Vec<Shape> {
     let mut holes = Vec::new();
     for instance in pcb.footprints() {
         if let Some(copy) = pcb.footprint_copy(instance.footprint) {
@@ -345,7 +453,7 @@ pub(crate) fn to_area(shapes: &[FillShape]) -> Area {
 }
 
 /// The fill as stored shapes.
-pub(super) fn to_shapes(area: &Area) -> Vec<FillShape> {
+pub(crate) fn to_shapes(area: &Area) -> Vec<FillShape> {
     area.iter()
         .map(|shape| FillShape {
             outer: shape[0].iter().map(|p| poly::point(*p)).collect(),

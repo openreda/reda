@@ -21,7 +21,7 @@ pub fn drill_report_file(plot: &Plot<'_>) -> OutputFile {
     out.push_str("Sizes in mm. Tool travel is left out: the fab plans its own drill path.\n");
     let (mut all_holes, mut all_slots) = (0, 0);
     for set in drill_sets(plot) {
-        let _ = writeln!(out, "\n{}", set.name);
+        let _ = writeln!(out, "\n{} ({})", set.name, set.span_description);
         if set.holes.is_empty() {
             out.push_str("  No holes: the file is not written.\n");
             continue;

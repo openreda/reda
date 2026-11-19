@@ -5,7 +5,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::Side;
-use crate::{Corners, Hole, PadForm, PadKind, PadShape, Ratio, Uuid, ZoneConnection};
+use crate::{
+    Corners, Hole, PadCopperShape, PadForm, PadKind, PadShape, Ratio, Uuid, ZoneConnection,
+};
 
 /// A Pad placed directly on the board, belonging to no Footprint: a mounting hole, a
 /// fiducial or a test point. It has the whole Pad model, in board coordinates.
@@ -16,9 +18,21 @@ pub struct FreePad {
     /// Locked against geometry changes; left out when false.
     #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
+    /// False opts this land out of derived Teardrops on every Layer.
+    #[serde(default = "super::yes", skip_serializing_if = "super::is_true")]
+    pub teardrop: bool,
     /// SMD (plated, no hole), plated through-hole, or non-plated (a bare hole).
     pub kind: PadKind,
     pub shape: PadShape,
+    /// Optional copper on all inner Layers, in the Pad's frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middle: Option<PadCopperShape>,
+    /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<PadCopperShape>,
+    /// Whether unused inner lands of a plated through-hole Pad are removed.
+    #[serde(default, skip_serializing_if = "crate::UnusedLayers::is_keep")]
+    pub unused_layers: crate::UnusedLayers,
     /// The Pad's anchor: the hole sits there, Tracks connect there and it turns about it.
     pub at: Point,
     /// Counter-clockwise.
@@ -58,6 +72,15 @@ pub struct FreePad {
 }
 
 impl FreePad {
+    /// The Pad's copper and shared hole on an outer side or any inner Layer.
+    pub fn form_on(&self, side: Option<Side>) -> PadForm {
+        self.form().with_copper(match side {
+            Some(Side::Top) => None,
+            Some(Side::Bottom) => self.bottom,
+            None => self.middle,
+        })
+    }
+
     /// Its shape fields, for the geometry and the checks every Pad shares.
     pub fn form(&self) -> PadForm {
         PadForm {
@@ -82,7 +105,11 @@ impl FreePad {
 
     /// What is wrong with this Pad, if anything: a JSON pointer to the field and a message.
     pub fn problem(&self) -> Option<(String, String)> {
-        if let Some(problem) = self.form().problem() {
+        if let Some(problem) = self
+            .form()
+            .stack_problem(self.middle, self.bottom)
+            .or_else(|| self.unused_layers.pad_problem(self.kind))
+        {
             return Some(problem);
         }
         if let Some(problem) = crate::opening_problem(

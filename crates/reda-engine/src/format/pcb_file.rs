@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 1,
+//!   "format": 2,
 //!   "pcb": {"uuid":"…"},
 //!   "layers": {"uuid":"…","layers":[
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
@@ -11,9 +11,9 @@
 //!   "stackups": [
 //!     {"uuid":"…","thickness":1600000,"entries":[
 //!       {"layer":"…","thickness":35000},
-//!       {"uuid":"…"},
+//!       {"uuid":"…","kind":"core"},
 //!       {"layer":"…","thickness":35000}
-//!     ],"finish":"ENIG"}
+//!     ],"via_types":[{"uuid":"…","from":"…","to":"…","hole":300000,"diameter":{"start":600000}}],"finish":"ENIG"}
 //!   ],
 //!   "board": {"uuid":"…"},
 //!   "rules": [
@@ -56,7 +56,7 @@
 //!     {"uuid":"…","layer":"…","net":"…","width":200000,"geometry":{"kind":"line","from":{…},"to":{…}}}
 //!   ],
 //!   "vias": [
-//!     {"uuid":"…","at":{…},"net":"…","diameter":600000,"hole":300000,"span":{"from":"…","to":"…"}}
+//!     {"uuid":"…","at":{…},"net":"…","diameter":{"start":600000},"hole":300000,"span":{"from":"…","to":"…"}}
 //!   ],
 //!   "free_pads": [
 //!     {"uuid":"…","kind":"plated_through_hole","shape":"circle","at":{…},"rotation":0,"width":6000000,"height":6000000,"hole":{…},"net":"…"}
@@ -212,7 +212,12 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
     let mut w = CanonicalWriter::new(FORMAT);
     w.field("pcb", &PcbRow { uuid: pcb.uuid })?;
     w.container("layers", pcb.layers(), "layers")?;
-    w.containers("stackups", pcb.stackups(), |s| s.uuid, "entries")?;
+    w.containers_spread(
+        "stackups",
+        pcb.stackups(),
+        |s| s.uuid,
+        &["entries", "via_types"],
+    )?;
     w.field(
         "board",
         &BoardRow {
@@ -257,7 +262,18 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
         w.field("output_origin", origin)?;
     }
     if pcb.zones().next().is_some() {
-        w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
+        w.containers_by(
+            "zones",
+            pcb.zones(),
+            |z| z.uuid,
+            |z| {
+                if z.follows_outline {
+                    &[]
+                } else {
+                    &["vertices"]
+                }
+            },
+        )?;
     }
     if pcb.keepouts().next().is_some() {
         w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;
