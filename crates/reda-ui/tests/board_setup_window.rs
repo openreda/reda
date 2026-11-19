@@ -436,7 +436,7 @@ fn the_layers_and_board_forms_edit_an_odd_boards_inner_layer_and_finish() {
     retype(&mut h, "L2 name", "Ground");
     h.key_press(Key::Enter);
     h.run();
-    choose(&mut h, "Ground kind", "Plane");
+    choose(&mut h, "L2 Ground kind", "Plane");
     choose(&mut h, "Surface finish", "ENIG");
     for (label, text) in [
         ("Solder mask colour", "Purple"),
@@ -603,4 +603,45 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
         .unwrap();
     assert_eq!(pcb(&h).graphics().count(), 1);
     assert_eq!(pcb(&h).copper_layers().count(), 3);
+}
+
+#[test]
+fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new_build() {
+    let (home, work) = (
+        TempDir::new("build-editor-home"),
+        TempDir::new("build-editor-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Board");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.set", json!({"thickness":"1.5mm"}))
+        .unwrap();
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_label("Modified from 2 Layer");
+    h.get_by_role_and_label(Role::Button, "Save as Construction…")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Save as Construction…")
+        .click();
+    h.run();
+    retype(&mut h, "Construction name", "Bench");
+    h.get_by_role_and_label(Role::Button, "Save Construction")
+        .click();
+    h.run();
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .preset();
+    assert_eq!(preset.construction("Bench").unwrap().thickness.0, 1_500_000);
 }

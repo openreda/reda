@@ -37,6 +37,65 @@ pub struct LayerFileName {
     pub name: String,
 }
 
+/// A filename pattern for inner copper, and overrides keyed by individual Layer names.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GerberFileNames {
+    pub inner_copper: Option<String>,
+    pub layers: Vec<LayerFileName>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub(super) enum FileNameOverrides {
+    Rows(Vec<LayerFileName>),
+    Pattern(InnerFileNames),
+}
+
+/// A preset with an inner copper pattern can also keep its per-Layer overrides.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(super) struct InnerFileNames {
+    inner_copper: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    layers: Vec<LayerFileName>,
+}
+
+pub(super) fn write_file_names<S: serde::Serializer>(
+    names: &GerberFileNames,
+    writer: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+
+    let Some(pattern) = &names.inner_copper else {
+        return names.layers.serialize(writer);
+    };
+    let mut map = writer.serialize_map(None)?;
+    map.serialize_entry("inner_copper", pattern)?;
+    if !names.layers.is_empty() {
+        map.serialize_entry("layers", &names.layers)?;
+    }
+    map.end()
+}
+
+pub(super) fn read_file_names<'de, D: serde::Deserializer<'de>>(
+    reader: D,
+) -> Result<GerberFileNames, D::Error> {
+    match FileNameOverrides::deserialize(reader)? {
+        FileNameOverrides::Rows(layers) => Ok(GerberFileNames {
+            layers,
+            inner_copper: None,
+        }),
+        FileNameOverrides::Pattern(names) => {
+            super::GerberSettings::inner_copper_file_name(&names.inner_copper, "Board", 2)
+                .map_err(serde::de::Error::custom)?;
+            Ok(GerberFileNames {
+                layers: names.layers,
+                inner_copper: Some(names.inner_copper),
+            })
+        }
+    }
+}
+
 /// Suggestions never validate the board or seed its finish or colours.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
