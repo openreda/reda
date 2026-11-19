@@ -335,3 +335,56 @@ fn a_broken_pcb_file_is_refused() {
     assert_eq!(err.code, ErrorCode::Rejected);
     assert!(err.message.contains("Demo.redapcb"), "{}", err.message);
 }
+
+#[test]
+fn pcb_creation_uses_the_requested_copper_count_and_generic_fallback() {
+    for count in [2, 3, 32] {
+        let dir = TempDir::new("multilayer-project");
+        let mut engine = test_engine();
+        engine.run_ok(
+            "project.new",
+            json!({"path": dir.path(), "name": "Demo", "layers": count}),
+        );
+        for readded in [false, true] {
+            if readded {
+                let project = engine.project().unwrap();
+                let job = project.output_jobs().next().unwrap().uuid;
+                let document = project.pcb().unwrap().uuid;
+                engine.run_ok("output.job.delete", json!({"job": job}));
+                engine.run_ok("document.delete", json!({"document": document}));
+                engine.run_ok("document.add", json!({"kind": "pcb", "layers": count}));
+            }
+            let board = engine.project().unwrap().pcb().unwrap();
+            assert_eq!(board.copper_layers().count(), count);
+            let stack = board.stackup();
+            assert_eq!(stack.dielectrics().count(), count - 1);
+            assert!(stack.copper().all(|c| c.thickness == Nm(35_000)));
+            assert_eq!(stack.thickness, Nm(1_600_000));
+            assert_eq!(
+                stack.through_type().to,
+                board.copper_layers().last().unwrap().uuid
+            );
+        }
+    }
+}
+
+#[test]
+fn out_of_range_copper_counts_are_refused_on_layers_before_creating_a_board() {
+    let dir = TempDir::new("invalid-copper-count");
+    let mut engine = new_project(dir.path());
+    for count in [1, 33] {
+        for (command, params) in [
+            ("document.add", json!({"kind": "pcb", "layers": count})),
+            (
+                "project.new",
+                json!({"path":dir.path(), "name":"Invalid", "layers":count}),
+            ),
+        ] {
+            let err = engine.run_err(command, params);
+            assert_eq!(err.code, ErrorCode::InvalidParams);
+            assert_eq!(err.details.unwrap()["pointer"], "/layers");
+            assert!(engine.project().unwrap().pcb().is_none());
+            assert!(!dir.path().join("Invalid").exists());
+        }
+    }
+}

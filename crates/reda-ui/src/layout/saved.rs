@@ -114,10 +114,13 @@ impl SavedLayout {
             .groups()
             .into_iter()
             .flat_map(|(_, g)| g.tabs.iter())
-            .filter(|t| matches!(t, TabKey::Start | TabKey::Document(_)))
+            .filter(|t| matches!(t, TabKey::Start | TabKey::Document(_) | TabKey::Stackup(_)))
             .cloned()
             .collect();
-        let active = current.active_document().map(TabKey::Document);
+        let active = match &current.focus {
+            Some(key @ TabKey::Stackup(_)) => Some(key.clone()),
+            _ => current.active_document().map(TabKey::Document),
+        };
         let mut placed = false;
         let mut fill = |g: &Group<Slot>| {
             let mut out = Group::new(g.id, Vec::new());
@@ -197,7 +200,7 @@ fn slots_of(g: &Group) -> Group<Slot> {
         let slot = match tab {
             TabKey::Panel(panel) => Some(Slot::Panel(*panel)),
             TabKey::Settings(_) => None,
-            TabKey::Start | TabKey::Document(_) => {
+            TabKey::Start | TabKey::Document(_) | TabKey::Stackup(_) => {
                 (!out.tabs.contains(&Slot::Documents)).then_some(Slot::Documents)
             }
         };

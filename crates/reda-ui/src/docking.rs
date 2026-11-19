@@ -127,6 +127,7 @@ pub fn panel_title(panel: PanelId) -> String {
 pub(crate) fn tab_icon_key(shell: &Shell, tab: &TabKey) -> Option<&'static str> {
     Some(match tab {
         TabKey::Start => icons::START_PAGE,
+        TabKey::Stackup(_) => icons::panel_icon(PanelId::Layers),
         TabKey::Panel(panel) => icons::panel_icon(*panel),
         TabKey::Settings(_) => return None,
         TabKey::Document(uuid) => {
@@ -157,6 +158,7 @@ fn tab_shortcut(ctx: &egui::Context, shell: &Shell, tab: &TabKey) -> Option<Stri
 pub(crate) fn tab_title(shell: &Shell, tab: &TabKey) -> String {
     match tab {
         TabKey::Start => tr!("start-page-title"),
+        TabKey::Stackup(_) => tr!("board-setup-page-stackup"),
         TabKey::Panel(panel) => panel_title(*panel),
         TabKey::Document(_) => shell.document_title(tab).unwrap_or_default().to_owned(),
         TabKey::Settings(window) => match shell.settings_title(*window) {
@@ -1091,6 +1093,11 @@ impl Cx<'_, '_> {
     fn content(&mut self, ui: &mut Ui, tab: &TabKey) {
         self.note_use(ui, ui.available_rect_before_wrap(), tab);
         match tab {
+            TabKey::Stackup(document) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                crate::stackup_editor::show(ui, self.shell, *document);
+                self.focus_on_press(ui, rect, tab, start);
+            }
             TabKey::Start => {
                 if let Some(action) = start_page::show(ui, self.recent) {
                     self.frame.start = Some(action);

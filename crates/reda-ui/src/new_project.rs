@@ -27,6 +27,7 @@ pub struct NewProjectForm {
     pub presets: Vec<String>,
     pub preset: String,
     pub board: Board,
+    pub layers: LayerCount,
     /// The rectangle's size and corner radius in mm, as typed. The radius may be blank.
     pub width: String,
     pub height: String,
@@ -54,6 +55,7 @@ impl NewProjectForm {
             presets,
             preset: default,
             board: Board::DrawLater,
+            layers: LayerCount::default(),
             width: "100".into(),
             height: "80".into(),
             corner_radius: String::new(),
@@ -66,7 +68,7 @@ impl NewProjectForm {
         if name.is_empty() || location.is_empty() {
             return None;
         }
-        let mut params = json!({"path": location, "name": name, "fab_preset": self.preset});
+        let mut params = json!({"path": location, "name": name, "fab_preset": self.preset, "layers": self.layers.value()?});
         if self.board == Board::Rectangle {
             let width = positive_mm(&self.width)?;
             let height = positive_mm(&self.height)?;
@@ -106,6 +108,7 @@ impl NewProjectForm {
                     layout::muted(ui, tr!("new-project-fab-preset-note"));
                     ui.add_space(t.space.section);
                     settings::strong(ui, tr!("new-project-board"));
+                    self.layers.show(ui);
                     radio(
                         ui,
                         &mut self.board,
@@ -171,5 +174,31 @@ const FIELD_WIDTH: f32 = 240.0;
 fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, choice: T, text: impl Into<String>) {
     if ui.add(widgets::radio(*value == choice, text)).clicked() {
         *value = choice;
+    }
+}
+
+/// The copper Layer count entered when creating a board.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LayerCount(String);
+
+impl Default for LayerCount {
+    fn default() -> Self {
+        Self("2".into())
+    }
+}
+
+impl LayerCount {
+    pub fn value(&self) -> Option<u8> {
+        self.0.trim().parse().ok().filter(|n| (2..=32).contains(n))
+    }
+
+    pub fn show(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            let label = ui.add(widgets::form_name(tr!("stackup-copper-layers")));
+            let width = ui.tokens().size.of(60.0);
+            ui.add(widgets::text_field(&mut self.0).width(width))
+                .labelled_by(label.id);
+            layout::muted(ui, tr!("stackup-layer-range"));
+        });
     }
 }

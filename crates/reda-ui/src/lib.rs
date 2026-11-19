@@ -61,6 +61,7 @@ pub mod shell;
 pub mod show_on_board;
 pub mod similar;
 pub mod snap;
+mod stackup_editor;
 mod start_page;
 pub mod status_bar;
 pub mod symbol_editor;

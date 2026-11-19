@@ -1,4 +1,4 @@
-//! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup, the
+//! What a new PCB Document holds: its copper and fabrication Layers, the board setup, the
 //! board-wide rule records and the Stackup, seeded from a Fab Preset.
 
 use reda_model::{
@@ -271,16 +271,50 @@ pub fn new_board(
     document: Uuid,
     rules: &FabRules,
     stackup: StackupSeeds,
-    mut new_id: impl FnMut() -> Uuid,
+    new_id: impl FnMut() -> Uuid,
 ) -> Vec<Object> {
+    new_board_with_layers(document, rules, stackup, 2, new_id).expect("two copper Layers")
+}
+
+/// Build a board with the requested copper count. Until a matching Construction is
+/// selected, multilayer boards use Generic copper and finished thickness.
+pub fn new_board_with_layers(
+    document: Uuid,
+    rules: &FabRules,
+    stackup: StackupSeeds,
+    layers: u8,
+    mut new_id: impl FnMut() -> Uuid,
+) -> Result<Vec<Object>, reda_command::CommandError> {
+    if !(2..=32).contains(&layers) {
+        return Err(reda_command::CommandError::invalid_params(
+            "/layers",
+            "choose 2 to 32 copper Layers",
+        ));
+    }
+    let stackup = if layers == 2 {
+        stackup
+    } else {
+        StackupSeeds::default()
+    };
+    let mut kinds = V01_LAYERS.to_vec();
+    let middle = kinds
+        .iter()
+        .position(|l| *l == (LayerKind::Copper, Some(Side::Bottom)))
+        .unwrap();
+    kinds.splice(
+        middle..middle,
+        std::iter::repeat_n((LayerKind::Copper, None), usize::from(layers - 2)),
+    );
     let layers = LayerSet {
         uuid: new_id(),
-        layers: V01_LAYERS
+        layers: kinds
             .iter()
             .map(|&(kind, side)| Layer {
                 uuid: new_id(),
                 kind,
                 side,
+                name: None,
+                role: Default::default(),
             })
             .collect(),
     };
@@ -313,7 +347,7 @@ pub fn new_board(
     );
     let stackup = seeded_stackup(&layers, stackup, rules.preferred, &mut new_id);
     objects.push(Object::Stackup(InDocument::new(document, stackup)));
-    objects
+    Ok(objects)
 }
 
 /// A Stackup for `layers`: every copper Layer at the seeded copper, with one dielectric left
@@ -329,11 +363,10 @@ fn seeded_stackup(
     let mut entries = Vec::new();
     for layer in layers.layers.iter().filter(|l| l.kind == LayerKind::Copper) {
         if !entries.is_empty() {
-            entries.push(StackupEntry::Dielectric(DielectricEntry {
-                kind: reda_model::DielectricKind::Core,
-                uuid: new_id(),
-                thickness: None,
-            }));
+            entries.push(StackupEntry::Dielectric(DielectricEntry::new(
+                new_id(),
+                reda_model::DielectricKind::Core,
+            )));
         }
         entries.push(StackupEntry::Copper(CopperEntry {
             layer: layer.uuid,

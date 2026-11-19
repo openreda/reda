@@ -119,7 +119,10 @@ fn fields_follow_the_schema_types() {
 
     let f = form(&shell, "project.new", json!({}));
     // Required fields first, in the Command's order, then the rest by name.
-    assert_eq!(field_names(&f), ["path", "name", "board", "fab_preset"]);
+    assert_eq!(
+        field_names(&f),
+        ["path", "name", "board", "fab_preset", "layers"]
+    );
     let name = f.field("name").unwrap();
     assert!(name.required);
     assert_eq!(name.label, "Name");

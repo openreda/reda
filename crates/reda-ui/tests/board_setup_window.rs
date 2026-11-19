@@ -120,31 +120,12 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     choose(&mut h, "Zone naming scheme", "LXX_NET_PXXX");
 
     page(&mut h, "Stackup");
-    let section = |h: &Harness<'static, App>| {
-        h.get_by_role(Role::Image)
-            .accesskit_node()
-            .label()
-            .unwrap_or_default()
-    };
+    h.get_by_label("2 copper Layers · 1.6 mm ordered");
+    h.get_by_role_and_label(Role::Button, "Open Stackup editor");
     assert!(
-        section(&h).contains("Top Copper 0.035 mm") && section(&h).contains("Dielectric 1 1.53 mm"),
-        "{}",
-        section(&h)
+        h.query_by_role_and_label(Role::TextInput, "Top Copper thickness")
+            .is_none()
     );
-    retype(&mut h, "Top Copper thickness", "2oz");
-    // The cross-section and the totals follow as you type.
-    assert!(
-        section(&h).contains("Top Copper 0.07 mm"),
-        "{}",
-        section(&h)
-    );
-    assert!(
-        section(&h).contains("Dielectric 1 1.495 mm"),
-        "{}",
-        section(&h)
-    );
-    h.get_by_label_contains("total 1.6 mm against a target of 1.6 mm");
-    choose(&mut h, "Surface finish", "ENIG");
     h.get_by_role_and_label(Role::MultilineTextInput, "Fab Notes text")
         .click();
     h.run();
@@ -169,9 +150,6 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
         Some(ConnectionStyle::Solid)
     );
     assert_eq!(board.setup().zone_name_scheme, ZoneNameScheme::LxxNetPxxx);
-    let top = board.stackup().copper().next().unwrap().thickness;
-    assert_eq!(top.0, 70_000);
-    assert_eq!(board.stackup().finish.as_deref(), Some("ENIG"));
     assert_eq!(board.setup().fab_notes.as_deref(), Some("No panel"));
 }
 
@@ -315,4 +293,165 @@ fn reset_page_previews_row_by_row_and_save_rules_as_fab_preset_adds_a_preset() {
         .map(|p| p.name.clone())
         .collect();
     assert!(presets.contains(&"House".to_owned()), "{presets:?}");
+}
+
+#[test]
+fn board_setup_opens_the_boards_stackup_tab() {
+    let (home, work) = (TempDir::new("stack-home"), TempDir::new("stack-work"));
+    let mut h = harness(home.path(), work.path(), "Layered");
+    open_board_setup(&mut h, "Layered");
+    page(&mut h, "Stackup");
+    h.get_by_role_and_label(Role::Button, "Open Stackup editor")
+        .click();
+    h.run();
+    let focused = h.state().shell().layout().focus.as_ref().unwrap();
+    assert_eq!(focused.to_string(), format!("stackup/{}", pcb(&h).uuid));
+    assert_eq!(focused.to_string().parse::<TabKey>().unwrap(), *focused);
+    assert_eq!(
+        h.state().shell().undo_scope(None),
+        Some(reda_ui::engine::model::Scope::Document(pcb(&h).uuid))
+    );
+}
+
+#[test]
+fn stackup_field_commits_copper_thickness_once_and_rejects_an_overfull_board() {
+    let (home, work) = (TempDir::new("se-home"), TempDir::new("se-work"));
+    let mut h = harness(home.path(), work.path(), "Copper");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document": document}))
+        .unwrap();
+    h.run();
+    let before = h.state().shell().engine().journal().len();
+    retype(&mut h, "Top Copper thickness", "2oz");
+    assert_eq!(h.state().shell().engine().journal().len(), before);
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        pcb(&h).stackup().copper().next().unwrap().thickness.0,
+        70_000
+    );
+    assert_eq!(h.state().shell().engine().journal().len(), before + 1);
+    retype(&mut h, "Finished thickness (mm)", "0.05");
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(pcb(&h).stackup().thickness.0, 1_600_000);
+    assert_eq!(value(&h, "Finished thickness (mm)"), "0.05");
+    assert!(h.query_all_by_label_contains("blank dielectric").count() > 0);
+}
+
+#[test]
+fn dielectric_rows_edit_material_measurements_and_keep_one_sheet_in_each_gap() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dielectrics");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document": document}))
+        .unwrap();
+    h.run();
+    retype(&mut h, "Dielectric 1 name", "Top prepreg");
+    h.key_press(Key::Enter);
+    h.run();
+    choose(&mut h, "Top prepreg kind", "Prepreg");
+    assert!(
+        h.get_by_role_and_label(Role::Button, "Remove sheet")
+            .accesskit_node()
+            .is_disabled()
+    );
+    for (label, text) in [
+        ("Material", "7628"),
+        ("Dk", "4.21"),
+        ("Df", "0.0123"),
+        ("Test frequency (Hz)", "1000000000"),
+    ] {
+        retype(&mut h, label, text);
+        h.key_press(Key::Enter);
+        h.run();
+    }
+    let board = pcb(&h);
+    let sheet = board.stackup().dielectrics().next().unwrap();
+    assert_eq!(sheet.name.as_deref(), Some("Top prepreg"));
+    assert_eq!(sheet.material.as_deref(), Some("7628"));
+    assert_eq!(
+        (sheet.dk, sheet.df, sheet.test_frequency),
+        (Some(4210), Some(12_300), Some(1_000_000_000))
+    );
+    assert_eq!(sheet.kind, reda_ui::engine::model::DielectricKind::Prepreg);
+    h.get_by_role_and_label(Role::Button, "Add sheet").click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().dielectrics().count(), 2);
+    h.get_by_role_and_label(Role::Button, "Remove sheet")
+        .click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().dielectrics().count(), 1);
+}
+
+#[test]
+fn applying_a_saved_layout_keeps_the_stackup_visible_and_reopening_restores_it() {
+    let (home, work) = (
+        TempDir::new("layout-stack-home"),
+        TempDir::new("layout-stack-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Layout");
+    let doc = pcb(&h).uuid;
+    let key = TabKey::Stackup(doc);
+    let shell = h.state_mut().shell_mut();
+    shell.run("document.open", json!({"document":doc})).unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":doc}))
+        .unwrap();
+    shell.run("layout.save", json!({"name":"editor"})).unwrap();
+    shell.run("layout.apply:editor", json!({})).unwrap();
+    assert!(shell.layout().is_shown(&key));
+    shell.run("project.close", json!({})).unwrap();
+    shell
+        .open_project(&work.path().join("Layout/Layout.reda"))
+        .unwrap();
+    assert!(shell.layout().is_shown(&key));
+    shell
+        .run("document.delete", json!({"document":doc}))
+        .unwrap();
+    assert!(shell.layout().place(&key).is_none());
+}
+
+#[test]
+fn the_layers_and_board_forms_edit_an_odd_boards_inner_layer_and_finish() {
+    let (home, work) = (TempDir::new("sf-home"), TempDir::new("sf-work"));
+    let mut h = harness(home.path(), work.path(), "First");
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "project.new",
+            json!({"path":work.path(),"name":"Odd", "layers":3}),
+        )
+        .unwrap();
+    let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_label("Not symmetric");
+    retype(&mut h, "L2 name", "Ground");
+    h.key_press(Key::Enter);
+    h.run();
+    choose(&mut h, "Ground kind", "Plane");
+    choose(&mut h, "Surface finish", "ENIG");
+    for (label, text) in [
+        ("Solder mask colour", "Purple"),
+        ("Silkscreen colour", "White"),
+    ] {
+        retype(&mut h, label, text);
+        h.key_press(Key::Enter);
+        h.run();
+    }
+    let board = pcb(&h);
+    let layer = board.copper_layers().nth(1).unwrap();
+    assert_eq!(layer.name.as_deref(), Some("Ground"));
+    assert_eq!(layer.role, reda_ui::engine::model::CopperRole::Plane);
+    let stack = board.stackup();
+    assert_eq!(stack.finish.as_deref(), Some("ENIG"));
+    assert_eq!(stack.mask_color.as_deref(), Some("Purple"));
+    assert_eq!(stack.silk_color.as_deref(), Some("White"));
 }

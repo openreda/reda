@@ -265,6 +265,7 @@ impl Shell {
                 let mut layout = file.layout;
                 layout.retain_tabs(|t| match t {
                     TabKey::Document(uuid) => titles.contains_key(uuid),
+                    TabKey::Stackup(uuid) => project.pcb_document(*uuid).is_some(),
                     TabKey::Start | TabKey::Settings(_) => false,
                     TabKey::Panel(_) => true,
                 });
