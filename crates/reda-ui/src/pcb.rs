@@ -33,6 +33,7 @@ pub mod marks;
 pub mod measure;
 pub mod placement_bar;
 pub mod placing;
+pub(crate) mod plane;
 pub mod polygon_edit;
 pub mod route;
 pub mod route_commands;

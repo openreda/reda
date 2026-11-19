@@ -92,7 +92,7 @@ pub use key_list::key_list;
 pub use mark::{SWATCH, Status, StatusMark, Swatch, status_mark, swatch, swatch_none, swatch_rgb};
 pub use menu::{
     Menu, MenuButton, MenuItem, context_menu, menu, menu_bar, menu_below, menu_button, menu_frame,
-    menu_is_open, menu_item, menu_separator, menu_titles_width,
+    menu_is_open, menu_item, menu_separator, menu_titles_width, row_context_menu,
 };
 pub use paint::{State, drew_focus};
 pub use palette::{PaletteRow, palette_frame, palette_frame_inset, palette_row};

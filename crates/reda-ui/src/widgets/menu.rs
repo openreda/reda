@@ -91,6 +91,31 @@ pub fn context_menu<R>(
     .show(add)
 }
 
+/// A row's context menu also opens over its cells, including embedded controls
+/// that receive the pointer event ahead of the row.
+pub fn row_context_menu<R>(
+    row: &Response,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<InnerResponse<R>> {
+    let mut popup = Popup::context_menu(row);
+    if row.enabled()
+        && row
+            .ctx
+            .rect_contains_pointer(row.layer_id, row.interact_rect)
+        && row
+            .ctx
+            .input(|i| i.pointer.button_clicked(egui::PointerButton::Secondary))
+    {
+        popup = popup.open_memory(Some(SetOpenCommand::Bool(true)));
+    }
+    Menu {
+        popup,
+        fill: false,
+        anchor: None,
+    }
+    .show(add)
+}
+
 #[must_use = "call .show()"]
 pub struct Menu<'a> {
     popup: Popup<'a>,

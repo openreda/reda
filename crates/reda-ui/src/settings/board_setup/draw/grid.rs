@@ -226,6 +226,7 @@ fn cell(
 fn column_name(f: RuleField) -> String {
     use RuleField as F;
     match f {
+        F::ViaHoleClearance | F::PadHoleClearance => f.name(),
         F::TrackWidth => tr!("board-setup-col-min"),
         F::TrackPreferred => tr!("board-setup-col-preferred"),
         F::TrackMax => tr!("board-setup-col-max"),

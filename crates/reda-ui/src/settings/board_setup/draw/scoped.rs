@@ -123,16 +123,19 @@ fn classes(pcb: &PcbDocument) -> Vec<(Uuid, String)> {
         .collect()
 }
 
-fn pairs(ui: &mut Ui, pcb: &PcbDocument, board: &mut BoardSetupDraft) {
+fn pairs(ui: &mut Ui, pcb: &PcbDocument, board: &mut BoardSetupDraft, fields: &[RuleField]) {
     let classes = classes(pcb);
     widgets::table("pair-clearance")
-        .columns([
-            Column::auto(),
-            Column::auto(),
-            Column::auto(),
-            Column::auto(),
-        ])
+        .columns(std::iter::repeat_n(Column::auto(), 3 + fields.len()))
         .show(ui, |table| {
+            table.header(|header| {
+                header.empty();
+                header.empty();
+                for &field in fields {
+                    header.text(field.name());
+                }
+                header.empty();
+            });
             for (i, (a, name)) in classes.iter().enumerate() {
                 for (b, other) in &classes[i..] {
                     let mut ids = [*a, *b];
@@ -144,44 +147,43 @@ fn pairs(ui: &mut Ui, pcb: &PcbDocument, board: &mut BoardSetupDraft) {
                     table.row(|row| {
                         row.text(name);
                         row.text(other);
-                        row.ui(|ui| {
-                            let field = RuleField::Clearance;
-                            edit(ui, board, &scope, field, &format!("{name} / {other}"));
-                            let value = field
-                                .parse(board.scoped_value(&scope, field))
-                                .ok()
-                                .flatten()
-                                .and_then(|v| v.as_i64());
-                            if value.is_some_and(|n| {
-                                pcb.copper_layers().any(|l| {
-                                    ids.iter().any(|id| {
-                                        resolve_for_classes(
-                                            pcb,
-                                            &[*id],
-                                            Some(l.uuid),
-                                            RuleKind::Clearance,
-                                            field.rule().1,
-                                        )
-                                        .and_then(|s| s.value.length())
-                                        .is_some_and(|own| n < own.0)
+                        for &field in fields {
+                            row.ui(|ui| {
+                                let mut label = format!("{name} / {other}");
+                                if field != RuleField::Clearance {
+                                    label.push(' ');
+                                    label.push_str(&field.name());
+                                }
+                                edit(ui, board, &scope, field, &label);
+                                let value = field
+                                    .parse(board.scoped_value(&scope, field))
+                                    .ok()
+                                    .flatten()
+                                    .and_then(|v| v.as_i64());
+                                if value.is_some_and(|n| {
+                                    pcb.copper_layers().any(|l| {
+                                        ids.iter().any(|id| {
+                                            resolve_for_classes(
+                                                pcb,
+                                                &[*id],
+                                                Some(l.uuid),
+                                                RuleKind::Clearance,
+                                                field.rule().1,
+                                            )
+                                            .and_then(|s| s.value.length())
+                                            .is_some_and(|own| n < own.0)
+                                        })
                                     })
-                                })
-                            }) {
-                                ui.weak(tr!("board-rule-pair-lower"));
-                            }
-                        });
+                                }) {
+                                    ui.weak(tr!("board-rule-pair-lower"));
+                                }
+                            });
+                        }
                         row.ui(|ui| {
                             widgets::section(tr!("board-rule-layers"))
                                 .id_salt(("pair", ids))
                                 .show(ui, |ui| {
-                                    layer_rows(
-                                        ui,
-                                        pcb,
-                                        board,
-                                        &scope,
-                                        RuleKind::Clearance,
-                                        &[RuleField::Clearance],
-                                    );
+                                    layer_rows(ui, pcb, board, &scope, RuleKind::Clearance, fields);
                                 });
                         });
                     });
@@ -264,7 +266,7 @@ pub(super) fn rule_section(
     if kind == RuleKind::Clearance {
         widgets::section(tr!("board-rule-class-pairs"))
             .id_salt("pair-grid")
-            .show(ui, |ui| pairs(ui, pcb, board));
+            .show(ui, |ui| pairs(ui, pcb, board, fields));
     }
     widgets::section(tr!("board-rule-by-layer"))
         .id_salt("by-layer")

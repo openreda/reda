@@ -35,9 +35,9 @@ pub use footprint::{
 };
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
-    Bounds, ConnectionTarget, ConnectionValue, DesignRule, LayerGroup, PortableClass, PortableRule,
-    RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
-    TeardropTarget, ViaRuleValues,
+    Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues, LayerGroup,
+    PortableClass, PortableRule, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
+    RuleValues, SilkMaskMode, TeardropTarget, ViaRuleValues,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,

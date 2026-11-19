@@ -119,7 +119,10 @@ impl Rule {
         const TH: [RuleField; 5] = connection(T::ThroughHole);
         const SMD: [RuleField; 5] = connection(T::Smd);
         const VIA: [RuleField; 5] = connection(T::Via);
-        const CLEARANCE: &[Section] = &[Section::check(DrcCheck::Clearance, &[F::Clearance])];
+        const CLEARANCE: &[Section] = &[Section::check(
+            DrcCheck::Clearance,
+            &[F::Clearance, F::ViaHoleClearance, F::PadHoleClearance],
+        )];
         const TRACK_WIDTH: &[Section] = &[Section::check(
             DrcCheck::TrackWidth,
             &[F::TrackWidth, F::TrackPreferred, F::TrackMax],

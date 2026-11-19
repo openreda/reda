@@ -662,3 +662,31 @@ fn via_properties_preserve_sibling_diameters_and_omit_an_absent_middle() {
             .is_none()
     );
 }
+
+#[test]
+fn via_properties_edit_and_clear_individual_zone_connection_fields() {
+    let home = TempDir::new("via-zone-home");
+    let work = TempDir::new("via-zone-work");
+    let mut shell = shell(home.path());
+    shell.new_project(work.path(), "Zones").unwrap();
+    let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run("document.open", json!({"document":document}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1400.0, 2600.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let id =
+        run(&mut h, "pcb.via.add", json!({"at":{"x":"2mm","y":"2mm"}}))["result"]["uuid"].clone();
+    run(&mut h, "selection.set", json!({"objects":[id]}));
+    pick(&mut h, "Zone connection", "Relief");
+    pick(&mut h, "Spokes", "2");
+    let (cmd, p) = last_entry(&h);
+    assert_eq!(cmd, "pcb.via.set");
+    assert_eq!(p["zone_connection"], json!({"style":"relief","spokes":2}));
+    pick(&mut h, "Zone connection", "Inherit");
+    assert_eq!(last_entry(&h).1["zone_connection"], json!({"spokes":2}));
+    pick(&mut h, "Spokes", "Inherit");
+    assert_eq!(last_entry(&h).1.get("zone_connection"), Some(&Value::Null));
+}
