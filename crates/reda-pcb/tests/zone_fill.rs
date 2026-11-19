@@ -768,3 +768,46 @@ fn inner_relief_spokes_reach_the_fill_across_the_inner_land_gap() {
     assert!(filled(s, at(7.25, 5.0)), "spoke to the wide inner land");
     assert!(!filled(s, at(7.25, 5.3)), "relief gap off the spoke");
 }
+
+#[test]
+fn restoring_a_via_land_from_a_lower_zone_invalidates_the_upper_fill() {
+    let dir = TempDir::new("fill-unused-lower-zone");
+    let mut e = engine_with_pcb(&dir);
+    let ground = add_net(&mut e, "GND");
+    let power = add_net(&mut e, "VCC");
+    e.run_ok(
+        "pcb.via.add",
+        json!({"at":{"x":"5mm","y":"5mm"},"net":power,
+        "hole":"0.4mm","diameter":"2mm","unused_layers":"remove"}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.3mm"}}}),
+    );
+    let high = zone(
+        &mut e,
+        Some(ground),
+        rect(0., 0., 10., 10.),
+        json!({"priority":2,"remove_unconnected":false}),
+    );
+    let initial = fill(&e);
+    assert!(
+        !filled(shapes(&initial, high), at(5.45, 5.)),
+        "0.3 mm hole clearance"
+    );
+    assert!(
+        filled(shapes(&initial, high), at(5.7, 5.)),
+        "only the drill blocks this Layer"
+    );
+    zone(
+        &mut e,
+        Some(power),
+        rect(1., 1., 9., 9.),
+        json!({"priority":1}),
+    );
+    let current = reda_pcb::zone::current(pcb(&e), Some(&initial));
+    assert!(
+        !filled(shapes(&current, high), at(5.7, 5.)),
+        "the restored land keeps copper clear"
+    );
+}

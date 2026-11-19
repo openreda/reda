@@ -973,3 +973,44 @@ fn only_the_oversized_inner_lands_break_board_edge_clearance() {
     assert_eq!(violations[0]["measured"]["length"], 300000);
     assert_eq!(violations[0]["layers"], json!(inner));
 }
+
+#[test]
+fn only_retained_lands_have_annular_ring_checks_but_an_omitted_layer_keeps_hole_clearance() {
+    let dir = TempDir::new("unused-ring-and-hole");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let sig = net(&mut e, "SIG");
+    let via = e.run_ok(
+        "pcb.via.add",
+        json!({"net":sig,"at":{"x":"5mm","y":"5mm"},
+        "hole":"0.4mm","diameter":"0.5mm","unused_layers":"remove_keep_ends"}),
+    )["result"]["uuid"]
+        .clone();
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.4mm"}}}),
+    );
+    e.run_ok("pcb.track.add",json!({"layer":layers[1],"net":sig,"width":"0.1mm","points":[{"x":"4mm","y":"5.5mm"},{"x":"6mm","y":"5.5mm"}]}));
+    e.run_ok("pcb.track.add",json!({"layer":layers[2],"net":sig,"width":"0.1mm","points":[{"x":"5mm","y":"5mm"},{"x":"6mm","y":"5mm"}]}));
+    let report = drc(&mut e);
+    let rings = of(&report, "annular_ring");
+    assert_eq!(rings.len(), 1);
+    assert_eq!(rings[0]["objects"], json!([via]));
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[2], layers[3]]));
+    let hits = of(&report, "clearance");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["args"]["part"], "hole.via");
+    assert_eq!(hits[0]["layers"], json!([layers[1]]));
+    assert_eq!(hits[0]["measured"]["length"], 250000);
+}

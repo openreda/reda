@@ -43,9 +43,9 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(rings) = hole.ring else {
             continue;
         };
-        let layers = hole.layers(board.pcb);
+        let lands = board.copper.item_pieces(hole.item);
         let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
-        for layer in layers {
+        for (layer, _) in lands {
             let ring = match rings {
                 Rings::Via => {
                     let via = board.pcb.via(hole.objects[0]).expect("Via hole");

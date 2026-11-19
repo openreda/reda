@@ -321,3 +321,76 @@ fn clearance_halos_grow_other_net_copper_near_the_cursor() {
     let items: Vec<Uuid> = close.iter().map(|h| h.item.object()).collect();
     assert_eq!(items, [near], "only copper within 5 mm");
 }
+
+#[test]
+fn unused_lands_follow_track_ends_and_zone_outlines_before_filling() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-unused-lands");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let mut f = Follower::new(&e);
+    let net = f.edit(&mut e, "test.net.add", json!({"name":"GND"}))["result"]["uuid"].clone();
+    let at = json!({"x":"5mm","y":"5mm"});
+    let via = uuid(
+        &f.edit(
+            &mut e,
+            "pcb.via.add",
+            json!({"at":at,"net":net,"unused_layers":"remove"}),
+        )["result"]["uuid"],
+    );
+    let item = Item::Via { uuid: via };
+    let on = |f: &Follower| -> Vec<Uuid> {
+        layers
+            .iter()
+            .copied()
+            .filter(|l| {
+                f.copper
+                    .items_at(*l, Point::new(Nm(5_000_000), Nm(5_000_000)))
+                    .contains(&item)
+            })
+            .collect()
+    };
+    assert!(on(&f).is_empty());
+    f.edit(
+        &mut e,
+        "pcb.track.add",
+        json!({"layer":layers[1],"net":net,"points":[{"x":"3mm","y":"5mm"},{"x":"7mm","y":"5mm"}]}),
+    );
+    assert!(on(&f).is_empty(), "passing over a hole leaves the land out");
+    f.edit(&mut e,"pcb.track.add",json!({"layer":layers[1],"net":net,"points":[{"x":"5.1mm","y":"5mm"},{"x":"6mm","y":"8mm"}]}));
+    assert_eq!(
+        on(&f),
+        [layers[1]],
+        "a Track end lands within the Via's shape"
+    );
+    f.undo(&mut e);
+    assert!(on(&f).is_empty());
+    let zone = f.edit(
+        &mut e,
+        "pcb.zone.add_from_board_outline",
+        json!({"layers":[layers[2]],"net":net}),
+    )["result"]["zones"][0]
+        .clone();
+    assert_eq!(on(&f), [layers[2]]);
+    f.edit(
+        &mut e,
+        "pcb.via.set",
+        json!({"vias":[via],"zone_connection":{"style":"none"}}),
+    );
+    assert!(on(&f).is_empty());
+    f.edit(&mut e,"pcb.via.set",json!({"vias":[via],"unused_layers":"remove_keep_ends","zone_connection":{"style":"solid"}}));
+    assert_eq!(on(&f), [layers[0], layers[2], layers[3]]);
+    f.edit(&mut e, "pcb.zone.delete", json!({"zones":[zone]}));
+    assert_eq!(on(&f), [layers[0], layers[3]]);
+}
