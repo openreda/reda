@@ -484,3 +484,36 @@ fn placing_an_unchanged_library_part_reuses_its_released_document_copies() {
         );
     }
 }
+
+#[test]
+fn a_legacy_board_with_an_explicit_null_net_class_saves_as_the_same_migrated_board() {
+    let source = Path::new(V1).join("blinky_555");
+    let project = reda_engine::store::load_from(&source.join("Blinky.reda"), |path| {
+        let bytes = std::fs::read(path).unwrap();
+        if path.extension().is_some_and(|ext| ext == "redapcb") {
+            let mut file: Value = serde_json::from_slice(&bytes).unwrap();
+            let board_via = file["rules"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|r| r["kind"] == "via_size" && r["scope"] == json!({}))
+                .unwrap();
+            board_via["scope"]["net_class"] = Value::Null;
+            Ok(serde_json::to_vec(&file).unwrap())
+        } else {
+            Ok(bytes)
+        }
+    })
+    .unwrap()
+    .0;
+    let (_, migrated) = reda_engine::store::encode(&project)
+        .unwrap()
+        .into_iter()
+        .find(|(name, _)| name == "Blinky.redapcb")
+        .unwrap();
+    let golden = Path::new(V1)
+        .parent()
+        .unwrap()
+        .join("migrated-v2/blinky_555/Blinky.redapcb");
+    assert_eq!(migrated, std::fs::read(golden).unwrap());
+}

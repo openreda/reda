@@ -13,7 +13,7 @@ pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> 
             let rules = file["rules"].as_array_mut().ok_or("missing rules")?;
             for rule in rules
                 .iter_mut()
-                .filter(|r| r["kind"] == "via_size" && r.get("net_class").is_none())
+                .filter(|r| r["kind"] == "via_size" && r["net_class"].is_null())
             {
                 take_preferred(rule, "diameter")?;
                 take_preferred(rule, "hole")?;
@@ -98,7 +98,10 @@ fn board(file: &mut Value) -> Result<(), String> {
     let rules = file["rules"].as_array_mut().ok_or("missing rules")?;
     let via_size = rules
         .iter_mut()
-        .find(|r| r["kind"] == "via_size" && r["scope"] == json!({}))
+        .find(|r| {
+            let scope = &r["scope"];
+            r["kind"] == "via_size" && (scope == &json!({}) || scope == &json!({"net_class": null}))
+        })
         .ok_or("missing board-wide via_size record")?;
     let diameter = take_preferred(via_size, "diameter")?;
     let hole = take_preferred(via_size, "hole")?;
@@ -181,5 +184,22 @@ mod tests {
                 assert_eq!(encode(&after), after, "{file}");
             }
         }
+    }
+    #[test]
+    fn explicit_null_net_class_in_a_legacy_rules_file_imports_as_board_wide() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/formats");
+        let path = root.join("v1/standalone/Blinky.redarules");
+        let mut released: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let rule = released["rules"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|r| r["kind"] == "via_size")
+            .unwrap();
+        rule["net_class"] = serde_json::Value::Null;
+        let imported = read_rules_file(&path, &serde_json::to_vec(&released).unwrap()).unwrap();
+        let expected = std::fs::read(root.join("migrated-v2/standalone/Blinky.redarules")).unwrap();
+        assert_eq!(write_rules_file(&imported).unwrap(), expected);
     }
 }
