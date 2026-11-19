@@ -258,10 +258,12 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
             .count()
     };
     let other_copper = |layer: Uuid, p: Point| {
-        copper
-            .items_at(layer, p)
-            .into_iter()
-            .any(|i| !matches!(i, Item::Track { .. } | Item::Zone { .. }))
+        copper.items_at(layer, p).into_iter().any(|i| {
+            matches!(
+                i,
+                Item::Pad { .. } | Item::FreePad { .. } | Item::Via { .. }
+            )
+        })
     };
     let mut changed: BTreeSet<Uuid> = BTreeSet::new();
     'merge: loop {

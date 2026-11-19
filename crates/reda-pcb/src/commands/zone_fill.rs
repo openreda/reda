@@ -39,7 +39,11 @@ impl Command for FillStatusQuery {
 
     fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<FillStatus, CommandError> {
         let pcb = pcb(cx)?;
-        Ok(zone::status(pcb, cx.project()?.zone_fills(pcb.uuid)))
+        Ok(zone::status_with_fonts(
+            pcb,
+            cx.project()?.zone_fills(pcb.uuid),
+            cx.fonts(),
+        ))
     }
 }
 
@@ -101,7 +105,7 @@ impl Command for Fills {
             }
         }
         let stored = cx.project()?.zone_fills(pcb.uuid);
-        let status = zone::status(pcb, stored);
+        let status = zone::status_with_fonts(pcb, stored, cx.fonts());
         let zones = pcb
             .zones()
             .zip(status.zones)

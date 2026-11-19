@@ -29,8 +29,13 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
             .into_iter()
             .filter(|(layer, _)| gap.layers.contains(layer))
             .collect();
-        let found = closest_gap(&pieces, &board.copper.item_pieces(gap.b), gap.required)
-            .expect("gap shares a Layer");
+        let found = closest_gap(
+            &pieces,
+            &board.copper.item_pieces(gap.b),
+            gap.required,
+            gap.a.is_artwork() || gap.b.is_artwork(),
+        )
+        .expect("gap shares a Layer");
         report.add(DrcCheck::Clearance, |v| {
             v.length(gap.actual, gap.required, Limit::Min, gap.rule)
                 .distance_points(found.points[0], found.points[1])
@@ -51,13 +56,12 @@ struct GapAt {
     layers: Vec<reda_model::Uuid>,
 }
 
-/// The [`GapAt`] of two items' pieces, by Layer, closer than `required` without touching
-/// (touching pieces are a short or a connection, as for [`crate::copper::Copper::gaps`]);
-/// none if no pair is.
+/// The [`GapAt`] of two items' pieces that breach clearance on a shared Layer.
 fn closest_gap(
     a: &[(reda_model::Uuid, &Shape)],
     b: &[(reda_model::Uuid, &Shape)],
     required: reda_model::geom::Nm,
+    artwork: bool,
 ) -> Option<GapAt> {
     let pairs: Vec<_> = (a.iter())
         .flat_map(|&(layer, a)| {
@@ -65,7 +69,7 @@ fn closest_gap(
                 .filter(move |(l, _)| *l == layer)
                 .map(move |&(_, b)| (layer, a, b))
         })
-        .filter(|(_, a, b)| !a.touches(b) && a.distance(b) < required.0 as f64)
+        .filter(|(_, a, b)| crate::copper::breaches_clearance(a.distance(b), required, artwork))
         .collect();
     let (_, a, b) = pairs
         .iter()
@@ -320,6 +324,7 @@ mod tests {
             &[(top, &a), (bottom, &a)],
             &[(top, &b_top), (bottom, &b_bottom)],
             Nm(200_000),
+            false,
         );
         assert_eq!(
             found,

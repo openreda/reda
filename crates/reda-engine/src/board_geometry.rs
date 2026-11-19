@@ -76,7 +76,7 @@ pub(crate) fn board_geometry(
         })
         .collect();
     out.sheet_labels = sheet_labels::labels(project, pcb);
-    out.zones = zone::status(pcb, fills)
+    out.zones = zone::status_with_fonts(pcb, fills, fonts)
         .zones
         .into_iter()
         .map(|z| {

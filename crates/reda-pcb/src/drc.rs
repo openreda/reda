@@ -49,7 +49,7 @@ pub fn check_only(
     if only.is_some_and(|only| only.iter().all(|c| c.is_health())) {
         return health(pcb, only);
     }
-    let mut copper = Copper::build(pcb);
+    let mut copper = Copper::build_with_fonts(pcb, fonts);
     copper.set_zone_fills(pcb, Some(fills));
     let mut report = Report {
         severities: pcb.setup().severities,

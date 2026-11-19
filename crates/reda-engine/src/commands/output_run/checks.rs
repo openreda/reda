@@ -155,7 +155,7 @@ pub(crate) fn warnings(
                 .arg("count", i64::try_from(errors).unwrap_or(i64::MAX)),
         );
     }
-    let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
+    let fills = reda_pcb::zone::current_with_fonts(pcb, project.zone_fills(pcb.uuid), fonts);
     let drc = apply_waivers(
         reda_pcb::drc::check(pcb, &fills, fonts),
         pcb.waivers(),
