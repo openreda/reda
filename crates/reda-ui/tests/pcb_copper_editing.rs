@@ -845,3 +845,94 @@ fn auto_refill_makes_a_teardrop_pick_its_track_on_the_canvas() {
     b.shell.wait_zone_refill();
     assert_eq!(pick(&b), Some(narrow));
 }
+
+#[test]
+fn mixed_copper_properties_toggle_all_four_objects_in_one_undo_step() {
+    use egui::accesskit::Toggled;
+    use reda_ui::engine::model::PadRef;
+    let mut w = tall_window();
+    w.h.run();
+    let track = wroute(&mut w, &[(2., 2.), (8., 2.)])[0];
+    let added = wrun(
+        &mut w,
+        "test.footprint.add",
+        json!({
+            "at":{"x":"2mm","y":"2mm"},
+            "pads":[{"at":{"x":0,"y":0},"width":"1mm","height":"1mm"}]
+        }),
+    );
+    let placed = PadRef {
+        footprint: serde_json::from_value(added["result"]["footprint"].clone()).unwrap(),
+        pad: serde_json::from_value(added["result"]["pads"][0].clone()).unwrap(),
+    };
+    let free: Uuid = serde_json::from_value(
+        wrun(
+            &mut w,
+            "pcb.free_pad.add",
+            json!({
+                "at":{"x":"8mm","y":"2mm"},"kind":"smd","width":"1mm"
+            }),
+        )["result"]["uuid"]
+            .clone(),
+    )
+    .unwrap();
+    let via: Uuid = serde_json::from_value(
+        wrun(
+            &mut w,
+            "pcb.via.add",
+            json!({
+                "at":{"x":"5mm","y":"2mm"},"hole":"0.3mm","diameter":"0.7mm"
+            }),
+        )["result"]["uuid"]
+            .clone(),
+    )
+    .unwrap();
+    let flags = |w: &Window| {
+        let board = wshell(w).engine().project().unwrap().pcb().unwrap();
+        [
+            board.track(track).unwrap().teardrop,
+            board.via(via).unwrap().teardrop,
+            board.free_pad(free).unwrap().teardrop,
+            board.footprint_pad(placed).unwrap().teardrop,
+        ]
+    };
+    let checkbox = "Allow Teardrops";
+    for individual in [
+        json!({"objects":[via]}),
+        json!({"objects":[free]}),
+        json!({"pads":[placed]}),
+    ] {
+        wrun(&mut w, "selection.set", individual);
+        w.h.run();
+        assert_eq!(
+            w.h.get_by_label(checkbox).accesskit_node().toggled(),
+            Some(Toggled::True)
+        );
+    }
+    wrun(
+        &mut w,
+        "selection.set",
+        json!({"objects":[track,via,free],"pads":[placed]}),
+    );
+    w.h.run();
+    w.h.get_by_label(checkbox).click();
+    w.h.run();
+    assert_eq!(last_command(&w).0, "batch");
+    assert_eq!(flags(&w), [false; 4]);
+    let document = wshell(&w).engine().project().unwrap().pcb().unwrap().uuid;
+    wrun(&mut w, "edit.undo", json!({"document":document}));
+    assert_eq!(flags(&w), [true; 4]);
+    wrun(
+        &mut w,
+        "pcb.via.set",
+        json!({"vias":[via],"teardrop":false}),
+    );
+    w.h.run();
+    assert_eq!(
+        w.h.get_by_label(checkbox).accesskit_node().toggled(),
+        Some(Toggled::Mixed)
+    );
+    w.h.get_by_label(checkbox).click();
+    w.h.run();
+    assert_eq!(flags(&w), [true; 4]);
+}

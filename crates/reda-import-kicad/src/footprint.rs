@@ -456,6 +456,7 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<Pad> {
         uuid: Uuid::NIL,
         middle: stack.middle,
         bottom: stack.bottom,
+        teardrop: true,
         unused_layers: if kind == PadKind::PlatedThroughHole && pad.flag("remove_unused_layers") {
             reda_model::UnusedLayers::Remove
         } else {

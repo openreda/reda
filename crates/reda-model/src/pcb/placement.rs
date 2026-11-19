@@ -18,6 +18,9 @@ pub struct FreePad {
     /// Locked against geometry changes; left out when false.
     #[serde(default, skip_serializing_if = "is_false")]
     pub locked: bool,
+    /// False opts this land out of derived Teardrops on every Layer.
+    #[serde(default = "super::yes", skip_serializing_if = "super::is_true")]
+    pub teardrop: bool,
     /// SMD (plated, no hole), plated through-hole, or non-plated (a bare hole).
     pub kind: PadKind,
     pub shape: PadShape,

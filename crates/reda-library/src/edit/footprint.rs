@@ -198,6 +198,7 @@ impl Command for PadAdd {
             paste: reda_command::paste(p.paste),
             middle: p.middle.map(reda_command::PadCopperParam::copper),
             bottom: p.bottom.map(reda_command::PadCopperParam::copper),
+            teardrop: true,
             unused_layers: p.unused_layers.unwrap_or_default(),
             zone_connection: zone_connection(p.zone_connection),
         };

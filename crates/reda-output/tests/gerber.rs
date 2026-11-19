@@ -904,3 +904,88 @@ fn a_stale_width_change_plots_an_attributed_conductor_region_only_on_its_layer()
     }
     assert_eq!(read(&file(&files, "Demo.gbl").bytes).regions().count(), 0);
 }
+
+#[test]
+fn all_four_targets_read_back_as_plain_conductor_regions_only_on_their_copper_layer() {
+    let dir = TempDir::new("gerber-land-teardrops");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Drops","layers":4,
+        "board":{"width":"20mm","height":"20mm"}}),
+    );
+    let sig = net(&mut e, "SIG");
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":layers[0],"net":sig,"width":"1mm",
+        "points":[pt(2.,3.),pt(5.,3.)]}),
+    );
+    e.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","net":sig,"at":pt(5.,7.),
+        "width":"1mm","hole":{"width":"0.4mm"},"middle":{"shape":"rect","width":"1.4mm","height":"1mm"}}));
+    e.run_ok("pcb.via.add",json!({"net":sig,"at":pt(5.,11.),"hole":"0.3mm","diameter":{"start":"0.6mm","middle":"0.8mm"}}));
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"smd","side":"bottom","shape":"rect","width":"1mm",
+        "height":"1.2mm","net":sig,"at":pt(5.,15.)}),
+    );
+    for (&layer, y) in layers.iter().zip([3., 7., 11., 15.]) {
+        e.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,"net":sig,"width":"0.1mm",
+            "points":[pt(5.,y),pt(10.,y)]}),
+        );
+    }
+    let before = plot(&e);
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"length":100},
+        "through_hole_pad":{"enabled":true},"via":{"enabled":true},"smd_pad":{"enabled":true}}}),
+    );
+    let after = plot(&e);
+    for (original, generated) in before.iter().zip(&after) {
+        if !original.function.starts_with("copper_") {
+            assert_eq!(original.bytes, generated.bytes, "{}", original.name);
+        }
+    }
+    for (name, x, y, base, tip) in [
+        ("Drops.gtl", 5., 3., 1., 6.),
+        ("Drops.g2l", 5.7, 7., 1., 6.2),
+        ("Drops.g3l", 5.4, 11., 0.8, 5.8),
+        ("Drops.gbl", 5.5, 15., 1.2, 6.1),
+    ] {
+        let artwork = read(&file(&after, name).bytes);
+        let conductors:Vec<_> = artwork.regions().filter(|r| matches!(r,Object::Region{function,..} if function.as_deref()==Some("Conductor"))).collect();
+        let [
+            Object::Region {
+                dark,
+                points,
+                attributes,
+                ..
+            },
+        ] = conductors[..]
+        else {
+            panic!("expected one conductor region on {name}")
+        };
+        assert!(*dark);
+        assert_eq!(attributes[".N"], "SIG");
+        for point in [
+            (x, y - base / 2.),
+            (x, y + base / 2.),
+            (tip, y - 0.05),
+            (tip, y + 0.05),
+        ] {
+            assert!(
+                points.contains(&(mm(point.0), mm(point.1))),
+                "{name}: {point:?} missing from {points:?}"
+            );
+        }
+    }
+}

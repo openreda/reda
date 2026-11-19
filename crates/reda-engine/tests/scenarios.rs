@@ -200,6 +200,52 @@ fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements()
 }
 
 #[test]
+fn teardrops_reopen_as_filled_vector_paths_on_each_affected_board_scene_layer() {
+    use reda_engine::render::{Palette, PdfInfo, Primitive, SceneLayer, to_pdf};
+    use serde_json::json;
+    let (_dir, mut e) = reda_testkit::open_reference_copy(
+        &repo().join("tests/scenarios/teardrops"),
+        "Teardrops.reda",
+    );
+    let status = e.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(status["teardrops"]["generated"], 2);
+    assert_eq!(status["teardrops"]["shortened"], 1);
+    assert_eq!(status["teardrops"]["left_out"], 1);
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let scene = e.board_scene(pcb.uuid, &Default::default()).unwrap();
+    for (layer, expected) in
+        pcb.copper_layers()
+            .zip([Some((0.6, 1.2)), Some((0.24, 1.4)), None, Some((0.45, 0.9))])
+    {
+        let mut page = scene.clone();
+        page.items.retain(|item| {
+            item.layer == SceneLayer::Board(layer.uuid)
+                && pcb.track(item.object).is_some()
+                && matches!(item.primitive, Primitive::Triangles(_))
+        });
+        let pdf =
+            String::from_utf8(to_pdf(&[page], &Palette::mono(), &PdfInfo::default())).unwrap();
+        assert_eq!(
+            pdf.matches("\nh\nf\n").count(),
+            usize::from(expected.is_some())
+        );
+        if let Some((length, width)) = expected {
+            let mut bounds = (0.0_f64, 0.0_f64);
+            for line in pdf.lines() {
+                let mut words = line.split_whitespace();
+                if let (Some(x), Some(y), Some("m" | "l"), None) =
+                    (words.next(), words.next(), words.next(), words.next())
+                {
+                    bounds.0 = bounds.0.max(x.parse().unwrap());
+                    bounds.1 = bounds.1.max(y.parse().unwrap());
+                }
+            }
+            assert_eq!(bounds, (length, width), "{}", layer.uuid);
+        }
+    }
+}
+
+#[test]
 fn layer_rules_reopens_with_a_narrow_top_stroke_and_short_bottom_outline_text() {
     use reda_testkit::{assert_golden, open_reference_copy};
     use serde_json::json;

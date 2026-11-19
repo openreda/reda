@@ -52,6 +52,8 @@ pub struct FreePadAddParams {
     /// A plated through-hole Pad's complete bottom copper shape.
     pub bottom: Option<reda_command::PadCopperParam>,
     pub unused_layers: Option<reda_model::UnusedLayers>,
+    /// False opts this Pad out of derived Teardrops on every Layer.
+    pub teardrop: Option<bool>,
     /// For a `rounded_rect` (50% when left out) and the uncut corners of a
     /// `chamfered_rect`.
     #[serde(default)]
@@ -121,6 +123,7 @@ impl Command for FreePadAdd {
         let uuid = cx.new_id();
         let pad = FreePad {
             locked: false,
+            teardrop: p.teardrop.unwrap_or(true),
             uuid,
             kind: p.kind,
             shape,

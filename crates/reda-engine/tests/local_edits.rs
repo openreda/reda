@@ -877,3 +877,33 @@ fn locked_lands_refuse_the_whole_edit_and_allow_an_explicit_override() {
     assert_eq!(changed["result"], json!({"pads":1,"vias":1}));
     assert_eq!(query(&mut e, "via")[0]["locked"], true);
 }
+
+#[test]
+fn a_teardrop_opt_out_is_local_to_one_placed_pad_and_survives_reopening() {
+    let dir = TempDir::new("local-teardrop");
+    let mut engine = board(&dir, 2);
+    let (i, original) = first_pad(&mut engine, "R1");
+    let (_, sibling) = first_pad(&mut engine, "R2");
+    assert_eq!(sibling, original);
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":i,"pad":original["uuid"],"teardrop":false}),
+    );
+    engine.run_ok("project.save", json!({}));
+    let path = engine.location().unwrap().to_owned();
+    engine.run_ok("project.close", json!({}));
+    engine.run_ok("project.open", json!({"path":path}));
+    let mut expected = original.clone();
+    expected["teardrop"] = json!(false);
+    assert_eq!(first_pad(&mut engine, "R1").1, expected);
+    assert_eq!(first_pad(&mut engine, "R2").1, original);
+    assert_eq!(preview(&mut engine)["count"], 0);
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":i,"pad":original["uuid"],"teardrop":true}),
+    );
+    assert_eq!(first_pad(&mut engine, "R1").1, original);
+    assert_eq!(query(&mut engine, "footprint_copy").len(), 1);
+    engine.run_ok("edit.undo", json!({"document": PCB}));
+    assert_eq!(first_pad(&mut engine, "R1").1, expected);
+}
