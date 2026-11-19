@@ -868,7 +868,7 @@ impl DesignRule {
         if self.kind != RuleKind::Teardrop && targets.iter().any(Option::is_some) {
             return Some(format!("a {kind} rule has no Teardrop targets"));
         }
-        if self.kind == RuleKind::ViaSize
+        if matches!(self.kind, RuleKind::ViaSize | RuleKind::MicroviaSize)
             && self.scope.is_board_wide()
             && [self.values.diameter, self.values.hole]
                 .into_iter()

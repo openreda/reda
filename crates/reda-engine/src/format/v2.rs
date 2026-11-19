@@ -1,4 +1,6 @@
 //! The single format 1 to 2 migration. The chain stamps the new version.
+use std::collections::BTreeSet;
+
 use super::FileKind;
 use reda_model::{Uuid, ViaType, geom::Nm};
 use serde_json::{Value, json};
@@ -7,6 +9,16 @@ pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> 
     match kind {
         FileKind::Pcb => board(&mut file)?,
         FileKind::FabPreset => preset(&mut file)?,
+        FileKind::Rules => {
+            let rules = file["rules"].as_array_mut().ok_or("missing rules")?;
+            for rule in rules
+                .iter_mut()
+                .filter(|r| r["kind"] == "via_size" && r.get("net_class").is_none())
+            {
+                take_preferred(rule, "diameter")?;
+                take_preferred(rule, "hole")?;
+            }
+        }
         FileKind::Project => {
             if let Some(copies) = file.get_mut("fab_presets") {
                 for copy in copies
@@ -47,7 +59,40 @@ fn preset(preset: &mut Value) -> Result<(), String> {
     Ok(())
 }
 
+/// A hand-assigned UUID in the released file can coincide with the usual derived ID.
+fn existing_ids(value: &Value, used: &mut BTreeSet<Uuid>) {
+    match value {
+        Value::Object(map) => {
+            if let Some(id) = map
+                .get("uuid")
+                .and_then(Value::as_str)
+                .and_then(|s| s.parse().ok())
+            {
+                used.insert(id);
+            }
+            for value in map.values() {
+                existing_ids(value, used);
+            }
+        }
+        Value::Array(rows) => {
+            for value in rows {
+                existing_ids(value, used);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn reserve(used: &mut BTreeSet<Uuid>, mut id: Uuid) -> Uuid {
+    while !used.insert(id) {
+        id = id.child("next");
+    }
+    id
+}
+
 fn board(file: &mut Value) -> Result<(), String> {
+    let mut used = BTreeSet::new();
+    existing_ids(file, &mut used);
     let document: Uuid =
         serde_json::from_value(file["pcb"]["uuid"].clone()).map_err(|e| e.to_string())?;
     let rules = file["rules"].as_array_mut().ok_or("missing rules")?;
@@ -57,11 +102,10 @@ fn board(file: &mut Value) -> Result<(), String> {
         .ok_or("missing board-wide via_size record")?;
     let diameter = take_preferred(via_size, "diameter")?;
     let hole = take_preferred(via_size, "hole")?;
-    rules.extend(
-        reda_pcb::multilayer_rules(document)
-            .iter()
-            .map(|r| json!(r)),
-    );
+    for mut rule in reda_pcb::multilayer_rules(document) {
+        rule.uuid = reserve(&mut used, rule.uuid);
+        rules.push(json!(rule));
+    }
     for stack in file["stackups"].as_array_mut().ok_or("missing stackups")? {
         let id: Uuid = serde_json::from_value(stack["uuid"].clone()).map_err(|e| e.to_string())?;
         let entries = stack["entries"]
@@ -80,7 +124,9 @@ fn board(file: &mut Value) -> Result<(), String> {
         let (Some(&from), Some(&to)) = (copper.first(), copper.last()) else {
             return Err("the Stackup has no copper".into());
         };
-        stack["via_types"] = json!([ViaType::through(id, from, to, hole, diameter)]);
+        let mut through = ViaType::through(id, from, to, hole, diameter);
+        through.uuid = reserve(&mut used, through.uuid);
+        stack["via_types"] = json!([through]);
     }
     if let Some(vias) = file.get_mut("vias") {
         for via in vias.as_array_mut().ok_or("vias must be an array")? {
@@ -92,10 +138,48 @@ fn board(file: &mut Value) -> Result<(), String> {
 }
 
 fn take_preferred(rule: &mut Value, dimension: &str) -> Result<Nm, String> {
-    rule["values"][dimension]
-        .as_object_mut()
+    rule.get_mut("values")
+        .and_then(|v| v.get_mut(dimension))
+        .and_then(Value::as_object_mut)
         .and_then(|bounds| bounds.remove("preferred"))
         .and_then(|n| n.as_i64())
         .map(Nm)
         .ok_or_else(|| format!("missing via_size {dimension}.preferred"))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::super::{
+        library::*, read_fab_file, read_rules_file, write_fab_file, write_rules_file,
+    };
+    use reda_testkit::{assert_golden, read_tree};
+
+    /// Run both released standalone files and the Library local to the Minimal board through
+    /// the same readers and canonical writers as their corresponding Commands.
+    #[test]
+    fn released_standalone_files_save_as_the_goldens_and_reopen_identically() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/formats");
+        for dir in ["standalone", "minimal_board/lib"] {
+            for (file, before) in read_tree(&root.join("v1").join(dir)) {
+                let path = Path::new(&file);
+                let encode = |bytes: &[u8]| {
+                    match path.extension().unwrap().to_str().unwrap() {
+                        "redalib" => write_library_info(&read_library_info(path, bytes).unwrap()),
+                        "redasym" => write_symbol(&read_symbol(path, bytes).unwrap()),
+                        "redafp" => write_footprint(&read_footprint(path, bytes).unwrap()),
+                        "redapart" => write_part(&read_part(path, bytes).unwrap()),
+                        "redafab" => write_fab_file(&read_fab_file(path, bytes).unwrap()),
+                        "redarules" => write_rules_file(&read_rules_file(path, bytes).unwrap()),
+                        ext => panic!("unexpected extension {ext}"),
+                    }
+                    .unwrap()
+                };
+                let after = encode(&before);
+                assert_golden(root.join("migrated-v2").join(dir).join(path), &after);
+                assert_eq!(encode(&after), after, "{file}");
+            }
+        }
+    }
 }
