@@ -267,8 +267,22 @@ pub fn via_ranges(
     )
 }
 
-/// Class preferences override the type's starting sizes. Every pad and the hole
-/// are clipped to the effective limits for the drilling method.
+/// The starting size of a new Via, as given: the highest-ranked Net Class preference for
+/// the drilling method, else the type's sizes. Commands use it unclipped, so DRC flags a
+/// size outside the limits.
+pub fn via_preferred_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let (pads, hole) = via_ranges(pcb, net, via_type);
+    let mut diameter = via_type.diameter;
+    diameter.start = pads.preferred;
+    (diameter, hole.preferred)
+}
+
+/// The starting size the routing and stitching Tools use: [`via_preferred_size`] with
+/// every pad and the hole clipped to the effective limits for the drilling method.
 pub fn via_starting_size(
     pcb: &PcbDocument,
     net: Option<Uuid>,

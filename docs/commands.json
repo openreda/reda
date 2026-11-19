@@ -65112,7 +65112,7 @@
     },
     {
       "category": "pcb",
-      "description": "Places a Via on the requested span. Its Net defaults to the copper under it.",
+      "description": "Places a Via on the requested span. Its Net defaults to the copper under it. Its sizes default to the Net Class preference for the drilling method, else the Via type's sizes, as given: a size outside the limits is kept and DRC flags it.",
       "icon": "via",
       "id": "pcb.via.add",
       "kind": "edit",
@@ -65372,7 +65372,7 @@
                 "type": "null"
               }
             ],
-            "description": "The copper diameters in drilling order, defaulting to the type with the Net Class preference."
+            "description": "The copper diameters in drilling order, defaulting to the type with the Net Class\npreference, not clipped to the limits."
           },
           "from": {
             "format": "uuid",
@@ -65391,7 +65391,7 @@
               }
             ],
             "default": null,
-            "description": "The hole, defaulting to the Net Class preference or the type’s hole."
+            "description": "The hole, defaulting to the Net Class preference or the type’s hole, not clipped to\nthe limits."
           },
           "mask": {
             "anyOf": [
