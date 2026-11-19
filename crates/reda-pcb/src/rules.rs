@@ -196,6 +196,31 @@ fn range(
     }
 }
 
+/// Resolves the seven independent attributes of one Teardrop on the Track's Layer.
+pub fn teardrop(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Uuid,
+    kind: reda_model::TeardropKind,
+) -> reda_model::TeardropTarget {
+    let mut shape = reda_model::TeardropTarget::default();
+    for record in candidates(
+        pcb,
+        &ranked_classes(pcb, net),
+        Some(layer),
+        RuleKind::Teardrop,
+    )
+    .into_iter()
+    .rev()
+    .filter(|r| r.enabled)
+    {
+        if let Some(values) = record.values.teardrop_values(kind) {
+            values.apply(&mut shape);
+        }
+    }
+    shape
+}
+
 /// The first enabled Via Span permission list in Net Class rank order applies.
 pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool {
     via_span_permission(pcb, net).is_none_or(|(_, list)| list.is_empty() || list.contains(&id))

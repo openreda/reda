@@ -415,7 +415,7 @@ pub(crate) fn to_area(shapes: &[FillShape]) -> Area {
 }
 
 /// The fill as stored shapes.
-pub(super) fn to_shapes(area: &Area) -> Vec<FillShape> {
+pub(crate) fn to_shapes(area: &Area) -> Vec<FillShape> {
     area.iter()
         .map(|shape| FillShape {
             outer: shape[0].iter().map(|p| poly::point(*p)).collect(),

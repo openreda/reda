@@ -55,6 +55,7 @@ fn the_rules_group_gains_mask_and_paste_and_zone_connections_then_stackup() {
             "Mask & Paste",
             "Silkscreen",
             "Zone Connections",
+            "Teardrops",
             "Stackup",
             "Net Classes",
             "DRC"

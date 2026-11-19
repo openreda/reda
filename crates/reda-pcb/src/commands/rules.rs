@@ -96,6 +96,40 @@ pub struct ConnectionParam {
     pub angle: Option<Option<Angle>>,
 }
 
+/// The shape properties edited independently on one Teardrop target. Null clears a scoped override.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropParam {
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub enabled: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub length: Option<Option<u32>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub max_length: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub width: Option<Option<u32>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub max_width: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<bool>")]
+    pub curved: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub skip_ratio: Option<Option<u32>>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ViaParam {
+    Connection(ConnectionParam),
+    Teardrop(TeardropParam),
+}
+
 /// The values to change; those left out keep theirs, and `null` clears one. Which a kind
 /// holds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)
 /// `zero_keepout_clearance`; `track_width` `min`, `preferred`
@@ -179,7 +213,13 @@ pub struct ValuesParam {
     #[serde(default)]
     pub smd: Option<ConnectionParam>,
     #[serde(default)]
-    pub via: Option<ConnectionParam>,
+    pub via: Option<ViaParam>,
+    #[serde(default)]
+    pub through_hole_pad: Option<TeardropParam>,
+    #[serde(default)]
+    pub smd_pad: Option<TeardropParam>,
+    #[serde(default)]
+    pub width_change: Option<TeardropParam>,
 }
 
 impl ValuesParam {
@@ -240,10 +280,15 @@ impl ValuesParam {
         if let Some(area) = self.min_area {
             out.push((RuleField::MinArea, area.map(|a| RuleValue::Area(a.0))));
         }
+        let (via_zone, via_tear) = match &self.via {
+            Some(ViaParam::Connection(z)) => (Some(z), None),
+            Some(ViaParam::Teardrop(t)) => (None, Some(t)),
+            None => (None, None),
+        };
         for (target, param) in [
-            (ConnectionTarget::ThroughHole, &self.through_hole),
-            (ConnectionTarget::Smd, &self.smd),
-            (ConnectionTarget::Via, &self.via),
+            (ConnectionTarget::ThroughHole, self.through_hole.as_ref()),
+            (ConnectionTarget::Smd, self.smd.as_ref()),
+            (ConnectionTarget::Via, via_zone),
         ] {
             let Some(c) = param else { continue };
             let field = |v| RuleField::connection_field(target, v);
@@ -269,6 +314,54 @@ impl ValuesParam {
                 out.push((
                     field(ConnectionValue::Angle),
                     v.map(|a| RuleValue::Angle(a.millideg())),
+                ));
+            }
+        }
+        use reda_model::{TeardropField, TeardropKind};
+        for (kind, param) in [
+            (TeardropKind::ThroughHolePad, self.through_hole_pad.as_ref()),
+            (TeardropKind::SmdPad, self.smd_pad.as_ref()),
+            (TeardropKind::Via, via_tear),
+            (TeardropKind::WidthChange, self.width_change.as_ref()),
+        ] {
+            let Some(t) = param else {
+                continue;
+            };
+            let field = |f| RuleField::Teardrop(kind, f);
+            if let Some(v) = t.enabled {
+                out.push((field(TeardropField::Enabled), v.map(RuleValue::Flag)));
+            }
+            if let Some(v) = t.length {
+                out.push((
+                    field(TeardropField::Length),
+                    v.map(RuleValue::UnsignedPercent),
+                ));
+            }
+            if let Some(v) = t.max_length {
+                out.push((
+                    field(TeardropField::MaxLength),
+                    v.map(|l| RuleValue::Length(l.nm())),
+                ));
+            }
+            if let Some(v) = t.width {
+                out.push((
+                    field(TeardropField::Width),
+                    v.map(RuleValue::UnsignedPercent),
+                ));
+            }
+            if let Some(v) = t.max_width {
+                out.push((
+                    field(TeardropField::MaxWidth),
+                    v.map(|l| RuleValue::Length(l.nm())),
+                ));
+            }
+            if let Some(v) = t.curved {
+                out.push((field(TeardropField::Curved), v.map(RuleValue::Flag)));
+            }
+            if let Some(v) = t.skip_ratio {
+                out.push((
+                    field(TeardropField::SkipRatio),
+                    v.map(RuleValue::UnsignedPercent),
                 ));
             }
         }

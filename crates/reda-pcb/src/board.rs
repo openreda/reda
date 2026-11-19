@@ -218,7 +218,7 @@ pub fn default_rules() -> Vec<(RuleKind, RuleValues)> {
 /// The additional board-wide records introduced by format 2. Existing boards had no
 /// silk minimum. A zero minimum preserves their behaviour until a fab limit is applied.
 pub fn multilayer_rules(document: Uuid) -> Vec<DesignRule> {
-    let target = reda_model::TeardropTarget::default();
+    let target = reda_model::TeardropTarget::default().into();
     let silk = RuleValues {
         min: Some(reda_model::geom::Nm::ZERO),
         ..Default::default()

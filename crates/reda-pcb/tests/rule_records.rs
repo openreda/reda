@@ -719,3 +719,31 @@ fn the_preset_seeds_applies_and_saves_each_plated_hole_limit() {
     e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
     assert_eq!(rule(&e)["hole"], json!({"via":200000,"pad":300000}));
 }
+
+#[test]
+fn a_teardrop_rule_can_override_one_target_value_and_clear_it_to_inherit() {
+    let dir = TempDir::new("teardrop-record");
+    let mut e = engine(&dir);
+    let layer = pcb(&e).copper_layers().next().unwrap().uuid;
+    set(
+        &mut e,
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"max_length":"1.5mm"}}}),
+    );
+    let r = set(
+        &mut e,
+        json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"length":65},"via":{"curved":true}}}),
+    );
+    assert_eq!(r["values"]["width_change"], json!({"length":65}));
+    assert_eq!(r["values"]["via"], json!({"curved":true}));
+    let r = set(
+        &mut e,
+        json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"length":null}}}),
+    );
+    assert!(r["values"].get("width_change").is_none());
+    let shape =
+        reda_pcb::rules::teardrop(pcb(&e), None, layer, reda_model::TeardropKind::WidthChange);
+    assert!(shape.enabled);
+    assert_eq!(shape.length, 50);
+    assert_eq!(shape.max_length, um(1500));
+    assert!(reda_pcb::rules::teardrop(pcb(&e), None, layer, reda_model::TeardropKind::Via).curved);
+}

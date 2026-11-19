@@ -26,7 +26,7 @@ use crate::tr;
 pub use actions::ImportPreview;
 pub use field::{
     ANGLES, GRID_FIELDS, GRID_KINDS, RuleField, SPOKES, STYLES, ValueKind, connection_value_name,
-    kind_name, style_name, target_name,
+    kind_name, style_name, target_name, tear_target_name,
 };
 use field::{by_kind, values_param};
 

@@ -26075,6 +26075,10 @@
                   "null"
                 ]
               },
+              "teardrop": {
+                "description": "False opts both ends out of derived Teardrops.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -29953,7 +29957,7 @@
               "smd_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -29986,7 +29990,7 @@
               "through_hole_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -30031,7 +30035,7 @@
               "width_change": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -30645,51 +30649,62 @@
             ],
             "type": "object"
           },
-          "TeardropTarget": {
+          "TeardropValues": {
             "additionalProperties": false,
-            "description": "The shape and enable switch for one Teardrop target.",
             "properties": {
               "curved": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "enabled": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "length": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_width": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "skip_ratio": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "width": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "enabled",
-              "length",
-              "max_length",
-              "width",
-              "max_width",
-              "curved",
-              "skip_ratio"
-            ],
             "type": "object"
           },
           "Tenting": {
@@ -31027,7 +31042,7 @@
                 "$ref": "#/$defs/ZoneConnection"
               },
               {
-                "$ref": "#/$defs/TeardropTarget"
+                "$ref": "#/$defs/TeardropValues"
               }
             ],
             "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
@@ -34554,6 +34569,10 @@
                   "string",
                   "null"
                 ]
+              },
+              "teardrop": {
+                "description": "False opts both ends out of derived Teardrops.",
+                "type": "boolean"
               },
               "uuid": {
                 "format": "uuid",
@@ -38454,7 +38473,7 @@
               "smd_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -38487,7 +38506,7 @@
               "through_hole_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -38532,7 +38551,7 @@
               "width_change": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -39146,51 +39165,62 @@
             ],
             "type": "object"
           },
-          "TeardropTarget": {
+          "TeardropValues": {
             "additionalProperties": false,
-            "description": "The shape and enable switch for one Teardrop target.",
             "properties": {
               "curved": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "enabled": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "length": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_width": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "skip_ratio": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "width": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "enabled",
-              "length",
-              "max_length",
-              "width",
-              "max_width",
-              "curved",
-              "skip_ratio"
-            ],
             "type": "object"
           },
           "Tenting": {
@@ -39528,7 +39558,7 @@
                 "$ref": "#/$defs/ZoneConnection"
               },
               {
-                "$ref": "#/$defs/TeardropTarget"
+                "$ref": "#/$defs/TeardropValues"
               }
             ],
             "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
@@ -44599,6 +44629,10 @@
                   "string",
                   "null"
                 ]
+              },
+              "teardrop": {
+                "description": "False opts both ends out of derived Teardrops.",
+                "type": "boolean"
               },
               "uuid": {
                 "format": "uuid",
@@ -52317,6 +52351,76 @@
               }
             ]
           },
+          "TeardropParam": {
+            "additionalProperties": false,
+            "description": "The shape properties edited independently on one Teardrop target. Null clears a scoped override.",
+            "properties": {
+              "curved": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "length": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "max_width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "skip_ratio": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "width": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "ValuesParam": {
             "additionalProperties": false,
             "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
@@ -52493,6 +52597,16 @@
                   }
                 ]
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "default": null,
                 "type": [
@@ -52511,6 +52625,16 @@
                 "anyOf": [
                   {
                     "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
                   },
                   {
                     "type": "null"
@@ -52553,7 +52677,17 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ConnectionParam"
+                    "$ref": "#/$defs/ViaParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
                   },
                   {
                     "type": "null"
@@ -52570,6 +52704,16 @@
               }
             },
             "type": "object"
+          },
+          "ViaParam": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConnectionParam"
+              },
+              {
+                "$ref": "#/$defs/TeardropParam"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -54968,6 +55112,10 @@
                   "null"
                 ]
               },
+              "teardrop": {
+                "description": "False opts both ends out of derived Teardrops.",
+                "type": "boolean"
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -56787,6 +56935,12 @@
                 "type": "integer"
               },
               {
+                "description": "A nonnegative percentage of a Teardrop target size.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
                 "$ref": "#/$defs/SilkMaskMode"
               },
               {
@@ -56959,51 +57113,77 @@
           },
           "RuleField": {
             "description": "One value of a rule record, by where it sits in `values`.",
-            "enum": [
-              "value",
-              "hole_via",
-              "hole_pad",
-              "ignore_pad_to_pad",
-              "zero_keepout_clearance",
-              "min",
-              "preferred",
-              "max",
-              "diameter_min",
-              "diameter_preferred",
-              "diameter_max",
-              "hole_min",
-              "hole_preferred",
-              "hole_max",
-              "aspect_ratio_max",
-              "max_stack",
-              "top",
-              "bottom",
-              "from_hole_edge",
-              "tent_vias_top",
-              "tent_vias_bottom",
-              "expansion",
-              "percent",
-              "mode",
-              "tolerance",
-              "max_length",
-              "min_area",
-              "through_hole_style",
-              "through_hole_spokes",
-              "through_hole_spoke_width",
-              "through_hole_gap",
-              "through_hole_angle",
-              "smd_style",
-              "smd_spokes",
-              "smd_spoke_width",
-              "smd_gap",
-              "smd_angle",
-              "via_style",
-              "via_spokes",
-              "via_spoke_width",
-              "via_gap",
-              "via_angle"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "value",
+                  "hole_via",
+                  "hole_pad",
+                  "ignore_pad_to_pad",
+                  "zero_keepout_clearance",
+                  "min",
+                  "preferred",
+                  "max",
+                  "diameter_min",
+                  "diameter_preferred",
+                  "diameter_max",
+                  "hole_min",
+                  "hole_preferred",
+                  "hole_max",
+                  "aspect_ratio_max",
+                  "max_stack",
+                  "top",
+                  "bottom",
+                  "from_hole_edge",
+                  "tent_vias_top",
+                  "tent_vias_bottom",
+                  "expansion",
+                  "percent",
+                  "mode",
+                  "tolerance",
+                  "max_length",
+                  "min_area",
+                  "through_hole_style",
+                  "through_hole_spokes",
+                  "through_hole_spoke_width",
+                  "through_hole_gap",
+                  "through_hole_angle",
+                  "smd_style",
+                  "smd_spokes",
+                  "smd_spoke_width",
+                  "smd_gap",
+                  "smd_angle",
+                  "via_style",
+                  "via_spokes",
+                  "via_spoke_width",
+                  "via_gap",
+                  "via_angle"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "teardrop": {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/TeardropKind"
+                      },
+                      {
+                        "$ref": "#/$defs/TeardropField"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "teardrop"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "RuleKind": {
             "description": "What a rule record limits.",
@@ -57099,6 +57279,27 @@
                 "type": "string"
               }
             ]
+          },
+          "TeardropField": {
+            "enum": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
+            ],
+            "type": "string"
+          },
+          "TeardropKind": {
+            "enum": [
+              "through_hole_pad",
+              "smd_pad",
+              "via",
+              "width_change"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -57250,51 +57451,77 @@
           },
           "RuleField": {
             "description": "One value of a rule record, by where it sits in `values`.",
-            "enum": [
-              "value",
-              "hole_via",
-              "hole_pad",
-              "ignore_pad_to_pad",
-              "zero_keepout_clearance",
-              "min",
-              "preferred",
-              "max",
-              "diameter_min",
-              "diameter_preferred",
-              "diameter_max",
-              "hole_min",
-              "hole_preferred",
-              "hole_max",
-              "aspect_ratio_max",
-              "max_stack",
-              "top",
-              "bottom",
-              "from_hole_edge",
-              "tent_vias_top",
-              "tent_vias_bottom",
-              "expansion",
-              "percent",
-              "mode",
-              "tolerance",
-              "max_length",
-              "min_area",
-              "through_hole_style",
-              "through_hole_spokes",
-              "through_hole_spoke_width",
-              "through_hole_gap",
-              "through_hole_angle",
-              "smd_style",
-              "smd_spokes",
-              "smd_spoke_width",
-              "smd_gap",
-              "smd_angle",
-              "via_style",
-              "via_spokes",
-              "via_spoke_width",
-              "via_gap",
-              "via_angle"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "value",
+                  "hole_via",
+                  "hole_pad",
+                  "ignore_pad_to_pad",
+                  "zero_keepout_clearance",
+                  "min",
+                  "preferred",
+                  "max",
+                  "diameter_min",
+                  "diameter_preferred",
+                  "diameter_max",
+                  "hole_min",
+                  "hole_preferred",
+                  "hole_max",
+                  "aspect_ratio_max",
+                  "max_stack",
+                  "top",
+                  "bottom",
+                  "from_hole_edge",
+                  "tent_vias_top",
+                  "tent_vias_bottom",
+                  "expansion",
+                  "percent",
+                  "mode",
+                  "tolerance",
+                  "max_length",
+                  "min_area",
+                  "through_hole_style",
+                  "through_hole_spokes",
+                  "through_hole_spoke_width",
+                  "through_hole_gap",
+                  "through_hole_angle",
+                  "smd_style",
+                  "smd_spokes",
+                  "smd_spoke_width",
+                  "smd_gap",
+                  "smd_angle",
+                  "via_style",
+                  "via_spokes",
+                  "via_spoke_width",
+                  "via_gap",
+                  "via_angle"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "teardrop": {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/TeardropKind"
+                      },
+                      {
+                        "$ref": "#/$defs/TeardropField"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "teardrop"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "RuleKind": {
             "description": "What a rule record limits.",
@@ -57406,6 +57633,12 @@
                 "type": "integer"
               },
               {
+                "description": "A nonnegative percentage of a Teardrop target size.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
                 "$ref": "#/$defs/SilkMaskMode"
               },
               {
@@ -57451,6 +57684,27 @@
                 "type": "string"
               }
             ]
+          },
+          "TeardropField": {
+            "enum": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
+            ],
+            "type": "string"
+          },
+          "TeardropKind": {
+            "enum": [
+              "through_hole_pad",
+              "smd_pad",
+              "via",
+              "width_change"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -57671,51 +57925,77 @@
           },
           "RuleField": {
             "description": "One value of a rule record, by where it sits in `values`.",
-            "enum": [
-              "value",
-              "hole_via",
-              "hole_pad",
-              "ignore_pad_to_pad",
-              "zero_keepout_clearance",
-              "min",
-              "preferred",
-              "max",
-              "diameter_min",
-              "diameter_preferred",
-              "diameter_max",
-              "hole_min",
-              "hole_preferred",
-              "hole_max",
-              "aspect_ratio_max",
-              "max_stack",
-              "top",
-              "bottom",
-              "from_hole_edge",
-              "tent_vias_top",
-              "tent_vias_bottom",
-              "expansion",
-              "percent",
-              "mode",
-              "tolerance",
-              "max_length",
-              "min_area",
-              "through_hole_style",
-              "through_hole_spokes",
-              "through_hole_spoke_width",
-              "through_hole_gap",
-              "through_hole_angle",
-              "smd_style",
-              "smd_spokes",
-              "smd_spoke_width",
-              "smd_gap",
-              "smd_angle",
-              "via_style",
-              "via_spokes",
-              "via_spoke_width",
-              "via_gap",
-              "via_angle"
-            ],
-            "type": "string"
+            "oneOf": [
+              {
+                "enum": [
+                  "value",
+                  "hole_via",
+                  "hole_pad",
+                  "ignore_pad_to_pad",
+                  "zero_keepout_clearance",
+                  "min",
+                  "preferred",
+                  "max",
+                  "diameter_min",
+                  "diameter_preferred",
+                  "diameter_max",
+                  "hole_min",
+                  "hole_preferred",
+                  "hole_max",
+                  "aspect_ratio_max",
+                  "max_stack",
+                  "top",
+                  "bottom",
+                  "from_hole_edge",
+                  "tent_vias_top",
+                  "tent_vias_bottom",
+                  "expansion",
+                  "percent",
+                  "mode",
+                  "tolerance",
+                  "max_length",
+                  "min_area",
+                  "through_hole_style",
+                  "through_hole_spokes",
+                  "through_hole_spoke_width",
+                  "through_hole_gap",
+                  "through_hole_angle",
+                  "smd_style",
+                  "smd_spokes",
+                  "smd_spoke_width",
+                  "smd_gap",
+                  "smd_angle",
+                  "via_style",
+                  "via_spokes",
+                  "via_spoke_width",
+                  "via_gap",
+                  "via_angle"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "teardrop": {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "$ref": "#/$defs/TeardropKind"
+                      },
+                      {
+                        "$ref": "#/$defs/TeardropField"
+                      }
+                    ],
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "teardrop"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "RuleKind": {
             "description": "What a rule record limits.",
@@ -57827,6 +58107,12 @@
                 "type": "integer"
               },
               {
+                "description": "A nonnegative percentage of a Teardrop target size.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
                 "$ref": "#/$defs/SilkMaskMode"
               },
               {
@@ -57872,6 +58158,27 @@
                 "type": "string"
               }
             ]
+          },
+          "TeardropField": {
+            "enum": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
+            ],
+            "type": "string"
+          },
+          "TeardropKind": {
+            "enum": [
+              "through_hole_pad",
+              "smd_pad",
+              "via",
+              "width_change"
+            ],
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -58825,7 +59132,7 @@
               "smd_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -58858,7 +59165,7 @@
               "through_hole_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -58903,7 +59210,7 @@
               "width_change": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -58964,51 +59271,62 @@
               }
             ]
           },
-          "TeardropTarget": {
+          "TeardropValues": {
             "additionalProperties": false,
-            "description": "The shape and enable switch for one Teardrop target.",
             "properties": {
               "curved": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "enabled": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "length": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_width": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "skip_ratio": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "width": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "enabled",
-              "length",
-              "max_length",
-              "width",
-              "max_width",
-              "curved",
-              "skip_ratio"
-            ],
             "type": "object"
           },
           "ViaRuleValues": {
@@ -59017,7 +59335,7 @@
                 "$ref": "#/$defs/ZoneConnection"
               },
               {
-                "$ref": "#/$defs/TeardropTarget"
+                "$ref": "#/$defs/TeardropValues"
               }
             ],
             "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
@@ -59592,6 +59910,76 @@
               }
             ]
           },
+          "TeardropParam": {
+            "additionalProperties": false,
+            "description": "The shape properties edited independently on one Teardrop target. Null clears a scoped override.",
+            "properties": {
+              "curved": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "enabled": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "length": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_length": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "max_width": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "skip_ratio": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "width": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "ValuesParam": {
             "additionalProperties": false,
             "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
@@ -59768,6 +60156,16 @@
                   }
                 ]
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "default": null,
                 "type": [
@@ -59786,6 +60184,16 @@
                 "anyOf": [
                   {
                     "$ref": "#/$defs/ConnectionParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
                   },
                   {
                     "type": "null"
@@ -59828,7 +60236,17 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ConnectionParam"
+                    "$ref": "#/$defs/ViaParam"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropParam"
                   },
                   {
                     "type": "null"
@@ -59845,6 +60263,16 @@
               }
             },
             "type": "object"
+          },
+          "ViaParam": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConnectionParam"
+              },
+              {
+                "$ref": "#/$defs/TeardropParam"
+              }
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -60350,7 +60778,7 @@
               "smd_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -60383,7 +60811,7 @@
               "through_hole_pad": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -60428,7 +60856,7 @@
               "width_change": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/TeardropTarget"
+                    "$ref": "#/$defs/TeardropValues"
                   },
                   {
                     "type": "null"
@@ -60460,51 +60888,62 @@
               }
             ]
           },
-          "TeardropTarget": {
+          "TeardropValues": {
             "additionalProperties": false,
-            "description": "The shape and enable switch for one Teardrop target.",
             "properties": {
               "curved": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "enabled": {
-                "type": "boolean"
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "length": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_length": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "max_width": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "skip_ratio": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "width": {
                 "format": "uint32",
                 "minimum": 0,
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               }
             },
-            "required": [
-              "enabled",
-              "length",
-              "max_length",
-              "width",
-              "max_width",
-              "curved",
-              "skip_ratio"
-            ],
             "type": "object"
           },
           "ViaRuleValues": {
@@ -60513,7 +60952,7 @@
                 "$ref": "#/$defs/ZoneConnection"
               },
               {
-                "$ref": "#/$defs/TeardropTarget"
+                "$ref": "#/$defs/TeardropValues"
               }
             ],
             "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
@@ -62692,6 +63131,123 @@
     },
     {
       "category": "pcb",
+      "description": "Counts generated, shortened and left-out Teardrops from the last fill, and lists the shortened and left-out junctions.",
+      "icon": "zone_fill",
+      "id": "pcb.teardrop.status",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "default": null,
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "TeardropStatusParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "TeardropLocation": {
+            "additionalProperties": false,
+            "description": "A junction on a Track, shared by cache entries and Board Setup's jump list.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "track": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "track",
+              "target",
+              "layer",
+              "at"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "generated": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "left_out": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "left_out_items": {
+            "items": {
+              "$ref": "#/$defs/TeardropLocation"
+            },
+            "type": "array"
+          },
+          "shortened": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shortened_items": {
+            "items": {
+              "$ref": "#/$defs/TeardropLocation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated",
+          "shortened",
+          "left_out",
+          "shortened_items",
+          "left_out_items"
+        ],
+        "title": "TeardropStatus",
+        "type": "object"
+      },
+      "title": "Teardrop Status"
+    },
+    {
+      "category": "pcb",
       "description": "Adds free text on a copper, silkscreen, mechanical or documentation Layer, anchored at (`x`, `y`), left/bottom by default. It uses the Hershey stroke font unless `font` names another family. Text on a bottom Layer is mirrored unless `mirrored` is false.",
       "icon": "text",
       "id": "pcb.text.add",
@@ -64185,6 +64741,14 @@
               }
             ],
             "description": "The new start point."
+          },
+          "teardrop": {
+            "default": null,
+            "description": "Allow rule-generated Teardrops on the two ends. False opts out.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "tracks": {
             "description": "The Track segments' UUIDs; each gets every value given.",
@@ -66078,7 +66642,7 @@
     },
     {
       "category": "pcb",
-      "description": "Fills the Zones of the PCB Document and stores the fills in the Project's `.reda/` cache (never in the Document, so filling is not an edit): every stale or unfilled Zone, or with `zones` those Zones and the ones depending on them. Shelved Zones are skipped. Long-running: reports progress per Zone and can be cancelled, which keeps the previous fills.",
+      "description": "Regenerates stale Teardrops, then fills stale or unfilled Zones. With `zones`, refills the named Zones and their dependents. Skips shelved Zones and stores the generated copper in the Project’s `.reda/` cache. Reports progress and preserves the previous fills when cancelled.",
       "icon": "zone_fill",
       "id": "pcb.zone.fill",
       "kind": "file",
@@ -66124,6 +66688,94 @@
               "islands"
             ],
             "type": "object"
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
+          "TeardropLocation": {
+            "additionalProperties": false,
+            "description": "A junction on a Track, shared by cache entries and Board Setup's jump list.",
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/Point"
+              },
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "target": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "track": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "track",
+              "target",
+              "layer",
+              "at"
+            ],
+            "type": "object"
+          },
+          "TeardropStatus": {
+            "properties": {
+              "generated": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "left_out": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "left_out_items": {
+                "items": {
+                  "$ref": "#/$defs/TeardropLocation"
+                },
+                "type": "array"
+              },
+              "shortened": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "shortened_items": {
+                "items": {
+                  "$ref": "#/$defs/TeardropLocation"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "generated",
+              "shortened",
+              "left_out",
+              "shortened_items",
+              "left_out_items"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -66131,6 +66783,17 @@
           "cached": {
             "description": "Whether the fills were written to the `.reda/` cache (not when the Project has no\nfolder or the write failed).",
             "type": "boolean"
+          },
+          "teardrops": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TeardropStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Junction counts and locations when this fill generated or removed Teardrops."
           },
           "zones": {
             "description": "The Zones it filled, in fill order (priority, highest first); the others kept\ntheir fills.",
@@ -66151,7 +66814,7 @@
     },
     {
       "category": "pcb",
-      "description": "Whether the Zones need refilling (some Zone is unfilled, or the board changed since the last fill) and each Zone's state: `filled`, `stale` or `unfilled`.",
+      "description": "Reports whether copper needs refilling, the number of stale Teardrops, and each Zone’s state (`filled`, `stale`, `unfilled` or `shelved`).",
       "icon": "zone_fill",
       "id": "pcb.zone.fill_status",
       "kind": "query",
@@ -66211,8 +66874,14 @@
         "description": "Where a PCB Document's stored fills stand.",
         "properties": {
           "needs_refill": {
-            "description": "Whether the status bar should say \"Zones need refilling\": some Zone has no fill\nyet or has changed inputs since it was filled.",
+            "description": "Whether a Zone needs filling or a Teardrop has been added, changed or removed.",
             "type": "boolean"
+          },
+          "stale_teardrops": {
+            "description": "Junctions added, changed or removed since the last fill.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
           },
           "zones": {
             "description": "Every Zone, sorted by UUID.",
@@ -66224,6 +66893,7 @@
         },
         "required": [
           "needs_refill",
+          "stale_teardrops",
           "zones"
         ],
         "title": "FillStatus",

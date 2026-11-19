@@ -286,9 +286,9 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         .find(|r| r.kind == RuleKind::Teardrop)
         .unwrap();
     let pad = teardrop.values.through_hole_pad.as_mut().unwrap();
-    pad.enabled = seed.base & 1 != 0;
-    pad.curved = seed.base & 2 != 0;
-    pad.length = 1 + (seed.base % 100) as u32;
+    pad.enabled = Some(seed.base & 1 != 0);
+    pad.curved = Some(seed.base & 2 != 0);
+    pad.length = Some(1 + (seed.base % 100) as u32);
     rules.extend(added);
     let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
     let stack_id = id();
@@ -500,6 +500,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Track(InDocument::new(
             doc,
             Track {
+                teardrop: true,
                 locked: false,
                 uuid: id(),
                 layer,

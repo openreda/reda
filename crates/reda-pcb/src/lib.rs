@@ -27,6 +27,7 @@ pub mod route;
 pub mod rules;
 pub mod select;
 pub mod silkscreen;
+pub mod teardrop;
 mod text;
 pub mod unwind;
 pub mod zone;

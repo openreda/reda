@@ -69,18 +69,19 @@ pub struct ZoneFillResult {
     /// Whether the fills were written to the `.reda/` cache (not when the Project has no
     /// folder or the write failed).
     pub cached: bool,
+    /// Junction counts and locations when this fill generated or removed Teardrops.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub teardrops: Option<reda_pcb::teardrop::TeardropStatus>,
 }
 
 impl Command for ZoneFill {
     const META: Meta = Meta {
         id: "pcb.zone.fill",
         title: "Fill Zones",
-        description: "Fills the Zones of the PCB Document and stores the fills in the \
-                      Project's `.reda/` cache (never in the Document, so filling is not an \
-                      edit): every stale or unfilled Zone, or with `zones` those Zones and \
-                      the ones depending on them. Shelved Zones are skipped. Long-running: \
-                      reports progress per Zone and can be cancelled, which keeps the \
-                      previous fills.",
+        description: "Regenerates stale Teardrops, then fills stale or unfilled Zones. With \
+                      `zones`, refills the named Zones and their dependents. Skips shelved \
+                      Zones and stores the generated copper in the Project’s `.reda/` cache. \
+                      Reports progress and preserves the previous fills when cancelled.",
         category: "pcb",
         icon: "zone_fill",
         kind: Kind::File,
@@ -152,9 +153,16 @@ impl Command for ZoneFill {
                 .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
                 && write_atomic(&path, &reda_pcb::zone::encode(&fills)).is_ok()
         });
+        let teardrops = (!fills.teardrops.is_empty()
+            || stored.as_ref().is_some_and(|s| !s.teardrops.is_empty()))
+        .then(|| reda_pcb::teardrop::status(Some(&fills)));
         if let Some(project) = session.project.as_mut() {
             project.set_zone_fills(pcb.uuid, Some(fills));
         }
-        Ok(ZoneFillResult { zones, cached })
+        Ok(ZoneFillResult {
+            zones,
+            cached,
+            teardrops,
+        })
     }
 }

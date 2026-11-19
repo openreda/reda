@@ -21,6 +21,7 @@ mod actions;
 mod grid;
 mod scoped;
 mod stackup;
+mod teardrops;
 
 pub use grid::net_classes_page;
 pub use stackup::stackup_page;
@@ -131,6 +132,9 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
     }
     let t = ui.tokens();
     actions::rule_actions(ui, cx, board, Some(rule));
+    if rule == Rule::Teardrops {
+        teardrops::outcomes(ui, cx);
+    }
     if rule == Rule::ZoneConnections {
         ui.add_space(t.space.stack);
         zone_scheme(ui, board);
@@ -157,6 +161,9 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
 
 /// A section's heading: its check's name on a page with several, else what it is about.
 fn section_heading(rule: Rule, i: usize, section: &Section) -> Option<String> {
+    if let Some(RuleField::Teardrop(kind, _)) = section.fields.first() {
+        return Some(super::model::tear_target_name(*kind));
+    }
     if let Some(target) = section.target {
         return Some(target_name(target));
     }
@@ -326,7 +333,7 @@ pub fn value_field(
     problem: Option<&Problem>,
 ) {
     let options: &[&str] = match f.kind() {
-        ValueKind::Length | ValueKind::Signed | ValueKind::Percent => {
+        ValueKind::Length | ValueKind::Signed | ValueKind::Percent | ValueKind::SizePercent => {
             field(ui, label, value, LENGTH_WIDTH, problem);
             return;
         }

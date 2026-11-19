@@ -26,6 +26,7 @@ pub struct TrackProperties {
     pub ends: Option<(Point, Point)>,
     pub layer: Shared<Uuid>,
     pub net: Shared<Option<Uuid>>,
+    pub teardrop: Shared<bool>,
     /// The copper Layers to choose from, `(uuid, name)`, top to bottom.
     pub layers: Vec<(Uuid, String)>,
     /// The Nets to choose from, `(uuid, name)`, in name order.
@@ -39,6 +40,7 @@ pub enum TrackEdit {
     End(Point),
     Layer(Uuid),
     Net(Option<Uuid>),
+    Teardrop(bool),
 }
 
 impl TrackProperties {
@@ -74,6 +76,7 @@ impl TrackProperties {
             ends,
             layer: Shared::of(tracks.iter().map(|t| t.layer))?,
             net: Shared::of(tracks.iter().map(|t| t.net))?,
+            teardrop: Shared::of(tracks.iter().map(|t| t.teardrop))?,
             layers,
             nets,
         })
@@ -88,6 +91,7 @@ impl TrackProperties {
             TrackEdit::End(p) => params["end"] = point(p),
             TrackEdit::Layer(layer) => params["layer"] = json!(layer),
             TrackEdit::Net(net) => params["net"] = json!(net),
+            TrackEdit::Teardrop(allow) => params["teardrop"] = json!(allow),
         }
         ("pcb.track.set", params)
     }

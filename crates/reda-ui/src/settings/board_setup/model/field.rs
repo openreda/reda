@@ -18,6 +18,7 @@ use crate::tr;
 /// One rule value the dialog edits: a value of one rule kind's records.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RuleField {
+    Teardrop(m::TeardropKind, m::TeardropField),
     Clearance,
     ViaHoleClearance,
     PadHoleClearance,
@@ -58,6 +59,8 @@ pub enum RuleField {
 /// What a value holds, which picks its widget and how its text is read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValueKind {
+    /// A nonnegative percentage of target size.
+    SizePercent,
     /// A length, never negative.
     Length,
     /// A length that may be negative (a mask or paste expansion).
@@ -109,7 +112,29 @@ pub fn kind_name(kind: RuleKind) -> String {
         RuleKind::MaskExpansion => tr!("board-setup-mask-expansion"),
         RuleKind::PasteExpansion => tr!("board-setup-paste-expansion"),
         RuleKind::ZoneConnection => tr!("board-setup-zone-connection"),
+        RuleKind::Teardrop => tr!("board-setup-page-teardrops"),
         other => other.id().to_owned(),
+    }
+}
+
+pub fn tear_field_name(field: m::TeardropField) -> String {
+    match field {
+        m::TeardropField::Enabled => tr!("board-setup-teardrop-enabled"),
+        m::TeardropField::Length => tr!("board-setup-teardrop-length"),
+        m::TeardropField::MaxLength => tr!("board-setup-teardrop-max-length"),
+        m::TeardropField::Width => tr!("board-setup-teardrop-width"),
+        m::TeardropField::MaxWidth => tr!("board-setup-teardrop-max-width"),
+        m::TeardropField::Curved => tr!("board-setup-teardrop-curved"),
+        m::TeardropField::SkipRatio => tr!("board-setup-teardrop-skip-ratio"),
+    }
+}
+
+pub fn tear_target_name(kind: m::TeardropKind) -> String {
+    match kind {
+        m::TeardropKind::ThroughHolePad => tr!("board-setup-target-through-hole"),
+        m::TeardropKind::SmdPad => tr!("board-setup-target-smd"),
+        m::TeardropKind::Via => tr!("board-setup-target-via"),
+        m::TeardropKind::WidthChange => tr!("board-setup-teardrop-width-change"),
     }
 }
 
@@ -144,7 +169,7 @@ pub fn style_name(style: &str) -> String {
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 44] = {
+    pub const ALL: [RuleField; 72] = {
         use ConnectionTarget as T;
         use ConnectionValue as V;
         use RuleField as R;
@@ -195,6 +220,34 @@ impl RuleField {
             R::Connection(T::Via, V::SpokeWidth),
             R::Connection(T::Via, V::Gap),
             R::Connection(T::Via, V::Angle),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::ThroughHolePad, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::SmdPad, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::Via, m::TeardropField::SkipRatio),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Enabled),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Length),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::MaxLength),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Width),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::MaxWidth),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::Curved),
+            R::Teardrop(m::TeardropKind::WidthChange, m::TeardropField::SkipRatio),
         ]
     };
 
@@ -236,6 +289,11 @@ impl RuleField {
             R::MaskTop | R::MaskBottom | R::PasteExpansion => ValueKind::Signed,
             R::MaskFromHoleEdge | R::TentViasTop | R::TentViasBottom => ValueKind::Flag,
             R::PastePercent => ValueKind::Percent,
+            R::Teardrop(_, m::TeardropField::Enabled | m::TeardropField::Curved) => ValueKind::Flag,
+            R::Teardrop(
+                _,
+                m::TeardropField::Length | m::TeardropField::Width | m::TeardropField::SkipRatio,
+            ) => ValueKind::SizePercent,
             R::Connection(_, ConnectionValue::Style) => ValueKind::Style,
             R::Connection(_, ConnectionValue::Spokes) => ValueKind::Spokes,
             R::Connection(_, ConnectionValue::Angle) => ValueKind::Angle,
@@ -247,6 +305,7 @@ impl RuleField {
     pub fn rule(self) -> (RuleKind, m::RuleField) {
         use m::RuleField as F;
         match self {
+            RuleField::Teardrop(kind, field) => (RuleKind::Teardrop, F::Teardrop(kind, field)),
             RuleField::Clearance => (RuleKind::Clearance, F::Value),
             RuleField::ViaHoleClearance => (RuleKind::Clearance, F::HoleVia),
             RuleField::PadHoleClearance => (RuleKind::Clearance, F::HolePad),
@@ -303,6 +362,7 @@ impl RuleField {
             RuleValue::Length(n) => mm(n),
             RuleValue::Flag(b) => b.to_string(),
             RuleValue::Percent(p) => p.to_string(),
+            RuleValue::UnsignedPercent(p) => p.to_string(),
             RuleValue::MilliRatio(n) => format!(
                 "{}:1",
                 reda_engine::model::geom::exact_decimal(i64::from(n), 1000)
@@ -366,6 +426,12 @@ impl RuleField {
                 "false" => json!(false),
                 _ => return Err(tr!("board-setup-not-a-flag")),
             },
+            ValueKind::SizePercent => json!(
+                text.trim_end_matches('%')
+                    .trim()
+                    .parse::<u32>()
+                    .map_err(|_| tr!("board-setup-not-a-size-percent"))?
+            ),
             ValueKind::Percent => {
                 let number = text.trim_end_matches('%').trim().parse::<i32>();
                 match number {
@@ -448,6 +514,7 @@ impl RuleField {
             RuleField::TentViasBottom => tr!("board-setup-tent-bottom"),
             RuleField::PasteExpansion => tr!("board-setup-paste-expansion"),
             RuleField::PastePercent => tr!("board-setup-paste-percent"),
+            RuleField::Teardrop(_, field) => tear_field_name(field),
             RuleField::Connection(t, v) => tr!(
                 "board-setup-connection",
                 target = target_name(t),
@@ -467,6 +534,7 @@ impl RuleField {
                 | RuleKind::MaskExpansion
                 | RuleKind::PasteExpansion
                 | RuleKind::ZoneConnection
+                | RuleKind::Teardrop
         )
     }
 
@@ -491,7 +559,9 @@ impl RuleField {
         if self.plain() {
             return match self.kind() {
                 ValueKind::Length | ValueKind::Signed => tr!("board-setup-value", rule = rule),
-                ValueKind::Percent => tr!("board-setup-value-percent", rule = rule),
+                ValueKind::Percent | ValueKind::SizePercent => {
+                    tr!("board-setup-value-percent", rule = rule)
+                }
                 ValueKind::Angle => tr!("board-setup-value-degrees", rule = rule),
                 _ => rule,
             };

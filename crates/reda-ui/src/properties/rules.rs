@@ -199,8 +199,8 @@ pub fn page(kind: RuleKind) -> String {
         RuleKind::SilkToMask | RuleKind::SilkWidth | RuleKind::SilkTextHeight => Rule::Silkscreen,
         RuleKind::MaskExpansion | RuleKind::PasteExpansion => Rule::MaskPaste,
         RuleKind::ZoneConnection => Rule::ZoneConnections,
-        RuleKind::Teardrop
-        | RuleKind::CourtyardClearance
+        RuleKind::Teardrop => Rule::Teardrops,
+        RuleKind::CourtyardClearance
         | RuleKind::Dangling
         | RuleKind::MicroSegment
         | RuleKind::DeadCopper => return crate::tr!("board-setup-page-drc"),
