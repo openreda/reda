@@ -14,6 +14,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::{Placement, Placing, Target};
+use crate::tools::ToolCommand;
 use crate::tools::{ActiveTool, Tool};
 
 /// Adds `tool.place` and `tool.place.set` to `registry`. The Shell does
@@ -61,7 +62,7 @@ struct ToolPlace;
 
 impl Command for ToolPlace {
     const META: Meta = Meta {
-        id: "tool.place",
+        id: ToolCommand::Place.id(),
         title: "Place Part",
         description: "Picks a Library Part up to place: it follows the pointer over the \
                       Document, turned with Space, X, Y and L, until a click places it. A \
@@ -177,7 +178,7 @@ struct ToolPlaceSet;
 
 impl Command for ToolPlaceSet {
     const META: Meta = Meta {
-        id: "tool.place.set",
+        id: ToolCommand::SetPlacement.id(),
         title: "Edit Part Being Placed",
         description: "Edits the Part being placed, as the Properties panel does while \
                       placing: its Designator, field values and Footprint. Later \
@@ -249,7 +250,7 @@ struct ToolPlaceUnit;
 
 impl Command for ToolPlaceUnit {
     const META: Meta = Meta {
-        id: "tool.place_unit",
+        id: ToolCommand::PlaceUnit.id(),
         title: "Place Unit",
         description: "Picks up an unplaced Unit of a placed Component (Properties' Place \
                       button): it follows the pointer over the sheet, turned with Space, X \
