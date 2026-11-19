@@ -110,7 +110,7 @@ pub struct GerberSettings {
         deserialize_with = "settings::read_file_names"
     )]
     #[schemars(with = "settings::FileNameOverrides")]
-    pub file_names: Vec<LayerFileName>,
+    pub file_names: GerberFileNames,
 }
 
 impl Default for GerberSettings {
@@ -122,7 +122,7 @@ impl Default for GerberSettings {
             slot_command: SlotCommand::Route,
             merge_drill: false,
             outline_on_every_plot: false,
-            file_names: Vec::new(),
+            file_names: GerberFileNames::default(),
         }
     }
 }

@@ -231,7 +231,7 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
     let t = ui.tokens();
     ui.add_space(t.space.section);
     strong(ui, tr!("preset-file-names"));
-    file_names(ui, &mut editor.value_mut().gerber.file_names);
+    file_names(ui, &mut editor.value_mut().gerber.file_names.layers);
 }
 
 fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {
@@ -245,9 +245,6 @@ fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {
                 h.empty();
             });
             for (i, row) in names.iter_mut().enumerate() {
-                if row.layer == "inner_copper" {
-                    continue;
-                }
                 let n = i + 1;
                 table.row(|cells| {
                     cells.ui(|ui| {

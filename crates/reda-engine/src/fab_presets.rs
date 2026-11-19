@@ -276,7 +276,7 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
 
 /// The pattern can be patched by itself. A supplied Layer list replaces the ordinary overrides.
 fn patch_file_names(
-    current: &[reda_model::LayerFileName],
+    current: &reda_model::GerberFileNames,
     patch: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<serde_json::Value, CommandError> {
     use serde_json::Value;
@@ -290,16 +290,16 @@ fn patch_file_names(
             format!("unknown file_names field {key:?}"),
         ));
     }
-    let mut rows: Vec<reda_model::LayerFileName> = match patch.get("layers") {
-        Some(value) => serde_json::from_value(value.clone()).map_err(|e| {
-            CommandError::invalid_params(POINTER, format!("invalid Layer overrides: {e}"))
-        })?,
-        None => current
-            .iter()
-            .filter(|row| row.layer != "inner_copper")
-            .cloned()
-            .collect(),
-    };
+    let layers = patch
+        .get("layers")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!(current.layers));
+    if !layers.is_array() {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            "expected an array of Layer overrides",
+        ));
+    }
     let pattern = match patch.get("inner_copper") {
         Some(Value::Null) => None,
         Some(Value::String(value)) => Some(value),
@@ -309,18 +309,12 @@ fn patch_file_names(
                 "expected an inner copper pattern or null",
             ));
         }
-        None => current
-            .iter()
-            .find(|row| row.layer == "inner_copper")
-            .map(|row| &row.name),
+        None => current.inner_copper.as_ref(),
     };
-    if let Some(pattern) = pattern {
-        rows.push(reda_model::LayerFileName {
-            layer: "inner_copper".into(),
-            name: pattern.clone(),
-        });
-    }
-    Ok(serde_json::json!(rows))
+    Ok(match pattern {
+        Some(inner) => serde_json::json!({"inner_copper": inner, "layers": layers}),
+        None => layers,
+    })
 }
 
 /// Lays `values` over the user preset `name` ([`edited`]) and writes its file; returns

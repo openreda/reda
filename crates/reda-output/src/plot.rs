@@ -298,20 +298,13 @@ impl FileName {
         } else {
             self.layer.clone()
         };
-        if let Some(own) = settings
-            .file_names
-            .iter()
-            .find(|f| f.layer == layer && f.layer != "inner_copper")
-        {
+        if let Some(own) = settings.file_names.layers.iter().find(|f| f.layer == layer) {
             return Ok(own.name.clone());
         }
         if let Some(position) = self.inner_position
-            && let Some(pattern) = settings
-                .file_names
-                .iter()
-                .find(|f| f.layer == "inner_copper")
+            && let Some(pattern) = &settings.file_names.inner_copper
         {
-            return GerberSettings::inner_copper_file_name(&pattern.name, project, position)
+            return GerberSettings::inner_copper_file_name(pattern, project, position)
                 .map_err(GerberError::InvalidFileName);
         }
         Ok(match settings.naming {

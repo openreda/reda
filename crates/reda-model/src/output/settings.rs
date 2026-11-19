@@ -37,6 +37,13 @@ pub struct LayerFileName {
     pub name: String,
 }
 
+/// A filename pattern for inner copper, and overrides keyed by individual Layer names.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GerberFileNames {
+    pub inner_copper: Option<String>,
+    pub layers: Vec<LayerFileName>,
+}
+
 #[derive(Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub(super) enum FileNameOverrides {
@@ -54,48 +61,39 @@ pub(super) struct InnerFileNames {
 }
 
 pub(super) fn write_file_names<S: serde::Serializer>(
-    rows: &[LayerFileName],
+    names: &GerberFileNames,
     writer: S,
 ) -> Result<S::Ok, S::Error> {
-    if let Some(pattern) = rows.iter().find(|row| row.layer == "inner_copper") {
-        InnerFileNames {
-            inner_copper: pattern.name.clone(),
-            layers: rows
-                .iter()
-                .filter(|row| row.layer != "inner_copper")
-                .cloned()
-                .collect(),
-        }
-        .serialize(writer)
-    } else {
-        rows.serialize(writer)
+    use serde::ser::SerializeMap;
+
+    let Some(pattern) = &names.inner_copper else {
+        return names.layers.serialize(writer);
+    };
+    let mut map = writer.serialize_map(None)?;
+    map.serialize_entry("inner_copper", pattern)?;
+    if !names.layers.is_empty() {
+        map.serialize_entry("layers", &names.layers)?;
     }
+    map.end()
 }
 
 pub(super) fn read_file_names<'de, D: serde::Deserializer<'de>>(
     reader: D,
-) -> Result<Vec<LayerFileName>, D::Error> {
-    let rows = match FileNameOverrides::deserialize(reader)? {
-        FileNameOverrides::Rows(rows) => rows,
-        FileNameOverrides::Pattern(mut values) => {
-            values.layers.push(LayerFileName {
-                layer: "inner_copper".into(),
-                name: values.inner_copper,
-            });
-            values.layers
-        }
-    };
-    let mut inner = rows.iter().filter(|row| row.layer == "inner_copper");
-    if let Some(pattern) = inner.next() {
-        super::GerberSettings::inner_copper_file_name(&pattern.name, "Project", 2)
-            .map_err(serde::de::Error::custom)?;
-        if inner.next().is_some() {
-            return Err(serde::de::Error::custom(
-                "only one inner_copper pattern may be set",
-            ));
+) -> Result<GerberFileNames, D::Error> {
+    match FileNameOverrides::deserialize(reader)? {
+        FileNameOverrides::Rows(layers) => Ok(GerberFileNames {
+            layers,
+            inner_copper: None,
+        }),
+        FileNameOverrides::Pattern(names) => {
+            super::GerberSettings::inner_copper_file_name(&names.inner_copper, "Board", 2)
+                .map_err(serde::de::Error::custom)?;
+            Ok(GerberFileNames {
+                layers: names.layers,
+                inner_copper: Some(names.inner_copper),
+            })
         }
     }
-    Ok(rows)
 }
 
 /// Suggestions never validate the board or seed its finish or colours.

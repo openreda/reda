@@ -620,7 +620,7 @@ fn file_names_override_any_layers_file_in_either_naming() {
     for naming in [FileNaming::Classic, FileNaming::Descriptive] {
         let gerbers = plot_with(&engine, |g| {
             g.naming = naming;
-            g.file_names = vec![
+            g.file_names.layers = vec![
                 LayerFileName {
                     layer: "Top Copper".into(),
                     name: "top.gbr".into(),
@@ -667,10 +667,7 @@ fn inner_copper_patterns_resolve_project_and_physical_or_inner_positions() {
         ),
     ] {
         let gerbers = plot_with(&engine, |g| {
-            g.file_names.push(LayerFileName {
-                layer: "inner_copper".into(),
-                name: pattern.into(),
-            });
+            g.file_names.inner_copper = Some(pattern.into());
         })
         .unwrap();
         let (plotted, _) = names(&gerbers);

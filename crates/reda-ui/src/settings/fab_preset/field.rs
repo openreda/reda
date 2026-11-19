@@ -2,9 +2,7 @@
 //! and writes text back, or says why the text is not a value.
 
 use reda_engine::model::geom::Nm;
-use reda_engine::model::{
-    BomGroup, ColumnSource, FabPreset, GerberSettings, LayerFileName, PasteExpansion,
-};
+use reda_engine::model::{BomGroup, ColumnSource, FabPreset, GerberSettings, PasteExpansion};
 
 use super::PresetPage;
 use crate::footprint_editor::inspector::format_mm;
@@ -162,9 +160,8 @@ impl Field {
             Field::InnerCopper => preset
                 .gerber
                 .file_names
-                .iter()
-                .find(|f| f.layer == "inner_copper")
-                .map(|f| f.name.clone())
+                .inner_copper
+                .clone()
                 .unwrap_or_default(),
             Field::GroupBy => preset
                 .bom
@@ -278,14 +275,7 @@ impl Field {
                 if !text.is_empty() {
                     GerberSettings::inner_copper_file_name(text, "Board", 2)?;
                 }
-                let names = &mut preset.gerber.file_names;
-                names.retain(|row| row.layer != "inner_copper");
-                if !text.is_empty() {
-                    names.push(LayerFileName {
-                        layer: "inner_copper".into(),
-                        name: text.into(),
-                    });
-                }
+                preset.gerber.file_names.inner_copper = (!text.is_empty()).then(|| text.to_owned());
             }
             Field::GroupBy => preset.bom.group_by = each(text, group)?,
             Field::Sort => preset.bom.sort = each(text, source)?,
