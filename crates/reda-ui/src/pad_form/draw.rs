@@ -124,6 +124,10 @@ pub fn rows(
             ) {
                 out.push(PadEdit::Kind(k));
             }
+            if pad.kind == PadKind::PlatedThroughHole {
+                row.ui.label(tr!("pad-copper-top-group"));
+                row.ui.end_row();
+            }
             if let Some(s) = row.combo(
                 "shape",
                 &tr!("footprint-pad-shape"),

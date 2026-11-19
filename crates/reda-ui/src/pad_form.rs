@@ -184,6 +184,12 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
             }
             set("kind", json!(kind));
             if *kind != PadKind::PlatedThroughHole {
+                if !pad.unused_layers.is_keep() {
+                    set(
+                        "unused_layers",
+                        json!(reda_engine::model::UnusedLayers::Keep),
+                    );
+                }
                 if pad.middle.is_some() {
                     set("middle", Value::Null);
                 }

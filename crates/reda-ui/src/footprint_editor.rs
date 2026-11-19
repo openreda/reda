@@ -18,6 +18,8 @@
 //! [`element_editor`]: crate::element_editor
 
 pub mod inspector;
+mod preview;
+pub(crate) use preview::{CopperLayer, preview_layer};
 
 use std::collections::BTreeMap;
 
@@ -180,6 +182,7 @@ pub enum Interaction {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FootprintEditorState {
     pub settings: ToolSettings,
+    preview_layers: BTreeMap<Uuid, CopperLayer>,
     pub canvases: BTreeMap<Uuid, Interaction>,
     /// The number of the last Pad the Pad Tool placed in each Footprint tab, which the
     /// next one auto-increments from.
@@ -226,6 +229,9 @@ pub fn register_all(registry: &mut Registry) {
 #[derive(serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolSetParams {
+    /// The copper group to preview in one open Footprint.
+    #[serde(default)]
+    preview: Option<preview::Preview>,
     /// What the Pad Tool places.
     #[serde(default)]
     pub pad: Option<PadTemplate>,
@@ -254,6 +260,9 @@ impl Command for ToolSet {
     type Output = Value;
 
     fn run(&self, cx: &mut Context<'_>, p: ToolSetParams) -> Result<Value, CommandError> {
+        if let Some(preview) = &p.preview {
+            preview.apply(cx)?;
+        }
         let settings = &mut cx.view::<FootprintEditorState>()?.settings;
         if let Some(pad) = p.pad {
             settings.pad = pad;
@@ -264,8 +273,12 @@ impl Command for ToolSet {
         if let Some(field) = p.text_field.filter(|f| !f.trim().is_empty()) {
             settings.text_field = field.trim().to_owned();
         }
-        Ok(json!({ "pad": settings.pad, "layer": settings.layer,
-                   "text_field": settings.text_field }))
+        let mut out = json!({ "pad": settings.pad, "layer": settings.layer,
+                              "text_field": settings.text_field });
+        if let Some(preview) = p.preview {
+            out["preview"] = json!(preview);
+        }
+        Ok(out)
     }
 }
 
