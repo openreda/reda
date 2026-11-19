@@ -30,6 +30,10 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LayerView {
+    /// Last known physical order, used to recover a removed active Layer after
+    /// a script changed the board while the editor was closed.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub copper_order: Vec<Uuid>,
     /// The Layers hidden, by UUID.
     pub hidden: BTreeSet<Uuid>,
     /// How Layers other than the active one are drawn; unset follows the Preference.
