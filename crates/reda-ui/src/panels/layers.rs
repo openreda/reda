@@ -193,6 +193,13 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 out.push(("pcb.view.labels".into(), json!({ param: on })));
             }
         }
+        let mut spans = labels.via_spans;
+        if ui
+            .add(widgets::checkbox(&mut spans, tr!("via-span-labels")))
+            .changed()
+        {
+            out.push(("pcb.view.via_spans".into(), json!({"on":spans})));
+        }
         ui.separator();
 
         let mut ratsnest = !layers.ratsnest.hidden;

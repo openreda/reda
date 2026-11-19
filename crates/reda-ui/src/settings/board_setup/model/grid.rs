@@ -42,7 +42,9 @@ impl BoardSetupDraft {
             let overrides = GRID_FIELDS
                 .iter()
                 .any(|f| !self.cell(row.key, *f).trim().is_empty());
-            if matches(row.name.value()) && (!self.only_overrides || overrides) {
+            if matches(row.name.value())
+                && (!self.only_overrides || overrides || !self.allowed_types(row.key).is_empty())
+            {
                 rows.push(row.key);
             }
         }
@@ -230,6 +232,9 @@ impl BoardSetupDraft {
             .filter(|k| *k != ClassKey::Default)
             .collect();
         for key in keys {
+            if let Some(row) = self.class_row_mut(key) {
+                row.allowed.set(None);
+            }
             for field in GRID_FIELDS {
                 self.set_cell(key, field, "");
                 self.follow.remove(&(key, field));

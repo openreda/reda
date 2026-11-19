@@ -5,7 +5,7 @@ use reda_geom::{NM_PER_OZ, Nm};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::Uuid;
+use crate::{LayerSpan, Uuid};
 
 /// The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room
 /// for more stacks later, such as rigid-flex substacks.
@@ -127,6 +127,31 @@ pub struct ViaDiameter {
     pub end: Option<Nm>,
 }
 
+impl ViaDiameter {
+    pub fn fits_hole(self, hole: Nm) -> bool {
+        hole > Nm::ZERO
+            && [Some(self.start), self.middle, self.end]
+                .into_iter()
+                .flatten()
+                .all(|d| d > hole)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UnusedLayers {
+    #[default]
+    Keep,
+    Remove,
+    RemoveKeepEnds,
+}
+
+impl UnusedLayers {
+    pub fn is_keep(&self) -> bool {
+        *self == Self::Keep
+    }
+}
+
 impl From<Nm> for ViaDiameter {
     fn from(start: Nm) -> Self {
         Self {
@@ -141,20 +166,59 @@ impl From<Nm> for ViaDiameter {
 #[serde(deny_unknown_fields)]
 pub struct ViaType {
     pub uuid: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub from: Uuid,
     pub to: Uuid,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub micro: bool,
     pub hole: Nm,
     pub diameter: ViaDiameter,
+    #[serde(default, skip_serializing_if = "UnusedLayers::is_keep")]
+    pub unused_layers: UnusedLayers,
 }
 
 impl ViaType {
+    /// The table name, using the current positions until the user supplies one.
+    pub fn display_name(&self, pcb: &super::PcbDocument) -> String {
+        if let Some(name) = self.name.as_ref().filter(|n| !n.is_empty()) {
+            return name.clone();
+        }
+        let outer = [crate::Side::Top, crate::Side::Bottom]
+            .into_iter()
+            .filter(|&s| self.span().reaches(pcb, s))
+            .count();
+        let name = match (self.micro, outer) {
+            (true, _) => "Micro",
+            (false, 2) => return "Through".into(),
+            (false, 1) => "Blind",
+            _ => "Buried",
+        };
+        format!(
+            "{name} {}:{}",
+            pcb.copper_number(self.from)
+                .expect("Via type starts on copper"),
+            pcb.copper_number(self.to).expect("Via type ends on copper")
+        )
+    }
+
+    pub fn span(&self) -> LayerSpan {
+        LayerSpan {
+            from: self.from,
+            to: self.to,
+        }
+    }
+
     pub fn through(stackup: Uuid, from: Uuid, to: Uuid, hole: Nm, start: Nm) -> Self {
         Self {
             uuid: stackup.child("through"),
+            name: None,
+            micro: false,
             from,
             to,
             hole,
             diameter: start.into(),
+            unused_layers: UnusedLayers::Keep,
         }
     }
 }
@@ -265,6 +329,10 @@ impl Stackup {
             symmetry_mismatches,
             thickness_warning: deviation * 10 > i128::from(self.thickness.0),
         }
+    }
+
+    pub fn type_for_span(&self, span: LayerSpan) -> Option<&ViaType> {
+        self.via_types.iter().find(|v| v.span().joins(span))
     }
 
     pub fn through_type(&self) -> &ViaType {
@@ -384,7 +452,31 @@ impl Stackup {
             );
         }
         let mut seen: std::collections::BTreeSet<Uuid> = copper_layers.iter().copied().collect();
-        seen.extend(self.via_types.iter().map(|v| v.uuid));
+        let mut spans = std::collections::BTreeSet::new();
+        for kind in &self.via_types {
+            if !seen.insert(kind.uuid) {
+                return Some(format!("duplicate Via type UUID {}", kind.uuid));
+            }
+            let (Some(a), Some(b)) = (
+                copper_layers.iter().position(|l| *l == kind.from),
+                copper_layers.iter().position(|l| *l == kind.to),
+            ) else {
+                return Some("a Via type must join copper Layers".into());
+            };
+            if a == b || !spans.insert((a.min(b), a.max(b))) {
+                return Some(
+                    "each Via type needs a distinct span between different copper Layers".into(),
+                );
+            }
+            if kind.micro && a.abs_diff(b) + 1 == copper_layers.len() {
+                return Some("the through Via type cannot be micro".into());
+            }
+            if !kind.diameter.fits_hole(kind.hole) {
+                return Some(
+                    "a Via type must have a positive hole smaller than every diameter".into(),
+                );
+            }
+        }
         if let Some(d) = self.dielectrics().find(|d| !seen.insert(d.uuid)) {
             return Some(format!("dielectric {} appears twice", d.uuid));
         }

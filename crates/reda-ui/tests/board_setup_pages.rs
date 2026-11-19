@@ -98,7 +98,7 @@ fn mask_expansion_links_top_and_bottom_and_takes_negative_values() {
         )]
     );
     d.apply(&mut shell).unwrap();
-    let mask = pcb(&shell).board_rule(RuleKind::MaskExpansion).values;
+    let mask = &pcb(&shell).board_rule(RuleKind::MaskExpansion).values;
     assert_eq!(mask.bottom.unwrap().0, -20_000);
     assert_eq!(mask.tent_vias_bottom, Some(false));
 }
@@ -139,7 +139,7 @@ fn paste_expansion_is_absolute_or_a_percentage() {
         )]
     );
     d.apply(&mut shell).unwrap();
-    let paste = pcb(&shell).board_rule(RuleKind::PasteExpansion).values;
+    let paste = &pcb(&shell).board_rule(RuleKind::PasteExpansion).values;
     assert_eq!((paste.expansion, paste.percent), (None, Some(-10)));
     let board = d.page::<DrcPage>().unwrap().board();
     assert_eq!(board.paste_mode(), PasteMode::Percent);

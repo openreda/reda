@@ -160,9 +160,26 @@ pub(super) fn holes(b: &mut Builder, pads: &[BoardPad]) {
     }
     let pcb = b.pcb;
     for via in pcb.vias() {
+        let radius = Nm(via.hole.0 / 2);
+        if !via.span.joins(pcb.stackup().through_type().span()) {
+            let start = Point::new(via.at.x + radius, via.at.y);
+            for (id, sweep) in [(via.span.from, 180_000), (via.span.to, -180_000)] {
+                if let Some(layer) = b.layer(id) {
+                    let color = BoardColor::layer(layer.kind, layer.side);
+                    let points = arc::about(via.at, start, Millideg(sweep));
+                    b.push(
+                        via.uuid,
+                        SceneLayer::Drill,
+                        color,
+                        Primitive::Triangles(triangulate(&points)),
+                    );
+                }
+            }
+            continue;
+        }
         let disc = Primitive::Ring {
             center: via.at,
-            outer: Nm(via.hole.0 / 2),
+            outer: radius,
             inner: Nm(0),
         };
         b.push(via.uuid, SceneLayer::Drill, BoardColor::Hole, disc);

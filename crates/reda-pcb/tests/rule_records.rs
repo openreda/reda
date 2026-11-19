@@ -53,16 +53,16 @@ fn a_new_board_has_one_board_wide_record_per_kind_seeded_from_the_preset() {
         assert!(rule.scope.is_board_wide());
         assert!(rule.enabled);
     }
-    let track = pcb.board_rule(RuleKind::TrackWidth).values;
+    let track = &pcb.board_rule(RuleKind::TrackWidth).values;
     assert_eq!(
         (track.min, track.preferred, track.max),
         (Some(um(200)), Some(um(250)), None)
     );
-    let via = pcb.board_rule(RuleKind::ViaSize).values;
+    let via = &pcb.board_rule(RuleKind::ViaSize).values;
     assert_eq!(via.diameter.unwrap().preferred, None);
     assert_eq!(pcb.stackup().through_type().diameter.start, um(700));
     assert_eq!(via.hole.unwrap().min, Some(um(300)));
-    let holes = pcb.board_rule(RuleKind::HoleSize).values;
+    let holes = &pcb.board_rule(RuleKind::HoleSize).values;
     assert_eq!((holes.min, holes.max), (Some(um(500)), Some(um(6300))));
 }
 

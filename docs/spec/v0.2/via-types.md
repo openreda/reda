@@ -6,6 +6,8 @@ This file says what a Via type is, where a Via's size comes from, how routing pi
 
 A new board has only the through type, so nothing in this file shows until someone adds a type. Nothing here limits what a board may use: any span, mixed stacks and micro Vias are all available.
 
+The [Stackup table](stackup-editor.md#via-types-table) labels the stored `hole` and `diameter.start` values **Drill** and **Pad**. The [Command and file schemas](commands.md#via-type-and-via) use the stored field names.
+
 ## The Via types list
 
 - A PCB Document holds one list of Via types, kept with its Stackup and edited in the Stackup editor's Via types table.
@@ -19,12 +21,13 @@ A new board has only the through type, so nothing in this file shows until someo
 | `name` | shown in the table, the cross-section and Properties | no |
 | `from`, `to` | the span: the two copper Layers it joins, by Layer UUID. `from` is the side the drill or laser enters | yes |
 | `micro` | laser-drilled | no, default false |
-| `drill` | hole diameter | yes |
-| `pad` | pad diameter | yes |
+| `hole` | hole diameter | yes |
+| `diameter` | copper diameters `{start, middle?, end?}` in drilling order | yes |
+| `unused_layers` | [unused copper mode](inner-layers.md#unused-inner-copper) | no, default `keep` |
 
 - **Names are automatic from the span** while `name` is empty: `Through`, `Blind 1:2`, `Buried 2:3`, `Micro 1:2`. The numbers are copper positions, with the top Layer as 1. Typing a name replaces the automatic one, and clearing it brings the automatic one back.
 - **Through, blind and buried are worked out from the span** and never stored: through joins both outer Layers, blind reaches one outer Layer, buried reaches none. A micro type is called micro whatever it reaches.
-- A new type starts with the through type's `drill` and `pad`.
+- A new type starts with the through type's `hole` and `diameter`.
 
 ### Which spans are allowed
 
@@ -43,11 +46,11 @@ A new board has only the through type, so nothing in this file shows until someo
 
 - **Editing a type's span** when Vias use it: the editor says how many ("14 Vias use this span") and offers to move them to the new span. Declined, they stay and `via_span` flags them.
 - **Removing a type** that Vias use is allowed after the same count. The Vias stay and `via_span` flags them.
-- **Changing a type's `drill` or `pad`** leaves existing Vias alone, like any rule change in v0.1. Bulk changes use selection and Properties.
+- **Changing a type's `hole` or `diameter`** leaves existing Vias alone, like any rule change in v0.1. Bulk changes use selection and Properties.
 
 ### Via types in a Construction
 
-- A [Construction](stackup.md#constructions) may carry Via types. Each stores an optional `name`, `from` and `to` as copper positions, `micro`, `drill` and `pad`. Positions are used because Layer UUIDs mean nothing on another board.
+- A [Construction](stackup.md#constructions) may carry Via types. Each stores an optional `name`, `from` and `to` as copper positions, `micro`, `hole` and `diameter`. Positions are used because Layer UUIDs mean nothing on another board.
 - Applying them, by the tick box in Apply Construction, replaces the board's list. The dialog first says how many Vias would no longer match a type.
 - Shipped Constructions carry none.
 
@@ -55,9 +58,9 @@ A new board has only the through type, so nothing in this file shows until someo
 
 The type owns the size and the rules own the limits.
 
-- **The starting size of a new Via:** the highest-ranked Net Class on the Net with an enabled record that sets a `preferred` Via size wins. Otherwise it is the type's `drill` and `pad`.
+- **The starting size of a new Via:** the highest-ranked Net Class on the Net with an enabled record that sets a `preferred` Via size wins. Otherwise it is the type's `hole` and `diameter`.
 - **The board-wide `preferred` Via size of v0.1 is dropped.** The through type's size takes its place.
-- **Seeding:** on a new board, the Fab Preset's "Via preferred" seed fills the through type's `drill` and `pad`.
+- **Seeding:** on a new board, the Fab Preset's "Via preferred" seed fills the through type's `hole` and `diameter`.
 - **Two rule kinds, one per drilling method:**
 
   | Kind | Applies to | Board-wide record | A Net Class record may add |
@@ -67,7 +70,7 @@ The type owns the size and the rules own the limits.
 
 - A power class that sets `preferred` in `via_size` gets its larger Vias on every drilled type. It needs its own `microvia_size` record to change micro Vias.
 - **Limits clip as in v0.1.** The routing Tool clips to `min` and `max`, and `4` cycles `min`, the starting size, `max` and `user`.
-- A type whose `drill` or `pad` is outside the board-wide limits is marked in the Via types table, and DRC flags the Vias placed with it.
+- A type whose `hole` or `diameter` is outside the board-wide limits is marked in the Via types table, and DRC flags the Vias placed with it.
 - `microvia_size` is seeded empty in every shipped Fab Preset, because the fab research verified no HDI numbers.
 
 ## Routing

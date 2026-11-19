@@ -186,7 +186,7 @@ fn a_through_via_is_stored_top_to_bottom() {
     })
     .err()
     .expect("refused");
-    assert!(err.contains("upper copper Layer to a lower one"), "{err}");
+    assert!(err.contains("drilling direction"), "{err}");
 }
 
 #[test]

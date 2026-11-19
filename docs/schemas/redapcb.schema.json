@@ -1619,6 +1619,14 @@
       ],
       "type": "object"
     },
+    "LayerGroup": {
+      "enum": [
+        "outer",
+        "inner",
+        "plane"
+      ],
+      "type": "string"
+    },
     "LayerKind": {
       "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
       "enum": [
@@ -1657,7 +1665,7 @@
     },
     "LayerSpan": {
       "additionalProperties": false,
-      "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the\nside it is drilled from, which matters only once blind Vias come.",
+      "description": "The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.\n`from` is the side the drill or laser enters.",
       "properties": {
         "from": {
           "format": "uuid",
@@ -2416,15 +2424,52 @@
         }
       ]
     },
+    "RuleLayers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayerGroup"
+        },
+        {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Copper Layers selected by a design rule."
+    },
     "RuleScope": {
       "additionalProperties": false,
-      "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+      "description": "All the filters of one design rule. An empty scope is the board-wide fallback.",
       "properties": {
+        "layers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleLayers"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "net_class": {
-          "description": "The Net Class whose Nets it applies to.",
           "format": "uuid",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "net_class_pair": {
+          "description": "Two sorted class UUIDs. The nil UUID denotes the implicit Default class.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
             "null"
           ]
         }
@@ -2435,6 +2480,17 @@
       "additionalProperties": false,
       "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
       "properties": {
+        "allowed": {
+          "description": "The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
@@ -3243,6 +3299,14 @@
         }
       ]
     },
+    "UnusedLayers": {
+      "enum": [
+        "keep",
+        "remove",
+        "remove_keep_ends"
+      ],
+      "type": "string"
+    },
     "Vertex": {
       "additionalProperties": false,
       "description": "One corner of a contour and the edge that leaves it towards the next vertex.",
@@ -3312,9 +3376,25 @@
           "$ref": "#/$defs/LayerSpan",
           "description": "The copper Layers it joins."
         },
+        "teardrop": {
+          "type": "boolean"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers"
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -3383,9 +3463,21 @@
           "format": "int64",
           "type": "integer"
         },
+        "micro": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "to": {
           "format": "uuid",
           "type": "string"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers"
         },
         "uuid": {
           "format": "uuid",

@@ -26,8 +26,9 @@ pub enum Proposal {
         width: Nm,
         net: Option<Uuid>,
     },
-    /// A through Via, on every copper Layer.
+    /// A Via on the copper Layers of its span.
     Via {
+        span: reda_model::LayerSpan,
         at: Point,
         diameter: Nm,
         net: Option<Uuid>,
@@ -68,11 +69,12 @@ impl Copper {
                 width,
                 net,
             } => (vec![layer], Shape::track(&geometry, width), net),
-            Proposal::Via { at, diameter, net } => (
-                pcb.copper_layers().map(|l| l.uuid).collect(),
-                Shape::disc(at, diameter),
+            Proposal::Via {
+                at,
+                diameter,
                 net,
-            ),
+                span,
+            } => (pcb.span_layers(span), Shape::disc(at, diameter), net),
         };
         let reach = max_clearance(pcb).0;
         let env = shape.envelope();

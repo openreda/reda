@@ -476,9 +476,12 @@ pub enum ViaRuleValues {
 
 /// The values a rule record sets. Which ones a record may hold depends on its kind
 /// ([`RuleKind::fields`]); every one left out is inherited.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RuleValues {
+    /// The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed: Option<Vec<Uuid>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Nm>,
     /// Clearance only: Pads within one Footprint need no clearance from each other.
@@ -920,6 +923,11 @@ impl DesignRule {
             if self.values.ignore_pad_to_pad.is_some() {
                 return Some("ignore_pad_to_pad is not a class pair value".into());
             }
+        }
+        if self.values.allowed.is_some()
+            && (self.kind != RuleKind::ViaSpan || self.scope.net_class.is_none())
+        {
+            return Some("allowed Via types belong only to a Via Span Net Class record".into());
         }
         let targets = [
             self.values.through_hole_pad,

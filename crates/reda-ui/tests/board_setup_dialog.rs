@@ -414,7 +414,7 @@ fn the_net_classes_grid_has_a_bold_default_row_and_grey_inherited_values() {
     let clearance = board.class_rule(RuleKind::Clearance, power).unwrap();
     assert!(!clearance.enabled);
     assert_eq!(clearance.comment.as_deref(), Some("HV"));
-    let track = board
+    let track = &board
         .class_rule(RuleKind::TrackWidth, power)
         .unwrap()
         .values;

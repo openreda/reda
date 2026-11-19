@@ -2,6 +2,7 @@
 //! cross-section. Edits use the same PCB Commands as scripts.
 mod fields;
 mod preview;
+mod types;
 
 use crate::settings::{layout, strong};
 use crate::shell::Shell;
@@ -46,6 +47,8 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             strong(ui, tr!("panel-layers"));
             layers(ui, pcb, &info, &mut view, &mut edits);
             ui.add_space(t.space.section);
+            types::table(ui, pcb, &mut view, &mut edits);
+            ui.add_space(t.space.section);
             board(ui, project, pcb, &info, &mut view, &mut edits);
         });
     });
@@ -53,15 +56,51 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         preview::show(ui, pcb, &info)
     });
     ui.allocate_rect(full, Sense::hover());
-    for (field, command, params) in edits.commands {
+    for (field, command, mut params) in edits.commands {
+        if let Some(Field::Via(id, "diameter")) = field
+            && let Some(kind) = shell
+                .engine()
+                .project()
+                .and_then(|p| p.pcb_document(document))
+                .and_then(|p| p.stackup().via_types.iter().find(|v| v.uuid == id))
+        {
+            let mut diameter =
+                serde_json::to_value(kind.diameter).expect("Via diameter serializes");
+            diameter["start"] = params["diameter"].clone();
+            params["diameter"] = diameter;
+        }
+        if command == "pcb.via_type.remove" || matches!(field, Some(Field::Via(_, "from" | "to"))) {
+            match shell.run_reporting(
+                "pcb.stackup.change_preview",
+                json!({"change":{"id":command,"params":params}}),
+            ) {
+                Ok(out) => {
+                    let count = out["vias_using_span"].as_u64().unwrap_or(0);
+                    let emptied = out["allowed_lists_emptied"].as_u64().unwrap_or(0);
+                    if count > 0 || emptied > 0 {
+                        view.pending = Some(types::Pending {
+                            command,
+                            params,
+                            count,
+                            emptied,
+                        });
+                        continue;
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
         if let Some(field) = field {
             let result = shell.run(command, params);
             view.settled(field, result.err().map(|e| e.message));
         } else if let Ok(out) = shell.run_reporting(command, params) {
             // A newly inserted sheet is ready for its name and material.
-            view.selected = out["result"]["uuid"].as_str().and_then(|s| s.parse().ok());
+            if let Some(id) = out["result"]["uuid"].as_str().and_then(|s| s.parse().ok()) {
+                view.selected = Some(id);
+            }
         }
     }
+    types::confirm(ui, &mut view, document, shell);
     ui.data_mut(|d| d.insert_temp(key, view));
 }
 
