@@ -912,11 +912,10 @@
   "description": "A REDA rules file (`.redarules`).",
   "properties": {
     "copper_layers": {
-      "default": 2,
       "description": "Source copper count. Older Rules Files were written on two-Layer boards.",
       "format": "uint8",
-      "maximum": 255,
-      "minimum": 0,
+      "maximum": 32,
+      "minimum": 2,
       "type": "integer"
     },
     "format": {
@@ -945,6 +944,7 @@
   },
   "required": [
     "format",
+    "copper_layers",
     "net_classes",
     "rules",
     "severities"

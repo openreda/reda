@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use reda_engine::command::CommandError;
+use reda_engine::command::{CommandError, ErrorCode};
 use reda_engine::model::{LayerGroup, PortableLayers, PortableSpan, RuleKind, Uuid};
 use reda_engine::pcb::rules::transfer::{ImportPreview as Changes, PositionRecord};
 use serde_json::json;
@@ -221,25 +221,41 @@ impl BoardSetupDraft {
         path: &Path,
         selected: Option<BTreeSet<usize>>,
     ) {
-        let mut params = json!({ "path": path, "preview": true });
-        if let Some(selected) = selected {
-            params["position_records"] = json!(selected);
-        }
-        let result = shell.run("pcb.rules.import", params).and_then(|out| {
-            serde_json::from_value::<Changes>(out.get("result").unwrap_or(&out).clone())
-                .map_err(|err| CommandError::internal(err.to_string()))
-        });
-        match result {
-            Ok(changes) => {
-                self.notice = None;
-                self.import = Some(ImportPreview {
-                    path: path.to_owned(),
-                    rows: preview_rows(&changes),
-                    positions: changes.position_records,
-                });
+        let mut read = |selection: Option<&BTreeSet<usize>>| -> Result<Changes, CommandError> {
+            let mut params = json!({ "path": path, "preview": true });
+            if let Some(selection) = selection {
+                params["position_records"] = json!(selection);
             }
-            Err(e) => self.notice = Some(tr!("error-command", error = e.message)),
-        }
+            let out = shell.run("pcb.rules.import", params)?;
+            serde_json::from_value(out.get("result").unwrap_or(&out).clone())
+                .map_err(|err| CommandError::internal(err.to_string()))
+        };
+        let (changes, notice) = match read(selected.as_ref()) {
+            Ok(changes) => (changes, None),
+            Err(e) => {
+                // A conflicting default selection must still leave the checkboxes accessible.
+                let retry = (selected.is_none() && e.code == ErrorCode::Rejected)
+                    .then(|| read(Some(&BTreeSet::new())).ok())
+                    .flatten();
+                let Some(changes) = retry else {
+                    self.notice = Some(tr!("error-command", error = e.message));
+                    return;
+                };
+                (
+                    changes,
+                    Some(tr!(
+                        "board-setup-import-choose-positions",
+                        error = e.message
+                    )),
+                )
+            }
+        };
+        self.notice = notice;
+        self.import = Some(ImportPreview {
+            path: path.to_owned(),
+            rows: preview_rows(&changes),
+            positions: changes.position_records,
+        });
     }
 
     /// Refreshes the complete preview, including classes and conflicts introduced by this choice.

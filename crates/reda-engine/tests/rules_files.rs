@@ -505,6 +505,20 @@ fn explicitly_unrestricted_via_permissions_can_replace_a_class_restriction() {
 }
 
 #[test]
+fn a_current_rules_file_requires_its_source_copper_count_before_mapping_positions() {
+    let dir = TempDir::new("missing-source-count");
+    let mut engine = project(&dir, "Target");
+    let before = engine.project().unwrap().pcb().unwrap().clone();
+    let path = dir.path().join("unknown-count.redarules");
+    let file = json!({"format":2,"net_classes":[],"severities":{},"rules":[
+        {"kind":"clearance","layers":[2],"values":{"value":400000}}]});
+    std::fs::write(&path, file.to_string()).unwrap();
+    let error = engine.run_err("pcb.rules.import", json!({"path":path}));
+    assert!(error.message.contains("copper_layers"), "{error:?}");
+    assert_eq!(engine.project().unwrap().pcb().unwrap(), &before);
+}
+
+#[test]
 fn malformed_positions_spans_and_class_pairs_are_rejected_before_import() {
     let dir = TempDir::new("invalid-rule-mapping");
     let mut engine = project(&dir, "Target");

@@ -128,13 +128,6 @@ fn check_release_step(kind: FileKind, steps: &[Migration]) {
     if matches!(kind, FileKind::Pcb | FileKind::Rules) {
         expected["severities"] = original["severities"].clone();
     }
-    if kind == FileKind::Rules {
-        // The canonical writer includes the two copper Layers implicit in every v1 file.
-        assert_eq!(
-            expected.as_object_mut().unwrap().remove("copper_layers"),
-            Some(json!(2))
-        );
-    }
     if kind == FileKind::Pcb {
         migrated["rules"]
             .as_array_mut()

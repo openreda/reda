@@ -2205,6 +2205,7 @@ board-setup-import-unrestricted = { $rule } · All Via types
 board-setup-import-count-mismatch = The source and target have different copper Layer counts.
 board-setup-import-missing-layers = Unavailable Layer positions will be dropped: { $layers }.
 board-setup-import-missing-types = Missing Via types will be dropped: { $spans }.
+board-setup-import-choose-positions = { $error }. Choose which position-dependent records to import.
 board-setup-import-skipped = No matching positions or Via types remain. This record will be skipped.
 board-setup-import-board-record = Board-wide { $rule }
 board-setup-import-new-class = New Net Class { $class }

@@ -36,7 +36,7 @@ pub(crate) struct RulesFile {
     #[schemars(schema_with = "super::schema::format_version")]
     format: u32,
     /// Source copper count. Older Rules Files were written on two-Layer boards.
-    #[serde(default = "two_layers")]
+    #[schemars(range(min = 2, max = 32))]
     copper_layers: u8,
     /// The Net Classes the rules name, by name, highest rank first.
     net_classes: Vec<PortableClass>,
@@ -44,10 +44,6 @@ pub(crate) struct RulesFile {
     rules: Vec<PortableRule>,
     /// The DRC severities.
     severities: DrcSeverities,
-}
-
-fn two_layers() -> u8 {
-    2
 }
 
 pub(crate) fn read_rules_file(path: &Path, bytes: &[u8]) -> Result<RuleSet, LoadError> {
