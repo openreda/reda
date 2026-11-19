@@ -533,7 +533,7 @@ fn silkscreen_maximums_and_drc_values_apply_through_pcb_rules_set() {
     }
     d.apply(&mut shell).unwrap();
     let pcb = pcb(&shell);
-    let value = |kind| pcb.board_rule(kind).values;
+    let value = |kind| &pcb.board_rule(kind).values;
     assert_eq!(value(RuleKind::TrackWidth).max, Some(Nm::from_um(1000)));
     assert_eq!(value(RuleKind::SilkToEdge).value, Some(Nm::from_um(300)));
     assert_eq!(
@@ -842,8 +842,8 @@ fn pasting_via_sizes_sets_preferred_values_only_on_named_net_classes() {
     }
     d.apply(&mut shell).unwrap();
     let pcb = pcb(&shell);
-    let board = pcb.board_rule(RuleKind::ViaSize).values;
-    let class = pcb.class_rule(RuleKind::ViaSize, power).unwrap().values;
+    let board = &pcb.board_rule(RuleKind::ViaSize).values;
+    let class = &pcb.class_rule(RuleKind::ViaSize, power).unwrap().values;
     let (diameter, hole) = (board.diameter.unwrap(), board.hole.unwrap());
     assert_eq!(
         (diameter.max, hole.max),

@@ -13,6 +13,7 @@ use crate::{tr, widgets};
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub(super) enum Field {
     Board(&'static str),
+    Via(Uuid, &'static str),
     Layer(Uuid, &'static str),
     Copper(Uuid),
     Sheet(Uuid, &'static str),
@@ -21,6 +22,7 @@ pub(super) enum Field {
 impl Field {
     pub fn command(self, value: Value) -> (&'static str, Value) {
         match self {
+            Self::Via(uuid, key) => ("pcb.via_type.set", json!({"via_type":uuid,(key):value})),
             Self::Board(key) => ("pcb.stackup.set", json!({(key): value})),
             Self::Layer(layer, key) => ("pcb.layer.set", json!({"layer": layer, (key): value})),
             Self::Copper(layer) => (
@@ -38,7 +40,10 @@ impl Field {
         let text = text.trim();
         let blank = text.is_empty();
         match self {
-            Self::Copper(_) | Self::Board("thickness") | Self::Sheet(_, "thickness") => {
+            Self::Via(_, "hole" | "diameter")
+            | Self::Copper(_)
+            | Self::Board("thickness")
+            | Self::Sheet(_, "thickness") => {
                 if blank && matches!(self, Self::Sheet(..)) {
                     return Ok(Value::Null);
                 }
@@ -92,6 +97,7 @@ fn scaled(text: &str, places: usize) -> Option<u32> {
 #[derive(Clone, Default)]
 pub(super) struct View {
     pub selected: Option<Uuid>,
+    pub pending: Option<super::types::Pending>,
     drafts: BTreeMap<Field, String>,
     errors: BTreeMap<Field, String>,
 }

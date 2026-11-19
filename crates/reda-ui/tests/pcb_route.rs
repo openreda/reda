@@ -654,3 +654,45 @@ fn the_route_preferences_drive_the_tool() {
     let preview = b.shell.route_preview().unwrap();
     assert_eq!(preview.placed, [mm(0.0, 3.0), mm(8.0, 3.0)]);
 }
+
+#[test]
+fn stitching_uses_the_chosen_type_and_ignores_copper_beyond_its_span() {
+    let mut b = board();
+    run(&mut b.shell, "document.delete", json!({"document":b.pcb}));
+    run(
+        &mut b.shell,
+        "document.add",
+        json!({"kind":"pcb","layers":4}),
+    );
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    run(&mut b.shell, "document.open", json!({"document":doc}));
+    let kind=run(&mut b.shell,"pcb.via_type.add",json!({"document":doc,"from":layers[1],"to":layers[0],"micro":true,"diameter":"0.45mm","hole":"0.15mm"}))["result"]["uuid"].clone();
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer":layers[3],"points":[{"x":0,"y":0},{"x":"5mm","y":0}]}),
+    );
+    run(&mut b.shell, "tool.activate:via", json!({}));
+    run(&mut b.shell, "pcb.via.pick_type", json!({"via_type":kind}));
+    b.shell.route_hover(mm(2.0, 0.0));
+    let cursor = b.shell.router().via_cursor().unwrap();
+    assert_eq!(cursor.diameter, Nm(450000));
+    assert!(!cursor.blocked);
+    b.shell.route_click(mm(2.0, 0.0));
+    let via = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .vias()
+        .next()
+        .unwrap();
+    assert_eq!(
+        (via.span.from, via.span.to, via.hole),
+        (layers[1], layers[0], Nm(150000))
+    );
+}

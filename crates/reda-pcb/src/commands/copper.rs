@@ -290,6 +290,7 @@ impl Command for ClearanceVia {
             None => net_rules(pcb, net).via_diameter.default_size(),
         };
         let proposal = Proposal::Via {
+            span: pcb.stackup().through_type().span(),
             at: p.at.point(),
             diameter,
             net,

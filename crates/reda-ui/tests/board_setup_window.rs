@@ -137,14 +137,14 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
     h.run();
     assert!(h.query_by_label("Board Setup").is_none(), "OK closes");
     let board = pcb(&h);
-    let mask = board.board_rule(RuleKind::MaskExpansion).values;
+    let mask = &board.board_rule(RuleKind::MaskExpansion).values;
     assert_eq!(
         (mask.top.unwrap().0, mask.bottom.unwrap().0),
         (80_000, 80_000)
     );
-    let paste = board.board_rule(RuleKind::PasteExpansion).values;
+    let paste = &board.board_rule(RuleKind::PasteExpansion).values;
     assert_eq!((paste.expansion, paste.percent), (None, Some(-10)));
-    let zones = board.board_rule(RuleKind::ZoneConnection).values;
+    let zones = &board.board_rule(RuleKind::ZoneConnection).values;
     assert_eq!(
         zones.connection(ConnectionTarget::Smd).unwrap().style,
         Some(ConnectionStyle::Solid)
@@ -454,4 +454,104 @@ fn the_layers_and_board_forms_edit_an_odd_boards_inner_layer_and_finish() {
     assert_eq!(stack.finish.as_deref(), Some("ENIG"));
     assert_eq!(stack.mask_color.as_deref(), Some("Purple"));
     assert_eq!(stack.silk_color.as_deref(), Some("White"));
+}
+
+#[test]
+fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
+    let (home, work) = (
+        TempDir::new("via-table-home"),
+        TempDir::new("via-table-project"),
+    );
+    let mut h = harness(home.path(), work.path(), "ViaTable");
+    let old = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("document.delete", json!({"document":old}))
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind":"pcb","layers":4}))
+        .unwrap();
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    let button = h.get_by_role_and_label(Role::Button, "Add Via type");
+    button.scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Add Via type")
+        .click();
+    h.run();
+    let board = pcb(&h);
+    let kind = board.stackup().via_types[1].clone();
+    retype(&mut h, "Blind 1:2 name", "Laser");
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        pcb(&h).stackup().via_types[1].name.as_deref(),
+        Some("Laser")
+    );
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.via.add",
+            json!({"from":kind.from,"to":kind.to,"at":{"x":0,"y":0}}),
+        )
+        .unwrap();
+    choose(&mut h, "Laser to", "L3");
+    h.get_by_role_and_label(Role::Button, "Move Vias").click();
+    h.run();
+    let board = pcb(&h);
+    assert_eq!(
+        board.copper_number(board.vias().next().unwrap().span.to),
+        Some(3)
+    );
+}
+
+#[test]
+fn a_net_class_can_exclude_the_through_via_in_board_setup() {
+    let (home, work) = (
+        TempDir::new("via-class-home"),
+        TempDir::new("via-class-project"),
+    );
+    let mut h = harness(home.path(), work.path(), "ClassVias");
+    let original = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("document.delete", json!({"document":original}))
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind":"pcb","layers":4}))
+        .unwrap();
+    let b = pcb(&h);
+    let l: Vec<_> = b.copper_layers().map(|l| l.uuid).collect();
+    let shell = h.state_mut().shell_mut();
+    let kind = shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":b.uuid,"from":l[0],"to":l[1]}),
+        )
+        .unwrap()["result"]["uuid"]
+        .clone();
+    let class = shell
+        .run("pcb.net_class.add", json!({"name":"Laser"}))
+        .unwrap()["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    open_board_setup(&mut h, "ClassVias");
+    page(&mut h, "Net Classes");
+    h.get_by_label("Select or drag Laser").click();
+    h.run();
+    h.get_by_role_and_label(Role::CheckBox, "Allow Through")
+        .click();
+    h.run();
+    h.get_by_label("OK").click();
+    h.run();
+    assert_eq!(
+        serde_json::to_value(pcb(&h).class_rule(RuleKind::ViaSpan, class)).unwrap()["values"]["allowed"],
+        json!([kind])
+    );
 }

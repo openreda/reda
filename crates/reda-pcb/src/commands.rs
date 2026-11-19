@@ -26,6 +26,7 @@ mod text_geometry;
 mod track;
 mod track_edit;
 mod via;
+mod via_type;
 mod zone;
 pub use zone::{LayerZones, ZoneListing, ZoneRow, zone_listing};
 mod zone_fill;
@@ -73,6 +74,10 @@ pub fn register_all_with_user(
     track::register_all(registry);
     track_edit::register_all(registry);
     via::register_all(registry);
+    registry.add(via_type::Add);
+    registry.add(via_type::Set);
+    registry.add(via_type::Remove);
+    registry.add(via_type::Reorder);
     copper::register_all(registry);
     board_info::register_all(registry);
     clipboard::register_all(registry);
