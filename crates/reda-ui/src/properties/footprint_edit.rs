@@ -54,7 +54,15 @@ impl PadRows {
     pub fn command(&self, edit: &PadEdit) -> (&'static str, Value) {
         let mut p = json!({"instance": self.instance, "pad": self.pad.uuid});
         match edit {
-            PadEdit::Kind(k) => p["kind"] = json!(k),
+            PadEdit::Kind(k) => {
+                if let Some(fields) =
+                    crate::pad_form::patch(&self.pad, &crate::pad_form::PadEdit::Kind(*k))
+                {
+                    p.as_object_mut()
+                        .expect("Pad edit parameters")
+                        .extend(fields);
+                }
+            }
             PadEdit::Shape(s) => p["shape"] = json!(s),
             PadEdit::Width(w) => p["width"] = json!(w.0),
             PadEdit::Height(h) => p["height"] = json!(h.0),

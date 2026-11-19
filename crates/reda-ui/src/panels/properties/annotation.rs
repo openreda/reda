@@ -70,6 +70,8 @@ pub(super) fn show(
                 let (id, params) = rows.command(&edit);
                 out.push(Out::Run(id, params));
             }
+            let params = serde_json::json!({"instance":rows.instance,"pad":rows.pad.uuid});
+            pad_stack(ui, &rows.pad, units, "pcb.pad.edit", &params, out);
         });
     }
     if let Some(free) = one_free_pad(project, selection) {
@@ -87,6 +89,10 @@ pub(super) fn show(
                         out.push(Out::Run(id, params));
                     }
                 }
+                ui.add_enabled_ui(enabled, |ui| {
+                    let params = serde_json::json!({"pad":free.uuid});
+                    pad_stack(ui, &pad, units, "pcb.free_pad.edit", &params, out);
+                });
             },
         );
     }
@@ -415,6 +421,22 @@ fn dimension(ui: &mut Ui, rows: &DimensionRows) -> Vec<DimensionEdit> {
         }
     });
     edits
+}
+
+fn pad_stack(
+    ui: &mut Ui,
+    pad: &reda_engine::model::Pad,
+    units: Units,
+    command: &'static str,
+    target: &serde_json::Value,
+    out: &mut Vec<Out>,
+) {
+    let id = egui::Id::NULL.with(("properties-pad-stack", command, pad.uuid));
+    for (group, copper) in crate::pad_form::draw::groups::rows(ui, id, pad, units) {
+        let mut params = target.clone();
+        params[group] = serde_json::json!(copper);
+        out.push(Out::Run(command, params));
+    }
 }
 
 fn pad(ui: &mut Ui, rows: &PadRows, units: Units) -> Vec<PadEdit> {
