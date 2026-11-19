@@ -177,7 +177,7 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
             "Copper layers: 2",
             "Thickness: 1.2 mm",
             "Symmetry: Symmetric",
-            "Thickness check: Within 10% tolerance",
+            "Thickness check: Outside 10% tolerance",
             "Finish: ENIG",
             "Solder mask colour: Matte black",
             "Silkscreen colour: White",
@@ -188,7 +188,7 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
         [
             ["Layer", "Kind", "Role", "Thickness", "Material", "Dk"],
             ["L1 (top)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
-            ["", "Core", "", "", "", ""],
+            ["", "Core", "", "1.53 mm", "", ""],
             ["L2 (bottom)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
         ]
     );
@@ -198,18 +198,14 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
 fn fab_notes_leave_out_stackup_values_that_are_unset_and_show_odd_copper_in_um() {
     let dir = TempDir::new("fab-notes-unset");
     let mut engine = bare(&dir);
-    let layers = engine
-        .project()
-        .unwrap()
-        .pcb()
-        .unwrap()
-        .copper_layers()
-        .map(|l| l.uuid)
-        .collect::<Vec<_>>();
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let sheet = pcb.stackup().dielectrics().next().unwrap().uuid;
     engine.run_ok(
         "pcb.stackup.set",
         json!({"copper": [{"layer": layers[0], "thickness": "18um"},
-                          {"layer": layers[1], "thickness": "2.5oz"}]}),
+                          {"layer": layers[1], "thickness": "2.5oz"}],
+               "dielectrics": [{"uuid":sheet,"thickness":null}]}),
     );
     let notes = fab_notes(&engine);
     assert_eq!(
@@ -224,6 +220,7 @@ fn fab_notes_leave_out_stackup_values_that_are_unset_and_show_odd_copper_in_um()
     );
     let stack = table(&notes, "Stackup");
     assert_eq!(stack[1][3], "18 µm");
+    assert_eq!(stack[2], ["", "Core", "", "", "", ""]);
     assert_eq!(stack[3][3], "2.5 oz (87.5 µm)");
     for absent in ["Hole tolerances", "Deliberate shorts", "\nNotes"] {
         assert!(!notes.contains(absent), "{absent} in:\n{notes}");
@@ -376,6 +373,83 @@ fn fab_notes_list_the_written_copper_files_in_physical_order() {
         section(&notes, "Copper files in order"),
         ["Demo.gtl", "layer-1.ger", "layer-2.ger", "Demo.gbl"]
     );
+}
+
+#[test]
+fn fab_notes_count_vias_by_span_and_name_only_the_drill_files_in_the_job() {
+    let dir = TempDir::new("fab-notes-vias");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|layer| layer.uuid).collect();
+    engine.run_ok("pcb.via_type.add", json!({"document":document, "name":"Laser", "from":layers[1],"to":layers[0],"micro":true,"hole":"0.1mm","diameter":{"start":"0.22mm","end":"0.18mm"}}));
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document, "from":layers[2],"to":layers[3]}),
+    );
+    for (x, from, to) in [
+        (1.0, 1, 4),
+        (2.0, 2, 1),
+        (3.0, 1, 2),
+        (4.0, 3, 2),
+        (5.0, 2, 3),
+    ] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":pt(x,8.0),"from":layers[from-1],"to":layers[to-1]}),
+        );
+    }
+    for (merge, file) in [(false, "Demo-PTH.drl"), (true, "Demo.drl")] {
+        let notes = with_plot(
+            &engine,
+            |g| g.merge_drill = merge,
+            |plot| String::from_utf8(notes_file(plot).bytes).unwrap(),
+        );
+        let rows = table(&notes, "Via types");
+        assert_eq!(
+            rows,
+            [
+                [
+                    "Name",
+                    "Span",
+                    "Micro",
+                    "Drill (mm)",
+                    "Pad (mm)",
+                    "Vias",
+                    "Drill file"
+                ],
+                ["Through", "L1-L4", "No", "0.3", "0.7", "1", file],
+                [
+                    "Laser",
+                    "L2-L1",
+                    "Yes",
+                    "0.1",
+                    "0.22 (end 0.18)",
+                    "2",
+                    "Demo-L1-L2.drl"
+                ],
+                ["Blind 3:4", "L3-L4", "No", "0.3", "0.7", "0", ""],
+                ["Unmatched", "L2-L3", "No", "", "", "2", "Demo-L2-L3.drl"],
+            ]
+        );
+    }
+    let notes = with_plot(
+        &engine,
+        |_| {},
+        |plot| String::from_utf8(fab_notes_file(plot, &[], &[]).bytes).unwrap(),
+    );
+    assert!(
+        table(&notes, "Via types")
+            .iter()
+            .skip(1)
+            .all(|row| row[6].is_empty()),
+        "{notes}"
+    );
+    assert!(!notes.contains("Copper files in order"), "{notes}");
 }
 
 #[test]
