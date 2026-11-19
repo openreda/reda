@@ -1076,18 +1076,34 @@ fn dragging_a_via_end_in_the_cross_section_changes_its_span_once_at_release() {
     let board = pcb(&h);
     let copper: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
     let shell = h.state_mut().shell_mut();
-    shell.run("pcb.via_type.add", json!({"document":board.uuid,"from":copper[0],"to":copper[1],"name":"Laser","micro":true})).unwrap();
+    shell.run(
+        "pcb.stackup.set",
+        json!({
+            "copper":[{"layer":copper[0], "thickness":"0.003mm"}, {"layer":copper[1], "thickness":"0.003mm"}],
+            "dielectrics":[{"uuid":board.stackup().entries[1].uuid(), "thickness":"0.002mm"}],
+        }),
+    ).unwrap();
+    shell.run("pcb.via_type.add", json!({"document":board.uuid,"from":copper[1],"to":copper[0],"name":"Laser","micro":true})).unwrap();
     shell
         .run("pcb.stackup.open", json!({"document":board.uuid}))
         .unwrap();
     h.run();
     h.get_by_role_and_label(Role::Button, "Select Via type Laser")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Select Via type Laser")
         .click();
     h.run();
+    let before = pcb(&h);
     let start = h
-        .get_by_role_and_label(Role::Button, "Laser to")
+        .get_by_role_and_label(Role::Button, "Laser from")
         .rect()
         .center();
+    let other = h.get_by_role_and_label(Role::Button, "Laser to").rect();
+    assert!(
+        !other.contains(start),
+        "both ends must be independently draggable on a thin stack"
+    );
     let mid = h
         .get_by_role_and_label(Role::Button, "Select band L3")
         .rect();
@@ -1111,7 +1127,10 @@ fn dragging_a_via_end_in_the_cross_section_changes_its_span_once_at_release() {
     h.drop_at(target);
     h.run();
     assert_eq!(count(&h), 1);
-    assert_eq!(pcb(&h).stackup().via_types[1].to, copper[2]);
+    assert_eq!(pcb(&h).stackup().via_types[1].from, copper[2]);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run();
+    assert_eq!(pcb(&h).stackup(), before.stackup());
 }
 
 #[test]
@@ -1441,4 +1460,55 @@ fn shortened_and_left_out_teardrops_open_their_tracks_on_the_physical_layer() {
             Some(bottom)
         );
     }
+}
+
+#[test]
+fn a_narrow_cross_section_keeps_the_split_action_clear_of_via_barrels() {
+    let (home, work) = (TempDir::new("split-home"), TempDir::new("split-work"));
+    let mut h = harness(home.path(), work.path(), "First");
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "project.new",
+            json!({"name":"Split","path":work.path(),"layers":4}),
+        )
+        .unwrap();
+    let board = pcb(&h);
+    let copper: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":board.uuid,"name":"Blind","from":copper[0],"to":copper[1]}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.set_size(egui::vec2(1060.0, 640.0));
+    h.run();
+    let before = pcb(&h);
+    let band = h
+        .get_by_role_and_label(Role::Button, "Select band Dielectric 1")
+        .rect();
+    h.hover_at(egui::pos2(band.left() + 4.0, band.center().y));
+    h.run();
+    let split = h.get_by_role_and_label(Role::Button, "+ Layer").rect();
+    let barrel = h
+        .get_by_role_and_label(Role::Button, "Select Via type Through")
+        .rect();
+    assert!(
+        !split.intersects(barrel),
+        "split {split:?} overlaps Through {barrel:?}"
+    );
+    h.hover_at(split.center());
+    h.run();
+    h.get_by_role_and_label(Role::Button, "+ Layer").click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(pcb(&h).copper_layers().count(), 5);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
+    h.run();
+    assert_eq!(pcb(&h).stackup(), before.stackup());
 }

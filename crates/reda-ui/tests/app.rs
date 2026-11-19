@@ -1726,4 +1726,41 @@ fn snapshot_of_the_stackup_editor_tab() {
     h.hover_at(egui::pos2(1.0, 1.0));
     h.run();
     h.snapshot("stackup_editor_dark");
+
+    // Read back the cone interiors from the rendered window in both drill directions.
+    let shell = h.state_mut().shell_mut();
+    let stack = shell.engine().project().unwrap().pcb().unwrap().stackup();
+    let bottom = stack
+        .via_types
+        .iter()
+        .find(|v| v.name.as_deref() == Some("Bottom blind"))
+        .unwrap()
+        .uuid;
+    shell
+        .run("pcb.via_type.set", json!({"via_type":bottom, "micro":true}))
+        .unwrap();
+    h.run();
+    let image = h.render().unwrap();
+    let interior_widths = |name: &str| {
+        let rect = h.get_by_role_and_label(Role::Button, name).rect();
+        let width = |fraction: f32| {
+            let y = (rect.top() + fraction * rect.height()) as u32;
+            let x = rect.center().x as u32;
+            let inside = image.get_pixel(x, y);
+            (rect.left().ceil() as u32..=rect.right().floor() as u32)
+                .filter(|&col| image.get_pixel(col, y) == inside)
+                .count()
+        };
+        (width(0.2), width(0.8))
+    };
+    let (top, bottom) = interior_widths("Select Via type Inner laser");
+    assert!(
+        top > bottom && bottom > 0,
+        "downward laser interior {top} / {bottom}"
+    );
+    let (top, bottom) = interior_widths("Select Via type Bottom blind");
+    assert!(
+        bottom > top && top > 0,
+        "upward laser interior {top} / {bottom}"
+    );
 }

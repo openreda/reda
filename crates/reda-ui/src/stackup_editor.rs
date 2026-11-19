@@ -38,7 +38,14 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
     let mut edits = Edits::default();
     let t = ui.tokens();
     let full = ui.available_rect_before_wrap().shrink(t.space.panel);
-    let width = t.size.of(TABLE_WIDTH + 44.0).min(full.width() * 0.66);
+    // The dimension and the split button need to fit side by side in a small
+    // drawing pane. Both panes scroll when the tab is narrower still.
+    let drawing_width = t.size.of(210.0).min(full.width() * 0.5);
+    let width = t
+        .size
+        .of(TABLE_WIDTH + 44.0)
+        .min(full.width() * 0.66)
+        .min(full.width() - drawing_width);
     let info = pcb.stackup().info();
     let left = full.with_max_x(full.left() + width);
     let right = full.with_min_x((left.right() + t.space.panel).min(full.right()));

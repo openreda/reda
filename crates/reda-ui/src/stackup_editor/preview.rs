@@ -14,6 +14,8 @@ use reda_engine::model::{
 use scene::{Names, Section};
 use std::sync::Arc;
 
+const HANDLE_SIZE: f32 = 16.0;
+
 pub(super) fn color(entry: &StackupEntry) -> Color32 {
     match entry {
         StackupEntry::Copper(_) => widgets::data_color(0xc8, 0x75, 0x33),
@@ -95,9 +97,13 @@ pub(super) fn show(
     let height = ui
         .available_height()
         .max(t.size.of(140.0) + t.ty.small.line * stack.entries.len() as f32);
-    let width = ui
-        .available_width()
-        .max(margin + callouts + (pitch * names.vias.len() as f32).max(t.size.of(120.0)));
+    let split_button = widgets::button(tr!("stackup-split-sheet"));
+    let split_width = split_button.width(ui);
+    // Leave room on the left of the first barrel for an entire split button. A
+    // narrow tab scrolls the drawing horizontally, so both targets stay usable.
+    let end_space = (pitch * 0.5).max(t.space.gap + split_width + t.size.of(HANDLE_SIZE));
+    let min_body_width = 2.0 * end_space + pitch * names.vias.len().saturating_sub(1) as f32;
+    let width = ui.available_width().max(margin + callouts + min_body_width);
     egui::ScrollArea::both()
         .id_salt("cross-section-scroll")
         .auto_shrink(false)
@@ -145,8 +151,7 @@ pub(super) fn show(
             let section = &cache.section;
             let bands = &section.bands;
             let labels = section.paint(&draw, &t, view.selected);
-            // A barrel sits in front of its Dielectric. In a narrow pane the split
-            // button can otherwise cover the barrel before its click is delivered.
+            // A barrel sits in front of its Dielectric and owns the pointer there.
             let over_barrel = section
                 .barrels
                 .iter()
@@ -208,10 +213,10 @@ pub(super) fn show(
             let button_bounds = |band: &Band| {
                 Rect::from_center_size(
                     pos2(
-                        band.rect.left() + t.space.gap + t.size.of(30.0),
+                        band.rect.left() + t.space.gap + split_width / 2.0,
                         band.rect.center().y,
                     ),
-                    vec2(t.size.of(60.0), t.control_height()),
+                    vec2(split_width, t.control_height()),
                 )
             };
             // On a thin sheet most of the button lies outside the material itself.
@@ -224,10 +229,7 @@ pub(super) fn show(
             view.split_sheet = split.map(|b| b.id);
             if let Some(band) = split {
                 let bounds = button_bounds(band);
-                if ui
-                    .put(bounds, widgets::button(tr!("stackup-split-sheet")))
-                    .clicked()
-                {
+                if ui.put(bounds, split_button).clicked() {
                     edits.commands.push((
                         None,
                         "pcb.layer.add",
@@ -287,13 +289,23 @@ fn via(
     if !movable {
         return;
     }
-    for (key, at, other, current) in [
-        ("from", barrel.from, kind.to, kind.from),
-        ("to", barrel.to, kind.from, kind.to),
+    let handle_size = t.size.of(HANDLE_SIZE);
+    let close_ends = (barrel.from.center().y - barrel.to.center().y).abs() < handle_size;
+    for (key, at, other, current, side) in [
+        ("from", barrel.from, kind.to, kind.from, -1.0),
+        ("to", barrel.to, kind.from, kind.to, 1.0),
     ] {
-        let center = pos2(barrel.x, at.center().y);
+        let end = pos2(barrel.x, at.center().y);
+        let mut center = end;
+        if close_ends {
+            center.x += side * (handle_size * 0.5 + t.stroke.hairline);
+            draw.line_segment(
+                [end, center],
+                Stroke::new(t.stroke.accent_line, t.color.accent.solid),
+            );
+        }
         let handle = ui.interact(
-            Rect::from_center_size(center, vec2(t.size.of(16.0), t.size.of(16.0))),
+            Rect::from_center_size(center, vec2(handle_size, handle_size)),
             ui.scope_id().with(("end", kind.uuid, key)),
             Sense::drag(),
         );
