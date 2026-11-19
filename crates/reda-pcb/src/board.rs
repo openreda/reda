@@ -53,7 +53,18 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
     };
     let p = rules.preferred;
     vec![
-        (RuleKind::Clearance, value(rules.clearance)),
+        (
+            RuleKind::Clearance,
+            RuleValues {
+                value: Some(rules.clearance),
+                hole: Some(reda_model::HoleRuleValues {
+                    via: Some(rules.clearance_hole.via),
+                    pad: Some(rules.clearance_hole.pad),
+                    ..Default::default()
+                }),
+                ..RuleValues::default()
+            },
+        ),
         (
             RuleKind::TrackWidth,
             RuleValues {
@@ -66,7 +77,10 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
             RuleKind::ViaSize,
             RuleValues {
                 diameter: Some(bounds(rules.via_diameter)),
-                hole: Some(bounds(rules.via_hole)),
+                hole: Some(reda_model::HoleRuleValues {
+                    min: Some(rules.via_hole),
+                    ..Default::default()
+                }),
                 ..RuleValues::default()
             },
         ),
@@ -241,7 +255,18 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
     };
     FabRules {
         inner: (inner != Default::default()).then_some(inner),
-        clearance_hole: reda_model::HoleClearance::GENERIC,
+        clearance_hole: reda_model::HoleClearance {
+            via: pcb
+                .board_rule(RuleKind::Clearance)
+                .values
+                .length(HoleVia)
+                .unwrap_or(reda_model::HoleClearance::GENERIC.via),
+            pad: pcb
+                .board_rule(RuleKind::Clearance)
+                .values
+                .length(HolePad)
+                .unwrap_or(reda_model::HoleClearance::GENERIC.pad),
+        },
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
         via_diameter: length(RuleKind::ViaSize, DiameterMin),

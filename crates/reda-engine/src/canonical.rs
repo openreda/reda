@@ -144,9 +144,21 @@ impl CanonicalWriter {
         uuid_of: impl Fn(&T) -> Uuid,
         children: &[&str],
     ) -> Result<(), CanonicalError> {
+        self.containers_by(key, rows, uuid_of, |_| children)
+    }
+
+    /// A table whose rows can have different child arrays, such as Zones storing
+    /// vertices and Zones that follow the Board Outline.
+    pub(crate) fn containers_by<'a, T: Serialize>(
+        &mut self,
+        key: &str,
+        rows: impl IntoIterator<Item = T>,
+        uuid_of: impl Fn(&T) -> Uuid,
+        children: impl Fn(&T) -> &'a [&'a str],
+    ) -> Result<(), CanonicalError> {
         let lines = sorted(key, rows, uuid_of)?
             .iter()
-            .map(|row| spread(key, row, children, 4))
+            .map(|row| spread(key, row, children(row), 4))
             .collect::<Result<Vec<_>, _>>()?;
         self.lines(key, lines);
         Ok(())

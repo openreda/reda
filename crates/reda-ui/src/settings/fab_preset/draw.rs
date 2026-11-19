@@ -116,6 +116,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
     rows(ui, "preset-rules", |ui| {
         for (f, label) in [
             (Field::Clearance, tr!("preset-clearance")),
+            (Field::ViaHoleClearance, tr!("rule-via-hole-clearance")),
+            (Field::PadHoleClearance, tr!("rule-pad-hole-clearance")),
             (Field::TrackWidth, tr!("preset-track-width")),
             (Field::ViaDiameter, tr!("preset-via-diameter")),
             (Field::ViaHole, tr!("preset-via-hole")),

@@ -2,17 +2,17 @@
 //! of placed Footprints and Free Pads.
 
 use crate::copper::shape::BoardShape as _;
-use reda_model::geom::{CornerRect, Nm, Point};
-use reda_model::{DrcCheck, Hole, Limit, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
+use reda_model::geom::Nm;
+use reda_model::{DrcCheck, Limit, PcbDocument, RuleField, RuleKind};
 
 use super::{Board, Report};
-use crate::copper::shape::{Core, Prim, Shape};
-use crate::placed::{self, PlacedPad};
+use crate::drill::{DrillHole, Rings, holes};
 use crate::rules::{breach, hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     via_size(board, report);
-    let holes = holes(board);
+    let holes = holes(board.pcb);
+    super::plated_clearance::check(board, &holes, report);
     for hole in holes.iter().filter(|h| !h.via) {
         let rules = net_rules(board.pcb, hole.net);
         let (narrow, wide) = (
@@ -43,13 +43,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(rings) = hole.ring else {
             continue;
         };
-        let layers = if hole.via {
-            board
-                .pcb
-                .span_layers(board.pcb.via(hole.objects[0]).expect("Via hole").span)
-        } else {
-            board.pcb.copper_layers().map(|l| l.uuid).collect()
-        };
+        let layers = hole.layers(board.pcb);
         let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
         for layer in layers {
             let ring = match rings {
@@ -129,92 +123,6 @@ fn via_size(board: &Board<'_>, report: &mut Report) {
                     .object(via.uuid)
             });
         }
-    }
-}
-
-/// One drilled hole on the board.
-pub(super) struct DrillHole {
-    /// The Via, or the Footprint instance then the Pad, or the Free Pad.
-    pub objects: Vec<Uuid>,
-    size: Hole,
-    /// Its Net, which picks its rules.
-    net: Option<Uuid>,
-    /// Whether it is a Via's, which `via_size` limits rather than `hole_size`.
-    via: bool,
-    /// The copper ring around a plated hole; `None` for a bare (non-plated) hole.
-    pub(super) ring: Option<Rings>,
-    pub shape: Shape,
-}
-
-/// A Via follows its drilling span. Pad rings are measured in board-side order.
-#[derive(Clone, Copy)]
-pub(super) enum Rings {
-    Via,
-    Pad { top: Nm, middle: Nm, bottom: Nm },
-}
-
-/// Every hole, Vias first, then Footprint Pads, then Free Pads, each in UUID order.
-pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
-    let pcb = board.pcb;
-    let mut out = Vec::new();
-    for via in pcb.vias() {
-        let size = Hole::new(via.hole, via.hole);
-        out.push(DrillHole {
-            objects: vec![via.uuid],
-            size,
-            net: via.net,
-            via: true,
-            ring: Some(Rings::Via),
-            shape: hole_shape((via.at, via.at), size),
-        });
-    }
-    let pad_hole = |objects: Vec<Uuid>, pad: &PlacedPad| {
-        let size = pad.hole?;
-        let ring = (pad.kind == PadKind::PlatedThroughHole).then(|| {
-            let top = annular_ring(&pad.outline, size);
-            Rings::Pad {
-                top,
-                middle: pad.middle.map_or(top, |(_, o)| annular_ring(&o, size)),
-                bottom: pad.bottom.map_or(top, |(_, o)| annular_ring(&o, size)),
-            }
-        });
-        Some(DrillHole {
-            objects,
-            size,
-            net: pad.net,
-            via: false,
-            ring,
-            shape: hole_shape(pad.hole_ends()?, size),
-        })
-    };
-    for instance in pcb.footprints() {
-        for pad in placed::placed_pads(pcb, instance) {
-            out.extend(pad_hole(vec![instance.uuid, pad.pad], &pad));
-        }
-    }
-    for pad in pcb.free_pads() {
-        out.extend(pad_hole(vec![pad.uuid], &placed::placed_free_pad(pad)));
-    }
-    out
-}
-
-/// The narrowest copper between a Pad's hole and the edge of its copper, negative when
-/// the hole reaches outside it. The copper is convex, so the narrowest point is at an end
-/// of the slot's centre line.
-fn annular_ring(outline: &CornerRect, hole: Hole) -> Nm {
-    let (a, b) = hole.ends();
-    let inside = outline.edge_distance(a).min(outline.edge_distance(b));
-    Nm((inside - hole.diameter().0 as f64 / 2.0).floor() as i64)
-}
-
-/// A hole's outline: a disc, or a slot between the `ends` of its centre line.
-fn hole_shape(ends: (Point, Point), size: Hole) -> Shape {
-    let end = |p: Point| [p.x.0, p.y.0];
-    Shape {
-        prims: vec![Prim {
-            core: Core::Seg(end(ends.0), end(ends.1)),
-            radius: size.diameter().0 / 2,
-        }],
     }
 }
 

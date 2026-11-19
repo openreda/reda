@@ -662,3 +662,90 @@ fn arcs_are_flattened_to_chords_within_a_micrometre() {
     // Not needlessly finer either: the chords use the tolerance.
     assert!(worst >= 500.0, "chords {worst} nm from the arc");
 }
+
+#[test]
+fn via_zone_connection_is_inherited_per_field_and_overridden_in_the_fill() {
+    let dir = TempDir::new("via-zone-override");
+    let mut engine = engine_with_pcb(&dir);
+    let net = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"via":{"style":"relief","gap":"0.5mm","spokes":4,"angle":"0deg"}}),
+    );
+    let z = zone(
+        &mut engine,
+        Some(net),
+        rect(0.0, 0.0, 20.0, 12.0),
+        json!({"remove_unconnected":false}),
+    );
+    let id = via(&mut engine, 5.0, 5.0, net);
+    let contains = |e: &TestEngine, x, y| filled(shapes(&fill(e), z), at(x, y));
+    assert!(!contains(&engine, 5.6, 5.4));
+    assert!(contains(&engine, 5.6, 5.0));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"style":"solid"}}),
+    );
+    assert!(contains(&engine, 5.6, 5.4));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"style":"none"}}),
+    );
+    assert!(!contains(&engine, 5.6, 5.0));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"spokes":2}}),
+    );
+    assert!(contains(&engine, 5.6, 5.0));
+    assert!(!contains(&engine, 5.0, 5.6));
+    engine.run_ok("pcb.via.set", json!({"vias":[id],"zone_connection":null}));
+    assert!(contains(&engine, 5.0, 5.6));
+}
+
+#[test]
+fn planes_keep_both_land_and_hole_limits_and_the_separate_bare_hole_limit() {
+    let dir = TempDir::new("plane-hole-limits");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","layers":4}),
+    );
+    let gnd = add_net(&mut e, "GND");
+    let signal = add_net(&mut e, "Signal");
+    let layers: Vec<_> = pcb(&e).copper_layers().map(|l| l.uuid).collect();
+    e.run_ok("pcb.rules.set", json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"hole":{"via":"1mm","pad":"1.5mm"}}}));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"edge_clearance","values":{"value":"0.8mm"}}),
+    );
+    e.run_ok("pcb.via.add", json!({"net":signal,"from":layers[0],"to":layers[1],"at":{"x":"5mm","y":"5mm"},"diameter":{"start":"0.8mm","end":"0.4mm"},"hole":"0.3mm"}));
+    e.run_ok("pcb.free_pad.add", json!({"net":gnd,"kind":"plated_through_hole","at":{"x":"10mm","y":"5mm"},"width":"1mm","hole":{"width":"0.7mm"},"zone_connection":{"style":"none","gap":"0.1mm"}}));
+    e.run_ok("pcb.free_pad.add", json!({"kind":"non_plated","width":"1mm","at":{"x":"15mm","y":"5mm"},"hole":{"width":"1mm"}}));
+    let zones: Vec<_> = layers[1..3]
+        .iter()
+        .map(|layer| {
+            zone_on(
+                &mut e,
+                &layer.to_string(),
+                Some(gnd),
+                rect(1., 1., 19., 9.),
+                json!({"remove_unconnected":false}),
+            )
+        })
+        .collect();
+    let fills = fill(&e);
+    let l2 = shapes(&fills, zones[0]);
+    assert!(!filled(l2, at(6., 5.)), "blind Via hole keeps 1 mm on L2");
+    assert!(filled(l2, at(6.3, 5.)));
+    assert!(
+        filled(shapes(&fills, zones[1]), at(5., 5.)),
+        "L3 is below the drilling span"
+    );
+    assert!(
+        !filled(l2, at(11.7, 5.)),
+        "same-Net none uses the larger hole limit"
+    );
+    assert!(filled(l2, at(12., 5.)));
+    assert!(!filled(l2, at(16.2, 5.)), "bare hole uses edge_clearance");
+    assert!(filled(l2, at(16.4, 5.)));
+}

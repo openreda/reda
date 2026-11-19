@@ -47,6 +47,7 @@ pub(super) fn fill_zone(
     copper: &Copper,
     zone: &Zone,
     before: &[Filled<'_>],
+    holes: &[crate::drill::DrillHole],
 ) -> Area {
     let layer = zone.layer;
     let vertices = pcb.zone_vertices(zone);
@@ -111,11 +112,61 @@ pub(super) fn fill_zone(
         }
         others.extend(grown(shape, clearance.0));
     }
-    // Bare (non-plated) holes are no copper, but the fill keeps its clearance from them.
-    let hole_clearance = clearance_to(pcb, zone, None);
-    for hole in bare_holes(pcb) {
-        if near(&hole, hole_clearance.0, lo, hi) {
-            others.extend(grown(&hole, hole_clearance.0));
+    // A v0.1 board migrates without clearance.hole until an explicit edit or preset
+    // Apply. Its plots must reproduce v0.1 byte-for-byte: that filler grew the
+    // non-plated Pad outline by copper clearance. DRC has always used the bore
+    // and edge_clearance. New boards start with the preset's hole rules.
+    let legacy = !pcb
+        .rules()
+        .any(|r| r.kind == reda_model::RuleKind::Clearance && r.values.hole.is_some());
+    if legacy {
+        let clearance = clearance_to(pcb, zone, None);
+        for shape in legacy_bare_pads(pcb) {
+            if near(&shape, clearance.0, lo, hi) {
+                others.extend(grown(&shape, clearance.0));
+            }
+        }
+    }
+    for hole in holes.iter().filter(|h| h.layers(pcb).contains(&layer)) {
+        let clearance = if hole.ring.is_none() {
+            if legacy {
+                continue;
+            }
+            net_rules(pcb, zone.net)
+                .edge_clearance
+                .unwrap_or_default()
+                .max(zone.clearance.unwrap_or_default())
+        } else {
+            let mut gap = Nm::ZERO;
+            if same_net(hole.net) {
+                let connection = hole.connection(pcb, layer);
+                let has_land = copper
+                    .item_pieces(hole.item)
+                    .iter()
+                    .any(|(l, _)| *l == layer);
+                if has_land && connection.style != ConnectionStyle::None {
+                    continue;
+                }
+                if !has_land && connection.style == ConnectionStyle::None {
+                    gap = connection.gap;
+                }
+            }
+            let limit = crate::rules::resolve_pair_on(
+                pcb,
+                zone.net,
+                hole.net,
+                Some(layer),
+                reda_model::RuleKind::Clearance,
+                hole.field(),
+            )
+            .and_then(|v| v.value.length());
+            if limit.is_none() && gap == Nm::ZERO {
+                continue;
+            }
+            limit.unwrap_or_default().max(gap)
+        };
+        if near(&hole.shape, clearance.0, lo, hi) {
+            others.extend(grown(&hole.shape, clearance.0));
         }
     }
     let merges = |prior: &Filled<'_>| same_net(prior.zone.net) && zone.pour_over != PourOver::None;
@@ -258,7 +309,7 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
                     zone.net,
                     Some(zone.layer),
                     ConnectionTarget::Via,
-                    None,
+                    via.zone_connection.as_ref(),
                 ),
             });
         }
@@ -279,7 +330,7 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
 }
 
 /// The outlines of the non-plated Pads (Footprint and Free), which have no copper.
-fn bare_holes(pcb: &PcbDocument) -> Vec<Shape> {
+fn legacy_bare_pads(pcb: &PcbDocument) -> Vec<Shape> {
     let mut holes = Vec::new();
     for instance in pcb.footprints() {
         if let Some(copy) = pcb.footprint_copy(instance.footprint) {

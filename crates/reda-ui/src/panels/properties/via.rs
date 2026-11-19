@@ -72,6 +72,17 @@ pub(super) fn selected(
             ui.end_row();
         }
     });
+    ui.add_enabled_ui(!via.locked, |ui| {
+        let id = egui::Id::NULL.with(("via-zone-connection", via.uuid));
+        if let Some(connection) =
+            crate::pad_form::draw::zone_override(ui, id, units(shell), via.zone_connection)
+        {
+            out.push(Out::Run(
+                "pcb.via.set",
+                json!({"vias":[via.uuid],"zone_connection":connection}),
+            ));
+        }
+    });
 }
 
 pub(super) fn diameter_rows(

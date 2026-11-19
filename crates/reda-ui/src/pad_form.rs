@@ -368,30 +368,27 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
         | PadEdit::ZoneSpokeWidth(_)
         | PadEdit::ZoneGap(_)
         | PadEdit::ZoneAngle(_) => {
-            let before = pad.zone_connection.unwrap_or_default();
-            let mut z = before;
-            match edit {
-                PadEdit::ZoneStyle(s) => z.style = *s,
-                PadEdit::ZoneSpokes(s) => z.spokes = *s,
-                PadEdit::ZoneSpokeWidth(w) => z.spoke_width = *w,
-                PadEdit::ZoneGap(g) => z.gap = *g,
-                PadEdit::ZoneAngle(a) => z.angle = *a,
-                _ => unreachable!("a Zone connection edit"),
-            }
-            if z == before {
+            let mut z = pad.zone_connection.unwrap_or_default();
+            apply_zone_edit(&mut z, edit);
+            let next = (z != ZoneConnection::default()).then_some(z);
+            if next == pad.zone_connection {
                 return None;
             }
-            set(
-                "zone_connection",
-                if z == ZoneConnection::default() {
-                    Value::Null
-                } else {
-                    json!(z)
-                },
-            );
+            set("zone_connection", json!(next));
         }
     }
     Some(p)
+}
+
+fn apply_zone_edit(z: &mut ZoneConnection, edit: &PadEdit) {
+    match edit {
+        PadEdit::ZoneStyle(s) => z.style = *s,
+        PadEdit::ZoneSpokes(s) => z.spokes = *s,
+        PadEdit::ZoneSpokeWidth(w) => z.spoke_width = *w,
+        PadEdit::ZoneGap(g) => z.gap = *g,
+        PadEdit::ZoneAngle(a) => z.angle = *a,
+        _ => unreachable!("a Zone connection edit"),
+    }
 }
 
 fn changed(

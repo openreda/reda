@@ -92,7 +92,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     let pcb = board.pcb;
     let edges = Edge::all(pcb);
     // Non-plated holes: copper keeps the edge clearance from their edges too.
-    let bare: Vec<_> = super::holes::holes(board)
+    let bare: Vec<_> = crate::drill::holes(board.pcb)
         .into_iter()
         .filter(|h| h.ring.is_none())
         .collect();
