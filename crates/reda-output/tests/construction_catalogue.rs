@@ -19,7 +19,10 @@ fn generic_offers_even_constructions_without_material_data() {
                 .all(|d| d.material.is_none() && d.dk.is_none())
         );
         if count == 2 {
-            assert_eq!(board.totals().remainder, Some(Nm(1_530_000)));
+            assert_eq!(
+                board.dielectrics().next().unwrap().thickness,
+                Some(Nm(1_530_000))
+            );
         } else {
             let gaps: Vec<_> = board
                 .dielectrics()
@@ -118,6 +121,29 @@ fn pcbway_numbers_are_scoped_to_the_layer_count_and_retain_combined_pressed_thic
     assert_eq!(four.totals().total, Nm(1_520_600));
     let first = stackup(&pcbway, "PCBWay 4-Layer #1");
     assert_eq!(first.dielectrics().next().unwrap().dk, Some(4740));
+    let middle = stackup(&pcbway, "PCBWay 6-Layer #30");
+    let gap = middle.dielectrics().nth(2).unwrap();
+    assert_eq!(gap.material.as_deref(), Some("2116 + 1080 + 2116"));
+    assert_eq!(gap.thickness, Some(Nm(271_000)));
+    for (name, plies) in [
+        ("PCBWay 6-Layer #31", "3313 + 7628"),
+        ("PCBWay 6-Layer #33", "3313 + 2116"),
+    ] {
+        let board = stackup(&pcbway, name);
+        assert_eq!(
+            board.dielectrics().nth(2).unwrap().name.as_deref(),
+            Some(plies)
+        );
+        assert!(
+            pcbway
+                .construction(name)
+                .unwrap()
+                .notes
+                .as_deref()
+                .unwrap()
+                .contains("asymmetric")
+        );
+    }
     let eight = stackup(&pcbway, "PCBWay 8-Layer #26");
     assert_eq!(eight.totals().total, Nm(1_549_000));
 }
@@ -165,10 +191,17 @@ fn osh_park_prototype_materials_rules_and_files_match_the_fabrication_services()
     );
     assert!(r.inner.is_none());
     let generic = shipped_named("Generic").unwrap();
-    assert_eq!(osh.gerber, reda_model::GerberSettings::default());
+    assert_eq!(
+        osh.gerber,
+        reda_model::GerberSettings {
+            slot_command: reda_model::SlotCommand::G85,
+            ..Default::default()
+        }
+    );
     assert_eq!(osh.bom, generic.bom);
     assert_eq!(osh.cpl, generic.cpl);
     assert!(!osh.zip_assembly);
+    assert_eq!(osh.stackup_suggestions.copper, [Nm(35_600)]);
     assert_eq!(osh.stackup_suggestions.finish, ["ENIG"]);
     assert_eq!(osh.stackup_suggestions.mask_color, ["Purple"]);
 }
@@ -219,9 +252,7 @@ fn every_shipped_construction_roundtrips_and_matches_the_published_physical_chec
                 "{}",
                 build.name
             );
-            if build.layer_count() > 2 {
-                assert!(info.totals.remainder.is_none(), "{}", build.name);
-            }
+            assert!(info.totals.remainder.is_none(), "{}", build.name);
             writeln!(totals, "{}\t{}\t{sum}", preset.name, build.name).unwrap();
         }
     }

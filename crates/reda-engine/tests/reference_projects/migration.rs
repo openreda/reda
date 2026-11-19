@@ -93,6 +93,7 @@ fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update(
         open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
     let project = engine.project().unwrap();
     let original = project.pcb().unwrap().stackup().clone();
+    assert_eq!(original.dielectrics().next().unwrap().thickness, None);
     let copy = project.fab_presets().next().unwrap();
     let preset = copy.uuid;
     assert_eq!(copy.name, "JLCPCB");

@@ -673,7 +673,7 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
         assert_eq!(standard["thickness"], 1_600_000);
         assert_eq!(
             standard["entries"],
-            json!([{"copper":35_000},{"kind":"core"},{"copper":35_000}])
+            json!([{"copper":35_000},{"kind":"core","thickness":1_530_000},{"copper":35_000}])
         );
     }
 }

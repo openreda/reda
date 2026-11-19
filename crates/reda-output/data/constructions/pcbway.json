@@ -515,7 +515,7 @@
       {"copper": 70000},
       {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
       {"copper": 70000},
-      {"kind": "prepreg", "material": "1080 + 2116 + 2116", "thickness": 271000, "name": "2116 + 1080 + 2116"},
+      {"kind": "prepreg", "material": "2116 + 1080 + 2116", "thickness": 271000, "name": "2116 + 1080 + 2116"},
       {"copper": 70000},
       {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
       {"copper": 70000},
@@ -526,7 +526,7 @@
   {
     "name": "PCBWay 6-Layer #31",
     "default": false,
-    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.60 mm finished (±10%).",
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.60 mm finished (±10%). The two different plies in the centre gap are asymmetric.",
     "thickness": 1600000,
     "entries": [
       {"copper": 70000},
@@ -564,7 +564,7 @@
   {
     "name": "PCBWay 6-Layer #33",
     "default": false,
-    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%).",
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%). The two different plies in the centre gap are asymmetric.",
     "thickness": 1600000,
     "entries": [
       {"copper": 105000},

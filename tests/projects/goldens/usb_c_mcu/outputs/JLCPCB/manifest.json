@@ -2,7 +2,7 @@
   "format": 1,
   "reda": "0.0.0-test",
   "job": {"uuid":"00000000-0000-4000-8000-000000000028","name":"JLCPCB"},
-  "fab_preset": {"name":"JLCPCB","sha256":"2d9c504db0da7b24435a085d8aa421af0c5248e204b37daaf6435e90e0cde1e3"},
+  "fab_preset": {"name":"JLCPCB","sha256":"c1c7a00fdf04529c62ad98d35adce82143ecde88100474afdf2af28bf9d092a6"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
   "date": "2026-01-01T00:00:00Z",

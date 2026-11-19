@@ -107,9 +107,9 @@ pub fn generic() -> FabPreset {
     }
 }
 
-/// Keep the released two-layer seed when adding a fab's measured multilayer builds.
+/// Start with the released nominal two-layer dimensions and add the measured multilayer builds.
 fn with_two_layer(catalogue: &str) -> Vec<Construction> {
-    let mut builds = vec![Construction::two_layer(StackupSeeds::default())];
+    let mut builds = vec![Construction::evenly_spaced(2, StackupSeeds::default())];
     builds.extend(
         serde_json::from_str::<Vec<Construction>>(catalogue)
             .expect("shipped Construction catalogue"),
@@ -309,6 +309,10 @@ fn osh_park() -> FabPreset {
             },
             ..generic.rules
         },
+        gerber: GerberSettings {
+            slot_command: reda_model::SlotCommand::G85,
+            ..generic.gerber
+        },
         stackup_suggestions: suggestions("OSH Park"),
         ..generic
     }
@@ -320,7 +324,7 @@ fn suggestions(name: &str) -> StackupSuggestions {
     let (thickness, copper, finish, mask_color, silk_color) = match name {
         "OSH Park" => (
             vec![1600],
-            vec![35_000],
+            vec![35_600],
             strings(&["ENIG"]),
             strings(&["Purple"]),
             strings(&["White"]),
