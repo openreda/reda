@@ -138,7 +138,7 @@ fn every_dielectric_typed_in_keeps_the_thickness_and_warns_on_a_mismatch() {
     );
     assert_eq!(out["result"]["totals"]["remainder"], 1_500_000);
     assert!(matches!(
-        stackup(&engine).entries[1],
+        &stackup(&engine).entries[1],
         StackupEntry::Dielectric(d) if d.thickness.is_none()
     ));
 }
@@ -238,4 +238,60 @@ fn fab_notes_are_free_text_on_the_board_that_saves_clears_and_undoes() {
     assert_eq!(pcb(&engine).setup().fab_notes.as_deref(), Some(text));
     engine.run_ok("pcb.fab_notes.set", json!({"text": null}));
     assert_eq!(pcb(&engine).setup().fab_notes, None);
+}
+
+#[test]
+fn dielectric_material_edits_preserve_omitted_fields_and_round_trip() {
+    let dir = TempDir::new("stackup-sheet-data");
+    let mut engine = engine(&dir);
+    let (_, _, sheet) = ids(&engine);
+    let edit = json!({"uuid":sheet,"kind":"prepreg","name":"Bond film","thickness":"0.2mm",
+        "material":"FR408HR","dk":4180,"df":9200,"test_frequency":10_000_000_000_u64});
+    engine.run_ok("pcb.stackup.set", json!({"dielectrics":[edit]}));
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":sheet,"material":"7628","df":null}]}),
+    );
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.open", json!({"path":dir.path().join("Demo")}));
+    assert_eq!(
+        serde_json::to_value(stackup(&engine).dielectrics().next()).unwrap(),
+        json!({"uuid":sheet,"kind":"prepreg","name":"Bond film","thickness":200000,
+               "material":"7628","dk":4180,"test_frequency":10_000_000_000_u64})
+    );
+}
+
+#[test]
+fn named_inner_copper_and_roles_survive_save_and_can_be_reset() {
+    let dir = TempDir::new("stackup-layer-data");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(), "name":"Demo", "layers":3}),
+    );
+    let inner = pcb(&engine).copper_layers().nth(1).unwrap().uuid;
+    let top = pcb(&engine).copper_layers().next().unwrap().uuid;
+    engine.run_ok(
+        "pcb.layer.set",
+        json!({"layer":inner,"role":"mixed","name":"GND"}),
+    );
+    engine.run_ok("pcb.layer.set", json!({"layer":top,"role":"plane"}));
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.open", json!({"path":dir.path().join("Demo")}));
+    let row = |e: &TestEngine| serde_json::to_value(pcb(e).layers().layer(inner).unwrap()).unwrap();
+    assert_eq!(
+        row(&engine),
+        json!({"uuid":inner,"kind":"copper","role":"mixed","name":"GND"})
+    );
+    engine.run_ok(
+        "pcb.layer.set",
+        json!({"layer":inner,"role":"signal","name":null}),
+    );
+    assert_eq!(row(&engine), json!({"uuid":inner,"kind":"copper"}));
+    assert_eq!(
+        engine
+            .run_err("pcb.layer.set", json!({"layer":top,"name":"outside"}))
+            .code,
+        ErrorCode::Rejected
+    );
 }

@@ -56,7 +56,7 @@ pub use pad::{
 };
 pub use pcb::{
     ArrowPosition, BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget,
-    ConnectionValue, CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
+    ConnectionValue, CopperEntry, CopperRole, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
     DielectricEntry, DielectricKind, Dimension, DimensionEnd, DimensionFormat,
     DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
     FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument,

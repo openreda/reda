@@ -205,6 +205,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             uuid: id(),
             kind,
             side,
+            name: None,
+            role: Default::default(),
         })
         .collect(),
     };
@@ -307,9 +309,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 thickness: top,
             }),
             StackupEntry::Dielectric(DielectricEntry {
-                kind: reda_model::DielectricKind::Core,
-                uuid: id(),
                 thickness: dielectric,
+                ..DielectricEntry::new(id(), reda_model::DielectricKind::Core)
             }),
             StackupEntry::Copper(CopperEntry {
                 layer: layers.layers[1].uuid,
