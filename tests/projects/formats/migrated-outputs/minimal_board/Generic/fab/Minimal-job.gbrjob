@@ -57,7 +57,7 @@
     },
     {
       "Path": "Minimal-PTH.drl",
-      "FileFunction": "Plated,1,2,PTH,Drill",
+      "FileFunction": "Plated,1,2,PTH",
       "FilePolarity": "Positive"
     }
   ]

@@ -38890,7 +38890,7 @@
             "description": "One file the run wrote.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `drill_blind`, `drill_buried`, `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
                 "type": "string"
               },
               "path": {
@@ -39318,7 +39318,7 @@
             "description": "One file the run wrote.",
             "properties": {
               "function": {
-                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
+                "description": "What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,\n`solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,\n`silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`\n(with `merge_drill`), `drill_blind`, `drill_buried`, `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,\n`schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.",
                 "type": "string"
               },
               "path": {

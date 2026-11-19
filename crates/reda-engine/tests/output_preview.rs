@@ -330,3 +330,91 @@ fn a_layer_name_with_a_slash_blocks_only_jobs_that_write_it_as_a_filename() {
     );
     engine.run_ok("output.job.run", json!({"job":job.uuid}));
 }
+
+#[test]
+fn drill_spans_follow_through_rows_and_old_span_files_are_removed_on_rerun() {
+    let dir = TempDir::new("drill-span-output");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6,
+        "board":{"width":"30mm","height":"20mm"}}),
+    );
+    let project = engine.project().unwrap();
+    let job = project.output_jobs().next().unwrap().clone();
+    let pcb = project.pcb().unwrap();
+    let document = pcb.uuid;
+    let l: Vec<_> = pcb.copper_layers().map(|c| c.uuid).collect();
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document,"from":l[0],"to":l[1],"micro":true}),
+    );
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(2.0,2.0),"from":l[5],"to":l[0]}),
+    );
+    let blind = engine.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(4.0,2.0),"from":l[0],"to":l[1]}),
+    )["result"]["uuid"]
+        .clone();
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(6.0,2.0),"from":l[4],"to":l[2]}),
+    );
+    let preview = job_preview(&engine, &job).unwrap();
+    let rows: Vec<_> = preview
+        .drill
+        .iter()
+        .map(|f| (f.name.as_str(), f.layer.as_str(), f.state))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("Demo-PTH.drl", "L1-L6, through", FileState::Plotted),
+            ("Demo-NPTH.drl", "L1-L6, through", FileState::Empty),
+            ("Demo-L1-L2.drl", "L1-L2, blind, micro", FileState::Plotted),
+            ("Demo-L3-L5.drl", "L3-L5, buried", FileState::Plotted)
+        ]
+    );
+    let run = engine.run_ok("output.job.run", json!({"job":job.uuid}));
+    let dest = std::path::PathBuf::from(run["destination"].as_str().unwrap());
+    let read =
+        |path| serde_json::from_slice::<Value>(&std::fs::read(dest.join(path)).unwrap()).unwrap();
+    let mut archive =
+        zip::ZipArchive::new(std::fs::File::open(run["zip"].as_str().unwrap()).unwrap()).unwrap();
+    let manifest = read("manifest.json");
+    let job_file = read("fab/Demo-job.gbrjob");
+    for (name, function) in [
+        ("Demo-PTH.drl", "Plated,1,6,PTH"),
+        ("Demo-L1-L2.drl", "Plated,1,2,Blind"),
+        ("Demo-L3-L5.drl", "Plated,3,5,Buried"),
+    ] {
+        let i = preview.zip.iter().position(|f| f == name).unwrap();
+        assert_eq!(archive.by_index(i).unwrap().name().unwrap(), name);
+        assert_eq!(manifest["files"][i]["path"], format!("fab/{name}"));
+        assert_eq!(run["files"][i]["path"], manifest["files"][i]["path"]);
+        assert_eq!(job_file["FilesAttributes"][i]["Path"], name);
+        assert_eq!(job_file["FilesAttributes"][i]["FileFunction"], function);
+    }
+    drop(archive);
+    engine.run_ok("pcb.via.set", json!({"vias":[blind],"from":l[3],"to":l[5]}));
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{"gerber":{"merge_drill":true}}}),
+    );
+    let rerun = engine.run_ok("output.job.run", json!({"job":job.uuid}));
+    let mut archive =
+        zip::ZipArchive::new(std::fs::File::open(rerun["zip"].as_str().unwrap()).unwrap()).unwrap();
+    let names: Vec<_> = (0..archive.len())
+        .map(|i| archive.by_index(i).unwrap().name().unwrap().to_string())
+        .filter(|n| n.ends_with(".drl"))
+        .collect();
+    assert_eq!(names, ["Demo.drl", "Demo-L3-L5.drl", "Demo-L4-L6.drl"]);
+    for old in ["Demo-PTH.drl", "Demo-L1-L2.drl"] {
+        assert!(
+            !dest.join("fab").join(old).exists(),
+            "{old} still on disk after a rerun"
+        );
+    }
+}

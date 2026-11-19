@@ -87,7 +87,7 @@ impl OutputFile {
 /// A fabrication file's `.FileFunction` and `.FilePolarity`, as its attributes state them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileAttributes {
-    /// Such as `Copper,L1,Top` or `Plated,1,2,PTH,Drill`.
+    /// Such as `Copper,L1,Top` or `Plated,1,2,PTH`.
     pub function: String,
     /// `Positive` or `Negative`.
     pub polarity: &'static str,

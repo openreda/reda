@@ -2236,6 +2236,7 @@ output-job-plotted = Plotted
 output-job-plotted-empty = Empty, left out
 output-job-plotted-off = Off in this job
 output-job-out-of-range = { $file } holds a coordinate beyond ±2147.483647 mm, which a Gerber file can't hold; the run would be blocked.
+output-job-column-span = Span
 output-job-column-layer = Layer
 output-job-column-file = File name
 output-job-column-plotted = Plotted
