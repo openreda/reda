@@ -529,10 +529,10 @@ pub enum ViaRuleValues {
 /// ([`RuleKind::fields`]); every one left out is inherited.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct RuleValues {
+pub struct RuleValues<T = Uuid> {
     /// The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allowed: Option<Vec<Uuid>>,
+    pub allowed: Option<Vec<T>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<Nm>,
     /// Clearance only: Pads within one Footprint need no clearance from each other.
@@ -600,6 +600,43 @@ pub struct RuleValues {
     pub smd_pad: Option<TeardropTarget>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width_change: Option<TeardropTarget>,
+}
+
+impl<T> RuleValues<T> {
+    /// Retain every scalar setting while translating Via type permissions between
+    /// board-local identities and the physical spans in a Rules File.
+    pub fn with_allowed<U>(self, allowed: Option<Vec<U>>) -> RuleValues<U> {
+        RuleValues {
+            allowed,
+            value: self.value,
+            ignore_pad_to_pad: self.ignore_pad_to_pad,
+            zero_keepout_clearance: self.zero_keepout_clearance,
+            min: self.min,
+            preferred: self.preferred,
+            max: self.max,
+            diameter: self.diameter,
+            hole: self.hole,
+            aspect_ratio: self.aspect_ratio,
+            max_stack: self.max_stack,
+            top: self.top,
+            bottom: self.bottom,
+            from_hole_edge: self.from_hole_edge,
+            tent_vias_top: self.tent_vias_top,
+            tent_vias_bottom: self.tent_vias_bottom,
+            expansion: self.expansion,
+            percent: self.percent,
+            mode: self.mode,
+            tolerance: self.tolerance,
+            max_length: self.max_length,
+            min_area: self.min_area,
+            through_hole: self.through_hole,
+            smd: self.smd,
+            via: self.via,
+            through_hole_pad: self.through_hole_pad,
+            smd_pad: self.smd_pad,
+            width_change: self.width_change,
+        }
+    }
 }
 
 impl RuleValues {
@@ -1102,6 +1139,25 @@ pub struct PortableClass {
     pub name: String,
 }
 
+/// An explicit Layer filter in a Rules File counts copper positions from the top.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum PortableLayers {
+    Group(LayerGroup),
+    Positions(Vec<u8>),
+}
+
+/// A Via permission in a Rules File, identified by physical span and drilling process.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct PortableSpan {
+    pub from: u8,
+    pub to: u8,
+    pub micro: bool,
+}
+
 /// A rule record as a [`RuleSet`] holds it: its Net Class by name, and no UUID.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1110,7 +1166,11 @@ pub struct PortableRule {
     /// The Net Class it applies to, by name; left out for a board-wide record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_class: Option<String>,
-    pub values: RuleValues,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_class_pair: Option<[String; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layers: Option<PortableLayers>,
+    pub values: RuleValues<PortableSpan>,
     /// Whether the record counts; left out when it does.
     #[serde(default = "yes", skip_serializing_if = "is_true")]
     pub enabled: bool,
@@ -1118,11 +1178,19 @@ pub struct PortableRule {
     pub comment: Option<String>,
 }
 
+impl PortableRule {
+    /// Whether importing this record depends on the source board's copper positions.
+    pub fn uses_copper_positions(&self) -> bool {
+        matches!(self.layers, Some(PortableLayers::Positions(_))) || self.values.allowed.is_some()
+    }
+}
+
 /// A board's rules made portable between boards (a `.redarules` file): the rule records,
 /// the Net Class names they need, in rank order, and the DRC severities. It holds no Net
 /// membership, because Net names differ per board.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuleSet {
+    pub copper_layers: u8,
     pub net_classes: Vec<PortableClass>,
     pub rules: Vec<PortableRule>,
     pub severities: crate::DrcSeverities,

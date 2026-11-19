@@ -57433,7 +57433,7 @@
     },
     {
       "category": "pcb",
-      "description": "Writes the PCB's design rules to a `.redarules` file: every rule record, the DRC severities and the Net Class names, which another board's `pcb.rules.import` matches by name. Net membership is left out, because Net names differ per board.",
+      "description": "Writes the PCB's design rules to a `.redarules` file: every rule record, the DRC severities and the Net Class names, which another board's `pcb.rules.import` matches by name. It records the copper count and writes explicit Layers and allowed Via spans by copper position. Net membership is left out.",
       "icon": "rules",
       "id": "pcb.rules.export",
       "kind": "file",
@@ -57854,7 +57854,7 @@
     },
     {
       "category": "pcb",
-      "description": "Reads a `.redarules` file into the PCB as one undo step: the rule records of the chosen `kinds` (each overwrites the board's record of its kind and Net Class), and the DRC severities unless `severities` is false. Net Classes are matched by name, and a missing one is created empty. Records the file does not hold are kept. With `preview`, nothing changes and the result lists each overwrite, the new classes and the severity changes. A result that leaves a record with a blocking problem is refused.",
+      "description": "Reads the chosen `kinds` from a Rules File as one undo step. Imported records replace matching scopes. Classes match by name, and missing classes are created empty. The preview lists the changed records, new classes, severity changes and missing copper positions or Via types. Position-dependent records start selected on a board with the same copper count. Pass `position_records` to select them explicitly. Set `severities` to false to keep the board's severities.",
       "icon": "rules",
       "id": "pcb.rules.import",
       "kind": "edit",
@@ -57973,6 +57973,20 @@
           "path": {
             "description": "The `.redarules` file, as an absolute path.",
             "type": "string"
+          },
+          "position_records": {
+            "default": null,
+            "description": "Checked position-dependent records, by zero-based index in the source file. Omit\nto select them only when the source and target have the same copper count.",
+            "items": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
           },
           "preview": {
             "default": false,
@@ -58297,6 +58311,14 @@
             },
             "type": "object"
           },
+          "LayerGroup": {
+            "enum": [
+              "outer",
+              "inner",
+              "plane"
+            ],
+            "type": "string"
+          },
           "Overwrite": {
             "description": "One record an import writes.",
             "properties": {
@@ -58319,13 +58341,40 @@
                 "description": "Whether it counts after the import.",
                 "type": "boolean"
               },
+              "index": {
+                "description": "Zero-based source record index, shared with the position-mapping preview.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
               "kind": {
                 "$ref": "#/$defs/RuleKind"
+              },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PortableLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "net_class": {
                 "description": "The Net Class, by name; left out for the board-wide record.",
                 "type": [
                   "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
                   "null"
                 ]
               },
@@ -58339,9 +58388,138 @@
               }
             },
             "required": [
+              "index",
               "kind",
               "after",
               "enabled"
+            ],
+            "type": "object"
+          },
+          "PortableLayers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/LayerGroup"
+              },
+              {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "An explicit Layer filter in a Rules File counts copper positions from the top."
+          },
+          "PortableSpan": {
+            "additionalProperties": false,
+            "description": "A Via permission in a Rules File, identified by physical span and drilling process.",
+            "properties": {
+              "from": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "micro": {
+                "type": "boolean"
+              },
+              "to": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "micro"
+            ],
+            "type": "object"
+          },
+          "PositionRecord": {
+            "description": "Mapping of a position-sensitive record, including ones that cannot be imported.",
+            "properties": {
+              "allowed": {
+                "items": {
+                  "$ref": "#/$defs/PortableSpan"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "different_copper_count": {
+                "type": "boolean"
+              },
+              "index": {
+                "description": "Zero-based index in the source file.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "$ref": "#/$defs/RuleKind"
+              },
+              "layers": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PortableLayers"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "missing_layers": {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "missing_types": {
+                "items": {
+                  "$ref": "#/$defs/PortableSpan"
+                },
+                "type": "array"
+              },
+              "net_class": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "net_class_pair": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "selected": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "index",
+              "kind",
+              "selected",
+              "available",
+              "missing_layers",
+              "missing_types",
+              "different_copper_count"
             ],
             "type": "object"
           },
@@ -58866,6 +59044,12 @@
             "description": "Each record written, in the file's order.",
             "items": {
               "$ref": "#/$defs/Overwrite"
+            },
+            "type": "array"
+          },
+          "position_records": {
+            "items": {
+              "$ref": "#/$defs/PositionRecord"
             },
             "type": "array"
           },

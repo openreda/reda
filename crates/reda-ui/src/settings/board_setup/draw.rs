@@ -33,7 +33,7 @@ const ZONE_SCHEME_WIDTH: f32 = 220.0;
 /// The silkscreen-to-mask mode's dropdown.
 const SILK_MODE_WIDTH: f32 = 180.0;
 
-fn severity_name(severity: Severity) -> String {
+pub(super) fn severity_name(severity: Severity) -> String {
     match severity {
         Severity::Error => tr!("severity-error"),
         Severity::Warning => tr!("severity-warning"),

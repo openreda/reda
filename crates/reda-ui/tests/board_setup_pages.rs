@@ -451,3 +451,101 @@ fn show_on_board_counts_what_a_row_affects() {
     shell.show_on_board(&[Shown::Rule(rule)]);
     assert_eq!(shell.shown_on_board(), Some(1));
 }
+
+#[test]
+fn selecting_a_rules_file_position_refreshes_the_preview_and_applies_only_that_row() {
+    use reda_ui::settings::FileRequest;
+    let (home, work) = (TempDir::new("bsp-map-home"), TempDir::new("bsp-map-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let path = work.path().join("four-layer.redarules");
+    std::fs::write(
+        &path,
+        json!({"format":2,"copper_layers":4,"net_classes":[{"name":"RF"}],"severities":{},
+        "rules":[{"kind":"clearance","net_class":"RF","layers":[1,3],"values":{"value":450000}},
+                 {"kind":"clearance","layers":[3,4],"values":{"value":750000}}] })
+        .to_string(),
+    )
+    .unwrap();
+    let mut d = dialog(&shell);
+    d.picked_file(&mut shell, FileRequest::ImportRules, &path);
+    let page = d.page::<DrcPage>().unwrap();
+    let mut board = page.board();
+    let view = board.import_preview().unwrap();
+    assert_eq!(view.positions.len(), 2);
+    assert!(!view.positions[0].selected);
+    assert!(!view.positions[1].available);
+    assert!(view.rows.is_empty());
+    board.select_import_position(&mut shell, 0, true);
+    let view = board.import_preview().unwrap();
+    assert!(view.positions[0].selected);
+    assert!(view.rows.iter().any(|s| s.contains("RF")));
+    board.confirm_import(&mut shell);
+    let target = pcb(&shell);
+    let rf = target.net_class_named("RF").unwrap().uuid;
+    let layer = target.copper_layers().next().unwrap().uuid;
+    let scope = reda_engine::model::RuleScope {
+        net_class: Some(rf),
+        net_class_pair: None,
+        layers: Some(reda_engine::model::RuleLayers::Named(vec![layer])),
+    };
+    assert_eq!(
+        target
+            .scoped_rule(reda_engine::model::RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value
+            .unwrap()
+            .0,
+        450_000
+    );
+}
+
+#[test]
+fn a_conflict_in_the_default_selection_still_allows_importing_other_rows() {
+    use reda_ui::settings::FileRequest;
+    let (home, work) = (
+        TempDir::new("bsp-conflict-home"),
+        TempDir::new("bsp-conflict-work"),
+    );
+    let mut shell = shell_with_board(&home, &work);
+    let first = pcb(&shell).copper_layers().next().unwrap().uuid;
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"clearance","scope":{"layers":[first]},
+        "values":{"value":"0.3mm"}}),
+        )
+        .unwrap();
+    let path = work.path().join("scoped.redarules");
+    let file = json!({"format":2,"copper_layers":2,"net_classes":[{"name":"RF"}],"severities":{},"rules":[
+        {"kind":"clearance","layers":[1,2],"values":{"value":400000}},
+        {"kind":"clearance","net_class":"RF","layers":[1],"values":{"value":500000}}]});
+    std::fs::write(&path, file.to_string()).unwrap();
+    let mut d = dialog(&shell);
+    d.picked_file(&mut shell, FileRequest::ImportRules, &path);
+    let page = d.page::<DrcPage>().unwrap();
+    let mut board = page.board();
+    assert!(board.notice().unwrap().contains("Layer"));
+    let view = board.import_preview().unwrap();
+    assert_eq!(view.positions.len(), 2);
+    assert!(view.positions.iter().all(|row| !row.selected));
+    board.select_import_position(&mut shell, 1, true);
+    board.confirm_import(&mut shell);
+    let target = pcb(&shell);
+    let class = target.net_class_named("RF").unwrap();
+    let scope = reda_engine::model::RuleScope {
+        net_class: Some(class.uuid),
+        layers: Some(reda_engine::model::RuleLayers::Named(vec![first])),
+        ..Default::default()
+    };
+    assert_eq!(
+        target
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .value
+            .unwrap()
+            .0,
+        500_000
+    );
+}
