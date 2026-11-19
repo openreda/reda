@@ -202,9 +202,25 @@ _Avoid_: Layer stack, build-up, layer setup
 An insulating entry in the Stackup between copper. It holds no objects, so it is not a Layer.
 _Avoid_: Dielectric layer, substrate layer
 
+**Core**:
+A Dielectric that arrives at the fab already cured, usually with copper on both faces.
+_Avoid_: Laminate, base material
+
+**Prepreg**:
+A Dielectric that is pressed and cured while the board is built, bonding the Cores and copper around it. Its finished thickness depends on the pressing.
+_Avoid_: Bonding sheet, PP
+
+**Construction**:
+A fabrication house's named, complete Stackup, such as `JLC04161H-7628`, carried by a Fab Preset so that a board can start from it and the order can name it.
+_Avoid_: Stackup template, stackup preset, build-up
+
 **Pad**:
 A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
 _Avoid_: Land, pin (pins are on Symbols)
+
+**Pad Stack**:
+The copper a through-hole Pad or a Via has on each Layer it passes through, which may differ between its top, middle and bottom Layers.
+_Avoid_: Padstack (as a library object), layer stack
 
 **Free Pad**:
 A Pad placed directly on the board without belonging to any Footprint, such as a mounting hole.
@@ -237,6 +253,30 @@ _Avoid_: Trace, wire (wires are on Schematic Sheets), route
 **Via**:
 A plated hole that joins copper on different Layers within one Net.
 _Avoid_: Through-hole (that describes parts), feedthrough
+
+**Via Span**:
+The two copper Layers a Via joins, written as their positions from the top, such as `1:3`.
+_Avoid_: Layer pair (that is a routing choice), via depth
+
+**Via Type**:
+One of the kinds of Via a board allows, defined with the Stackup by its Via Span, how it is drilled and its starting size.
+_Avoid_: Padstack, via style, via template
+
+**Blind Via**:
+A Via that reaches one outer Layer and ends inside the board.
+_Avoid_: Partial via
+
+**Buried Via**:
+A Via that reaches neither outer Layer.
+_Avoid_: Hidden via, inner via
+
+**Micro Via**:
+A laser-drilled Via joining copper Layers that are adjacent or one apart.
+_Avoid_: µVia, laser via, HDI via
+
+**Via Stack**:
+Several Vias of one Net sharing a centre, whose Via Spans meet end to end. It is not an object of its own.
+_Avoid_: Stacked via (as one object), via chain
 
 **Teardrop**:
 Extra copper that widens a Track where it meets a Pad, a Via or a wider Track, generated from the design rules rather than drawn.
@@ -291,7 +331,7 @@ A file holding a board's design rules, DRC severities and Net Class names, for u
 _Avoid_: Rule set, constraint file
 
 **Design Rule**:
-One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class.
+One limit the board must meet, such as minimum clearance, applying board-wide or within a scope such as a Net Class, a pair of Net Classes or a group of Layers. A narrower scope overrides only the values it sets.
 _Avoid_: Constraint
 
 **Dimension**:
@@ -326,6 +366,10 @@ _Avoid_: Layer preset, layer group
 A Layer that stays shown in single-Layer mode.
 _Avoid_: Sticky layer
 
+**Previous Layer**:
+The copper Layer that was active just before the current one, which a route can return to in one step.
+_Avoid_: Layer pair, alternate Layer, routing pair
+
 **Output Origin**:
 A point the user can place on a PCB Document, from which the editor measures coordinates and the grid, and from which manufacturing files measure theirs when the Fab Preset asks for a relative origin.
 _Avoid_: Placement Origin, user origin, current origin, aux origin, drill origin, datum, zero point
@@ -343,6 +387,10 @@ _Avoid_: Release manifest, file list
 **Fab Preset**:
 A named description of what one fabrication house expects, such as its minimum design rules, file conventions, BOM and CPL form and packaging. It says nothing about any one build, which is the Output Job's part.
 _Avoid_: Fab profile, manufacturer settings, CAM settings
+
+**Placement Correction**:
+One row of a Fab Preset that adjusts the rotation, and optionally the centre, written to the CPL for the Components it matches, because a fabrication house's zero orientation for a part can differ from the Footprint's.
+_Avoid_: Rotation offset, rotation table, transformation
 
 **Output Job**:
 A saved, named recipe in a Project that produces a chosen set of manufacturing files for one PCB Document according to one Fab Preset.
