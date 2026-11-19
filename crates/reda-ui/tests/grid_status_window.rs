@@ -38,6 +38,8 @@ fn sized(home: &Path, work: &Path, size: [f32; 2]) -> Harness<'static, App> {
     shell.new_project(work, "Grid").unwrap();
     let mut h = Harness::builder()
         .with_size(size)
+        // Clicking the Layer segment settles its hover-solo delay across several frames.
+        .with_max_steps(10)
         .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
     h.run();
     h
