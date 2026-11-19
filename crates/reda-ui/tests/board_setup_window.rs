@@ -1072,3 +1072,44 @@ fn dragging_a_via_end_in_the_cross_section_changes_its_span_once_at_release() {
     assert_eq!(count(&h), 1);
     assert_eq!(pcb(&h).stackup().via_types[1].to, copper[2]);
 }
+
+#[test]
+fn a_thin_dielectric_keeps_its_split_button_while_the_pointer_is_on_it() {
+    let home = TempDir::new("thin-sheet-home");
+    let work = TempDir::new("thin-sheet-work");
+    let mut h = harness(home.path(), work.path(), "First");
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "project.new",
+            json!({"path":work.path(),"name":"Thin","layers":4}),
+        )
+        .unwrap();
+    let board = shell.engine().project().unwrap().pcb().unwrap();
+    let (doc, sheet) = (board.uuid, board.stackup().entries[1].uuid());
+    shell
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet,"thickness":"0.002mm"}]}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":doc}))
+        .unwrap();
+    h.run();
+    let sheet = h
+        .get_by_role_and_label(Role::Button, "Select band Dielectric 1")
+        .rect();
+    h.hover_at(egui::pos2(sheet.left() + 8.0, sheet.center().y));
+    h.run();
+    let button = h.get_by_role_and_label(Role::Button, "+ Layer").rect();
+    let above = egui::pos2(button.center().x, button.top() + 2.);
+    assert!(!sheet.contains(above));
+    h.hover_at(above);
+    h.run();
+    h.get_by_role_and_label(Role::Button, "+ Layer").click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(pcb(&h).copper_layers().count(), 5);
+}
