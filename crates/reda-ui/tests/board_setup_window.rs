@@ -645,22 +645,44 @@ fn stackup_shows_the_bare_impedance_and_default_width_on_the_layer_row() {
         )
         .unwrap();
     shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"track_width","scope":{"layers":[bottom]},"values":{"preferred":"0.3mm"}}),
+        )
+        .unwrap();
+    shell
         .run("pcb.stackup.open", json!({"document":board.uuid}))
         .unwrap();
     h.run();
     h.get_by_label("Z0");
-    h.get_by_label("50.2 Ω");
-    assert!(h.query_all_by_label_contains("without solder mask").count() > 0);
-    assert!(h.query_all_by_label_contains("0.35 mm").count() > 0);
+    let top = h.get_by_role_and_label(Role::Row, "Top Copper").rect();
+    assert!(top.contains(h.get_by_label("50.2 Ω").rect().center()));
+    h.get_by_label_contains("without solder mask");
+    h.get_by_label_contains("L1 0.35 mm");
+    h.get_by_label_contains("L2 0.3 mm");
     h.state_mut()
         .shell_mut()
         .run(
             "pcb.stackup.set",
-            json!({"dielectrics":[{"uuid":sheet,"dk":null}]}),
+            json!({"dielectrics":[{"uuid":sheet,"dk":null,"thickness":"1.53mm"}]}),
         )
         .unwrap();
     h.run();
-    assert!(h.query_all_by_label_contains("≈").count() > 0);
+    let rough = h.get_by_label_contains("≈");
+    assert!(top.contains(rough.rect().center()));
+    assert!(
+        rough
+            .accesskit_node()
+            .description()
+            .unwrap()
+            .contains("4.5")
+    );
+    // A three-digit rough estimate, including its unit, must fit the column.
+    assert!(h.output().shapes.iter().any(|shape| matches!(
+        &shape.shape,
+        egui::Shape::Text(text) if text.galley.text().starts_with('≈')
+            && text.galley.text().ends_with('Ω') && !text.galley.elided
+    )));
 }
 
 #[test]

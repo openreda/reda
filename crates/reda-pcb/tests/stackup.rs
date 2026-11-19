@@ -520,14 +520,26 @@ fn stackup_query_reports_the_weighted_dk_of_fractional_blank_sheets() {
     let second =
         engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
             .clone();
+    let third =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":second}))["result"]["uuid"]
+            .clone();
     engine.run_ok("pcb.layer.set", json!({"layer":bottom,"role":"plane"}));
-    engine.run_ok("pcb.stackup.set",json!({"thickness":270001,"dielectrics":[{"uuid":first,"dk":4000},{"uuid":second,"dk":4800}]}));
+    // The two blanks take 50,000.5 nm each. The thicker sheet brings the weighted
+    // Dk to 4.4 (to five decimal places), matching research case A3.
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"thickness":270001, "dielectrics":[
+            {"uuid":first, "thickness":null, "dk":3900},
+            {"uuid":second, "thickness":null, "dk":4500},
+            {"uuid":third, "thickness":100000, "dk":4600}
+        ]}),
+    );
     engine.run_ok(
         "pcb.rules.set",
         json!({"kind":"track_width","values":{"preferred":350000}}),
     );
     let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
-    assert_eq!(info["entries"][1]["thickness"], 100000.5);
+    assert_eq!(info["entries"][1]["thickness"], 50000.5);
     let signal = &info["impedance"][0];
     let estimate = &signal["estimate"];
     assert_eq!(signal["layer"], json!(top));
@@ -539,9 +551,11 @@ fn stackup_query_reports_the_weighted_dk_of_fractional_blank_sheets() {
     assert!(info["impedance"][1].get("estimate").is_none());
     engine.run_ok(
         "pcb.stackup.set",
-        json!({"dielectrics":[{"uuid":first,"dk":null}]}),
+        json!({"dielectrics":[{"uuid":second,"dk":null}]}),
     );
-    let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
-    assert_eq!(info["impedance"][0]["estimate"]["approximate"], true);
-    assert_eq!(info["impedance"][0]["estimate"]["missing_dk"], true);
+    let rough = engine.run_ok("pcb.stackup.info", json!({"document":document}));
+    let rough = &rough["impedance"][0]["estimate"];
+    assert_eq!(rough["ohms"], estimate["ohms"]);
+    assert_eq!(rough["approximate"], true);
+    assert_eq!(rough["missing_dk"], true);
 }
