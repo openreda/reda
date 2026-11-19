@@ -56726,6 +56726,35 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AllowedTypes": {
+            "description": "A `via_span` record's `allowed` list that applies.",
+            "properties": {
+              "net_class": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "via_types": {
+                "description": "The Via types allowed; empty allows every type.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "via_types",
+              "rule"
+            ],
+            "type": "object"
+          },
           "Between": {
             "description": "Which of two objects' values applies between them.",
             "properties": {
@@ -56903,6 +56932,17 @@
           "ObjectRules": {
             "description": "One kind's records as they apply to one object.",
             "properties": {
+              "allowed": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AllowedTypes"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "For `via_span`: the Via types the object's Net may use, from the first enabled Net\nClass record that has the list; left out without one."
+              },
               "disabled": {
                 "description": "Disabled records on the object's Net Classes, and a disabled board-wide record.",
                 "items": {

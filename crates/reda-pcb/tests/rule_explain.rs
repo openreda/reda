@@ -300,3 +300,63 @@ fn clearance_explains_a_class_pair_hole_override_only_on_the_drilled_layers() {
     assert_eq!(holes[0]["rule"], pair.to_string());
     assert_eq!(holes.as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn a_via_shows_its_classes_allowed_types_and_only_its_own_size_kind() {
+    let dir = TempDir::new("applicable-via-span");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Via","layers":4}),
+    );
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let l: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let laser = uuid(
+        &e.run_ok(
+            "pcb.via_type.add",
+            json!({"document":doc,"from":l[0],"to":l[1],"micro":true}),
+        )["result"]["uuid"],
+    );
+    let signal = net(&mut e, "SIG");
+    let fast = class(&mut e, "Fast", &[signal]);
+    let rule = set(
+        &mut e,
+        json!({"kind":"via_span","scope":{"net_class":fast},"values":{"allowed":[laser]}}),
+    );
+    let micro = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":0,"y":0},"from":l[0],"to":l[1],"net":signal}),
+        )["result"]["uuid"],
+    );
+    let through = uuid(&e.run_ok("pcb.via.add", json!({"at":{"x":"5mm","y":0}}))["result"]["uuid"]);
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[micro]}));
+    let allowed = &kind(&out, "via_span")["objects"][0]["allowed"];
+    assert_eq!(
+        allowed,
+        &json!({"via_types":[laser],"rule":rule,"net_class":fast}),
+        "{out:#}"
+    );
+    let has = |out: &Value, k: &str| {
+        out["kinds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["kind"] == k)
+    };
+    assert!(
+        has(&out, "microvia_size") && !has(&out, "via_size"),
+        "{out:#}"
+    );
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[through]}));
+    assert!(
+        has(&out, "via_size") && !has(&out, "microvia_size"),
+        "{out:#}"
+    );
+    assert!(
+        kind(&out, "via_span")["objects"][0]
+            .get("allowed")
+            .is_none()
+    );
+}
