@@ -37,7 +37,8 @@ pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
     AspectRatioLimit, Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues,
     LayerGroup, PortableClass, PortableRule, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet,
-    RuleValue, RuleValues, SilkMaskMode, TeardropTarget, ViaRuleValues,
+    RuleValue, RuleValues, SilkMaskMode, TeardropField, TeardropKind, TeardropTarget,
+    TeardropValues, ViaRuleValues,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
@@ -48,8 +49,8 @@ pub use stackup::{
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
 
 pub use zone::{
-    FillShape, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, PourOver, Restriction, Zone,
-    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    FillShape, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, PourOver, Restriction,
+    TeardropFill, TeardropLocation, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 
 /// Which face of the board a sided Layer is on.

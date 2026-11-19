@@ -145,6 +145,10 @@ pub struct Copper {
 }
 
 impl Copper {
+    pub(crate) fn teardrops(&self) -> &[reda_model::TeardropFill] {
+        self.fills.as_ref().map_or(&[], |f| &f.teardrops)
+    }
+
     /// The copper of `project`'s PCB Document with the Zone fills the Project holds for it
     /// (stale ones too: they stay copper until the next fill), or `None` without a PCB
     /// Document. The index is kept in the Project and built again only after the board or
@@ -330,7 +334,17 @@ impl Copper {
         for zone in old {
             self.remove_zone(zone);
         }
+        let tracks: BTreeSet<_> = self
+            .fills
+            .iter()
+            .chain(fills)
+            .flat_map(|f| f.teardrops.iter().map(|d| d.location.track))
+            .collect();
         self.fills = fills.cloned();
+        for track in tracks {
+            self.remove(Item::Track { uuid: track });
+            self.add_track(pcb, track);
+        }
         let zones: Vec<Uuid> = self
             .fills
             .as_ref()
@@ -621,7 +635,17 @@ impl Copper {
             net: track.net,
             anchors: vec![from, to],
         };
-        let shape = Shape::track(&track.geometry, track.width);
+        let mut shape = Shape::track(&track.geometry, track.width);
+        for drop in self
+            .fills
+            .iter()
+            .flat_map(|f| &f.teardrops)
+            .filter(|d| d.location.track == uuid && d.location.layer == track.layer)
+        {
+            for polygon in &drop.shapes {
+                shape.prims.extend(crate::zone::shape_copper(polygon).prims);
+            }
+        }
         self.insert(Item::Track { uuid }, info, [(track.layer, shape)]);
     }
 

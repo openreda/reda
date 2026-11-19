@@ -20,6 +20,8 @@ mod cache;
 pub(crate) mod fill;
 mod merge;
 mod names;
+mod solid;
+pub(crate) use solid::SolidPours;
 pub(crate) mod poly;
 
 pub use cache::{decode, encode};
@@ -30,7 +32,7 @@ pub use names::{NO_NET, name, names};
 use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
-const FILL_VERSION: u32 = 3;
+const FILL_VERSION: u32 = 4;
 
 /// How far a chord of a flattened arc may stray from the arc: a fixed 0.001 mm. It only
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.
@@ -139,7 +141,20 @@ pub fn refill_with_fonts(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let copper = (total > 0).then(|| Copper::with_lands(pcb, fonts, unused));
+    let mut junctions = 0;
+    let (teardrops, _) = crate::teardrop::update(pcb, stored, fonts, true, &mut |done, count| {
+        junctions = count;
+        step(done, count + total)
+    })?;
+    let mut fills = ZoneFills {
+        teardrops,
+        zones: BTreeMap::new(),
+    };
+    let copper = (total > 0).then(|| {
+        let mut copper = Copper::with_lands(pcb, fonts, unused);
+        copper.set_zone_fills(pcb, Some(&fills));
+        copper
+    });
     let holes = if total > 0 {
         crate::drill::holes(pcb)
     } else {
@@ -155,7 +170,7 @@ pub fn refill_with_fonts(
                 fill::to_area(&kept.shapes)
             }
             None => {
-                if !step(count, total) {
+                if !step(junctions + count, junctions + total) {
                     return None;
                 }
                 count += 1;
@@ -181,10 +196,11 @@ pub fn refill_with_fonts(
         };
         done.push(fill::Filled { zone, area });
     }
-    if !step(total, total) {
+    if !step(junctions + total, junctions + total) {
         return None;
     }
-    Some(ZoneFills { zones: out })
+    fills.zones = out;
+    Some(fills)
 }
 
 /// Each Zone's input hash, by UUID: everything its fill depends on. That is the Zone
@@ -227,6 +243,21 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
     shared.add(&free_pads);
     let shared = shared.finish();
 
+    let check_solid = rules.iter().any(|rule| {
+        rule.kind == reda_model::RuleKind::Teardrop
+            && rule.enabled
+            && [
+                reda_model::TeardropKind::ThroughHolePad,
+                reda_model::TeardropKind::SmdPad,
+                reda_model::TeardropKind::Via,
+            ]
+            .into_iter()
+            .any(|k| {
+                rule.values
+                    .teardrop_values(k)
+                    .is_some_and(|r| r.enabled == Some(true))
+            })
+    });
     let mut layers: BTreeMap<Uuid, String> = BTreeMap::new();
     let mut out: BTreeMap<Uuid, String> = BTreeMap::new();
     let mut prior: BTreeMap<Uuid, Vec<String>> = BTreeMap::new();
@@ -249,6 +280,12 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
             f.add(&tracks);
             f.add(&vias);
             f.add(&keepouts);
+            // A lower-priority solid pour can suppress a land taper that this Zone clears.
+            if check_solid {
+                for pour in pcb.active_zones().filter(|z| z.layer == zone.layer) {
+                    f.add(pour);
+                }
+            }
             // Even a lower-priority Zone can restore copper under this fill.
             for (item, layer) in unused.iter() {
                 if layer == zone.layer {
@@ -284,6 +321,8 @@ pub struct FillStatus {
     /// Whether the status bar should say "Zones need refilling": some Zone has no fill
     /// yet or has changed inputs since it was filled.
     pub needs_refill: bool,
+    /// Junctions added, changed or removed since the last fill.
+    pub stale_teardrops: usize,
     /// Every Zone, sorted by UUID.
     pub zones: Vec<ZoneStatus>,
 }
@@ -337,10 +376,14 @@ pub fn status_with_fonts(
             }
         })
         .collect();
+    let (_, stale_teardrops) = crate::teardrop::update(pcb, fills, fonts, false, &mut |_, _| true)
+        .expect("a status query is not cancelled");
     FillStatus {
-        needs_refill: zones
-            .iter()
-            .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
+        stale_teardrops,
+        needs_refill: stale_teardrops > 0
+            || zones
+                .iter()
+                .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
         zones,
     }
 }
