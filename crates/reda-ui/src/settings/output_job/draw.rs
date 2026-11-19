@@ -7,6 +7,7 @@ use reda_engine::output_preview::{FileState, JobPreview, PlannedFile};
 
 use super::last_run::{FileCheck, LastRun, Manifest};
 use super::{JobDraft, Section};
+use crate::settings::fab_preset::placement::{CorrectionForm, FormAction, angle, match_name};
 use crate::settings::{PageCx, field, layout, mono, problem_label, strong};
 use crate::theme::TokensExt as _;
 use crate::tr;
@@ -347,6 +348,15 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
     let Some(preview) = preview_of(cx, draft) else {
         return;
     };
+    let preset_id = *draft.fab_preset.value();
+    let corrections = cx
+        .shell
+        .engine()
+        .project()
+        .and_then(|p| p.fab_preset(preset_id))
+        .map(|p| p.placement_corrections.as_slice())
+        .unwrap_or_default();
+    let explain = section == Section::Cpl;
     let table = match section {
         Section::Bom => &preview.bom,
         _ => &preview.cpl,
@@ -366,9 +376,15 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
             let widest = table.rows.iter().map(Vec::len).max().unwrap_or(0);
             let columns = table.header.len().max(widest);
             widgets::table(("output-job-rows", section))
-                .columns(std::iter::repeat_n(Column::auto(), columns))
+                .columns(std::iter::repeat_n(
+                    Column::auto(),
+                    columns + if explain { 5 } else { 0 },
+                ))
                 .show(ui, |rows| {
                     rows.header(|h| {
+                        if explain {
+                            h.empty();
+                        }
                         for (i, header) in table.header.iter().enumerate() {
                             if empty.contains(&i) {
                                 let text = tr!("output-job-column-empty", column = header.as_str());
@@ -378,16 +394,81 @@ fn assembly(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft, section: Sec
                                 h.text(header);
                             }
                         }
+                        if explain {
+                            for label in [
+                                tr!("placement-stored"),
+                                tr!("placement-correction"),
+                                tr!("placement-written"),
+                                tr!("placement-match"),
+                            ] {
+                                h.text(label);
+                            }
+                        }
                     });
-                    for row in &table.rows {
+                    for (index, row) in table.rows.iter().enumerate() {
                         rows.row(|cells| {
+                            let placement = explain.then(|| &preview.placements[index]);
+                            if let Some(p) = placement
+                                && cells.ui(|ui| {
+                                    ui.add(widgets::button(tr!("placement-add"))).clicked()
+                                })
+                            {
+                                draft.correction =
+                                    Some((preset_id, CorrectionForm::for_preview(corrections, p)));
+                                draft.correction_error = None;
+                            }
                             for cell in row {
                                 cells.text(cell);
+                            }
+                            if let Some(p) = placement {
+                                let matched = p.matched.map(|i| (i, &corrections[i]));
+                                cells.text(angle(p.stored_rotation));
+                                cells.text(matched.map_or_else(String::new, |(_, c)| {
+                                    let mut text = angle(c.adjustment().rotation);
+                                    if let Some(offset) = c.adjustment().offset {
+                                        text.push_str(&format!(
+                                            " ({}, {} mm)",
+                                            offset.x.mm_exact(),
+                                            offset.y.mm_exact()
+                                        ));
+                                    }
+                                    text
+                                }));
+                                cells.text(angle(p.written_rotation));
+                                cells.text(matched.map_or_else(String::new, |(i, c)| {
+                                    format!("{}. {}", i + 1, match_name(&c.matcher()))
+                                }));
                             }
                         });
                     }
                 });
         });
+    if explain && let Some((target, form)) = &mut draft.correction {
+        if *target != preset_id {
+            draft.correction = None;
+            return;
+        }
+        let mut rows = corrections.to_vec();
+        match form.show(ui, &mut rows) {
+            FormAction::Pending => {}
+            FormAction::Cancelled => draft.correction = None,
+            FormAction::Saved => {
+                match cx.shell.run(
+                    "fab_preset.set",
+                    serde_json::json!({"preset":preset_id,"values":{"placement_corrections":rows}}),
+                ) {
+                    Ok(_) => {
+                        draft.correction = None;
+                        draft.correction_error = None;
+                    }
+                    Err(err) => draft.correction_error = Some(err.message),
+                }
+            }
+        }
+        if let Some(error) = &draft.correction_error {
+            layout::error(ui, error);
+        }
+    }
 }
 
 fn last_run(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {

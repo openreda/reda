@@ -495,3 +495,57 @@ fn show_in_folder_on_last_run_asks_for_the_destination() {
         reda_ui::settings::Outcome::ShowFolder(folder)
     );
 }
+
+#[test]
+fn add_correction_on_a_preview_row_edits_the_project_copy_and_refreshes_the_preview() {
+    let (home, work) = (TempDir::new("cpl-form-home"), TempDir::new("cpl-form"));
+    let mut h = harness_with_parts(home.path(), work.path());
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    let wildcard = json!({"footprint":"RES*","rotation":45000});
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "fab_preset.set",
+            json!({"preset":preset,
+        "values":{"placement_corrections":[wildcard]}}),
+        )
+        .unwrap();
+    job_menu(&mut h, "Edit…");
+    h.run();
+    page(&mut h, "CPL");
+    for angle in ["90", "-15"] {
+        h.get_all_by_role_and_label(Role::Button, "Add correction…")
+            .next()
+            .unwrap()
+            .click();
+        h.run();
+        retype(&mut h, "Rotation (°)", angle);
+        h.get_by_role_and_label(Role::Button, "Save correction")
+            .click();
+        h.run();
+        assert_eq!(last_journal_id(&h), "fab_preset.set");
+        let copy = h
+            .state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .fab_presets()
+            .next()
+            .unwrap();
+        assert_eq!(
+            json!(copy.placement_corrections),
+            json!([{"footprint":"RESC1608X55N","rotation":angle.parse::<i64>().unwrap()*1000},wildcard])
+        );
+    }
+    assert_eq!(h.get_all_by_label("345.000").count(), 2);
+}

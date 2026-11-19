@@ -238,6 +238,28 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
             }
         }
     }
+    if let Some(rows) = merged["placement_corrections"].as_array_mut() {
+        for (index, row) in rows.iter_mut().enumerate() {
+            let pointer = format!("/values/placement_corrections/{index}");
+            if let Some(angle) = row["rotation"].as_str() {
+                row["rotation"] =
+                    serde_json::json!(reda_model::geom::Millideg::parse(angle).map_err(|e| {
+                        CommandError::invalid_params(&format!("{pointer}/rotation"), e.to_string())
+                    })?);
+            }
+            for axis in ["x", "y"] {
+                if let Some(length) = row["offset"][axis].as_str() {
+                    row["offset"][axis] =
+                        serde_json::json!(reda_model::geom::Nm::parse(length).map_err(|e| {
+                            CommandError::invalid_params(
+                                &format!("{pointer}/offset/{axis}"),
+                                e.to_string(),
+                            )
+                        })?);
+                }
+            }
+        }
+    }
     serde_json::from_value(merged)
         .map_err(|e| CommandError::invalid_params("/values", format!("not a preset value: {e}")))
 }
