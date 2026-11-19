@@ -564,6 +564,7 @@ properties-rules-board = Board
 properties-rules-won = Applies
 properties-rules-lost = Overridden
 properties-rules-disabled = Disabled
+properties-rules-allowed-every = every Via type
 properties-rules-open = Open { $page } in Board Setup
 properties-rules-between = Between them: { $field } = { $value }, from object { $object }
 properties-severity-error = Error

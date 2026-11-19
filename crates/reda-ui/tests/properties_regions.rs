@@ -458,3 +458,46 @@ fn ready_for_fab_lists_what_stands_between_the_board_and_fab() {
     let figures = BoardFigures::of(shell.engine().project().unwrap()).unwrap();
     assert!(!ready_for_fab(&shell, &figures)[3].ok);
 }
+
+#[test]
+fn the_rules_region_shows_a_vias_allowed_types() {
+    let dir = TempDir::new("properties-regions-allowed");
+    let mut shell = shell(&dir);
+    let sig = uuid(&run(&mut shell, "test.net.add", json!({"name": "SIG"}))["uuid"]);
+    let fast = uuid(
+        &run(
+            &mut shell,
+            "pcb.net_class.add",
+            json!({"name": "Fast", "nets": [sig]}),
+        )["uuid"],
+    );
+    let through = {
+        let pcb = shell.engine().project().unwrap().pcb().unwrap();
+        pcb.stackup().via_types[0].uuid
+    };
+    let rule = uuid(
+        &run(
+            &mut shell,
+            "pcb.rules.set",
+            json!({"kind": "via_span", "scope": {"net_class": fast},
+               "values": {"allowed": [through]}}),
+        )["rule"]["uuid"],
+    );
+    let v = via(&mut shell, "3mm", Some(sig));
+    run(&mut shell, "selection.set", json!({"objects": [v]}));
+
+    let rules = properties(&shell).rules.expect("a Rules region for one Via");
+    let span = rules
+        .kinds
+        .iter()
+        .find(|k| k.kind == RuleKind::ViaSpan)
+        .expect("via_span is shown");
+    let row = span
+        .rows
+        .iter()
+        .find(|r| r.fields == ["allowed"])
+        .expect("an allowed row");
+    assert_eq!(row.standing, Standing::Won);
+    assert_eq!((row.rule, row.class.as_deref()), (rule, Some("Fast")));
+    assert_eq!(row.text.as_deref(), Some("Through"));
+}

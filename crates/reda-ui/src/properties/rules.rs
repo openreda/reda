@@ -58,6 +58,8 @@ pub struct RuleRow {
     pub fields: Vec<String>,
     /// The value it supplies, for a record that won.
     pub value: Option<RuleValue>,
+    /// A won value shown as text instead, such as a `via_span` record's allowed Via types.
+    pub text: Option<String>,
 }
 
 /// A clearance between two selected objects and the source that supplied it.
@@ -134,6 +136,30 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                 layers: winner.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                 fields: vec![winner.field],
                 value: Some(winner.value),
+                text: None,
+            });
+        }
+        if let Some(allowed) = rules.allowed {
+            let names: Vec<String> = allowed
+                .via_types
+                .iter()
+                .filter_map(|id| pcb.stackup().via_types.iter().find(|t| t.uuid == *id))
+                .map(|t| crate::pcb::via_type_name(pcb, t))
+                .collect();
+            let text = if names.is_empty() {
+                crate::tr!("properties-rules-allowed-every")
+            } else {
+                names.join(", ")
+            };
+            rows.push(RuleRow {
+                standing: Standing::Won,
+                object,
+                rule: allowed.rule,
+                class: class(allowed.net_class),
+                layers: None,
+                fields: vec!["allowed".to_owned()],
+                value: None,
+                text: Some(text),
             });
         }
         for (standing, list) in [
@@ -149,6 +175,7 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
                     layers: loser.layers.as_ref().map(|l| layer_scope_label(pcb, l)),
                     fields: loser.fields,
                     value: None,
+                    text: None,
                 });
             }
         }

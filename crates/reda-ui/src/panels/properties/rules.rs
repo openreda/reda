@@ -67,6 +67,11 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     .as_ref()
                     .map_or_else(|| source.clone(), |l| format!("{source} · {l}"));
                 let mut text = match (&row.value, row.standing) {
+                    (None, Standing::Won) if row.text.is_some() => format!(
+                        "{} = {}  ({source})",
+                        row.fields.join(", "),
+                        row.text.as_deref().unwrap_or_default()
+                    ),
                     (Some(value), _) => format!(
                         "{} = {}  ({source})",
                         row.fields.join(", "),
