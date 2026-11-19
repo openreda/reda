@@ -743,3 +743,28 @@ fn free_pads_get_relief_and_bare_holes_keep_their_clearance() {
     assert!(!filled(s, at(16.9, 5.0)), "0.5 mm clear of the hole");
     assert!(filled(s, at(17.1, 5.0)));
 }
+
+#[test]
+fn inner_relief_spokes_reach_the_fill_across_the_inner_land_gap() {
+    let dir = TempDir::new("pad-stack-relief");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let layer = pcb(&engine).copper_layers().nth(1).unwrap().uuid;
+    let gnd = add_net(&mut engine, "GND");
+    let z = zone(
+        &mut engine,
+        Some(gnd),
+        rect(0.0, 0.0, 15.0, 10.0),
+        json!({"layer":layer}),
+    );
+    engine.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","width":"1mm","at":{"x":"5mm","y":"5mm"},
+        "net":gnd,"hole":{"width":"0.5mm"},"middle":{"shape":"rect","width":"4mm","height":"1mm"},
+        "zone_connection":{"style":"relief","gap":"0.5mm","angle":"0deg","spokes":2,"spoke_width":"0.3mm"}}));
+    let fills = fill(&engine);
+    let s = shapes(&fills, z);
+    assert!(filled(s, at(7.25, 5.0)), "spoke to the wide inner land");
+    assert!(!filled(s, at(7.25, 5.3)), "relief gap off the spoke");
+}

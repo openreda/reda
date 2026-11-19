@@ -85,6 +85,8 @@ pub fn from_free(free: &FreePad) -> Pad {
         rotation: free.rotation,
         width: free.width,
         height: free.height,
+        middle: free.middle,
+        bottom: free.bottom,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,
@@ -180,6 +182,14 @@ pub fn patch(pad: &Pad, edit: &PadEdit) -> Option<Map<String, Value>> {
                 return None;
             }
             set("kind", json!(kind));
+            if *kind != PadKind::PlatedThroughHole {
+                if pad.middle.is_some() {
+                    set("middle", Value::Null);
+                }
+                if pad.bottom.is_some() {
+                    set("bottom", Value::Null);
+                }
+            }
             match (kind, pad.hole) {
                 // An SMD Pad has no hole, no bottom-side override and no hole-edge mask.
                 (PadKind::Smd, _) => {

@@ -52,8 +52,8 @@ pub use output::{
     SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
-    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,
-    PadShape, PasteExpansion, Ratio, ZoneConnection,
+    ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadCopperShape,
+    PadForm, PadKind, PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
     ArrowPosition, BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget,

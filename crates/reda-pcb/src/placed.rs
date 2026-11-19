@@ -181,6 +181,9 @@ pub struct PlacedPad {
     /// The copper outline in the Pad's frame on the board, about `at`: mirrored when its
     /// Footprint is on the bottom.
     pub outline: CornerRect,
+    /// Physical inner and bottom copper, omitted when identical to the top.
+    pub middle: Option<(PadShape, CornerRect)>,
+    pub bottom: Option<(PadShape, CornerRect)>,
     /// The hole, its slot turned in the Pad's frame on the board.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole, which is on both.
@@ -194,6 +197,24 @@ pub struct PlacedPad {
 }
 
 impl PlacedPad {
+    /// Shape and outline on a physical board face, or on any inner Layer.
+    pub fn copper_on(&self, side: Option<Side>) -> (PadShape, CornerRect) {
+        match side {
+            Some(Side::Top) => None,
+            None => self.middle,
+            Some(Side::Bottom) => self.bottom,
+        }
+        .unwrap_or((self.shape, self.outline))
+    }
+
+    /// Select one copper group, preserving the anchor, hole and placement.
+    pub fn on_side(mut self, side: Option<Side>) -> Self {
+        (self.shape, self.outline) = self.copper_on(side);
+        self.middle = None;
+        self.bottom = None;
+        self
+    }
+
     /// A point of the Pad's frame, on the board.
     pub fn point(&self, local: Point) -> Point {
         rotate(local + self.at, self.at, self.rotation)
@@ -233,7 +254,17 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
         .iter()
         .map(|pad| {
             let bottom = frame.side == Side::Bottom;
-            let outline = pad.outline();
+            let copper = |side: Option<Side>| {
+                let form = pad.form_on(side.map(|s| frame.side(s)));
+                let outline = form.outline();
+                (
+                    form.shape,
+                    if bottom { outline.mirrored() } else { outline },
+                )
+            };
+            let top = copper(Some(Side::Top));
+            let inner = copper(None);
+            let back = copper(Some(Side::Bottom));
             let hole = pad.hole.map(|h| Hole {
                 rotation: if bottom { -h.rotation } else { h.rotation },
                 ..h
@@ -242,10 +273,12 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
                 pad: pad.uuid,
                 number: pad.number.clone(),
                 kind: pad.kind,
-                shape: pad.shape,
+                shape: top.0,
                 at: frame.point(pad.at),
                 rotation: frame.angle(pad.rotation),
-                outline: if bottom { outline.mirrored() } else { outline },
+                outline: top.1,
+                middle: (inner != top).then_some(inner),
+                bottom: (back != top).then_some(back),
                 hole,
                 side: pad.copper_side().map(|s| frame.side(s)),
                 net: instance.pad_net(pad.uuid),
@@ -273,6 +306,17 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
         .collect()
 }
 
+/// The placed Pads projected onto a physical outer side or an inner Layer.
+pub fn placed_pads_on(
+    pcb: &PcbDocument,
+    instance: &FootprintInstance,
+    side: Option<Side>,
+) -> impl Iterator<Item = PlacedPad> {
+    placed_pads(pcb, instance)
+        .into_iter()
+        .map(move |p| p.on_side(side))
+}
+
 /// A Free Pad as a placed Pad.
 pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
     PlacedPad {
@@ -283,6 +327,10 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         at: pad.at,
         rotation: pad.rotation,
         outline: pad.outline(),
+        middle: pad.middle.map(|c| (c.shape, pad.form_on(None).outline())),
+        bottom: pad
+            .bottom
+            .map(|c| (c.shape, pad.form_on(Some(Side::Bottom)).outline())),
         hole: pad.hole,
         side: pad.form().copper_side(),
         net: pad.net,
@@ -290,6 +338,11 @@ pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
         paste: pad.paste.clone(),
         zone_connection: pad.zone_connection,
     }
+}
+
+/// A Free Pad projected onto a physical outer side or an inner Layer.
+pub fn placed_free_pad_on(pad: &FreePad, side: Option<Side>) -> PlacedPad {
+    placed_free_pad(pad).on_side(side)
 }
 
 /// One drawing shape of a placed Footprint, on the board.

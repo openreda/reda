@@ -241,3 +241,35 @@ fn zones_keep_their_clearance_and_the_nets_stay_separate() {
     assert_eq!(unrouted.len(), 1, "{run:#}");
     assert_eq!(unrouted[0]["args"]["net"], "B");
 }
+
+#[test]
+fn two_numbered_pads_can_short_only_on_the_inner_layers() {
+    let dir = TempDir::new("pad-stack-shorted-copper");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let pad = |x| {
+        json!({"at":{"x":x,"y":0},"width":"1mm","height":"1mm","kind":"plated_through_hole",
+        "hole":{"width":500000,"height":500000}})
+    };
+    let placed = engine.run_ok(
+        "test.footprint.add",
+        json!({"at":{"x":0,"y":0},"pads":[pad(0),pad(2000000)]}),
+    );
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":placed["result"]["footprint"],"pad":placed["result"]["pads"][0],
+        "middle":{"shape":"rect","width":"3.5mm","height":"1mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner: Vec<_> = pcb
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    let hits = of(&drc(&mut engine), "shorted_copper");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["layers"], json!(inner));
+}

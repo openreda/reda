@@ -565,6 +565,63 @@ fn a_net_class_can_exclude_the_through_via_in_board_setup() {
 }
 
 #[test]
+fn layer_table_previews_add_and_delete_then_commits_each_once() {
+    let (home, work) = (
+        TempDir::new("layer-table-home"),
+        TempDir::new("layer-table-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "LayerTable");
+    let doc = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":doc}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Add Layer").click();
+    h.run();
+    h.get_by_label("Via types stretched: 1");
+    assert_eq!(pcb(&h).copper_layers().count(), 2);
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    let inner = pcb(&h).copper_layers().nth(1).unwrap().uuid;
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.graphic.add_line",
+            json!({"layer":inner,"from":{"x":0,"y":0},"to":{"x":500000,"y":0},"width":100000}),
+        )
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Remove Layer")
+        .click();
+    h.run();
+    h.get_by_label("Graphics deleted: 1");
+    h.state_mut().shell_mut().run("pcb.graphic.add_line",json!({"layer":inner,"from":{"x":0,"y":1000},"to":{"x":500000,"y":1000},"width":100000})).unwrap();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    h.get_by_label("Graphics deleted: 2");
+    h.get_by_role_and_label(Role::Button, "Cancel").click();
+    h.run();
+    assert_eq!(pcb(&h).graphics().count(), 2);
+    h.get_by_role_and_label(Role::Button, "Remove Layer")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(pcb(&h).graphics().count(), 0);
+    h.state_mut()
+        .shell_mut()
+        .run("edit.undo", json!({"document":doc}))
+        .unwrap();
+    assert_eq!(pcb(&h).graphics().count(), 2);
+    assert_eq!(pcb(&h).copper_layers().count(), 3);
+    let entries = h.state().shell().engine().journal();
+    for id in ["pcb.layer.add", "pcb.layer.remove"] {
+        assert_eq!(entries.iter().filter(|entry| entry.id == id).count(), 1);
+    }
+}
+
+#[test]
 fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new_build() {
     let (home, work) = (
         TempDir::new("build-editor-home"),

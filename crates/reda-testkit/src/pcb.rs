@@ -151,6 +151,8 @@ impl Command for FootprintAdd {
                 rotation: pad.rotation.map_or(Millideg::ZERO, |r| r.millideg()),
                 width: pad.width.nm(),
                 height: pad.height.nm(),
+                middle: None,
+                bottom: None,
                 corner_ratio: pad.corner_ratio,
                 chamfer_ratio: pad.chamfer_ratio,
                 corners: pad.corners,

@@ -175,6 +175,8 @@ impl PadSpec {
             rotation: Millideg(0),
             width: self.width,
             height: self.height,
+            middle: None,
+            bottom: None,
             corner_ratio,
             chamfer_ratio: None,
             corners: None,

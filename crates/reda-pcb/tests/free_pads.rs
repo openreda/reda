@@ -114,6 +114,16 @@ fn free_pads_with_a_bad_shape_or_net_are_refused() {
                    "hole": {"width": "2mm"}, "net": sig}),
             "/net",
         ),
+        (
+            json!({"kind":"smd","at":at,"width":"1mm",
+                   "middle":{"shape":"rect","width":"2mm","height":"1mm"}}),
+            "/middle",
+        ),
+        (
+            json!({"kind":"non_plated","at":at,"width":"1mm","hole":{"width":"1mm"},
+                   "bottom":{"shape":"rect","width":"2mm","height":"1mm"}}),
+            "/bottom",
+        ),
         (json!({"kind": "smd", "at": at, "width": 0}), "/width"),
         (
             json!({"kind": "smd", "at": at, "width": "1mm", "net": PCB}),
@@ -401,4 +411,32 @@ fn silkscreen_drc_uses_resolved_tenting_and_shrunken_openings() {
             .any(|v| v["check"] == "silk_to_mask"),
         "{run}"
     );
+}
+
+#[test]
+fn a_free_pad_stack_keeps_one_shared_hole_and_accepts_whole_group_edits() {
+    let dir = TempDir::new("free-pad-stack");
+    let mut engine = engine(&dir);
+    let land = json!({"shape":"rect", "width":"4mm", "height":"2mm"});
+    let pad = created(&engine.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind":"plated_through_hole", "width":"3mm", "at":{"x":0,"y":0},
+            "hole":{"width":"0.8mm"}, "middle":land
+        }),
+    ));
+    let value =
+        |engine: &TestEngine| serde_json::to_value(pcb(engine).free_pad(pad).unwrap()).unwrap();
+    assert_eq!(
+        value(&engine)["middle"],
+        json!({"shape":"rect","width":4000000,"height":2000000})
+    );
+    engine.run_ok(
+        "pcb.free_pad.edit",
+        json!({"pad":pad,"bottom":land,"middle":null}),
+    );
+    let stored = value(&engine);
+    assert!(stored.get("middle").is_none());
+    assert_eq!(stored["bottom"]["width"], 4000000);
+    assert_eq!(stored["hole"], json!({"width":800000,"height":800000}));
 }

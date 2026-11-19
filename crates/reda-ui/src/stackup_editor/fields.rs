@@ -99,6 +99,7 @@ pub(super) struct View {
     pub selected: Option<Uuid>,
     pub save_construction: Option<super::construction::SaveForm>,
     pub pending: Option<super::types::Pending>,
+    pub layer_change: Option<super::layer_actions::Pending>,
     drafts: BTreeMap<Field, String>,
     errors: BTreeMap<Field, String>,
 }

@@ -3,7 +3,8 @@
 use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_copper};
 
 use super::{Board, Report, item_objects};
-use crate::copper::shape::{BoardShape as _, Shape};
+use crate::copper::Item;
+use crate::copper::shape::Shape;
 use crate::keepout;
 use crate::rules::{net_rules_on, resolve_on};
 
@@ -94,29 +95,23 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
         if na == nb || ties.same_tie(a, b) {
             continue;
         }
-        for (layer, pa) in copper.item_pieces(a) {
-            for (_, pb) in copper
-                .item_pieces(b)
-                .into_iter()
-                .filter(|(l, pb)| *l == layer && pa.touches(pb))
-            {
-                let key = (na.min(nb), na.max(nb), layer);
-                let short = match shorts.iter_mut().position(|s| s.key() == key) {
-                    Some(i) => &mut shorts[i],
-                    None => {
-                        shorts.push(Short {
-                            nets: (na, nb),
-                            layer,
-                            at: pa.closest_points(pb)[0],
-                            items: Vec::new(),
-                        });
-                        shorts.last_mut().expect("just pushed")
-                    }
-                };
-                for item in [a, b] {
-                    if !short.items.contains(&item) {
-                        short.items.push(item);
-                    }
+        for (layer, pa, pb) in touching_pieces(copper, a, b) {
+            let key = (na.min(nb), na.max(nb), layer);
+            let short = match shorts.iter_mut().position(|s| s.key() == key) {
+                Some(i) => &mut shorts[i],
+                None => {
+                    shorts.push(Short {
+                        nets: (na, nb),
+                        layer,
+                        at: pa.closest_points(pb)[0],
+                        items: Vec::new(),
+                    });
+                    shorts.last_mut().expect("just pushed")
+                }
+            };
+            for item in [a, b] {
+                if !short.items.contains(&item) {
+                    short.items.push(item);
                 }
             }
         }
@@ -130,6 +125,24 @@ fn short_circuit(board: &Board<'_>, report: &mut Report) {
                 .objects(short.items.into_iter().flat_map(item_objects))
         });
     }
+}
+
+/// Both items' indexed copper on each physical Layer where it actually touches.
+fn touching_pieces(
+    copper: &crate::Copper,
+    a: Item,
+    b: Item,
+) -> impl Iterator<Item = (reda_model::Uuid, &Shape, &Shape)> {
+    let other = copper.item_pieces(b);
+    copper
+        .item_pieces(a)
+        .into_iter()
+        .filter_map(move |(layer, first)| {
+            let (_, second) = other
+                .iter()
+                .find(|(l, shape)| *l == layer && first.touches(shape))?;
+            Some((layer, first, *second))
+        })
 }
 
 /// The copper of one Net pair touching on one Layer.
@@ -149,8 +162,8 @@ impl Short {
 }
 
 /// `shorted_copper` and `net_tie_not_joined` on each placed Footprint, read from its copy
-/// with the same geometry as the Library check, so a Footprint swap or a type change is
-/// caught. One `shorted_copper` per touching pair, objects as for a short.
+/// and its indexed copper. Each touching pair of differently numbered Pads produces
+/// one `shorted_copper` on the Layers where the two lands meet.
 fn footprint_copper(board: &Board<'_>, report: &mut Report) {
     let pcb = board.pcb;
     for instance in pcb.footprints() {
@@ -171,16 +184,42 @@ fn footprint_copper(board: &Board<'_>, report: &mut Report) {
         if report.is_off(DrcCheck::ShortedCopper) {
             continue;
         }
-        for (a, b) in footprint_copper::shorted_pads(footprint) {
-            let (a, b) = (&footprint.pads[a], &footprint.pads[b]);
-            let [at, _] = Shape::pad(instance, a).closest_points(&Shape::pad(instance, b));
-            report.add(DrcCheck::ShortedCopper, |v| {
-                v.located(pcb.uuid, at)
-                    .arg("pad_a", a.number.as_str())
-                    .arg("pad_b", b.number.as_str())
-                    .arg("footprint", footprint.name.as_str())
-                    .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
-            });
+        for a in &footprint.pads {
+            let item = Item::Pad {
+                footprint: instance.uuid,
+                pad: a.uuid,
+            };
+            for other in board.copper.contacts(item) {
+                let Item::Pad {
+                    footprint: owner,
+                    pad,
+                } = other
+                else {
+                    continue;
+                };
+                if owner != instance.uuid || pad <= a.uuid {
+                    continue;
+                }
+                let Some(b) = footprint
+                    .pads
+                    .iter()
+                    .find(|p| p.uuid == pad && p.number != a.number)
+                else {
+                    continue;
+                };
+                let mut hits = touching_pieces(board.copper, item, other);
+                let Some((layer, pa, pb)) = hits.next() else {
+                    continue;
+                };
+                report.add(DrcCheck::ShortedCopper, |v| {
+                    v.located(pcb.uuid, pa.closest_points(pb)[0])
+                        .on_layers(std::iter::once(layer).chain(hits.map(|(l, _, _)| l)))
+                        .arg("pad_a", a.number.as_str())
+                        .arg("pad_b", b.number.as_str())
+                        .arg("footprint", footprint.name.as_str())
+                        .objects([instance.uuid, a.uuid, instance.uuid, b.uuid])
+                });
+            }
         }
     }
 }

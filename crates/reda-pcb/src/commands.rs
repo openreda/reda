@@ -11,6 +11,7 @@ mod free_pad;
 pub mod from_graphics;
 mod graphic;
 pub(crate) mod layer;
+mod layer_count;
 mod measure;
 mod mechanical;
 mod net;
@@ -65,6 +66,9 @@ pub fn register_all_with_user(
     rules::register_all(registry);
     stackup::register_all(registry);
     registry.add(layer::LayerSetCommand);
+    registry.add(layer_count::Add);
+    registry.add(layer_count::Remove);
+    registry.add(layer_count::Move);
     net_class::register_all(registry);
     net::register_all(registry);
     text::register_all(registry);

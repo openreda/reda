@@ -810,3 +810,80 @@ fn dimensions_plot_as_their_lines_and_text_on_their_layer() {
     assert_eq!(bottom.draws().count(), expected(copper_bottom).len());
     assert!(layer(&files, "Demo.gtl").draws().next().is_none());
 }
+
+#[test]
+fn the_copper_gerbers_flash_pad_stacks_in_physical_layer_order() {
+    let dir = TempDir::new("gerber-pad-stacks");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let middle = json!({"shape":"rect","width":"4mm","height":"2mm"});
+    let bottom = json!({"shape":"oval","width":"2mm","height":"3mm"});
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","shape":"circle",
+        "width":"2mm","hole":{"width":"0.5mm"},"at":pt(4.0,5.0),"middle":middle,"bottom":bottom}),
+    );
+    let placed = engine.run_ok("test.footprint.add",json!({"side":"bottom","at":pt(12.0,5.0),
+        "pads":[{"at":pt(0.0,0.0),"offset":pt(0.25,0.0),"kind":"plated_through_hole","shape":"circle",
+        "width":"2mm","height":"2mm","hole":{"width":500000,"height":500000}}]}));
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":placed["result"]["footprint"],
+        "pad":placed["result"]["pads"][0],"middle":middle,"bottom":bottom}),
+    );
+    engine.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(20.0,5.0),"hole":"0.3mm",
+        "diameter":{"start":"0.7mm","middle":"1mm","end":"1.4mm"}}),
+    );
+    let files = plot(&engine);
+    let round = Aperture::Circle(2e6);
+    let rect = Aperture::Rect(4e6, 2e6);
+    let oval = Aperture::Oval(2e6, 3e6);
+    for (name, free, flipped, via) in [
+        ("Demo.gtl", &round, &oval, 700000.0),
+        ("Demo.g2l", &rect, &rect, 1e6),
+        ("Demo.g3l", &rect, &rect, 1e6),
+        ("Demo.gbl", &oval, &round, 1400000.0),
+    ] {
+        let copper = layer(&files, name);
+        for (x, expected) in [
+            (4.0, free),
+            (11.75, flipped),
+            (20.0, &Aperture::Circle(via)),
+        ] {
+            assert_eq!(
+                flash_at(&copper, (mm(x), mm(5.0))).unwrap().0,
+                expected,
+                "{name} x={x}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_plated_pads_mask_opens_over_the_land_on_each_physical_side() {
+    let dir = TempDir::new("pad-stack-mask");
+    let mut engine = board(&dir);
+    engine.run_ok(
+        "pcb.free_pad.add",
+        json!({"at":pt(5.0,5.0),"kind":"plated_through_hole",
+        "width":"2mm","hole":{"width":"1mm"},"bottom":{"shape":"rect","width":"4mm","height":"3mm"},
+        "mask":{"top":{"expansion":0},"bottom":{"expansion":0}}}),
+    );
+    let files = plot(&engine);
+    for (name, expected) in [
+        ("Demo.gts", Aperture::Circle(2e6)),
+        ("Demo.gbs", Aperture::Rect(4e6, 3e6)),
+    ] {
+        let mask = layer(&files, name);
+        assert_eq!(
+            flash_at(&mask, (mm(5.0), mm(5.0))).unwrap().0,
+            &expected,
+            "{name}"
+        );
+    }
+}
