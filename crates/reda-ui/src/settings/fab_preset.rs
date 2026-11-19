@@ -1,5 +1,5 @@
 //! The Fab Preset pages (docs/spec/v0.1/outputs.md#fab-preset-pages): Rules, Stackup,
-//! Gerber, Drill, BOM, CPL and Packaging, the same for a Project copy (in Project
+//! Gerber, Drill, BOM, CPL, Placement and Packaging, the same for a Project copy (in Project
 //! Settings, committed on Apply with `fab_preset.set`) and a user preset (in Preferences,
 //! written with `fab_preset.set_user`).
 //!
@@ -18,6 +18,7 @@ use crate::tr;
 
 pub mod draw;
 mod field;
+pub(crate) mod placement;
 
 pub use field::{Field, source_token};
 
@@ -30,17 +31,19 @@ pub enum PresetPage {
     Drill,
     Bom,
     Cpl,
+    Placement,
     Packaging,
 }
 
 impl PresetPage {
-    pub const ALL: [PresetPage; 7] = [
+    pub const ALL: [PresetPage; 8] = [
         PresetPage::Rules,
         PresetPage::Stackup,
         PresetPage::Gerber,
         PresetPage::Drill,
         PresetPage::Bom,
         PresetPage::Cpl,
+        PresetPage::Placement,
         PresetPage::Packaging,
     ];
 
@@ -52,6 +55,7 @@ impl PresetPage {
             PresetPage::Drill => tr!("preset-page-drill"),
             PresetPage::Bom => tr!("preset-page-bom"),
             PresetPage::Cpl => tr!("preset-page-cpl"),
+            PresetPage::Placement => tr!("preset-page-placement"),
             PresetPage::Packaging => tr!("preset-page-packaging"),
         }
     }
@@ -72,6 +76,7 @@ impl PresetPage {
             PresetPage::Drill => &["gerber.slot_command", "gerber.merge_drill"],
             PresetPage::Bom => &["bom"],
             PresetPage::Cpl => &["cpl"],
+            PresetPage::Placement => &["placement_corrections"],
             PresetPage::Packaging => &["zip_assembly"],
         }
     }
@@ -88,6 +93,7 @@ impl PresetPage {
 /// fields.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PresetEditor {
+    correction: Option<placement::CorrectionForm>,
     base: FabPreset,
     value: FabPreset,
     /// Text typed into a field, kept while it is being typed or is not a value.
@@ -99,6 +105,7 @@ pub struct PresetEditor {
 impl PresetEditor {
     pub fn new(preset: FabPreset) -> PresetEditor {
         PresetEditor {
+            correction: None,
             base: preset.clone(),
             value: preset,
             texts: BTreeMap::new(),
@@ -132,6 +139,7 @@ impl PresetEditor {
             return;
         }
         if reset || !self.changed() {
+            self.correction = None;
             self.value = fresh.clone();
             self.texts.clear();
             self.problems.clear();
@@ -237,6 +245,9 @@ impl PresetEditor {
 
     /// Reset page to source: the page's keys take `source`'s values, as pending edits.
     pub fn reset_page(&mut self, page: PresetPage, source: &FabPreset) {
+        if page == PresetPage::Placement {
+            self.correction = None;
+        }
         let mut value = json(&self.value);
         let from = json(source);
         for key in page.keys() {

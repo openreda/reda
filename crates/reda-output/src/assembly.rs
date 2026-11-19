@@ -11,8 +11,8 @@ use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::text::display;
 use reda_model::{
     BottomPosition, BottomRotation, Column, ColumnSource, ComponentType, CplSettings, CplUnits,
-    Fields, FootprintCopy, FootprintInstance, MountValues, PadKind, PcbDocument, Project, Side,
-    Uuid,
+    FabPreset, Fields, FootprintCopy, FootprintInstance, MountValues, PadKind, PcbDocument,
+    PlacementCorrection, PlacementMatch, Project, Side, Uuid,
 };
 use reda_pcb::natural_cmp;
 use reda_pcb::placed::Frame;
@@ -36,22 +36,67 @@ pub fn cpl_file(
     cpl: &CplSettings,
     mount: &MountValues,
 ) -> OutputFile {
+    cpl_output(project, &cpl_table(project, instances, cpl, mount))
+}
+
+fn cpl_output(project: &Project, table: &Table) -> OutputFile {
     OutputFile {
         name: format!("{}-CPL.csv", project.props().name),
         function: "cpl",
-        bytes: cpl_table(project, instances, cpl, mount).csv(),
+        bytes: table.csv(),
         attributes: None,
     }
 }
 
-/// The rows [`cpl_file`] writes, header first, before they become CSV: what the Output
-/// Job window previews.
+/// A table using standalone CPL settings without a Fab Preset's corrections.
 pub fn cpl_table(
     _project: &Project,
     instances: &[BoardInstance<'_>],
     cpl: &CplSettings,
     mount: &MountValues,
 ) -> Table {
+    build_cpl(instances, cpl, mount, &[], &[]).table
+}
+
+/// The export cells and the placement information explaining each row in the preview.
+pub struct Cpl {
+    pub table: Table,
+    pub placements: Vec<CplPlacement>,
+}
+
+impl Cpl {
+    pub fn for_preset(instances: &[BoardInstance<'_>], preset: &FabPreset) -> Self {
+        build_cpl(
+            instances,
+            &preset.cpl,
+            &preset.bom.mount_values,
+            &preset.placement_corrections,
+            &preset.bom.required_fields,
+        )
+    }
+
+    pub fn file(&self, project: &Project) -> OutputFile {
+        cpl_output(project, &self.table)
+    }
+}
+
+/// The matched row (zero-based in the preset) and the starting match for Add correction.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CplPlacement {
+    pub stored_rotation: Millideg,
+    pub written_rotation: Millideg,
+    pub matched: Option<usize>,
+    pub suggested_match: PlacementMatch,
+}
+
+fn build_cpl(
+    instances: &[BoardInstance<'_>],
+    cpl: &CplSettings,
+    mount: &MountValues,
+    corrections: &[PlacementCorrection],
+    required: &[String],
+) -> Cpl {
+    let mut placements = Vec::new();
     let rows = instances
         .iter()
         .flat_map(|board| {
@@ -61,8 +106,45 @@ pub fn cpl_table(
         })
         .enumerate()
         .map(|(i, (board, instance, part))| {
-            let at = Positions::of(board, instance);
+            let package = part
+                .copy
+                .expect("CPL parts have a Footprint")
+                .footprint
+                .name
+                .as_str();
+            let matched = match_correction(corrections, package, part.fields);
+            let correction = matched.map(|i| &corrections[i]);
+            let offset = correction
+                .and_then(|row| row.adjustment().offset)
+                .unwrap_or_default();
+            let at = Positions::of(board, instance, offset);
             let bottom = instance.side == Side::Bottom;
+            let stored = board.transform.angle(instance.rotation);
+            let base = match (bottom, cpl.bottom_rotation) {
+                (false, _) | (true, BottomRotation::Stored) => stored,
+                (true, BottomRotation::Plus180) => stored + Millideg(180_000),
+                (true, BottomRotation::Negate) => -stored,
+            };
+            let delta = correction.map_or(Millideg::ZERO, |r| r.adjustment().rotation.normalized());
+            let written = (base + delta).normalized();
+            let suggested_match = required
+                .iter()
+                .find_map(|name| {
+                    let value = field(part.fields, name).trim();
+                    (!value.is_empty()).then(|| PlacementMatch::Field {
+                        field: name.clone(),
+                        value: value.to_owned(),
+                    })
+                })
+                .unwrap_or_else(|| PlacementMatch::Footprint {
+                    footprint: package.to_owned(),
+                });
+            placements.push(CplPlacement {
+                stored_rotation: instance.rotation,
+                written_rotation: written,
+                matched,
+                suggested_match,
+            });
             let position = |p: Point, x: bool| {
                 let flip = bottom
                     && match cpl.bottom_position {
@@ -89,19 +171,61 @@ pub fn cpl_table(
                         Side::Top => cpl.side_values.top.clone(),
                         Side::Bottom => cpl.side_values.bottom.clone(),
                     },
-                    ColumnSource::Rotation => {
-                        let stored = board.transform.angle(instance.rotation);
-                        degrees(match (bottom, cpl.bottom_rotation) {
-                            (false, _) | (true, BottomRotation::Stored) => stored,
-                            (true, BottomRotation::Plus180) => stored + Millideg(180_000),
-                            (true, BottomRotation::Negate) => Millideg(-stored.0),
-                        })
-                    }
+                    ColumnSource::Rotation => degrees(written),
                     source => part.describe(source, mount),
                 })
                 .collect()
         });
-    Table::new(&cpl.columns, rows)
+    Cpl {
+        table: Table::new(&cpl.columns, rows),
+        placements,
+    }
+}
+
+fn match_correction(rows: &[PlacementCorrection], package: &str, fields: &Fields) -> Option<usize> {
+    let mut footprint_row = None;
+    for (i, row) in rows.iter().enumerate() {
+        match row {
+            PlacementCorrection::Field {
+                field: name, value, ..
+            } => {
+                let value = value.trim();
+                if !value.is_empty()
+                    && field(fields, name).trim().to_lowercase() == value.to_lowercase()
+                {
+                    return Some(i);
+                }
+            }
+            PlacementCorrection::Footprint { footprint, .. }
+                if footprint_row.is_none() && matches_package(footprint, package) =>
+            {
+                footprint_row = Some(i);
+            }
+            _ => {}
+        }
+    }
+    footprint_row
+}
+
+/// Whole-name, case-insensitive match. Only `*` has special meaning.
+fn matches_package(pattern: &str, name: &str) -> bool {
+    let pattern = pattern.to_lowercase();
+    let name = name.to_lowercase();
+    let mut pieces = pattern.split('*');
+    let first = pieces.next().unwrap_or_default();
+    let Some(last) = pieces.next_back() else {
+        return first == name;
+    };
+    let Some(mut name) = name.strip_prefix(first).and_then(|s| s.strip_suffix(last)) else {
+        return false;
+    };
+    for part in pieces {
+        let Some((_, tail)) = name.split_once(part) else {
+            return false;
+        };
+        name = tail;
+    }
+    true
 }
 
 /// An assembly file's cells: the header row and the rows under it, unquoted.
@@ -143,7 +267,7 @@ struct Positions {
 }
 
 impl Positions {
-    fn of(board: &BoardInstance<'_>, instance: &FootprintInstance) -> Positions {
+    fn of(board: &BoardInstance<'_>, instance: &FootprintInstance, offset: Point) -> Positions {
         let frame = Frame::of(instance);
         let pads = board
             .pcb
@@ -162,7 +286,7 @@ impl Positions {
             .map_or(local_origin, |p| p.at);
         let out = |local: Point| board.transform.point(frame.point(local));
         Positions {
-            centre: out(centre),
+            centre: out(centre + offset),
             origin: out(local_origin),
             pad1: out(pad1),
         }

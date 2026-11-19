@@ -69,6 +69,7 @@ pub fn generic() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        placement_corrections: Vec::new(),
         constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings::default(),
         zip_assembly: false,
@@ -134,6 +135,7 @@ fn jlcpcb() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        placement_corrections: Vec::new(),
         constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings::default(),
         zip_assembly: false,
@@ -203,6 +205,7 @@ fn pcbway() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
+        placement_corrections: Vec::new(),
         constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings {
             file_origin: FileOrigin::Relative,

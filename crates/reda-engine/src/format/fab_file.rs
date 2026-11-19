@@ -10,7 +10,8 @@
 //!   "stackup_suggestions": {"thickness":[1600000],"copper":[35000],…},
 //!   "zip_assembly": false,
 //!   "bom": {"columns":[{"header":"Comment","source":"value"}],"layout":"grouped",…},
-//!   "cpl": {"columns":[{"header":"Designator","source":"designator"}],"units":"mm",…}
+//!   "cpl": {"columns":[{"header":"Designator","source":"designator"}],"units":"mm",…},
+//!   "placement_corrections": [{"footprint":"SOT-23*","rotation":90000}]
 //! }
 //! ```
 //!
@@ -19,7 +20,8 @@
 use std::path::Path;
 
 use reda_model::{
-    BomSettings, Construction, CplSettings, FabPreset, FabRules, GerberSettings, StackupSuggestions,
+    BomSettings, Construction, CplSettings, FabPreset, FabRules, GerberSettings,
+    PlacementCorrection, StackupSuggestions,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -49,6 +51,8 @@ pub(crate) struct FabPresetFile {
     bom: BomSettings,
     /// The CPL columns, in order.
     cpl: CplSettings,
+    #[serde(default)]
+    placement_corrections: Vec<PlacementCorrection>,
     zip_assembly: bool,
     stackup_suggestions: StackupSuggestions,
 }
@@ -64,6 +68,7 @@ pub(crate) fn read_fab_file(path: &Path, bytes: &[u8]) -> Result<FabPreset, Load
         stackup_suggestions: file.stackup_suggestions,
         bom: file.bom,
         cpl: file.cpl,
+        placement_corrections: file.placement_corrections,
     })
 }
 
@@ -77,5 +82,6 @@ pub(crate) fn write_fab_file(preset: &FabPreset) -> Result<Vec<u8>, CanonicalErr
     w.field("zip_assembly", &preset.zip_assembly)?;
     w.field("bom", &preset.bom)?;
     w.field("cpl", &preset.cpl)?;
+    w.list("placement_corrections", &preset.placement_corrections)?;
     Ok(w.finish())
 }
