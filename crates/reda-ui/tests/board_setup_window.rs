@@ -1679,6 +1679,65 @@ fn removing_a_layer_confirms_its_objects_and_vias_in_sentences_naming_the_layer(
     h.get_by_label("1 Via shortened, 2 deleted.");
 }
 
+#[test]
+fn apply_via_types_starts_ticked_only_while_the_board_has_just_its_through_type() {
+    let home = TempDir::new("apply-types-default-home");
+    let work = TempDir::new("apply-types-default-work");
+    let mut h = harness(home.path(), work.path(), "Board");
+    let document = pcb(&h).uuid;
+    let preset = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.stackup.apply_construction",
+            json!({"document":document,"preset":preset,"construction":"4 Layer"}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.save_as_construction",
+            json!({"document":document,"preset":preset,"name":"Through only"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    let ticked = |h: &mut Harness<'static, App>| {
+        h.get_by_role_and_label(Role::Button, "Apply Construction…")
+            .scroll_to_me();
+        h.run();
+        h.get_by_role_and_label(Role::Button, "Apply Construction…")
+            .click();
+        h.run();
+        choose(h, "Construction", "Generic · Through only (4 Layers)");
+        let toggled = h.get_by_label("Apply Via types").accesskit_node().toggled();
+        h.get_by_role_and_label(Role::Button, "Cancel").click();
+        h.run();
+        toggled
+    };
+    assert_eq!(ticked(&mut h), Some(egui::accesskit::Toggled::True));
+    let l = pcb(&h).copper_layers().map(|l| l.uuid).collect::<Vec<_>>();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.via_type.add",
+            json!({"document":document,"from":l[0],"to":l[1]}),
+        )
+        .unwrap();
+    h.run();
+    assert_eq!(ticked(&mut h), Some(egui::accesskit::Toggled::False));
+}
+
 fn pcb_of(shell: &Shell) -> PcbDocument {
     shell.engine().project().unwrap().pcb().unwrap().clone()
 }

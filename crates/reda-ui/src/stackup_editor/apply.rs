@@ -55,7 +55,7 @@ pub(super) fn buttons(
                             json!({"document":pcb.uuid,"preset":preset,"construction":build.name}),
                         ));
                     } else {
-                        view.apply_construction = Some(Form::new(preset, &build.name, true));
+                        view.apply_construction = Some(Form::new(preset, &build.name, true, pcb));
                     }
                 }
             });
@@ -71,12 +71,18 @@ pub(super) fn buttons(
             .find(|(_, b)| Some(&b.name) == pcb.stackup().construction.as_ref())
             .or_else(|| builds().next())
     {
-        view.apply_construction = Some(Form::new(preset, &build.name, false));
+        view.apply_construction = Some(Form::new(preset, &build.name, false, pcb));
     }
 }
 
+/// Whether "Apply Via types" starts ticked: only while the board has no Via types
+/// beyond the through type every board has.
+fn apply_via_types_by_default(pcb: &PcbDocument) -> bool {
+    pcb.stackup().via_types.len() <= 1
+}
+
 impl Form {
-    fn new(preset: Uuid, name: &str, revert: bool) -> Self {
+    fn new(preset: Uuid, name: &str, revert: bool, pcb: &PcbDocument) -> Self {
         Self {
             preset,
             name: name.to_owned(),
@@ -84,7 +90,7 @@ impl Form {
             order: Vec::new(),
             target: 0,
             remove: BTreeSet::new(),
-            via_types: false,
+            via_types: apply_via_types_by_default(pcb),
         }
     }
 
@@ -129,7 +135,7 @@ impl Form {
             if selected.0 != self.preset || selected.1 != self.name {
                 (self.preset, self.name) = selected;
                 self.order.clear();
-                self.via_types = false;
+                self.via_types = apply_via_types_by_default(pcb);
             }
             let Some(build) = project
                 .fab_preset(self.preset)
