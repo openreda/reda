@@ -149,16 +149,6 @@ fn track_rows(
         });
         ui.end_row();
     });
-    let mut allow = track.teardrop.same().copied().unwrap_or(false);
-    if ui
-        .add(
-            widgets::checkbox(&mut allow, tr!("properties-track-allow-teardrops"))
-                .indeterminate(track.teardrop == Shared::Mixed),
-        )
-        .clicked()
-    {
-        edits.push(TrackEdit::Teardrop(allow));
-    }
     for edit in edits {
         let (id, params) = track.command(&edit);
         out.push(Out::Run(id, params));
