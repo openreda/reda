@@ -278,6 +278,10 @@ _Avoid_: µVia, laser via, HDI via
 Several Vias of one Net sharing a centre, whose Via Spans meet end to end. It is not an object of its own.
 _Avoid_: Stacked via (as one object), via chain
 
+**Teardrop**:
+Extra copper that widens a Track where it meets a Pad, a Via or a wider Track, generated from the design rules rather than drawn.
+_Avoid_: Fillet, tear
+
 **Zone**:
 A Net-assigned area on a copper Layer that is filled with copper around everything it must keep clear of.
 _Avoid_: Pour, polygon, plane, fill

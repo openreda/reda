@@ -41,7 +41,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 - 4 or more copper Layers on the generic ordered Layer list that v0.1 already stores. Adding them needs no format migration.
 - A **Stackup editor** tab bound to its PCB Document (see above).
 - Blind, buried and micro Vias, using the layer span that every Via stores from v0.1.
-- Teardrops, generated and cached the way Zone fills are.
+- Teardrops, generated and cached the way Zone fills are ([v0.2 teardrops](v0.2/teardrops.md)).
 - [Placement Corrections](v0.2/placement-corrections.md): CPL rotation and centre corrections, a list in each Fab Preset.
 
 ### Mechanical & 3D (v0.3)
