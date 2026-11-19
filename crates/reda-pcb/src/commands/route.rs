@@ -271,7 +271,11 @@ fn cleanup(pcb: &PcbDocument, copper: &Copper, nets: Option<&[Uuid]>) -> Cleanup
         for (i, ua) in uuids.iter().enumerate() {
             for ub in &uuids[i + 1..] {
                 let (ta, tb) = (&tracks[ua], &tracks[ub]);
-                if ta.layer != tb.layer || ta.net != tb.net || ta.width != tb.width {
+                if ta.layer != tb.layer
+                    || ta.net != tb.net
+                    || ta.width != tb.width
+                    || ta.teardrop != tb.teardrop
+                {
                     continue;
                 }
                 let Some((from, joint, to)) = joined(ta, tb) else {

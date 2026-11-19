@@ -51,6 +51,7 @@ pub enum Rule {
     /// How fills join through-hole Pads, SMD Pads and Vias, and the Zone naming scheme.
     /// No DRC severity.
     ZoneConnections,
+    Teardrops,
 }
 
 /// One check on a rule page: its board-wide values, a Net Class override table and its
@@ -91,7 +92,7 @@ impl Section {
 }
 
 impl Rule {
-    pub const ALL: [Rule; 8] = [
+    pub const ALL: [Rule; 9] = [
         Rule::Clearance,
         Rule::TrackWidth,
         Rule::Vias,
@@ -100,6 +101,7 @@ impl Rule {
         Rule::MaskPaste,
         Rule::Silkscreen,
         Rule::ZoneConnections,
+        Rule::Teardrops,
     ];
 
     /// The checks on the page, each with its values.
@@ -161,6 +163,25 @@ impl Rule {
             Section::plain(None, &[F::PasteExpansion, F::PastePercent]),
         ];
         const SILKSCREEN: &[Section] = &[Section::check(DrcCheck::SilkToMask, &[F::SilkToMask])];
+        const fn teardrop(kind: reda_engine::model::TeardropKind) -> [RuleField; 7] {
+            use reda_engine::model::TeardropField::*;
+            [
+                F::Teardrop(kind, Enabled),
+                F::Teardrop(kind, Length),
+                F::Teardrop(kind, MaxLength),
+                F::Teardrop(kind, Width),
+                F::Teardrop(kind, MaxWidth),
+                F::Teardrop(kind, Curved),
+                F::Teardrop(kind, SkipRatio),
+            ]
+        }
+        use reda_engine::model::TeardropKind as K;
+        const TEARDROPS: &[Section] = &[
+            Section::plain(None, &teardrop(K::ThroughHolePad)),
+            Section::plain(None, &teardrop(K::SmdPad)),
+            Section::plain(None, &teardrop(K::Via)),
+            Section::plain(None, &teardrop(K::WidthChange)),
+        ];
         const ZONE_CONNECTIONS: &[Section] = &[
             Section::plain(Some(T::ThroughHole), &TH),
             Section::plain(Some(T::Smd), &SMD),
@@ -175,6 +196,7 @@ impl Rule {
             Rule::MaskPaste => MASK_PASTE,
             Rule::Silkscreen => SILKSCREEN,
             Rule::ZoneConnections => ZONE_CONNECTIONS,
+            Rule::Teardrops => TEARDROPS,
         }
     }
 
@@ -195,6 +217,7 @@ impl Rule {
             Rule::Silkscreen => tr!("board-setup-page-silkscreen"),
             Rule::MaskPaste => tr!("board-setup-page-mask-paste"),
             Rule::ZoneConnections => tr!("board-setup-page-zone-connections"),
+            Rule::Teardrops => tr!("board-setup-page-teardrops"),
         }
     }
 

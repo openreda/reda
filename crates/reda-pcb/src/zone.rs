@@ -30,7 +30,7 @@ pub use names::{NO_NET, name, names};
 use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
-const FILL_VERSION: u32 = 3;
+const FILL_VERSION: u32 = 4;
 
 /// How far a chord of a flattened arc may stray from the arc: a fixed 0.001 mm. It only
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.
@@ -139,7 +139,20 @@ pub fn refill_with_fonts(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let copper = (total > 0).then(|| Copper::with_lands(pcb, fonts, unused));
+    let mut junctions = 0;
+    let (teardrops, _) = crate::teardrop::update(pcb, stored, fonts, true, &mut |done, count| {
+        junctions = count;
+        step(done, count + total)
+    })?;
+    let mut fills = ZoneFills {
+        teardrops,
+        zones: BTreeMap::new(),
+    };
+    let copper = (total > 0).then(|| {
+        let mut copper = Copper::with_lands(pcb, fonts, unused);
+        copper.set_zone_fills(pcb, Some(&fills));
+        copper
+    });
     let holes = if total > 0 {
         crate::drill::holes(pcb)
     } else {
@@ -155,7 +168,7 @@ pub fn refill_with_fonts(
                 fill::to_area(&kept.shapes)
             }
             None => {
-                if !step(count, total) {
+                if !step(junctions + count, junctions + total) {
                     return None;
                 }
                 count += 1;
@@ -181,10 +194,11 @@ pub fn refill_with_fonts(
         };
         done.push(fill::Filled { zone, area });
     }
-    if !step(total, total) {
+    if !step(junctions + total, junctions + total) {
         return None;
     }
-    Some(ZoneFills { zones: out })
+    fills.zones = out;
+    Some(fills)
 }
 
 /// Each Zone's input hash, by UUID: everything its fill depends on. That is the Zone
@@ -281,9 +295,10 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
 /// Where a PCB Document's stored fills stand.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 pub struct FillStatus {
-    /// Whether the status bar should say "Zones need refilling": some Zone has no fill
-    /// yet or has changed inputs since it was filled.
+    /// Whether a Zone needs filling or a Teardrop has been added, changed or removed.
     pub needs_refill: bool,
+    /// Junctions added, changed or removed since the last fill.
+    pub stale_teardrops: usize,
     /// Every Zone, sorted by UUID.
     pub zones: Vec<ZoneStatus>,
 }
@@ -337,10 +352,14 @@ pub fn status_with_fonts(
             }
         })
         .collect();
+    let (_, stale_teardrops) = crate::teardrop::update(pcb, fills, fonts, false, &mut |_, _| true)
+        .expect("a status query is not cancelled");
     FillStatus {
-        needs_refill: zones
-            .iter()
-            .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
+        stale_teardrops,
+        needs_refill: stale_teardrops > 0
+            || zones
+                .iter()
+                .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
         zones,
     }
 }

@@ -68,6 +68,7 @@ fn board_setup_has_a_page_per_rule_then_net_classes_and_drc() {
             "Mask & Paste",
             "Silkscreen",
             "Zone Connections",
+            "Teardrops",
             "Stackup",
             "Net Classes",
             "DRC"
@@ -506,6 +507,18 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
                 .map(|t| (None, RuleField::connection(t).to_vec()))
                 .to_vec()
             ),
+            (
+                Rule::Teardrops,
+                reda_engine::model::TeardropKind::ALL
+                    .into_iter()
+                    .map(|kind| (
+                        None,
+                        reda_engine::model::TeardropField::ALL
+                            .map(|f| F::Teardrop(kind, f))
+                            .to_vec()
+                    ))
+                    .collect()
+            ),
         ]
     );
 }
@@ -935,14 +948,32 @@ fn layer_and_pair_edits_in_board_setup_commit_in_one_batch() {
         net_class_pair: Some([Uuid::NIL, hv]),
         ..RuleScope::BOARD
     };
+    let inner_hv = RuleScope {
+        net_class: Some(hv),
+        ..RuleScope::INNER
+    };
     let mut d = dialog(&shell);
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         board.set_scoped(&RuleScope::INNER, RuleField::TrackWidth, "0.125");
         board.set_scoped(&pair, RuleField::Clearance, "0.75");
+        let field = RuleField::Teardrop(
+            reda_ui::engine::model::TeardropKind::WidthChange,
+            reda_ui::engine::model::TeardropField::Enabled,
+        );
+        board.set_scoped(&inner_hv, field, "true");
     }
     assert!(d.apply(&mut shell).is_ok());
     let pcb = pcb(&shell);
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::Teardrop, &inner_hv)
+            .unwrap()
+            .values
+            .width_change
+            .unwrap()
+            .enabled,
+        Some(true)
+    );
     assert_eq!(
         pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
             .unwrap()

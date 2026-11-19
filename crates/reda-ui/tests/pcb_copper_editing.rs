@@ -665,6 +665,14 @@ fn track_properties_edit_start_end_length_layer_and_net_with_a_canvas_pick() {
     let len = ((b.x.0 - a.x.0) as f64).hypot((b.y.0 - a.y.0) as f64);
     assert!((len - 5e6).abs() < 2.0, "{len}");
 
+    w.h.get_by_label("Allow Teardrops").click();
+    w.h.run();
+    assert_eq!(last_command(&w).1["teardrop"], false);
+    assert!(!pcb_track(&w).teardrop);
+    w.h.get_by_label("Allow Teardrops").click();
+    w.h.run();
+    assert!(pcb_track(&w).teardrop);
+
     // Layer.
     w.h.get_by_role_and_label(Role::ComboBox, "Layer").click();
     w.h.run();
@@ -808,4 +816,32 @@ fn the_route_menu_unroutes_asking_about_locked_copper_and_cleans_up() {
     w.h.run();
     assert_eq!(last_command(&w).0, "pcb.track.cleanup");
     assert_eq!(count(&w), 1);
+}
+
+#[test]
+fn auto_refill_makes_a_teardrop_pick_its_track_on_the_canvas() {
+    let mut b = board();
+    let wide = add_route(&mut b, &[(8., 10.), (10., 10.)])[0];
+    let narrow = add_route(&mut b, &[(10., 10.), (13., 10.)])[0];
+    run(
+        &mut b.shell,
+        "pcb.track.set",
+        json!({"tracks":[wide],"width":"1mm"}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.track.set",
+        json!({"tracks":[narrow],"width":"0.1mm"}),
+    );
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap().uuid;
+    let pick =
+        |b: &Board| reda_ui::selection::picking::hit(&b.shell, pcb, (10_750_000., 10_120_000.), 1.);
+    assert_eq!(pick(&b), None);
+    run(
+        &mut b.shell,
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"length":100}}}),
+    );
+    b.shell.wait_zone_refill();
+    assert_eq!(pick(&b), Some(narrow));
 }
