@@ -677,3 +677,57 @@ proptest::proptest! {
         }
     }
 }
+
+#[test]
+fn a_pad_opt_out_removes_every_attached_taper_and_leaves_other_targets_alone() {
+    let dir = TempDir::new("teardrop-pad-opt-outs");
+    let (mut e, net) = board(&dir);
+    let part = e.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":"10mm","y":"10mm"}, "pads":[{
+                "at":{"x":0,"y":0},"width":"1mm","height":"1mm","net":net
+            }]
+        }),
+    )["result"]
+        .clone();
+    let free = e.run_ok(
+        "pcb.free_pad.add",
+        json!({
+            "kind":"plated_through_hole","net":net,"width":"1mm","hole":{"width":"0.4mm"},
+            "at":{"x":"16mm","y":"10mm"}
+        }),
+    )["result"]["uuid"]
+        .clone();
+    track(&mut e, net, 100_000, &[(-3_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (6_000_000, 0)]);
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":"copper_bottom","net":net,"width":"0.1mm",
+        "points":[{"x":"16mm","y":"10mm"},{"x":"16mm","y":"7mm"}]}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop",
+        "values":{"through_hole_pad":{"enabled":true},"smd_pad":{"enabled":true}}}),
+    );
+    let counts = |e: &mut TestEngine| {
+        e.run_ok("pcb.zone.fill", json!({}));
+        e.run_ok("pcb.teardrop.status", json!({}))["generated"]
+            .as_u64()
+            .unwrap()
+    };
+    assert_eq!(counts(&mut e), 4);
+    e.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":false}),
+    );
+    assert_eq!(counts(&mut e), 2);
+    e.run_ok("pcb.free_pad.edit", json!({"pad":free,"teardrop":false}));
+    assert_eq!(counts(&mut e), 0);
+    e.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":true}),
+    );
+    assert_eq!(counts(&mut e), 2);
+}

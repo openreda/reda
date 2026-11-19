@@ -427,6 +427,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
         // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
+            teardrop: true,
             locked: false,
             mask: None,
             paste: None,

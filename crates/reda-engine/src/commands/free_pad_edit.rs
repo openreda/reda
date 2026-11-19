@@ -38,6 +38,8 @@ pub struct FreePadEditParams {
     #[serde(default, deserialize_with = "present")]
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
     pub unused_layers: Option<reda_model::UnusedLayers>,
+    /// False opts this Pad out of derived Teardrops on every Layer.
+    pub teardrop: Option<bool>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -123,6 +125,7 @@ impl Command for FreePadEdit {
         let edited = FreePad {
             uuid: free.uuid,
             locked: free.locked,
+            teardrop: p.teardrop.unwrap_or(free.teardrop),
             kind: pad.kind,
             shape: pad.shape,
             at: pad.at,
@@ -165,6 +168,7 @@ fn as_pad(free: &FreePad) -> Pad {
         height: free.height,
         middle: free.middle,
         bottom: free.bottom,
+        teardrop: free.teardrop,
         unused_layers: free.unused_layers,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,

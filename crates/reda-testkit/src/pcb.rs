@@ -153,6 +153,7 @@ impl Command for FootprintAdd {
                 height: pad.height.nm(),
                 middle: None,
                 bottom: None,
+                teardrop: true,
                 unused_layers: Default::default(),
                 corner_ratio: pad.corner_ratio,
                 chamfer_ratio: pad.chamfer_ratio,

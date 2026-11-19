@@ -1,11 +1,11 @@
 //! A Track taper starts where its centreline exits the actual posed land on its Layer.
 use super::{Junction, path, percent};
-use crate::{Copper, Item, placed::placed_pads, rules::teardrop};
+use crate::{Copper, Item, rules::teardrop};
 use reda_model::geom::{
     Nm, Point,
     grown::{Core, Shape},
 };
-use reda_model::{PadKind, PcbDocument, TeardropKind, TeardropLocation, Track};
+use reda_model::{PadKind, PadRef, PcbDocument, TeardropKind, TeardropLocation, Track};
 
 pub(super) fn junction<'a>(
     pcb: &PcbDocument,
@@ -16,15 +16,13 @@ pub(super) fn junction<'a>(
 ) -> Option<Junction<'a>> {
     let kind = match target {
         Item::Via { uuid } if pcb.via(uuid)?.teardrop => TeardropKind::Via,
-        Item::FreePad { uuid } => pad_kind(pcb.free_pad(uuid)?.kind)?,
+        Item::FreePad { uuid } => {
+            let p = pcb.free_pad(uuid)?;
+            pad_kind(p.kind, p.teardrop)?
+        }
         Item::Pad { footprint, pad } => {
-            let instance = pcb.footprint(footprint)?;
-            pad_kind(
-                placed_pads(pcb, instance)
-                    .into_iter()
-                    .find(|p| p.pad == pad)?
-                    .kind,
-            )?
+            let p = pcb.footprint_pad(PadRef { footprint, pad })?;
+            pad_kind(p.kind, p.teardrop)?
         }
         _ => return None,
     };
@@ -88,7 +86,10 @@ pub(super) fn junction<'a>(
     })
 }
 
-fn pad_kind(kind: PadKind) -> Option<TeardropKind> {
+fn pad_kind(kind: PadKind, allow: bool) -> Option<TeardropKind> {
+    if !allow {
+        return None;
+    }
     match kind {
         PadKind::Smd => Some(TeardropKind::SmdPad),
         PadKind::PlatedThroughHole => Some(TeardropKind::ThroughHolePad),

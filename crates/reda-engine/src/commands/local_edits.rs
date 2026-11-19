@@ -170,7 +170,9 @@ pub struct PcbPadEditParams {
     #[serde(default, deserialize_with = "present")]
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
     pub unused_layers: Option<reda_model::UnusedLayers>,
-    /// Allow a locked Footprint's unused Pad copper to be changed.
+    /// False opts this placed Pad out of derived Teardrops on every Layer.
+    pub teardrop: Option<bool>,
+    /// Allow a locked Footprint's Pad copper settings to be changed.
     #[serde(default)]
     pub include_locked: bool,
     /// `null` returns a rounded rectangle to the default ratio.
@@ -248,12 +250,14 @@ impl Command for PcbPadEdit {
             })?;
         if p.unused_layers
             .is_some_and(|mode| mode != footprint.pads[index].unused_layers)
+            || p.teardrop
+                .is_some_and(|allow| allow != footprint.pads[index].teardrop)
         {
             reda_pcb::lock::refuse(
                 pcb,
                 [instance.uuid],
                 p.include_locked,
-                "change unused copper on",
+                "change Pad copper on",
             )?;
         }
         let patch = PadPatch {
@@ -277,6 +281,9 @@ impl Command for PcbPadEdit {
             zone_connection: p.zone_connection,
         };
         footprint.pads[index] = patch.apply(footprint.pads[index].clone())?;
+        if let Some(allow) = p.teardrop {
+            footprint.pads[index].teardrop = allow;
+        }
         place_edited(cx, p.instance, footprint)
     }
 }

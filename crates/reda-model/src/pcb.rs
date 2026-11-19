@@ -328,11 +328,11 @@ impl Net {
     }
 }
 
-fn yes() -> bool {
+pub(crate) fn yes() -> bool {
     true
 }
 
-fn is_true(value: &bool) -> bool {
+pub(crate) fn is_true(value: &bool) -> bool {
     *value
 }
 
@@ -561,6 +561,16 @@ impl PcbDocument {
 
     pub fn footprint(&self, uuid: Uuid) -> Option<&FootprintInstance> {
         self.footprints.get(&uuid)
+    }
+
+    /// The stored Pad of one instance, including any local Footprint edits.
+    pub fn footprint_pad(&self, reference: PadRef) -> Option<&crate::Pad> {
+        let instance = self.footprint(reference.footprint)?;
+        let copy = self.footprint_copy(instance.footprint)?;
+        copy.footprint
+            .pads
+            .iter()
+            .find(|pad| pad.uuid == reference.pad)
     }
 
     /// The Tracks, sorted by UUID.
