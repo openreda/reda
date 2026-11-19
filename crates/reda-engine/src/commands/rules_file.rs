@@ -95,6 +95,10 @@ pub struct RulesImportParams {
     /// The rule kinds to import; left out, every kind in the file.
     #[serde(default)]
     pub kinds: Option<Vec<RuleKind>>,
+    /// Checked position-dependent records, by zero-based index in the source file. Omit
+    /// to select them only when the source and target have the same copper count.
+    #[serde(default)]
+    pub position_records: Option<std::collections::BTreeSet<usize>>,
     /// Whether to take the file's DRC severities too.
     #[serde(default = "yes")]
     pub severities: bool,
@@ -149,7 +153,15 @@ impl Command for RulesImport {
         let bytes = read_bytes(&p.path)?;
         let set = read_rules_file(&p.path, &bytes)?;
         let pcb = pcb(cx)?.clone();
-        let plan = plan(&pcb, &set, p.kinds.as_deref(), p.severities, || cx.new_id());
+        let plan = plan(
+            &pcb,
+            &set,
+            p.kinds.as_deref(),
+            p.severities,
+            p.position_records.as_ref(),
+            || cx.new_id(),
+        )
+        .map_err(CommandError::rejected)?;
         refuse_blocking(&pcb, &plan.records)?;
         if p.preview {
             return Ok(RulesImportResult {
