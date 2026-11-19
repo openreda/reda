@@ -49,6 +49,8 @@ fn app_ids() -> Vec<&'static str> {
     reda_ui::selection::register_all(&mut registry);
     reda_ui::bars::register_all(&mut registry);
     reda_ui::help::register_all(&mut registry);
+    // The PCB view's Layer, routing and Via span Commands, and the Tools' on the board.
+    reda_ui::pcb::register_all(&mut registry);
     registry
         .commands()
         .map(|meta| meta.id)
@@ -59,7 +61,19 @@ fn app_ids() -> Vec<&'static str> {
 #[test]
 fn every_app_command_is_run_by_a_test() {
     let ids = app_ids();
-    assert!(!ids.is_empty());
+    // The PCB view's and the Stackup editor's Commands are held to the rule too.
+    for id in [
+        "pcb.layer.step",
+        "pcb.layer.activate",
+        "pcb.layer.pick",
+        "pcb.route.previous_layer",
+        "pcb.route.cycle_via",
+        "pcb.route.pick_via",
+        "pcb.view.via_spans",
+        "pcb.stackup.select",
+    ] {
+        assert!(ids.contains(&id), "{id} is not registered by the app");
+    }
 
     let sources = test_sources();
     let this_file = Path::new(file!()).file_name().unwrap();
