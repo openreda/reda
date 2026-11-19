@@ -647,6 +647,25 @@ impl PcbDocument {
         self.layers().copper_number(layer)
     }
 
+    /// Geometry owned by one Layer and deleted with it, as (Layer, kind, object).
+    /// Spanning Vias have separate shortening and deletion rules.
+    pub fn layer_objects(&self) -> impl Iterator<Item = (Uuid, &'static str, Uuid)> {
+        self.tracks()
+            .map(|o| (o.layer, "track", o.uuid))
+            .chain(self.zones().map(|o| (o.layer, "zone", o.uuid)))
+            .chain(
+                self.zone_cutouts()
+                    .map(|o| (o.layer, "zone_cutout", o.uuid)),
+            )
+            .chain(
+                self.keepouts()
+                    .filter_map(|o| Some((o.layer?, "keepout", o.uuid))),
+            )
+            .chain(self.texts().map(|o| (o.layer, "text", o.uuid)))
+            .chain(self.graphics().map(|o| (o.layer, "graphic", o.uuid)))
+            .chain(self.dimensions().map(|o| (o.layer, "dimension", o.uuid)))
+    }
+
     /// An inner copper Layer's position and optional name, such as `L2 GND`.
     pub fn inner_layer_label(&self, layer: Uuid) -> Option<String> {
         let l = self.layers().layer(layer)?;

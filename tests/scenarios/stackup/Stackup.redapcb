@@ -20,12 +20,12 @@
     {"uuid":"00000000-0000-4000-8000-000000000014","kind":"documentation"}
   ]},
   "stackups": [
-    {"uuid":"00000000-0000-4000-8000-000000000028","thickness":1600000,"entries":[
+    {"uuid":"00000000-0000-4000-8000-000000000028","construction":"Laboratory","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000026","kind":"core","name":"Core A","thickness":350000,"material":"FR408HR","dk":3700,"df":9200,"test_frequency":1000000000},
-      {"uuid":"ec2bc55f-d72b-4f7f-a773-a7b00204cd61","kind":"prepreg","material":"2116"},
+      {"uuid":"e018387e-ac76-8154-8de2-5b6bbbb4fb4c","kind":"core","name":"Core A","thickness":350000,"material":"FR408HR","dk":3700,"df":9200,"test_frequency":1000000000},
+      {"uuid":"e018387e-ad76-8154-8de2-5b6bbbb4fc87","kind":"prepreg","material":"2116"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":18000},
-      {"uuid":"00000000-0000-4000-8000-000000000027","kind":"core","name":"Core B"},
+      {"uuid":"e018387e-ae76-8154-8de2-5b6bbbb4fdc2","kind":"core","name":"Core B"},
       {"layer":"00000000-0000-4000-8000-00000000000c","thickness":35000}
     ],"via_types":[{"uuid":"fd1e1d84-4f7e-852d-aa74-431712adf60a","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000c","hole":300000,"diameter":{"start":700000}}],"finish":"ENIG","mask_color":"green","silk_color":"white"}
   ],

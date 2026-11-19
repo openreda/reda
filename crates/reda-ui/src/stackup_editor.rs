@@ -1,5 +1,6 @@
 //! A PCB Document's Stackup tab. The tables form one scrolling pane beside its
 //! cross-section. Edits use the same PCB Commands as scripts.
+mod apply;
 mod construction;
 mod fields;
 mod layer_actions;
@@ -62,13 +63,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             types::table(ui, pcb, &mut view, &mut edits);
             ui.add_space(t.space.section);
             board(ui, project, pcb, &info, &mut view, &mut edits);
-            if let Some(name) = &pcb.stackup().construction {
-                if project.construction_matches(pcb.stackup()) {
-                    layout::text(ui, tr!("construction-started", name = name.as_str()));
-                } else {
-                    layout::text(ui, tr!("construction-modified", name = name.as_str()));
-                }
-            }
+            apply::buttons(ui, project, pcb, &mut view, &mut edits);
             if ui
                 .add(widgets::button(tr!("construction-save-action")))
                 .clicked()
@@ -84,6 +79,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         preview::show(ui, pcb, &info)
     });
     ui.allocate_rect(full, Sense::hover());
+    if view
+        .apply_construction
+        .as_mut()
+        .is_some_and(|form| form.show(ui, project, pcb, &mut edits))
+    {
+        view.apply_construction = None;
+    }
     if let Some(params) = crate::pcb::plane::Picker::show(ui, pcb, &mut view.plane_picker) {
         let _ = shell.run_reporting("pcb.zone.add_from_board_outline", params);
     }
@@ -102,7 +104,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         }
         if matches!(
             command,
-            "pcb.layer.add" | "pcb.layer.move" | "pcb.layer.remove"
+            "pcb.layer.add" | "pcb.layer.move" | "pcb.layer.remove" | apply::COMMAND
         ) && !layer_actions::prepare(shell, &mut view, command, &params)
         {
             continue;

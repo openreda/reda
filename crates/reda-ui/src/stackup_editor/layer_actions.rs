@@ -94,16 +94,27 @@ fn impact(shell: &mut Shell, command: &str, params: &Value) -> Option<Vec<String
     line("vias_stretched", |n| tr!("layer-vias-stretched", count = n));
     line("vias_shortened", |n| tr!("layer-vias-shortened", count = n));
     line("vias_deleted", |n| tr!("layer-vias-deleted", count = n));
-    if command == "pcb.layer.add" {
-        line("via_types_changed", |n| {
-            tr!("layer-types-stretched", count = n)
-        });
-    } else if command == "pcb.layer.remove" {
-        line("via_types_changed", |n| {
-            tr!("layer-types-shortened", count = n)
-        });
+    if matches!(
+        command,
+        "pcb.layer.add" | "pcb.layer.remove" | super::apply::COMMAND
+    ) {
+        let removed = command == "pcb.layer.remove"
+            || params["remove"]
+                .as_array()
+                .is_some_and(|ids| !ids.is_empty());
+        let describe: fn(i64) -> String = if params["via_types"].as_bool() == Some(true) {
+            |n| tr!("construction-types-changed", count = n)
+        } else if removed {
+            |n| tr!("layer-types-shortened", count = n)
+        } else {
+            |n| tr!("layer-types-stretched", count = n)
+        };
+        line("via_types_changed", describe);
         line("via_types_removed", |n| {
             tr!("layer-types-removed", count = n)
+        });
+        line("vias_without_type", |n| {
+            tr!("construction-vias-unmatched", count = n)
         });
         line("rules_changed", |n| tr!("layer-rules-changed", count = n));
         line("rules_removed", |n| tr!("layer-rules-removed", count = n));
@@ -183,7 +194,15 @@ pub fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut Shell) {
 }
 
 pub fn settle(view: &mut View, command: &str, out: &Value) {
-    if command == "pcb.layer.remove" {
+    if command == super::apply::COMMAND {
+        view.selected = view.selected.filter(|id| {
+            ["layers", "dielectrics", "via_types"].iter().any(|key| {
+                out["result"][key]
+                    .as_array()
+                    .is_some_and(|ids| ids.contains(&json!(id)))
+            })
+        });
+    } else if command == "pcb.layer.remove" {
         view.selected = None;
     } else if let Some(id) = out["result"]["uuid"].as_str().and_then(|s| s.parse().ok()) {
         view.selected = Some(id);
