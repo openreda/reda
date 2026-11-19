@@ -95,7 +95,7 @@
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000003e"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000003d"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000041","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"footprint":"00000000-0000-4000-8000-00000000003f","at":{"x":17000000,"y":6000000},"rotation":0,"side":"bottom","designator":"R2","fields":{"value":"0R","description":"Resistor","keywords":"R resistor","custom":[{"name":"LCSC","value":"C25804"}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000041","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"footprint":"00000000-0000-4000-8000-00000000003f","at":{"x":17000000,"y":6000000},"rotation":0,"side":"bottom","designator":"R2","fields":{"value":"10k","description":"Resistor","keywords":"R resistor","custom":[{"name":"LCSC","value":"C25804"}]},"component_type":"standard","in_bom":true,"in_cpl":true,"pads":[
       {"pad":"0c71e033-af95-4f12-87ae-8d0c35399464","net":"00000000-0000-4000-8000-00000000003e"},
       {"pad":"53384bba-48b7-4032-9f0b-0b1238401de3","net":"00000000-0000-4000-8000-00000000003d"}
     ]}

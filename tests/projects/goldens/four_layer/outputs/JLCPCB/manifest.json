@@ -25,9 +25,9 @@
     {"path":"fab/FourLayer-drill-report.txt","size":589,"sha256":"049e810bb8535909ef83cc94454d6ebc7c24596d9b331a1fc04bbeae30d5ad37","kind":"drill_report"},
     {"path":"fab/FourLayer-job.gbrjob","size":2846,"sha256":"3f5f4017c303ac85c2d1b718eb7a4038f73f2c7a4839cf31b95e43163154344f","kind":"gerber_job"},
     {"path":"FourLayer-JLCPCB.zip","size":8957,"sha256":"7a32d3df3c4cc4f5c7f8555aecd7b99b022100312a4dca01754a310975e38429","kind":"zip"},
-    {"path":"FourLayer-JLCPCB-BOM.csv","size":93,"sha256":"d3e9f15b0fc94acb50b75899bc77e6e0518ed85ef35db6a47e7c2c319d094d88","kind":"bom"},
+    {"path":"FourLayer-JLCPCB-BOM.csv","size":94,"sha256":"fffbae2ac095e2cc6a41f98212e7182db17bcd28f2b5cc656cc31905f1b947f2","kind":"bom"},
     {"path":"FourLayer-JLCPCB-CPL.csv","size":107,"sha256":"c5c3618bbd81b50bb1a93e86d1660980ecd0b47c76562ce5bb2543ee9a10f990","kind":"cpl"},
-    {"path":"FourLayer-JLCPCB-schematic.pdf","size":194238,"sha256":"2119153ed2c025756b3f58ba5619f3391fe45c956f14bb023c7784ead8e5d986","kind":"schematic_pdf"},
+    {"path":"FourLayer-JLCPCB-schematic.pdf","size":193823,"sha256":"96c39181e3eba240fe2c26ba32dbcaf3f03346c78bd2dddbf765e308bdfb23fc","kind":"schematic_pdf"},
     {"path":"reports/FourLayer-erc.json","size":198,"sha256":"f96bbc156cd68e0662f86b6b0304b4724d4c315f7318bd77b50b358ae27df241","kind":"erc_report"},
     {"path":"reports/FourLayer-drc.json","size":243,"sha256":"7f43837b9079e0e9c539c286f2a369ff4af019e0c32e56ebeef2a46503d77207","kind":"drc_report"},
     {"path":"reports/FourLayer-change-list.json","size":182,"sha256":"4ba374aa76c047f341164f4191909741c8b3015b2a829056760d64626cc2b47f","kind":"change_list_report"}

@@ -73,7 +73,7 @@
   ],
   "units": [
     {"uuid":"00000000-0000-4000-8000-000000000036","component":{"uuid":"00000000-0000-4000-8000-000000000035"},"part":"00000000-0000-4000-8000-000000000034","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":50800000,"y":50800000},"rotation":0,"designator":"R1","fields":{"value":"0R","description":"Resistor","keywords":"R resistor","custom":[{"name":"LCSC","value":"C21189"}]},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true},
-    {"uuid":"00000000-0000-4000-8000-000000000038","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"part":"00000000-0000-4000-8000-000000000034","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":76200000,"y":50800000},"rotation":0,"designator":"R2","fields":{"value":"0R","description":"Resistor","keywords":"R resistor","custom":[{"name":"LCSC","value":"C25804"}]},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true}
+    {"uuid":"00000000-0000-4000-8000-000000000038","component":{"uuid":"00000000-0000-4000-8000-000000000037"},"part":"00000000-0000-4000-8000-000000000034","unit":"3cf7006e-13b7-4688-8536-4d574b5db229","at":{"x":76200000,"y":50800000},"rotation":0,"designator":"R2","fields":{"value":"10k","description":"Resistor","keywords":"R resistor","custom":[{"name":"LCSC","value":"C25804"}]},"footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","component_type":"standard","in_bom":true,"in_cpl":true}
   ],
   "wires": [
     {"uuid":"00000000-0000-4000-8000-000000000039","vertices":[{"x":50800000,"y":55880000},{"x":76200000,"y":55880000}]},

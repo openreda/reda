@@ -184,6 +184,15 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
                 .collect::<Vec<_>>()
         );
     }
+    let bom = read_csv(&fs::read_to_string(output.join("FourLayer-JLCPCB-BOM.csv")).unwrap());
+    assert_eq!(
+        bom,
+        [
+            ["Comment", "Designator", "Footprint", "LCSC Part #"],
+            ["0R", "R1", "RESC1608X55N", "C21189"],
+            ["10k", "R2", "RESC1608X55N", "C25804"]
+        ]
+    );
     let placements =
         read_csv(&fs::read_to_string(output.join("FourLayer-JLCPCB-CPL.csv")).unwrap());
     assert_eq!(
