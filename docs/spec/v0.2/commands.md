@@ -77,6 +77,7 @@ One pair of names is used everywhere a Via's size appears: `hole` and `diameter`
 | `teardrop` | `through_hole_pad`, `smd_pad`, `via`, `width_change`, each `{enabled, length, max_length, width, max_width, curved, skip_ratio}` |
 | `silk_width`, `silk_text_height` | `min` |
 
+- `aspect_ratio.max` is the maximum depth divided by hole diameter, in thousandths. For example, `8000` is 8:1 and `750` is 0.75:1. The comparison uses the exact shared dielectric thickness.
 - `length`, `width` and `skip_ratio` are whole percent. The DRC severities table gains `via_span`, `microvia_size`, `aspect_ratio`, `max_stack`, `silk_width` and `silk_text_height`.
 
 ## `.redafab`

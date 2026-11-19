@@ -514,11 +514,7 @@ pub fn violation_text(violation: &Violation) -> String {
         .iter()
         .map(|(name, value)| {
             let value = match value {
-                ViolationArg::Int(n)
-                    if reda_engine::model::LENGTH_ARGS.contains(&name.as_str()) =>
-                {
-                    FluentValue::from(mm(*n))
-                }
+                ViolationArg::Int(n) if violation.arg_is_length(name) => FluentValue::from(mm(*n)),
                 ViolationArg::Int(n) => FluentValue::from(*n),
                 ViolationArg::Text(s) => FluentValue::from(s.as_str()),
             };
@@ -569,6 +565,11 @@ fn key_kind(key: LineKey) -> Option<CheckKind> {
 pub fn measurement(m: &Measurement) -> String {
     match m {
         Measurement::Length(n) => mm(n.0),
+        Measurement::RatioMillionths(n) => format!(
+            "{}:1",
+            reda_engine::model::geom::exact_decimal(*n, 1_000_000)
+        ),
+        Measurement::Count(n) => n.to_string(),
         Measurement::Area(a) => {
             let text = mm(*a / 1_000_000);
             format!("{}mm²", text.trim_end_matches("mm"))

@@ -12,7 +12,7 @@ use reda_testkit::read_tree;
 
 /// Each reference Project under `tests/projects/`, by the folder it shares with the
 /// scenario script that builds it.
-const REFERENCE_PROJECTS: &[&str] = &["minimal_board", "blinky_555", "usb_c_mcu"];
+const REFERENCE_PROJECTS: &[&str] = &["minimal_board", "blinky_555", "usb_c_mcu", "six_layer_hdi"];
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -88,6 +88,113 @@ fn via_types_reopen_with_their_drilling_direction_and_independent_sizes() {
             (2, 3, Some("Micro 2:3".into()), 120_000, 320_000, None, None),
             (1, 6, Some("Through".into()), 300_000, 700_000, None, None),
             (4, 5, None, 300_000, 700_000, Some(800_000), Some(900_000)),
+            (
+                1,
+                4,
+                Some("Inner laser".into()),
+                200_000,
+                500_000,
+                None,
+                None
+            ),
+        ]
+    );
+}
+
+#[test]
+fn via_types_reopen_with_the_broken_spans_sizes_and_stack_in_the_drc_report() {
+    use reda_testkit::{TempDir, assert_golden, test_engine};
+    use serde_json::json;
+
+    let scenarios = repo().join("tests/scenarios");
+    let work = TempDir::new("via-types-report");
+    for (name, bytes) in read_tree(&scenarios.join("via_types")) {
+        std::fs::write(work.path().join(name), bytes).unwrap();
+    }
+    let mut engine = test_engine();
+    engine.run_ok(
+        "project.open",
+        json!({"path":work.path().join("ViaTypes.reda")}),
+    );
+    let checks = ["via_span", "microvia_size", "aspect_ratio", "max_stack"];
+    let mut report = engine.run_ok("drc.run", json!({"checks":checks}));
+    let violations = report["violations"].as_array().unwrap();
+    for check in checks {
+        assert!(
+            violations.iter().any(|v| v["check"] == check),
+            "missing {check}"
+        );
+    }
+    for reason in ["no_type", "micro_too_long", "not_allowed"] {
+        assert!(
+            violations.iter().any(|v| v["args"]["reason"] == reason),
+            "missing {reason}"
+        );
+    }
+    report.as_object_mut().unwrap().remove("design");
+    let text = serde_json::to_string_pretty(&report).unwrap() + "\n";
+    assert_golden(
+        scenarios.join("goldens/via_types/drc.json"),
+        text.as_bytes(),
+    );
+}
+
+#[test]
+fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements() {
+    let dir = repo().join("tests/scenarios/inner_layers");
+    let mut engine = reda_testkit::test_engine_with_library(&reda_testkit::starter_library());
+    engine.run_ok(
+        "project.open",
+        serde_json::json!({"path":dir.join("InnerLayers.reda")}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let plane = pcb.copper_layers().nth(1).unwrap();
+    assert_eq!(plane.role, reda_engine::model::CopperRole::Plane);
+    assert!(
+        pcb.zones()
+            .any(|z| z.layer == plane.uuid && z.follows_outline && z.vertices.is_empty())
+    );
+    let via = pcb.vias().next().unwrap();
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let pad = pcb.free_pads().next().unwrap();
+    for (item, at) in [
+        (reda_engine::pcb::Item::Via { uuid: via.uuid }, via.at),
+        (reda_engine::pcb::Item::FreePad { uuid: pad.uuid }, pad.at),
+    ] {
+        assert!(!copper.items_at(plane.uuid, at).contains(&item));
+        assert!(
+            copper
+                .items_at(pcb.copper_layers().next().unwrap().uuid, at)
+                .contains(&item)
+        );
+    }
+    let relief = via.zone_connection.unwrap();
+    assert_eq!(
+        relief.style,
+        Some(reda_engine::model::ConnectionStyle::Relief)
+    );
+    assert_eq!(relief.spokes, Some(2));
+    let plane = plane.uuid;
+    let report = engine.run_ok("drc.run", serde_json::json!({"checks":["clearance"]}));
+    let mut holes: Vec<_> = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| {
+            Some((
+                v["args"]["part"].as_str()?,
+                v["layers"].clone(),
+                v["measured"]["length"].as_i64()?,
+                v["required"]["length"].as_i64()?,
+            ))
+        })
+        .collect();
+    holes.sort_by_key(|r| r.0);
+    assert_eq!(
+        holes,
+        [
+            ("hole.pad", serde_json::json!([plane]), 650000, 1100000),
+            ("hole.via", serde_json::json!([plane]), 650000, 1200000)
         ]
     );
 }

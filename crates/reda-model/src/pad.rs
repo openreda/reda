@@ -25,6 +25,9 @@ pub struct Pad {
     /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<PadCopperShape>,
+    /// Whether unused inner lands of a plated through-hole Pad are removed.
+    #[serde(default, skip_serializing_if = "crate::UnusedLayers::is_keep")]
+    pub unused_layers: crate::UnusedLayers,
     /// The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks
     /// connect there and the Pad turns about it.
     pub at: Point,
@@ -75,6 +78,7 @@ impl Pad {
     pub fn stored_problem(&self) -> Option<(String, String)> {
         self.form()
             .stack_kind_problem(self.middle, self.bottom)
+            .or_else(|| self.unused_layers.pad_problem(self.kind))
             .or_else(|| {
                 crate::opening_problem(
                     self.kind,
@@ -186,6 +190,17 @@ impl Hole {
     /// The drill diameter: the shorter side.
     pub fn diameter(&self) -> Nm {
         self.width.min(self.height)
+    }
+
+    /// The slot's axis-aligned extents: its rotated centre line plus the cutter diameter.
+    fn rotated_size(&self) -> (Nm, Nm) {
+        let diameter = self.diameter();
+        let (x, y) = reda_geom::rotate(
+            (self.width - diameter).0,
+            (self.height - diameter).0,
+            self.rotation,
+        );
+        (Nm(x.abs()) + diameter, Nm(y.abs()) + diameter)
     }
 
     /// The ends of a slot's centre line in the Pad's frame, about the anchor; both at the
@@ -398,7 +413,9 @@ impl JsonSchema for Corners {
 
 /// How a Zone fill joins a Pad of its own Net. Each value left out inherits from the
 /// `zone_connection` rule.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -440,7 +457,9 @@ impl ZoneConnection {
 }
 
 /// How a fill meets a Pad or Via.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionStyle {
     /// Through spokes across a clear ring, so the Pad solders easily.
@@ -669,7 +688,7 @@ impl PadForm {
                 {
                     return at("/hole/tolerance", "a tolerance cannot be negative");
                 }
-                let (hw, hh) = turned_size(hole.width, hole.height, hole.rotation);
+                let (hw, hh) = hole.rotated_size();
                 if hw > self.width || hh > self.height {
                     return at("/hole", "the hole is larger than the Pad");
                 }
@@ -691,15 +710,6 @@ impl PadForm {
         }
         None
     }
-}
-
-/// The box a `width` × `height` rectangle turned by `rotation` fills, to the nanometre.
-fn turned_size(width: Nm, height: Nm, rotation: Millideg) -> (Nm, Nm) {
-    let (hw, hh) = (width.0 / 2, height.0 / 2);
-    let corners = [(hw, hh), (hw, -hh)].map(|(x, y)| reda_geom::rotate(x, y, rotation));
-    let x = corners.iter().map(|c| c.0.abs()).max().unwrap_or(0);
-    let y = corners.iter().map(|c| c.1.abs()).max().unwrap_or(0);
-    (Nm(2 * x), Nm(2 * y))
 }
 
 #[cfg(test)]

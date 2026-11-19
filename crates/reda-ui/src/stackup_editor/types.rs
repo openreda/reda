@@ -191,6 +191,9 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                     json!({"via_type":kind.uuid,"before":stack.via_types.get(i+2).map(|v|v.uuid)}),
                 ));
             }
+            if let Some(mode) = crate::pcb::unused_layers::via_default(ui, kind.unused_layers) {
+                edits.set(Field::Via(kind.uuid, "unused_layers"), json!(mode));
+            }
             let mut micro = kind.micro;
             if ui
                 .add_enabled(

@@ -35,9 +35,9 @@ pub use footprint::{
 };
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
-    Bounds, ConnectionTarget, ConnectionValue, DesignRule, LayerGroup, PortableClass, PortableRule,
-    RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
-    TeardropTarget, ViaRuleValues,
+    AspectRatioLimit, Bounds, ConnectionTarget, ConnectionValue, DesignRule, HoleRuleValues,
+    LayerGroup, PortableClass, PortableRule, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet,
+    RuleValue, RuleValues, SilkMaskMode, TeardropTarget, ViaRuleValues,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
@@ -162,7 +162,7 @@ crate::check::severities! {
     track_width => TrackWidth = Error,
     /// A Via diameter or hole outside the `via_size` range.
     via_size => ViaSize = Error,
-    /// A Via span with no matching type, or one outside the Net Class’s allowed list.
+    /// An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.
     via_span => ViaSpan = Error,
     /// A micro Via diameter or hole outside the configured size limits.
     microvia_size => MicroviaSize = Error,
@@ -645,6 +645,25 @@ impl PcbDocument {
     /// Layer that is not copper.
     pub fn copper_number(&self, layer: Uuid) -> Option<usize> {
         self.layers().copper_number(layer)
+    }
+
+    /// Geometry owned by one Layer and deleted with it, as (Layer, kind, object).
+    /// Spanning Vias have separate shortening and deletion rules.
+    pub fn layer_objects(&self) -> impl Iterator<Item = (Uuid, &'static str, Uuid)> {
+        self.tracks()
+            .map(|o| (o.layer, "track", o.uuid))
+            .chain(self.zones().map(|o| (o.layer, "zone", o.uuid)))
+            .chain(
+                self.zone_cutouts()
+                    .map(|o| (o.layer, "zone_cutout", o.uuid)),
+            )
+            .chain(
+                self.keepouts()
+                    .filter_map(|o| Some((o.layer?, "keepout", o.uuid))),
+            )
+            .chain(self.texts().map(|o| (o.layer, "text", o.uuid)))
+            .chain(self.graphics().map(|o| (o.layer, "graphic", o.uuid)))
+            .chain(self.dimensions().map(|o| (o.layer, "dimension", o.uuid)))
     }
 
     /// An inner copper Layer's position and optional name, such as `L2 GND`.

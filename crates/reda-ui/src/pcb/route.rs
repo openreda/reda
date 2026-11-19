@@ -46,8 +46,8 @@ struct Route {
     steps: Vec<Step>,
     /// The leg being routed; its last point is where the path ahead starts.
     leg: Leg,
-    /// Objects whose copper is under the route's start, left out of the clearance check
-    /// while the route has no Net.
+    /// Connectable copper under the start, left out of the clearance check while
+    /// the route has no Net.
     start_objects: Vec<Uuid>,
     /// Objects the preview depends on, for [`ToolPreview`].
     objects: Vec<Uuid>,
@@ -683,7 +683,7 @@ impl Router {
     /// The board's copper index, kept in the Project between edits.
     fn copper(&self, shell: &Shell) -> Option<std::sync::Arc<Copper>> {
         let (project, _) = board(shell)?;
-        Copper::of(project)
+        Copper::of_with_fonts(project, shell.engine().fonts())
     }
 
     /// Checks the path ahead to `at` (or, with the Via Tool, a Via at `at`).
@@ -860,7 +860,11 @@ impl Router {
         };
         let items = copper.items_at(layer, at);
         let net = copper.net_at(layer, at);
-        let start_objects: Vec<Uuid> = items.iter().map(|i| i.object()).collect();
+        let start_objects = items
+            .iter()
+            .filter(|i| !i.is_artwork())
+            .map(|i| i.object())
+            .collect();
         let prefs = &shell.preferences().pcb.route;
         let width = route::width::start_width(
             pcb,
@@ -885,7 +889,7 @@ impl Router {
                 width,
                 points: vec![at],
             },
-            objects: start_objects.clone(),
+            objects: items.iter().map(|i| i.object()).collect(),
             start_objects,
         });
         shell.begin_tool(ToolPreview::new(title(), self.objects()));

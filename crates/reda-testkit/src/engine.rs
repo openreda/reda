@@ -3,9 +3,10 @@
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
+use crate::TempDir;
 use reda_engine::Engine;
 use reda_engine::command::{CommandError, FixedClock, SeededIds, Trash, UserDirs};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// A headless [`Engine`] with `SeededIds::new(0)` and `FixedClock::EPOCH`, so UUIDs run
 /// `00000000-0000-4000-8000-000000000001`, `…002`, … and saved files are reproducible.
@@ -138,4 +139,32 @@ impl DerefMut for TestEngine {
     fn deref_mut(&mut self) -> &mut Engine {
         &mut self.0
     }
+}
+
+/// Opens an isolated copy of a reference Project using the fixed manufacturing Clock and version.
+pub fn open_reference_copy(source: &Path, file: &str) -> (TempDir, TestEngine) {
+    let dir = source.file_name().unwrap().to_string_lossy();
+    let work = TempDir::new(&format!("reference-{dir}"));
+    for (rel, bytes) in crate::read_tree(source) {
+        let path = work.path().join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+    // The Projects were made on seed 0; another seed keeps new objects' UUIDs clear of
+    // theirs.
+    let mut engine = TestEngine(
+        Engine::builder()
+            .version(crate::TEST_VERSION)
+            .ids(SeededIds::new(1 << 32))
+            .clock(FixedClock::EPOCH)
+            .user_dirs(None)
+            .starter_library(Some(starter_library()))
+            .build(),
+    );
+    let opened = engine.run_ok("project.open", json!({"path": work.path().join(file)}));
+    assert!(
+        opened.get("missing").is_none(),
+        "{dir}: Documents are missing: {opened}"
+    );
+    (work, engine)
 }

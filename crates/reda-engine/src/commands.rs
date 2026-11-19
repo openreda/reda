@@ -31,6 +31,7 @@ pub mod silkscreen;
 pub mod similar;
 pub mod symbol_wizard;
 pub mod sync;
+pub mod unused_layers;
 pub mod waiver_reason;
 pub mod where_used;
 pub mod write_through;
@@ -57,6 +58,7 @@ pub fn register_all(registry: &mut Registry) {
     library_check::register_all(registry);
     local_edits::register_all(registry);
     free_pad_edit::register_all(registry);
+    registry.add(unused_layers::Set);
     silkscreen::register_all(registry);
     net_info::register_all(registry);
     output_run::register_all(registry);

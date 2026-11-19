@@ -271,6 +271,15 @@ fn representative_footprints_match_their_goldens_and_pass_the_library_check() {
         assert_golden(golden(name), renumber_uuids(&bytes).as_bytes());
 
         let file: Value = serde_json::from_slice(&bytes).unwrap();
+        for pad in file["pads"].as_array().unwrap() {
+            for field in ["middle", "bottom", "unused_layers"] {
+                assert!(
+                    pad.get(field).is_none(),
+                    "{name} sets {field} on Pad {}",
+                    pad["number"]
+                );
+            }
+        }
         let layers: Vec<&str> = file["graphics"]
             .as_array()
             .unwrap()

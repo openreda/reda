@@ -1025,3 +1025,93 @@ fn thermal_width_and_gap_map_to_the_pads_zone_connection_in_both_spellings() {
         "a B.Cu SMD Pad is on the bottom"
     );
 }
+
+#[test]
+fn plated_pad_stacks_keep_front_inner_back_and_reduce_custom_layers_in_physical_order() {
+    use reda_model::UnusedLayers;
+    let out = import_pair("divider.kicad_sym", "stacked_pads.kicad_mod");
+    let [first, second] = out.footprint.pads.as_slice() else {
+        panic!("two pads")
+    };
+    let middle = first.middle.expect("the Inner land");
+    assert_eq!(
+        (first.shape, first.width, first.height),
+        (PadShape::Rect, mm("2"), mm("1.6"))
+    );
+    assert_eq!(
+        (middle.shape, middle.width, middle.height),
+        (PadShape::Oval, mm("1.2"), mm("0.9"))
+    );
+    let bottom = first.bottom.expect("the B.Cu land");
+    assert_eq!(
+        (bottom.shape, bottom.width, bottom.height),
+        (PadShape::ChamferedRect, mm("1.4"), mm("1"))
+    );
+    assert_eq!(
+        (bottom.corner_ratio, bottom.chamfer_ratio),
+        (Some(Ratio::percent(20)), Some(Ratio::percent(40)))
+    );
+    assert_eq!(bottom.corners, Some(Corners::NONE.with(Corner::TopLeft)));
+    assert_eq!(first.unused_layers, UnusedLayers::Remove);
+    assert_eq!(second.unused_layers, UnusedLayers::Keep);
+    let middle = second.middle.expect("first physical inner land is In2.Cu");
+    assert_eq!((middle.shape, middle.width), (PadShape::Oval, mm("1.1")));
+    assert_eq!(second.bottom.unwrap().width, mm("1.7"));
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    let warning = &out.warnings[0];
+    assert!(
+        warning.contains("custom") && warning.contains("In2.Cu") && warning.contains("2"),
+        "{warning}"
+    );
+}
+
+#[test]
+fn an_explicit_front_land_supplies_inherited_groups_and_the_shared_offset() {
+    let footprint = r#"(footprint "Single"
+      (pad "1" thru_hole rect (at 0 0) (size 2 2) (drill 0.6) (layers "*.Cu" "*.Mask")
+        (padstack (mode custom)
+          (layer "F.Cu" (shape oval) (size 1.8 1.3) (offset 0.1 0.2))
+          (layer "B.Cu" (shape rect) (size 1.4 1.2) (offset 0.3 0)))))"#;
+    let imported = import(
+        &fixture("divider.kicad_sym"),
+        footprint,
+        &ImportOptions::default(),
+        &mut ids(),
+    )
+    .unwrap();
+    let pad = &imported.footprint.pads[0];
+    assert_eq!(
+        (pad.shape, pad.width, pad.height),
+        (PadShape::Oval, mm("1.8"), mm("1.3"))
+    );
+    assert_eq!(pad.middle, None);
+    assert_eq!(pad.offset, Some(pt("0.1", "-0.2")));
+    assert!(
+        imported
+            .warnings
+            .iter()
+            .any(|w| w.contains("offset") && w.contains("B.Cu"))
+    );
+}
+
+#[test]
+fn kicad_unused_layer_flags_keep_their_boolean_value() {
+    use reda_model::UnusedLayers::{Keep, Remove};
+    let symbol = fixture("divider.kicad_sym");
+    for (flag, expected) in [
+        ("", Keep),
+        ("remove_unused_layers", Remove),
+        ("(remove_unused_layers)", Remove),
+        ("(remove_unused_layers yes)", Remove),
+        ("(remove_unused_layers true)", Remove),
+        ("(remove_unused_layers no)", Keep),
+        ("(remove_unused_layers false)", Keep),
+    ] {
+        let source = format!(
+            r#"(footprint "Header" (pad "1" thru_hole circle
+                (at 0 0) (size 1 1) (drill 0.5) (layers "*.Cu" "*.Mask") {flag}))"#
+        );
+        let imported = import(&symbol, &source, &ImportOptions::default(), &mut ids()).unwrap();
+        assert_eq!(imported.footprint.pads[0].unused_layers, expected, "{flag}");
+    }
+}

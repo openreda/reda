@@ -321,3 +321,181 @@ fn clearance_halos_grow_other_net_copper_near_the_cursor() {
     let items: Vec<Uuid> = close.iter().map(|h| h.item.object()).collect();
     assert_eq!(items, [near], "only copper within 5 mm");
 }
+
+#[test]
+fn only_the_etched_part_of_a_free_drawing_is_netless_copper() {
+    use reda_model::geom::{Nm, Point};
+
+    let dir = TempDir::new("index-free-drawing");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path": dir.path(), "name":"Drawing","layers":4}),
+    );
+    let inner = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    let mut f = Follower::new(&engine);
+    let rect = f.edit(
+        &mut engine,
+        "pcb.graphic.add_rect",
+        json!({
+            "layer":inner,"from":{"x":"2mm","y":"2mm"},"to":{"x":"6mm","y":"5mm"},"width":"0.2mm"
+        }),
+    );
+    let rect = uuid(&rect["result"]["uuid"]);
+    let p = |x, y| Point::new(Nm::from_mm(x), Nm::from_mm(y));
+    let edge = f.copper.items_at(inner, p(4, 5));
+    assert_eq!(edge.iter().map(Item::object).collect::<Vec<_>>(), [rect]);
+    assert_eq!(f.copper.net(edge[0]), None);
+    assert!(f.copper.items_at(inner, p(4, 3)).is_empty());
+
+    f.edit(&mut engine, "pcb.graphic.delete", json!({"uuid":rect}));
+    assert!(f.copper.items_at(inner, p(4, 5)).is_empty());
+    f.undo(&mut engine);
+
+    // An outline O has a hole which is free of copper. A single stroke spans the other glyph.
+    for (font, text, x) in [("Noto Sans", "O", 10), ("Hershey Roman Simplex", "I", 20)] {
+        let out = f.edit(
+            &mut engine,
+            "pcb.text.add",
+            json!({
+                "layer":inner,"font":font,"text":text,"height":"10mm","x":Nm::from_mm(x),"y":0
+            }),
+        );
+        let id = uuid(&out["result"]["uuid"]);
+        let midline: Vec<_> = (0..120)
+            .map(|i| {
+                f.copper
+                    .items_at(
+                        inner,
+                        Point::new(Nm(x * 1_000_000 + i * 100_000), Nm::from_mm(5)),
+                    )
+                    .iter()
+                    .any(|i| i.object() == id)
+            })
+            .collect();
+        let strokes = midline.windows(2).filter(|w| !w[0] && w[1]).count();
+        assert_eq!(strokes, if text == "O" { 2 } else { 1 }, "{font} {text}");
+        f.edit(
+            &mut engine,
+            "pcb.text.set",
+            json!({"uuid":id,"layer":"silkscreen_top"}),
+        );
+        assert!(f.copper.items().all(|i| i.object() != id));
+        f.undo(&mut engine);
+    }
+}
+
+#[test]
+fn unused_lands_follow_track_ends_and_zone_outlines_before_filling() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-unused-lands");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let mut f = Follower::new(&e);
+    let net = f.edit(&mut e, "test.net.add", json!({"name":"GND"}))["result"]["uuid"].clone();
+    let at = json!({"x":"5mm","y":"5mm"});
+    let via = uuid(
+        &f.edit(
+            &mut e,
+            "pcb.via.add",
+            json!({"at":at,"net":net,"unused_layers":"remove"}),
+        )["result"]["uuid"],
+    );
+    let item = Item::Via { uuid: via };
+    let on = |f: &Follower| -> Vec<Uuid> {
+        layers
+            .iter()
+            .copied()
+            .filter(|l| {
+                f.copper
+                    .items_at(*l, Point::new(Nm(5_000_000), Nm(5_000_000)))
+                    .contains(&item)
+            })
+            .collect()
+    };
+    assert!(on(&f).is_empty());
+    f.edit(
+        &mut e,
+        "pcb.track.add",
+        json!({"layer":layers[1],"net":net,"points":[{"x":"3mm","y":"5mm"},{"x":"7mm","y":"5mm"}]}),
+    );
+    assert!(on(&f).is_empty(), "passing over a hole leaves the land out");
+    f.edit(&mut e,"pcb.track.add",json!({"layer":layers[1],"net":net,"points":[{"x":"5.1mm","y":"5mm"},{"x":"6mm","y":"8mm"}]}));
+    assert_eq!(
+        on(&f),
+        [layers[1]],
+        "a Track end lands within the Via's shape"
+    );
+    f.undo(&mut e);
+    assert!(on(&f).is_empty());
+    let zone = f.edit(
+        &mut e,
+        "pcb.zone.add_from_board_outline",
+        json!({"layers":[layers[2]],"net":net}),
+    )["result"]["zones"][0]
+        .clone();
+    assert_eq!(on(&f), [layers[2]]);
+    f.edit(
+        &mut e,
+        "pcb.via.set",
+        json!({"vias":[via],"zone_connection":{"style":"none"}}),
+    );
+    assert!(on(&f).is_empty());
+    f.edit(&mut e,"pcb.via.set",json!({"vias":[via],"unused_layers":"remove_keep_ends","zone_connection":{"style":"solid"}}));
+    assert_eq!(on(&f), [layers[0], layers[2], layers[3]]);
+    f.edit(&mut e, "pcb.zone.delete", json!({"zones":[zone]}));
+    assert_eq!(on(&f), [layers[0], layers[3]]);
+}
+
+#[test]
+fn rounded_triangles_in_mirrored_rotated_letters_do_not_extend_their_copper() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-rotated-text");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Small lettering"}),
+    );
+    let id = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":"copper_bottom", "x":0, "y":0, "height":890, "rotation":"37deg",
+                "text":"O    O", "font":"Noto Sans"
+            }),
+        )["result"]["uuid"],
+    );
+    let project = engine.project().unwrap();
+    let layer = project.pcb().unwrap().text(id).unwrap().layer;
+    let copper = Copper::of(project).unwrap();
+    assert_eq!(
+        copper.items_at(layer, Point::new(Nm(-702), Nm(-386))),
+        [Item::Text { uuid: id }]
+    );
+    // Placement rounds one narrow triangle onto a line. This point on that line
+    // is over 300 nm beyond the nearest drawn copper.
+    assert!(
+        copper
+            .items_at(layer, Point::new(Nm(-1323), Nm(511)))
+            .is_empty()
+    );
+}

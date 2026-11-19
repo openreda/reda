@@ -186,6 +186,9 @@ pub struct ViaSet;
 pub struct ViaSetParams {
     /// The Vias' UUIDs; each gets every value given.
     pub vias: Vec<Uuid>,
+    /// Allow a locked Via's unused copper to be changed.
+    #[serde(default)]
+    pub include_locked: bool,
     /// The copper diameter.
     #[serde(default)]
     pub diameter: Option<DiameterParam>,
@@ -265,6 +268,19 @@ impl Command for ViaSet {
                 changed.push(via);
             }
         }
+        let changed_lands = changed
+            .iter()
+            .filter(|v| {
+                pcb.via(v.uuid)
+                    .is_some_and(|old| old.unused_layers != v.unused_layers)
+            })
+            .map(|v| v.uuid);
+        crate::lock::refuse(
+            pcb,
+            changed_lands,
+            p.include_locked,
+            "change unused copper on",
+        )?;
         changed.sort_by_key(|v| v.uuid);
         let vias = changed.iter().map(|v| v.uuid).collect();
         let tx = cx.tx()?;

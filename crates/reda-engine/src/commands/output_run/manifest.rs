@@ -141,7 +141,7 @@ fn arg(v: &Violation, name: &str) -> String {
 /// A length argument in nm, as `0.100 mm`.
 fn mm(v: &Violation, name: &str) -> String {
     match v.args.get(name) {
-        Some(ViolationArg::Int(nm)) => {
+        Some(ViolationArg::Int(nm)) if v.arg_is_length(name) || v.measured.is_none() => {
             let um = (nm.abs() + 500) / 1000;
             let sign = if *nm < 0 { "-" } else { "" };
             format!("{sign}{}.{:03} mm", um / 1000, um % 1000)

@@ -8,8 +8,8 @@
     {"uuid":"00000000-0000-4000-8000-000000000008","kind":"paste","side":"top"},
     {"uuid":"00000000-0000-4000-8000-000000000009","kind":"solder_mask","side":"top"},
     {"uuid":"00000000-0000-4000-8000-00000000000a","kind":"copper","side":"top"},
-    {"uuid":"5b0909e3-89ce-4a9c-baa2-53926fd1be7d","kind":"copper","name":"Return","role":"plane"},
-    {"uuid":"00000000-0000-4000-8000-00000000000c","kind":"copper"},
+    {"uuid":"e0183879-c076-8154-8de2-5b6bbbb1f41a","kind":"copper"},
+    {"uuid":"e0183879-c176-8154-8de2-5b6bbbb1f555","kind":"copper"},
     {"uuid":"00000000-0000-4000-8000-00000000000d","kind":"copper","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-00000000000e","kind":"solder_mask","side":"bottom"},
     {"uuid":"00000000-0000-4000-8000-00000000000f","kind":"paste","side":"bottom"},
@@ -23,17 +23,17 @@
   "stackups": [
     {"uuid":"00000000-0000-4000-8000-00000000002a","construction":"4 Layer","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000027","kind":"core","thickness":486667},
-      {"layer":"5b0909e3-89ce-4a9c-baa2-53926fd1be7d","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000028","kind":"core","thickness":486666},
-      {"layer":"00000000-0000-4000-8000-00000000000c","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000029","kind":"core","thickness":486667},
+      {"uuid":"e0183877-2a76-8154-8de2-5b6bbbb04921","kind":"core","thickness":486667},
+      {"layer":"e0183879-c076-8154-8de2-5b6bbbb1f41a","thickness":35000},
+      {"uuid":"e0183877-2976-8154-8de2-5b6bbbb047e6","kind":"core","thickness":486666},
+      {"layer":"e0183879-c176-8154-8de2-5b6bbbb1f555","thickness":35000},
+      {"uuid":"e0183877-2876-8154-8de2-5b6bbbb046ab","kind":"core","thickness":486667},
       {"layer":"00000000-0000-4000-8000-00000000000d","thickness":35000}
     ],"via_types":[{"uuid":"fc413936-fb7e-8522-a9ae-2c0ab920a304","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d","hole":300000,"diameter":{"start":700000}}]}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000016"},
   "rules": [
-    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"clearance","scope":{},"values":{"value":160000}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"clearance","scope":{},"values":{"value":160000,"hole":{"via":250000,"pad":250000}}},
     {"uuid":"00000000-0000-4000-8000-000000000018","kind":"track_width","scope":{},"values":{"min":200000,"preferred":250000}},
     {"uuid":"00000000-0000-4000-8000-000000000019","kind":"via_size","scope":{},"values":{"diameter":{"min":700000},"hole":{"min":300000}}},
     {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_size","scope":{},"values":{"min":500000,"max":6300000}},

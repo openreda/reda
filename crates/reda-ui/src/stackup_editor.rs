@@ -1,5 +1,6 @@
 //! A PCB Document's Stackup tab. The tables form one scrolling pane beside its
 //! cross-section. Edits use the same PCB Commands as scripts.
+mod apply;
 mod construction;
 mod fields;
 mod layer_actions;
@@ -20,7 +21,7 @@ use reda_engine::model::{
 };
 use serde_json::json;
 
-const TABLE_WIDTH: f32 = 420.0;
+const TABLE_WIDTH: f32 = 468.0;
 const POSITION: f32 = 32.0;
 const KIND: f32 = 96.0;
 const THICKNESS: f32 = 87.0;
@@ -48,17 +49,21 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             ui.set_width(table_width);
             strong(ui, tr!("panel-layers"));
             layers(ui, pcb, &info, &mut view, &mut edits);
+            if let Some(layer) = view.plane_offer
+                && pcb
+                    .layers()
+                    .layer(layer)
+                    .is_some_and(|l| l.role == CopperRole::Plane)
+                && !pcb.zones().any(|z| z.layer == layer)
+                && ui.add(widgets::button(tr!("plane-fill-layer"))).clicked()
+            {
+                view.plane_picker = Some(crate::pcb::plane::Picker::new(layer));
+            }
             ui.add_space(t.space.section);
             types::table(ui, pcb, &mut view, &mut edits);
             ui.add_space(t.space.section);
             board(ui, project, pcb, &info, &mut view, &mut edits);
-            if let Some(name) = &pcb.stackup().construction {
-                if project.construction_matches(pcb.stackup()) {
-                    layout::text(ui, tr!("construction-started", name = name.as_str()));
-                } else {
-                    layout::text(ui, tr!("construction-modified", name = name.as_str()));
-                }
-            }
+            apply::buttons(ui, project, pcb, &mut view, &mut edits);
             if ui
                 .add(widgets::button(tr!("construction-save-action")))
                 .clicked()
@@ -74,6 +79,16 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         preview::show(ui, pcb, &info, &mut view, &mut edits)
     });
     ui.allocate_rect(full, Sense::hover());
+    if view
+        .apply_construction
+        .as_mut()
+        .is_some_and(|form| form.show(ui, project, pcb, &mut edits))
+    {
+        view.apply_construction = None;
+    }
+    if let Some(params) = crate::pcb::plane::Picker::show(ui, pcb, &mut view.plane_picker) {
+        let _ = shell.run_reporting("pcb.zone.add_from_board_outline", params);
+    }
     for (field, command, mut params) in edits.commands {
         if let Some(Field::Via(id, "diameter")) = field
             && let Some(kind) = shell
@@ -89,7 +104,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         }
         if matches!(
             command,
-            "pcb.layer.add" | "pcb.layer.move" | "pcb.layer.remove"
+            "pcb.layer.add" | "pcb.layer.move" | "pcb.layer.remove" | apply::COMMAND
         ) && !layer_actions::prepare(shell, &mut view, command, &params)
         {
             continue;
@@ -116,7 +131,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             }
         }
         if let Some(field) = field {
+            let plane = params["role"] == "plane";
             let result = shell.run(command, params);
+            if let Field::Layer(layer, "role") = field
+                && result.is_ok()
+            {
+                view.plane_offer = plane.then_some(layer);
+            }
             view.settled(field, result.err().map(|e| e.message));
         } else if let Ok(out) = shell.run_reporting(command, params) {
             layer_actions::settle(&mut view, command, &out);
@@ -172,6 +193,7 @@ fn entry_name(pcb: &PcbDocument, index: usize) -> String {
 fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, edits: &mut Edits) {
     let t = ui.tokens();
     let stack = pcb.stackup();
+    let impedances = reda_engine::pcb::impedance::layers(pcb, info);
     let mut selected = view.selected;
     widgets::table("layers")
         .columns([
@@ -179,6 +201,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
             Column::fill(),
             Column::fixed(t.size.of(KIND)),
             Column::fixed(t.size.of(THICKNESS)),
+            Column::fixed(t.size.of(56.0)),
         ])
         .show(ui, |table| {
             table.header(|h| {
@@ -187,6 +210,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                 h.text(tr!("board-setup-stackup-kind"));
                 h.text(tr!("stackup-thickness-mm"))
                     .tooltip(tr!("board-setup-stackup-units"));
+                h.text("Z0");
             });
             for (i, entry) in stack.entries.iter().enumerate() {
                 let name = entry_name(pcb, i);
@@ -250,6 +274,29 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                                 )
                                 .gained_focus();
                         });
+                        if let Some(estimate) = impedances
+                            .iter()
+                            .find(|r| r.layer == uuid)
+                            .and_then(|r| r.estimate.as_ref())
+                        {
+                            let prefix = if estimate.approximate { "≈" } else { "" };
+                            let response = row.text(format!("{prefix}{:.1} Ω", estimate.ohms));
+                            if estimate.approximate {
+                                use reda_engine::pcb::impedance::Model;
+                                let mut why = Vec::new();
+                                match estimate.model {
+                                    Model::EmbeddedMicrostrip => {
+                                        why.push(tr!("stackup-z0-embedded"))
+                                    }
+                                    Model::OffsetStripline => why.push(tr!("stackup-z0-offset")),
+                                    _ => {}
+                                }
+                                if estimate.missing_dk {
+                                    why.push(tr!("stackup-z0-missing-dk"));
+                                }
+                                response.tooltip(why.join("\n"));
+                            }
+                        }
                     }
                     StackupEntry::Dielectric(d) => {
                         row.ui(|ui| ui.add(widgets::swatch(preview::color(entry))));
@@ -301,11 +348,37 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                     }
                 });
                 row.widget_info(|| WidgetInfo::labeled(Role::Row, true, &name));
+                if let StackupEntry::Copper(c) = entry
+                    && let Some(picker) = crate::pcb::plane::Picker::menu(&row, c.layer)
+                {
+                    view.plane_picker = Some(picker);
+                }
                 if row.clicked() || interacted {
                     selected = Some(uuid);
                 }
             }
         });
+    let mut widths = std::collections::BTreeMap::<Nm, Vec<String>>::new();
+    for (i, reading) in impedances.iter().enumerate() {
+        widths
+            .entry(reading.width)
+            .or_default()
+            .push(format!("L{}", i + 1));
+    }
+    let several = widths.len() > 1;
+    let widths = widths
+        .into_iter()
+        .map(|(width, layers)| {
+            let mm = width.mm_exact();
+            if several {
+                format!("{} {mm} mm", layers.join(", "))
+            } else {
+                format!("{mm} mm")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    ui.label(tr!("stackup-z0-width", widths = widths.as_str()));
     layer_actions::buttons(ui, pcb, selected, edits);
     let sheet = stack
         .entries

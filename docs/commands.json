@@ -229,7 +229,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -1486,7 +1486,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -1749,7 +1749,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -2051,6 +2051,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -2316,7 +2345,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -2634,7 +2663,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -3168,6 +3197,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -4026,6 +4084,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Available": {
             "description": "A preset that can be picked, with where it comes from.",
             "properties": {
@@ -4671,6 +4744,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -4683,6 +4766,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -4710,6 +4803,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "FileNameOverrides": {
@@ -4948,6 +5064,53 @@
               "tent_vias_top",
               "tent_vias_bottom"
             ],
+            "type": "object"
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "MountValues": {
@@ -5892,6 +6055,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -7469,6 +7661,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -8440,6 +8661,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -8917,6 +9167,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -9421,6 +9700,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -10380,6 +10688,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -11353,6 +11690,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -12302,6 +12668,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -13265,6 +13660,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -14128,6 +14552,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -15086,6 +15539,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -16040,6 +16522,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -17408,6 +17919,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -17618,6 +18137,16 @@
               }
             ],
             "description": "An SMD Pad's side in the Footprint's frame; top when left out."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "$ref": "#/$defs/Length"
@@ -18073,6 +18602,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -18321,6 +18858,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -19505,6 +20052,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -22513,6 +23089,21 @@
               }
             ]
           },
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -23599,7 +24190,7 @@
               "via_span": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -23860,6 +24451,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -23872,6 +24473,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -23899,6 +24510,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Field": {
@@ -24419,6 +25053,53 @@
               "via",
               "pad"
             ],
+            "type": "object"
+          },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "HoleTolerance": {
@@ -25828,6 +26509,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -26495,6 +27180,53 @@
                 "$ref": "#/$defs/Tenting"
               }
             ]
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Mode": {
             "description": "What Re-annotate renumbers.",
@@ -27759,6 +28491,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -29041,6 +29777,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -29077,13 +29823,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -29103,6 +29849,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -30797,6 +31553,21 @@
               }
             ]
           },
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BomGroup": {
             "description": "Sources shared by Components on a grouped BOM row.",
             "oneOf": [
@@ -31883,7 +32654,7 @@
               "via_span": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -32144,6 +32915,16 @@
                 "$ref": "#/$defs/MaskExpansion",
                 "description": "The Solder Mask expansion and Via tenting a new board starts with."
               },
+              "microvia_size": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/MicroviaLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "paste_expansion": {
                 "$ref": "#/$defs/PasteExpansion",
                 "description": "The paste expansion a new board starts with."
@@ -32156,6 +32937,16 @@
                 "description": "Minimum Track width.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "via_diameter": {
                 "description": "Minimum Via diameter.",
@@ -32183,6 +32974,29 @@
               "mask_expansion",
               "paste_expansion"
             ],
+            "type": "object"
+          },
+          "FabSizeLimits": {
+            "additionalProperties": false,
+            "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "Field": {
@@ -32703,6 +33517,53 @@
               "via",
               "pad"
             ],
+            "type": "object"
+          },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "HoleTolerance": {
@@ -34112,6 +34973,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -34779,6 +35644,53 @@
                 "$ref": "#/$defs/Tenting"
               }
             ]
+          },
+          "MicroviaLimits": {
+            "additionalProperties": false,
+            "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+            "properties": {
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "diameter": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hole": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FabSizeLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Mode": {
             "description": "What Re-annotate renumbers.",
@@ -36065,6 +36977,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -37346,6 +38262,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -37382,13 +38308,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -37408,6 +38334,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -39044,6 +39980,35 @@
                   "area"
                 ],
                 "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
+                ],
+                "type": "object"
               }
             ]
           },
@@ -39470,6 +40435,35 @@
                 },
                 "required": [
                   "area"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Dimensionless depth-to-hole ratio in millionths.",
+                "properties": {
+                  "ratio_millionths": {
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "ratio_millionths"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "count": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "count"
                 ],
                 "type": "object"
               }
@@ -41266,6 +42260,42 @@
                 "type": "object"
               },
               {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
                 "properties": {
                   "island": {
@@ -41528,6 +42558,42 @@
                 "type": "object"
               },
               {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
                 "properties": {
                   "island": {
@@ -41686,6 +42752,42 @@
                 "properties": {
                   "kind": {
                     "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
                     "type": "string"
                   },
                   "uuid": {
@@ -42595,6 +43697,10 @@
                   }
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -47501,6 +48607,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -47734,6 +48848,16 @@
             ],
             "default": null,
             "description": "The copper side of an SMD Pad; top when left out. Pads with a hole have none."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "$ref": "#/$defs/Length"
@@ -48238,6 +49362,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -48482,6 +49614,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -50768,6 +51910,22 @@
               }
             ]
           },
+          "AspectRatioParam": {
+            "additionalProperties": false,
+            "description": "Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.",
+            "properties": {
+              "max": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -50925,6 +52083,68 @@
               }
             ]
           },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "Either the Via size range or plated hole clearance values, according to rule kind.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -51051,7 +52271,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "allowed": {
                 "default": null,
@@ -51062,6 +52282,16 @@
                 "type": [
                   "array",
                   "null"
+                ]
+              },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "bottom": {
@@ -51106,7 +52336,7 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/BoundsParam"
+                    "$ref": "#/$defs/HoleParam"
                   },
                   {
                     "type": "null"
@@ -51141,6 +52371,17 @@
                   }
                 ],
                 "default": null
+              },
+              "max_stack": {
+                "default": null,
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "min": {
                 "anyOf": [
@@ -51946,6 +53187,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -52094,6 +53343,11 @@
             ],
             "description": "`null` removes the hole."
           },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Footprint's unused Pad copper to be changed.",
+            "type": "boolean"
+          },
           "instance": {
             "description": "The placed Footprint instance.",
             "format": "uuid",
@@ -52191,6 +53445,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the Footprint's top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -52771,6 +54035,10 @@
                   }
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -54471,6 +55739,42 @@
                 "type": "object"
               },
               {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
                 "properties": {
                   "island": {
@@ -55190,6 +56494,13 @@
                 ],
                 "description": "For two objects and a kind that applies between them (`clearance`,\n`hole_to_hole`): the larger value, which applies."
               },
+              "between_holes": {
+                "description": "Plated hole clearances that apply to the selected pair on these Layers.",
+                "items": {
+                  "$ref": "#/$defs/Between"
+                },
+                "type": "array"
+              },
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
@@ -55446,6 +56757,12 @@
                 "type": "integer"
               },
               {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
                 "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
@@ -55596,6 +56913,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -55607,6 +56926,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -55883,6 +57204,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -55894,6 +57217,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -56047,6 +57372,12 @@
                 "description": "A spoke count.",
                 "format": "uint8",
                 "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -56294,6 +57625,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -56305,6 +57638,8 @@
               "hole_min",
               "hole_preferred",
               "hole_max",
+              "aspect_ratio_max",
+              "max_stack",
               "top",
               "bottom",
               "from_hole_edge",
@@ -56458,6 +57793,12 @@
                 "description": "A spoke count.",
                 "format": "uint8",
                 "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "description": "Depth-to-diameter ratio in thousandths (8000 is 8:1).",
+                "format": "uint32",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -56653,6 +57994,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -56739,7 +58095,7 @@
               },
               {
                 "const": "via_span",
-                "description": "A Via span with no matching type, or one outside the Net Class’s allowed list.",
+                "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.",
                 "type": "string"
               },
               {
@@ -56893,6 +58249,53 @@
                 "type": "string"
               }
             ]
+          },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
           },
           "Overwrite": {
             "description": "One record an import writes.",
@@ -57052,6 +58455,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -57088,13 +58501,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -57114,6 +58527,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -57549,6 +58972,22 @@
               }
             ]
           },
+          "AspectRatioParam": {
+            "additionalProperties": false,
+            "description": "Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.",
+            "properties": {
+              "max": {
+                "default": null,
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "BoundsParam": {
             "additionalProperties": false,
             "description": "A range's values to change; `null` clears one.",
@@ -57673,6 +59112,68 @@
                 "type": "string"
               }
             ]
+          },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "Either the Via size range or plated hole clearance values, according to rule kind.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
           },
           "LayerGroup": {
             "enum": [
@@ -57861,7 +59362,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "allowed": {
                 "default": null,
@@ -57872,6 +59373,16 @@
                 "type": [
                   "array",
                   "null"
+                ]
+              },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioParam"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "bottom": {
@@ -57916,7 +59427,7 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/BoundsParam"
+                    "$ref": "#/$defs/HoleParam"
                   },
                   {
                     "type": "null"
@@ -57951,6 +59462,17 @@
                   }
                 ],
                 "default": null
+              },
+              "max_stack": {
+                "default": null,
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "min": {
                 "anyOf": [
@@ -58132,6 +59654,21 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AspectRatioLimit": {
+            "additionalProperties": false,
+            "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+            "properties": {
+              "max": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Bounds": {
             "additionalProperties": false,
             "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
@@ -58218,6 +59755,53 @@
               "scope",
               "values"
             ],
+            "type": "object"
+          },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "LayerGroup": {
@@ -58390,6 +59974,16 @@
                   "null"
                 ]
               },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AspectRatioLimit"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "bottom": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
@@ -58426,13 +60020,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -58452,6 +60046,16 @@
               "max_length": {
                 "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
                 "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "max_stack": {
+                "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
                 "type": [
                   "integer",
                   "null"
@@ -59392,6 +60996,86 @@
     },
     {
       "category": "pcb",
+      "description": "Applies a named Construction to an existing board, retaining surviving copper Layers.",
+      "icon": "layers",
+      "id": "pcb.stackup.apply_construction",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "construction": {
+            "type": "string"
+          },
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "preset": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "remove": {
+            "description": "Inner copper Layers to delete. Required when shrinking, one per removed Layer.",
+            "items": {
+              "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via_types": {
+            "default": false,
+            "description": "Replace the board's Via types when this Construction supplies a list.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "document",
+          "preset",
+          "construction"
+        ],
+        "title": "Params",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "Board identities, in table order, for subsequent edits and Journal replay.",
+        "properties": {
+          "dielectrics": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "layers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "via_types": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layers",
+          "dielectrics",
+          "via_types"
+        ],
+        "title": "Applied",
+        "type": "object"
+      },
+      "title": "Apply Construction"
+    },
+    {
+      "category": "pcb",
       "description": "Counts the objects and rules affected by a proposed Stackup edit.",
       "icon": "layers",
       "id": "pcb.stackup.change_preview",
@@ -59429,6 +61113,23 @@
           },
           "Change": {
             "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "const": "pcb.stackup.apply_construction",
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/$defs/Params"
+                  }
+                },
+                "required": [
+                  "id",
+                  "params"
+                ],
+                "type": "object"
+              },
               {
                 "additionalProperties": false,
                 "properties": {
@@ -59593,6 +61294,41 @@
             "required": [
               "layer",
               "direction"
+            ],
+            "type": "object"
+          },
+          "Params": {
+            "additionalProperties": false,
+            "properties": {
+              "construction": {
+                "type": "string"
+              },
+              "document": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "preset": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "remove": {
+                "description": "Inner copper Layers to delete. Required when shrinking, one per removed Layer.",
+                "items": {
+                  "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "via_types": {
+                "default": false,
+                "description": "Replace the board's Via types when this Construction supplies a list.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "document",
+              "preset",
+              "construction"
             ],
             "type": "object"
           },
@@ -59885,7 +61621,7 @@
     },
     {
       "category": "pcb",
-      "description": "Resolves each entry's physical thickness and reports the symmetry and ordered-thickness checks.",
+      "description": "Reports physical thickness, symmetry, the ordered-thickness check, Construction match and Track impedance without solder mask per copper Layer.",
       "icon": "inspect",
       "id": "pcb.stackup.info",
       "kind": "query",
@@ -59908,6 +61644,77 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Estimate": {
+            "properties": {
+              "approximate": {
+                "type": "boolean"
+              },
+              "missing_dk": {
+                "description": "At least one sheet in the field region used the 4.5 fallback.",
+                "type": "boolean"
+              },
+              "model": {
+                "$ref": "#/$defs/Model"
+              },
+              "ohms": {
+                "format": "double",
+                "type": "number"
+              },
+              "references": {
+                "description": "Reference Layer UUIDs, in physical order.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "ohms",
+              "model",
+              "approximate",
+              "references",
+              "missing_dk"
+            ],
+            "type": "object"
+          },
+          "LayerImpedance": {
+            "properties": {
+              "estimate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Estimate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "layer",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Model": {
+            "enum": [
+              "surface_microstrip",
+              "centred_stripline",
+              "offset_stripline",
+              "embedded_microstrip"
+            ],
+            "type": "string"
+          },
           "ResolvedEntry": {
             "description": "The resolved physical thickness of a copper Layer or dielectric sheet.",
             "properties": {
@@ -59983,6 +61790,13 @@
             },
             "type": "array"
           },
+          "impedance": {
+            "description": "Bare Track impedance and the Default Net Class width on each copper Layer.",
+            "items": {
+              "$ref": "#/$defs/LayerImpedance"
+            },
+            "type": "array"
+          },
           "symmetric": {
             "type": "boolean"
           },
@@ -60013,6 +61827,7 @@
           "symmetric",
           "symmetry_mismatches",
           "thickness_warning",
+          "impedance",
           "construction",
           "construction_matches"
         ],
@@ -62188,6 +64003,133 @@
     },
     {
       "category": "pcb",
+      "description": "Choose which unconnected lands plated Pads and Vias retain on the board or selection. Returns the number of Pads and Vias changed.",
+      "icon": "pad",
+      "id": "pcb.unused_layers.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "Target": {
+            "anyOf": [
+              {
+                "description": "A Via, Free Pad, or Footprint instance. An instance includes all its plated Pads.",
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/PadRef",
+                "description": "One Pad of one Footprint instance."
+              }
+            ]
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Apply to changed locked objects too. A matching mode needs no edit.",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "Omit for the whole board. An empty selection changes nothing.",
+            "items": {
+              "$ref": "#/$defs/Target"
+            },
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          },
+          "pads": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Through-hole Pads support keep or remove. Their two solder lands always stay."
+          },
+          "vias": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Vias also support remove_keep_ends to retain both ends of the span."
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "Params",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "pads": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "vias": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pads",
+          "vias"
+        ],
+        "title": "Counts",
+        "type": "object"
+      },
+      "title": "Set Unused Copper"
+    },
+    {
+      "category": "pcb",
       "description": "Places a Via on the requested span. Its Net defaults to the copper under it.",
       "icon": "via",
       "id": "pcb.via.add",
@@ -62853,6 +64795,11 @@
             ],
             "default": null,
             "description": "The drilled hole."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Via's unused copper to be changed.",
+            "type": "boolean"
           },
           "mask": {
             "anyOf": [
@@ -70117,6 +72064,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -71319,6 +73270,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,
@@ -72342,6 +74301,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -73544,6 +75507,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,
@@ -76977,6 +78948,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -78177,6 +80152,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,

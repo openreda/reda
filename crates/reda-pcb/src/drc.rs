@@ -14,9 +14,11 @@ mod connections;
 mod copper;
 mod details;
 pub(crate) mod edge;
+mod hdi;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
+mod plated_clearance;
 pub(crate) mod silkscreen;
 mod zones;
 
@@ -47,7 +49,7 @@ pub fn check_only(
     if only.is_some_and(|only| only.iter().all(|c| c.is_health())) {
         return health(pcb, only);
     }
-    let mut copper = Copper::build(pcb);
+    let mut copper = Copper::build_with_fonts(pcb, fonts);
     copper.set_zone_fills(pcb, Some(fills));
     let mut report = Report {
         severities: pcb.setup().severities,

@@ -118,17 +118,19 @@ impl Command for ZoneFill {
         }
         let refilled: BTreeSet<Uuid> = match &p.zones {
             Some(zones) => reda_pcb::zone::dependents(&pcb, zones),
-            None => reda_pcb::zone::status(&pcb, stored.as_ref())
+            None => reda_pcb::zone::status_with_fonts(&pcb, stored.as_ref(), cx.fonts())
                 .zones
                 .into_iter()
                 .filter(|z| matches!(z.state, FillState::Stale | FillState::Unfilled))
                 .map(|z| z.zone)
                 .collect(),
         };
-        let fills = reda_pcb::zone::refill_only(
+        let fonts = cx.fonts().clone();
+        let fills = reda_pcb::zone::refill_with_fonts(
             &pcb,
             stored.as_ref(),
             p.zones.as_deref(),
+            &fonts,
             &mut |done, total| {
                 cx.progress(done as f64, Some(total as f64), "Filling Zones");
                 !cx.is_cancelled()

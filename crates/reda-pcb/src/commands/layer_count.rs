@@ -31,15 +31,6 @@ impl Plan {
         }
     }
 
-    fn delete_objects(&mut self, kind: &str, ids: impl Iterator<Item = Uuid>) {
-        let before = self.deleted.len();
-        self.deleted.extend(ids);
-        let count = self.deleted.len() - before;
-        if count != 0 {
-            self.counts.objects_deleted.insert(kind.into(), count);
-        }
-    }
-
     pub fn apply(self, tx: &mut Transaction<'_>) -> Result<(), CommandError> {
         tx.replace(Object::LayerSet(InDocument::new(
             self.document,
@@ -158,21 +149,6 @@ pub(crate) fn add_plan(
         .iter()
         .filter(|e| matches!(e, StackupEntry::Copper(_)))
         .count();
-    let stretches = |a, b| {
-        let a = pcb.copper_number(a).unwrap();
-        let b = pcb.copper_number(b).unwrap();
-        a.min(b) <= before && before < a.max(b)
-    };
-    plan.counts.vias_stretched = pcb
-        .vias()
-        .filter(|v| stretches(v.span.from, v.span.to))
-        .count();
-    plan.counts.via_types_changed = stack
-        .via_types
-        .iter()
-        .filter(|t| stretches(t.from, t.to))
-        .count();
-
     // Capture the physical sizes before adding copper. Otherwise the target thickness
     // would silently absorb the new copper by shrinking the remaining blank sheets.
     resolve_blanks(stack);
@@ -218,23 +194,50 @@ pub(crate) fn add_plan(
             "the Stackup would exceed the supported thickness",
         ));
     }
+    insert_copper(&mut plan, pcb, before, [uuid]);
+    Ok(plan)
+}
+
+/// Insert new signal Layers in one gap. Every span crossing it stretches once,
+/// regardless of the number of new Layers.
+fn insert_copper(
+    plan: &mut Plan,
+    pcb: &PcbDocument,
+    before: usize,
+    ids: impl IntoIterator<Item = Uuid>,
+) {
+    let lower = pcb.copper_layers().nth(before).unwrap().uuid;
     let at = plan
         .layers
         .layers
         .iter()
-        .position(|l| l.uuid == copper[before].layer)
+        .position(|l| l.uuid == lower)
         .unwrap();
-    plan.layers.layers.insert(
-        at,
-        Layer {
+    plan.layers.layers.splice(
+        at..at,
+        ids.into_iter().map(|uuid| Layer {
             uuid,
             kind: LayerKind::Copper,
             side: None,
             name: None,
             role: CopperRole::Signal,
-        },
+        }),
     );
-    Ok(plan)
+    let stretches = |a, b| {
+        let a = pcb.copper_number(a).unwrap();
+        let b = pcb.copper_number(b).unwrap();
+        a.min(b) <= before && before < a.max(b)
+    };
+    plan.counts.vias_stretched = pcb
+        .vias()
+        .filter(|v| stretches(v.span.from, v.span.to))
+        .count();
+    plan.counts.via_types_changed = pcb
+        .stackup()
+        .via_types
+        .iter()
+        .filter(|t| stretches(t.from, t.to))
+        .count();
 }
 
 fn distance_to_copper<'a>(entries: impl Iterator<Item = &'a StackupEntry>) -> i64 {
@@ -381,3 +384,5 @@ impl Command for Move {
         move_plan(super::pcb(cx)?, p)?.apply(cx.tx()?)
     }
 }
+
+pub(super) mod construction;

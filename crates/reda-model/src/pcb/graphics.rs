@@ -1,6 +1,6 @@
 //! Free text and graphics drawn on a PCB Layer: text, lines, arcs and rectangles.
 
-use reda_geom::{Millideg, Nm, Point};
+use reda_geom::{Bounds, Millideg, Nm, Point, Segment};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -90,6 +90,29 @@ pub enum GraphicShape {
         #[serde(default, skip_serializing_if = "is_false")]
         filled: bool,
     },
+}
+
+impl GraphicShape {
+    /// The filled rectangle, if any, and the round pen's centreline segments in draw
+    /// order. Plotting and copper checks use the same drawing.
+    pub fn drawing(self, width: Nm) -> (Option<[Point; 4]>, Vec<Segment>) {
+        match self {
+            Self::Line { from, to } => (None, vec![Segment::line(from, to)]),
+            Self::Arc { from, to, sweep } => (None, vec![Segment::arc(from, to, sweep)]),
+            Self::Rect { from, to, filled } => {
+                let Bounds { min, max } = Bounds::of_point(from).union(Bounds::of_point(to));
+                let corners = [min, Point::new(max.x, min.y), max, Point::new(min.x, max.y)];
+                let strokes = if width > Nm::ZERO {
+                    (0..4)
+                        .map(|i| Segment::line(corners[i], corners[(i + 1) % 4]))
+                        .collect()
+                } else {
+                    vec![]
+                };
+                (filled.then_some(corners), strokes)
+            }
+        }
+    }
 }
 
 fn is_zero(angle: &Millideg) -> bool {

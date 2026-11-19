@@ -1,0 +1,17 @@
+(footprint "Stacked_Header"
+  (descr "Hand-written two-pin Pad Stack example")
+  (fp_rect (start -2 -2) (end 4 2) (layer "F.CrtYd") (stroke (width 0.05)) (fill none))
+  (pad "1" thru_hole rect
+    (at 0 0 30) (size 2 1.6) (drill oval 0.6 0.4) (layers "*.Cu" "*.Mask")
+    (remove_unused_layers yes) (keep_end_layers no)
+    (padstack (mode front_inner_back)
+      (layer "Inner" (shape oval) (size 1.2 0.9))
+      (layer "B.Cu" (shape roundrect) (size 1.4 1)
+        (roundrect_rratio 0.1) (chamfer_ratio 0.2) (chamfer top_left))))
+  (pad "2" thru_hole circle
+    (at 2.54 0) (size 1.5 1.5) (drill 0.6) (layers "*.Cu" "*.Mask")
+    (remove_unused_layers no) (keep_end_layers yes)
+    (padstack (mode custom)
+      (layer "In10.Cu" (shape circle) (size 0.95 0.95))
+      (layer "B.Cu" (shape rect) (size 1.7 1))
+      (layer "In2.Cu" (shape oval) (size 1.1 0.8)))))

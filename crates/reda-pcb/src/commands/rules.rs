@@ -41,6 +41,36 @@ pub struct BoundsParam {
     pub max: Option<Option<Length>>,
 }
 
+/// Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AspectRatioParam {
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub max: Option<Option<u32>>,
+}
+
+/// Either the Via size range or plated hole clearance values, according to rule kind.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HoleParam {
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub min: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub preferred: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub max: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub via: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub pad: Option<Option<Length>>,
+}
+
 /// A Zone connection's values to change; `null` clears one.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -67,7 +97,7 @@ pub struct ConnectionParam {
 }
 
 /// The values to change; those left out keep theirs, and `null` clears one. Which a kind
-/// holds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)
+/// holds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)
 /// `zero_keepout_clearance`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
@@ -104,7 +134,13 @@ pub struct ValuesParam {
     #[serde(default)]
     pub diameter: Option<BoundsParam>,
     #[serde(default)]
-    pub hole: Option<BoundsParam>,
+    pub hole: Option<HoleParam>,
+    #[serde(default)]
+    pub aspect_ratio: Option<AspectRatioParam>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u8>")]
+    pub max_stack: Option<Option<u8>>,
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
     pub top: Option<Option<Length>>,
@@ -165,6 +201,8 @@ impl ValuesParam {
         put(RuleField::DiameterMax, d.max);
         let h = self.hole.clone().unwrap_or_default();
         put(RuleField::HoleMin, h.min);
+        put(RuleField::HoleVia, h.via);
+        put(RuleField::HolePad, h.pad);
         put(RuleField::HolePreferred, h.preferred);
         put(RuleField::HoleMax, h.max);
         put(RuleField::Top, self.top);
@@ -172,6 +210,12 @@ impl ValuesParam {
         put(RuleField::Expansion, self.expansion);
         put(RuleField::Tolerance, self.tolerance);
         put(RuleField::MaxLength, self.max_length);
+        if let Some(max) = self.aspect_ratio.as_ref().and_then(|a| a.max) {
+            out.push((RuleField::AspectRatioMax, max.map(RuleValue::MilliRatio)));
+        }
+        if let Some(max) = self.max_stack {
+            out.push((RuleField::MaxStack, max.map(RuleValue::Count)));
+        }
         if let Some(mode) = self.mode {
             out.push((RuleField::Mode, mode.map(RuleValue::Mode)));
         }
@@ -574,6 +618,9 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
     for (kind, seeds) in seed_rules(preset) {
         let board = &pcb.board_rule(kind).values;
         for field in seeds.set_fields() {
+            if field == RuleField::AspectRatioMax {
+                continue;
+            }
             let Some(to) = seeds.get(field) else {
                 continue;
             };
@@ -587,6 +634,47 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
                     layers: None,
                     limit: limits.iter().any(|l| l.0 == kind && l.1 == field),
                     ticked: !field.is_preferred(),
+                });
+            }
+        }
+    }
+    // Optional drilling limits also appear when applying a preset would clear them.
+    let laser = crate::board::microvia_seeds(preset);
+    let mechanical = reda_model::RuleValues {
+        aspect_ratio: preset.via_aspect_ratio,
+        ..Default::default()
+    };
+    for (kind, seeds, fields) in [
+        (
+            RuleKind::ViaSize,
+            mechanical,
+            &[RuleField::AspectRatioMax][..],
+        ),
+        (
+            RuleKind::MicroviaSize,
+            laser,
+            &[
+                RuleField::DiameterMin,
+                RuleField::DiameterMax,
+                RuleField::HoleMin,
+                RuleField::HoleMax,
+                RuleField::AspectRatioMax,
+                RuleField::MaxStack,
+            ][..],
+        ),
+    ] {
+        for &field in fields {
+            let board = pcb.board_rule(kind).values.get(field);
+            let to = seeds.get(field);
+            if board != to {
+                out.push(RuleChange {
+                    kind,
+                    field,
+                    board,
+                    preset: to,
+                    layers: None,
+                    limit: true,
+                    ticked: true,
                 });
             }
         }

@@ -662,3 +662,156 @@ fn via_properties_preserve_sibling_diameters_and_omit_an_absent_middle() {
             .is_none()
     );
 }
+
+#[test]
+fn via_properties_edit_and_clear_individual_zone_connection_fields() {
+    let home = TempDir::new("via-zone-home");
+    let work = TempDir::new("via-zone-work");
+    let mut shell = shell(home.path());
+    shell.new_project(work.path(), "Zones").unwrap();
+    let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run("document.open", json!({"document":document}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1400.0, 2600.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let id =
+        run(&mut h, "pcb.via.add", json!({"at":{"x":"2mm","y":"2mm"}}))["result"]["uuid"].clone();
+    run(&mut h, "selection.set", json!({"objects":[id]}));
+    pick(&mut h, "Zone connection", "Relief");
+    pick(&mut h, "Spokes", "2");
+    let (cmd, p) = last_entry(&h);
+    assert_eq!(cmd, "pcb.via.set");
+    assert_eq!(p["zone_connection"], json!({"style":"relief","spokes":2}));
+    pick(&mut h, "Zone connection", "Inherit");
+    assert_eq!(last_entry(&h).1["zone_connection"], json!({"spokes":2}));
+    pick(&mut h, "Spokes", "Inherit");
+    assert_eq!(last_entry(&h).1.get("zone_connection"), Some(&Value::Null));
+}
+
+#[test]
+fn library_pad_stack_edits_and_clears_each_optional_group() {
+    let home = TempDir::new("library-pad-stack");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Header");
+    let mut h = harness(shell);
+    let pad = add_pad(&mut h, fp, "1", 0);
+    run(&mut h, "selection.set", json!({"objects":[pad]}));
+    assert!(h.query_by_label("Customize Middle copper").is_none());
+    pick(&mut h, "Kind", "Plated through-hole");
+    h.get_by_label("Top copper");
+    for (group, field, width) in [("Middle", "middle", "2.4mm"), ("Bottom", "bottom", "1.8mm")] {
+        let customize = format!("Customize {group} copper");
+        h.get_by_label(&customize).scroll_to_me();
+        h.run();
+        click(&mut h, &customize);
+        type_into(&mut h, &format!("{group} width"), width);
+        let (cmd, params) = last_entry(&h);
+        assert_eq!(cmd, "library.footprint.pad.edit");
+        assert_eq!(params["pad"], json!(pad));
+        assert_eq!(
+            params[field]["width"],
+            reda_ui::engine::model::geom::Nm::parse(width).unwrap().0
+        );
+    }
+    for (group, field) in [("Middle", "middle"), ("Bottom", "bottom")] {
+        let clear = format!("Clear {group} copper");
+        h.get_by_label(&clear).scroll_to_me();
+        h.run();
+        click(&mut h, &clear);
+        assert_eq!(last_entry(&h).1.get(field), Some(&Value::Null));
+    }
+    let p = &footprint(&h, fp).pads[0];
+    assert_eq!((p.middle, p.bottom), (None, None));
+}
+
+#[test]
+fn library_canvas_previews_the_active_copper_and_falls_back_when_middle_is_cleared() {
+    use reda_ui::engine::{
+        footprint_scene,
+        model::LayerKind,
+        render::{Primitive, SceneLayer},
+    };
+    let home = TempDir::new("library-copper-preview");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Stack");
+    let mut h = harness(shell);
+    let added = run(
+        &mut h,
+        "library.footprint.pad.add",
+        json!({
+            "footprint":fp, "number":"1", "kind":"plated_through_hole", "shape":"rect",
+            "width":"2mm","height":"1.5mm","at":{"x":0,"y":0},"hole":{"width":"0.6mm"},
+            "middle":{"shape":"rect","width":"1mm","height":"0.9mm"},
+            "bottom":{"shape":"rect","width":"1.4mm","height":"1.2mm"}
+        }),
+    );
+    let pad: Uuid = serde_json::from_value(added["result"]["pad"].clone()).unwrap();
+    let visible_copper = |h: &Harness<'_, App>| {
+        let shell = h.state().shell();
+        let tab = shell.document_tab(fp).unwrap();
+        let layers = footprint_scene(&footprint(h, fp), shell.engine().fonts()).layers;
+        tab.scene
+            .layers
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter_map(|composite| {
+                let SceneLayer::Board(id) = composite.layer else {
+                    return None;
+                };
+                let layer = layers
+                    .iter()
+                    .find(|l| l.uuid == id && l.kind == LayerKind::Copper)?;
+                let width = tab
+                    .scene
+                    .scene
+                    .items_of(pad)
+                    .find_map(|i| match i.primitive {
+                        Primitive::Rect { size, .. } if i.layer == composite.layer => {
+                            Some(size.0.0)
+                        }
+                        _ => None,
+                    })?;
+                Some((layer.side, width))
+            })
+            .collect::<Vec<_>>()
+    };
+    use reda_ui::engine::model::Side;
+    for (name, side, width) in [
+        ("Bottom", Some(Side::Bottom), 1_400_000),
+        ("Middle", None, 1_000_000),
+    ] {
+        pick(&mut h, "Copper Layer", name);
+        assert_eq!(visible_copper(&h), [(side, width)]);
+    }
+    run(
+        &mut h,
+        "library.footprint.pad.edit",
+        json!({"footprint":fp,"pad":pad,"middle":null}),
+    );
+    assert_eq!(visible_copper(&h), [(Some(Side::Top), 2_000_000)]);
+    h.get_by_role_and_label(Role::ComboBox, "Copper Layer")
+        .click();
+    h.run();
+    assert!(h.query_by_label("Middle").is_none());
+}
+
+#[test]
+fn a_library_pad_can_remove_unused_lands_and_return_to_surface_mount() {
+    let home = TempDir::new("library-unused-lands");
+    let mut shell = shell(home.path());
+    let fp = new_footprint(&mut shell, "Header");
+    let mut h = harness(shell);
+    let pad = add_pad(&mut h, fp, "1", 0);
+    run(&mut h, "selection.set", json!({"objects":[pad]}));
+    pick(&mut h, "Kind", "Plated through-hole");
+    pick(&mut h, "Unconnected Pad lands", "Remove unconnected lands");
+    assert_eq!(last_entry(&h).1["unused_layers"], "remove");
+    pick(&mut h, "Kind", "SMD");
+    let p = &footprint(&h, fp).pads[0];
+    assert_eq!(p.kind, reda_ui::engine::model::PadKind::Smd);
+    assert!(p.unused_layers.is_keep());
+}

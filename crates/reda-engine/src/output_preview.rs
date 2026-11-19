@@ -77,7 +77,8 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         .map_err(|e| e.to_string());
     let destination = reda_output::resolve_destination(job, &values);
 
-    let fills = reda_pcb::zone::current(pcb, project.zone_fills(pcb.uuid));
+    let fills =
+        reda_pcb::zone::current_with_fonts(pcb, project.zone_fills(pcb.uuid), engine.fonts());
     let instances = [BoardInstance::single(
         pcb,
         &fills,

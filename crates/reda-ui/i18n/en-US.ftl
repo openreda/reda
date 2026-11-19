@@ -904,10 +904,20 @@ violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
     }
-violation-via-span = The Via span has no matching Via type allowed on this Net
-violation-microvia-size = The micro Via diameter or hole is outside its size limits
-violation-aspect-ratio = The Via depth exceeds the aspect ratio allowed for its drill diameter
-violation-max-stack = The Via Stack contains more micro Vias than the allowed maximum
+violation-via-span = { $reason ->
+        [not_allowed] This Net Class does not allow the Via type
+        [micro_too_long] The micro Via type spans more than a micro Via can
+       *[no_type] No Via type matches this span
+    }
+violation-microvia-size = Micro Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-aspect-ratio = Via depth-to-hole ratio { $actual }:1 exceeds the { $maximum }:1 limit
+violation-max-stack = The Via Stack contains { $actual } micro Vias and allows at most { $maximum }
 violation-silk-width = The silkscreen stroke is narrower than the minimum width
 violation-silk-text-height = The silkscreen text is shorter than the minimum height
 violation-via-size = Via { $part ->
@@ -3060,6 +3070,10 @@ stackup-asymmetric = Not symmetric
 stackup-odd = Odd copper Layer count
 stackup-suggestions = Suggestions
 stackup-section-total = { $thickness } mm total · to scale
+stackup-z0-width = Default Track width { $widths } · without solder mask
+stackup-z0-embedded = Approximate embedded microstrip with a reference on one side.
+stackup-z0-offset = Approximate stripline with unequal plane gaps or different dielectric materials.
+stackup-z0-missing-dk = A dielectric has no Dk specified. The estimate uses 4.5 for that sheet.
 stackup-thickness-mm = Thickness (mm)
 stackup-resolved = Blank sheet · { $thickness } mm resolved
 
@@ -3072,7 +3086,7 @@ via-from-field = { $name } from
 via-to-field = { $name } to
 via-drill-field = { $name } drill
 via-pad-field = { $name } pad
-via-limits = { $name } exceeds the board’s Via size limits.
+via-limits = { $name } has a drill or pad outside the board’s size limits.
 via-add-type = Add Via type
 via-remove-type = Remove Via type
 via-move-up = Move up
@@ -3085,6 +3099,8 @@ via-move-vias = Move Vias
 via-leave-vias = Leave Vias in place
 via-span-labels = Via Span labels
 via-type-disallowed = The Net Class does not allow this Via type.
+footprint-copper-layer = Copper Layer
+pad-copper-top-group = Top copper
 pad-copper-middle = Middle
 pad-copper-bottom = Bottom
 pad-copper-group = { $group } copper
@@ -3159,3 +3175,37 @@ stackup-schematic = Schematic
 stackup-select-band = Select band { $name }
 stackup-select-via = Select Via type { $name }
 stackup-split-sheet = + Layer
+construction-apply-action = Apply Construction…
+construction-apply-title = Apply Construction
+construction-revert = Revert
+construction-choice = { $preset } · { $name } ({ $layers } Layers)
+construction-unavailable = This Construction is no longer in the Project preset.
+construction-choose-removals = { $count ->
+    [one] Choose 1 inner Layer to remove.
+   *[other] Choose { $count } inner Layers to remove.
+    }
+construction-layer-objects = { $layer } · { $count ->
+    [one] 1 object
+   *[other] { $count } objects
+    }
+construction-apply-types = Apply Via types
+construction-types-changed = Via types changed: { $count }
+construction-vias-unmatched = Vias left without a type: { $count }
+
+plane-fill-layer = Fill Layer with plane…
+plane-net = Plane Net
+plane-select-net = Choose a Net
+plane-create-zone = Create Zone
+rule-via-hole-clearance = Via hole clearance
+rule-pad-hole-clearance = Plated Pad hole clearance
+unused-lands-title = Set Unused Copper…
+unused-lands-include-locked = Include locked objects
+unused-lands-board = Whole board
+unused-lands-selection = Selection
+unused-lands-pads = Unconnected Pad lands
+unused-lands-vias = Unconnected Via lands
+unused-lands-keep = Keep all lands
+unused-lands-remove = Remove unconnected lands
+unused-lands-ends = Remove and keep both ends
+unused-lands-unchanged = Leave unchanged
+unused-lands-via-default = New Via lands

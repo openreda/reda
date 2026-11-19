@@ -25,6 +25,8 @@ pub struct Counts {
 #[derive(Deserialize, JsonSchema)]
 #[serde(tag = "id", content = "params", deny_unknown_fields)]
 pub enum Change {
+    #[serde(rename = "pcb.stackup.apply_construction")]
+    ApplyConstruction(layer_count::construction::Params),
     #[serde(rename = "pcb.layer.add")]
     LayerAdd(layer_count::AddParams),
     #[serde(rename = "pcb.layer.remove")]
@@ -60,6 +62,12 @@ impl Command for Preview {
     fn run(&self, cx: &mut Context<'_>, p: Params) -> Result<Counts, CommandError> {
         let pcb = pcb(cx)?;
         match p.change {
+            Change::ApplyConstruction(p) => Ok(layer_count::construction::plan(
+                cx.project()?,
+                p,
+                reda_model::Uuid::from_u128(0),
+            )?
+            .counts),
             Change::LayerAdd(p) => {
                 Ok(layer_count::add_plan(cx.project()?, p.document, p.split, p.uuid)?.counts)
             }

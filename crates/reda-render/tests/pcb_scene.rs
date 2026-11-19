@@ -244,3 +244,18 @@ fn the_ratsnest_joins_unrouted_pads_on_its_own_layer() {
         .count();
     assert_eq!(holes, 2, "the mounting hole and the Via");
 }
+
+#[test]
+fn six_layer_hdi_copper_and_drills() {
+    let (_dir, engine) = common::six_layer_hdi();
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let scene = engine.document_scene(pcb.uuid).unwrap();
+    let mut snapshot = scene.to_text();
+    for layer in pcb.copper_layers() {
+        if let Some(label) = pcb.inner_layer_label(layer.uuid) {
+            use std::fmt::Write;
+            writeln!(snapshot, "layer:{} {label}", layer.uuid).unwrap();
+        }
+    }
+    assert_golden(golden("six_layer_hdi.scene"), snapshot.as_bytes());
+}

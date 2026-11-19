@@ -54,7 +54,8 @@ impl Shell {
             .and_then(|p| p.pcb())
             .is_some_and(|pcb| {
                 let fills = self.engine.project().and_then(|p| p.zone_fills(pcb.uuid));
-                reda_engine::pcb::zone::status(pcb, fills).needs_refill
+                reda_engine::pcb::zone::status_with_fonts(pcb, fills, self.engine.fonts())
+                    .needs_refill
             });
         self.change_list = self.engine.project().and_then(reda_engine::sync::plan);
         self.edits += 1;

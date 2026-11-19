@@ -151,7 +151,12 @@ fn tracks_and_vias_on_a_ties_net_need_no_clearance_to_its_other_pads_but_still_s
         net(&mut engine, "C"),
     );
     let (fp, pads) = tie(&mut engine, "net_tie", a, b, "0.25mm");
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.5mm"}}}),
+    );
     // Leaving Pad 1 upwards 0.1 mm from Pad 2, and a Via 0.1 mm above Pad 2.
+    // The tie exempts both the Via's land and its hole from the clearance to Pad 2.
     track(&mut engine, a, &[("-0.2mm", "0mm"), ("-0.2mm", "2mm")]);
     engine.run_ok(
         "pcb.via.add",

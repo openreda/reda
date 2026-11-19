@@ -33,6 +33,7 @@ pub mod marks;
 pub mod measure;
 pub mod placement_bar;
 pub mod placing;
+pub(crate) mod plane;
 pub mod polygon_edit;
 pub mod route;
 pub mod route_commands;
@@ -60,3 +61,5 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
     delete::register_all(registry);
 }
 pub use view::BoardView;
+
+pub(crate) mod unused_layers;

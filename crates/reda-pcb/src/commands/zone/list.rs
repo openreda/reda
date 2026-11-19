@@ -79,43 +79,60 @@ impl Command for ZoneList {
             .layer
             .map(|l| copper_layer(pcb, l, "/layer"))
             .transpose()?;
-        Ok(listing(pcb, cx.project()?.zone_fills(pcb.uuid), only))
+        Ok(ZoneListing::with_fonts(
+            pcb,
+            cx.project()?.zone_fills(pcb.uuid),
+            only,
+            cx.fonts(),
+        ))
     }
 }
 
 /// The Zones on each copper Layer (or only `only`) in pour order, with their shown names,
 /// fill states and areas: `pcb.zone.list`'s result and the Board navigator's Zones rows.
 pub fn listing(pcb: &PcbDocument, fills: Option<&ZoneFills>, only: Option<Uuid>) -> ZoneListing {
-    let states = zone::status(pcb, fills);
-    let names = zone::names(pcb);
-    let layers = pcb
-        .copper_layers()
-        .map(|l| l.uuid)
-        .filter(|l| only.is_none_or(|o| o == *l))
-        .map(|layer| LayerZones {
-            layer,
-            zones: zone::layer_order(pcb, layer)
-                .into_iter()
-                .map(|z| ZoneRow {
-                    uuid: z.uuid,
-                    name: names[&z.uuid].clone(),
-                    typed_name: z.name.is_some(),
-                    net: z.net,
-                    priority: z.priority,
-                    shelved: z.shelved,
-                    follows_outline: z.follows_outline,
-                    state: states
-                        .zones
-                        .iter()
-                        .find(|s| s.zone == z.uuid)
-                        .map_or(FillState::Unfilled, |s| s.state),
-                    outline_area: poly::outline_area(pcb.zone_vertices(z)) as i64,
-                    filled_area: fills
-                        .and_then(|f| f.zones.get(&z.uuid))
-                        .map_or(0, |f| poly::covered(&fill::to_area(&f.shapes)) as i64),
-                })
-                .collect(),
-        })
-        .collect();
-    ZoneListing { layers }
+    ZoneListing::with_fonts(pcb, fills, only, &reda_command::Fonts::default())
+}
+
+impl ZoneListing {
+    /// Lists the Zones using the supplied installed fonts for fill state.
+    pub fn with_fonts(
+        pcb: &PcbDocument,
+        fills: Option<&ZoneFills>,
+        only: Option<Uuid>,
+        fonts: &reda_command::Fonts,
+    ) -> ZoneListing {
+        let states = zone::status_with_fonts(pcb, fills, fonts);
+        let names = zone::names(pcb);
+        let layers = pcb
+            .copper_layers()
+            .map(|l| l.uuid)
+            .filter(|l| only.is_none_or(|o| o == *l))
+            .map(|layer| LayerZones {
+                layer,
+                zones: zone::layer_order(pcb, layer)
+                    .into_iter()
+                    .map(|z| ZoneRow {
+                        uuid: z.uuid,
+                        name: names[&z.uuid].clone(),
+                        typed_name: z.name.is_some(),
+                        net: z.net,
+                        priority: z.priority,
+                        shelved: z.shelved,
+                        follows_outline: z.follows_outline,
+                        state: states
+                            .zones
+                            .iter()
+                            .find(|s| s.zone == z.uuid)
+                            .map_or(FillState::Unfilled, |s| s.state),
+                        outline_area: poly::outline_area(pcb.zone_vertices(z)) as i64,
+                        filled_area: fills
+                            .and_then(|f| f.zones.get(&z.uuid))
+                            .map_or(0, |f| poly::covered(&fill::to_area(&f.shapes)) as i64),
+                    })
+                    .collect(),
+            })
+            .collect();
+        ZoneListing { layers }
+    }
 }
