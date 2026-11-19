@@ -44,7 +44,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
     let right = full.with_min_x((left.right() + t.space.panel).min(full.right()));
     pane(ui, left, (document, "tables"), |ui| {
         let table_width =
-            (ui.available_width() - t.space.gap).clamp(t.size.of(320.0), t.size.of(TABLE_WIDTH));
+            (ui.available_width() - t.space.gap).clamp(t.size.of(392.0), t.size.of(TABLE_WIDTH));
         egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
             ui.set_width(table_width);
             strong(ui, tr!("panel-layers"));

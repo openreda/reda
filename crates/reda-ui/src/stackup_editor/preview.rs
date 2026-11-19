@@ -207,13 +207,23 @@ pub(super) fn show(
                     );
                 }
             }
-            if let Some(band) = hovered.filter(|_| stack.copper().count() < 32) {
-                // Keep the addition target inside a thin dielectric's callout row as well.
-                let left = band.rect.left() + t.space.gap;
-                let bounds = Rect::from_center_size(
-                    pos2(left + t.size.of(30.0), band.rect.center().y),
+            let button_bounds = |band: &Band| {
+                Rect::from_center_size(
+                    pos2(
+                        band.rect.left() + t.space.gap + t.size.of(30.0),
+                        band.rect.center().y,
+                    ),
                     vec2(t.size.of(60.0), t.control_height()),
-                );
+                )
+            };
+            // On a thin sheet most of the button lies outside the material itself.
+            let active = bands.iter().find(|b| {
+                Some(b.id) == view.split_sheet && ui.rect_contains_pointer(button_bounds(b))
+            });
+            let split = active.or(hovered).filter(|_| stack.copper().count() < 32);
+            view.split_sheet = split.map(|b| b.id);
+            if let Some(band) = split {
+                let bounds = button_bounds(band);
                 if ui
                     .put(bounds, widgets::button(tr!("stackup-split-sheet")))
                     .clicked()
