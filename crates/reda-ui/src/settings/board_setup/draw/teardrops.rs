@@ -32,7 +32,7 @@ pub(super) fn outcomes(ui: &mut Ui, cx: &mut PageCx<'_>) {
         if items.is_empty() {
             continue;
         }
-        ui.collapsing(label, |ui| {
+        widgets::section(label).show(ui, |ui| {
             for item in items {
                 let layer = pcb.copper_number(item.layer).unwrap_or_default();
                 let label = tr!(
