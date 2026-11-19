@@ -157,6 +157,10 @@ impl Command for ZoneFill {
         if let Some(project) = session.project.as_mut() {
             project.set_zone_fills(pcb.uuid, Some(fills));
         }
-        Ok(ZoneFillResult { zones, cached, teardrops })
+        Ok(ZoneFillResult {
+            zones,
+            cached,
+            teardrops,
+        })
     }
 }

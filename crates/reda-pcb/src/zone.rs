@@ -30,7 +30,7 @@ pub use names::{NO_NET, name, names};
 use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
-const FILL_VERSION: u32 = 3;
+const FILL_VERSION: u32 = 4;
 
 /// How far a chord of a flattened arc may stray from the arc: a fixed 0.001 mm. It only
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.
@@ -127,7 +127,6 @@ pub fn refill_with_fonts(
     fonts: &Fonts,
     step: &mut dyn FnMut(usize, usize) -> bool,
 ) -> Option<ZoneFills> {
-    let (teardrops, _) = crate::teardrop::update(pcb, stored, fonts, true);
     let unused = UnusedLands::of(pcb);
     let hashes = hash_inputs(pcb, fonts, &unused);
     let forced = only.map(|only| dependents(pcb, only));
@@ -140,7 +139,15 @@ pub fn refill_with_fonts(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let mut fills = ZoneFills { teardrops, zones: BTreeMap::new() };
+    let mut junctions = 0;
+    let (teardrops, _) = crate::teardrop::update(pcb, stored, fonts, true, &mut |done, count| {
+        junctions = count;
+        step(done, count + total)
+    })?;
+    let mut fills = ZoneFills {
+        teardrops,
+        zones: BTreeMap::new(),
+    };
     let copper = (total > 0).then(|| {
         let mut copper = Copper::with_lands(pcb, fonts, unused);
         copper.set_zone_fills(pcb, Some(&fills));
@@ -161,7 +168,7 @@ pub fn refill_with_fonts(
                 fill::to_area(&kept.shapes)
             }
             None => {
-                if !step(count, total) {
+                if !step(junctions + count, junctions + total) {
                     return None;
                 }
                 count += 1;
@@ -187,7 +194,7 @@ pub fn refill_with_fonts(
         };
         done.push(fill::Filled { zone, area });
     }
-    if !step(total, total) {
+    if !step(junctions + total, junctions + total) {
         return None;
     }
     fills.zones = out;
@@ -346,12 +353,14 @@ pub fn status_with_fonts(
             }
         })
         .collect();
-    let (_, stale_teardrops) = crate::teardrop::update(pcb, fills, fonts, false);
+    let (_, stale_teardrops) = crate::teardrop::update(pcb, fills, fonts, false, &mut |_, _| true)
+        .expect("a status query is not cancelled");
     FillStatus {
         stale_teardrops,
-        needs_refill: stale_teardrops > 0 || zones
-            .iter()
-            .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
+        needs_refill: stale_teardrops > 0
+            || zones
+                .iter()
+                .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
         zones,
     }
 }

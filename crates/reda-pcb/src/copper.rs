@@ -330,7 +330,10 @@ impl Copper {
         for zone in old {
             self.remove_zone(zone);
         }
-        let tracks: BTreeSet<_> = self.fills.iter().chain(fills)
+        let tracks: BTreeSet<_> = self
+            .fills
+            .iter()
+            .chain(fills)
             .flat_map(|f| f.teardrops.iter().map(|d| d.location.track))
             .collect();
         self.fills = fills.cloned();
@@ -629,8 +632,12 @@ impl Copper {
             anchors: vec![from, to],
         };
         let mut shape = Shape::track(&track.geometry, track.width);
-        for drop in self.fills.iter().flat_map(|f| &f.teardrops)
-            .filter(|d| d.location.track == uuid && d.location.layer == track.layer) {
+        for drop in self
+            .fills
+            .iter()
+            .flat_map(|f| &f.teardrops)
+            .filter(|d| d.location.track == uuid && d.location.layer == track.layer)
+        {
             for polygon in &drop.shapes {
                 shape.prims.extend(crate::zone::shape_copper(polygon).prims);
             }

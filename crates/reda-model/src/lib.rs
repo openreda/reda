@@ -66,9 +66,9 @@ pub use pcb::{
     PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver,
     ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
     RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
-    StackupTotals, TeardropFill, TeardropLocation, TeardropField, TeardropKind, TeardropTarget, TeardropValues, TextAutoposition,
-    TextOverride, Track, TrackGeometry, UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType,
-    Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation, TeardropTarget,
+    TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via,
+    ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

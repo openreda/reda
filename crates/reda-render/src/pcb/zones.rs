@@ -48,18 +48,29 @@ pub(super) fn build(
         }
     }
     for drop in fills.into_iter().flat_map(|f| &f.teardrops) {
-        let Some(track) = pcb.track(drop.location.track) else { continue; };
-        if track.layer != drop.location.layer { continue; }
-        let Some(layer) = b.layer(track.layer) else { continue; };
-        let color = BoardColor::for_layer(pcb,layer);
+        let Some(track) = pcb.track(drop.location.track) else {
+            continue;
+        };
+        if track.layer != drop.location.layer {
+            continue;
+        }
+        let Some(layer) = b.layer(track.layer) else {
+            continue;
+        };
+        let color = BoardColor::for_layer(pcb, layer);
         let first = b.scene.items.len();
         for shape in &drop.shapes {
-            let mesh = triangulate_with_holes(&shape.outer,&shape.holes);
+            let mesh = triangulate_with_holes(&shape.outer, &shape.holes);
             if !mesh.is_empty() {
-                b.push(track.uuid,SceneLayer::Board(track.layer),color,Primitive::Triangles(mesh));
+                b.push(
+                    track.uuid,
+                    SceneLayer::Board(track.layer),
+                    color,
+                    Primitive::Triangles(mesh),
+                );
             }
         }
-        b.net_overlay(track.net,first);
+        b.net_overlay(track.net, first);
     }
     for zone in pcb.active_zones() {
         let points = arc::contour(pcb.zone_vertices(zone));

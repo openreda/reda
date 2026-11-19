@@ -146,12 +146,19 @@ impl Command for TeardropStatusQuery {
     };
     type Params = TeardropStatusParams;
     type Output = crate::teardrop::TeardropStatus;
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> { needs_pcb(cx) }
-    fn run(&self,cx: &mut Context<'_>,p: Self::Params) -> Result<Self::Output,CommandError> {
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Self::Output, CommandError> {
         let board = pcb(cx)?;
         if p.document.is_some_and(|doc| doc != board.uuid) {
-            return Err(CommandError::invalid_params("/document","unknown PCB Document"));
+            return Err(CommandError::invalid_params(
+                "/document",
+                "unknown PCB Document",
+            ));
         }
-        Ok(crate::teardrop::status(cx.project()?.zone_fills(board.uuid)))
+        Ok(crate::teardrop::status(
+            cx.project()?.zone_fills(board.uuid),
+        ))
     }
 }

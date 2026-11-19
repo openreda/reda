@@ -863,3 +863,44 @@ fn thirty_two_layer_gerber_timing() {
     let files = plot(&engine);
     eprintln!("Plotted {} files in {:?}", files.len(), start.elapsed());
 }
+
+#[test]
+fn a_stale_width_change_plots_an_attributed_conductor_region_only_on_its_layer() {
+    let dir = TempDir::new("gerber-teardrop");
+    let mut engine = board(&dir);
+    let sig = net(&mut engine, "SIG");
+    for (a, b, width) in [(3., 5., "1mm"), (5., 8., "0.1mm")] {
+        engine.run_ok(
+            "pcb.track.add",
+            json!({"layer":"copper_top","net":sig,"width":width,
+            "points":[pt(a,5.),pt(b,5.)]}),
+        );
+    }
+    engine.run_ok("pcb.zone.fill", json!({}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"width_change":{"enabled":true,"length":100}}}),
+    );
+    let files = plot(&engine);
+    let layer = read(&file(&files, "Demo.gtl").bytes);
+    let regions: Vec<_> = layer.regions().collect();
+    let [
+        Object::Region {
+            points,
+            function,
+            attributes,
+            dark,
+            ..
+        },
+    ] = regions[..]
+    else {
+        panic!("expected a single Teardrop region");
+    };
+    assert!(dark);
+    assert_eq!(function.as_deref(), Some("Conductor"));
+    assert_eq!(attributes[".N"], "SIG");
+    for expected in [(5., 4.5), (5., 5.5), (6., 5.05), (6., 4.95)] {
+        assert!(points.contains(&(mm(expected.0), mm(expected.1))));
+    }
+    assert_eq!(read(&file(&files, "Demo.gbl").bytes).regions().count(), 0);
+}
