@@ -304,3 +304,63 @@ fn ctrl_q_with_the_panel_focused_toggles_its_units_only() {
     h.run();
     assert_eq!(height(&h), "50 mil");
 }
+
+#[test]
+fn via_properties_choose_a_stitching_type_and_disable_mask_beyond_the_span() {
+    let dir = TempDir::new("via-properties");
+    let mut h = harness(&dir);
+    let old = h
+        .state()
+        .shell()
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .uuid;
+    run(&mut h, "document.delete", json!({"document":old}));
+    run(&mut h, "document.add", json!({"kind":"pcb","layers":4}));
+    let pcb = h.state().shell().engine().project().unwrap().pcb().unwrap();
+    let doc = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    run(&mut h, "document.open", json!({"document":doc}));
+    let kind = run(
+        &mut h,
+        "pcb.via_type.add",
+        json!({"document":doc,"name":"Blind laser","from":layers[0],"to":layers[1]}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "tool.activate:via", json!({}));
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Via type").click();
+    h.run();
+    h.get_by_label("Blind laser").click();
+    h.run();
+    assert_eq!(
+        last_entry(&h),
+        ("pcb.via.pick_type".into(), json!({"via_type":kind}))
+    );
+    run(&mut h, "tool.activate:select", json!({}));
+    let via = run(
+        &mut h,
+        "pcb.via.add",
+        json!({"from":layers[0],"to":layers[1],"at":{"x":0,"y":0}}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects":[via]}));
+    h.run();
+    h.get_by_label("Blind laser");
+    assert!(
+        h.get_by_role_and_label(Role::TextInput, "Bottom solder mask")
+            .accesskit_node()
+            .is_disabled()
+    );
+    assert!(
+        !h.get_by_role_and_label(Role::TextInput, "Top solder mask")
+            .accesskit_node()
+            .is_disabled()
+    );
+    run(&mut h, "pcb.via_type.remove", json!({"via_type":kind}));
+    h.run();
+    h.get_by_label("no Via type");
+}

@@ -74,29 +74,40 @@ fn pad_labels(b: &mut Builder, pad: &BoardPad, layer: SceneLayer) {
 
 /// Net names on Vias, across the Via on the drill Layer, fitted inside its pad.
 pub(super) fn vias(b: &mut Builder) {
-    if !b.style.labels.via_nets {
-        return;
-    }
     let pcb = b.pcb;
     for via in pcb.vias() {
-        let Some(net) = via.net.and_then(|n| pcb.net(n)) else {
-            continue;
-        };
-        let height = fit(
-            &net.name,
-            Nm(via.diameter.start.0 * 30 / 100),
-            via.diameter.start,
-        );
-        label(
-            b,
-            via.uuid,
-            SceneLayer::Drill,
-            BoardColor::NetName,
-            &net.name,
-            via.at,
-            height,
-            Millideg(0),
-        );
+        let net = via
+            .net
+            .filter(|_| b.style.labels.via_nets)
+            .and_then(|n| pcb.net(n))
+            .map(|n| n.name.as_str());
+        let span = b.style.labels.via_spans.then(|| {
+            format!(
+                "{}:{}",
+                pcb.copper_number(via.span.from).unwrap(),
+                pcb.copper_number(via.span.to).unwrap()
+            )
+        });
+        let split = net.is_some() && span.is_some();
+        for (text, offset) in [(net, -1), (span.as_deref(), 1)] {
+            let Some(text) = text else { continue };
+            let d = via.diameter.start;
+            let height = fit(text, Nm(d.0 * if split { 22 } else { 30 } / 100), d);
+            let at = Point::new(
+                via.at.x,
+                via.at.y + Nm(if split { offset * d.0 / 6 } else { 0 }),
+            );
+            label(
+                b,
+                via.uuid,
+                SceneLayer::Drill,
+                BoardColor::NetName,
+                text,
+                at,
+                height,
+                Millideg(0),
+            );
+        }
     }
 }
 

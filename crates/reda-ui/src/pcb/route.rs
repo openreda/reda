@@ -347,7 +347,12 @@ impl Router {
         };
         let pcb = project.pcb().expect("a board");
         let diameter = self.via_diameter(pcb, net);
-        let proposal = Proposal::Via { at, diameter, net };
+        let proposal = Proposal::Via {
+            at,
+            diameter,
+            net,
+            span: pcb.stackup().through_type().span(),
+        };
         if let Some(why) = self.blocked_by(shell, &proposal) {
             shell.report(why);
             return false;
@@ -668,16 +673,29 @@ impl Router {
                 return;
             };
             let pcb = project.pcb().expect("a board");
-            let net = self
-                .copper(shell)
-                .and_then(|c| pcb.copper_layers().find_map(|l| c.net_at(l.uuid, at)));
-            let diameter = net_rules(pcb, net).via_diameter.default_size();
-            let proposal = Proposal::Via { at, diameter, net };
+            let kind = shell.board_view().stitching_type(pcb);
+            let span = kind.span();
+            let net = self.copper(shell).and_then(|c| {
+                pcb.span_layers(span)
+                    .into_iter()
+                    .find_map(|l| c.net_at(l, at))
+            });
+            let diameter = reda_engine::pcb::rules::via_starting_size(pcb, net, kind)
+                .0
+                .start;
+            let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
+            let proposal = Proposal::Via {
+                at,
+                diameter,
+                net,
+                span,
+            };
+            self.note = (!allowed).then(|| tr!("via-type-disallowed"));
             let (hits, keepouts) = self.query(shell, &proposal, &[]);
             self.via = Some(ViaCursor {
                 at,
                 diameter,
-                blocked: !hits.is_empty() || !keepouts.is_empty(),
+                blocked: !allowed || !hits.is_empty() || !keepouts.is_empty(),
             });
             self.hits = hits;
             self.keepouts = keepouts;
@@ -877,7 +895,20 @@ impl Router {
             shell.report(why);
             return;
         }
-        let _ = shell.run_reporting("pcb.via.add", json!({"at": {"x": at.x, "y": at.y}}));
+        if self.via.is_some_and(|v| v.blocked) {
+            if let Some(why) = &self.note {
+                shell.report(why.clone());
+            }
+            return;
+        }
+        let Some(pcb) = shell.engine().project().and_then(|p| p.pcb()) else {
+            return;
+        };
+        let kind = shell.board_view().stitching_type(pcb);
+        let _ = shell.run_reporting(
+            "pcb.via.add",
+            json!({"at": {"x": at.x, "y": at.y},"from":kind.from,"to":kind.to}),
+        );
         self.check(shell, at);
     }
 }

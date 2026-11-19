@@ -152,6 +152,7 @@ fn pad_nets_via_nets_and_repeated_net_names_are_view_toggles() {
         labels: NetLabels {
             pad_nets: false,
             via_nets: false,
+            via_spans: false,
             repeated_net_names: true,
         },
         ..BoardStyle::default()

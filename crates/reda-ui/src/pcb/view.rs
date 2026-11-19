@@ -34,6 +34,8 @@ pub const VIEW_TYPES: [ObjectType; 9] = [
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardView {
     pub layers: LayerView,
+    /// Session selection for standalone Via placement.
+    pub stitching_type: Option<Uuid>,
     /// The units lengths show in.
     pub units: Units,
 }
@@ -49,8 +51,21 @@ impl BoardView {
     pub fn new(units: Units) -> BoardView {
         BoardView {
             layers: LayerView::default(),
+            stitching_type: None,
             units,
         }
+    }
+
+    pub fn stitching_type<'p>(
+        &self,
+        pcb: &'p reda_engine::model::PcbDocument,
+    ) -> &'p reda_engine::model::ViaType {
+        let stack = pcb.stackup();
+        stack
+            .via_types
+            .iter()
+            .find(|v| Some(v.uuid) == self.stitching_type)
+            .unwrap_or_else(|| stack.through_type())
     }
 
     /// The Layer edited: the chosen one while the board has it, else the top copper.
@@ -114,6 +129,7 @@ impl BoardView {
             labels: NetLabels {
                 pad_nets: labels.pad_nets,
                 via_nets: labels.via_nets,
+                via_spans: labels.via_spans,
                 repeated_net_names: labels.repeated_net_names,
             },
             hidden_ratsnest_footprints: self.layers.ratsnest.hidden_footprints.clone(),

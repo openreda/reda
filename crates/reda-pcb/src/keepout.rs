@@ -250,9 +250,14 @@ pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
             Restriction::Tracks,
             net,
         ),
-        Proposal::Via { at, diameter, net } => (
+        Proposal::Via {
+            at,
+            diameter,
+            net,
+            span,
+        } => (
             Shape::disc(at, diameter),
-            pcb.copper_layers().map(|l| l.uuid).collect(),
+            pcb.span_layers(span),
             Restriction::Vias,
             net,
         ),

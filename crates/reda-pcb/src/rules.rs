@@ -155,6 +155,20 @@ fn range(
     }
 }
 
+/// The first enabled Via Span permission list in Net Class rank order applies.
+pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool {
+    ranked_classes(pcb, net)
+        .into_iter()
+        .find_map(|class| {
+            pcb.class_rule(RuleKind::ViaSpan, class)
+                .filter(|r| r.enabled)?
+                .values
+                .allowed
+                .as_ref()
+        })
+        .is_none_or(|list| list.is_empty() || list.contains(&id))
+}
+
 /// Starting sizes of a single Via. Class preferences override the type field by field.
 pub fn via_starting_size(
     pcb: &PcbDocument,
