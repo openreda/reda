@@ -148,3 +148,40 @@ fn a_scoped_run_never_marks_waivers_stale() {
     let subset = engine.run_ok("drc.run", json!({"checks": ["track_width"]}));
     assert_eq!(subset["unmatched_waivers"], json!([waiver]));
 }
+
+#[test]
+fn an_area_reaching_only_a_vias_large_end_land_takes_in_its_violation() {
+    let dir = TempDir::new("drc-scope-end-land");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"path": dir.path(), "name": "Demo"}));
+    let nets: Vec<String> = ["A", "B"]
+        .iter()
+        .map(|n| {
+            engine.run_ok("test.net.add", json!({"name": n}))["result"]["uuid"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({"at": {"x": 0, "y": 0}, "net": nets[0], "hole": "0.3mm",
+               "diameter": {"start": "0.6mm", "end": "3mm"}}),
+    )["result"]["uuid"]
+        .clone();
+    // 0.1 mm from the 3 mm bottom land, far from the 0.6 mm top land.
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer": "copper_bottom", "net": nets[1], "width": "0.2mm",
+               "points": [{"x": "1.7mm", "y": 0}, {"x": "5mm", "y": 0}]}),
+    );
+    // The box reaches the bottom land's top edge (y 1.5 mm) only.
+    let area = json!({"from": {"x": "-0.1mm", "y": "1.2mm"}, "to": {"x": "0.1mm", "y": "1.4mm"}});
+    let out = engine.run_ok("drc.run", json!({"area": area, "checks": ["clearance"]}));
+    let found = out["violations"].as_array().unwrap();
+    assert_eq!(found.len(), 1, "{out:#}");
+    assert!(
+        found[0]["objects"].as_array().unwrap().contains(&via),
+        "{out:#}"
+    );
+}
