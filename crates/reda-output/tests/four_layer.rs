@@ -6,13 +6,18 @@ mod job_reader;
 use gerber_reader::Object;
 use reda_testkit::{open_reference_copy, read_csv};
 use serde_json::json;
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::Path,
+};
 
 #[test]
 fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placements() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/projects/four_layer");
     let (_dir, mut engine) = open_reference_copy(&source, "FourLayer.reda");
     let job = engine.project().unwrap().output_jobs().next().unwrap().uuid;
+    engine.run_ok("pcb.zone.fill", json!({}));
     let report = engine.run_ok("output.job.run", json!({"job":job}));
     assert_eq!(report["warnings"], json!([]));
     assert_eq!(report["skipped"], json!([]));
@@ -21,6 +26,36 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
     let job = job_reader::read(&fs::read(fab.join("FourLayer-job.gbrjob")).unwrap());
     assert_eq!(job.general_specs.layer_number, 4);
     let pcb = engine.project().unwrap().pcb().unwrap();
+    let fills = engine.project().unwrap().zone_fills(pcb.uuid).unwrap();
+    let targets: BTreeSet<_> = fills
+        .teardrops
+        .iter()
+        .filter(|d| !d.shapes.is_empty())
+        .map(|d| {
+            let target = d.location.target;
+            if let Some(id) = d.location.pad {
+                let instance = pcb.footprint(target).unwrap();
+                let copy = pcb.footprint_copy(instance.footprint).unwrap();
+                let pad = copy.footprint.pads.iter().find(|p| p.uuid == id).unwrap();
+                assert_eq!(pad.kind, reda_model::PadKind::Smd);
+                "SMD Pad"
+            } else if let Some(pad) = pcb.free_pad(target) {
+                assert_eq!(pad.kind, reda_model::PadKind::PlatedThroughHole);
+                "Through-hole Pad"
+            } else if pcb.via(target).is_some() {
+                "Via"
+            } else {
+                assert!(
+                    pcb.track(target).unwrap().width > pcb.track(d.location.track).unwrap().width
+                );
+                "Width change"
+            }
+        })
+        .collect();
+    assert_eq!(
+        targets,
+        BTreeSet::from(["Through-hole Pad", "SMD Pad", "Via", "Width change"])
+    );
     job_reader::check_materials(pcb, &job);
     assert_eq!(
         pcb.stackup().construction.as_deref(),
@@ -53,6 +88,7 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
         let copper = gerber_reader::read(&fs::read(fab.join(&files[index].path)).unwrap());
         assert_eq!(copper.file[".FileFunction"], function);
         assert!(copper.ended);
+        let layer = pcb.copper_layers().nth(index).unwrap().uuid;
         let mut lands: Vec<_> = copper
             .flashes()
             .filter_map(|o| match o {
@@ -74,34 +110,40 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
                 .collect::<Vec<_>>()
         );
         // There are no Zones. Every dark region is derived copper attached to a routed Net.
-        let regions: Vec<_> = copper.regions().collect();
-        for region in &regions {
+        let mut actual = Vec::new();
+        for region in copper.regions() {
             let Object::Region {
                 dark,
                 points,
+                arcs,
                 function,
                 attributes,
-                ..
             } = region
             else {
                 unreachable!()
             };
-            assert!(*dark && points.len() >= 3);
+            assert!(*dark && points.len() >= 4 && arcs.is_empty());
             assert_eq!(function.as_deref(), Some("Conductor"));
-            assert!(matches!(
-                attributes.get(".N").map(String::as_str),
-                Some("SIGNAL" | "RETURN")
-            ));
+            assert_eq!(points.first(), points.last());
+            let mut vertices = points[..points.len() - 1].to_vec();
+            vertices.sort();
+            actual.push((attributes[".N"].clone(), vertices));
         }
-        if index == 2 {
-            assert!(regions.is_empty());
-        } else {
-            assert!(
-                !regions.is_empty(),
-                "missing enabled Teardrops on L{}",
-                index + 1
-            );
+        let mut expected = Vec::new();
+        for drop in fills.teardrops.iter().filter(|d| d.location.layer == layer) {
+            let track = pcb.track(drop.location.track).unwrap();
+            let name = &pcb.net(track.net.unwrap()).unwrap().name;
+            for shape in &drop.shapes {
+                assert!(shape.holes.is_empty());
+                let mut vertices: Vec<_> = shape.outer.iter().map(|p| (p.x.0, p.y.0)).collect();
+                vertices.sort();
+                expected.push((name.clone(), vertices));
+            }
         }
+        actual.sort();
+        expected.sort();
+        assert_eq!(actual, expected, "conductor regions on L{}", index + 1);
+        assert_eq!(actual.is_empty(), index == 2);
     }
 
     let drill_files: BTreeMap<_, _> = job
