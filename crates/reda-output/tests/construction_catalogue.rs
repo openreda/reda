@@ -258,3 +258,17 @@ fn every_shipped_construction_roundtrips_and_matches_the_published_physical_chec
     }
     assert_eq!(totals, include_str!("golden/construction-thicknesses.tsv"));
 }
+
+#[test]
+fn shipped_fab_silkscreen_limits_follow_each_standard_service() {
+    for (name, width, height) in [
+        ("Generic", 150_000, Some(1_000_000)),
+        ("JLCPCB", 150_000, Some(1_000_000)),
+        ("PCBWay", 150_000, Some(800_000)),
+        ("OSH Park", 127_000, None),
+    ] {
+        let rules = serde_json::to_value(shipped_named(name).unwrap().rules).unwrap();
+        assert_eq!(rules["silk_width"].as_i64(), Some(width), "{name}");
+        assert_eq!(rules["silk_text_height"].as_i64(), height, "{name}");
+    }
+}

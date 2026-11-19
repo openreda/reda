@@ -114,9 +114,26 @@ fn fingerprint(
         .collect();
     let mut key = reda_command::Fingerprint::new();
     key.add(&design_fingerprint(pcb)).add(changes).add(&presets);
+    let mut add_face = |family: &str| {
+        if let Some(face) = crate::text::installed_fingerprint(family, fonts) {
+            key.add(family).add(face);
+        }
+    };
     for text in pcb.texts() {
-        if let Some(face) = crate::text::installed_fingerprint(&text.font, fonts) {
-            key.add(face);
+        add_face(&text.font);
+    }
+    for dimension in pcb.dimensions() {
+        add_face(&dimension.style.font);
+    }
+    for instance in pcb.footprints() {
+        for text in crate::placed::instance_texts(pcb, instance) {
+            if text.visible
+                && text.layer.is_silkscreen()
+                && !reda_model::field_text(&text.field, &instance.designator, &instance.fields)
+                    .is_empty()
+            {
+                add_face(&text.style.font);
+            }
         }
     }
     key.finish()

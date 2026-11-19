@@ -495,7 +495,11 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             ),
             (
                 Rule::Silkscreen,
-                vec![(Some(DrcCheck::SilkToMask), vec![F::SilkToMask])]
+                vec![
+                    (Some(DrcCheck::SilkToMask), vec![F::SilkToMask]),
+                    (Some(DrcCheck::SilkWidth), vec![F::SilkWidth]),
+                    (Some(DrcCheck::SilkTextHeight), vec![F::SilkTextHeight]),
+                ]
             ),
             (
                 Rule::ZoneConnections,

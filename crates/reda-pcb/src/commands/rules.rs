@@ -708,7 +708,10 @@ pub struct RuleChanges {
 fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
     let limits = crate::rules::presets::preset_limits(preset);
     let mut out = Vec::new();
-    for (kind, seeds) in seed_rules(preset) {
+    for (kind, seeds) in seed_rules(preset)
+        .into_iter()
+        .chain(crate::silk_rules(preset))
+    {
         let board = &pcb.board_rule(kind).values;
         for field in seeds.set_fields() {
             if field == RuleField::AspectRatioMax {
@@ -1211,7 +1214,7 @@ impl Command for RulesAffected {
         id: "pcb.rules.affected",
         title: "Objects a Rule Affects",
         description: "Lists the Nets, objects and placed Pads a rule supplies values to on \
-                      their copper Layers. Select a record by rule UUID or by kind and scope, \
+                      their copper Layers, or the artwork a silkscreen minimum applies to. Select a record by rule UUID or by kind and scope, \
                       or select all records of a Net Class by net_class UUID.",
         category: "pcb",
         icon: "rules",
@@ -1258,7 +1261,11 @@ impl Command for RulesAffected {
                 ));
             }
         };
-        Ok(crate::rules::explain::affected(pcb, &records))
+        Ok(crate::rules::explain::affected_with_fonts(
+            pcb,
+            &records,
+            cx.fonts(),
+        ))
     }
 }
 
