@@ -11,7 +11,7 @@
 //! Pads are flashed.
 
 use reda_model::geom::{Millideg, Nm, Point};
-use reda_model::{GraphicShape, PcbText, Shape, Side, Uuid};
+use reda_model::{PcbText, Shape, Side, Uuid};
 use reda_pcb::placed::{self, Bounds};
 use reda_pcb::{PlacedText, board_layer, footprint_texts, text_geometry};
 
@@ -52,17 +52,12 @@ pub(super) fn draw_layer(
         }
     }
     for graphic in pcb.graphics().filter(|d| d.layer == layer) {
-        let w = graphic.width;
-        match graphic.shape {
-            GraphicShape::Line { from, to } => g.draw(w, function, from, to, Millideg::ZERO, a),
-            GraphicShape::Arc { from, to, sweep } => g.draw(w, function, from, to, sweep, a),
-            GraphicShape::Rect { from, to, filled } => {
-                let corners = rect_corners(from, to);
-                if filled {
-                    g.region(&corners, true, function, a);
-                }
-                outline(g, &corners, w, function, a);
-            }
+        let (region, strokes) = graphic.shape.drawing(graphic.width);
+        if let Some(corners) = region {
+            g.region(&corners, true, function, a);
+        }
+        for s in strokes {
+            g.draw(graphic.width, function, s.from, s.to, s.sweep, a);
         }
     }
     for text in pcb.texts().filter(|t| t.layer == layer) {

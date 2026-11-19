@@ -123,7 +123,8 @@ fn pcb<'c>(cx: &'c Context<'_>) -> Result<&'c PcbDocument, CommandError> {
 /// too: they stay copper until the next fill), kept in the Project between edits.
 fn board_copper(cx: &Context<'_>) -> Result<std::sync::Arc<crate::Copper>, CommandError> {
     pcb(cx)?;
-    crate::Copper::of(cx.project()?).ok_or_else(|| CommandError::unavailable(NO_PCB))
+    crate::Copper::of_with_fonts(cx.project()?, cx.fonts())
+        .ok_or_else(|| CommandError::unavailable(NO_PCB))
 }
 
 /// What a Command that creates one object returns.

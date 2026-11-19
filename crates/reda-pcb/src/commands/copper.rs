@@ -171,8 +171,13 @@ pub struct ClearanceResult {
     pub keepouts: Vec<Uuid>,
 }
 
-fn check(pcb: &PcbDocument, proposal: Proposal, ignore: &[Uuid]) -> ClearanceResult {
-    let hits = Copper::build(pcb).clearance(pcb, &proposal, ignore);
+fn check(
+    copper: &Copper,
+    pcb: &PcbDocument,
+    proposal: Proposal,
+    ignore: &[Uuid],
+) -> ClearanceResult {
+    let hits = copper.clearance(pcb, &proposal, ignore);
     let keepouts = crate::keepout::keepouts_hit(pcb, &proposal);
     ClearanceResult {
         clear: hits.is_empty() && keepouts.is_empty(),
@@ -242,7 +247,12 @@ impl Command for ClearanceTrack {
             width,
             net,
         };
-        Ok(check(pcb, proposal, &p.ignore))
+        Ok(check(
+            super::board_copper(cx)?.as_ref(),
+            pcb,
+            proposal,
+            &p.ignore,
+        ))
     }
 }
 
@@ -297,6 +307,11 @@ impl Command for ClearanceVia {
             diameter,
             net,
         };
-        Ok(check(pcb, proposal, &p.ignore))
+        Ok(check(
+            super::board_copper(cx)?.as_ref(),
+            pcb,
+            proposal,
+            &p.ignore,
+        ))
     }
 }

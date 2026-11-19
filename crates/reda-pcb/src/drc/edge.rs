@@ -145,13 +145,22 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
                 });
             }
             for edge in &edges {
-                let (gap, [a, b]) = edge.gap(shape);
-                let anchor = match &shape.prims[0].core {
-                    Core::Seg(a, _) => *a,
-                    Core::Poly(points) => points[0],
+                // A label can have one glyph on the board and another wholly outside,
+                // with no stroke crossing the edge between them.
+                let outside = shape.prims.iter().find(|p| {
+                    let anchor = match &p.core {
+                        Core::Seg(a, _) => *a,
+                        Core::Poly(points) => points[0],
+                    };
+                    edge.contains(anchor) != edge.keeps_inside
+                });
+                let (gap, [a, b]) = match outside {
+                    Some(p) => edge.gap(&Shape {
+                        prims: vec![p.clone()],
+                    }),
+                    None => edge.gap(shape),
                 };
-                let wrong_side = edge.contains(anchor) != edge.keeps_inside;
-                let actual = if wrong_side {
+                let actual = if outside.is_some() {
                     Nm::ZERO
                 } else if gap < required.0 as f64 {
                     Nm(gap.max(0.0).floor() as i64)

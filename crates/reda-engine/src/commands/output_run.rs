@@ -215,7 +215,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     let stored = project.zone_fills(pcb.uuid).cloned();
     cx.progress(1.0, Some(STEPS), "Refilling Zones");
     cx.check_cancelled()?;
-    let fills = reda_pcb::zone::current(&pcb, stored.as_ref());
+    let fills = reda_pcb::zone::current_with_fonts(&pcb, stored.as_ref(), cx.fonts());
     if stored.as_ref() != Some(&fills)
         && let Some(project) = cx.session()?.project.as_mut()
     {
