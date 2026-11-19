@@ -8,7 +8,7 @@ use reda_testkit::{TempDir, TestEngine, probe_engine, starter_library, test_engi
 use serde_json::{Value, json};
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000028";
+const JOB: &str = "00000000-0000-4000-8000-00000000002e";
 const SHEET: &str = "00000000-0000-4000-8000-000000000002";
 /// The starter Library's Resistor and its 0603 Footprint.
 const RESISTOR: &str = "84d5651a-bf4b-462e-9480-39e8f454a042";

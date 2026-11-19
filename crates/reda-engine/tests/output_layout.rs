@@ -12,7 +12,7 @@ use reda_testkit::{TempDir, TestEngine, probe_commands, probe_engine};
 use serde_json::{Value, json};
 
 /// The Output Job `project.new` makes, on seed 0.
-const JOB: &str = "00000000-0000-4000-8000-000000000028";
+const JOB: &str = "00000000-0000-4000-8000-00000000002e";
 
 fn pt(x: f64, y: f64) -> Value {
     json!({"x": (x * 1e6).round() as i64, "y": (y * 1e6).round() as i64})
