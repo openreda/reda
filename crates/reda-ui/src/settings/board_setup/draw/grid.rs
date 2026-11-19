@@ -72,7 +72,7 @@ fn allowed_types(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
                     if ui
                         .add(widgets::checkbox(
                             &mut on,
-                            tr!("via-allow", name = kind.display_name(pcb)),
+                            tr!("via-allow", name = crate::pcb::via_type_name(pcb, kind)),
                         ))
                         .changed()
                     {

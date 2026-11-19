@@ -1334,8 +1334,16 @@ fn routing_skips_a_stretched_micro_type_and_commits_the_through_fallback() {
     let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
     let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
     let split = pcb.stackup().dielectrics().next().unwrap().uuid;
-    run(&mut b.shell, "pcb.via_type.add", json!({"document":b.pcb,"from":layers[0],"to":layers[2],"micro":true}));
-    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb,"split":split}));
+    run(
+        &mut b.shell,
+        "pcb.via_type.add",
+        json!({"document":b.pcb,"from":layers[0],"to":layers[2],"micro":true}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.layer.add",
+        json!({"document":b.pcb,"split":split}),
+    );
     run(&mut b.shell, "pcb.layer.activate:4", json!({}));
     run(&mut b.shell, "pcb.layer.activate:1", json!({}));
     run(&mut b.shell, "tool.activate:route", json!({}));
@@ -1348,5 +1356,8 @@ fn routing_skips_a_stretched_micro_type_and_commits_the_through_fallback() {
     run(&mut b.shell, "pcb.route.finish", json!({}));
     let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
     assert_eq!(pcb.vias().count(), 1);
-    assert_eq!(pcb.vias().next().unwrap().span, pcb.stackup().through_type().span());
+    assert_eq!(
+        pcb.vias().next().unwrap().span,
+        pcb.stackup().through_type().span()
+    );
 }

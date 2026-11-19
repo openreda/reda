@@ -374,14 +374,18 @@ fn stackup_field_commits_copper_thickness_once_and_rejects_an_overfull_board() {
     h.run();
     let before = h.state().shell().engine().journal().len();
     retype(&mut h, "Top Copper thickness", "2oz");
-    assert_eq!(h.state().shell().engine().journal().len(), before);
+    assert_eq!(
+        h.state().shell().engine().journal()[before].id,
+        "pcb.stackup.select"
+    );
+    assert_eq!(h.state().shell().engine().journal().len(), before + 1);
     h.key_press(Key::Enter);
     h.run();
     assert_eq!(
         pcb(&h).stackup().copper().next().unwrap().thickness.0,
         70_000
     );
-    assert_eq!(h.state().shell().engine().journal().len(), before + 1);
+    assert_eq!(h.state().shell().engine().journal().len(), before + 2);
     retype(&mut h, "Finished thickness (mm)", "0.05");
     h.key_press(Key::Enter);
     h.run();
@@ -553,7 +557,13 @@ fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
         pcb(&h).vias().next().unwrap().unused_layers,
         reda_ui::engine::model::UnusedLayers::RemoveKeepEnds
     );
-    choose(&mut h, "Laser to", "L3");
+    let layer = pcb(&h).copper_layers().nth(2).unwrap().uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.set", json!({"layer":layer,"name":"GND"}))
+        .unwrap();
+    h.run();
+    choose(&mut h, "Laser to", "L3 GND");
     h.get_by_role_and_label(Role::Button, "Move Vias").click();
     h.run();
     let board = pcb(&h);
@@ -1331,7 +1341,31 @@ fn schematic_scale_makes_thin_copper_legible_without_changing_the_stackup() {
     h.run();
     let (thicker, thinner) = heights(&h);
     assert!(thicker > copper * 4.0 && thinner < sheet);
-    assert_eq!(h.state().shell().engine().journal().len(), before);
+    let journal = h.state().shell().engine().journal();
+    assert_eq!(journal.len(), before + 1);
+    assert_eq!(journal.last().unwrap().id, "pcb.stackup.scale");
+    let through = pcb(&h).stackup().through_type().uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.stackup.scale",
+            json!({"document":document, "scale":"physical"}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.stackup.select",
+            json!({"document":document, "entry":through}),
+        )
+        .unwrap();
+    h.run();
+    assert_eq!(heights(&h), (copper, sheet));
+    assert_eq!(
+        h.get_by_role_and_label(Role::Row, "Through")
+            .accesskit_node()
+            .is_selected(),
+        Some(true)
+    );
 }
 
 #[test]
@@ -1369,14 +1403,14 @@ fn a_small_tab_can_reach_the_bottom_of_a_32_layer_stackup() {
         .scroll_to_me();
     h.run();
     let span = h.get_by_role_and_label(Role::ComboBox, "Through to");
-    assert_eq!(span.value().as_deref(), Some("L32"));
+    assert_eq!(span.value().as_deref(), Some("Bottom Copper"));
     assert!(span.rect().center().y < 640.0);
     assert!(
         h.output().shapes.iter().any(|paint| matches!(&paint.shape,
             egui::Shape::Text(text) if span.rect().contains(text.pos)
-                && text.galley.text() == "L32" && !text.galley.elided
+                && text.galley.text() == "Bottom Copper" && !text.galley.elided
         )),
-        "the closed selector paints all three characters"
+        "the closed selector paints the full outer Layer name"
     );
 }
 
@@ -1511,4 +1545,70 @@ fn a_narrow_cross_section_keeps_the_split_action_clear_of_via_barrels() {
     h.key_press_modifiers(Modifiers::COMMAND, Key::Z);
     h.run();
     assert_eq!(pcb(&h).stackup(), before.stackup());
+}
+
+#[test]
+fn selected_via_type_diameters_support_overrides_inheritance_and_undo() {
+    let (home, work) = (
+        TempDir::new("diameter-home"),
+        TempDir::new("diameter-board"),
+    );
+    let mut h = harness(home.path(), work.path(), "Diameter");
+    let document = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("pcb.layer.add", json!({"document":document}))
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Row, "Through").focus();
+    h.run();
+    h.key_press(Key::Enter);
+    h.run();
+    for (label, text) in [
+        ("Middle diameter (mm)", "0.9"),
+        ("End diameter (mm)", "1mm"),
+        ("Through pad", "0.8"),
+    ] {
+        retype(&mut h, label, text);
+        h.key_press(Key::Enter);
+        h.run();
+    }
+    let diameter = |h: &Harness<'static, App>| json!(pcb(h).stackup().through_type().diameter);
+    let expected = json!({"start":800000,"middle":900000,"end":1000000});
+    assert_eq!(diameter(&h), expected);
+    let last = h
+        .state()
+        .shell()
+        .engine()
+        .journal()
+        .iter()
+        .rev()
+        .find(|e| e.id == "pcb.via_type.set")
+        .unwrap();
+    assert_eq!(last.params["diameter"], expected);
+    for (label, remaining) in [
+        (
+            "Middle diameter (mm)",
+            json!({"start":800000,"end":1000000}),
+        ),
+        ("End diameter (mm)", json!({"start":800000})),
+    ] {
+        h.get_by_role_and_label(Role::TextInput, label).focus();
+        h.run();
+        h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+        h.key_press(Key::Backspace);
+        h.key_press(Key::Enter);
+        h.run();
+        assert_eq!(diameter(&h), remaining);
+    }
+    for _ in 0..2 {
+        h.state_mut()
+            .shell_mut()
+            .run("edit.undo", json!({"document":document}))
+            .unwrap();
+    }
+    assert_eq!(diameter(&h), expected);
 }

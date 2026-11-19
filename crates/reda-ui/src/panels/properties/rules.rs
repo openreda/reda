@@ -49,14 +49,8 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
             let page = model::page(kind.kind);
             ui.horizontal(|ui| {
                 ui.label(t.ty.body_strong.rich(kind.kind.id()));
-                if !kind.layer_numbers.is_empty() {
-                    ui.label(
-                        kind.layer_numbers
-                            .iter()
-                            .map(|n| format!("L{n}"))
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                    );
+                if !kind.layer_names.is_empty() {
+                    ui.label(kind.layer_names.join(", "));
                 }
                 if let Some(severity) = kind.severity {
                     severity_dot(ui, severity);

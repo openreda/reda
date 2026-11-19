@@ -33,7 +33,7 @@ impl Names {
             .stackup()
             .via_types
             .iter()
-            .map(|v| v.display_name(pcb))
+            .map(|v| crate::pcb::via_type_name(pcb, v))
             .collect();
         Self {
             bands,

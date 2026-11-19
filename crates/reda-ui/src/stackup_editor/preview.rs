@@ -1,11 +1,11 @@
 //! Physical materials in their own colours, shared with the Layers table.
 mod drawing;
 mod scene;
-use super::{Edits, Field, View};
+pub(super) use super::commands::Scale;
+use super::{Edits, Field, ViaField, View};
 use crate::settings::strong;
 use crate::theme::TokensExt as _;
 use crate::{tr, widgets};
-pub(super) use drawing::Scale;
 use drawing::{Band, Barrel};
 use egui::{Color32, Rect, Role, Sense, Stroke, StrokeKind, Ui, WidgetInfo, pos2, vec2};
 use reda_engine::model::{
@@ -71,7 +71,15 @@ pub(super) fn show(
             (Scale::Physical, tr!("stackup-to-scale")),
             (Scale::Schematic, tr!("stackup-schematic")),
         ];
-        ui.add(widgets::segmented(&mut view.scale, &options));
+        let mut scale = view.scale;
+        ui.add(widgets::segmented(&mut scale, &options));
+        if scale != view.scale {
+            edits.commands.push((
+                None,
+                super::commands::SCALE,
+                serde_json::json!({"document":pcb.uuid,"scale":scale}),
+            ));
+        }
     });
     let stack = pcb.stackup();
     let names = Names::new(pcb, info);
@@ -186,8 +194,8 @@ pub(super) fn show(
                     ui.scope_id().with(("callout", band.id)),
                     Sense::CLICK,
                 );
-                if hit.clicked() || label_hit.clicked() {
-                    view.selected = Some(band.id);
+                if (hit.clicked() || label_hit.clicked()) && !selected {
+                    edits.select(band.id);
                 }
                 if !band.copper
                     && (ui.rect_contains_pointer(band.rect) || ui.rect_contains_pointer(label))
@@ -274,8 +282,8 @@ fn via(
         ui.scope_id().with(("barrel-name", kind.uuid)),
         Sense::CLICK,
     );
-    if hit.clicked() || label_hit.clicked() {
-        view.selected = Some(kind.uuid);
+    if (hit.clicked() || label_hit.clicked()) && !selected {
+        edits.select(kind.uuid);
     }
     if !selected {
         return;
@@ -292,8 +300,8 @@ fn via(
     let handle_size = t.size.of(HANDLE_SIZE);
     let close_ends = (barrel.from.center().y - barrel.to.center().y).abs() < handle_size;
     for (key, at, other, current, side) in [
-        ("from", barrel.from, kind.to, kind.from, -1.0),
-        ("to", barrel.to, kind.from, kind.to, 1.0),
+        (ViaField::From, barrel.from, kind.to, kind.from, -1.0),
+        (ViaField::To, barrel.to, kind.from, kind.to, 1.0),
     ] {
         let end = pos2(barrel.x, at.center().y);
         let mut center = end;
@@ -313,7 +321,7 @@ fn via(
             WidgetInfo::labeled(
                 Role::Button,
                 true,
-                if key == "from" {
+                if key == ViaField::From {
                     tr!("via-from-field", name = name)
                 } else {
                     tr!("via-to-field", name = name)

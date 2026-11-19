@@ -381,6 +381,9 @@ impl Shell {
         }
         let units = preferences::current(engine.user_dirs()).pcb.default_units;
         engine.view_mut().set(Layout::default());
+        engine
+            .view_mut()
+            .set(crate::stackup_editor::commands::Displays::default());
         engine.view_mut().set(Selection::default());
         engine
             .view_mut()

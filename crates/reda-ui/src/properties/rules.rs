@@ -12,11 +12,10 @@ use crate::tr;
 use reda_engine::model::{LayerGroup, RuleLayers};
 
 pub(crate) fn layer_name(pcb: &PcbDocument, id: Uuid) -> String {
-    let position = pcb.copper_number(id).unwrap_or_default();
-    match pcb.layers().layer(id).and_then(|l| l.name.as_deref()) {
-        Some(name) => format!("L{position} · {name}"),
-        None => format!("L{position}"),
-    }
+    pcb.layers()
+        .layer(id)
+        .map(|l| crate::panels::layers::layer_name(pcb, l))
+        .unwrap_or_default()
 }
 
 pub(crate) fn layer_scope_label(pcb: &PcbDocument, layers: &RuleLayers) -> String {
@@ -74,7 +73,7 @@ pub struct PairLimit {
 #[derive(Clone, Debug, PartialEq)]
 pub struct KindRows {
     pub kind: RuleKind,
-    pub layer_numbers: Vec<usize>,
+    pub layer_names: Vec<String>,
     /// The DRC check's severity; `None` for kinds that shape outputs.
     pub severity: Option<Severity>,
     pub rows: Vec<RuleRow>,
@@ -175,11 +174,7 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
     };
     KindRows {
         kind: kind.kind,
-        layer_numbers: kind
-            .layers
-            .iter()
-            .filter_map(|id| pcb.copper_number(*id))
-            .collect(),
+        layer_names: kind.layers.iter().map(|id| layer_name(pcb, *id)).collect(),
         between_holes: kind.between_holes.into_iter().map(limit).collect(),
         severity: kind.severity,
         rows,

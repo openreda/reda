@@ -63,3 +63,18 @@ pub fn register_all(registry: &mut reda_engine::command::Registry) {
 pub use view::BoardView;
 
 pub(crate) mod unused_layers;
+
+/// The table name shown throughout the app, with generated names in the current language.
+pub(crate) fn via_type_name(
+    pcb: &reda_engine::model::PcbDocument,
+    kind: &reda_engine::model::ViaType,
+) -> String {
+    use reda_engine::model::ViaTypeName::*;
+    match kind.table_name(pcb) {
+        Named(name) => name.into(),
+        Through => crate::tr!("via-name-through"),
+        Blind(from, to) => crate::tr!("via-name-blind", from = from, to = to),
+        Buried(from, to) => crate::tr!("via-name-buried", from = from, to = to),
+        Micro(from, to) => crate::tr!("via-name-micro", from = from, to = to),
+    }
+}
