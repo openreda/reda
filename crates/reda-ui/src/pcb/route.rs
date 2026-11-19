@@ -873,12 +873,15 @@ impl Router {
         let Some(copper) = self.copper(shell) else {
             return;
         };
+        // A land removed as unused is live: the route brings it back on its Layer.
         let pickups = |layer| {
-            copper
+            let mut items: Vec<_> = copper
                 .items_at(layer, at)
                 .into_iter()
                 .filter(|i| !i.is_artwork() && !matches!(i, reda_engine::pcb::Item::Zone { .. }))
-                .collect::<Vec<_>>()
+                .collect();
+            items.extend(copper.removed_lands_at(pcb, layer, at));
+            items
         };
         let (layer, items) = std::iter::once(default_layer)
             .chain(

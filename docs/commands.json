@@ -56726,6 +56726,35 @@
       "presets": [],
       "result": {
         "$defs": {
+          "AllowedTypes": {
+            "description": "A `via_span` record's `allowed` list that applies.",
+            "properties": {
+              "net_class": {
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "via_types": {
+                "description": "The Via types allowed; empty allows every type.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "via_types",
+              "rule"
+            ],
+            "type": "object"
+          },
           "Between": {
             "description": "Which of two objects' values applies between them.",
             "properties": {
@@ -56903,6 +56932,17 @@
           "ObjectRules": {
             "description": "One kind's records as they apply to one object.",
             "properties": {
+              "allowed": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/AllowedTypes"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "For `via_span`: the Via types the object's Net may use, from the first enabled Net\nClass record that has the list; left out without one."
+              },
               "disabled": {
                 "description": "Disabled records on the object's Net Classes, and a disabled board-wide record.",
                 "items": {
@@ -65072,7 +65112,7 @@
     },
     {
       "category": "pcb",
-      "description": "Places a Via on the requested span. Its Net defaults to the copper under it.",
+      "description": "Places a Via on the requested span. Its Net defaults to the copper under it. Its sizes default to the Net Class preference for the drilling method, else the Via type's sizes, as given: a size outside the limits is kept and DRC flags it.",
       "icon": "via",
       "id": "pcb.via.add",
       "kind": "edit",
@@ -65332,7 +65372,7 @@
                 "type": "null"
               }
             ],
-            "description": "The copper diameters in drilling order, defaulting to the type with the Net Class preference."
+            "description": "The copper diameters in drilling order, defaulting to the type with the Net Class\npreference, not clipped to the limits."
           },
           "from": {
             "format": "uuid",
@@ -65351,7 +65391,7 @@
               }
             ],
             "default": null,
-            "description": "The hole, defaulting to the Net Class preference or the type’s hole."
+            "description": "The hole, defaulting to the Net Class preference or the type’s hole, not clipped to\nthe limits."
           },
           "mask": {
             "anyOf": [

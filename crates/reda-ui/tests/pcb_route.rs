@@ -1361,3 +1361,44 @@ fn routing_skips_a_stretched_micro_type_and_commits_the_through_fallback() {
         pcb.stackup().through_type().span()
     );
 }
+
+#[test]
+fn a_route_starts_on_the_active_layer_from_a_land_removed_as_unused() {
+    let mut b = board();
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let inner = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    run(
+        &mut b.shell,
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"2mm","hole":{"width":"0.8mm"},
+        "at":{"x":"5mm","y":"5mm"},"unused_layers":"remove","net":b.net}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(5.0, 5.0));
+    assert_eq!(b.shell.route_preview().unwrap().layer, inner);
+    route_to(&mut b, mm(5.0, 8.0));
+    run(&mut b.shell, "pcb.route.finish", json!({}));
+    let project = b.shell.engine().project().unwrap();
+    assert_eq!(b.shell.board_view().active_layer(project), Some(inner));
+    assert_eq!(
+        tracks(&b),
+        [(
+            inner,
+            Some(b.net),
+            tracks(&b)[0].2,
+            mm(5.0, 5.0),
+            mm(5.0, 8.0)
+        )]
+    );
+}

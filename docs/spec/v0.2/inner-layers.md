@@ -50,7 +50,8 @@ A pad on an inner Layer that joins nothing can be left out, which gives room for
 - **A Pad's top and bottom copper always stay,** because they are its solder lands. `remove` on a Pad affects inner Layers only.
 - **A Via under `remove`** can lose unconnected copper on its end Layers too, including on the board's outer Layers.
 - **Connected, on one Layer,** means either:
-  - a Track of the same Net ends on it, or
+  - a Track of the same Net ends on it,
+  - a Via of the same Net ends on that Layer with its copper overlapping it, as in an end-to-end stack of Micro Vias (each Via of the stack keeps its land there), or
   - a Zone of the same Net covers it and the [Zone connection](#zone-connections) that applies there is `relief` or `solid`.
 
   This is defined by what is meant to connect, not by the finished fill, so the fill and the pad never depend on each other.

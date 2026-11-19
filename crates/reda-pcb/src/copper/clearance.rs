@@ -106,6 +106,7 @@ impl Copper {
         route_ends: &[(Uuid, Point)],
     ) -> Proposal {
         let intent = super::lands::ViaIntent {
+            via: None,
             at,
             net,
             span: via.span,

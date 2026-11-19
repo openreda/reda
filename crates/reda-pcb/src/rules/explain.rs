@@ -73,6 +73,20 @@ pub struct ObjectRules {
     pub losers: Vec<Loser>,
     /// Disabled records on the object's Net Classes, and a disabled board-wide record.
     pub disabled: Vec<Loser>,
+    /// For `via_span`: the Via types the object's Net may use, from the first enabled Net
+    /// Class record that has the list; left out without one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed: Option<AllowedTypes>,
+}
+
+/// A `via_span` record's `allowed` list that applies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct AllowedTypes {
+    /// The Via types allowed; empty allows every type.
+    pub via_types: Vec<Uuid>,
+    pub rule: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub net_class: Option<Uuid>,
 }
 
 /// Which of two objects' values applies between them.
@@ -120,6 +134,8 @@ pub fn applicable(pcb: &PcbDocument, nets: &[Option<Uuid>]) -> Vec<KindRules> {
 /// Selected copper and the Layers where it is measured.
 pub struct Measured {
     hole_field: Option<RuleField>,
+    /// For a Via, the size kind of its drilling method: `via_size` or `microvia_size`.
+    via_size: Option<RuleKind>,
     pub net: Option<Uuid>,
     pub layers: Vec<Uuid>,
 }
@@ -130,6 +146,7 @@ impl Measured {
             return Some(Self {
                 net: t.net,
                 hole_field: None,
+                via_size: None,
                 layers: vec![t.layer],
             });
         }
@@ -137,13 +154,23 @@ impl Measured {
             return Some(Self {
                 net: z.net,
                 hole_field: None,
+                via_size: None,
                 layers: vec![z.layer],
             });
         }
         if let Some(v) = pcb.via(id) {
+            let stack = pcb.stackup();
+            let micro = stack
+                .type_for_span(v.span)
+                .unwrap_or_else(|| stack.through_type())
+                .micro;
             return Some(Self {
                 net: v.net,
                 hole_field: Some(RuleField::HoleVia),
+                via_size: Some(match micro {
+                    true => RuleKind::MicroviaSize,
+                    false => RuleKind::ViaSize,
+                }),
                 layers: pcb.span_layers(v.span),
             });
         }
@@ -153,6 +180,7 @@ impl Measured {
         pcb.net(id).map(|n| Self {
             net: Some(n.uuid),
             hole_field: None,
+            via_size: None,
             layers: pcb.copper_layers().map(|l| l.uuid).collect(),
         })
     }
@@ -162,6 +190,7 @@ impl Measured {
             net: p.net,
             hole_field: (p.kind == reda_model::PadKind::PlatedThroughHole)
                 .then_some(RuleField::HolePad),
+            via_size: None,
             layers: pcb
                 .copper_layers()
                 .filter(|l| p.side.is_none() || p.side == l.side)
@@ -180,8 +209,20 @@ impl Measured {
 }
 
 /// Groups identical explanations across shared copper Layers. Objects with no common
-/// Layer retain their own winners and have no between-objects measurement.
+/// Layer retain their own winners and have no between-objects measurement. With Vias
+/// selected, only the size kinds of their drilling methods are listed.
 pub fn applicable_objects(pcb: &PcbDocument, objects: &[Measured]) -> Vec<KindRules> {
+    let sizes: Vec<_> = objects.iter().filter_map(|o| o.via_size).collect();
+    let mut kinds = grouped(pcb, objects);
+    if !sizes.is_empty() {
+        kinds.retain(|k| {
+            !matches!(k.kind, RuleKind::ViaSize | RuleKind::MicroviaSize) || sizes.contains(&k.kind)
+        });
+    }
+    kinds
+}
+
+fn grouped(pcb: &PcbDocument, objects: &[Measured]) -> Vec<KindRules> {
     let nets: Vec<_> = objects.iter().map(|o| o.net).collect();
     let mut hole_fields: Vec<_> = objects.iter().filter_map(|o| o.hole_field).collect();
     hole_fields.sort();
@@ -321,10 +362,35 @@ fn object_rules(
             fields: Vec::new(),
         })
         .collect();
+    let mut allowed = None;
+    if kind == RuleKind::ViaSpan {
+        let applies = super::via_span_permission(pcb, net);
+        for record in records
+            .iter()
+            .filter(|r| r.enabled && r.values.allowed.is_some())
+        {
+            match applies {
+                Some((rule, list)) if rule == record.uuid => {
+                    allowed = Some(AllowedTypes {
+                        via_types: list.to_vec(),
+                        rule,
+                        net_class: record.scope.net_class,
+                    });
+                }
+                _ => losers.push(Loser {
+                    rule: record.uuid,
+                    net_class: record.scope.net_class,
+                    layers: record.scope.layers.clone(),
+                    fields: vec!["allowed".to_owned()],
+                }),
+            }
+        }
+    }
     ObjectRules {
         values,
         losers,
         disabled,
+        allowed,
     }
 }
 

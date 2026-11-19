@@ -226,9 +226,14 @@ impl PlacedPad {
         self.point(self.outline.center)
     }
 
-    /// A box around the Pad's copper.
+    /// A box around the Pad's copper on every Layer: its top, inner and bottom groups.
     pub fn bounds(&self) -> Bounds {
-        outline_bounds(self.at, self.rotation, &self.outline)
+        [Some((self.shape, self.outline)), self.middle, self.bottom]
+            .into_iter()
+            .flatten()
+            .map(|(_, outline)| outline_bounds(self.at, self.rotation, &outline))
+            .reduce(Bounds::union)
+            .expect("the top group")
     }
 
     /// The ends of the hole's centre line on the board, both at `at` for a round hole.
@@ -456,9 +461,9 @@ pub fn courtyard_bounds(pcb: &PcbDocument, instance: &FootprintInstance) -> Boun
         .unwrap_or(Bounds::of_point(instance.at))
 }
 
-/// A box around a Free Pad's copper (or hole).
+/// A box around a Free Pad's copper on every Layer.
 pub fn free_pad_bounds(pad: &FreePad) -> Bounds {
-    outline_bounds(pad.at, pad.rotation, &pad.outline())
+    placed_free_pad(pad).bounds()
 }
 
 /// A box around a shape's points (arcs and circles by their full circle).

@@ -119,9 +119,16 @@ impl Command for TrackAdd {
                 let copper = super::board_copper(cx)?;
                 let first = points[0];
                 let last = points[points.len() - 1];
-                copper
-                    .net_at(layer, first)
-                    .or_else(|| copper.net_at(layer, last))
+                // A removed land is live: a Track reaching it brings it back.
+                let net_at = |at| {
+                    copper.net_at(layer, at).or_else(|| {
+                        copper
+                            .removed_lands_at(pcb, layer, at)
+                            .into_iter()
+                            .find_map(|item| copper.net(item))
+                    })
+                };
+                net_at(first).or_else(|| net_at(last))
             }
         };
         let width = match p.width {

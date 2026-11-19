@@ -999,18 +999,32 @@ impl PcbDocument {
         Ok(())
     }
 
-    /// Refuses scopes that could never identify a unique record on this board.
-    pub fn rule_layer_problem(
+    /// Refuses scopes that could never identify a unique record on this board: the
+    /// scope field at fault (`net_class_pair` or `layers`) and why.
+    pub fn rule_scope_problem(
+        &self,
+        kind: RuleKind,
+        scope: &RuleScope,
+        except: Option<Uuid>,
+    ) -> Option<(&'static str, String)> {
+        if scope.net_class_pair.is_some()
+            && (kind != RuleKind::Clearance || scope.net_class.is_some())
+        {
+            return Some((
+                "net_class_pair",
+                "a class pair scopes only clearance, without a single class".into(),
+            ));
+        }
+        self.rule_layer_problem(kind, scope, except)
+            .map(|why| ("layers", why))
+    }
+
+    fn rule_layer_problem(
         &self,
         kind: RuleKind,
         scope: &RuleScope,
         except: Option<Uuid>,
     ) -> Option<String> {
-        if scope.net_class_pair.is_some()
-            && (kind != RuleKind::Clearance || scope.net_class.is_some())
-        {
-            return Some("a class pair scopes only clearance, without a single class".into());
-        }
         if scope.layers.is_some() && !kind.accepts_layers() {
             return Some(format!("{} does not accept a Layer scope", kind.id()));
         }
@@ -1058,7 +1072,8 @@ impl PcbDocument {
             {
                 return Err(format!("rule {} names a missing Net Class", rule.uuid));
             }
-            if let Some(problem) = self.rule_layer_problem(rule.kind, &rule.scope, Some(rule.uuid))
+            if let Some((_, problem)) =
+                self.rule_scope_problem(rule.kind, &rule.scope, Some(rule.uuid))
             {
                 return Err(problem);
             }

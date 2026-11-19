@@ -134,7 +134,7 @@ fn removing_a_type_previews_empty_class_permissions_and_undo_restores_them() {
 }
 
 #[test]
-fn micro_size_limits_clip_the_implicit_pads_and_hole_but_keep_explicit_sizes() {
+fn a_command_keeps_a_types_out_of_limit_sizes_for_drc_and_the_tools_clip_them() {
     let dir = TempDir::new("via-size-clipping");
     let (mut e, l) = board(&dir);
     let diameter = json!({"start":"0.28mm","middle":"0.31mm","end":"0.4mm"});
@@ -161,13 +161,32 @@ fn micro_size_limits_clip_the_implicit_pads_and_hole_but_keep_explicit_sizes() {
         let via = pcb(&e).via(id).unwrap();
         (serde_json::to_value(via.diameter).unwrap(), via.hole.0)
     };
-    assert_eq!(
-        sizes(implicit),
-        (json!({"start":300000,"middle":310000,"end":350000}), 120000)
+    let as_typed = (json!({"start":280000,"middle":310000,"end":400000}), 100000);
+    assert_eq!(sizes(implicit), as_typed);
+    assert_eq!(sizes(explicit), as_typed);
+    // DRC flags the Vias placed with the out-of-limit type.
+    let run = e.run_ok("drc.run", json!({"checks":["microvia_size"]}));
+    let flagged: std::collections::BTreeSet<String> = run["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|v| v["objects"].as_array().unwrap().clone())
+        .map(|o| o.as_str().unwrap().to_owned())
+        .collect();
+    assert!(
+        flagged.contains(&implicit.to_string()) && flagged.contains(&explicit.to_string()),
+        "{run:#}"
     );
+    // The routing and stitching Tools start clipped to the limits.
+    let board = pcb(&e);
+    let kind = board
+        .stackup()
+        .type_for_span(board.via(implicit).unwrap().span)
+        .unwrap();
+    let (diameter, hole) = reda_pcb::rules::via_starting_size(board, None, kind);
     assert_eq!(
-        sizes(explicit),
-        (json!({"start":280000,"middle":310000,"end":400000}), 100000)
+        (serde_json::to_value(diameter).unwrap(), hole.0),
+        (json!({"start":300000,"middle":310000,"end":350000}), 120000)
     );
 }
 

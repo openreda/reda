@@ -11,7 +11,7 @@ use super::outline::PointParam;
 use super::track::existing_net;
 use super::via_type::{DiameterParam, check_sizes, check_span};
 use super::{needs_pcb, pcb, positive};
-use crate::rules::via_starting_size;
+use crate::rules::via_preferred_size;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(ViaAdd);
@@ -38,10 +38,12 @@ pub struct ViaAddParams {
     #[serde(default, deserialize_with = "super::nullable")]
     #[schemars(with = "Option<Uuid>")]
     pub net: Option<Option<Uuid>>,
-    /// The copper diameters in drilling order, defaulting to the type with the Net Class preference.
+    /// The copper diameters in drilling order, defaulting to the type with the Net Class
+    /// preference, not clipped to the limits.
     #[serde(default)]
     pub diameter: Option<DiameterParam>,
-    /// The hole, defaulting to the Net Class preference or the type’s hole.
+    /// The hole, defaulting to the Net Class preference or the type’s hole, not clipped to
+    /// the limits.
     #[serde(default)]
     pub hole: Option<Length>,
 }
@@ -59,7 +61,9 @@ impl Command for ViaAdd {
     const META: Meta = Meta {
         id: "pcb.via.add",
         title: "Add Via",
-        description: "Places a Via on the requested span. Its Net defaults to the copper under it.",
+        description: "Places a Via on the requested span. Its Net defaults to the copper under it. \
+            Its sizes default to the Net Class preference for the drilling method, else the Via \
+            type's sizes, as given: a size outside the limits is kept and DRC flags it.",
         category: "pcb",
         icon: "via",
         kind: Kind::Edit,
@@ -92,7 +96,8 @@ impl Command for ViaAdd {
                     .find_map(|layer| copper.net_at(layer, at))
             }
         };
-        let (default_diameter, default_hole) = via_starting_size(pcb, net, kind.unwrap_or(through));
+        let (default_diameter, default_hole) =
+            via_preferred_size(pcb, net, kind.unwrap_or(through));
         let diameter = p.diameter.map_or(default_diameter, DiameterParam::diameter);
         let hole = p.hole.map_or(default_hole, Length::nm);
         check_sizes(diameter, hole, "/diameter")?;

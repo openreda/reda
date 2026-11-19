@@ -99,7 +99,9 @@ fn bounds(pcb: &PcbDocument, uuid: Uuid) -> Option<Bounds> {
         return Some(Bounds::around(from, half).union(Bounds::around(to, half)));
     }
     if let Some(via) = pcb.via(uuid) {
-        return Some(Bounds::around(via.at, Nm(via.diameter.start.0 / 2)));
+        let d = &via.diameter;
+        let largest = [Some(d.start), d.middle, d.end].into_iter().flatten().max();
+        return Some(Bounds::around(via.at, Nm(largest.unwrap_or(d.start).0 / 2)));
     }
     if let Some(instance) = pcb.footprint(uuid) {
         return Some(footprint_bounds(pcb, instance));
