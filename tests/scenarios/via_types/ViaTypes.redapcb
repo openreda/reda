@@ -39,7 +39,7 @@
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000018"},
   "rules": [
-    {"uuid":"00000000-0000-4000-8000-000000000019","kind":"clearance","scope":{},"values":{"value":160000}},
+    {"uuid":"00000000-0000-4000-8000-000000000019","kind":"clearance","scope":{},"values":{"value":160000,"hole":{"via":250000,"pad":250000}}},
     {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"track_width","scope":{},"values":{"min":200000,"preferred":250000}},
     {"uuid":"00000000-0000-4000-8000-00000000001b","kind":"via_size","scope":{},"values":{"diameter":{"min":700000},"hole":{"min":300000}}},
     {"uuid":"00000000-0000-4000-8000-00000000001c","kind":"hole_size","scope":{},"values":{"min":500000,"max":6300000}},
