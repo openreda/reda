@@ -13,6 +13,9 @@ use crate::{LayerSpan, Uuid};
 #[serde(deny_unknown_fields)]
 pub struct Stackup {
     pub uuid: Uuid,
+    /// The original named Construction, including while the board differs from it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub construction: Option<String>,
     /// The finished thickness you order.
     pub thickness: Nm,
     /// The copper Layers in physical order, with one or more dielectric sheets in every gap.

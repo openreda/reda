@@ -27,6 +27,7 @@ pub mod delete;
 pub mod dimension_edit;
 pub mod draw;
 pub mod layer_control;
+pub(crate) mod layer_hover;
 pub mod live_hover;
 pub mod marks;
 pub mod measure;

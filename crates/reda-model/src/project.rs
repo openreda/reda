@@ -302,6 +302,17 @@ impl Project {
         self.fab_presets.get(&uuid)
     }
 
+    /// Whether any Project copy still offers the named build with these physical values.
+    pub fn construction_matches(&self, stack: &crate::Stackup) -> bool {
+        stack.construction.as_ref().is_some_and(|name| {
+            self.fab_presets().any(|p| {
+                p.constructions
+                    .iter()
+                    .any(|c| c.name.eq_ignore_ascii_case(name) && c.matches_stackup(stack))
+            })
+        })
+    }
+
     /// The Output Jobs, by UUID.
     pub fn output_jobs(&self) -> impl Iterator<Item = &OutputJob> {
         self.output_jobs.values()

@@ -604,17 +604,22 @@ command = "tool.mirror_y"
 [[bind]]
 context = "pcb"
 key = "+"
-command = "pcb.layer.step:next"
+command = "pcb.layer.next"
 
 [[bind]]
 context = "pcb"
 key = "-"
-command = "pcb.layer.step:previous"
+command = "pcb.layer.previous"
 
 [[bind]]
 context = "pcb"
 key = "*"
-command = "pcb.layer.swap_side"
+command = "pcb.layer.next_signal"
+
+[[bind]]
+context = "pcb"
+key = "Shift+*"
+command = "pcb.layer.previous_signal"
 
 [[bind]]
 context = "pcb"
@@ -1156,3 +1161,53 @@ key = "Mod+Shift+C"
 context = "pcb"
 command = "view.cross_probe"
 params = { objects = "$selection" }
+
+[[bind]]
+context = "pcb"
+key = "Mod+L"
+command = "pcb.layer.pick"
+
+[[bind]]
+context = "pcb"
+key = "Keypad1"
+command = "pcb.layer.activate:1"
+
+[[bind]]
+context = "pcb"
+key = "Keypad2"
+command = "pcb.layer.activate:2"
+
+[[bind]]
+context = "pcb"
+key = "Keypad3"
+command = "pcb.layer.activate:3"
+
+[[bind]]
+context = "pcb"
+key = "Keypad4"
+command = "pcb.layer.activate:4"
+
+[[bind]]
+context = "pcb"
+key = "Keypad5"
+command = "pcb.layer.activate:5"
+
+[[bind]]
+context = "pcb"
+key = "Keypad6"
+command = "pcb.layer.activate:6"
+
+[[bind]]
+context = "pcb"
+key = "Keypad7"
+command = "pcb.layer.activate:7"
+
+[[bind]]
+context = "pcb"
+key = "Keypad8"
+command = "pcb.layer.activate:8"
+
+[[bind]]
+context = "pcb"
+key = "Keypad9"
+command = "pcb.layer.activate:9"

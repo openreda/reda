@@ -98,7 +98,13 @@ pub fn page_of(key: &str) -> &'static str {
         ("pcb", name) if name.starts_with("zone.") || name.starts_with("keepout.") => "pcb.zones",
         ("pcb", name) if name.starts_with("route.") || name.starts_with("drag.") => "pcb.routing",
         ("pcb", name) if name.starts_with("place.") => "pcb.placement",
-        ("pcb", name) if name.starts_with("view.") || name.starts_with("ratsnest.") => "pcb.view",
+        ("pcb", name)
+            if name.starts_with("view.")
+                || name.starts_with("layer.")
+                || name.starts_with("ratsnest.") =>
+        {
+            "pcb.view"
+        }
         ("pcb", _) => "pcb",
         ("cross_select", _) => "cross_select",
         ("checks", _) => "checks",

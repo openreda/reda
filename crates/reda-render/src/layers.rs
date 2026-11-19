@@ -1,10 +1,10 @@
 //! Which Layers a PCB view draws, in what order and at what opacity.
 //!
 //! Each Layer is drawn opaque into a target of its own, then blended over what is below at
-//! its opacity ([`Composite`]). Layers go bottom to top in physical order, the active Layer
-//! last; the view from the bottom swaps the draw order in pairs, each Layer trading places
-//! with its twin on the other side (and mirrors the view). The
-//! Layers that are not physical (Board Outline, Mechanical, Documentation) follow, then the
+//! its opacity ([`Composite`]). Layers go bottom to top in physical order, with the active
+//! Layer last. Viewing from the bottom mirrors the board, reverses the copper stack and
+//! swaps the other sided Layers with their twins. Board Outline, Mechanical and
+//! Documentation follow, then the
 //! drilled holes, then the Ratsnest while it is visible.
 
 use reda_model::{Layer, LayerKind, Uuid};
@@ -74,8 +74,8 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
     let mut physical: Vec<&Layer> = layers.iter().filter(physical).collect();
     physical.reverse();
     if view.from_bottom {
-        // Each Layer with a twin on the other side takes the twin's place: top and bottom
-        // copper, top and bottom silkscreen, and so on. A Layer with no twin stays.
+        // Outside the copper stack, sided Layers trade places with their twins.
+        // An unpaired Layer keeps its position.
         let twin = |l: &Layer| {
             let other = match l.side? {
                 reda_model::Side::Top => reda_model::Side::Bottom,
@@ -85,7 +85,16 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
                 .iter()
                 .find(|t| t.kind == l.kind && t.side == Some(other))
         };
-        physical = physical.iter().map(|l| twin(l).unwrap_or(l)).collect();
+        // The opposite face sees the entire copper stack in reverse, including
+        // inner Layers with no opposite-side twin.
+        let mut copper = layers.iter().filter(|l| l.kind == LayerKind::Copper);
+        for l in &mut physical {
+            *l = if l.kind == LayerKind::Copper {
+                copper.next().expect("each copper position is visited once")
+            } else {
+                twin(l).unwrap_or(l)
+            };
+        }
     }
     let others = layers.iter().filter(|l| !physical.contains(l));
     let mut order: Vec<&Layer> = physical

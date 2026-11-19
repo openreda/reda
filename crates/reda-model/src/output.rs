@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StackupSeeds, Uuid};
 
+mod construction;
+pub use construction::{Construction, ConstructionEntry, ConstructionViaType};
+
 mod name_template;
 mod placement;
 mod settings;
@@ -130,7 +133,12 @@ pub struct GerberSettings {
     /// Adds the Board Outline to every Gerber plot.
     pub outline_on_every_plot: bool,
     /// Layer name to output file name; portable between boards and Projects.
-    pub file_names: Vec<LayerFileName>,
+    #[serde(
+        serialize_with = "settings::write_file_names",
+        deserialize_with = "settings::read_file_names"
+    )]
+    #[schemars(with = "settings::FileNameOverrides")]
+    pub file_names: GerberFileNames,
 }
 
 impl Default for GerberSettings {
@@ -142,7 +150,7 @@ impl Default for GerberSettings {
             slot_command: SlotCommand::Route,
             merge_drill: false,
             outline_on_every_plot: false,
-            file_names: Vec::new(),
+            file_names: GerberFileNames::default(),
         }
     }
 }
@@ -214,8 +222,9 @@ pub struct FabPreset {
     pub name: String,
     /// The limits a job checks the board against, and the seeds of a new board's rules.
     pub rules: FabRules,
-    /// The thickness and copper a new board's Stackup starts with; left out when the
-    /// preset seeds neither.
+    /// The named physical builds available when creating or editing a board.
+    #[serde(deserialize_with = "Construction::read_list")]
+    #[schemars(with = "Vec<Construction>")]
     pub constructions: Vec<Construction>,
     /// The Gerber and drill switches.
     pub gerber: GerberSettings,
@@ -241,6 +250,8 @@ pub struct ProjectFabPreset {
     /// The name of the preset it was copied from.
     pub name: String,
     pub rules: FabRules,
+    #[serde(deserialize_with = "Construction::read_list")]
+    #[schemars(with = "Vec<Construction>")]
     pub constructions: Vec<Construction>,
     pub gerber: GerberSettings,
     pub stackup_suggestions: StackupSuggestions,
@@ -252,63 +263,23 @@ pub struct ProjectFabPreset {
     pub placement_corrections: Vec<PlacementCorrection>,
 }
 
-/// One named physical build offered by a Fab Preset.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct Construction {
-    pub name: String,
-    pub default: bool,
-    pub thickness: Nm,
-    pub entries: Vec<ConstructionEntry>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(untagged, deny_unknown_fields)]
-pub enum ConstructionEntry {
-    Copper {
-        copper: Nm,
-    },
-    Dielectric {
-        kind: crate::DielectricKind,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thickness: Option<Nm>,
-    },
-}
-
-impl Construction {
-    pub fn two_layer(seeds: StackupSeeds) -> Self {
-        let copper = ConstructionEntry::Copper {
-            copper: seeds.copper.unwrap_or(crate::DEFAULT_COPPER),
-        };
-        Self {
-            name: "2 Layer".into(),
-            default: true,
-            thickness: seeds.thickness.unwrap_or(crate::DEFAULT_BOARD_THICKNESS),
-            entries: vec![
-                copper,
-                ConstructionEntry::Dielectric {
-                    kind: crate::DielectricKind::Core,
-                    thickness: None,
-                },
-                copper,
-            ],
-        }
-    }
-}
-
 impl FabPreset {
-    /// The default two-Layer Construction's thickness and outer copper.
-    pub fn stackup_seeds(&self) -> StackupSeeds {
+    /// Construction identity is local to a Fab Preset and ignores case.
+    pub fn construction(&self, name: &str) -> Option<&Construction> {
         self.constructions
             .iter()
-            .find(|c| {
-                c.default
-                    && c.entries
-                        .iter()
-                        .filter(|e| matches!(e, ConstructionEntry::Copper { .. }))
-                        .count()
-                        == 2
-            })
+            .find(|build| build.name.eq_ignore_ascii_case(name))
+    }
+
+    pub fn default_construction(&self, layers: usize) -> Option<&Construction> {
+        self.constructions
+            .iter()
+            .find(|build| build.default && build.layer_count() == layers)
+    }
+
+    /// The default two-Layer Construction's thickness and outer copper.
+    pub fn stackup_seeds(&self) -> StackupSeeds {
+        self.default_construction(2)
             .map(|c| StackupSeeds {
                 thickness: Some(c.thickness),
                 copper: c.entries.iter().find_map(|e| match e {

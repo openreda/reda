@@ -16,6 +16,7 @@ use serde_json::{Map, Value};
 use crate::settings::Problem;
 use crate::tr;
 
+mod constructions;
 pub mod draw;
 mod field;
 pub(crate) mod placement;
@@ -94,6 +95,7 @@ impl PresetPage {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PresetEditor {
     correction: Option<placement::CorrectionForm>,
+    construction_list: constructions::List,
     base: FabPreset,
     value: FabPreset,
     /// Text typed into a field, kept while it is being typed or is not a value.
@@ -106,6 +108,7 @@ impl PresetEditor {
     pub fn new(preset: FabPreset) -> PresetEditor {
         PresetEditor {
             correction: None,
+            construction_list: Default::default(),
             base: preset.clone(),
             value: preset,
             texts: BTreeMap::new(),
@@ -202,6 +205,23 @@ impl PresetEditor {
         let (value, base) = (json(&self.value), json(&self.base));
         let mut out = Map::new();
         for key in page.keys() {
+            if *key == "constructions" {
+                let mut patch = Map::new();
+                for build in &self.value.constructions {
+                    if self.base.construction(&build.name) != Some(build) {
+                        patch.insert(build.name.clone(), serde_json::json!(build));
+                    }
+                }
+                for old in &self.base.constructions {
+                    if self.value.construction(&old.name).is_none() {
+                        patch.insert(old.name.clone(), Value::Null);
+                    }
+                }
+                if !patch.is_empty() {
+                    out.insert("constructions".into(), Value::Object(patch));
+                }
+                continue;
+            }
             for (section, key) in expand(key, &value, &base) {
                 let now = lookup(&value, &section, key.as_deref());
                 if now == lookup(&base, &section, key.as_deref()) {
@@ -220,6 +240,15 @@ impl PresetEditor {
                     }
                 }
             }
+        }
+        // A stored pattern omits empty Layer overrides. In a command patch, omitting
+        // them means "keep the old rows", so removing the last one needs an explicit [].
+        if let Some(Value::Object(names)) =
+            out.get_mut("gerber").and_then(|g| g.get_mut("file_names"))
+        {
+            names
+                .entry("layers")
+                .or_insert_with(|| Value::Array(Vec::new()));
         }
         (!out.is_empty()).then_some(Value::Object(out))
     }

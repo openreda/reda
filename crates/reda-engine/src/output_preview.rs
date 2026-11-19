@@ -6,7 +6,7 @@
 //! The job is passed in, not looked up, so the window can preview its unapplied drafts.
 
 use reda_model::OutputJob;
-use reda_output::{BoardInstance, Plot, Table};
+use reda_output::{BoardInstance, OutputFile, Plot, Table};
 
 use crate::Engine;
 
@@ -57,6 +57,8 @@ pub struct JobPreview {
     pub placements: Vec<reda_output::CplPlacement>,
     /// A coordinate a Gerber file can't hold, which would block the run: the file.
     pub out_of_range: Option<String>,
+    /// Why a file name cannot be resolved, or which zip entries share a name.
+    pub invalid_file_name: Option<String>,
 }
 
 /// The preview of `job` on the engine's open Project, dated by its Clock; `None` without
@@ -96,30 +98,34 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         (true, false) => FileState::Empty,
     };
     let mut zip = Vec::new();
+    let zip_entry = |file: &OutputFile| {
+        let (name, function) = file.name_and_function();
+        (name.to_owned(), function.to_owned())
+    };
     let mut out_of_range = None;
+    let mut invalid_file_name = None;
     let gerber = match reda_output::gerber_files(&plot) {
-        Ok(gerbers) => gerbers
-            .layers
-            .iter()
-            .map(|(file, layer)| {
-                let written = gerbers.files.iter().find(|f| &f.name == file);
-                let function = written.map(|f| f.function).or_else(|| {
-                    let skipped = gerbers.skipped.iter().find(|f| &f.name == file);
-                    skipped.map(|f| f.function)
-                });
-                if job.outputs.gerber && written.is_some() {
-                    zip.push(file.clone());
-                }
-                PlannedFile {
-                    layer: layer.clone(),
-                    name: file.clone(),
-                    function: function.unwrap_or_default(),
-                    state: state(job.outputs.gerber, written.is_some()),
-                }
-            })
-            .collect(),
-        Err(out) => {
+        Ok(gerbers) => {
+            if job.outputs.gerber {
+                zip.extend(gerbers.files.iter().map(zip_entry));
+            }
+            gerbers
+                .layers
+                .into_iter()
+                .map(|layer| PlannedFile {
+                    layer: layer.layer,
+                    name: layer.name,
+                    function: layer.function,
+                    state: state(job.outputs.gerber, layer.plotted),
+                })
+                .collect()
+        }
+        Err(reda_output::GerberError::CoordinateOutOfRange(out)) => {
             out_of_range = Some(out.file);
+            Vec::new()
+        }
+        Err(reda_output::GerberError::InvalidFileName(why)) => {
+            invalid_file_name = Some(why);
             Vec::new()
         }
     };
@@ -148,20 +154,31 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
     };
     drill.sort_by_key(order);
     if job.outputs.drill {
-        let written = drill.iter().filter(|f| f.state == FileState::Plotted);
-        zip.extend(written.map(|f| f.name.clone()));
+        zip.extend(drills.files.iter().map(zip_entry));
     }
 
     // The run's zip order: Gerber, drill, Fab Notes, drill report, job file, then the
     // BOM and CPL with `zip_assembly`.
     let outputs = job.outputs;
-    for (on, file) in [
-        (outputs.fab_notes, reda_output::fab_notes_name(&name)),
-        (outputs.drill_report, reda_output::drill_report_name(&name)),
-        (outputs.gerber_job, reda_output::gerber_job_name(&name)),
+    for (on, file, function) in [
+        (
+            outputs.fab_notes,
+            reda_output::fab_notes_name(&name),
+            "fab_notes",
+        ),
+        (
+            outputs.drill_report,
+            reda_output::drill_report_name(&name),
+            "drill_report",
+        ),
+        (
+            outputs.gerber_job,
+            reda_output::gerber_job_name(&name),
+            "gerber_job",
+        ),
     ] {
         if on {
-            zip.push(file);
+            zip.push((file, function.to_owned()));
         }
     }
     let bom = reda_output::bom_file(project, pcb, &preset.bom);
@@ -174,7 +191,7 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
             continue;
         }
         if preset.zip_assembly {
-            zip.push(format!("{name}-{suffix}.csv"));
+            zip.push((format!("{name}-{suffix}.csv"), suffix.to_ascii_lowercase()));
         } else {
             beside.push(format!("{shown_stem}-{suffix}.csv"));
         }
@@ -182,16 +199,24 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
     if outputs.schematic_pdf {
         beside.push(format!("{shown_stem}-schematic.pdf"));
     }
+    if invalid_file_name.is_none() {
+        invalid_file_name = crate::commands::output_run::check_zip_names(
+            zip.iter()
+                .map(|(name, function)| (name.as_str(), function.as_str())),
+        )
+        .err();
+    }
     Some(JobPreview {
         stem,
         destination,
         gerber,
         drill,
-        zip,
+        zip: zip.into_iter().map(|(name, _)| name).collect(),
         beside,
         bom: bom.table,
         cpl: cpl.table,
         placements: cpl.placements,
         out_of_range,
+        invalid_file_name,
     })
 }

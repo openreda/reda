@@ -21,13 +21,17 @@ use serde_json::json;
 const JOB: &str = "Generic";
 
 fn harness(home: &Path, work: &Path, board: bool) -> Harness<'static, App> {
+    harness_with_layers(home, work, board, 2)
+}
+
+fn harness_with_layers(home: &Path, work: &Path, board: bool, layers: u8) -> Harness<'static, App> {
     let engine = Engine::builder()
         .user_dirs(Some(UserDirs::under(home)))
         .starter_library(None)
         .headless(false)
         .build();
     let mut shell = Shell::new(engine);
-    let mut params = json!({"path": work, "name": "Jobs"});
+    let mut params = json!({"path": work, "name": "Jobs", "layers": layers});
     if board {
         params["board"] = json!({"width": "30mm", "height": "20mm"});
     }
@@ -325,7 +329,11 @@ fn general_previews_the_paths_and_flags_the_name_template_inline() {
 #[test]
 fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     let (home, work) = (TempDir::new("jd-home"), TempDir::new("jd-work"));
-    let mut h = harness(home.path(), work.path(), true);
+    let mut h = harness_with_layers(home.path(), work.path(), true, 4);
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.layer.set", json!({"layer":"copper_l2","name":"GND"}))
+        .unwrap();
     job_menu(&mut h, "Edit…");
     h.run();
     page(&mut h, "Gerber");
@@ -334,6 +342,12 @@ fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
         "File name",
         "Top Copper",
         "Jobs.gtl",
+        "L2 GND",
+        "Jobs.g2l",
+        "L3",
+        "Jobs.g3l",
+        "Bottom Copper",
+        "Jobs.gbl",
         "Board Outline",
         "Jobs.gm1",
     ] {

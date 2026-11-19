@@ -109,6 +109,13 @@ impl Menu<'_> {
         self
     }
 
+    /// Opens at the pointer position when the menu was requested by a key.
+    pub fn at_position(mut self, position: egui::Pos2) -> Self {
+        self.popup = self.popup.at_position(position).open_memory(None);
+        self.anchor = None;
+        self
+    }
+
     /// The popup's width; it grows to fit its items.
     pub fn width(mut self, width: f32) -> Self {
         self.popup = self.popup.width(width);
