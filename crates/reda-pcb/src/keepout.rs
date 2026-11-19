@@ -257,6 +257,7 @@ pub fn keepouts_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
     };
     let pieces: Vec<_> = shapes
         .iter()
+        .filter(|(layer, _)| proposal.has_land(*layer))
         .map(|(layer, shape)| (*layer, shape))
         .collect();
     entered(pcb, &pieces, kind, net)

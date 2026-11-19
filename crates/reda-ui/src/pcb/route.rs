@@ -24,7 +24,7 @@ use reda_engine::model::{LayerKind, PcbDocument, Project, RuleKind, Side, Uuid};
 use reda_engine::pcb::route::{
     self, CornerMode, Posture, Proposed, Request, Status, Step, ViaChoice, ViaSize, WidthChoice,
 };
-use reda_engine::pcb::{ClearanceHit, Copper, Halo, Proposal, keepout};
+use reda_engine::pcb::{ClearanceHit, Copper, Halo, keepout};
 use reda_engine::preferences::ClearanceDisplay;
 use serde_json::json;
 
@@ -58,6 +58,23 @@ struct Route {
 impl Route {
     fn last(&self) -> Point {
         *self.leg.points.last().expect("a leg has its start")
+    }
+
+    /// Every vertex that will become a Track endpoint, including the path to a proposed Via.
+    fn track_ends(&self, ahead: &[Point]) -> Vec<(Uuid, Point)> {
+        self.steps
+            .iter()
+            .filter_map(|step| match step {
+                Step::Leg(leg) => Some((leg.layer, leg.points.as_slice())),
+                Step::Via(..) => None,
+            })
+            .chain([
+                (self.leg.layer, self.leg.points.as_slice()),
+                (self.leg.layer, ahead),
+            ])
+            .filter(|(_, points)| points.len() > 1)
+            .flat_map(|(layer, points)| points.iter().map(move |&point| (layer, point)))
+            .collect()
     }
 
     fn segments(&self) -> usize {
@@ -105,6 +122,8 @@ pub struct ViaPreview {
     pub at: Point,
     pub target: Uuid,
     pub members: Vec<RouteVia>,
+    /// The plated bores and physically retained land diameters at the cursor.
+    pub rings: Vec<Nm>,
     pub label: String,
     /// What would prevent placement in Stop mode.
     pub blocked: Option<String>,
@@ -675,31 +694,41 @@ impl Router {
             let pcb = project.pcb().expect("a board");
             let kind = shell.board_view().stitching_type(pcb);
             let span = kind.span();
-            let net = self.copper(shell).and_then(|c| {
-                pcb.span_layers(span)
-                    .into_iter()
-                    .find_map(|l| c.net_at(l, at))
-            });
+            let Some(copper) = self.copper(shell) else {
+                return;
+            };
+            let net = pcb
+                .span_layers(span)
+                .into_iter()
+                .find_map(|l| copper.net_at(l, at));
             let (diameter, hole) = reda_engine::pcb::rules::via_starting_size(pcb, net, kind);
             let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
-            let proposal = Proposal::Via {
+            let proposal = copper.propose_via(
+                pcb,
                 at,
-                diameter,
-                hole,
                 net,
-                span,
-            };
+                RouteVia {
+                    span,
+                    diameter,
+                    hole,
+                    unused_layers: kind.unused_layers,
+                },
+                &[],
+            );
             self.note = (!allowed).then(|| tr!("via-type-disallowed"));
-            let (hits, keepouts) = self.query(shell, &proposal, &[]);
+            let hits = copper.clearance(pcb, &proposal, &[]);
+            let keepouts = keepout::keepouts_hit(pcb, &proposal);
+            let active = shell
+                .board_view()
+                .active_layer(project)
+                .unwrap_or(span.from);
             self.via = Some(ViaCursor {
                 at,
-                diameter: diameter.on(
-                    span,
-                    shell
-                        .board_view()
-                        .active_layer(project)
-                        .unwrap_or(span.from),
-                ),
+                diameter: if proposal.has_land(active) {
+                    diameter.on(span, active)
+                } else {
+                    hole
+                },
                 blocked: !allowed || !hits.is_empty() || !keepouts.is_empty(),
             });
             self.hits = hits;
@@ -759,7 +788,8 @@ impl Router {
             )
         };
         let pcb = project.pcb().expect("a board");
-        let proposed = route::propose(&copper, pcb, &request);
+        let proposed =
+            route::propose_with_vias(&copper, pcb, &request, &route.steps, &route.track_ends(&[]));
         let display = prefs.clearance_display;
         let layer = route.leg.layer;
         let net = route.net;
@@ -769,43 +799,14 @@ impl Router {
         self.proposed = Some(proposed);
         self.via_candidate = target.and_then(|to| self.preview_vias(shell, &copper, at, to));
         let near = (display == ClearanceDisplay::Near).then_some((at, CLEARANCE_NEAR));
-        if display != ClearanceDisplay::Off {
-            if let Some(candidate) = &self.via_candidate
-                && !candidate.members.is_empty()
-            {
-                for via in &candidate.members {
-                    for land in pcb.span_layers(via.span) {
-                        self.halos.extend(copper.via_halos(
-                            pcb,
-                            land,
-                            net,
-                            near,
-                            via.diameter.on(via.span, land),
-                            via.hole,
-                        ));
-                    }
-                }
-            } else {
-                self.halos = copper.halos(pcb, layer, net, near);
-            }
+        if display != ClearanceDisplay::Off
+            && self
+                .via_candidate
+                .as_ref()
+                .is_none_or(|c| c.members.is_empty())
+        {
+            self.halos = copper.halos(pcb, layer, net, near);
         }
-    }
-
-    fn query(
-        &mut self,
-        shell: &Shell,
-        proposal: &Proposal,
-        ignore: &[Uuid],
-    ) -> (Vec<ClearanceHit>, Vec<Uuid>) {
-        let Some(pcb) = board(shell).and_then(|(p, _)| p.pcb()) else {
-            return (Vec::new(), Vec::new());
-        };
-        let keepouts = keepout::keepouts_hit(pcb, proposal);
-        let hits = self
-            .copper(shell)
-            .map(|c| c.clearance(pcb, proposal, ignore))
-            .unwrap_or_default();
-        (hits, keepouts)
     }
 
     /// Why the last check refused, for the status bar.
@@ -1185,7 +1186,9 @@ pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
             } else {
                 accent
             };
-            draw_vias(candidate.at, &candidate.members, color);
+            for ring in candidate.rings {
+                via(candidate.at, ring, color);
+            }
             if !candidate.label.is_empty() {
                 painter.text(
                     screen(candidate.at) + egui::vec2(12., -10.),

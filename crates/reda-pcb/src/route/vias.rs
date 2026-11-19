@@ -172,6 +172,61 @@ impl ViaCandidates {
     }
 }
 
+/// Check only lands that the next Track's endpoints could bring back. Restrict
+/// the geometry to the restored Layer: the rest of the stack was already checked.
+pub(super) fn restored_lands(
+    copper: &super::Copper,
+    pcb: &PcbDocument,
+    r: &super::Request,
+    steps: &[super::Step],
+    ends: &[(Uuid, reda_model::geom::Point)],
+    path: &[reda_model::geom::Point],
+) -> Vec<(super::Shape, super::Obstacles)> {
+    let mut out = Vec::new();
+    if r.net.is_none() || path.len() < 2 {
+        return out;
+    }
+    for step in steps {
+        let super::Step::Via(at, members) = step else {
+            continue;
+        };
+        for &member in members {
+            if member.unused_layers.is_keep() || !pcb.span_layers(member.span).contains(&r.layer) {
+                continue;
+            }
+            let diameter = member.diameter.on(member.span, r.layer);
+            let land = super::Shape::disc(*at, diameter);
+            if !path.iter().any(|&point| land.contains(point))
+                || copper
+                    .propose_via(pcb, *at, r.net, member, ends)
+                    .has_land(r.layer)
+            {
+                continue;
+            }
+            let restored = super::Proposal::Via {
+                at: *at,
+                span: reda_model::LayerSpan {
+                    from: r.layer,
+                    to: r.layer,
+                },
+                net: r.net,
+                diameter: diameter.into(),
+                hole: member.hole,
+                omitted: Vec::new(),
+            };
+            let hits = super::Obstacles {
+                copper: copper.clearance(pcb, &restored, &[]),
+                keepouts: crate::keepout::keepouts_hit(pcb, &restored),
+                edges: super::edges_hit(pcb, &restored),
+            };
+            if !hits.is_empty() {
+                out.push((land, hits));
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

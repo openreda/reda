@@ -3,7 +3,6 @@
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Length, Meta, Registry, Unavailable,
 };
-use reda_model::geom::Nm;
 use reda_model::{PcbDocument, TrackGeometry, Uuid};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -13,7 +12,6 @@ use super::outline::PointParam;
 use super::track::{copper_layer, existing_net};
 use super::{needs_pcb, pcb, positive};
 use crate::copper::{ClearanceHit, Copper, Item, Proposal, RatsnestLine};
-use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(Connected);
@@ -297,22 +295,19 @@ impl Command for ClearanceVia {
     ) -> Result<ClearanceResult, CommandError> {
         let pcb = pcb(cx)?;
         let net = existing_net(pcb, p.net, "/net")?;
-        let diameter: Nm = match p.diameter {
-            Some(d) => positive("/diameter", d)?,
-            None => net_rules(pcb, net).via_diameter.default_size(),
+        let kind = pcb.stackup().through_type();
+        let (mut diameter, hole) = crate::rules::via_starting_size(pcb, net, kind);
+        if let Some(d) = p.diameter {
+            diameter = positive("/diameter", d)?.into();
+        }
+        let copper = super::board_copper(cx)?;
+        let via = crate::route::RouteVia {
+            span: kind.span(),
+            diameter,
+            hole,
+            unused_layers: kind.unused_layers,
         };
-        let proposal = Proposal::Via {
-            span: pcb.stackup().through_type().span(),
-            at: p.at.point(),
-            diameter: diameter.into(),
-            hole: net_rules(pcb, net).via_hole.default_size(),
-            net,
-        };
-        Ok(check(
-            super::board_copper(cx)?.as_ref(),
-            pcb,
-            proposal,
-            &p.ignore,
-        ))
+        let proposal = copper.propose_via(pcb, p.at.point(), net, via, &[]);
+        Ok(check(&copper, pcb, proposal, &p.ignore))
     }
 }

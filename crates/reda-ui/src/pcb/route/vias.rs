@@ -217,17 +217,33 @@ impl Router {
         let pcb = shell.engine().project()?.pcb()?;
         let mut blocked = self.why_blocked(shell);
         let mut names = Vec::new();
+        let mut rings = std::collections::BTreeSet::new();
+        let display = shell.preferences().pcb.route.clearance_display;
+        let near = (display == ClearanceDisplay::Near).then_some((at, CLEARANCE_NEAR));
+        let path = route::corner_path(route.last(), at, self.corner, self.posture);
+        let ends = route.track_ends(&path);
         for member in &members {
             if let Some(t) = pcb.stackup().type_for_span(member.span) {
                 names.push(t.display_name(pcb));
             }
-            let proposal = Proposal::Via {
-                at,
-                span: member.span,
-                diameter: member.diameter,
-                hole: member.hole,
-                net: route.net,
-            };
+            let proposal = copper.propose_via(pcb, at, route.net, *member, &ends);
+            rings.insert(member.hole);
+            for layer in pcb.span_layers(member.span) {
+                let land = proposal
+                    .has_land(layer)
+                    .then(|| member.diameter.on(member.span, layer));
+                rings.extend(land);
+                if display != ClearanceDisplay::Off {
+                    self.halos.extend(copper.via_halos(
+                        pcb,
+                        layer,
+                        route.net,
+                        near,
+                        land,
+                        member.hole,
+                    ));
+                }
+            }
             if !member.diameter.fits_hole(member.hole) {
                 blocked = Some(tr!("route-via-invalid-size"));
             } else if let Some(hit) = copper.clearance(pcb, &proposal, &[]).first() {
@@ -259,6 +275,7 @@ impl Router {
             target,
             members,
             label,
+            rings: rings.into_iter().collect(),
             blocked,
         })
     }

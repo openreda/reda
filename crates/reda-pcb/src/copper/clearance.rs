@@ -17,7 +17,7 @@ use crate::rules::{clearance_between_on, largest, resolve_pair_on};
 use reda_model::{RuleField, RuleKind};
 
 /// Copper the routing Tool is about to add.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Proposal {
     /// A Track segment on one copper Layer.
     Track {
@@ -29,6 +29,8 @@ pub enum Proposal {
     /// A Via on the copper Layers of its span.
     Via {
         span: reda_model::LayerSpan,
+        /// Layers traversed by the bore without a copper land.
+        omitted: Vec<Uuid>,
         at: Point,
         diameter: reda_model::ViaDiameter,
         hole: Nm,
@@ -37,7 +39,12 @@ pub enum Proposal {
 }
 
 impl Proposal {
-    /// The copper this placement would actually add, one land or Track per Layer.
+    /// Whether the proposal contains copper on this Layer of its span.
+    pub fn has_land(&self, layer: Uuid) -> bool {
+        !matches!(self, Self::Via { omitted, .. } if omitted.contains(&layer))
+    }
+
+    /// The physical outline on every traversed Layer, including the bare bore.
     pub(crate) fn pieces(&self, pcb: &PcbDocument) -> (Vec<(Uuid, Shape)>, Option<Uuid>) {
         match *self {
             Proposal::Track {
@@ -50,12 +57,20 @@ impl Proposal {
                 at,
                 diameter,
                 span,
+                hole,
                 net,
                 ..
             } => (
                 pcb.span_layers(span)
                     .into_iter()
-                    .map(|layer| (layer, Shape::disc(at, diameter.on(span, layer))))
+                    .map(|layer| {
+                        let size = if self.has_land(layer) {
+                            diameter.on(span, layer)
+                        } else {
+                            hole
+                        };
+                        (layer, Shape::disc(at, size))
+                    })
                     .collect(),
                 net,
             ),
@@ -79,6 +94,33 @@ pub struct ClearanceHit {
 }
 
 impl Copper {
+    /// The physical proposal for a new Via, including connections from unfinished Tracks.
+    pub fn propose_via(
+        &self,
+        pcb: &PcbDocument,
+        at: Point,
+        net: Option<Uuid>,
+        via: crate::route::RouteVia,
+        route_ends: &[(Uuid, Point)],
+    ) -> Proposal {
+        let intent = super::lands::ViaIntent {
+            at,
+            net,
+            span: via.span,
+            diameter: via.diameter,
+            mode: via.unused_layers,
+            connection: None,
+        };
+        Proposal::Via {
+            at,
+            net,
+            span: via.span,
+            diameter: via.diameter,
+            hole: via.hole,
+            omitted: intent.omitted(pcb, &self.land_connections, route_ends),
+        }
+    }
+
     /// Every piece of copper that `proposal` would come closer to than the clearance
     /// rules allow, sorted by item and Layer. Copper of the proposal's own Net never
     /// conflicts, and the objects in `ignore` (such as the segment being dragged) are left
@@ -103,6 +145,7 @@ impl Copper {
         let ties = super::ties::Ties::of(pcb);
         let mut hits = Vec::new();
         for (layer, shape) in pieces {
+            let has_land = proposal.has_land(layer);
             let mut env = shape.envelope();
             if let Some(bore) = &planned_bore {
                 use rstar::Envelope;
@@ -113,7 +156,7 @@ impl Copper {
                 [lo[0] - reach, lo[1] - reach],
                 [hi[0] + reach, hi[1] + reach],
             );
-            for bore in bores.near(layer, search) {
+            for bore in bores.near(layer, search).filter(|_| has_land) {
                 if ignore.contains(&bore.item.object())
                     || ties.tie_pad_on(net, bore.item)
                     || (net.is_some()
@@ -138,7 +181,7 @@ impl Copper {
                 let other = self.net(piece.item);
                 // Zone fills make way for new copper when they are refilled.
                 if matches!(piece.item, Item::Zone { .. })
-                    || (net.is_some() && other == net)
+                    || (has_land && net.is_some() && other == net)
                     || ignore.contains(&piece.item.object())
                 {
                     continue;
@@ -166,8 +209,9 @@ impl Copper {
                         });
                     }
                 }
-                if gap < required.0 as f64
-                    || (piece.item.is_artwork() && gap <= reda_model::geom::grown::TOUCH)
+                if has_land
+                    && (gap < required.0 as f64
+                        || (piece.item.is_artwork() && gap <= reda_model::geom::grown::TOUCH))
                 {
                     hits.push(ClearanceHit {
                         item: piece.item,
@@ -220,7 +264,7 @@ impl Copper {
         layer: Uuid,
         net: Option<Uuid>,
         near: Option<(Point, Nm)>,
-        diameter: Nm,
+        diameter: Option<Nm>,
         hole: Nm,
     ) -> Vec<Halo> {
         self.route_halos(pcb, layer, net, near, Some((diameter, hole)))
@@ -232,7 +276,7 @@ impl Copper {
         layer: Uuid,
         net: Option<Uuid>,
         near: Option<(Point, Nm)>,
-        via_size: Option<(Nm, Nm)>,
+        via_size: Option<(Option<Nm>, Nm)>,
     ) -> Vec<Halo> {
         let envelope = match near {
             Some((at, reach)) => AABB::from_corners(
@@ -243,9 +287,13 @@ impl Copper {
         };
         let ties = super::ties::Ties::of(pcb);
         let mut out: Vec<Halo> = Vec::new();
+        let bare_bore = matches!(via_size, Some((None, _)));
         for piece in self.candidates(layer, envelope) {
             let other = self.net(piece.item);
-            if matches!(piece.item, Item::Zone { .. }) || (net.is_some() && other == net) {
+            if matches!(piece.item, Item::Zone { .. })
+                || (!bare_bore && net.is_some() && other == net)
+                || (bare_bore && ties.tie_pad_on(net, piece.item))
+            {
                 continue;
             }
             if let Some((at, reach)) = near
@@ -260,7 +308,9 @@ impl Copper {
                 via_size.map_or(copper, |(diameter, hole)| {
                     let drill = super::bores::clearance(pcb, net, other, layer, RuleField::HoleVia);
                     // The land's outline will be compared to this displayed halo.
-                    copper.max(Nm(drill.0 + hole.0 / 2 - diameter.0 / 2))
+                    diameter.map_or(drill, |pad| {
+                        copper.max(Nm(drill.0 + hole.0 / 2 - pad.0 / 2))
+                    })
                 })
             };
             let mut shape = piece.shape.clone();
@@ -276,7 +326,7 @@ impl Copper {
         let bores = self.bores.get_or_init(|| super::bores::Bores::of(pcb));
         let land_halos: std::collections::BTreeMap<_, _> =
             out.iter().enumerate().map(|(i, h)| (h.item, i)).collect();
-        for bore in bores.near(layer, envelope) {
+        for bore in bores.near(layer, envelope).filter(|_| !bare_bore) {
             if (net.is_some() && net == bore.net && !self.unused.contains(bore.item, layer))
                 || ties.tie_pad_on(net, bore.item)
                 || near.is_some_and(|(at, r)| {

@@ -601,6 +601,7 @@ fn a_proposed_via_checks_its_own_drilled_diameter_against_stored_copper() {
         copper.clearance(
             pcb,
             &reda_pcb::Proposal::Via {
+                omitted: Vec::new(),
                 span: LayerSpan {
                     from: layers[1],
                     to: layers[2],
@@ -624,7 +625,7 @@ fn a_proposed_via_checks_its_own_drilled_diameter_against_stored_copper() {
         layers[1],
         None,
         None,
-        Nm::from_um(400),
+        Some(Nm::from_um(400)),
         Nm::from_um(200),
     );
     assert_eq!(halos.len(), 1);

@@ -3,6 +3,7 @@
 //! board is active).
 
 use super::*;
+use crate::pcb::view::RouteLayer;
 
 impl Shell {
     pub(crate) fn design_generation(&self) -> u64 {
@@ -10,16 +11,19 @@ impl Shell {
     }
 
     pub(super) fn prepare_route_command(&mut self) {
-        self.board_view_mut().defer_layer_activation =
-            self.router.routing() && self.tool_preview().is_some();
+        self.board_view_mut().route_layer =
+            if self.router.routing() && self.tool_preview().is_some() {
+                RouteLayer::Routing
+            } else {
+                RouteLayer::Inactive
+            };
     }
 
     /// A Layer Command already resolved visibility, direction and presets. Apply its
     /// destination to the route first, switching the view only for a successful jump.
     pub(super) fn apply_route_command(&mut self, id: &str, out: &mut Value) {
-        if self.board_view().defer_layer_activation
-            && id.starts_with("pcb.layer.")
-            && let Some(target) = out["layer"].as_str().and_then(|s| s.parse().ok())
+        if let RouteLayer::Requested(target) =
+            std::mem::take(&mut self.board_view_mut().route_layer)
         {
             self.with_router(|r, shell| {
                 r.jump(shell, target, true);

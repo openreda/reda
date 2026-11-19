@@ -133,6 +133,7 @@ struct Info {
 #[derive(Clone, Debug)]
 pub struct Copper {
     bores: std::sync::OnceLock<bores::Bores>,
+    land_connections: std::sync::OnceLock<lands::Connections>,
     unused: UnusedLands,
     fonts: Fonts,
     pieces: Vec<Option<Piece>>,
@@ -195,6 +196,7 @@ impl Copper {
     pub(crate) fn with_lands(pcb: &PcbDocument, fonts: &Fonts, unused: UnusedLands) -> Copper {
         let mut copper = Copper {
             bores: Default::default(),
+            land_connections: Default::default(),
             unused,
             fonts: fonts.clone(),
             pieces: Vec::new(),
@@ -233,6 +235,7 @@ impl Copper {
     /// a Pad's Net has all its Pads re-indexed. A change to the Layers re-indexes
     /// everything.
     pub fn apply(&mut self, pcb: &PcbDocument, changes: &ChangeSet) {
+        self.land_connections.take();
         let mut footprints = BTreeSet::new();
         let mut free_pads = BTreeSet::new();
         let mut tracks = BTreeSet::new();

@@ -162,8 +162,10 @@ impl Command for LayerPick {
 }
 
 fn request_layer(set: &LayerSet, view: &mut BoardView, target: Uuid) -> ActiveLayer {
-    if !view.defer_layer_activation {
+    if view.route_layer == super::view::RouteLayer::Inactive {
         view.activate(set, target);
+    } else {
+        view.route_layer = super::view::RouteLayer::Requested(target);
     }
     ActiveLayer {
         layer: Some(target),

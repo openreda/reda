@@ -396,6 +396,7 @@ fn routed_via_preview_uses_each_physical_lands_diameter_within_its_span() {
     };
     let pcb = pcb(&e);
     let proposal = Proposal::Via {
+        omitted: Vec::new(),
         span: LayerSpan {
             from: l[4],
             to: l[1],

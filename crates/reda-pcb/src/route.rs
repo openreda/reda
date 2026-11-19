@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::copper::shape::BoardShape as _;
+use crate::copper::shape::{BoardShape as _, Shape};
 use crate::copper::{ClearanceHit, Copper, Item, Proposal};
 
 pub mod loops;
@@ -202,13 +202,35 @@ impl Proposed {
 /// Tie rule (the same ones DRC uses), clipped, split for look-ahead, and with what loop
 /// removal would delete if the click ends the route. Reads `copper` and changes nothing.
 pub fn propose(copper: &Copper, pcb: &PcbDocument, r: &Request) -> Proposed {
+    propose_with_vias(copper, pcb, r, &[], &[])
+}
+
+/// Extend the route with its earlier Vias in view. A new segment end can restore
+/// a land on the active Layer of a stack already placed in this route.
+pub fn propose_with_vias(
+    copper: &Copper,
+    pcb: &PcbDocument,
+    r: &Request,
+    steps: &[Step],
+    ends: &[(Uuid, Point)],
+) -> Proposed {
     let path = corner_path(r.start, r.cursor, r.corner, r.posture);
+    let restorations = vias::restored_lands(copper, pcb, r, steps, ends, &path);
+    let check = |from, to| {
+        let mut found = check(copper, pcb, r, from, to);
+        for (land, hits) in &restorations {
+            if land.contains(from) || land.contains(to) {
+                found.extend(hits.clone());
+            }
+        }
+        found
+    };
     let mut obstacles = Obstacles::default();
     let mut reached = vec![path[0]];
     let mut blocked = Vec::new();
     let mut violating = false;
     for (i, pair) in path.windows(2).enumerate() {
-        let found = check(copper, pcb, r, pair[0], pair[1]);
+        let found = check(pair[0], pair[1]);
         if found.is_empty() {
             reached.push(pair[1]);
             continue;
@@ -221,7 +243,7 @@ pub fn propose(copper: &Copper, pcb: &PcbDocument, r: &Request) -> Proposed {
             reached.push(pair[1]);
             continue;
         }
-        let clip = last_clear(copper, pcb, r, pair[0], pair[1]);
+        let clip = last_clear(&check, pair[0], pair[1]);
         obstacles.extend(found);
         if clip != pair[0] {
             reached.push(clip);
@@ -291,7 +313,6 @@ fn check(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: Point
 /// The Board Outline and Board Cutouts `proposal` comes closer to than the Net's
 /// `edge_clearance`, or crosses to the wrong side of.
 pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
-    use crate::copper::shape::Shape;
     let (shape, (a, b), net) = match *proposal {
         Proposal::Track {
             geometry,
@@ -309,9 +330,12 @@ pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
             let largest = pcb
                 .span_layers(span)
                 .into_iter()
+                .filter(|&l| proposal.has_land(l))
                 .map(|l| diameter.on(span, l))
-                .max()
-                .unwrap_or(diameter.start);
+                .max();
+            let Some(largest) = largest else {
+                return Vec::new();
+            };
             (Shape::disc(at, largest), (at, at), net)
         }
     };
@@ -333,7 +357,7 @@ pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
 /// The furthest point from `from` towards `to` up to which the segment stays clear, to
 /// the nanometre: it may be off grid, because pulling back to the grid could stop short
 /// of a gap the route fits through.
-fn last_clear(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: Point) -> Point {
+fn last_clear(check: &impl Fn(Point, Point) -> Obstacles, from: Point, to: Point) -> Point {
     let along = |t: f64| {
         Point::new(
             Nm((from.x.0 as f64 + (to.x.0 - from.x.0) as f64 * t).floor() as i64),
@@ -341,13 +365,13 @@ fn last_clear(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: 
         )
     };
     let length = ((to.x.0 - from.x.0) as f64).hypot((to.y.0 - from.y.0) as f64);
-    if !check(copper, pcb, r, from, from).is_empty() {
+    if !check(from, from).is_empty() {
         return from;
     }
     let (mut lo, mut hi) = (0.0f64, 1.0f64);
     while (hi - lo) * length > 1.0 {
         let mid = (lo + hi) / 2.0;
-        if check(copper, pcb, r, from, along(mid)).is_empty() {
+        if check(from, along(mid)).is_empty() {
             lo = mid;
         } else {
             hi = mid;
