@@ -390,6 +390,18 @@ impl Project {
             .and_then(|d| self.pcb_documents.get(&d.uuid))
     }
 
+    /// Whether an object, or an individually addressable child of a PCB table,
+    /// already owns this identity.
+    pub fn identity_in_use(&self, uuid: Uuid) -> bool {
+        self.pcb_documents.values().any(|pcb| {
+            pcb.layers().layer(uuid).is_some()
+                || pcb.stackups().any(|stack| {
+                    stack.dielectrics().any(|d| d.uuid == uuid)
+                        || stack.via_types.iter().any(|v| v.uuid == uuid)
+                })
+        }) || self.object(uuid).is_some()
+    }
+
     /// The object with this UUID, cloned, wherever it lives.
     pub fn object(&self, uuid: Uuid) -> Option<Object> {
         if uuid == self.props.uuid {

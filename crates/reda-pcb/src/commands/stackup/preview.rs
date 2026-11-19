@@ -65,12 +65,16 @@ impl Command for Preview {
             Change::ApplyConstruction(p) => Ok(layer_count::construction::plan(
                 cx.project()?,
                 p,
-                reda_model::Uuid::from_u128(0),
+                (0..).map(reda_model::Uuid::from_u128),
             )?
             .counts),
-            Change::LayerAdd(p) => {
-                Ok(layer_count::add_plan(cx.project()?, p.document, p.split, p.uuid)?.counts)
-            }
+            Change::LayerAdd(p) => Ok(layer_count::add_plan(
+                cx.project()?,
+                p,
+                (0..).map(reda_model::Uuid::from_u128),
+            )?
+            .0
+            .counts),
             Change::LayerMove(p) => Ok(layer_count::move_plan(pcb, p)?.counts),
             Change::LayerRemove(p) => {
                 Ok(layer_count::remove_plan(pcb, p.layer.resolve(pcb, "/layer")?.uuid)?.counts)

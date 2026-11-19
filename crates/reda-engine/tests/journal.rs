@@ -284,10 +284,10 @@ fn replay_with_random_uuids_remaps_the_change_list_a_sync_names() {
 #[test]
 fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() {
     let dir = TempDir::new("construction-replay");
-    let mut e = test_engine();
+    let mut e = reda_testkit::TestEngine(Engine::builder().user_dirs(None).build());
     let new = e.run_ok("project.new", json!({"path":dir.path(),"name":"Replay"}));
     let document = &new["documents"][1]["uuid"];
-    let preset = e.run_ok("fab_preset.add", json!({"name":"Generic"}))["result"]["uuid"].clone();
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
     let p = json!({"document":document,"preset":preset,"construction":"4 Layer"});
     e.run_ok(
         "pcb.stackup.change_preview",
@@ -300,7 +300,7 @@ fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() 
     );
     e.run_ok("pcb.stackup.set",json!({"dielectrics":[{"uuid":ids["result"]["dielectrics"][1],"material":"Test material"}]}));
     let (_dir, script) = script(&journal::export(e.journal()));
-    let mut replayed = engine_seeded(31);
+    let mut replayed = Engine::builder().user_dirs(None).build();
     journal::replay(&mut replayed, &script).unwrap();
     let board = replayed.project().unwrap().pcb().unwrap();
     assert_eq!(

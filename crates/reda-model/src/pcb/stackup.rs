@@ -207,28 +207,52 @@ pub struct ViaType {
     pub unused_layers: UnusedLayers,
 }
 
-impl ViaType {
-    /// The table name, using the current positions until the user supplies one.
-    pub fn display_name(&self, pcb: &super::PcbDocument) -> String {
-        if let Some(name) = self.name.as_ref().filter(|n| !n.is_empty()) {
-            return name.clone();
+/// Names are derived from the drilling direction unless the user typed a name.
+pub enum ViaTypeName<'a> {
+    Named(&'a str),
+    Through,
+    Blind(usize, usize),
+    Buried(usize, usize),
+    Micro(usize, usize),
+}
+
+impl std::fmt::Display for ViaTypeName<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Named(s) => f.write_str(s),
+            Self::Through => f.write_str("Through"),
+            Self::Blind(a, b) => write!(f, "Blind {a}:{b}"),
+            Self::Buried(a, b) => write!(f, "Buried {a}:{b}"),
+            Self::Micro(a, b) => write!(f, "Micro {a}:{b}"),
         }
-        let outer = [crate::Side::Top, crate::Side::Bottom]
-            .into_iter()
-            .filter(|&s| self.span().reaches(pcb, s))
-            .count();
-        let name = match (self.micro, outer) {
-            (true, _) => "Micro",
-            (false, 2) => return "Through".into(),
-            (false, 1) => "Blind",
-            _ => "Buried",
-        };
-        format!(
-            "{name} {}:{}",
-            pcb.copper_number(self.from)
-                .expect("Via type starts on copper"),
-            pcb.copper_number(self.to).expect("Via type ends on copper")
-        )
+    }
+}
+
+impl ViaType {
+    pub fn table_name(&self, pcb: &super::PcbDocument) -> ViaTypeName<'_> {
+        if let Some(name) = self.name.as_deref().filter(|n| !n.is_empty()) {
+            return ViaTypeName::Named(name);
+        }
+        let from = pcb
+            .copper_number(self.from)
+            .expect("Via type starts on copper");
+        let to = pcb.copper_number(self.to).expect("Via type ends on copper");
+        if self.micro {
+            return ViaTypeName::Micro(from, to);
+        }
+        match (
+            self.span().reaches(pcb, crate::Side::Top),
+            self.span().reaches(pcb, crate::Side::Bottom),
+        ) {
+            (true, true) => ViaTypeName::Through,
+            (false, false) => ViaTypeName::Buried(from, to),
+            _ => ViaTypeName::Blind(from, to),
+        }
+    }
+
+    /// Name in English-language output files.
+    pub fn display_name(&self, pcb: &super::PcbDocument) -> String {
+        self.table_name(pcb).to_string()
     }
 
     pub fn span(&self) -> LayerSpan {
@@ -238,9 +262,9 @@ impl ViaType {
         }
     }
 
-    pub fn through(stackup: Uuid, from: Uuid, to: Uuid, hole: Nm, start: Nm) -> Self {
+    pub fn through(uuid: Uuid, from: Uuid, to: Uuid, hole: Nm, start: Nm) -> Self {
         Self {
-            uuid: stackup.child("through"),
+            uuid,
             name: None,
             micro: false,
             from,

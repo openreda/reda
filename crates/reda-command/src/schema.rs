@@ -35,14 +35,14 @@ pub(crate) fn result_schema<T: JsonSchema>() -> Value {
 
 /// Where and why params do not fit a schema.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Mismatch {
+pub struct Mismatch {
     /// A JSON pointer into the params, `""` for the whole.
     pub pointer: String,
     pub message: String,
 }
 
 /// Checks `value` against the root schema `root`.
-pub(crate) fn check(root: &Value, value: &Value) -> Result<(), Mismatch> {
+pub fn check(root: &Value, value: &Value) -> Result<(), Mismatch> {
     Checker { root }.check(root, value, &mut Vec::new())
 }
 

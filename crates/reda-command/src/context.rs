@@ -103,6 +103,17 @@ pub(crate) enum Access<'a> {
     File(&'a mut Session),
 }
 
+impl Access<'_> {
+    fn project(&self) -> Result<&Project, CommandError> {
+        let project = match self {
+            Access::Edit(tx, _) | Access::ReadInEdit(tx) => Some(tx.project()),
+            Access::Read(project) | Access::View(project, _) => *project,
+            Access::File(session) => session.project.as_ref(),
+        };
+        project.ok_or_else(|| CommandError::unavailable(NO_PROJECT))
+    }
+}
+
 /// Handed to [`crate::Command::run`]. What it grants follows the Command's kind; asking
 /// for more is an `internal` error, because it is a bug in the Command.
 pub struct Context<'a> {
@@ -130,12 +141,12 @@ pub(crate) enum Step {
 impl<'a> Context<'a> {
     /// The open Project. For an edit, as the steps so far have left it.
     pub fn project(&self) -> Result<&Project, CommandError> {
-        let project = match &self.access {
-            Access::Edit(tx, _) | Access::ReadInEdit(tx) => Some(tx.project()),
-            Access::Read(project) | Access::View(project, _) => *project,
-            Access::File(session) => session.project.as_ref(),
-        };
-        project.ok_or_else(|| CommandError::unavailable(NO_PROJECT))
+        self.access.project()
+    }
+
+    /// Borrow the Project and its ID source together when planning a structural edit.
+    pub fn project_and_ids(&mut self) -> Result<(&Project, &mut dyn IdSource), CommandError> {
+        Ok((self.access.project()?, self.ids))
     }
 
     /// The edit's transaction. Only edit Commands get one.

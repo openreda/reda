@@ -46,7 +46,8 @@ pub fn replay_with(
         let outcome = run(&step.id, params);
         match (&step.outcome, outcome) {
             (None, Ok(_)) => {}
-            (Some(Ok(recorded)), Ok(replayed)) => {
+            (Some(Ok(recorded)), Ok(mut replayed)) => {
+                upgrade_result(&step.id, recorded, &mut replayed, &mut map);
                 for last_pass in [false, true] {
                     compare(recorded, &replayed, "", &mut map, last_pass)
                         .map_err(|(pointer, message)| fail(Some(pointer), message))?;
@@ -82,6 +83,50 @@ pub fn replay_with(
         }
     }
     Ok(())
+}
+
+/// Older creation results predate the named identities returned for subsequent
+/// edits. Only these additive fields are optional when replaying old recordings.
+fn upgrade_result(id: &str, recorded: &Value, replayed: &mut Value, map: &mut UuidMap) {
+    let (field, old, new) = match id {
+        "project.new" => ("seeded", recorded, replayed),
+        "document.add" => ("seeded", &recorded["result"], &mut replayed["result"]),
+        "pcb.rules.apply_fab_preset" => (
+            "created_rules",
+            &recorded["result"],
+            &mut replayed["result"],
+        ),
+        _ => return,
+    };
+    if old.get(field).is_some() {
+        return;
+    }
+    let Some(added) = new.as_object_mut().and_then(|fields| fields.remove(field)) else {
+        return;
+    };
+    if id == "pcb.rules.apply_fab_preset" {
+        // The earlier implementation derived each inner rule UUID from its kind
+        // and Document. Recover the pairing before comparing the UUID-sorted changes.
+        if let Some(changes) = recorded["changes"].as_object()
+            && let Some(kinds) = added.as_object()
+        {
+            for (document, changes) in changes {
+                let Ok(document) = document.parse::<Uuid>() else {
+                    continue;
+                };
+                for (kind, new) in kinds {
+                    let old = document.child(&format!("inner.{kind}")).to_string();
+                    if let Some(uuid) = new.as_str()
+                        && changes["created"]
+                            .as_array()
+                            .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(&old)))
+                    {
+                        map.insert(old, uuid.to_owned());
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// The code as it is written in JSON, such as `not_found`.
@@ -182,6 +227,15 @@ fn compare(
                     pointer,
                     format!("recorded {} items, replayed {}", a.len(), b.len()),
                 );
+            }
+            // Board creation returns these UUIDs in physical or rule order. A UUID
+            // appearing at a different position in another seeded run denotes a
+            // different row, even when the two ID sources partly overlap.
+            if pointer.starts_with("/seeded/") || pointer.starts_with("/result/seeded/") {
+                for (i, (x, y)) in a.iter().zip(b).enumerate() {
+                    compare(x, y, &format!("{pointer}/{i}"), map, last_pass)?;
+                }
+                return Ok(());
             }
             let uuids = |items: &[Value]| -> Option<Vec<String>> {
                 items

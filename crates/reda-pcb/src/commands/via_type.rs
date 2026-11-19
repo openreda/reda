@@ -109,11 +109,7 @@ impl Command for Add {
             return Err(CommandError::not_found("no such PCB Document"));
         }
         let mut stackup = pcb.stackup().clone();
-        if stackup.entries.iter().any(|e| e.uuid() == uuid)
-            || stackup.via_types.iter().any(|v| v.uuid == uuid)
-            || pcb.layers().layer(uuid).is_some()
-            || cx.project()?.object(uuid).is_some()
-        {
+        if cx.project()?.identity_in_use(uuid) {
             return Err(CommandError::invalid_params(
                 "/uuid",
                 "that UUID is already in use",

@@ -9,7 +9,7 @@ use reda_command::{
 };
 use reda_model::geom::Vertex;
 use reda_model::{
-    BoardOutline, DocumentEntry, DocumentKind, FabPreset, InDocument, Object, Project,
+    BoardOutline, DocumentEntry, DocumentKind, FabPreset, InDocument, Object, PcbDocument, Project,
     ProjectFabPreset, ProjectProps, Scope, Uuid,
 };
 use schemars::JsonSchema;
@@ -47,6 +47,42 @@ pub struct ProjectSummary {
     /// The Output Jobs, by name, for `output.job.run`; left out when there are none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub output_jobs: Vec<JobEntry>,
+    /// Initial board identities, included when the Project was just created.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seeded: Option<SeededBoard>,
+}
+
+/// The objects seeded by board creation, including children of the Layer and Stackup tables.
+/// Physical rows follow board order. Rule rows follow kind and scope, independent of UUIDs.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SeededBoard {
+    preset: Uuid,
+    board: Uuid,
+    layer_set: Uuid,
+    stackup: Uuid,
+    outline: Option<Uuid>,
+    layers: Vec<Uuid>,
+    dielectrics: Vec<Uuid>,
+    via_types: Vec<Uuid>,
+    rules: Vec<Uuid>,
+}
+
+impl SeededBoard {
+    pub(super) fn new(pcb: &PcbDocument, preset: Uuid) -> Self {
+        let mut rules: Vec<_> = pcb.rules().collect();
+        rules.sort_by_key(|r| (r.kind, &r.scope));
+        Self {
+            preset,
+            board: pcb.setup().uuid,
+            layer_set: pcb.layers().uuid,
+            stackup: pcb.stackup().uuid,
+            outline: pcb.outline().map(|o| o.uuid),
+            layers: pcb.layers().layers.iter().map(|l| l.uuid).collect(),
+            dielectrics: pcb.stackup().dielectrics().map(|d| d.uuid).collect(),
+            via_types: pcb.stackup().via_types.iter().map(|v| v.uuid).collect(),
+            rules: rules.into_iter().map(|r| r.uuid).collect(),
+        }
+    }
 }
 
 /// An Output Job as `project.new` and `project.open` list it.
@@ -74,6 +110,7 @@ fn summary(session: &Session, missing: Vec<DocumentEntry>) -> ProjectSummary {
         documents: project.documents().cloned().collect(),
         missing,
         output_jobs,
+        seeded: None,
     }
 }
 
@@ -170,7 +207,13 @@ impl Command for ProjectNew {
         take_open_elements(session, &mut project);
         session.project = Some(project);
         session.location = Some(folder);
-        Ok(summary(session, vec![]))
+        let mut out = summary(session, vec![]);
+        let project = session.project.as_ref().expect("just installed");
+        out.seeded = Some(SeededBoard::new(
+            project.pcb().expect("new Project has a PCB"),
+            project.fab_presets().next().expect("seeded preset").uuid,
+        ));
+        Ok(out)
     }
 }
 

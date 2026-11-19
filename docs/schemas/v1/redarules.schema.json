@@ -1,0 +1,653 @@
+{
+  "$defs": {
+    "Bounds": {
+      "additionalProperties": false,
+      "description": "A range of sizes: `min` and `max` are limits, `preferred` is what Tools start with.",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "ConnectionStyle": {
+      "description": "How a fill meets a Pad or Via.",
+      "oneOf": [
+        {
+          "const": "relief",
+          "description": "Through spokes across a clear ring, so the Pad solders easily.",
+          "type": "string"
+        },
+        {
+          "const": "solid",
+          "description": "The fill runs straight into it.",
+          "type": "string"
+        },
+        {
+          "const": "none",
+          "description": "The fill keeps the gap clear and doesn't connect.",
+          "type": "string"
+        }
+      ]
+    },
+    "DrcSeverities": {
+      "additionalProperties": false,
+      "description": "The severity of every DRC check, stored next to the rules. A check left out has its\ndefault.",
+      "properties": {
+        "annular_ring": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An annular ring below the minimum."
+        },
+        "clearance": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Clearance between copper of different Nets."
+        },
+        "copper_without_net": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Copper with no Net."
+        },
+        "courtyard_overlap": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Courtyards closer than `courtyard_clearance`."
+        },
+        "dangling": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Tracks and Vias that end unconnected, ignoring stubs up to the `dangling`\ntolerance."
+        },
+        "dead_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A kept piece of fill touching no copper of its Net, above the `dead_copper` area."
+        },
+        "duplicate_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: Tracks or Vias that repeat one another exactly."
+        },
+        "edge_clearance": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Copper too close to the Board Outline or a Board Cutout."
+        },
+        "empty_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Zone with a Net and nothing left to fill."
+        },
+        "footprint_outside_board": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Footprint outside the Board Outline."
+        },
+        "hole_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Pad, Free Pad or non-plated hole outside the `hole_size` range."
+        },
+        "hole_to_hole": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Holes closer than the minimum spacing."
+        },
+        "keepout": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "An object inside a Keepout that forbids it."
+        },
+        "micro_segment": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Track no longer than the `micro_segment` length."
+        },
+        "net_tie_not_joined": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Net Tie's Footprint that isn't a valid tie."
+        },
+        "opening_collapsed": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A negative mask or paste expansion leaves no opening."
+        },
+        "out_of_sync": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "The PCB out of sync with the schematic."
+        },
+        "poor_connection": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Track end touching copper, with its centre outside that copper."
+        },
+        "rule_invalid": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A rule record with a blocking problem, which only a hand edit or a merge can cause."
+        },
+        "rule_outside_preset": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A rule that allows less than a Fab Preset limit."
+        },
+        "shelved_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A shelved Zone, whose copper outputs leave out."
+        },
+        "short_circuit": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Different Nets touching."
+        },
+        "shorted_copper": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
+        },
+        "silk_to_edge": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Silkscreen closer than `silk_to_edge` to the Board Outline or a Board Cutout."
+        },
+        "silk_to_mask": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
+        },
+        "track_width": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Track narrower than the minimum or wider than the maximum."
+        },
+        "unrouted": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "Connections the Ratsnest still shows."
+        },
+        "via_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error",
+          "description": "A Via diameter or hole outside the `via_size` range."
+        },
+        "via_under_smd": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "A Via inside an SMD Pad."
+        },
+        "zero_area_zone": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Zone whose outline encloses no area."
+        },
+        "zero_length_track": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning",
+          "description": "Health check: a Track whose ends coincide."
+        }
+      },
+      "type": "object"
+    },
+    "PortableClass": {
+      "additionalProperties": false,
+      "description": "A Net Class as a [`RuleSet`] names it: by name only, since its Nets differ per board.",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "PortableRule": {
+      "additionalProperties": false,
+      "description": "A rule record as a [`RuleSet`] holds it: its Net Class by name, and no UUID.",
+      "properties": {
+        "comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "description": "Whether the record counts; left out when it does.",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/RuleKind"
+        },
+        "net_class": {
+          "description": "The Net Class it applies to, by name; left out for a board-wide record.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "$ref": "#/$defs/RuleValues"
+        }
+      },
+      "required": [
+        "kind",
+        "values"
+      ],
+      "type": "object"
+    },
+    "RuleKind": {
+      "description": "What a rule record limits.",
+      "oneOf": [
+        {
+          "const": "clearance",
+          "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
+          "type": "string"
+        },
+        {
+          "const": "track_width",
+          "description": "Track width: `min`, `preferred`, `max?`.",
+          "type": "string"
+        },
+        {
+          "const": "via_size",
+          "description": "Via size: `diameter` and `hole`, each `{min, preferred, max?}`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_size",
+          "description": "Pad, Free Pad and non-plated hole size: `min`, `max`.",
+          "type": "string"
+        },
+        {
+          "const": "annular_ring",
+          "description": "Annular ring: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "hole_to_hole",
+          "description": "Spacing between hole edges: `min`.",
+          "type": "string"
+        },
+        {
+          "const": "edge_clearance",
+          "description": "Copper to the Board Outline, Board Cutouts and non-plated hole edges: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "silk_to_edge",
+          "description": "Silkscreen to the Board Outline and Board Cutouts: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "silk_to_mask",
+          "description": "Silkscreen to exposed copper or mask openings: `value`, `mode`.",
+          "type": "string"
+        },
+        {
+          "const": "courtyard_clearance",
+          "description": "Spacing between courtyards: `value`.",
+          "type": "string"
+        },
+        {
+          "const": "dangling",
+          "description": "Dangling stubs up to `tolerance` long pass.",
+          "type": "string"
+        },
+        {
+          "const": "micro_segment",
+          "description": "Tracks up to `max_length` long are micro-segments.",
+          "type": "string"
+        },
+        {
+          "const": "dead_copper",
+          "description": "Kept pieces of fill touching no copper of their Net, above `min_area`, are flagged.",
+          "type": "string"
+        },
+        {
+          "const": "zone_connection",
+          "description": "How a Zone fill joins Pads and Vias of its Net: `through_hole`, `smd` and `via`,\neach `{style, spokes, spoke_width, gap, angle}`; no DRC severity.",
+          "type": "string"
+        },
+        {
+          "const": "mask_expansion",
+          "description": "Per-side solder-mask expansion, hole-edge reference and Via tenting; no DRC severity.",
+          "type": "string"
+        },
+        {
+          "const": "paste_expansion",
+          "description": "Solder-paste expansion per edge or signed percent change in area; no DRC severity.",
+          "type": "string"
+        }
+      ]
+    },
+    "RuleValues": {
+      "additionalProperties": false,
+      "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
+      "properties": {
+        "bottom": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's copper diameter."
+        },
+        "expansion": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "from_hole_edge": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Bounds"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Via size only: the Via's drilled hole."
+        },
+        "ignore_pad_to_pad": {
+          "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_length": {
+          "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min_area": {
+          "description": "`dead_copper` only: pieces of fill up to this area, in square nanometres, pass.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SilkMaskMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`silk_to_mask` only: what silkscreen keeps its distance from."
+        },
+        "percent": {
+          "description": "Signed change in area in percent, strictly above -100.",
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "smd": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join SMD Pads."
+        },
+        "tent_vias_bottom": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tent_vias_top": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "through_hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join through-hole Pads."
+        },
+        "tolerance": {
+          "description": "`dangling` only: stubs up to this long pass.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "top": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "via": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ZoneConnection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`zone_connection` only: how fills join Vias."
+        },
+        "zero_keepout_clearance": {
+          "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Severity": {
+      "description": "How a check's Violations are reported.",
+      "enum": [
+        "error",
+        "warning",
+        "off"
+      ],
+      "type": "string"
+    },
+    "SilkMaskMode": {
+      "description": "What `silk_to_mask` measures silkscreen against.",
+      "oneOf": [
+        {
+          "const": "exposed_copper",
+          "description": "The exposed copper: the copper inside each resolved mask opening.",
+          "type": "string"
+        },
+        {
+          "const": "mask_opening",
+          "description": "The resolved mask openings themselves.",
+          "type": "string"
+        }
+      ]
+    },
+    "ZoneConnection": {
+      "additionalProperties": false,
+      "description": "How a Zone fill joins a Pad of its own Net. Each value left out inherits from the\n`zone_connection` rule.",
+      "properties": {
+        "angle": {
+          "description": "0, 45 or 90 degrees in the Pad's frame.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "gap": {
+          "description": "The clear ring around a relieved or unconnected Pad.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spoke_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "spokes": {
+          "description": "2 or 4.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConnectionStyle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A REDA rules file (`.redarules`).",
+  "properties": {
+    "format": {
+      "const": 1,
+      "description": "The file-format version. REDA writes only the current one.",
+      "type": "integer"
+    },
+    "net_classes": {
+      "description": "The Net Classes the rules name, by name, highest rank first.",
+      "items": {
+        "$ref": "#/$defs/PortableClass"
+      },
+      "type": "array"
+    },
+    "rules": {
+      "description": "The rule records: board-wide ones, then each class's, which name it.",
+      "items": {
+        "$ref": "#/$defs/PortableRule"
+      },
+      "type": "array"
+    },
+    "severities": {
+      "$ref": "#/$defs/DrcSeverities",
+      "description": "The DRC severities."
+    }
+  },
+  "required": [
+    "format",
+    "net_classes",
+    "rules",
+    "severities"
+  ],
+  "title": "REDA rules file",
+  "type": "object"
+}

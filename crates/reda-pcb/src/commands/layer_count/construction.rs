@@ -41,8 +41,8 @@ impl Command for Apply {
         needs_pcb(cx)
     }
     fn run(&self, cx: &mut Context<'_>, p: Params) -> Result<Applied, CommandError> {
-        let seed = cx.new_id();
-        let plan = plan(cx.project()?, p, seed)?;
+        let (project, ids) = cx.project_and_ids()?;
+        let plan = plan(project, p, std::iter::from_fn(|| Some(ids.next_id())))?;
         let out = Applied {
             layers: plan.stack.copper().map(|c| c.layer).collect(),
             dielectrics: plan.stack.dielectrics().map(|d| d.uuid).collect(),
@@ -56,7 +56,7 @@ impl Command for Apply {
 pub(in crate::commands) fn plan(
     project: &Project,
     p: Params,
-    seed: Uuid,
+    ids: impl Iterator<Item = Uuid>,
 ) -> Result<Plan, CommandError> {
     let pcb = project
         .pcb_document(p.document)
@@ -71,12 +71,7 @@ pub(in crate::commands) fn plan(
         .ok_or_else(|| {
             CommandError::invalid_params("/construction", "no such Construction in this preset")
         })?;
-    let mut ids = (0..).map(|n| seed.child(&n.to_string())).filter(|id| {
-        project.object(*id).is_none()
-            && pcb.layers().layer(*id).is_none()
-            && !pcb.stackup().dielectrics().any(|d| d.uuid == *id)
-            && !pcb.stackup().via_types.iter().any(|v| v.uuid == *id)
-    });
+    let mut ids = ids.filter(|id| !project.identity_in_use(*id));
     let mut plan = Plan::new(pcb);
     let count = pcb.copper_layers().count();
     let target = build.layer_count();

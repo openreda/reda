@@ -82,7 +82,7 @@ pub fn generic() -> FabPreset {
         },
         placement_corrections: Vec::new(),
         constructions: [2, 4, 6, 8]
-            .map(|n| Construction::evenly_spaced(n, StackupSeeds::default()))
+            .map(|n| reda_pcb::construction::evenly_spaced(n, StackupSeeds::default()))
             .to_vec(),
         gerber: GerberSettings::default(),
         zip_assembly: false,
@@ -113,7 +113,10 @@ pub fn generic() -> FabPreset {
 
 /// Start with the released nominal two-layer dimensions and add the measured multilayer builds.
 fn with_two_layer(catalogue: &str) -> Vec<Construction> {
-    let mut builds = vec![Construction::evenly_spaced(2, StackupSeeds::default())];
+    let mut builds = vec![reda_pcb::construction::evenly_spaced(
+        2,
+        StackupSeeds::default(),
+    )];
     builds.extend(
         serde_json::from_str::<Vec<Construction>>(catalogue)
             .expect("shipped Construction catalogue"),

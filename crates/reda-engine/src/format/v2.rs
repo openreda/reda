@@ -6,6 +6,7 @@ use reda_model::{Uuid, ViaType, geom::Nm};
 use serde_json::{Value, json};
 
 pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> {
+    validate_released(kind, &file)?;
     match kind {
         FileKind::Pcb => board(&mut file)?,
         FileKind::FabPreset => preset(&mut file)?,
@@ -34,6 +35,37 @@ pub(super) fn migrate(kind: FileKind, mut file: Value) -> Result<Value, String> 
     Ok(file)
 }
 
+/// Check the file as it was declared before introducing defaults or moving fields.
+/// Each schema is the released artifact. Cache it across all Project Documents.
+fn validate_released(kind: FileKind, file: &Value) -> Result<(), String> {
+    use std::sync::LazyLock;
+    macro_rules! released {
+        ($ext:literal) => {{
+            static SCHEMA: LazyLock<Value> = LazyLock::new(|| {
+                serde_json::from_str(include_str!(concat!(
+                    "../../../../docs/schemas/v1/",
+                    $ext,
+                    ".schema.json"
+                )))
+                .expect("released schema is JSON")
+            });
+            &*SCHEMA
+        }};
+    }
+    let schema = match kind {
+        FileKind::Project => released!("reda"),
+        FileKind::Pcb => released!("redapcb"),
+        FileKind::Sheet => released!("redasch"),
+        FileKind::Library => released!("redalib"),
+        FileKind::Symbol => released!("redasym"),
+        FileKind::Footprint => released!("redafp"),
+        FileKind::Part => released!("redapart"),
+        FileKind::FabPreset => released!("redafab"),
+        FileKind::Rules => released!("redarules"),
+    };
+    reda_command::check_schema(schema, file).map_err(|e| format!("{}: {}", e.pointer, e.message))
+}
+
 fn preset(preset: &mut Value) -> Result<(), String> {
     let object = preset
         .as_object_mut()
@@ -47,7 +79,7 @@ fn preset(preset: &mut Value) -> Result<(), String> {
         .unwrap_or_default();
     object.insert(
         "constructions".into(),
-        json!([reda_model::Construction::two_layer(seeds)]),
+        json!([reda_pcb::construction::two_layer(seeds)]),
     );
     let rules = object
         .get_mut("rules")
@@ -106,8 +138,7 @@ fn board(file: &mut Value) -> Result<(), String> {
         .ok_or("missing board-wide via_size record")?;
     let diameter = take_preferred(via_size, "diameter")?;
     let hole = take_preferred(via_size, "hole")?;
-    for mut rule in reda_pcb::multilayer_rules(document) {
-        rule.uuid = reserve(&mut used, rule.uuid);
+    for rule in reda_pcb::multilayer_rules(|kind| reserve(&mut used, document.child(kind.id()))) {
         rules.push(json!(rule));
     }
     for stack in file["stackups"].as_array_mut().ok_or("missing stackups")? {
@@ -128,8 +159,13 @@ fn board(file: &mut Value) -> Result<(), String> {
         let (Some(&from), Some(&to)) = (copper.first(), copper.last()) else {
             return Err("the Stackup has no copper".into());
         };
-        let mut through = ViaType::through(id, from, to, hole, diameter);
-        through.uuid = reserve(&mut used, through.uuid);
+        let through = ViaType::through(
+            reserve(&mut used, id.child("through")),
+            from,
+            to,
+            hole,
+            diameter,
+        );
         stack["via_types"] = json!([through]);
     }
     if let Some(vias) = file.get_mut("vias") {

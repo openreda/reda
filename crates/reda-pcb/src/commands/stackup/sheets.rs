@@ -46,11 +46,7 @@ impl Command for SheetAdd {
         let document = pcb.uuid;
         let mut stackup = pcb.stackup().clone();
         let index = sheet(&stackup, p.beside)?;
-        if pcb.layers().layer(uuid).is_some()
-            || stackup.dielectrics().any(|d| d.uuid == uuid)
-            || stackup.via_types.iter().any(|v| v.uuid == uuid)
-            || cx.project()?.object(uuid).is_some()
-        {
+        if cx.project()?.identity_in_use(uuid) {
             return Err(CommandError::invalid_params(
                 "/uuid",
                 "that UUID is already in use",

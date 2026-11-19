@@ -12,6 +12,7 @@
 mod board;
 pub mod cluster;
 mod commands;
+pub mod construction;
 pub mod copper;
 pub mod dimension;
 pub mod drag;
