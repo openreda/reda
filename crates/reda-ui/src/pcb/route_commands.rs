@@ -22,6 +22,9 @@ use crate::tools::{ActiveTool, Tool};
 /// Adds the routing Commands to `registry`. The Shell does this for its engine.
 pub fn register_all(registry: &mut Registry) {
     registry.add(AddVia);
+    registry.add(PreviousLayer);
+    registry.add(CycleVia);
+    registry.add(PickVia);
     registry.add(Finish);
     registry.add(Width);
     registry.add(Mode);
@@ -93,6 +96,8 @@ route_key!(
      of the board.",
     "via"
 );
+route_key!(PreviousLayer, "pcb.route.previous_layer", "Route to Previous Layer", "Places the proposed Via or stack and continues on the Previous Layer.", "via");
+route_key!(CycleVia, "pcb.route.cycle_via", "Next Via Candidate", "Previews the next permitted Via or stack for this pair of Layers.", "via");
 route_key!(
     Finish,
     "pcb.route.finish",
@@ -406,5 +411,37 @@ impl Command for Width {
             width,
             step: p.step,
         })
+    }
+}
+
+/// With no parameters, open the candidate list for the Previous Layer. A list
+/// row submits its zero-based rank for the displayed destination.
+#[derive(Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PickViaParams {
+    pub target: Option<reda_engine::model::Uuid>,
+    pub index: Option<usize>,
+    pub page: Option<usize>,
+}
+
+struct PickVia;
+impl Command for PickVia {
+    const META: Meta = Meta {
+        id: "pcb.route.pick_via", title: "Choose Via or Stack",
+        description: "Lists permitted Vias and stacks for a destination Layer or selects one by rank.",
+        category: "tool", icon: "via", kind: Kind::View,
+    };
+    type Params = PickViaParams;
+    type Output = PickViaParams;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> { needs_pcb(cx) }
+    fn run(&self, cx: &mut Context<'_>, p: PickViaParams) -> Result<PickViaParams, CommandError> {
+        routing(cx)?;
+        if p.page.is_some() && p.index.is_some() {
+            return Err(CommandError::invalid_params("/page","choose a page or a candidate"));
+        }
+        if let Some(to) = p.target && cx.project()?.pcb().and_then(|p| p.copper_number(to)).is_none() {
+            return Err(CommandError::invalid_params("/target","choose a copper Layer"));
+        }
+        Ok(p)
     }
 }

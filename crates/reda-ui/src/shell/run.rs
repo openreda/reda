@@ -20,7 +20,10 @@ impl Shell {
                 "only the user can run {id}, from the app"
             )));
         }
-        let out = self.engine.run_from(source, id, params, signals)?;
+        let base = id.split(':').next().unwrap_or(id);
+        self.prepare_route_command();
+        let mut out = self.engine.run_from(source, id, params, signals)?;
+        self.apply_route_command(base, &mut out);
         self.after_run(id);
         if let Some(tool) = &self.tool
             && tool.touched_by(&out)
@@ -104,6 +107,7 @@ impl Shell {
             .then(|| params.clone());
         let shown = self.preferences().editing.highlight.clone();
         self.engine.view_mut().set(shown);
+        self.prepare_route_command();
         let out = self.engine.run(id, params.clone());
         if !matches!(kind, Some(Kind::View | Kind::Query)) {
             // A move put down shows until its Command has run, whatever the outcome.
@@ -112,7 +116,8 @@ impl Shell {
         if let Err(e) = &out {
             self.loop_retry = crate::pcb::board_shapes::retry_for(id, &params, e);
         }
-        let out = out?;
+        let mut out = out?;
+        self.apply_route_command(base, &mut out);
         if base == "pcb.route.unroute" {
             pcb::placing::ask_about_locked_unroute(self, &params, &out);
         }

@@ -80,7 +80,6 @@ impl Shell {
                     crate::schematic_editor::edit_selected(self, sheet);
                 }
             }
-            "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
             "pcb.route.via_end" => self.with_router(|r, shell| r.via_end(shell)),
             "pcb.route.end" => self.with_router(|r, shell| r.end(shell)),
             "pcb.route.mode" => {

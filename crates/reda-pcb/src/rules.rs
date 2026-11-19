@@ -211,7 +211,7 @@ pub(crate) fn via_span_permission(pcb: &PcbDocument, net: Option<Uuid>) -> Optio
     })
 }
 
-pub(crate) fn via_ranges(
+pub fn via_ranges(
     pcb: &PcbDocument,
     net: Option<Uuid>,
     via_type: &reda_model::ViaType,

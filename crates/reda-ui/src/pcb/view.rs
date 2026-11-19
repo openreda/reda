@@ -37,6 +37,8 @@ pub const VIEW_TYPES: [ObjectType; 9] = [
 pub struct BoardView {
     pub(crate) document: Option<Uuid>,
     pub layers: LayerView,
+    /// During routing a Layer Command asks the Tool to place copper before switching.
+    pub(crate) defer_layer_activation: bool,
     /// Session selection for standalone Via placement.
     pub stitching_type: Option<Uuid>,
     /// The units lengths show in.
@@ -60,6 +62,7 @@ impl BoardView {
             document: None,
             layers: LayerView::default(),
             stitching_type: None,
+            defer_layer_activation: false,
             units,
             pick_requested: false,
             hover_solo: None,

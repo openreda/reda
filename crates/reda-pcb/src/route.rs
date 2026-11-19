@@ -385,12 +385,21 @@ pub struct Leg {
     pub points: Vec<Point>,
 }
 
+/// One physical Via held by the Track Tool until the route commits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RouteVia {
+    pub span: reda_model::LayerSpan,
+    pub diameter: reda_model::ViaDiameter,
+    pub hole: Nm,
+    pub unused_layers: reda_model::UnusedLayers,
+}
+
 /// What a route has placed, in order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Step {
     Leg(Leg),
-    /// A Via at a point, of a chosen size or (`None`) the Net's.
-    Via(Point, Option<ViaSize>),
+    /// A single placement, undone together even when its stack has several Vias.
+    Via(Point, Vec<RouteVia>),
 }
 
 /// The Commands that commit a route, and what loop removal decided.
@@ -480,15 +489,18 @@ pub fn commit(
                     .push(json!({"id": "pcb.track.add", "params": params}));
             }
             Step::Leg(_) => {}
-            Step::Via(at, size) => {
-                let mut params = json!({"at": point(*at)});
-                if let Some(size) = size {
-                    params["diameter"] = json!(size.diameter.0);
-                    params["hole"] = json!(size.hole.0);
+            Step::Via(at, members) => {
+                for via in members {
+                    let diameter = if via.diameter.middle.is_none() && via.diameter.end.is_none() {
+                        json!(via.diameter.start)
+                    } else {
+                        json!(via.diameter)
+                    };
+                    let params = json!({"at": point(*at), "net": net,
+                        "from": via.span.from, "to": via.span.to, "diameter": diameter,
+                        "hole": via.hole, "unused_layers": via.unused_layers});
+                    out.steps.push(json!({"id":"pcb.via.add","params":params}));
                 }
-                net_param(&mut params);
-                out.steps
-                    .push(json!({"id": "pcb.via.add", "params": params}));
             }
         }
     }

@@ -5,6 +5,35 @@
 use super::*;
 
 impl Shell {
+    pub(crate) fn design_generation(&self) -> u64 {
+        self.edits
+    }
+
+    pub(super) fn prepare_route_command(&mut self) {
+        self.board_view_mut().defer_layer_activation = self.router.routing() && self.tool_preview().is_some();
+    }
+
+    /// A Layer Command already resolved visibility, direction and presets. Apply its
+    /// destination to the route first, switching the view only for a successful jump.
+    pub(super) fn apply_route_command(&mut self, id: &str, out: &mut Value) {
+        if self.board_view().defer_layer_activation && id.starts_with("pcb.layer.")
+            && let Some(target) = out["layer"].as_str().and_then(|s| s.parse().ok())
+        {
+            self.with_router(|r, shell| { r.jump(shell, target, true); });
+            out["layer"] = json!(self.engine.project().and_then(|p| self.board_view().active_layer(p)));
+        }
+        match id {
+            "pcb.route.previous_layer" | "pcb.route.add_via" => self.with_router(|r,s| r.add_via(s)),
+            "pcb.route.pick_via" => {
+                if let Ok(params) = serde_json::from_value(out.clone()) {
+                    self.with_router(|r,s| r.pick_via(s, params));
+                }
+            }
+            "pcb.route.cycle_via" => self.with_router(|r,s| r.cycle_via(s)),
+            _ => {}
+        }
+    }
+
     /// The rubber band's corners while one is drawn.
     pub fn pcb_band(&self) -> Option<(Point, Point)> {
         self.pcb_tool.band()

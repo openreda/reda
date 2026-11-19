@@ -737,3 +737,42 @@ fn a_route_starting_on_an_etched_graphic_keeps_its_clearance() {
     b.shell.route_hover(mm(7.0, 4.0));
     assert!(b.shell.route_preview().unwrap().blocked);
 }
+
+#[test]
+fn a_layer_jump_places_a_stack_as_one_route_step_and_one_edit() {
+    let mut b = board();
+    let top = copper(&b, Side::Top);
+    let bottom = copper(&b, Side::Bottom);
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let inner = b.shell.engine().project().unwrap().pcb().unwrap().copper_layers().nth(1).unwrap().uuid;
+    for (from, to, hole, diameter) in [(inner,top, "0.2mm", "0.45mm"), (inner,bottom, "0.3mm", "0.85mm")] {
+        run(&mut b.shell, "pcb.via_type.add", json!({"document":b.pcb,"from":from,"to":to,"micro":to==top,"hole":hole,"diameter":diameter}));
+    }
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0.0, 0.0));
+    b.shell.route_hover(mm(3.0, 4.0));
+    run(&mut b.shell, "pcb.route.cycle_via", json!({}));
+    run(&mut b.shell, "pcb.layer.activate:3", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, bottom);
+    run(&mut b.shell, "tool.undo_segment", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, top);
+    assert!(b.shell.route_preview().unwrap().vias.is_empty());
+    run(&mut b.shell, "pcb.route.previous_layer", json!({}));
+    run(&mut b.shell, "pcb.route.finish", json!({}));
+    let (id, params) = last_entry(&b);
+    assert_eq!(id, "batch");
+    let steps = params["commands"].as_array().unwrap();
+    assert_eq!(steps.len(), 3);
+    for (entry, from, to, diameter) in [(&steps[1], inner, top, 450_000), (&steps[2], inner, bottom, 850_000)] {
+        assert_eq!(entry["id"], "pcb.via.add");
+        let p = &entry["params"];
+        assert_eq!(p["from"], json!(from));
+        assert_eq!(p["to"], json!(to));
+        assert_eq!(p["diameter"], diameter);
+        assert_eq!(p["net"], json!(b.net));
+        assert_eq!(p["at"], json!({"x":3_000_000,"y":4_000_000}));
+    }
+    run(&mut b.shell, "edit.undo", json!({"document":b.pcb}));
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    assert_eq!((pcb.vias().count(), pcb.tracks().count()), (0,0));
+}

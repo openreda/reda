@@ -36,7 +36,11 @@ use crate::snap::Snapped;
 use crate::tools::Tool;
 use crate::tr;
 
+mod vias;
 pub use route::Leg;
+use route::RouteVia;
+pub(crate) use vias::PAGE_SIZE;
+use vias::PairCandidates;
 
 #[derive(Clone, Debug)]
 struct Route {
@@ -109,6 +113,7 @@ pub enum Chooser {
     Width(Vec<WidthChoice>),
     /// Shift+V: the Via sizes.
     Via(Vec<ViaChoice>),
+    Candidates { target: Uuid, selected: usize, page: usize, count: usize },
 }
 
 /// How far from the cursor the clearance display reaches in `near`.
@@ -135,6 +140,7 @@ pub struct Router {
     /// The Via size chosen with Shift+V; `None` is the Net's.
     via_size: Option<ViaSize>,
     chooser: Option<Chooser>,
+    candidates: Option<PairCandidates>,
     /// What the clearance display shades.
     halos: Vec<Halo>,
     /// The Tool's note, shown above the Routing Bar.
@@ -156,6 +162,7 @@ impl Default for Router {
             user_width: None,
             via_size: None,
             chooser: None,
+            candidates: None,
             halos: Vec::new(),
             note: None,
         }
@@ -309,81 +316,6 @@ impl Router {
         }
     }
 
-    /// V while routing: places the path to the cursor, drops a Via there and carries on on
-    /// the other side.
-    pub fn add_via(&mut self, shell: &mut Shell) {
-        self.place_via_here(shell);
-    }
-
-    /// E: places the path to the cursor and a Via there, and ends the route.
-    pub fn via_end(&mut self, shell: &mut Shell) {
-        if self.place_via_here(shell) {
-            self.finish(shell);
-        }
-    }
-
-    /// The Via the route places next: the size chosen with Shift+V, else the Net's.
-    fn via_diameter(&self, pcb: &PcbDocument, net: Option<Uuid>) -> Nm {
-        self.via_size.map_or_else(
-            || net_rules(pcb, net).via_diameter.default_size(),
-            |s| s.diameter,
-        )
-    }
-
-    /// Places the path to the cursor and a Via there; `false` when nothing is in flight or
-    /// the Via is refused (the status bar says why).
-    fn place_via_here(&mut self, shell: &mut Shell) -> bool {
-        self.notice_cancel(shell);
-        let (Some(route), Some(Snapped { at, .. })) = (&self.route, self.cursor) else {
-            return false;
-        };
-        let net = route.net;
-        self.check(shell, at);
-        if let Some(why) = self.why_blocked(shell) {
-            shell.report(why);
-            return false;
-        }
-        let Some((project, _)) = board(shell) else {
-            return false;
-        };
-        let pcb = project.pcb().expect("a board");
-        let diameter = self.via_diameter(pcb, net);
-        let proposal = Proposal::Via {
-            at,
-            diameter: diameter.into(),
-            net,
-            span: pcb.stackup().through_type().span(),
-        };
-        if let Some(why) = self.blocked_by(shell, &proposal) {
-            shell.report(why);
-            return false;
-        }
-        let other = other_side(pcb, self.route.as_ref().expect("routing").leg.layer);
-        let via_size = self.via_size;
-        let (corner, posture) = (self.corner, self.posture);
-        let route = self.route.as_mut().expect("routing");
-        let path = route::corner_path(route.last(), at, corner, posture);
-        route.leg.points.extend_from_slice(&path[1..]);
-        let next = Leg {
-            layer: other,
-            width: route::width::changed_layer(
-                pcb,
-                net,
-                other,
-                (!route.follows_preferred_width).then_some(route.leg.width),
-            ),
-            points: vec![at],
-        };
-        let done = std::mem::replace(&mut route.leg, next);
-        // Keep even a one-point leg so undo restores its Layer and original width.
-        route.steps.push(Step::Leg(done));
-        route.steps.push(Step::Via(at, via_size));
-        self.depend_on(shell, at);
-        let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": other }));
-        self.check(shell, at);
-        true
-    }
-
     /// Backspace: takes back the last corner (or Via); with nothing left, drops the route.
     pub fn undo_segment(&mut self, shell: &mut Shell) {
         self.notice_cancel(shell);
@@ -399,7 +331,7 @@ impl Router {
             };
             route.leg = leg;
             let layer = route.leg.layer;
-            let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": layer }));
+            vias::activate(shell, layer);
         } else if route.steps.is_empty() {
             self.cancel(shell);
             return;
@@ -978,22 +910,6 @@ fn widths(pcb: &PcbDocument) -> Vec<Nm> {
     out.sort();
     out.dedup();
     out
-}
-
-/// The copper Layer a Via switches to from `layer`: the other outer copper from an outer
-/// Layer, and the next copper Layer down from inner copper. It walks the copper Layers, so
-/// inner copper is never skipped as a route's next Layer.
-fn other_side(pcb: &PcbDocument, layer: Uuid) -> Uuid {
-    let copper: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
-    let (Some(&first), Some(&last)) = (copper.first(), copper.last()) else {
-        return layer;
-    };
-    match copper.iter().position(|l| *l == layer) {
-        Some(0) => last,
-        Some(i) if i + 1 == copper.len() => first,
-        Some(i) => copper[i + 1],
-        None => first,
-    }
 }
 
 /// The open Project and its PCB Document's UUID.
