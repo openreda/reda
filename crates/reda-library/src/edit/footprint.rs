@@ -129,6 +129,10 @@ pub struct PadAddParams {
     pub rotation: Option<Angle>,
     pub width: Length,
     pub height: Length,
+    /// A plated through-hole Pad's complete inner copper shape.
+    pub middle: Option<reda_command::PadCopperParam>,
+    /// A plated through-hole Pad's complete bottom copper shape.
+    pub bottom: Option<reda_command::PadCopperParam>,
     /// For a `rounded_rect` (50% when left out) and the uncut corners of a
     /// `chamfered_rect`.
     pub corner_ratio: Option<RatioParam>,
@@ -191,6 +195,8 @@ impl Command for PadAdd {
             side: p.side,
             mask: reda_command::mask(p.mask),
             paste: reda_command::paste(p.paste),
+            middle: p.middle.map(reda_command::PadCopperParam::copper),
+            bottom: p.bottom.map(reda_command::PadCopperParam::copper),
             zone_connection: zone_connection(p.zone_connection),
         };
         let pad = finish_pad(pad, explicit)?;
@@ -265,6 +271,12 @@ pub struct PadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
+    /// Replaces the entire inner copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    /// Replaces the entire bottom copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -326,6 +338,8 @@ impl Command for PadEdit {
             side: p.side,
             mask: p.mask,
             paste: p.paste,
+            middle: p.middle,
+            bottom: p.bottom,
             zone_connection: p.zone_connection,
         };
         edit_footprint(cx, p.footprint, |f| {
@@ -344,6 +358,8 @@ impl Command for PadEdit {
 /// `pcb.pad.edit` take them: `None` keeps a value, `Some(None)` clears an optional one.
 #[derive(Default)]
 pub struct PadPatch {
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
     pub kind: Option<PadKind>,
     pub shape: Option<PadShape>,
     pub at: Option<PointParam>,
@@ -368,6 +384,12 @@ impl PadPatch {
         let p = self;
         if let Some(kind) = p.kind {
             pad.kind = kind;
+        }
+        if let Some(copper) = p.middle {
+            pad.middle = copper.map(reda_command::PadCopperParam::copper);
+        }
+        if let Some(copper) = p.bottom {
+            pad.bottom = copper.map(reda_command::PadCopperParam::copper);
         }
         if let Some(shape) = p.shape {
             pad.shape = shape;

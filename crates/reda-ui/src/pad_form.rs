@@ -85,6 +85,8 @@ pub fn from_free(free: &FreePad) -> Pad {
         rotation: free.rotation,
         width: free.width,
         height: free.height,
+        middle: free.middle,
+        bottom: free.bottom,
         corner_ratio: free.corner_ratio,
         chamfer_ratio: free.chamfer_ratio,
         corners: free.corners,

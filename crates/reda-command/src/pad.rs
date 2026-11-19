@@ -91,6 +91,34 @@ impl JsonSchema for RatioParam {
     }
 }
 
+/// The complete copper of an optional Pad Stack group. Dimensions use the same
+/// units and corner conventions as the Pad's top copper.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PadCopperParam {
+    pub shape: reda_model::PadShape,
+    pub width: Length,
+    pub height: Length,
+    pub corner_ratio: Option<RatioParam>,
+    pub chamfer_ratio: Option<RatioParam>,
+    pub corners: Option<reda_model::Corners>,
+}
+
+impl PadCopperParam {
+    pub fn copper(self) -> reda_model::PadCopperShape {
+        reda_model::PadCopperShape {
+            shape: self.shape,
+            width: self.width.nm(),
+            height: self.height.nm(),
+            corner_ratio: self.corner_ratio.map(RatioParam::ratio).or_else(|| {
+                (self.shape == reda_model::PadShape::RoundedRect).then_some(Ratio::percent(50))
+            }),
+            chamfer_ratio: self.chamfer_ratio.map(RatioParam::ratio),
+            corners: self.corners.filter(|c| *c != reda_model::Corners::ALL),
+        }
+    }
+}
+
 /// A drilled hole param.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
