@@ -384,6 +384,21 @@ impl Copper {
             })
     }
 
+    /// Indexed pieces whose bounding boxes lie within `reach` of a physical shape's box.
+    pub(crate) fn pieces_near(
+        &self,
+        layer: Uuid,
+        shape: &Shape,
+        reach: reda_model::geom::Nm,
+    ) -> impl Iterator<Item = (Item, &Shape)> {
+        let (lo, hi) = shape.bounds();
+        let search = AABB::from_corners(
+            [lo[0] - reach.0, lo[1] - reach.0],
+            [hi[0] + reach.0, hi[1] + reach.0],
+        );
+        self.candidates(layer, search).map(|p| (p.item, &p.shape))
+    }
+
     /// The copper of `item`, one shape per Layer it is on.
     pub(crate) fn item_pieces(&self, item: Item) -> Vec<(Uuid, &Shape)> {
         self.slots

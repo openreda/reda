@@ -9,10 +9,22 @@ use reda_model::{
 
 /// The limits a preset sets on rule values: kind, value, which way the value may not go,
 /// and the preset's limit.
-pub fn preset_limits(rules: &FabRules) -> [(RuleKind, RuleField, Limit, Nm); 9] {
+pub fn preset_limits(rules: &FabRules) -> [(RuleKind, RuleField, Limit, Nm); 11] {
     use RuleField::*;
     [
         (RuleKind::Clearance, Value, Limit::Min, rules.clearance),
+        (
+            RuleKind::Clearance,
+            HoleVia,
+            Limit::Min,
+            rules.clearance_hole.via,
+        ),
+        (
+            RuleKind::Clearance,
+            HolePad,
+            Limit::Min,
+            rules.clearance_hole.pad,
+        ),
         (RuleKind::TrackWidth, Min, Limit::Min, rules.track_width),
         (
             RuleKind::ViaSize,

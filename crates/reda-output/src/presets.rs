@@ -106,7 +106,10 @@ fn jlcpcb() -> FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
             inner: None,
-            clearance_hole: reda_model::HoleClearance::GENERIC,
+            clearance_hole: reda_model::HoleClearance {
+                via: Nm::from_um(200),
+                pad: Nm::from_um(300),
+            },
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(0),
                 bottom: Nm(0),
@@ -181,7 +184,10 @@ fn pcbway() -> FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
             inner: None,
-            clearance_hole: reda_model::HoleClearance::GENERIC,
+            clearance_hole: reda_model::HoleClearance {
+                via: Nm::from_um(200),
+                pad: Nm::from_um(200),
+            },
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
                 bottom: Nm(50_000),
