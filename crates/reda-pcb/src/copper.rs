@@ -30,6 +30,7 @@ mod ratsnest;
 pub(crate) mod shape;
 pub(crate) mod ties;
 
+pub(crate) use clearance::exempt_pair;
 pub use clearance::{ClearanceHit, Halo, Proposal};
 pub use ratsnest::{Connections, RatsnestEnds, RatsnestLine, RatsnestVisibility};
 

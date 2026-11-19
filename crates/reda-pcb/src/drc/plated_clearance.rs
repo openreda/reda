@@ -22,17 +22,18 @@ pub(super) fn check(board: &Board<'_>, holes: &[DrillHole], report: &mut Report)
     if reach == Nm::ZERO {
         return;
     }
+    let ties = crate::copper::ties::Ties::of(pcb);
     for hole in holes.iter().filter(|h| h.ring.is_some()) {
         let lands = board.copper.item_pieces(hole.item);
         let mut hits = BTreeMap::new();
         for layer in hole.layers(pcb) {
-            let land = lands.iter().any(|(l, _)| *l == layer);
+            let land = lands.iter().find(|(l, _)| *l == layer).map(|(_, s)| *s);
             for (item, shape) in board.copper.pieces_near(layer, &hole.shape, reach) {
                 if item == hole.item {
                     continue;
                 }
                 let net = board.copper.net(item);
-                if land
+                if land.is_some()
                     && net.is_some()
                     && net == hole.net
                     && (!matches!(item, Item::Zone { .. })
@@ -52,7 +53,17 @@ pub(super) fn check(board: &Board<'_>, holes: &[DrillHole], report: &mut Report)
                 };
                 let required = source.value.length().expect("clearance is a length");
                 let gap = hole.shape.distance(shape);
-                if gap >= required.0 as f64 {
+                if gap >= required.0 as f64
+                    || crate::copper::exempt_pair(pcb, &ties, (hole.item, hole.net), (item, net))
+                {
+                    continue;
+                }
+                // Touching assigned lands of different Nets have a short on this Layer.
+                if net.is_some()
+                    && hole.net.is_some()
+                    && net != hole.net
+                    && land.is_some_and(|s| s.touches(shape))
+                {
                     continue;
                 }
                 let measured = Nm(gap.max(0.).floor() as i64);
