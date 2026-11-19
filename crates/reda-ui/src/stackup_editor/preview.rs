@@ -145,6 +145,12 @@ pub(super) fn show(
             let section = &cache.section;
             let bands = &section.bands;
             let labels = section.paint(&draw, &t, view.selected);
+            // A barrel sits in front of its Dielectric. In a narrow pane the split
+            // button can otherwise cover the barrel before its click is delivered.
+            let over_barrel = section
+                .barrels
+                .iter()
+                .any(|(_, b)| ui.rect_contains_pointer(b.bounds));
             let mut hovered = None;
             for (i, band) in bands.iter().enumerate() {
                 let selected = Some(band.id) == view.selected;
@@ -212,7 +218,9 @@ pub(super) fn show(
             let active = bands.iter().find(|b| {
                 Some(b.id) == view.split_sheet && ui.rect_contains_pointer(button_bounds(b))
             });
-            let split = active.or(hovered).filter(|_| stack.copper().count() < 32);
+            let split = active
+                .or(hovered)
+                .filter(|_| !over_barrel && stack.copper().count() < 32);
             view.split_sheet = split.map(|b| b.id);
             if let Some(band) = split {
                 let bounds = button_bounds(band);

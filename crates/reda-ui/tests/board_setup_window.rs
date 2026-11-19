@@ -1314,3 +1314,49 @@ fn schematic_scale_makes_thin_copper_legible_without_changing_the_stackup() {
     assert!(thicker > copper * 4.0 && thinner < sheet);
     assert_eq!(h.state().shell().engine().journal().len(), before);
 }
+
+#[test]
+fn a_small_tab_can_reach_the_bottom_of_a_32_layer_stackup() {
+    let (home, work) = (
+        TempDir::new("section-32-home"),
+        TempDir::new("section-32-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Tall");
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "project.new",
+            json!({"name":"ThirtyTwo","path":work.path(),"layers":32}),
+        )
+        .unwrap();
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.set_size(egui::vec2(1060.0, 640.0));
+    h.run();
+
+    let name = "Select band Dielectric 31";
+    assert!(h.get_by_role_and_label(Role::Button, name).rect().top() > 640.0);
+    h.get_by_role_and_label(Role::Button, name).scroll_to_me();
+    h.run();
+    let sheet = h.get_by_role_and_label(Role::Button, name).rect();
+    assert!(sheet.center().y < 640.0);
+    h.hover_at(egui::pos2(sheet.left() + 4.0, sheet.center().y));
+    h.run();
+    assert!(h.query_by_role_and_label(Role::Button, "+ Layer").is_none());
+    h.get_by_role_and_label(Role::ComboBox, "Through to")
+        .scroll_to_me();
+    h.run();
+    let span = h.get_by_role_and_label(Role::ComboBox, "Through to");
+    assert_eq!(span.value().as_deref(), Some("L32"));
+    assert!(span.rect().center().y < 640.0);
+    assert!(
+        h.output().shapes.iter().any(|paint| matches!(&paint.shape,
+            egui::Shape::Text(text) if span.rect().contains(text.pos)
+                && text.galley.text() == "L32" && !text.galley.elided
+        )),
+        "the closed selector paints all three characters"
+    );
+}
