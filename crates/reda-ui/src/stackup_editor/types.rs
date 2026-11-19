@@ -107,6 +107,16 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
                 if row.clicked() || focused {
                     view.selected = Some(id);
                 }
+                if kind.micro && pcb.span_layers(kind.span()).len() > 3 {
+                    table.row(|row| {
+                        row.ui(|ui| {
+                            ui.add(
+                                widgets::badge(tr!("layer-micro-stretched"))
+                                    .status(widgets::Status::Warning),
+                            );
+                        })
+                    });
+                }
                 if outside_limits(pcb, kind) {
                     table.row(|r| {
                         r.ui(|ui| {

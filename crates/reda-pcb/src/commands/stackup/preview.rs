@@ -1,5 +1,5 @@
 //! Count the effects of the same plan that the edit applies.
-use super::super::{needs_pcb, pcb, via_type};
+use super::super::{layer_count, needs_pcb, pcb, via_type};
 use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,12 +17,20 @@ pub struct Counts {
     pub rules_changed: usize,
     pub rules_removed: usize,
     pub allowed_lists_emptied: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub classes_allowing_all: Vec<String>,
     pub vias_without_type: usize,
 }
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(tag = "id", content = "params", deny_unknown_fields)]
 pub enum Change {
+    #[serde(rename = "pcb.layer.add")]
+    LayerAdd(layer_count::AddParams),
+    #[serde(rename = "pcb.layer.remove")]
+    LayerRemove(layer_count::RemoveParams),
+    #[serde(rename = "pcb.layer.move")]
+    LayerMove(layer_count::MoveParams),
     #[serde(rename = "pcb.via_type.set")]
     ViaTypeSet(via_type::SetParams),
     #[serde(rename = "pcb.via_type.remove")]
@@ -52,6 +60,13 @@ impl Command for Preview {
     fn run(&self, cx: &mut Context<'_>, p: Params) -> Result<Counts, CommandError> {
         let pcb = pcb(cx)?;
         match p.change {
+            Change::LayerAdd(p) => {
+                Ok(layer_count::add_plan(cx.project()?, p.document, p.split, p.uuid)?.counts)
+            }
+            Change::LayerMove(p) => Ok(layer_count::move_plan(pcb, p)?.counts),
+            Change::LayerRemove(p) => {
+                Ok(layer_count::remove_plan(pcb, p.layer.resolve(pcb, "/layer")?.uuid)?.counts)
+            }
             Change::ViaTypeRemove(p) => Ok(via_type::remove_plan(pcb, p)?.counts),
             Change::ViaTypeSet(p) => Ok(via_type::set_plan(pcb, p)?.counts),
         }

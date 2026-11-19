@@ -49447,6 +49447,137 @@
     },
     {
       "category": "pcb",
+      "description": "Adds an inner copper Layer by splitting a dielectric sheet.",
+      "icon": "layers",
+      "id": "pcb.layer.add",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "split": {
+            "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "description": "The new copper Layer's UUID.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "AddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "dielectric": {
+            "description": "New sheet below the inserted Layer. The upper sheet keeps its UUID.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "uuid": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid",
+          "dielectric"
+        ],
+        "title": "AddedLayer",
+        "type": "object"
+      },
+      "title": "Add Copper Layer"
+    },
+    {
+      "category": "pcb",
+      "description": "Swaps an inner copper Layer with its inner neighbour. Objects and span ends keep their Layer identities.",
+      "icon": "layers",
+      "id": "pcb.layer.move",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "Direction": {
+            "enum": [
+              "up",
+              "down"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "$ref": "#/$defs/Direction"
+          },
+          "layer": {
+            "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer",
+          "direction"
+        ],
+        "title": "MoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Move Copper Layer"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes an inner copper Layer, its objects and empty spans, shortening surviving spans and updating rules.",
+      "icon": "layers",
+      "id": "pcb.layer.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "layer"
+        ],
+        "title": "RemoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Copper Layer"
+    },
+    {
+      "category": "pcb",
       "description": "Sets a copper Layer's role or an inner Layer's name. Null clears the name.",
       "icon": "layers",
       "id": "pcb.layer.set",
@@ -59267,8 +59398,88 @@
       "kind": "query",
       "params": {
         "$defs": {
+          "AddParams": {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "split": {
+                "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "uuid": {
+                "description": "The new copper Layer's UUID.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "document"
+            ],
+            "type": "object"
+          },
           "Change": {
             "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "const": "pcb.layer.add",
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/$defs/AddParams"
+                  }
+                },
+                "required": [
+                  "id",
+                  "params"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "const": "pcb.layer.remove",
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/$defs/RemoveParams"
+                  }
+                },
+                "required": [
+                  "id",
+                  "params"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "const": "pcb.layer.move",
+                    "type": "string"
+                  },
+                  "params": {
+                    "$ref": "#/$defs/MoveParams"
+                  }
+                },
+                "required": [
+                  "id",
+                  "params"
+                ],
+                "type": "object"
+              },
               {
                 "additionalProperties": false,
                 "properties": {
@@ -59294,7 +59505,7 @@
                     "type": "string"
                   },
                   "params": {
-                    "$ref": "#/$defs/RemoveParams"
+                    "$ref": "#/$defs/RemoveParams2"
                   }
                 },
                 "required": [
@@ -59347,6 +59558,13 @@
             ],
             "type": "object"
           },
+          "Direction": {
+            "enum": [
+              "up",
+              "down"
+            ],
+            "type": "string"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -59361,7 +59579,37 @@
               }
             ]
           },
+          "MoveParams": {
+            "additionalProperties": false,
+            "properties": {
+              "direction": {
+                "$ref": "#/$defs/Direction"
+              },
+              "layer": {
+                "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer",
+              "direction"
+            ],
+            "type": "object"
+          },
           "RemoveParams": {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "layer"
+            ],
+            "type": "object"
+          },
+          "RemoveParams2": {
             "additionalProperties": false,
             "properties": {
               "via_type": {
@@ -59478,6 +59726,12 @@
             "format": "uint",
             "minimum": 0,
             "type": "integer"
+          },
+          "classes_allowing_all": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "objects_deleted": {
             "additionalProperties": {
