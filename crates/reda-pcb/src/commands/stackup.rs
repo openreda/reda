@@ -35,7 +35,7 @@ pub struct StackupSetParams {
     /// New copper thicknesses, by copper Layer.
     #[serde(default)]
     pub copper: Vec<CopperParam>,
-    /// New dielectric thicknesses, by dielectric UUID.
+    /// Sheets to update, by dielectric UUID. Omit each field to retain its value.
     #[serde(default)]
     pub dielectrics: Vec<DielectricParam>,
     /// The surface finish, as free text such as `"ENIG"`; `null` or empty clears it.
@@ -127,14 +127,11 @@ impl Command for StackupSet {
     const META: Meta = Meta {
         id: "pcb.stackup.set",
         title: "Set Stackup",
-        description: "Sets the board's Stackup: the finished `thickness`, the `copper` of \
-                      each copper Layer (in nm, a length, or oz at exactly 35 µm per oz), \
-                      the `dielectrics` (`null` leaves one blank, to take the remainder of \
-                      the thickness), and the free-text `finish`, `mask_color` and \
-                      `silk_color`. Values left out keep theirs. Refuses a thickness the \
-                      copper and typed dielectrics already exceed while a dielectric is \
-                      blank; warns when every dielectric is typed in and they do not add up \
-                      to the thickness. Returns the Stackup, its totals and the warnings.",
+        description: "Sets the ordered thickness, copper thicknesses, dielectric materials and \
+                      electrical properties, finish and colours. Omitted fields retain their \
+                      values. A null dielectric thickness shares the unassigned thickness. \
+                      Refuses a negative remainder and reports the totals and any mismatch \
+                      when every sheet has a specified thickness.",
         category: "pcb",
         icon: "layers",
         kind: Kind::Edit,
@@ -225,7 +222,12 @@ impl Command for StackupSet {
                 *field = text(value);
             }
         }
-        let totals = stackup.totals();
+        let totals = stackup.checked_totals().ok_or_else(|| {
+            CommandError::invalid_params(
+                "/thickness",
+                "the sum of Stackup thicknesses exceeds the supported range",
+            )
+        })?;
         if let Some(remainder) = totals.remainder
             && remainder < Nm::ZERO
         {

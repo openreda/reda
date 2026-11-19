@@ -56776,7 +56776,7 @@
     },
     {
       "category": "pcb",
-      "description": "Sets the board's Stackup: the finished `thickness`, the `copper` of each copper Layer (in nm, a length, or oz at exactly 35 µm per oz), the `dielectrics` (`null` leaves one blank, to take the remainder of the thickness), and the free-text `finish`, `mask_color` and `silk_color`. Values left out keep theirs. Refuses a thickness the copper and typed dielectrics already exceed while a dielectric is blank; warns when every dielectric is typed in and they do not add up to the thickness. Returns the Stackup, its totals and the warnings.",
+      "description": "Sets the ordered thickness, copper thicknesses, dielectric materials and electrical properties, finish and colours. Omitted fields retain their values. A null dielectric thickness shares the unassigned thickness. Refuses a negative remainder and reports the totals and any mismatch when every sheet has a specified thickness.",
       "icon": "layers",
       "id": "pcb.stackup.set",
       "kind": "edit",
@@ -56934,7 +56934,7 @@
             "type": "array"
           },
           "dielectrics": {
-            "description": "New dielectric thicknesses, by dielectric UUID.",
+            "description": "Sheets to update, by dielectric UUID. Omit each field to retain its value.",
             "items": {
               "$ref": "#/$defs/DielectricParam"
             },

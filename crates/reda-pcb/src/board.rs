@@ -1,4 +1,4 @@
-//! What a new PCB Document holds: the fixed v0.1 Layer set, the board setup, the
+//! What a new PCB Document holds: its copper and fabrication Layers, the board setup, the
 //! board-wide rule records and the Stackup, seeded from a Fab Preset.
 
 use reda_model::{

@@ -213,13 +213,13 @@ impl StackupDraft {
 
     /// The thicknesses added up as drafted; `None` while a value does not read.
     pub fn totals(&self) -> Option<StackupTotals> {
-        Some(self.drafted()?.totals())
+        self.drafted()?.checked_totals()
     }
 
     /// The warning when every dielectric is typed in and the total misses the target.
     pub fn warning(&self) -> Option<String> {
         let stackup = self.drafted()?;
-        let totals = stackup.totals();
+        let totals = stackup.checked_totals()?;
         (totals.remainder.is_none() && totals.total != stackup.thickness).then(|| {
             tr!(
                 "board-setup-stackup-mismatch",
@@ -366,16 +366,16 @@ impl StackupDraft {
         let Ok(Some(target)) = optional(self.target.value()) else {
             return false;
         };
-        let mut typed = Nm::ZERO;
+        let mut typed = 0_i128;
         let mut blank = false;
         for row in &self.rows {
             match row_value(row, row.thickness.value()) {
-                Ok(Some(nm)) => typed = typed + nm,
+                Ok(Some(nm)) => typed += i128::from(nm.0),
                 Ok(None) => blank = true,
                 Err(_) => {}
             }
         }
-        blank && typed > target
+        blank && typed > i128::from(target.0)
     }
 
     /// The `pcb.stackup.set` and `pcb.fab_notes.set` steps for what changed.

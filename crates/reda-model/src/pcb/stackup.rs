@@ -304,26 +304,32 @@ impl Stackup {
     /// The thicknesses added up. The remainder is negative when the typed entries already
     /// exceed `thickness`.
     pub fn totals(&self) -> StackupTotals {
+        self.checked_totals()
+            .expect("a validated Stackup fits in nanometres")
+    }
+
+    /// Compute totals for proposed edits and files, before validating the Stackup.
+    pub fn checked_totals(&self) -> Option<StackupTotals> {
         let copper = self
             .copper()
-            .map(|c| c.thickness)
-            .fold(Nm::ZERO, |a, b| a + b);
+            .try_fold(0_i64, |sum, c| sum.checked_add(c.thickness.0))?;
         let dielectric = self
             .dielectrics()
             .filter_map(|d| d.thickness)
-            .fold(Nm::ZERO, |a, b| a + b);
-        let blank = self.dielectrics().filter(|d| d.thickness.is_none()).count();
-        let remainder = (blank > 0).then(|| self.thickness - copper - dielectric);
-        let total = match remainder {
-            Some(_) => self.thickness,
-            None => copper + dielectric,
+            .try_fold(0_i64, |sum, t| sum.checked_add(t.0))?;
+        let typed = copper.checked_add(dielectric)?;
+        let blank = self.dielectrics().any(|d| d.thickness.is_none());
+        let remainder = if blank {
+            Some(Nm(self.thickness.0.checked_sub(typed)?))
+        } else {
+            None
         };
-        StackupTotals {
-            copper,
-            dielectric,
+        Some(StackupTotals {
+            copper: Nm(copper),
+            dielectric: Nm(dielectric),
             remainder,
-            total,
-        }
+            total: if blank { self.thickness } else { Nm(typed) },
+        })
     }
 
     /// Why this Stackup cannot be stored with these copper Layers (top to bottom), if it
@@ -382,7 +388,10 @@ impl Stackup {
         if let Some(d) = self.dielectrics().find(|d| !seen.insert(d.uuid)) {
             return Some(format!("dielectric {} appears twice", d.uuid));
         }
-        if let Some(remainder) = self.totals().remainder
+        let Some(totals) = self.checked_totals() else {
+            return Some("the sum of Stackup thicknesses exceeds the supported range".into());
+        };
+        if let Some(remainder) = totals.remainder
             && remainder < Nm::ZERO
         {
             return Some(format!(

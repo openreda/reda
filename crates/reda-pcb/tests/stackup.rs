@@ -312,13 +312,13 @@ fn adding_and_removing_a_sheet_keeps_at_least_one_in_each_gap() {
         json!({"beside":gaps[0],"uuid":extra}),
     );
     assert_eq!(added["result"]["uuid"], json!(extra));
-    let sheets = || vec![gaps[0], extra, gaps[1]];
+    let sheets = [gaps[0], extra, gaps[1]];
     assert_eq!(
         stackup(&engine)
             .dielectrics()
             .map(|d| d.uuid)
             .collect::<Vec<_>>(),
-        sheets()
+        sheets
     );
     let err = engine.run_err(
         "pcb.stackup.dielectric.remove",
@@ -334,7 +334,7 @@ fn adding_and_removing_a_sheet_keeps_at_least_one_in_each_gap() {
             .dielectrics()
             .map(|d| d.uuid)
             .collect::<Vec<_>>(),
-        sheets()
+        sheets
     );
 }
 
@@ -398,4 +398,18 @@ fn an_odd_copper_count_is_valid_and_not_symmetric() {
     let info = engine.run_ok("pcb.stackup.info", json!({"document":document}));
     assert_eq!(info["symmetric"], false);
     assert_eq!(info["thickness_warning"], false);
+}
+
+#[test]
+fn an_unrepresentable_sum_is_refused_without_losing_the_previous_stackup() {
+    let dir = TempDir::new("stackup-thickness-overflow");
+    let mut engine = engine(&dir);
+    let (_, _, sheet) = ids(&engine);
+    let before = stackup(&engine).clone();
+    let err = engine.run_err(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":sheet, "thickness":i64::MAX}]}),
+    );
+    assert_eq!(err.code, ErrorCode::InvalidParams);
+    assert_eq!(stackup(&engine), &before);
 }
