@@ -486,7 +486,9 @@ fn the_rules_region_shows_a_vias_allowed_types() {
     let v = via(&mut shell, "3mm", Some(sig));
     run(&mut shell, "selection.set", json!({"objects": [v]}));
 
-    let rules = properties(&shell).rules.expect("a Rules region for one Via");
+    let rules = properties(&shell)
+        .rules
+        .expect("a Rules region for one Via");
     let span = rules
         .kinds
         .iter()

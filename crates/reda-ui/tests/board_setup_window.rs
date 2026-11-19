@@ -1447,7 +1447,7 @@ fn shortened_and_left_out_teardrops_open_their_tracks_on_the_physical_layer() {
             .run(
                 "pcb.track.add",
                 json!({"layer":bottom,"width":"0.1mm","points":[
-        {"x":"5mm","y":"5mm"},{"x":"5.75mm","y":"5mm"}]}),
+        {"x":"5mm","y":"5mm"},{"x":"7mm","y":"5mm"}]}),
             )
             .unwrap()["result"]["tracks"][0]
             .as_str()
@@ -1460,16 +1460,21 @@ fn shortened_and_left_out_teardrops_open_their_tracks_on_the_physical_layer() {
                 json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
             )
             .unwrap();
-        if blocked {
-            shell
-                .run(
-                    "pcb.keepout.add",
-                    json!({"layer":bottom,"restrict":["tracks"],"vertices":[
-            {"x":"5.45mm","y":"4.9mm"},{"x":"5.55mm","y":"4.9mm"},
-            {"x":"5.55mm","y":"5.1mm"},{"x":"5.45mm","y":"5.1mm"}]}),
-                )
-                .unwrap();
-        }
+        // A keepout at the Via's edge leaves the Teardrop out; one beside its flare only
+        // shortens it, since a Track that is merely short is not counted as shortened.
+        let keepout = if blocked {
+            json!([{"x":"5.45mm","y":"4.9mm"},{"x":"5.55mm","y":"4.9mm"},
+                   {"x":"5.55mm","y":"5.1mm"},{"x":"5.45mm","y":"5.1mm"}])
+        } else {
+            json!([{"x":"5.6mm","y":"5.2mm"},{"x":"5.7mm","y":"5.2mm"},
+                   {"x":"5.7mm","y":"5.3mm"},{"x":"5.6mm","y":"5.3mm"}])
+        };
+        shell
+            .run(
+                "pcb.keepout.add",
+                json!({"layer":bottom,"restrict":["tracks"],"vertices":keepout}),
+            )
+            .unwrap();
         shell.run("pcb.zone.fill", json!({})).unwrap();
         open_board_setup(&mut h, "Teardrop");
         page(&mut h, "Teardrops");
