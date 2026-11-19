@@ -4012,7 +4012,7 @@
     },
     {
       "category": "output",
-      "description": "Lists the Fab Presets a new Project or a job can use: the shipped Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. `default` is the last one used for a new Project, else Generic.",
+      "description": "Lists the Fab Presets a new Project or a job can use: the shipped Generic, JLCPCB, PCBWay and OSH Park, then the user's `.redafab` presets. `default` is the last one used for a new Project, else Generic.",
       "icon": "fab_preset",
       "id": "fab_preset.list",
       "kind": "file",
@@ -64432,7 +64432,7 @@
           },
           "fab_preset": {
             "default": null,
-            "description": "The Fab Preset that seeds the board's rules and names the first Output Job: a\nshipped preset (Generic, JLCPCB, PCBWay) or one of the user's `.redafab` presets.\nDefaults to Generic.",
+            "description": "The Fab Preset that seeds the board's rules and names the first Output Job: a\nshipped preset (Generic, JLCPCB, PCBWay, OSH Park) or one of the user's `.redafab` presets.\nDefaults to Generic.",
             "type": [
               "string",
               "null"

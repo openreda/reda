@@ -44,7 +44,7 @@ fn adding_a_board_from_a_project_copy_maps_the_default_build_and_drilling_positi
     let document = project.pcb().unwrap().uuid;
     engine.run_ok(
         "fab_preset.set",
-        json!({"preset":preset,"values":{"constructions":{"Four":four_layer()}}}),
+        json!({"preset":preset,"values":{"constructions":{"4 Layer":null,"Four":four_layer()}}}),
     );
     engine.run_ok("output.job.delete", json!({"job":job}));
     engine.run_ok("document.delete", json!({"document":document}));
@@ -161,7 +161,7 @@ fn invalid_physical_builds_are_refused_before_they_enter_a_preset() {
         *build.pointer_mut(path).unwrap() = value;
         let error = engine.run_err(
             "fab_preset.set",
-            json!({"preset":copy,"values":{"constructions":{"Bad":build}}}),
+            json!({"preset":copy,"values":{"constructions":{"4 Layer":null,"Bad":build}}}),
         );
         assert_eq!(error.code, ErrorCode::InvalidParams, "{path}");
         assert_eq!(
@@ -219,4 +219,26 @@ fn a_readded_board_can_use_the_source_while_the_project_keeps_its_edited_copy() 
         );
         board = pcb.uuid;
     }
+}
+
+#[test]
+fn a_count_with_no_vendor_build_starts_from_generic_with_no_construction_name() {
+    let dir = TempDir::new("construction-fallback");
+    let mut engine = test_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Plain","layers":8}),
+    );
+    let plain = engine.project().unwrap().pcb().unwrap().stackup().clone();
+    assert_eq!(plain.construction.as_deref(), Some("8 Layer"));
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Vendor","layers":8,"fab_preset":"JLCPCB"}),
+    );
+    let project = engine.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    assert!(pcb.stackup().construction.is_none());
+    let compare = reda_engine::model::Construction::from_stackup(String::new(), &plain);
+    assert!(compare.matches_stackup(pcb.stackup()));
+    assert_eq!(project.output_jobs().next().unwrap().name, "JLCPCB");
 }

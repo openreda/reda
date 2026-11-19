@@ -152,6 +152,11 @@ fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
     };
     assert!(picked(&h, "JLCPCB"));
     assert!(!picked(&h, "Generic"));
+    h.get_by_role_and_label(Role::RadioButton, "OSH Park")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "6").click();
+    h.run();
     h.get_by_label("The board rules and the Output Job can be changed later.");
     h.get_by_role_and_label(Role::TextInput, "Name")
         .set_text_value_accesskit("Sized");
@@ -173,7 +178,10 @@ fn the_new_project_dialog_takes_a_fab_preset_and_a_rectangle_board() {
 
     let project = h.state().shell().engine().project().unwrap();
     let jobs: Vec<_> = project.output_jobs().map(|j| j.name.clone()).collect();
-    assert_eq!(jobs, ["JLCPCB"]);
+    assert_eq!(jobs, ["OSH Park"]);
+    let stack = project.pcb().unwrap().stackup();
+    assert_eq!(stack.construction.as_deref(), Some("6 Layer Prototype"));
+    assert_eq!(stack.copper().count(), 6);
     let outline = project.pcb().unwrap().outline().expect("a Board Outline");
     let xs: Vec<i64> = outline.vertices.iter().map(|v| v.x.0).collect();
     assert_eq!(xs.iter().max(), Some(&50_000_000));

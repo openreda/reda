@@ -142,30 +142,40 @@ impl Construction {
         Self::evenly_spaced(2, seeds)
     }
 
-    /// Plain copper and a Core sharing the unassigned thickness in each gap.
+    /// Plain copper and equal Core gaps. The named Generic multilayer builds specify
+    /// the gaps in whole nanometres. Hand-built counts and the v0.1 two-layer seed use
+    /// the board's equal-share rule for blank Cores.
     pub fn evenly_spaced(layers: u8, seeds: StackupSeeds) -> Self {
+        let thickness = seeds.thickness.unwrap_or(DEFAULT_BOARD_THICKNESS);
+        let copper = seeds.copper.unwrap_or(DEFAULT_COPPER);
+        let fixed_gaps = matches!(layers, 4 | 6 | 8) && seeds.is_empty();
+        // For the shipped 1.6 mm builds, round successive boundaries so both the
+        // exact total and the mirrored gaps survive whole-nanometre storage.
+        let boundary = |n: u8| {
+            let gaps = i64::from(layers) - 1;
+            let insulation = DEFAULT_BOARD_THICKNESS.0 - i64::from(layers) * DEFAULT_COPPER.0;
+            (insulation * i64::from(n) + gaps / 2) / gaps
+        };
         let mut entries = Vec::new();
         for n in 0..layers {
             if n > 0 {
                 entries.push(ConstructionEntry::Dielectric {
                     kind: DielectricKind::Core,
                     name: None,
-                    thickness: None,
+                    thickness: fixed_gaps.then(|| Nm(boundary(n) - boundary(n - 1))),
                     material: None,
                     dk: None,
                     df: None,
                     test_frequency: None,
                 });
             }
-            entries.push(ConstructionEntry::Copper {
-                copper: seeds.copper.unwrap_or(DEFAULT_COPPER),
-            });
+            entries.push(ConstructionEntry::Copper { copper });
         }
         Self {
             name: format!("{layers} Layer"),
             default: true,
             notes: None,
-            thickness: seeds.thickness.unwrap_or(DEFAULT_BOARD_THICKNESS),
+            thickness,
             entries,
             via_types: vec![],
         }

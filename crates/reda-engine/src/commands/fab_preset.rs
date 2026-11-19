@@ -59,7 +59,7 @@ impl Command for PresetList {
         id: "fab_preset.list",
         title: "List Fab Presets",
         description: "Lists the Fab Presets a new Project or a job can use: the shipped \
-                      Generic, JLCPCB and PCBWay, then the user's `.redafab` presets. \
+                      Generic, JLCPCB, PCBWay and OSH Park, then the user's `.redafab` presets. \
                       `default` is the last one used for a new Project, else Generic.",
         category: "output",
         icon: "fab_preset",

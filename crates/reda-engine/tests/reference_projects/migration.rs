@@ -86,3 +86,22 @@ fn migrated_boards_preserve_v01_manufacturing_outputs() {
         assert_golden_tree(&formats.join("migrated-outputs").join(name), &reports);
     }
 }
+
+#[test]
+fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update() {
+    let (_work, mut engine) =
+        open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
+    let project = engine.project().unwrap();
+    let original = project.pcb().unwrap().stackup().clone();
+    let copy = project.fab_presets().next().unwrap();
+    let preset = copy.uuid;
+    assert_eq!(copy.name, "JLCPCB");
+    assert_eq!(copy.constructions.len(), 1);
+    assert_eq!(copy.constructions[0].name, "2 Layer");
+    let changes = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    assert!(!changes["changes"].as_array().unwrap().is_empty());
+    engine.run_ok("fab_preset.update_from_source", json!({"preset":preset}));
+    let project = engine.project().unwrap();
+    assert_eq!(project.fab_preset(preset).unwrap().constructions.len(), 37);
+    assert_eq!(*project.pcb().unwrap().stackup(), original);
+}

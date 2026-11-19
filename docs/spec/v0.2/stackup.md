@@ -44,7 +44,7 @@ The Stackup keeps its v0.1 shape: `thickness` (the finished thickness ordered), 
 - A Dielectric with no `thickness` takes a share of the remainder: `thickness` ordered, less all copper and all typed Dielectrics, divided equally among the blank ones.
 - A negative remainder is an error on the field, as in v0.1.
 - Symmetry and impedance use the shared value.
-- Constructions fill every thickness, so blanks appear only on a Stackup built by hand.
+- Verified multilayer Constructions fill every thickness. The three v0.1 two-Layer builds retain their blank Core so that changing the ordered thickness still resizes it.
 
 ### Copper Layer
 
@@ -108,16 +108,33 @@ Only builds the [fab research](https://github.com/openreda/reda/issues/328) veri
 | PCBWay | its 2-Layer build, and its numbered 4, 6 and 8-Layer builds at nominal pressed thickness |
 | OSH Park | its 2-Layer build and its one fixed build each at 4 and 6 Layers |
 
-- Shipped Constructions carry no Via types.
-- JLCPCB's 8-Layer builds, and NextPCB's and Aisler's builds, were not verified and are not shipped.
-- PCBWay varies pressed Prepreg thickness with inner copper coverage. The shipped figures are nominal, and the Construction's notes say so.
+The ordered thickness is 1.6 mm for every shipped build. Shipped Constructions carry no Via types. Generic, JLCPCB and PCBWay keep the released `2 Layer` build with 35 µm outer copper and a single Core sharing the remaining 1.53 mm. Generic uses 35 µm on every Layer of its 4-, 6- and 8-Layer builds. Its equal Core gaps are rounded to whole nanometres in mirror pairs. A board started at a count the chosen fab does not cover gets the same Generic spacing without a Construction name.
+
+The following catalogues record the verified entries top to bottom, in the units used by the file format. The source tables and order codes are recorded in the [multilayer research](https://github.com/openreda/reda/blob/b7afb0c5f10cfbcb1fff03ab783a9725538b78dd/docs/research/fab-multilayer.md).
+
+- **JLCPCB.** REDA selects `JLC04161H-7628` at four Layers and the first named build, `JLC06161H-3313`, at six. The latter uses a 0.1088 mm centre prepreg. The catalogue's separate “No requirement” service specifies 0.1164 mm. Outer copper is 35 µm and inner copper is 15.2 µm after processing. The relative permittivities are 4.6 for the core and 4.4, 4.1, 3.91 and 4.16 for styles 7628, 3313/2313, 1080 and 2116 respectively. The 1080 ply of `JLC06161H-3313C` is 76.4 µm above and 78.4 µm below, so this build shows a symmetry mismatch. [All 36 ordered builds](../../../crates/reda-output/data/constructions/jlcpcb.json) · [JLCPCB catalogue](https://jlcpcb.com/impedance)
+- **PCBWay.** The 1.6 mm catalogue numbers are 1–7 and 44–57 at four Layers, 1–4 and 24–33 at six, and 1–4 and 19–26 at eight. REDA selects regular build #1 at each count. Each Construction's notes record its assumed inner copper coverage and the fab's finished estimate. A multi-ply gap has one published combined pressed thickness. Its entry name records the plies in physical order and its material identifies the same layup on either face. The core Dk is 4.6. Prepreg Dk is 4.74 for 7628, 4.45 for 2116 and 3313, and 4.21 for 1080. A group whose plies have different Dk has a blank effective Dk because the individual pressed thicknesses are unknown. [All 47 numbered builds](../../../crates/reda-output/data/constructions/pcbway.json) · [PCBWay lamination tables](https://www.pcbway.com/multi-layer-laminated-structure.html)
+- **OSH Park.** REDA selects the standard Prototype build for each supported count. At two Layers the core is 1.524 mm FR-4 with Dk 4.5 at 10 MHz between 35.6 µm copper faces. Four and six Layers have 43.2 µm outer and 17.5 µm inner copper. The four-Layer build has two 199.9 µm 2113 prepregs, Dk 3.61 at 1 GHz, around a 990.6 µm core. The six-Layer build has mirrored 110.7 µm 106 prepregs (Dk 3.23, Df 0.011) and 101.6 µm 2113 cores (Dk 3.66, Df 0.009), measured at 1 GHz, around a 925.6 µm core. The central FR408HR cores have no published Dk or Df. [All three builds](../../../crates/reda-output/data/constructions/osh-park.json) · [Two](https://docs.oshpark.com/services/two-layer/), [four](https://docs.oshpark.com/services/four-layer/) and [six-Layer specifications](https://docs.oshpark.com/services/six-layer/)
+
+JLCPCB eight-Layer builds and the NextPCB and Aisler catalogues await verified dimensions for every entry.
 
 ### The OSH Park preset
 
-- OSH Park becomes the fourth shipped Fab Preset.
-- It holds OSH Park's rule limits, its Constructions and its Gerber naming.
-- OSH Park does no assembly, so its BOM and CPL keys are Generic's.
-- Its 2-layer limits come from the [earlier fab research](https://github.com/openreda/reda/issues/142), which covers OSH Park, and its 4 and 6-Layer limits from the [multilayer fab research](https://github.com/openreda/reda/issues/328).
+The fourth shipped preset uses one flat set of rules across its three Prototype services. The strictest published minimum for each dimension applies on every Layer. Each Construction's notes also give the limits of its own service. [OSH Park design rule setup](https://docs.oshpark.com/design-tools/kicad/kicad-design-rules/)
+
+| Dimension (mm) | Two Layers | Four Layers | Six Layers | Preset |
+|---|---:|---:|---:|---:|
+| Track width and copper clearance | 0.1524 | 0.127 | 0.127 | 0.1524 |
+| Annular ring | 0.127 | 0.1016 | 0.1016 | 0.127 |
+| Via diameter | 0.508 | 0.4572 | 0.4064 | 0.508 |
+| Minimum drill | 0.254 | 0.254 | 0.2032 | 0.254 |
+| Hole to hole | 0.127 | 0.127 | 0.127 | 0.127 |
+| Copper to board edge | 0.381 | 0.381 | 0.381 | 0.381 |
+| Plated hole to unrelated inner copper | — | 0.254 | 0.254 | 0.254 |
+
+The default hole range ends at 6.35 mm, above which OSH Park switches to milling with wider tolerances. REDA starts routing at 0.25 mm with a 0.60/0.30 mm Via. Mask expansion is 0.0508 mm on both sides with tented Vias. Finish and colour suggestions are ENIG, purple mask and white silk. [OSH Park fabrication specifications](https://docs.oshpark.com/services/two-layer/) · [Mask and drill setup](https://docs.oshpark.com/design-tools/kicad/kicad-design-rules/)
+
+The preset writes Gerber X2 with classic filenames (`.gtl`, `.g2l` through the last inner Layer, `.gbl`) and separate plated and non-plated drill files with routed slots and absolute coordinates. OSH Park offers bare boards, so its BOM and CPL settings follow Generic and its fabrication archive excludes assembly files. [OSH Park Gerber guide](https://docs.oshpark.com/design-tools/kicad/generating-kicad-gerbers/)
 
 ## Checks
 
