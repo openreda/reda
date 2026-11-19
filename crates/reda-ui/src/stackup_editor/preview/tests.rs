@@ -29,7 +29,19 @@ fn cross_section_scene_draws_physical_thickness_and_an_upward_laser() {
     let body = Rect::from_min_size(egui::Pos2::ZERO, vec2(800.0, 400.0));
     let info = pcb.stackup().info();
     let names = Names::new(pcb, &info);
-    let section = Section::new(pcb, &info, &names, body, Scale::Physical, 110.0, &t);
+    let section = Section::new(
+        pcb,
+        &info,
+        &names,
+        body,
+        Scale::Physical,
+        BarrelColumns {
+            first: 180.0,
+            pitch: 110.0,
+            staggered: false,
+        },
+        &t,
+    );
     let top = pcb.copper_layers().next().unwrap().uuid;
     assert!(section.scene.items_of(top).any(|item| matches!(
         item.primitive,

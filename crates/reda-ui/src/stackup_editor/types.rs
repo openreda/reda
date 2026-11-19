@@ -311,7 +311,9 @@ pub(super) fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut crat
             if !remove {
                 p.params["move_vias"] = json!(move_vias);
             }
-            let _ = shell.run_reporting(p.command, p.params);
+            if let Ok(out) = shell.run_reporting(p.command, p.params) {
+                super::layer_actions::settle(shell, document, view.selected, p.command, &out);
+            }
         }
     }
 }

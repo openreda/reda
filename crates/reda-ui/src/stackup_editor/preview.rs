@@ -53,8 +53,16 @@ pub(super) struct Cached {
     tokens: Arc<crate::theme::Tokens>,
     body: Rect,
     scale: Scale,
-    pitch: f32,
+    columns: BarrelColumns,
     section: Section,
+}
+
+/// Horizontal geometry in points from the left edge of the board.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) struct BarrelColumns {
+    first: f32,
+    pitch: f32,
+    staggered: bool,
 }
 
 pub(super) fn show(
@@ -89,13 +97,19 @@ pub(super) fn show(
             .size()
             .x
     };
-    let pitch = names
+    let preferred_pitch = names
         .vias
         .iter()
         .map(|s| text_width(s))
         .fold(t.size.of(40.0), f32::max)
         + t.space.panel;
-    let margin = t.size.of(84.0);
+    let dimension = format!("{} mm", info.totals.total.mm_exact());
+    let margin = ui
+        .painter()
+        .layout_no_wrap(dimension, t.ty.numeric.font_id(), t.color.text.primary)
+        .size()
+        .x
+        + 3.0 * t.space.gap;
     let callouts = names
         .callouts
         .iter()
@@ -107,11 +121,22 @@ pub(super) fn show(
         .max(t.size.of(140.0) + t.ty.small.line * stack.entries.len() as f32);
     let split_button = widgets::button(tr!("stackup-split-sheet"));
     let split_width = split_button.width(ui);
-    // Leave room on the left of the first barrel for an entire split button. A
-    // narrow tab scrolls the drawing horizontally, so both targets stay usable.
-    let end_space = (pitch * 0.5).max(t.space.gap + split_width + t.size.of(HANDLE_SIZE));
-    let min_body_width = 2.0 * end_space + pitch * names.vias.len().saturating_sub(1) as f32;
-    let width = ui.available_width().max(margin + callouts + min_body_width);
+    // Reserve the split action on the side where it appears. Stagger adjacent
+    // names when space is tight, and scroll only after both rows are full.
+    let intervals = names.vias.len().saturating_sub(1) as f32;
+    let right = preferred_pitch * 0.5;
+    let left = right.max(t.space.gap + split_width + t.size.of(HANDLE_SIZE));
+    let min_pitch = right.max(t.size.of(2.0 * HANDLE_SIZE) + t.space.gap);
+    let width = ui
+        .available_width()
+        .max(margin + callouts + left + right + min_pitch * intervals);
+    let space = width - margin - callouts - left - right;
+    let pitch = preferred_pitch.min(space / intervals.max(1.0));
+    let columns = BarrelColumns {
+        first: left + (space - pitch * intervals) * 0.5,
+        pitch,
+        staggered: pitch < preferred_pitch && intervals > 0.0,
+    };
     egui::ScrollArea::both()
         .id_salt("cross-section-scroll")
         .auto_shrink(false)
@@ -138,20 +163,20 @@ pub(super) fn show(
                 .filter(|c| {
                     c.body == body
                         && c.scale == view.scale
-                        && c.pitch == pitch
+                        && c.columns == columns
                         && Arc::ptr_eq(&c.tokens, &t)
                         && c.names == names
                         && c.stack == *stack
                 })
                 .unwrap_or_else(|| {
-                    let section = Section::new(pcb, info, &names, body, view.scale, pitch, &t);
+                    let section = Section::new(pcb, info, &names, body, view.scale, columns, &t);
                     Arc::new(Cached {
                         stack: stack.clone(),
                         names,
                         tokens: Arc::clone(&t),
                         body,
                         scale: view.scale,
-                        pitch,
+                        columns,
                         section,
                     })
                 });
