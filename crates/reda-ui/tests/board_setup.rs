@@ -442,7 +442,10 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
         [
             (
                 Rule::Clearance,
-                vec![(Some(DrcCheck::Clearance), vec![F::Clearance])]
+                vec![(
+                    Some(DrcCheck::Clearance),
+                    vec![F::Clearance, F::ViaHoleClearance, F::PadHoleClearance]
+                )]
             ),
             (
                 Rule::TrackWidth,
@@ -803,6 +806,8 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
             RuleField::ViaHole,
             RuleField::ViaHolePreferred,
             RuleField::ViaHoleMax,
+            RuleField::ViaHoleClearance,
+            RuleField::PadHoleClearance,
         ]
     );
     board.selected_rows = [p].into();

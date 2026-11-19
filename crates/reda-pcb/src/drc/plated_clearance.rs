@@ -32,12 +32,13 @@ pub(super) fn check(board: &Board<'_>, holes: &[DrillHole], report: &mut Report)
                     continue;
                 }
                 let net = board.copper.net(item);
-                if land && net.is_some() && net == hole.net {
-                    if !matches!(item, Item::Zone { .. })
-                        || hole.connection(pcb, layer).style != ConnectionStyle::None
-                    {
-                        continue;
-                    }
+                if land
+                    && net.is_some()
+                    && net == hole.net
+                    && (!matches!(item, Item::Zone { .. })
+                        || hole.connection(pcb, layer).style != ConnectionStyle::None)
+                {
+                    continue;
                 }
                 let Some(source) = resolve_pair_on(
                     pcb,

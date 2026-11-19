@@ -127,9 +127,11 @@ pub fn refill_only(
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
     let copper = (total > 0).then(|| Copper::build(pcb));
-    let holes = (total > 0)
-        .then(|| crate::drill::holes(pcb))
-        .unwrap_or_default();
+    let holes = if total > 0 {
+        crate::drill::holes(pcb)
+    } else {
+        Vec::new()
+    };
     let mut done: Vec<fill::Filled<'_>> = Vec::new();
     let mut out = BTreeMap::new();
     let mut count = 0;

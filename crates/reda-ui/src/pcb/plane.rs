@@ -18,7 +18,7 @@ impl Picker {
     }
 
     pub fn menu(row: &Response, layer: Uuid) -> Option<Self> {
-        widgets::context_menu(row, |ui| {
+        widgets::row_context_menu(row, |ui| {
             ui.add(widgets::menu_item(tr!("plane-fill-layer")).icon("zone"))
                 .clicked()
         })

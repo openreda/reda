@@ -520,7 +520,7 @@ fn grid_rows_copy_paste_and_clear_from_the_keyboard() {
             _ => None,
         })
         .collect();
-    assert_eq!(copied, ["0.3\t\t\t\t\t\t\t\t\t"]);
+    assert_eq!(copied, ["0.3\t\t\t\t\t\t\t\t\t\t\t"]);
     h.run();
     h.get_by_label("Select or drag Signal").click();
     h.run();

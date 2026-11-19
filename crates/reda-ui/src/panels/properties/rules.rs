@@ -109,12 +109,13 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     )));
                 }
             }
-            let limits = kind
-                .between
-                .iter()
-                .map(|(f, v, o)| (f, v, o, &kind.pair))
-                .chain(kind.between_holes.iter().map(|(f, v, o, p)| (f, v, o, p)));
-            for (field, value, object, pair) in limits {
+            for model::PairLimit {
+                field,
+                value,
+                object,
+                pair,
+            } in kind.between.iter().chain(&kind.between_holes)
+            {
                 if let Some(pair) = pair {
                     ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
                 } else if let Some(object) = object {

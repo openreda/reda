@@ -112,8 +112,26 @@ pub(super) fn fill_zone(
         }
         others.extend(grown(shape, clearance.0));
     }
+    // A v0.1 board migrates without clearance.hole until an explicit edit or preset
+    // Apply. Its plots must reproduce v0.1 byte-for-byte: that filler grew the
+    // non-plated Pad outline by copper clearance. DRC has always used the bore
+    // and edge_clearance. New boards start with the preset's hole rules.
+    let legacy = !pcb
+        .rules()
+        .any(|r| r.kind == reda_model::RuleKind::Clearance && r.values.hole.is_some());
+    if legacy {
+        let clearance = clearance_to(pcb, zone, None);
+        for shape in legacy_bare_pads(pcb) {
+            if near(&shape, clearance.0, lo, hi) {
+                others.extend(grown(&shape, clearance.0));
+            }
+        }
+    }
     for hole in holes.iter().filter(|h| h.layers(pcb).contains(&layer)) {
         let clearance = if hole.ring.is_none() {
+            if legacy {
+                continue;
+            }
             net_rules(pcb, zone.net)
                 .edge_clearance
                 .unwrap_or_default()
@@ -133,7 +151,7 @@ pub(super) fn fill_zone(
                     gap = connection.gap;
                 }
             }
-            crate::rules::resolve_pair_on(
+            let limit = crate::rules::resolve_pair_on(
                 pcb,
                 zone.net,
                 hole.net,
@@ -141,9 +159,11 @@ pub(super) fn fill_zone(
                 reda_model::RuleKind::Clearance,
                 hole.field(),
             )
-            .and_then(|v| v.value.length())
-            .unwrap_or_default()
-            .max(gap)
+            .and_then(|v| v.value.length());
+            if limit.is_none() && gap == Nm::ZERO {
+                continue;
+            }
+            limit.unwrap_or_default().max(gap)
         };
         if near(&hole.shape, clearance.0, lo, hi) {
             others.extend(grown(&hole.shape, clearance.0));
@@ -307,6 +327,28 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         half: (placed.outline.width.0 / 2, placed.outline.height.0 / 2),
         connection: zone_connection_on(pcb, zone.net, Some(zone.layer), target, own.as_ref()),
     })
+}
+
+/// The outlines of the non-plated Pads (Footprint and Free), which have no copper.
+fn legacy_bare_pads(pcb: &PcbDocument) -> Vec<Shape> {
+    let mut holes = Vec::new();
+    for instance in pcb.footprints() {
+        if let Some(copy) = pcb.footprint_copy(instance.footprint) {
+            holes.extend(
+                copy.footprint
+                    .pads
+                    .iter()
+                    .filter(|p| p.kind == PadKind::NonPlated)
+                    .map(|p| Shape::pad(instance, p)),
+            );
+        }
+    }
+    holes.extend(
+        pcb.free_pads()
+            .filter(|p| p.kind == PadKind::NonPlated)
+            .map(Shape::free_pad),
+    );
+    holes
 }
 
 /// The spokes of a relieved Pad or Via: 2 or 4 bars of the spoke width from its centre,
