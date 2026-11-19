@@ -145,6 +145,10 @@ fn value_text(value: &RuleValue, units: Units) -> String {
         RuleValue::Flag(on) => on.to_string(),
         RuleValue::Percent(p) => format!("{p}%"),
         RuleValue::Area(nm2) => format!("{} mm2", *nm2 as f64 / 1e12),
+        RuleValue::MilliRatio(n) => format!(
+            "{}:1",
+            reda_engine::model::geom::exact_decimal(i64::from(*n), 1000)
+        ),
         RuleValue::Count(n) => n.to_string(),
         RuleValue::Angle(md) => format!("{} deg", md.0 as f64 / 1000.0),
         other => match serde_json::to_value(other) {

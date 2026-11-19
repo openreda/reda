@@ -41,6 +41,15 @@ pub struct BoundsParam {
     pub max: Option<Option<Length>>,
 }
 
+/// Depth-to-hole maximum in thousandths (8000 is 8:1); null clears the maximum.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AspectRatioParam {
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub max: Option<Option<u32>>,
+}
+
 /// A Zone connection's values to change; `null` clears one.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -105,6 +114,11 @@ pub struct ValuesParam {
     pub diameter: Option<BoundsParam>,
     #[serde(default)]
     pub hole: Option<BoundsParam>,
+    #[serde(default)]
+    pub aspect_ratio: Option<AspectRatioParam>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u8>")]
+    pub max_stack: Option<Option<u8>>,
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
     pub top: Option<Option<Length>>,
@@ -172,6 +186,12 @@ impl ValuesParam {
         put(RuleField::Expansion, self.expansion);
         put(RuleField::Tolerance, self.tolerance);
         put(RuleField::MaxLength, self.max_length);
+        if let Some(max) = self.aspect_ratio.as_ref().and_then(|a| a.max) {
+            out.push((RuleField::AspectRatioMax, max.map(RuleValue::MilliRatio)));
+        }
+        if let Some(max) = self.max_stack {
+            out.push((RuleField::MaxStack, max.map(RuleValue::Count)));
+        }
         if let Some(mode) = self.mode {
             out.push((RuleField::Mode, mode.map(RuleValue::Mode)));
         }

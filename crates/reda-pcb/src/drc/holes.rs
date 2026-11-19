@@ -13,6 +13,7 @@ use crate::rules::{breach, hole_to_hole_between, largest, net_rules, resolve, re
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     via_spans(board.pcb, report);
     via_size(board, report);
+    super::hdi::check(board.pcb, report);
     let holes = holes(board);
     for hole in holes.iter().filter(|h| h.via.is_none()) {
         let rules = net_rules(board.pcb, hole.net);

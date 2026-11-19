@@ -1100,3 +1100,73 @@ fn via_size_checks_each_physical_diameter_with_the_actual_drilling_method() {
         ]
     );
 }
+
+#[test]
+fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes() {
+    let dir = TempDir::new("drc-via-hdi");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    // Five equal blank sheets share 1,390,001nm. L1:L2 includes two 35µm outer copper faces.
+    engine.run_ok("pcb.stackup.set", json!({"thickness":1600001}));
+    let signal = net(&mut engine, "HDI");
+    for (a, b, micro) in [(0, 1, true), (1, 2, true), (2, 3, false), (3, 4, true)] {
+        engine.run_ok(
+            "pcb.via_type.add",
+            json!({"document":document,"from":layers[a],"to":layers[b],"micro":micro}),
+        );
+    }
+    let mut place = |x: i64, a: usize, b: usize| {
+        uuid(
+            &engine.run_ok(
+                "pcb.via.add",
+                json!({
+                    "at":{"x":x,"y":0},"net":signal,"from":layers[a],"to":layers[b],
+                    "diameter":"0.6mm","hole":"0.2mm"
+                }),
+            )["result"]["uuid"],
+        )
+    };
+    let first = place(1_000_000, 0, 1);
+    let second = place(1_000_000, 1, 2);
+    let bridge = place(1_000_000, 2, 3);
+    let last = place(1_000_000, 3, 4);
+    let independent = place(5_000_000, 4, 3);
+    let clean = drc(&mut engine);
+    assert!(of(&clean, "aspect_ratio").is_empty());
+    assert!(of(&clean, "max_stack").is_empty());
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":1740},"max_stack":2}}),
+    );
+    let run = drc(&mut engine);
+    let ratios = of(&run, "aspect_ratio");
+    // The fractional share puts the ratio just over 1.740:1, with no nm rounding.
+    let mut actual: Vec<_> = ratios.iter().map(|v| objects(v)[0]).collect();
+    actual.sort();
+    let mut expected = vec![first, second, last, independent];
+    expected.sort();
+    assert_eq!(actual, expected);
+    assert!(
+        ratios
+            .iter()
+            .all(|v| v["limit"] == "max" && !objects(v).contains(&bridge))
+    );
+    let stacks = of(&run, "max_stack");
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0]["args"]["actual"], 3);
+    assert_eq!(stacks[0]["args"]["maximum"], 2);
+    assert_eq!(stacks[0]["layers"], json!(&layers[..5]));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":null},"max_stack":null}}),
+    );
+    let cleared = drc(&mut engine);
+    assert!(of(&cleared, "aspect_ratio").is_empty());
+    assert!(of(&cleared, "max_stack").is_empty());
+}
