@@ -21,6 +21,7 @@ mod actions;
 mod grid;
 mod scoped;
 mod stackup;
+mod teardrops;
 
 pub use grid::net_classes_page;
 pub use stackup::stackup_page;
@@ -131,6 +132,9 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
     }
     let t = ui.tokens();
     actions::rule_actions(ui, cx, board, Some(rule));
+    if rule == Rule::Teardrops {
+        teardrops::outcomes(ui, cx);
+    }
     if rule == Rule::ZoneConnections {
         ui.add_space(t.space.stack);
         zone_scheme(ui, board);
