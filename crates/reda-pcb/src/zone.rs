@@ -20,6 +20,8 @@ mod cache;
 pub(crate) mod fill;
 mod merge;
 mod names;
+mod solid;
+pub(crate) use solid::SolidPours;
 pub(crate) mod poly;
 
 pub use cache::{decode, encode};
@@ -30,7 +32,7 @@ pub use names::{NO_NET, name, names};
 use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
-const FILL_VERSION: u32 = 4;
+const FILL_VERSION: u32 = 5;
 
 /// How far a chord of a flattened arc may stray from the arc: a fixed 0.001 mm. It only
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.
@@ -241,6 +243,21 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
     shared.add(&free_pads);
     let shared = shared.finish();
 
+    let check_solid = rules.iter().any(|rule| {
+        rule.kind == reda_model::RuleKind::Teardrop
+            && rule.enabled
+            && [
+                reda_model::TeardropKind::ThroughHolePad,
+                reda_model::TeardropKind::SmdPad,
+                reda_model::TeardropKind::Via,
+            ]
+            .into_iter()
+            .any(|k| {
+                rule.values
+                    .teardrop_values(k)
+                    .is_some_and(|r| r.enabled == Some(true))
+            })
+    });
     let mut layers: BTreeMap<Uuid, String> = BTreeMap::new();
     let mut out: BTreeMap<Uuid, String> = BTreeMap::new();
     let mut prior: BTreeMap<Uuid, Vec<String>> = BTreeMap::new();
@@ -263,6 +280,12 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
             f.add(&tracks);
             f.add(&vias);
             f.add(&keepouts);
+            // A lower-priority solid pour can suppress a land taper that this Zone clears.
+            if check_solid {
+                for pour in pcb.active_zones().filter(|z| z.layer == zone.layer) {
+                    f.add(pour);
+                }
+            }
             // Even a lower-priority Zone can restore copper under this fill.
             for (item, layer) in unused.iter() {
                 if layer == zone.layer {

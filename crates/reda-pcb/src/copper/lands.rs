@@ -149,21 +149,7 @@ impl ViaIntent<'_> {
 #[derive(Clone, Debug, Default)]
 pub(super) struct Connections {
     ends: BTreeMap<(Uuid, Uuid), RTree<P>>,
-    outlines: BTreeMap<(Uuid, Uuid), Vec<ZoneOutline>>,
-}
-
-#[derive(Clone, Debug)]
-struct ZoneOutline {
-    area: poly::Area,
-    edges: Shape,
-    bounds: (P, P),
-}
-
-impl ZoneOutline {
-    fn covers(&self, land: &Shape, center: Point, bounds: (P, P)) -> bool {
-        poly::boxes_within(self.bounds, bounds, 0)
-            && (poly::inside(&self.area, center) || self.edges.touches(land))
-    }
+    outlines: BTreeMap<(Uuid, Uuid), Vec<poly::ZoneArea>>,
 }
 
 impl Connections {
@@ -179,15 +165,11 @@ impl Connections {
         for zone in pcb.active_zones() {
             let Some(net) = zone.net else { continue };
             let area = fill::outline_area(pcb, zone);
-            if let Some(bounds) = poly::bounds(&area) {
+            if let Some(area) = poly::ZoneArea::new(area) {
                 out.outlines
                     .entry((zone.layer, net))
                     .or_default()
-                    .push(ZoneOutline {
-                        edges: poly::boundary(&area),
-                        bounds,
-                        area,
-                    });
+                    .push(area);
             }
         }
         out

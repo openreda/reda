@@ -11,7 +11,7 @@ fn distance(a: Point, b: Point) -> f64 {
     ((a.x.0 - b.x.0) as f64).hypot((a.y.0 - b.y.0) as f64)
 }
 
-fn along(a: Point, b: Point, ratio: f64) -> Point {
+pub(super) fn along(a: Point, b: Point, ratio: f64) -> Point {
     Point::new(
         Nm(a.x.0 + ((b.x.0 - a.x.0) as f64 * ratio).round() as i64),
         Nm(a.y.0 + ((b.y.0 - a.y.0) as f64 * ratio).round() as i64),
@@ -58,7 +58,7 @@ pub(super) fn follow(
             .items_at(track.layer, end)
             .into_iter()
             .filter(|i| {
-                if *i == (Item::Track { uuid: track.uuid }) || i.is_artwork() {
+                if *i == target || *i == (Item::Track { uuid: track.uuid }) || i.is_artwork() {
                     return false;
                 }
                 if let Item::Track { uuid } = i {

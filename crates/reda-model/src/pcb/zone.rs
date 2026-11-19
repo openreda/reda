@@ -315,6 +315,9 @@ pub struct ZoneFill {
 pub struct TeardropLocation {
     pub track: Uuid,
     pub target: Uuid,
+    /// Pad of the target Footprint instance, for a placed Pad junction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pad: Option<Uuid>,
     pub layer: Uuid,
     pub at: Point,
 }

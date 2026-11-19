@@ -1027,3 +1027,85 @@ fn via_types_table_marks_a_drill_below_the_minimum_and_a_land_above_the_maximum(
     h.get_by_label(&warning("Through"));
     assert!(h.query_by_label(&warning("Laser")).is_none());
 }
+
+#[test]
+fn shortened_and_left_out_teardrops_open_their_tracks_on_the_physical_layer() {
+    for (section, counts, blocked) in [
+        (
+            "Shortened Teardrops",
+            "0 generated, 1 shortened, 0 left out",
+            false,
+        ),
+        (
+            "Teardrops left out",
+            "0 generated, 0 shortened, 1 left out",
+            true,
+        ),
+    ] {
+        let (home, work) = (
+            TempDir::new("teardrop-nav-home"),
+            TempDir::new("teardrop-nav-work"),
+        );
+        let mut h = harness(home.path(), work.path(), "Teardrop");
+        let shell = h.state_mut().shell_mut();
+        let board = shell.engine().project().unwrap().pcb().unwrap();
+        let document = board.uuid;
+        let bottom = board.copper_layers().last().unwrap().uuid;
+        shell
+            .run(
+                "pcb.via.add",
+                json!({"at":{"x":"5mm","y":"5mm"},"hole":"0.3mm","diameter":"1mm"}),
+            )
+            .unwrap();
+        let track = shell
+            .run(
+                "pcb.track.add",
+                json!({"layer":bottom,"width":"0.1mm","points":[
+        {"x":"5mm","y":"5mm"},{"x":"5.75mm","y":"5mm"}]}),
+            )
+            .unwrap()["result"]["tracks"][0]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        shell
+            .run(
+                "pcb.rules.set",
+                json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
+            )
+            .unwrap();
+        if blocked {
+            shell
+                .run(
+                    "pcb.keepout.add",
+                    json!({"layer":bottom,"restrict":["tracks"],"vertices":[
+            {"x":"5.45mm","y":"4.9mm"},{"x":"5.55mm","y":"4.9mm"},
+            {"x":"5.55mm","y":"5.1mm"},{"x":"5.45mm","y":"5.1mm"}]}),
+                )
+                .unwrap();
+        }
+        shell.run("pcb.zone.fill", json!({})).unwrap();
+        open_board_setup(&mut h, "Teardrop");
+        page(&mut h, "Teardrops");
+        h.get_by_label(counts);
+        h.get_by_label(section).scroll_to_me();
+        h.run();
+        h.get_by_label(section).click();
+        h.run();
+        let destination = "L2 · X 5.5 mm · Y 5 mm";
+        h.get_by_role_and_label(Role::Button, destination)
+            .scroll_to_me();
+        h.run();
+        h.get_by_role_and_label(Role::Button, destination).click();
+        h.run();
+        let shell = h.state().shell();
+        assert_eq!(shell.layout().focus, Some(TabKey::Document(document)));
+        assert_eq!(shell.highlight().objects, [track]);
+        assert_eq!(
+            shell
+                .board_view()
+                .active_layer(shell.engine().project().unwrap()),
+            Some(bottom)
+        );
+    }
+}

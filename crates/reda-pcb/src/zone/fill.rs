@@ -96,7 +96,7 @@ pub(super) fn fill_zone(
     for (item, shape) in copper.pieces_on(layer) {
         let net = copper.net(item);
         if same_net(net) {
-            if let Some(frame) = frame(pcb, zone, item) {
+            if let Some(frame) = frame(pcb, zone.net, layer, item) {
                 match frame.connection.style {
                     ConnectionStyle::Relief => {
                         connectors.push(shape);
@@ -124,6 +124,35 @@ pub(super) fn fill_zone(
             continue;
         }
         others.extend(grown(shape, clearance.0));
+    }
+    for drop in copper.teardrops() {
+        let loc = &drop.location;
+        if loc.layer != layer
+            || drop.shapes.is_empty()
+            || !same_net(pcb.track(loc.track).and_then(|t| t.net))
+        {
+            continue;
+        }
+        let target = if let Some(pad) = loc.pad {
+            Item::Pad {
+                footprint: loc.target,
+                pad,
+            }
+        } else if pcb.via(loc.target).is_some() {
+            Item::Via { uuid: loc.target }
+        } else if pcb.free_pad(loc.target).is_some() {
+            Item::FreePad { uuid: loc.target }
+        } else {
+            continue;
+        };
+        if let Some(frame) = frame(pcb, zone.net, layer, target)
+            && matches!(
+                frame.connection.style,
+                ConnectionStyle::Relief | ConnectionStyle::None
+            )
+        {
+            gaps.extend(dilated(&to_area(&drop.shapes), frame.connection.gap.0));
+        }
     }
     // A v0.1 board migrates without clearance.hole until an explicit edit or preset
     // Apply. Its plots must reproduce v0.1 byte-for-byte: that filler grew the
@@ -302,8 +331,8 @@ struct Frame {
 
 /// The frame of a Pad, Free Pad or Via item, with its resolved Zone connection; `None`
 /// for other copper.
-fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
-    let side = pcb.layers().layer(zone.layer)?.side;
+fn frame(pcb: &PcbDocument, net: Option<Uuid>, layer: Uuid, item: Item) -> Option<Frame> {
+    let side = pcb.layers().layer(layer)?.side;
     let placed = match item {
         Item::Pad { footprint, pad } => {
             let instance = pcb.footprint(footprint)?;
@@ -312,15 +341,15 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         Item::FreePad { uuid } => placed::placed_free_pad_on(pcb.free_pad(uuid)?, side),
         Item::Via { uuid } => {
             let via = pcb.via(uuid)?;
-            let r = via.diameter_on(zone.layer).0 / 2;
+            let r = via.diameter_on(layer).0 / 2;
             return Some(Frame {
                 centre: [via.at.x.0, via.at.y.0],
                 angle: Millideg::ZERO,
                 half: (r, r),
                 connection: zone_connection_on(
                     pcb,
-                    zone.net,
-                    Some(zone.layer),
+                    net,
+                    Some(layer),
                     ConnectionTarget::Via,
                     via.zone_connection.as_ref(),
                 ),
@@ -338,8 +367,17 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         centre: [centre.x.0, centre.y.0],
         angle: placed.rotation,
         half: (placed.outline.width.0 / 2, placed.outline.height.0 / 2),
-        connection: zone_connection_on(pcb, zone.net, Some(zone.layer), target, own.as_ref()),
+        connection: zone_connection_on(pcb, net, Some(layer), target, own.as_ref()),
     })
+}
+
+pub(super) fn connection_style(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Uuid,
+    item: Item,
+) -> Option<ConnectionStyle> {
+    frame(pcb, net, layer, item).map(|f| f.connection.style)
 }
 
 /// The outlines of the non-plated Pads (Footprint and Free), which have no copper.

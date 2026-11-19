@@ -373,7 +373,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         )));
     }
     if let Some((designator, at, flag, net)) = seed.footprint {
-        let footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
+        let mut footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
+        footprint.pads[0].teardrop = seed.base & 4 != 0;
         let copy = FootprintCopy {
             uuid: id(),
             hash: "e".repeat(32),
@@ -427,6 +428,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::FootprintInstance(InDocument::new(doc, instance)));
         // A Free Pad and the Output Origin come with it: through-hole on a Net, or SMD.
         let free_pad = FreePad {
+            teardrop: seed.base & 8 != 0,
             locked: false,
             mask: None,
             paste: None,
@@ -500,7 +502,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Track(InDocument::new(
             doc,
             Track {
-                teardrop: true,
+                teardrop: seed.base & 16 != 0,
                 locked: false,
                 uuid: id(),
                 layer,
@@ -513,7 +515,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             doc,
             Via {
                 unused_layers: Default::default(),
-                teardrop: true,
+                teardrop: seed.base & 32 != 0,
                 zone_connection: None,
                 locked: false,
                 mask: None,
