@@ -131,6 +131,17 @@ pub struct ViaDiameter {
 }
 
 impl ViaDiameter {
+    /// Land size on a physical Layer of a Via's span, retaining drilling direction.
+    pub fn on(self, span: LayerSpan, layer: Uuid) -> Nm {
+        if layer == span.from {
+            self.start
+        } else if layer == span.to {
+            self.end.unwrap_or(self.start)
+        } else {
+            self.middle.unwrap_or(self.start)
+        }
+    }
+
     pub fn fits_hole(self, hole: Nm) -> bool {
         hole > Nm::ZERO
             && [Some(self.start), self.middle, self.end]

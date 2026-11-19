@@ -327,3 +327,90 @@ fn pasting_a_via_copied_before_a_type_exists_keeps_each_physical_pad() {
         assert_eq!(via.diameter.middle.unwrap().0, 1000000);
     }
 }
+
+#[test]
+fn rank_and_restore_route_choices_by_excess_single_and_table_order_on_either_direction() {
+    use reda_pcb::route::ViaCandidates;
+    let dir = TempDir::new("ranked-route-via-types");
+    let (mut e, l) = board(&dir);
+    let through = pcb(&e).stackup().through_type().uuid;
+    let mut add = |from: usize, to: usize| {
+        created(&e.run_ok(
+            "pcb.via_type.add",
+            json!({"document":PCB,"from":l[from],"to":l[to]}),
+        ))
+    };
+    let left = add(2, 1);
+    let right = add(2, 4);
+    let exact = add(4, 1);
+    let over = add(0, 4);
+    let outer_left = add(0, 2);
+    let alt_left = add(1, 3);
+    let alt_right = add(4, 3);
+    let expected = [
+        vec![exact],
+        vec![left, right],
+        vec![alt_left, alt_right],
+        vec![over],
+        vec![outer_left, right],
+        vec![through],
+    ];
+    for (from, to) in [(1, 4), (4, 1)] {
+        let choices = ViaCandidates::between(pcb(&e), None, l[from], l[to]);
+        assert_eq!(choices.len(), expected.len());
+        for (i, ids) in expected.iter().enumerate() {
+            assert_eq!(choices.get(i).as_ref(), Some(ids));
+            assert_eq!(choices.index_of(ids), Some(i));
+        }
+        assert_eq!(choices.get(expected.len()), None);
+        assert_eq!(choices.index_of(&[left, over]), None);
+    }
+    let net = created(&e.run_ok("test.net.add", json!({"name":"Restricted"})));
+    let class = created(&e.run_ok("pcb.net_class.add", json!({"name":"HDI","nets":[net]})));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"via_span","scope":{"net_class":class},"values":{"allowed":[left,right]}}),
+    );
+    let allowed = ViaCandidates::between(pcb(&e), Some(net), l[1], l[4]);
+    assert_eq!(allowed.len(), 1);
+    assert_eq!(allowed.get(0), Some(vec![left, right]));
+    assert!(ViaCandidates::between(pcb(&e), Some(net), l[0], l[5]).is_empty());
+}
+
+#[test]
+fn routed_via_preview_uses_each_physical_lands_diameter_within_its_span() {
+    use reda_model::geom::{Nm, Point};
+    use reda_model::{LayerSpan, ViaDiameter};
+    use reda_pcb::{Copper, Proposal};
+    let dir = TempDir::new("preview-via-land");
+    let (mut e, l) = board(&dir);
+    for layer in l {
+        e.run_ok("pcb.track.add",json!({
+            "layer":layer,"width":"0.1mm","points":[{"x":"0.6mm","y":"-1mm"},{"x":"0.6mm","y":"1mm"}]
+        }));
+    }
+    let diameter = ViaDiameter {
+        start: Nm(300000),
+        middle: Some(Nm(1200000)),
+        end: Some(Nm(400000)),
+    };
+    let pcb = pcb(&e);
+    let proposal = Proposal::Via {
+        span: LayerSpan {
+            from: l[4],
+            to: l[1],
+        },
+        at: Point::default(),
+        diameter,
+        net: None,
+    };
+    let mut layers: Vec<_> = Copper::build(pcb)
+        .clearance(pcb, &proposal, &[])
+        .into_iter()
+        .map(|h| h.layer)
+        .collect();
+    layers.sort();
+    let mut expected = [l[2], l[3]];
+    expected.sort();
+    assert_eq!(layers, expected);
+}
