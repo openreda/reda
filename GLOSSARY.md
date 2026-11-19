@@ -358,6 +358,10 @@ _Avoid_: Layer preset, layer group
 A Layer that stays shown in single-Layer mode.
 _Avoid_: Sticky layer
 
+**Previous Layer**:
+The copper Layer that was active just before the current one, which a route can return to in one step.
+_Avoid_: Layer pair, alternate Layer, routing pair
+
 **Output Origin**:
 A point the user can place on a PCB Document, from which the editor measures coordinates and the grid, and from which manufacturing files measure theirs when the Fab Preset asks for a relative origin.
 _Avoid_: Placement Origin, user origin, current origin, aux origin, drill origin, datum, zero point
