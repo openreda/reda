@@ -292,6 +292,11 @@ fn rules_set_refuses_what_it_cannot_store_or_what_blocks() {
         json!({"kind": "hole_size", "values": {"max": "0.4mm"}}),
         "/values/min",
     );
+    refused(
+        &mut engine,
+        json!({"kind":"microvia_size", "values":{"hole":{"min":"0.15mm","max":"0.10mm"}}}),
+        "/values/hole/min",
+    );
     // A class record is judged on its values over the board-wide record.
     let power = class(&mut engine, "Power", &[]);
     refused(

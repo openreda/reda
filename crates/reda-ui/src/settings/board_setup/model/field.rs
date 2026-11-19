@@ -297,6 +297,10 @@ impl RuleField {
             RuleValue::Length(n) => mm(n),
             RuleValue::Flag(b) => b.to_string(),
             RuleValue::Percent(p) => p.to_string(),
+            RuleValue::MilliRatio(n) => format!(
+                "{}:1",
+                reda_engine::model::geom::exact_decimal(i64::from(n), 1000)
+            ),
             RuleValue::Count(n) => n.to_string(),
             RuleValue::Angle(a) => mm(Nm(a.0 * 1000)),
             RuleValue::Style(s) => serde_json::to_value(s)

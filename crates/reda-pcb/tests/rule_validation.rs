@@ -300,3 +300,128 @@ fn overlapping_named_layers_and_invalid_scope_combinations_are_refused() {
         1
     );
 }
+
+#[test]
+fn optional_fab_hdi_limits_apply_and_save_back_to_a_portable_preset() {
+    let dir = TempDir::new("hdi-fab-limits");
+    let home = TempDir::new("hdi-preset-home");
+    let mut e = reda_testkit::test_engine_in(home.path());
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"HDI","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    let micro = json!({"diameter":{"min":200000,"max":600000},"hole":{"max":250000},"aspect_ratio":{"max":900},"max_stack":2});
+    e.run_ok("fab_preset.set",json!({"preset":preset,"values":{"rules":{"microvia_size":micro,"via_aspect_ratio":{"max":8500}}}}));
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let via = &pcb.board_rule(reda_model::RuleKind::ViaSize).values;
+    let laser = &pcb.board_rule(reda_model::RuleKind::MicroviaSize).values;
+    assert_eq!(
+        serde_json::to_value(via).unwrap()["aspect_ratio"],
+        json!({"max":8500})
+    );
+    assert_eq!(serde_json::to_value(laser).unwrap(), micro);
+    let saved = e.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"name":"House HDI","from":preset}),
+    )["result"]["uuid"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let project = e.project().unwrap();
+    let stored = serde_json::to_value(project.fab_preset(saved).unwrap().rules).unwrap();
+    assert_eq!(stored["microvia_size"], micro);
+    assert_eq!(stored["via_aspect_ratio"]["max"], 8500);
+
+    e.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":saved, "name":"HDI Shop"}),
+    );
+    let mut reopened = reda_testkit::test_engine_in(home.path());
+    reopened.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Seeded","layers":6,"fab_preset":"HDI Shop"}),
+    );
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        serde_json::to_value(&board.board_rule(reda_model::RuleKind::MicroviaSize).values).unwrap(),
+        micro
+    );
+    assert_eq!(
+        board
+            .board_rule(reda_model::RuleKind::ViaSize)
+            .values
+            .aspect_ratio
+            .unwrap()
+            .max,
+        Some(8500)
+    );
+
+    // Selecting a preset with unpublished HDI limits clears the optional values.
+    let generic =
+        reopened.run_ok("fab_preset.add", json!({"name":"Generic"}))["result"]["uuid"].clone();
+    reopened.run_ok("pcb.rules.apply_fab_preset", json!({"preset":generic}));
+    let board = reopened.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.board_rule(reda_model::RuleKind::MicroviaSize).values,
+        Default::default()
+    );
+    assert!(
+        board
+            .board_rule(reda_model::RuleKind::ViaSize)
+            .values
+            .aspect_ratio
+            .is_none()
+    );
+}
+
+#[test]
+fn a_job_presets_optional_drill_limits_are_compared_in_their_own_units() {
+    let dir = TempDir::new("hdi-preset-checks");
+    let mut e = engine(&dir);
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{
+            "via_aspect_ratio":{"max":8250},
+            "microvia_size":{"hole":{"min":100000},"max_stack":2}
+        }}}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"via_size","values":{"aspect_ratio":{"max":9000}}}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"max_stack":3}}),
+    );
+    let report = e.run_ok("drc.run", json!({"checks":["rule_outside_preset"]}));
+    let found = report["violations"].as_array().unwrap();
+    let ratio = found
+        .iter()
+        .find(|v| v["args"]["value"] == "aspect_ratio.max")
+        .unwrap();
+    assert_eq!(ratio["measured"], json!({"ratio_millionths":9_000_000}));
+    assert_eq!(ratio["required"], json!({"ratio_millionths":8_250_000}));
+    let stack = found
+        .iter()
+        .find(|v| v["args"]["value"] == "max_stack")
+        .unwrap();
+    assert_eq!(stack["measured"], json!({"count":3}));
+    assert_eq!(stack["required"], json!({"count":2}));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"max_stack":2,"hole":{"min":90_000}}}),
+    );
+    let report = e.run_ok("drc.run", json!({"checks":["rule_outside_preset"]}));
+    let hole = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["args"]["value"] == "hole.min")
+        .unwrap();
+    assert_eq!(hole["measured"], json!({"length":90_000}));
+    assert_eq!(hole["required"], json!({"length":100_000}));
+}
