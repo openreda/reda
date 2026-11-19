@@ -49,8 +49,9 @@ impl Command for RulesExport {
         title: "Export Design Rules",
         description: "Writes the PCB's design rules to a `.redarules` file: every rule \
                       record, the DRC severities and the Net Class names, which another \
-                      board's `pcb.rules.import` matches by name. Net membership is left \
-                      out, because Net names differ per board.",
+                      board's `pcb.rules.import` matches by name. It records the copper \
+                      count and writes explicit Layers and allowed Via spans by copper \
+                      position. Net membership is left out.",
         category: "pcb",
         icon: "rules",
         kind: Kind::File,
@@ -124,14 +125,13 @@ impl Command for RulesImport {
     const META: Meta = Meta {
         id: "pcb.rules.import",
         title: "Import Design Rules",
-        description: "Reads a `.redarules` file into the PCB as one undo step: the rule \
-                      records of the chosen `kinds` (each overwrites the board's record of \
-                      its kind and Net Class), and the DRC severities unless `severities` is \
-                      false. Net Classes are matched by name, and a missing one is created \
-                      empty. Records the file does not hold are kept. With `preview`, \
-                      nothing changes and the result lists each overwrite, the new classes \
-                      and the severity changes. A result that leaves a record with a \
-                      blocking problem is refused.",
+        description: "Reads the chosen `kinds` from a Rules File as one undo step. Imported \
+                      records replace matching scopes. Classes match by name, and missing \
+                      classes are created empty. The preview lists the changed records, new \
+                      classes, severity changes and missing copper positions or Via types. \
+                      Position-dependent records start selected on a board with the same \
+                      copper count. Pass `position_records` to select them explicitly. \
+                      Set `severities` to false to keep the board's severities.",
         category: "pcb",
         icon: "rules",
         kind: Kind::Edit,
@@ -162,7 +162,6 @@ impl Command for RulesImport {
             || cx.new_id(),
         )
         .map_err(CommandError::rejected)?;
-        refuse_blocking(&pcb, &plan.records)?;
         if p.preview {
             return Ok(RulesImportResult {
                 changes: plan.preview,
@@ -194,38 +193,4 @@ impl Command for RulesImport {
             applied: true,
         })
     }
-}
-
-/// Refuses an import that leaves a record with a blocking problem it did not have.
-fn refuse_blocking(
-    pcb: &PcbDocument,
-    records: &[(reda_model::DesignRule, bool)],
-) -> Result<(), CommandError> {
-    use reda_pcb::rules::blocking_problems;
-    let board_of = |kind: RuleKind| {
-        records
-            .iter()
-            .map(|(r, _)| r)
-            .find(|r| r.kind == kind && r.scope.is_board_wide())
-            .unwrap_or_else(|| pcb.board_rule(kind))
-    };
-    let imported = records.iter().map(|(r, _)| r);
-    let kept = pcb.rules().filter(|r| {
-        !r.scope.is_board_wide()
-            && !records.iter().any(|(i, _)| i.uuid == r.uuid)
-            && blocking_problems(pcb.board_rule(r.kind), r).is_empty()
-    });
-    for record in imported.chain(kept) {
-        if let Some(problem) = blocking_problems(board_of(record.kind), record)
-            .into_iter()
-            .next()
-        {
-            return Err(CommandError::rejected(format!(
-                "importing leaves the `{}` rule invalid: {}",
-                record.kind.id(),
-                problem.message()
-            )));
-        }
-    }
-    Ok(())
 }

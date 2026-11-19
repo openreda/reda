@@ -9,7 +9,7 @@ use reda_model::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The board's rules as a [`RuleSet`]: its Net Classes by name in rank order, the
 /// board-wide records in kind order, then each class's records, and the DRC severities.
@@ -122,7 +122,7 @@ pub fn problem(set: &RuleSet) -> Option<String> {
         if name.is_empty()
             || name.trim() != name
             || name.eq_ignore_ascii_case(crate::DEFAULT_NET_CLASS)
-            || !class_names.insert(name.to_ascii_lowercase())
+            || !class_names.insert(name.to_lowercase())
         {
             return Some(format!("invalid or repeated Net Class name {name:?}"));
         }
@@ -145,7 +145,7 @@ pub fn problem(set: &RuleSet) -> Option<String> {
             .chain(rule.net_class_pair.iter().flatten())
         {
             if !name.eq_ignore_ascii_case(crate::DEFAULT_NET_CLASS)
-                && !class_names.contains(&name.to_ascii_lowercase())
+                && !class_names.contains(&name.to_lowercase())
             {
                 return Some(format!(
                     "rule {i} names the Net Class {name:?}, which is not listed"
@@ -153,7 +153,7 @@ pub fn problem(set: &RuleSet) -> Option<String> {
             }
         }
         let pair = rule.net_class_pair.clone().map(|mut pair| {
-            pair = pair.map(|name| name.to_ascii_lowercase());
+            pair = pair.map(|name| name.to_lowercase());
             pair.sort();
             pair
         });
@@ -169,7 +169,7 @@ pub fn problem(set: &RuleSet) -> Option<String> {
         }
         if !seen.insert((
             rule.kind,
-            rule.net_class.as_ref().map(|n| n.to_ascii_lowercase()),
+            rule.net_class.as_ref().map(|n| n.to_lowercase()),
             pair,
             layers.clone(),
         )) {
@@ -321,11 +321,10 @@ pub fn plan(
             "no position-dependent source record at index {index}"
         ));
     }
-    let mut selected_scopes = std::collections::BTreeMap::new();
+    let mut selected_layers = BTreeMap::new();
     let mut preview = ImportPreview::default();
-    let mut classes: Vec<NetClass> = Vec::new();
+    let mut missing_classes = BTreeMap::<String, Uuid>::new();
     let mut records = Vec::new();
-    let mut rank = pcb.net_classes().map(|c| c.rank).max().unwrap_or(0);
     let copper: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
     let at = |position: u8| {
         position
@@ -404,22 +403,12 @@ pub fn plan(
             if name.eq_ignore_ascii_case(crate::DEFAULT_NET_CLASS) {
                 return Uuid::NIL;
             }
-            if let Some(class) = pcb
-                .net_classes()
-                .chain(classes.iter())
-                .find(|c| c.name.eq_ignore_ascii_case(name))
-            {
+            if let Some(class) = pcb.net_class_named(name) {
                 return class.uuid;
             }
-            rank += 1;
-            let uuid = new_id();
-            preview.new_classes.push(name.to_owned());
-            classes.push(NetClass {
-                uuid,
-                name: name.to_owned(),
-                rank,
-            });
-            uuid
+            *missing_classes
+                .entry(name.to_lowercase())
+                .or_insert_with(&mut new_id)
         };
         let scope = RuleScope {
             net_class: rule.net_class.as_deref().map(&mut class_id),
@@ -430,13 +419,21 @@ pub fn plan(
             }),
             layers,
         };
-        if let Some(first) = selected_scopes.insert((rule.kind, scope.clone()), index) {
-            return Err(format!(
-                "source rules {first} and {index} map to the same target scope; select only one"
-            ));
+        let existing = pcb.scoped_rule(rule.kind, &scope);
+        if let Some(why) = pcb.rule_layer_problem(rule.kind, &scope, existing.map(|r| r.uuid)) {
+            return Err(format!("source rule {index}: {why}"));
+        }
+        if let Some(RuleLayers::Named(ids)) = &scope.layers {
+            for &layer in ids {
+                let key = (rule.kind, scope.net_class, scope.net_class_pair, layer);
+                if let Some(first) = selected_layers.insert(key, index) {
+                    return Err(format!(
+                        "source rules {first} and {index} name the same target Layer for one owner; select only one"
+                    ));
+                }
+            }
         }
         let values = rule.values.clone().with_allowed(allowed);
-        let existing = pcb.scoped_rule(rule.kind, &scope);
         let record = DesignRule {
             uuid: existing.map_or_else(&mut new_id, |r| r.uuid),
             kind: rule.kind,
@@ -457,6 +454,39 @@ pub fn plan(
             enabled: rule.enabled,
         });
         records.push((record, existing.is_some()));
+    }
+    // Keep the file's relative class ranks even when its records mention them out of order.
+    let mut classes = Vec::new();
+    let mut rank = pcb.net_classes().map(|c| c.rank).max().unwrap_or(0);
+    for class in &set.net_classes {
+        if let Some(&uuid) = missing_classes.get(&class.name.to_lowercase()) {
+            rank = rank
+                .checked_add(1)
+                .ok_or("no rank left for an imported Net Class")?;
+            preview.new_classes.push(class.name.clone());
+            classes.push(NetClass {
+                uuid,
+                name: class.name.clone(),
+                rank,
+            });
+        }
+    }
+    let changed: BTreeSet<_> = records.iter().map(|(r, _)| r.uuid).collect();
+    let original: Vec<_> = pcb.rules().collect();
+    let before = super::validation::problems_for(pcb, &original);
+    let combined: Vec<_> = original
+        .into_iter()
+        .filter(|r| !changed.contains(&r.uuid))
+        .chain(records.iter().map(|(r, _)| r))
+        .collect();
+    for problem in super::validation::problems_for(pcb, &combined) {
+        if changed.contains(&problem.rule) || !before.contains(&problem) {
+            return Err(format!(
+                "importing leaves the `{}` rule invalid: {}",
+                problem.kind.id(),
+                problem.message
+            ));
+        }
     }
     let now = pcb.setup().severities;
     if severities {

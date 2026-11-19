@@ -3,6 +3,7 @@
 //! ```text
 //! {
 //!   "format": 2,
+//!   "copper_layers": 4,
 //!   "net_classes": [{"name":"Power"}],
 //!   "rules": [
 //!     {"kind":"clearance","values":{"value":160000}},
