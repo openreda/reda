@@ -163,7 +163,7 @@ pub(crate) fn update(
         }
         let obstacles = obstacles::near(pcb, &copper, &holes, j, &drops);
         let mut hash = Fingerprint::new();
-        hash.add(&1u32)
+        hash.add(&2u32)
             .add(&j.location)
             .add(&j.target)
             .add(&j.track.geometry)
@@ -183,7 +183,7 @@ pub(crate) fn update(
         } else {
             stale += 1;
             if regenerate {
-                drops.push(path::fit(j, &obstacles, inputs));
+                drops.push(path::fit(j, &obstacles, &copper, inputs));
             } else if let Some(d) = previous {
                 drops.push(d.clone());
             }

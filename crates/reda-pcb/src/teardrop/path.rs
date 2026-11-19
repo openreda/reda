@@ -204,39 +204,56 @@ fn taper(path: &[Point], length: f64, base: f64, tip: f64, curved: bool) -> poly
     poly::union(strips)
 }
 
-pub(super) fn fit(j: &Junction<'_>, obstacles: &Obstacles, inputs: String) -> TeardropFill {
+pub(super) fn fit(
+    j: &Junction<'_>,
+    obstacles: &Obstacles,
+    copper: &Copper,
+    inputs: String,
+) -> TeardropFill {
     let requested = percent(j.size, j.rule.length, j.rule.max_length).0 as f64;
     let length = requested.min(j.path.windows(2).map(|p| distance(p[0], p[1])).sum());
     let width = percent(j.size, j.rule.width, j.rule.max_width).0 as f64;
     let tip = j.track.width.0 as f64;
-    let shape = |scale: f64| {
-        taper(
-            &j.path,
-            length * scale,
-            tip + (width - tip) * scale,
-            tip,
-            j.rule.curved,
-        )
-    };
-    let mut area = shape(1.);
+    let mut area = taper(&j.path, length, width, tip, j.rule.curved);
     let mut shortened = length + 1. < requested;
     if !obstacles.clears(&area) {
-        let mut lo = 0.;
-        let mut hi = 1.;
+        let copper_under = std::iter::once(j.target)
+            .chain(j.path_tracks.iter().map(|&uuid| Item::Track { uuid }))
+            .flat_map(|item| copper.item_pieces(item))
+            .filter(|(layer, _)| *layer == j.track.layer)
+            .flat_map(|(_, shape)| poly::grown(shape, 0))
+            .collect();
+        let copper_under = poly::union(copper_under);
+        // First move the tip away from the obstruction while reducing the
+        // flare. If that leaves only existing copper, try a narrower base
+        // at full length before giving up on the junction.
         area.clear();
-        // Stop at board-grid precision. Only an independently cleared trial
-        // can become the result, including when a corner changes its shape.
-        while (hi - lo) * length.max(width) > 1. {
-            let trial = (lo + hi) / 2.;
-            let candidate = shape(trial);
-            if obstacles.clears(&candidate) {
-                lo = trial;
-                area = candidate;
-            } else {
-                hi = trial;
+        for shorten_length in [true, false] {
+            let mut lo = 0.;
+            let mut hi = 1.;
+            while (hi - lo) * length.max(width) > 1. {
+                let trial = (lo + hi) / 2.;
+                let candidate = taper(
+                    &j.path,
+                    if shorten_length {
+                        length * trial
+                    } else {
+                        length
+                    },
+                    tip + (width - tip) * trial,
+                    tip,
+                    j.rule.curved,
+                );
+                if obstacles.clears(&candidate) {
+                    lo = trial;
+                    area = candidate;
+                } else {
+                    hi = trial;
+                }
             }
-        }
-        if (width - tip) * lo < 1. || length * lo < 1. {
+            if !poly::difference(&area, &copper_under).is_empty() {
+                break;
+            }
             area.clear();
         }
         shortened = !area.is_empty();

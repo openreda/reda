@@ -3,10 +3,11 @@
 use super::{Junction, percent};
 use crate::copper::{Copper, Item};
 use crate::drill::DrillHole;
-use crate::rules::{clearance_between_on, net_rules, resolve_pair_on};
+use crate::rules::{clearance_between_on, largest, net_rules, resolve_pair_on};
 use crate::zone::{poly, shape_copper};
 use reda_command::Fingerprint;
-use reda_model::{PcbDocument, Restriction, RuleKind, TeardropFill};
+use reda_model::geom::{Nm, Point, grown::Shape};
+use reda_model::{PcbDocument, Restriction, RuleField, RuleKind, TeardropFill};
 
 pub(super) struct Obstacles(poly::Area);
 
@@ -67,7 +68,9 @@ pub(super) fn near(
             .collect(),
     );
     let mut excluded = Vec::new();
-    for (item, shape) in copper.pieces_on(layer) {
+    let search = Shape::chain(&[Point::from(lo), Point::from(hi)], 0);
+    let reach = largest(pcb, RuleKind::Clearance, RuleField::Value).max(Nm(1));
+    for (item, shape) in copper.pieces_near(layer, &search, reach) {
         if item == j.target || matches!(item,Item::Track{uuid} if j.path_tracks.contains(&uuid)) {
             continue;
         }

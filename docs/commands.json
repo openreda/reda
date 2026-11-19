@@ -66553,7 +66553,15 @@
             "type": "boolean"
           },
           "teardrops": {
-            "$ref": "#/$defs/TeardropStatus"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TeardropStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Junction counts and locations when this fill generated or removed Teardrops."
           },
           "zones": {
             "description": "The Zones it filled, in fill order (priority, highest first); the others kept\ntheir fills.",
@@ -66565,8 +66573,7 @@
         },
         "required": [
           "zones",
-          "cached",
-          "teardrops"
+          "cached"
         ],
         "title": "ZoneFillResult",
         "type": "object"

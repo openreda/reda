@@ -285,11 +285,11 @@ fn holes_and_board_cutouts_shorten_an_otherwise_clear_taper() {
     for (command, obstacle) in [
         (
             "pcb.free_pad.add",
-            json!({"kind":"non_plated","shape":"circle","at":{"x":"10.75mm","y":"10.56mm"},"width":"0.16mm","hole":{"width":"0.16mm"}}),
+            json!({"kind":"non_plated","shape":"circle","at":{"x":"10.9mm","y":"10.56mm"},"width":"0.16mm","hole":{"width":"0.16mm"}}),
         ),
         (
             "pcb.board_cutout.add",
-            json!({"vertices":[{"x":"10.75mm","y":"10.49mm"},{"x":"11mm","y":"10.49mm"},{"x":"11mm","y":"11mm"},{"x":"10.75mm","y":"11mm"}]}),
+            json!({"vertices":[{"x":"10.9mm","y":"10.49mm"},{"x":"11mm","y":"10.49mm"},{"x":"11mm","y":"11mm"},{"x":"10.9mm","y":"11mm"}]}),
         ),
     ] {
         let dir = TempDir::new("teardrop-edge");
@@ -320,4 +320,122 @@ fn holes_and_board_cutouts_shorten_an_otherwise_clear_taper() {
             "{drc}"
         );
     }
+}
+
+#[test]
+fn a_taper_reduced_entirely_inside_the_wide_cap_is_left_out() {
+    let dir = TempDir::new("teardrop-no-room");
+    let (mut e, net) = board(&dir);
+    track(&mut e, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(
+        &mut e,
+        other,
+        100_000,
+        &[(250_000, 210_000), (250_000, 800_000)],
+    );
+    enable(&mut e, json!({"enabled":true,"length":100}));
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["left_out"],
+        1
+    );
+}
+
+#[test]
+fn imported_board_and_net_class_rules_control_the_next_fill() {
+    let source = TempDir::new("teardrop-import");
+    let (mut e, _) = board(&source);
+    e.run_ok("pcb.net_class.add", json!({"name":"RF"}));
+    enable(&mut e, json!({"enabled":true,"length":100}));
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":"RF"},"values":{"width_change":{"enabled":false}}}));
+    let path = source.path().join("house.redarules");
+    e.run_ok("pcb.rules.export", json!({"path":path}));
+    let target = TempDir::new("teardrop-import-board");
+    let (mut e, digital) = board(&target);
+    let rf = uuid(&e.run_ok("test.net.add", json!({"name":"RF_IN"}))["result"]["uuid"]);
+    e.run_ok("pcb.net_class.add", json!({"name":"RF","nets":[rf]}));
+    for (net, y) in [(rf, 0), (digital, 3_000_000)] {
+        track(&mut e, net, 1_000_000, &[(-2_000_000, y), (0, y)]);
+        track(&mut e, net, 100_000, &[(0, y), (3_000_000, y)]);
+    }
+    e.run_ok(
+        "pcb.rules.import",
+        json!({"path":path,"kinds":["teardrop"]}),
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        1
+    );
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let d = &project.zone_fills(pcb.uuid).unwrap().teardrops[0];
+    assert_eq!(pcb.track(d.location.track).unwrap().net, Some(digital));
+}
+
+#[test]
+fn importing_outer_layer_teardrop_rules_enables_the_next_fill() {
+    let source = TempDir::new("teardrop-rules-source");
+    let (mut e, _) = board(&source);
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"layers":"outer"},"values":{"width_change":{"enabled":true,"length":100}}}));
+    let path = source.path().join("teardrops.redarules");
+    e.run_ok("pcb.rules.export", json!({"path":path}));
+    let target = TempDir::new("teardrop-rules-target");
+    let (mut e, net) = board(&target);
+    track(&mut e, net, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(&mut e, net, 100_000, &[(0, 0), (3_000_000, 0)]);
+    e.run_ok(
+        "pcb.rules.import",
+        json!({"path":path,"kinds":["teardrop"]}),
+    );
+    assert_eq!(
+        e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
+        1
+    );
+}
+
+#[test]
+fn opposing_tapers_keep_clear_of_each_other_and_reuse_their_fills() {
+    let dir = TempDir::new("teardrop-neighbours");
+    let (mut e, a) = board(&dir);
+    let b = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+    track(&mut e, a, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    track(
+        &mut e,
+        a,
+        100_000,
+        &[(0, 0), (600_000, 400_000), (3_000_000, 400_000)],
+    );
+    track(
+        &mut e,
+        b,
+        1_000_000,
+        &[(-2_000_000, 1_420_000), (0, 1_420_000)],
+    );
+    track(
+        &mut e,
+        b,
+        100_000,
+        &[(0, 1_420_000), (600_000, 1_020_000), (3_000_000, 1_020_000)],
+    );
+    enable(
+        &mut e,
+        json!({"enabled":true,"max_length":"2mm","length":200}),
+    );
+    let out = e.run_ok("pcb.zone.fill", json!({}));
+    assert_eq!(out["teardrops"]["generated"], 1);
+    assert_eq!(out["teardrops"]["shortened"], 1);
+    assert_eq!(
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
+        0
+    );
+    let drc = e.run_ok("drc.run", json!({}));
+    assert!(
+        drc["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|v| v["check"] != "clearance" && v["check"] != "short_circuit"),
+        "{drc}"
+    );
 }

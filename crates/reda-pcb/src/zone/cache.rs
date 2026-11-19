@@ -3,7 +3,9 @@
 //! Little-endian throughout: the magic `REDAFILL`, a `u32` format version, a `u32` Zone
 //! count, then per Zone its 16-byte UUID, its input hash (`u32` length + UTF-8), a `u32`
 //! shape count and per shape a `u32` ring count (outer first, then holes) and per ring a
-//! `u32` point count and the points as `i64` x, y in nm. Anything malformed reads as no
+//! `u32` point count and the points as `i64` x, y in nm. Version 3 ends with a byte count
+//! and the JSON array of Teardrop cache entries. Version 2 has only Zones. Anything
+//! malformed reads as no
 //! cache, which only means a refill.
 
 use std::collections::BTreeMap;
