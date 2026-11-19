@@ -26513,6 +26513,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
+              },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
                 "description": "Whether unused inner lands of a plated through-hole Pad are removed."
@@ -28495,6 +28499,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "teardrop": {
+                "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+                "type": "boolean"
               },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
@@ -34992,6 +35000,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
+              },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
                 "description": "Whether unused inner lands of a plated through-hole Pad are removed."
@@ -36995,6 +37007,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "teardrop": {
+                "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+                "type": "boolean"
               },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
@@ -43728,6 +43744,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
+              },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
                 "description": "Whether unused inner lands of a plated through-hole Pad are removed."
@@ -48883,6 +48903,13 @@
             "default": null,
             "description": "The copper side of an SMD Pad; top when left out. Pads with a hole have none."
           },
+          "teardrop": {
+            "description": "False opts this Pad out of derived Teardrops on every Layer.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "unused_layers": {
             "anyOf": [
               {
@@ -49553,7 +49580,7 @@
           },
           "include_locked": {
             "default": false,
-            "description": "Edits a locked Free Pad too; without it a locked one refuses.",
+            "description": "Edits a locked Free Pad too. Changing only its Teardrop permission needs no unlock.",
             "type": "boolean"
           },
           "kind": {
@@ -49648,6 +49675,13 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the top."
+          },
+          "teardrop": {
+            "description": "False opts this Pad out of derived Teardrops on every Layer.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "unused_layers": {
             "anyOf": [
@@ -53590,6 +53624,13 @@
             "default": null,
             "description": "`null` returns an SMD Pad to the Footprint's top."
           },
+          "teardrop": {
+            "description": "False opts this placed Pad out of derived Teardrops on every Layer.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "unused_layers": {
             "anyOf": [
               {
@@ -54179,6 +54220,10 @@
                   }
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "teardrop": {
+                "description": "False opts this land out of derived Teardrops on every Layer.",
+                "type": "boolean"
               },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
@@ -63138,6 +63183,14 @@
                 "format": "uuid",
                 "type": "string"
               },
+              "pad": {
+                "description": "Pad of the target Footprint instance, for a placed Pad junction.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "target": {
                 "format": "uuid",
                 "type": "string"
@@ -66672,6 +66725,14 @@
               "layer": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "pad": {
+                "description": "Pad of the target Footprint instance, for a placed Pad junction.",
+                "format": "uuid",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "target": {
                 "format": "uuid",
@@ -72918,6 +72979,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "teardrop": {
+                "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+                "type": "boolean"
+              },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
                 "description": "Whether unused inner lands of a plated through-hole Pad are removed."
@@ -75154,6 +75219,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "teardrop": {
+                "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+                "type": "boolean"
               },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",
@@ -79801,6 +79870,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "teardrop": {
+                "description": "False on a locally edited Footprint copy opts this Pad out on every Layer.",
+                "type": "boolean"
               },
               "unused_layers": {
                 "$ref": "#/$defs/UnusedLayers",

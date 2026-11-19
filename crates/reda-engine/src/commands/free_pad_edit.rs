@@ -67,7 +67,7 @@ pub struct FreePadEditParams {
     /// Replaces the whole Zone connection; `null` inherits every value.
     #[serde(default, deserialize_with = "present")]
     pub zone_connection: Option<Option<ZoneConnectionParam>>,
-    /// Edits a locked Free Pad too; without it a locked one refuses.
+    /// Edits a locked Free Pad too. Changing only its Teardrop permission needs no unlock.
     #[serde(default)]
     pub include_locked: bool,
 }
@@ -100,7 +100,6 @@ impl Command for FreePadEdit {
             .free_pad(p.pad)
             .ok_or_else(|| CommandError::not_found(format!("the PCB has no Free Pad {}", p.pad)))?
             .clone();
-        reda_pcb::lock::refuse(pcb, [free.uuid], p.include_locked, "edit")?;
         let patch = PadPatch {
             kind: p.kind,
             shape: p.shape,
@@ -122,10 +121,10 @@ impl Command for FreePadEdit {
             zone_connection: p.zone_connection,
         };
         let pad = patch.apply(as_pad(&free))?;
-        let edited = FreePad {
+        let mut edited = FreePad {
             uuid: free.uuid,
             locked: free.locked,
-            teardrop: p.teardrop.unwrap_or(free.teardrop),
+            teardrop: free.teardrop,
             kind: pad.kind,
             shape: pad.shape,
             at: pad.at,
@@ -146,6 +145,11 @@ impl Command for FreePadEdit {
             paste: pad.paste,
             zone_connection: pad.zone_connection,
         };
+        // A Lock allows the derived Teardrops to change while protecting the Pad itself.
+        if p.teardrop.is_none() || edited != free {
+            reda_pcb::lock::refuse(pcb, [free.uuid], p.include_locked, "edit")?;
+        }
+        edited.teardrop = p.teardrop.unwrap_or(free.teardrop);
         if let Some((pointer, problem)) = edited.problem() {
             return Err(CommandError::invalid_params(&pointer, problem));
         }

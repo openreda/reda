@@ -514,6 +514,21 @@ fn a_track_ending_off_centre_on_a_free_pad_uses_the_physical_lands_edge_and_tran
     );
     assert_eq!(points.iter().map(|p| p.y.0).min(), Some(9_500_000));
     assert_eq!(points.iter().map(|p| p.y.0).max(), Some(10_500_000));
+
+    e.run_ok("pcb.free_pad.edit", json!({"pad":pad,"rotation":"90deg"}));
+    e.run_ok("pcb.zone.fill", json!({}));
+    let project = e.project().unwrap();
+    let rotated = &project
+        .zone_fills(project.pcb().unwrap().uuid)
+        .unwrap()
+        .teardrops[0];
+    assert_eq!(
+        rotated.location.at,
+        Point::new(Nm(10_500_000), Nm(10_000_000))
+    );
+    let side = &rotated.shapes[0].outer;
+    assert_eq!(side.iter().map(|p| p.y.0).min(), Some(9_000_000));
+    assert_eq!(side.iter().map(|p| p.y.0).max(), Some(11_000_000));
 }
 
 fn pad_with_zone(e: &mut TestEngine, net: Uuid, style: &str) -> Uuid {
@@ -606,6 +621,17 @@ fn tapers_follow_a_nonuniform_vias_actual_copper_on_each_layer() {
             json!({"layer":layer,"net":net,"width":"0.10mm","points":[at,{"x":"14mm","y":"10mm"}]}),
         );
     }
+    e.run_ok("pcb.lock", json!({"objects":[via],"locked":true}));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"annular_ring","values":{"min":"0.2mm"}}),
+    );
+    let ring_violations = |e: &mut TestEngine| {
+        e.run_ok("drc.run", json!({"checks":["annular_ring"]}))["violations"].clone()
+    };
+    let before = ring_violations(&mut e);
+    assert_eq!(before.as_array().unwrap().len(), 1);
+    assert_eq!(before[0]["args"]["actual"], 175_000);
     e.run_ok(
         "pcb.rules.set",
         json!({"kind":"teardrop","values":{"via":{"enabled":true}}}),
@@ -614,6 +640,7 @@ fn tapers_follow_a_nonuniform_vias_actual_copper_on_each_layer() {
         e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
         3
     );
+    assert_eq!(ring_violations(&mut e), before);
     let project = e.project().unwrap();
     let pcb = project.pcb().unwrap();
     let fills = project.zone_fills(pcb.uuid).unwrap();
@@ -719,6 +746,16 @@ fn a_pad_opt_out_removes_every_attached_taper_and_leaves_other_targets_alone() {
     };
     assert_eq!(counts(&mut e), 4);
     e.run_ok(
+        "pcb.lock",
+        json!({"objects":[part["footprint"],free],"locked":true}),
+    );
+    let denied = e.run_err(
+        "pcb.free_pad.edit",
+        json!({"pad":free,"width":"2mm","teardrop":false}),
+    );
+    assert_eq!(denied.code, reda_command::ErrorCode::Rejected);
+
+    e.run_ok(
         "pcb.pad.edit",
         json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":false}),
     );
@@ -730,4 +767,37 @@ fn a_pad_opt_out_removes_every_attached_taper_and_leaves_other_targets_alone() {
         json!({"instance":part["footprint"],"pad":part["pads"][0],"teardrop":true}),
     );
     assert_eq!(counts(&mut e), 2);
+}
+
+#[test]
+fn coincident_pads_of_one_footprint_keep_distinct_locations_in_status_and_cache() {
+    let dir = TempDir::new("coincident-shortened-pads");
+    let (mut e, net) = board(&dir);
+    let pad = json!({"at":{"x":0,"y":0},"width":"1mm","height":"1mm","net":net});
+    let part = e.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":"10mm","y":"10mm"},"pads":[pad,pad]
+        }),
+    )["result"]
+        .clone();
+    let owner = track(&mut e, net, 100_000, &[(0, 0), (750_000, 0)])[0];
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"teardrop","values":{"smd_pad":{"enabled":true}}}),
+    );
+    e.run_ok("pcb.zone.fill", json!({}));
+    let status = e.run_ok("pcb.teardrop.status", json!({}));
+    assert_eq!(status["shortened"], 2);
+    let items = status["shortened_items"].as_array().unwrap();
+    for (item, pad) in items.iter().zip(part["pads"].as_array().unwrap()) {
+        assert_eq!(item["target"], part["footprint"]);
+        assert_eq!(item["track"], json!(owner));
+        assert_eq!(item["pad"], *pad);
+        assert_eq!(item["at"], json!({"x":10_500_000,"y":10_000_000}));
+    }
+    assert_eq!(
+        e.run_ok("pcb.zone.fill_status", json!({}))["stale_teardrops"],
+        0
+    );
 }
