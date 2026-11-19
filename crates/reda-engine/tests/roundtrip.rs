@@ -441,6 +441,8 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 45_000 } else { 0 }),
             width: Nm(3_000_000),
             height: Nm(3_000_000),
+            middle: None,
+            bottom: None,
             corner_ratio: None,
             chamfer_ratio: None,
             corners: None,

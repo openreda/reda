@@ -51,6 +51,8 @@ fn write_flawed_library(folder: &Path) {
             rotation: Millideg(0),
             width: Nm::from_mm(1),
             height: Nm::from_mm(1),
+            middle: None,
+            bottom: None,
             corner_ratio: None,
             chamfer_ratio: None,
             corners: None,

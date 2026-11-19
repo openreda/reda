@@ -73,3 +73,44 @@ pub(super) fn selected(
         }
     });
 }
+
+pub(super) fn diameter_rows(
+    ui: &mut Ui,
+    shell: &Shell,
+    pcb: &PcbDocument,
+    via: &Via,
+    out: &mut Vec<Out>,
+) {
+    let units = units(shell);
+    let middle = pcb.span_layers(via.span).len() > 2;
+    for (field, label, value) in [
+        ("middle", tr!("via-middle-diameter"), via.diameter.middle),
+        ("end", tr!("via-end-diameter"), via.diameter.end),
+    ] {
+        if field == "middle" && !middle {
+            continue;
+        }
+        let shown = value
+            .map(|v| crate::pcb::view::format_length(v, units))
+            .unwrap_or_default();
+        let key = format!("via-size-{}-{field}", via.uuid);
+        if let Some(edit) = text_field(ui, &key, &label, &Shared::Same(shown), !via.locked) {
+            let text = edit.trim();
+            let mut diameter = json!(via.diameter);
+            if text.is_empty() {
+                diameter
+                    .as_object_mut()
+                    .expect("diameter is an object")
+                    .remove(field);
+            } else {
+                diameter[field] =
+                    super::parse_length(text, units).map_or_else(|| json!(text), |v| json!(v));
+            }
+            out.push(Out::Run(
+                "pcb.via.set",
+                json!({"vias":[via.uuid],"diameter":diameter}),
+            ));
+        }
+        ui.end_row();
+    }
+}

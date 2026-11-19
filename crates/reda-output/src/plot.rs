@@ -504,7 +504,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
         if pcb.span_layers(via.span).contains(&layer) {
             let net = net_name(pcb, via.net);
             g.flash(
-                Template::Circle(via.diameter.start),
+                Template::Circle(via.diameter_on(layer)),
                 "ViaPad",
                 via.at,
                 &net_attribute(&net),
@@ -512,21 +512,15 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
         }
     }
 
-    let copper: Vec<Uuid> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let side = pcb.layers().layer(layer).expect("copper Layer").side;
     let on_layer = |pad: &PlacedPad| match pad.kind {
         PadKind::NonPlated => false,
         PadKind::PlatedThroughHole => true,
-        PadKind::Smd => {
-            let outer = match pad.side.unwrap_or(Side::Top) {
-                Side::Top => copper.first(),
-                Side::Bottom => copper.last(),
-            };
-            outer == Some(&layer)
-        }
+        PadKind::Smd => pad.side == side,
     };
     let mask_defined = mask_defined_pads(pcb);
     for instance in pcb.footprints() {
-        for pad in placed::placed_pads(pcb, instance) {
+        for pad in placed::placed_pads_on(pcb, instance, side) {
             if on_layer(&pad) {
                 let pin = format!("{},{}", escape(&instance.designator), escape(&pad.number));
                 let net = net_name(pcb, pad.net);
@@ -545,7 +539,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
         }
     }
     for free in pcb.free_pads() {
-        let pad = placed::placed_free_pad(free);
+        let pad = placed::placed_free_pad_on(free, side);
         if on_layer(&pad) {
             let net = net_name(pcb, pad.net);
             let (template, at) = pad_template(&pad);

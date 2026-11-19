@@ -1198,12 +1198,7 @@ impl PcbDocument {
         let mut keys = std::collections::BTreeSet::new();
         for copy in self.footprint_copies.values() {
             for pad in &copy.footprint.pads {
-                if let Some((field, problem)) = crate::opening_problem(
-                    pad.kind,
-                    pad.side,
-                    pad.mask.as_ref(),
-                    pad.paste.as_ref(),
-                ) {
+                if let Some((field, problem)) = pad.stored_problem() {
                     return Err(format!("Pad {}{field}: {problem}", pad.uuid));
                 }
             }

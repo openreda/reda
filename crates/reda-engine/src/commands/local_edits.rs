@@ -163,6 +163,12 @@ pub struct PcbPadEditParams {
     pub rotation: Option<Angle>,
     pub width: Option<Length>,
     pub height: Option<Length>,
+    /// Replaces the entire inner copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub middle: Option<Option<reda_command::PadCopperParam>>,
+    /// Replaces the entire bottom copper shape. `null` inherits the top.
+    #[serde(default, deserialize_with = "present")]
+    pub bottom: Option<Option<reda_command::PadCopperParam>>,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -251,6 +257,8 @@ impl Command for PcbPadEdit {
             side: p.side,
             mask: p.mask,
             paste: p.paste,
+            middle: p.middle,
+            bottom: p.bottom,
             zone_connection: p.zone_connection,
         };
         footprint.pads[index] = patch.apply(footprint.pads[index].clone())?;

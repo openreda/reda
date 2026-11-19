@@ -278,6 +278,17 @@
           "$ref": "#/$defs/Point",
           "description": "The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks\nconnect there and the Pad turns about it."
         },
+        "bottom": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional bottom copper, in the Pad's frame. Omitted groups inherit the top."
+        },
         "chamfer_ratio": {
           "description": "How deep the chamfers of a `chamfered_rect` are.",
           "maximum": 100000,
@@ -336,6 +347,17 @@
             }
           ],
           "description": "Per-side solder-mask expansion or tenting; omitted values inherit the board's rule."
+        },
+        "middle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PadCopperShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional copper on all inner Layers, in the Pad's frame."
         },
         "number": {
           "type": "string"
@@ -409,6 +431,59 @@
         "shape",
         "at",
         "rotation",
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "PadCopperShape": {
+      "additionalProperties": false,
+      "description": "The complete copper shape of one Pad Stack group. Its anchor, offset and hole\nbelong to the Pad and are shared by every group.",
+      "properties": {
+        "chamfer_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corner_ratio": {
+          "description": "Thousandths of a percent of half the shorter side: 100000 is fully round.",
+          "maximum": 100000,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/Corner"
+          },
+          "type": [
+            "array",
+            "null"
+          ],
+          "uniqueItems": true
+        },
+        "height": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "shape": {
+          "$ref": "#/$defs/PadShape"
+        },
+        "width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "shape",
         "width",
         "height"
       ],

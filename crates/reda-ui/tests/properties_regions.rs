@@ -102,7 +102,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
     run(
         &mut shell,
         "pcb.via.set",
-        json!({"vias": [b], "diameter": "0.8mm"}),
+        json!({"vias": [b], "diameter": {"start":"0.8mm","end":"1mm"}}),
     );
     run(&mut shell, "selection.set", json!({"objects": [a, b]}));
     let p = properties(&shell);
@@ -125,7 +125,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
             "batch",
             json!({"commands": [
                 {"id": "pcb.via.set", "params": {"vias": [a], "diameter": diameter_a + 100_000}},
-                {"id": "pcb.via.set", "params": {"vias": [b], "diameter": 900_000}},
+                {"id": "pcb.via.set", "params": {"vias": [b], "diameter": {"start":900_000,"end":1_000_000}}},
             ]})
         )
     );

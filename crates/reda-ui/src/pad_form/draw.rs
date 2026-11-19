@@ -1,6 +1,8 @@
 //! Drawing the Pad rows of [`super`]: a two-column grid, each row labelled for
 //! accessibility, giving back the edits made this frame.
 
+pub(crate) mod groups;
+
 use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{

@@ -19,6 +19,12 @@ pub struct Pad {
     pub number: String,
     pub kind: PadKind,
     pub shape: PadShape,
+    /// Optional copper on all inner Layers, in the Pad's frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middle: Option<PadCopperShape>,
+    /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<PadCopperShape>,
     /// The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks
     /// connect there and the Pad turns about it.
     pub at: Point,
@@ -59,13 +65,32 @@ pub struct Pad {
 
 impl Pad {
     pub fn problem(&self) -> Option<(String, String)> {
-        self.form().problem().or_else(|| {
-            crate::opening_problem(
-                self.kind,
-                self.side,
-                self.mask.as_ref(),
-                self.paste.as_ref(),
-            )
+        self.form()
+            .stack_problem(self.middle, self.bottom)
+            .or_else(|| self.stored_problem())
+    }
+
+    /// Structural errors on a stored Pad. Its dimensional checks also run in the
+    /// Library checker, so an authored Footprint can be opened for repair.
+    pub fn stored_problem(&self) -> Option<(String, String)> {
+        self.form()
+            .stack_kind_problem(self.middle, self.bottom)
+            .or_else(|| {
+                crate::opening_problem(
+                    self.kind,
+                    self.side,
+                    self.mask.as_ref(),
+                    self.paste.as_ref(),
+                )
+            })
+    }
+
+    /// The Pad's copper and shared hole on an outer side or any inner Layer.
+    pub fn form_on(&self, side: Option<Side>) -> PadForm {
+        self.form().with_copper(match side {
+            Some(Side::Top) => None,
+            Some(Side::Bottom) => self.bottom,
+            None => self.middle,
         })
     }
 
@@ -426,6 +451,22 @@ pub enum ConnectionStyle {
     None,
 }
 
+/// The complete copper shape of one Pad Stack group. Its anchor, offset and hole
+/// belong to the Pad and are shared by every group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PadCopperShape {
+    pub shape: PadShape,
+    pub width: Nm,
+    pub height: Nm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corner_ratio: Option<Ratio>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chamfer_ratio: Option<Ratio>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corners: Option<Corners>,
+}
+
 /// The shape fields every Pad has, Footprint Pad or Free Pad.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PadForm {
@@ -443,6 +484,68 @@ pub struct PadForm {
 }
 
 impl PadForm {
+    /// The copper group, without the anchor, offset and hole shared by the Pad Stack.
+    pub fn copper(&self) -> PadCopperShape {
+        PadCopperShape {
+            shape: self.shape,
+            width: self.width,
+            height: self.height,
+            corner_ratio: self.corner_ratio,
+            chamfer_ratio: self.chamfer_ratio,
+            corners: self.corners,
+        }
+    }
+
+    pub(crate) fn with_copper(self, copper: Option<PadCopperShape>) -> Self {
+        let Some(c) = copper else { return self };
+        Self {
+            shape: c.shape,
+            width: c.width,
+            height: c.height,
+            corner_ratio: c.corner_ratio,
+            chamfer_ratio: c.chamfer_ratio,
+            corners: c.corners,
+            ..self
+        }
+    }
+
+    fn stack_kind_problem(
+        self,
+        middle: Option<PadCopperShape>,
+        bottom: Option<PadCopperShape>,
+    ) -> Option<(String, String)> {
+        if self.kind != PadKind::PlatedThroughHole {
+            let group = middle
+                .map(|_| "/middle")
+                .or_else(|| bottom.map(|_| "/bottom"))?;
+            return Some((
+                group.into(),
+                "only plated through-hole Pads have a Pad Stack".into(),
+            ));
+        }
+        None
+    }
+
+    pub(crate) fn stack_problem(
+        self,
+        middle: Option<PadCopperShape>,
+        bottom: Option<PadCopperShape>,
+    ) -> Option<(String, String)> {
+        if let Some(problem) = self
+            .problem()
+            .or_else(|| self.stack_kind_problem(middle, bottom))
+        {
+            return Some(problem);
+        }
+        for (group, copper) in [("middle", middle), ("bottom", bottom)] {
+            let Some(copper) = copper else { continue };
+            if let Some((pointer, message)) = self.with_copper(Some(copper)).problem() {
+                return Some((format!("/{group}{pointer}"), message));
+            }
+        }
+        None
+    }
+
     /// The copper outline in the Pad's frame, the anchor at the origin.
     pub fn outline(&self) -> CornerRect {
         let (w, h) = (self.width, self.height);

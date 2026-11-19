@@ -215,6 +215,12 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
                             units(shell),
                             &mut numbers,
                         );
+                        if region_of == Region::Graphical
+                            && let Some((pcb, via)) = selected_via
+                        {
+                            widgets::form(("via-diameters", via.uuid))
+                                .show(ui, |ui| via::diameter_rows(ui, shell, pcb, via, &mut out));
+                        }
                     });
                 }
             }
@@ -526,8 +532,8 @@ fn number_label(name: &str) -> String {
         "y" => tr!("properties-y"),
         "width" => tr!("properties-width"),
         "length" => tr!("properties-length"),
-        "diameter" => tr!("properties-diameter"),
-        "hole" => tr!("properties-hole"),
+        "diameter" => tr!("via-start-diameter"),
+        "hole" => tr!("via-hole-size"),
         "offset" => tr!("properties-dimension-offset"),
         "extension_width" => tr!("properties-dimension-extension-width"),
         "gap" => tr!("properties-dimension-gap"),
