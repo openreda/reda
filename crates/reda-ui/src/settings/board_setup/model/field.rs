@@ -31,6 +31,18 @@ pub enum RuleField {
     ViaHole,
     ViaHolePreferred,
     ViaHoleMax,
+    /// The drilled Vias' maximum depth-to-hole ratio.
+    ViaAspectRatio,
+    MicroDiameter,
+    MicroDiameterPreferred,
+    MicroDiameterMax,
+    MicroHole,
+    MicroHolePreferred,
+    MicroHoleMax,
+    /// The micro Vias' maximum depth-to-hole ratio.
+    MicroAspectRatio,
+    /// How many micro Vias may meet end to end in one Via Stack.
+    MicroMaxStack,
     HoleMin,
     HoleMax,
     AnnularRing,
@@ -74,10 +86,15 @@ pub enum ValueKind {
     Spokes,
     /// 0, 45 or 90 degrees.
     Angle,
+    /// A ratio above 0 such as `0.9`, stored in thousandths.
+    Ratio,
+    /// A whole number from 1 to 255.
+    Count,
 }
 
-/// The values the Net Classes grid has a column for: clearance, Track width and Via size.
-pub const GRID_FIELDS: [RuleField; 12] = [
+/// The values the Net Classes grid has a column for: clearance, Track width, Via size and
+/// micro Via size. Copy and paste take them in this order.
+pub const GRID_FIELDS: [RuleField; 18] = [
     RuleField::Clearance,
     RuleField::TrackWidth,
     RuleField::TrackPreferred,
@@ -90,11 +107,21 @@ pub const GRID_FIELDS: [RuleField; 12] = [
     RuleField::ViaHoleMax,
     RuleField::ViaHoleClearance,
     RuleField::PadHoleClearance,
+    RuleField::MicroDiameter,
+    RuleField::MicroDiameterPreferred,
+    RuleField::MicroDiameterMax,
+    RuleField::MicroHole,
+    RuleField::MicroHolePreferred,
+    RuleField::MicroHoleMax,
 ];
 
 /// The rule kinds of the grid's columns, each with its own `enabled` and comment.
-pub const GRID_KINDS: [RuleKind; 3] =
-    [RuleKind::Clearance, RuleKind::TrackWidth, RuleKind::ViaSize];
+pub const GRID_KINDS: [RuleKind; 4] = [
+    RuleKind::Clearance,
+    RuleKind::TrackWidth,
+    RuleKind::ViaSize,
+    RuleKind::MicroviaSize,
+];
 
 /// The connection styles, as drafted.
 pub const STYLES: [&str; 3] = ["relief", "solid", "none"];
@@ -109,6 +136,7 @@ pub fn kind_name(kind: RuleKind) -> String {
         RuleKind::Clearance => tr!("board-setup-clearance"),
         RuleKind::TrackWidth => tr!("board-setup-track-width"),
         RuleKind::ViaSize => tr!("board-setup-via-size"),
+        RuleKind::MicroviaSize => tr!("board-setup-microvia-size"),
         RuleKind::MaskExpansion => tr!("board-setup-mask-expansion"),
         RuleKind::PasteExpansion => tr!("board-setup-paste-expansion"),
         RuleKind::ZoneConnection => tr!("board-setup-zone-connection"),
@@ -169,7 +197,7 @@ pub fn style_name(style: &str) -> String {
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 74] = {
+    pub const ALL: [RuleField; 83] = {
         use ConnectionTarget as T;
         use ConnectionValue as V;
         use RuleField as R;
@@ -186,6 +214,15 @@ impl RuleField {
             R::ViaHole,
             R::ViaHolePreferred,
             R::ViaHoleMax,
+            R::ViaAspectRatio,
+            R::MicroDiameter,
+            R::MicroDiameterPreferred,
+            R::MicroDiameterMax,
+            R::MicroHole,
+            R::MicroHolePreferred,
+            R::MicroHoleMax,
+            R::MicroAspectRatio,
+            R::MicroMaxStack,
             R::HoleMin,
             R::HoleMax,
             R::AnnularRing,
@@ -270,6 +307,14 @@ impl RuleField {
             R::ViaHole | R::ViaHolePreferred | R::ViaHoleMax => {
                 &[R::ViaHole, R::ViaHolePreferred, R::ViaHoleMax]
             }
+            R::MicroDiameter | R::MicroDiameterPreferred | R::MicroDiameterMax => &[
+                R::MicroDiameter,
+                R::MicroDiameterPreferred,
+                R::MicroDiameterMax,
+            ],
+            R::MicroHole | R::MicroHolePreferred | R::MicroHoleMax => {
+                &[R::MicroHole, R::MicroHolePreferred, R::MicroHoleMax]
+            }
             _ => &[],
         }
     }
@@ -289,6 +334,8 @@ impl RuleField {
             R::MaskTop | R::MaskBottom | R::PasteExpansion => ValueKind::Signed,
             R::MaskFromHoleEdge | R::TentViasTop | R::TentViasBottom => ValueKind::Flag,
             R::PastePercent => ValueKind::Percent,
+            R::ViaAspectRatio | R::MicroAspectRatio => ValueKind::Ratio,
+            R::MicroMaxStack => ValueKind::Count,
             R::Teardrop(_, m::TeardropField::Enabled | m::TeardropField::Curved) => ValueKind::Flag,
             R::Teardrop(
                 _,
@@ -318,6 +365,15 @@ impl RuleField {
             RuleField::ViaHole => (RuleKind::ViaSize, F::HoleMin),
             RuleField::ViaHolePreferred => (RuleKind::ViaSize, F::HolePreferred),
             RuleField::ViaHoleMax => (RuleKind::ViaSize, F::HoleMax),
+            RuleField::ViaAspectRatio => (RuleKind::ViaSize, F::AspectRatioMax),
+            RuleField::MicroDiameter => (RuleKind::MicroviaSize, F::DiameterMin),
+            RuleField::MicroDiameterPreferred => (RuleKind::MicroviaSize, F::DiameterPreferred),
+            RuleField::MicroDiameterMax => (RuleKind::MicroviaSize, F::DiameterMax),
+            RuleField::MicroHole => (RuleKind::MicroviaSize, F::HoleMin),
+            RuleField::MicroHolePreferred => (RuleKind::MicroviaSize, F::HolePreferred),
+            RuleField::MicroHoleMax => (RuleKind::MicroviaSize, F::HoleMax),
+            RuleField::MicroAspectRatio => (RuleKind::MicroviaSize, F::AspectRatioMax),
+            RuleField::MicroMaxStack => (RuleKind::MicroviaSize, F::MaxStack),
             RuleField::HoleMin => (RuleKind::HoleSize, F::Min),
             RuleField::HoleMax => (RuleKind::HoleSize, F::Max),
             RuleField::AnnularRing => (RuleKind::AnnularRing, F::Min),
@@ -363,10 +419,7 @@ impl RuleField {
             RuleValue::Flag(b) => b.to_string(),
             RuleValue::Percent(p) => p.to_string(),
             RuleValue::UnsignedPercent(p) => p.to_string(),
-            RuleValue::MilliRatio(n) => format!(
-                "{}:1",
-                reda_engine::model::geom::exact_decimal(i64::from(n), 1000)
-            ),
+            RuleValue::MilliRatio(n) => reda_engine::model::geom::exact_decimal(i64::from(n), 1000),
             RuleValue::Count(n) => n.to_string(),
             RuleValue::Angle(a) => mm(Nm(a.0 * 1000)),
             RuleValue::Style(s) => serde_json::to_value(s)
@@ -451,6 +504,13 @@ impl RuleField {
                 one_of(&ANGLES, tr!("board-setup-not-an-angle"))?;
                 json!(text.parse::<i64>().expect("a listed angle") * 1000)
             }
+            ValueKind::Ratio => {
+                json!(milli_ratio(text).ok_or_else(|| tr!("board-setup-not-a-ratio"))?)
+            }
+            ValueKind::Count => match text.parse::<u8>() {
+                Ok(n) if n > 0 => json!(n),
+                _ => return Err(tr!("board-setup-not-a-count")),
+            },
         }))
     }
 
@@ -467,9 +527,15 @@ impl RuleField {
     }
 
     /// Whether a board-wide record can hold this field. A Via type supplies its
-    /// starting size unless a Net Class overrides it.
+    /// starting size unless a Net Class overrides it, for drilled and micro Vias alike.
     pub fn applies_board_wide(self) -> bool {
-        !matches!(self, Self::ViaDiameterPreferred | Self::ViaHolePreferred)
+        !matches!(
+            self,
+            Self::ViaDiameterPreferred
+                | Self::ViaHolePreferred
+                | Self::MicroDiameterPreferred
+                | Self::MicroHolePreferred
+        )
     }
 
     /// Whether the board-wide record must hold it.
@@ -496,6 +562,15 @@ impl RuleField {
             RuleField::ViaHole | RuleField::ViaHolePreferred | RuleField::ViaHoleMax => {
                 tr!("board-setup-via-hole")
             }
+            RuleField::ViaAspectRatio => tr!("board-setup-via-aspect-ratio"),
+            RuleField::MicroDiameter
+            | RuleField::MicroDiameterPreferred
+            | RuleField::MicroDiameterMax => tr!("board-setup-microvia-diameter"),
+            RuleField::MicroHole | RuleField::MicroHolePreferred | RuleField::MicroHoleMax => {
+                tr!("board-setup-microvia-hole")
+            }
+            RuleField::MicroAspectRatio => tr!("board-setup-microvia-aspect-ratio"),
+            RuleField::MicroMaxStack => tr!("board-setup-microvia-max-stack"),
             RuleField::HoleMin | RuleField::HoleMax => tr!("board-setup-pad-hole"),
             RuleField::AnnularRing => tr!("board-setup-annular-ring"),
             RuleField::HoleToHole => tr!("board-setup-hole-to-hole"),
@@ -524,20 +599,22 @@ impl RuleField {
     }
 
     /// Whether it is one of the values outside the min/preferred/max families, which
-    /// are named plainly.
+    /// are named plainly: so are a Via aspect ratio and the micro Via stack, whose names
+    /// already say they are maximums.
     fn plain(self) -> bool {
-        matches!(
-            self.rule().0,
-            RuleKind::SilkWidth
-                | RuleKind::SilkTextHeight
-                | RuleKind::CourtyardClearance
-                | RuleKind::Dangling
-                | RuleKind::MicroSegment
-                | RuleKind::MaskExpansion
-                | RuleKind::PasteExpansion
-                | RuleKind::ZoneConnection
-                | RuleKind::Teardrop
-        )
+        matches!(self.kind(), ValueKind::Ratio | ValueKind::Count)
+            || matches!(
+                self.rule().0,
+                RuleKind::SilkWidth
+                    | RuleKind::SilkTextHeight
+                    | RuleKind::CourtyardClearance
+                    | RuleKind::Dangling
+                    | RuleKind::MicroSegment
+                    | RuleKind::MaskExpansion
+                    | RuleKind::PasteExpansion
+                    | RuleKind::ZoneConnection
+                    | RuleKind::Teardrop
+            )
     }
 
     /// Its name for the user: "Track width" for a minimum, "Preferred Track width".
@@ -589,6 +666,29 @@ impl RuleField {
         let was = self.parse(base).ok().flatten();
         (now != was).then(|| now.unwrap_or(Value::Null))
     }
+}
+
+/// A ratio typed as a decimal, such as `0.9` or `5.333` (a trailing `:1` is allowed), in
+/// thousandths; `None` unless it is above 0 with at most three decimals.
+fn milli_ratio(text: &str) -> Option<u32> {
+    let text = text.strip_suffix(":1").unwrap_or(text).trim();
+    let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
+    let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
+    if (whole.is_empty() && fraction.is_empty())
+        || !digits(whole)
+        || !digits(fraction)
+        || fraction.len() > 3
+    {
+        return None;
+    }
+    let whole: u32 = if whole.is_empty() {
+        0
+    } else {
+        whole.parse().ok()?
+    };
+    let fraction: u32 = format!("{fraction:0<3}").parse().ok()?;
+    let value = whole.checked_mul(1000)?.checked_add(fraction)?;
+    (value > 0).then_some(value)
 }
 
 /// `values` as `pcb.rules.set` takes them: `{"min": 1}` or `{"diameter": {"min": 1}}`.

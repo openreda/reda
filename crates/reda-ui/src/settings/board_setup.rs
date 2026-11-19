@@ -39,6 +39,8 @@ type Shared = Rc<RefCell<BoardSetupDraft>>;
 pub enum Rule {
     Clearance,
     TrackWidth,
+    /// Drilled Vias (`via_size`) and micro Vias (`microvia_size`), each with its sizes,
+    /// aspect ratio and Net Class overrides; micro Vias also limit their stack height.
     Vias,
     /// Hole size, annular ring and hole-to-hole spacing.
     Holes,
@@ -129,17 +131,33 @@ impl Rule {
             DrcCheck::TrackWidth,
             &[F::TrackWidth, F::TrackPreferred, F::TrackMax],
         )];
-        const VIAS: &[Section] = &[Section::check(
-            DrcCheck::ViaSize,
-            &[
-                F::ViaDiameter,
-                F::ViaDiameterPreferred,
-                F::ViaDiameterMax,
-                F::ViaHole,
-                F::ViaHolePreferred,
-                F::ViaHoleMax,
-            ],
-        )];
+        const VIAS: &[Section] = &[
+            Section::check(
+                DrcCheck::ViaSize,
+                &[
+                    F::ViaDiameter,
+                    F::ViaDiameterPreferred,
+                    F::ViaDiameterMax,
+                    F::ViaHole,
+                    F::ViaHolePreferred,
+                    F::ViaHoleMax,
+                    F::ViaAspectRatio,
+                ],
+            ),
+            Section::check(
+                DrcCheck::MicroviaSize,
+                &[
+                    F::MicroDiameter,
+                    F::MicroDiameterPreferred,
+                    F::MicroDiameterMax,
+                    F::MicroHole,
+                    F::MicroHolePreferred,
+                    F::MicroHoleMax,
+                    F::MicroAspectRatio,
+                    F::MicroMaxStack,
+                ],
+            ),
+        ];
         const HOLES: &[Section] = &[
             Section::check(DrcCheck::HoleSize, &[F::HoleMin, F::HoleMax]),
             Section::check(DrcCheck::AnnularRing, &[F::AnnularRing]),

@@ -168,6 +168,8 @@ fn section_heading(rule: Rule, i: usize, section: &Section) -> Option<String> {
         return Some(target_name(target));
     }
     match section.check {
+        Some(DrcCheck::ViaSize) => Some(tr!("board-setup-drilled-vias")),
+        Some(DrcCheck::MicroviaSize) => Some(tr!("board-setup-micro-vias")),
         Some(check) if rule.sections().len() > 1 => Some(check_name(check)),
         Some(_) => None,
         None if rule == Rule::MaskPaste && i == 0 => Some(tr!("board-setup-solder-mask")),
@@ -292,10 +294,10 @@ fn class_overrides(
                     });
             });
     }
-    let note = if section.check == Some(DrcCheck::ViaSize) {
-        tr!("board-setup-via-overrides-note")
-    } else {
-        tr!("board-setup-overrides-note")
+    let note = match section.check {
+        Some(DrcCheck::ViaSize) => tr!("board-setup-via-overrides-note"),
+        Some(DrcCheck::MicroviaSize) => tr!("board-setup-microvia-overrides-note"),
+        _ => tr!("board-setup-overrides-note"),
     };
     layout::muted(ui, note);
 }
@@ -321,8 +323,8 @@ fn column_name(f: RuleField) -> String {
     }
 }
 
-/// The widget for one value, announced as `label`: a text field for lengths and
-/// percentages, a checkbox for a board-wide flag, else a drop-down. With `inherit` (a
+/// The widget for one value, announced as `label`: a text field for lengths,
+/// percentages, ratios and counts, a checkbox for a board-wide flag, else a drop-down. With `inherit` (a
 /// Net Class override) every drop-down also offers "Inherited", which leaves it empty.
 pub fn value_field(
     ui: &mut Ui,
@@ -333,7 +335,12 @@ pub fn value_field(
     problem: Option<&Problem>,
 ) {
     let options: &[&str] = match f.kind() {
-        ValueKind::Length | ValueKind::Signed | ValueKind::Percent | ValueKind::SizePercent => {
+        ValueKind::Length
+        | ValueKind::Signed
+        | ValueKind::Percent
+        | ValueKind::SizePercent
+        | ValueKind::Ratio
+        | ValueKind::Count => {
             field(ui, label, value, LENGTH_WIDTH, problem);
             return;
         }

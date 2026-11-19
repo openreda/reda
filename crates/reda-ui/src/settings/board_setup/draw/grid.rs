@@ -230,12 +230,14 @@ fn column_name(f: RuleField) -> String {
         F::TrackWidth => tr!("board-setup-col-min"),
         F::TrackPreferred => tr!("board-setup-col-preferred"),
         F::TrackMax => tr!("board-setup-col-max"),
-        F::ViaDiameter => tr!("board-setup-col-diameter-min"),
-        F::ViaDiameterPreferred => tr!("board-setup-col-diameter-preferred"),
-        F::ViaDiameterMax => tr!("board-setup-col-diameter-max"),
-        F::ViaHole => tr!("board-setup-col-hole-min"),
-        F::ViaHolePreferred => tr!("board-setup-col-hole-preferred"),
-        F::ViaHoleMax => tr!("board-setup-col-hole-max"),
+        F::ViaDiameter | F::MicroDiameter => tr!("board-setup-col-diameter-min"),
+        F::ViaDiameterPreferred | F::MicroDiameterPreferred => {
+            tr!("board-setup-col-diameter-preferred")
+        }
+        F::ViaDiameterMax | F::MicroDiameterMax => tr!("board-setup-col-diameter-max"),
+        F::ViaHole | F::MicroHole => tr!("board-setup-col-hole-min"),
+        F::ViaHolePreferred | F::MicroHolePreferred => tr!("board-setup-col-hole-preferred"),
+        F::ViaHoleMax | F::MicroHoleMax => tr!("board-setup-col-hole-max"),
         _ => tr!("board-setup-col-value"),
     }
 }
