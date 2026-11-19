@@ -43,6 +43,7 @@ const PROJECTS: &[(&str, &str)] = &[
     ("minimal_board", "Minimal.reda"),
     ("blinky_555", "Blinky.reda"),
     ("usb_c_mcu", "UsbMcu.reda"),
+    ("four_layer", "FourLayer.reda"),
     ("six_layer_hdi", "SixLayerHdi.reda"),
 ];
 

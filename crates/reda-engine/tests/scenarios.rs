@@ -12,7 +12,13 @@ use reda_testkit::read_tree;
 
 /// Each reference Project under `tests/projects/`, by the folder it shares with the
 /// scenario script that builds it.
-const REFERENCE_PROJECTS: &[&str] = &["minimal_board", "blinky_555", "usb_c_mcu", "six_layer_hdi"];
+const REFERENCE_PROJECTS: &[&str] = &[
+    "minimal_board",
+    "blinky_555",
+    "usb_c_mcu",
+    "four_layer",
+    "six_layer_hdi",
+];
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
