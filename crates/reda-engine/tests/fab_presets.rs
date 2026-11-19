@@ -50,14 +50,8 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
         value(RuleKind::ViaSize, RuleField::HoleMin),
         Some(Nm::from_um(150))
     );
-    assert_eq!(
-        value(RuleKind::ViaSize, RuleField::DiameterPreferred),
-        None
-    );
-    assert_eq!(
-        value(RuleKind::ViaSize, RuleField::HolePreferred),
-        None
-    );
+    assert_eq!(value(RuleKind::ViaSize, RuleField::DiameterPreferred), None);
+    assert_eq!(value(RuleKind::ViaSize, RuleField::HolePreferred), None);
     assert_eq!(
         value(RuleKind::HoleSize, RuleField::Min),
         Some(Nm::from_um(200))
@@ -431,12 +425,12 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     assert!(generic.copper().all(|c| c.thickness == Nm::from_um(35)));
 
     let path = home.path().join("config/fab-presets/My JLC.redafab");
-    let text = std::fs::read_to_string(&path).unwrap();
-    let text = text.replace(
-        "\"stackup\": {\"thickness\":1600000,\"copper\":35000}",
-        "\"stackup\": {\"thickness\":800000,\"copper\":70000}",
-    );
-    std::fs::write(&path, text).unwrap();
+    let mut file: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let build = &mut file["constructions"][0];
+    build["thickness"] = json!(800_000);
+    build["entries"][0]["copper"] = json!(70_000);
+    build["entries"][2]["copper"] = json!(70_000);
+    std::fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();
 
     let other = TempDir::new("fab-stackup-2");
     new_project(&mut engine, &other, json!({"fab_preset": "My JLC"}));
@@ -445,14 +439,17 @@ fn a_new_board_takes_its_stackup_thickness_and_copper_from_the_preset() {
     let copper: Vec<Nm> = stackup.copper().map(|c| c.thickness).collect();
     assert_eq!(copper, [Nm::from_um(70), Nm::from_um(70)]);
     assert_eq!(stackup.dielectrics().count(), 1);
-    assert_eq!(only_preset(&engine).stackup.copper, Some(Nm::from_um(70)));
-    // The copy keeps the seeds, and they come back after save and open.
+    assert_eq!(
+        only_preset(&engine).preset().stackup_seeds().copper,
+        Some(Nm::from_um(70))
+    );
+    // The Project's copy retains the edited Construction across save and open.
     let folder = other.path().join("work/Demo");
     engine.run_ok("project.save", json!({}));
     let mut reopened = test_engine();
     reopened.run_ok("project.open", json!({"path": folder}));
     assert_eq!(
-        only_preset(&reopened).stackup.thickness,
+        only_preset(&reopened).preset().stackup_seeds().thickness,
         Some(Nm::from_um(800))
     );
     let board = reopened.project().unwrap().pcb().unwrap().stackup().clone();
@@ -665,14 +662,18 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
                 json!([])
             }
         );
-        if name == "Generic" {
-            assert!(preset.get("stackup").is_none());
-        } else {
-            assert_eq!(
-                preset["stackup"],
-                json!({"thickness":1600000,"copper":35000})
-            );
-        }
+        let standard = preset["constructions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "2 Layer")
+            .unwrap();
+        assert_eq!(standard["default"], true);
+        assert_eq!(standard["thickness"], 1_600_000);
+        assert_eq!(
+            standard["entries"],
+            json!([{"copper":35_000},{"kind":"core"},{"copper":35_000}])
+        );
     }
 }
 
