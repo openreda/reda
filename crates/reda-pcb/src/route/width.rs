@@ -9,7 +9,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::copper::{Copper, Item};
-use crate::rules::net_rules;
+use crate::rules::{net_rules, net_rules_on};
 
 /// Which of the Net's widths a route takes. Kept in `pcb.route.width_mode`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -37,7 +37,17 @@ pub fn mode_width(
     mode: WidthMode,
     user: Option<Nm>,
 ) -> Option<Nm> {
-    let range = net_rules(pcb, net).track_width;
+    mode_width_on(pcb, net, None, mode, user)
+}
+
+pub fn mode_width_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    mode: WidthMode,
+    user: Option<Nm>,
+) -> Option<Nm> {
+    let range = net_rules_on(pcb, net, layer).track_width;
     match mode {
         WidthMode::Min => range.min,
         WidthMode::Preferred => Some(range.preferred),
@@ -53,10 +63,20 @@ pub fn next_mode(
     mode: WidthMode,
     user: Option<Nm>,
 ) -> WidthMode {
+    next_mode_on(pcb, net, None, mode, user)
+}
+
+pub fn next_mode_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    mode: WidthMode,
+    user: Option<Nm>,
+) -> WidthMode {
     let at = MODES.iter().position(|m| *m == mode).expect("a mode");
     (1..=MODES.len())
         .map(|i| MODES[(at + i) % MODES.len()])
-        .find(|m| mode_width(pcb, net, *m, user).is_some())
+        .find(|m| mode_width_on(pcb, net, layer, *m, user).is_some())
         .unwrap_or(WidthMode::Preferred)
 }
 
@@ -85,9 +105,9 @@ pub fn start_width(
                 })
         })
         .flatten();
-    let range = net_rules(pcb, net).track_width;
+    let range = net_rules_on(pcb, net, Some(layer)).track_width;
     let width = picked
-        .or_else(|| mode_width(pcb, net, mode, user))
+        .or_else(|| mode_width_on(pcb, net, Some(layer), mode, user))
         .unwrap_or(range.preferred);
     range.clip(width)
 }
@@ -103,7 +123,16 @@ pub struct Clipped {
 
 /// `width` clipped to `net`'s `min` and `max`, unless the limit is absent.
 pub fn clip_width(pcb: &PcbDocument, net: Option<Uuid>, width: Nm) -> Clipped {
-    let range = net_rules(pcb, net).track_width;
+    clip_width_on(pcb, net, None, width)
+}
+
+pub fn clip_width_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    width: Nm,
+) -> Clipped {
+    let range = net_rules_on(pcb, net, layer).track_width;
     match range.breach(width) {
         Some((limit, value)) => Clipped {
             width: value,
@@ -137,7 +166,16 @@ pub struct WidthChoice {
 /// out), then the favourites, then the widths already on the board, each width once
 /// under its first source; favourites and board widths sorted.
 pub fn width_choices(pcb: &PcbDocument, net: Option<Uuid>, favourites: &[Nm]) -> Vec<WidthChoice> {
-    let range = net_rules(pcb, net).track_width;
+    width_choices_on(pcb, net, None, favourites)
+}
+
+pub fn width_choices_on(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    layer: Option<Uuid>,
+    favourites: &[Nm],
+) -> Vec<WidthChoice> {
+    let range = net_rules_on(pcb, net, layer).track_width;
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
     let mut push = |width: Nm, source| {
@@ -207,4 +245,11 @@ pub fn via_choices(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<ViaChoice> {
         source: WidthSource::Board,
     }));
     out
+}
+
+/// The width on the destination Layer. A route following the preferred width takes
+/// that Layer's preference; an explicit or picked-up width stays inside its limits.
+pub fn changed_layer(pcb: &PcbDocument, net: Option<Uuid>, to: Uuid, chosen: Option<Nm>) -> Nm {
+    let range = net_rules_on(pcb, net, Some(to)).track_width;
+    chosen.map_or_else(|| range.default_size(), |width| range.clip(width))
 }

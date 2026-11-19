@@ -20,6 +20,10 @@ pub enum Field {
     AnnularRing,
     HoleToHole,
     EdgeClearance,
+    InnerTrackWidth,
+    InnerClearance,
+    InnerAnnularRing,
+
     PreferredTrackWidth,
     PreferredViaDiameter,
     PreferredViaHole,
@@ -43,7 +47,7 @@ pub enum Field {
 
 impl Field {
     /// Every typed field, in page order.
-    pub const ALL: [Field; 27] = [
+    pub const ALL: [Field; 30] = [
         Field::Clearance,
         Field::TrackWidth,
         Field::ViaDiameter,
@@ -53,6 +57,9 @@ impl Field {
         Field::AnnularRing,
         Field::HoleToHole,
         Field::EdgeClearance,
+        Field::InnerTrackWidth,
+        Field::InnerClearance,
+        Field::InnerAnnularRing,
         Field::PreferredTrackWidth,
         Field::PreferredViaDiameter,
         Field::PreferredViaHole,
@@ -86,6 +93,10 @@ impl Field {
             Field::AnnularRing => "rules.annular_ring",
             Field::HoleToHole => "rules.hole_to_hole",
             Field::EdgeClearance => "rules.edge_clearance",
+            Field::InnerTrackWidth => "rules.inner.track_width_min",
+            Field::InnerClearance => "rules.inner.clearance",
+            Field::InnerAnnularRing => "rules.inner.annular_ring_min",
+
             Field::PreferredTrackWidth => "rules.preferred.track_width",
             Field::PreferredViaDiameter => "rules.preferred.via_diameter",
             Field::PreferredViaHole => "rules.preferred.via_hole",
@@ -130,6 +141,22 @@ impl Field {
             Field::AnnularRing => format_mm(r.annular_ring),
             Field::HoleToHole => format_mm(r.hole_to_hole),
             Field::EdgeClearance => format_mm(r.edge_clearance),
+            Field::InnerTrackWidth => r
+                .inner
+                .and_then(|inner| inner.track_width_min)
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::InnerClearance => r
+                .inner
+                .and_then(|inner| inner.clearance)
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::InnerAnnularRing => r
+                .inner
+                .and_then(|inner| inner.annular_ring_min)
+                .map(format_mm)
+                .unwrap_or_default(),
+
             Field::PreferredTrackWidth => format_mm(r.preferred.track_width),
             Field::PreferredViaDiameter => format_mm(r.preferred.via_diameter),
             Field::PreferredViaHole => format_mm(r.preferred.via_hole),
@@ -195,6 +222,16 @@ impl Field {
             Field::AnnularRing => r.annular_ring = size(text)?,
             Field::HoleToHole => r.hole_to_hole = size(text)?,
             Field::EdgeClearance => r.edge_clearance = size(text)?,
+            Field::InnerClearance | Field::InnerTrackWidth | Field::InnerAnnularRing => {
+                let mut inner = r.inner.unwrap_or_default();
+                let value = optional(text, size)?;
+                match self {
+                    Field::InnerClearance => inner.clearance = value,
+                    Field::InnerTrackWidth => inner.track_width_min = value,
+                    _ => inner.annular_ring_min = value,
+                }
+                r.inner = (inner != Default::default()).then_some(inner);
+            }
             Field::PreferredTrackWidth => r.preferred.track_width = size(text)?,
             Field::PreferredViaDiameter => r.preferred.via_diameter = size(text)?,
             Field::PreferredViaHole => r.preferred.via_hole = size(text)?,

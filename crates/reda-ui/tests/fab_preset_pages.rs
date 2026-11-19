@@ -237,3 +237,17 @@ fn resetting_cpl_preserves_placement_and_placement_has_its_own_reset() {
     d.apply(&mut shell).unwrap();
     assert!(copy(&shell).placement_corrections.is_empty());
 }
+
+#[test]
+fn a_fab_can_set_one_inner_limit_and_clear_it_again() {
+    let (home, work) = (TempDir::new("inner-home"), TempDir::new("inner-work"));
+    let shell = shell_with_project(&home, &work);
+    let mut editor = PresetEditor::new(copy(&shell).preset());
+    editor.set_text(Field::InnerClearance, "0.125");
+    assert_eq!(
+        editor.changes(PresetPage::Rules),
+        Some(json!({"rules":{"inner":{"clearance":125000}}}))
+    );
+    editor.set_text(Field::InnerClearance, "");
+    assert_eq!(editor.changes(PresetPage::Rules), None);
+}
