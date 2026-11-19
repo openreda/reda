@@ -774,3 +774,68 @@ fn an_edit_matching_another_version_of_the_footprint_is_refused() {
     assert_eq!(instance(&mut engine, "R1")["footprint"], v1);
     assert_eq!(query(&mut engine, "footprint_copy").len(), 2);
 }
+
+#[test]
+fn unused_copper_edits_only_the_requested_instances_pads_and_vias_in_one_undo_step() {
+    let dir = TempDir::new("bulk-unused");
+    let mut engine = board(&dir, 2);
+    let mut refs = Vec::new();
+    for name in ["R1", "R2"] {
+        let (instance, pad) = first_pad(&mut engine, name);
+        engine.run_ok("pcb.pad.edit", json!({"instance":instance,"pad":pad["uuid"],"kind":"plated_through_hole",
+            "width":"1.5mm","height":"1.5mm","hole":{"width":"0.6mm","height":"0.6mm"},"side":null}));
+        refs.push(json!({"footprint":instance,"pad":pad["uuid"]}));
+    }
+    let free = engine.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","shape":"circle",
+        "at":{"x":"35mm","y":"10mm"},"width":"1.6mm","height":"1.6mm","hole":{"width":"0.7mm","height":"0.7mm"}}))["result"]["uuid"].clone();
+    let via = engine.run_ok("pcb.via.add", json!({"at":{"x":"40mm","y":"12mm"}}))["result"]["uuid"]
+        .clone();
+    let edit = engine.run_ok(
+        "pcb.unused_layers.set",
+        json!({"document":PCB,
+        "objects":[refs[0],free,via,refs[0]],"pads":"remove","vias":"remove_keep_ends"}),
+    );
+    assert_eq!(edit["result"], json!({"pads":2,"vias":1}));
+    assert_eq!(first_pad(&mut engine, "R1").1["unused_layers"], "remove");
+    assert!(
+        first_pad(&mut engine, "R2")
+            .1
+            .get("unused_layers")
+            .is_none()
+    );
+    assert_eq!(query(&mut engine, "free_pad")[0]["unused_layers"], "remove");
+    assert_eq!(
+        query(&mut engine, "via")[0]["unused_layers"],
+        "remove_keep_ends"
+    );
+    engine.run_ok("edit.undo", json!({"document":PCB}));
+    assert!(
+        first_pad(&mut engine, "R1")
+            .1
+            .get("unused_layers")
+            .is_none()
+    );
+    assert!(
+        query(&mut engine, "free_pad")[0]
+            .get("unused_layers")
+            .is_none()
+    );
+    assert!(query(&mut engine, "via")[0].get("unused_layers").is_none());
+    let whole = engine.run_ok(
+        "pcb.unused_layers.set",
+        json!({"document":PCB,"pads":"remove"}),
+    );
+    assert_eq!(whole["result"], json!({"pads":3,"vias":0}));
+    assert_eq!(first_pad(&mut engine, "R2").1["unused_layers"], "remove");
+    let repeat = engine.run_ok(
+        "pcb.unused_layers.set",
+        json!({"document":PCB,"pads":"remove"}),
+    );
+    assert_eq!(repeat["result"], json!({"pads":0,"vias":0}));
+    let bad = engine.run_err(
+        "pcb.unused_layers.set",
+        json!({"document":PCB,"pads":"remove_keep_ends","vias":"remove"}),
+    );
+    assert_eq!(bad.code, ErrorCode::InvalidParams);
+    assert!(query(&mut engine, "via")[0].get("unused_layers").is_none());
+}
