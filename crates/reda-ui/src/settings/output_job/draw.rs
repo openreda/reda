@@ -253,6 +253,10 @@ fn gerber(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
         layout::error(ui, tr!("output-job-out-of-range", file = file.as_str()));
         return;
     }
+    if let Some(why) = &preview.invalid_file_name {
+        layout::error(ui, why);
+        return;
+    }
     files(ui, "output-job-gerber-files", &preview.gerber, true);
 }
 

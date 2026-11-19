@@ -57,6 +57,8 @@ pub struct JobPreview {
     pub placements: Vec<reda_output::CplPlacement>,
     /// A coordinate a Gerber file can't hold, which would block the run: the file.
     pub out_of_range: Option<String>,
+    /// A file name the preset cannot resolve.
+    pub invalid_file_name: Option<String>,
 }
 
 /// The preview of `job` on the engine's open Project, dated by its Clock; `None` without
@@ -97,6 +99,7 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
     };
     let mut zip = Vec::new();
     let mut out_of_range = None;
+    let mut invalid_file_name = None;
     let gerber = match reda_output::gerber_files(&plot) {
         Ok(gerbers) => gerbers
             .layers
@@ -118,8 +121,12 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
                 }
             })
             .collect(),
-        Err(out) => {
+        Err(reda_output::GerberError::CoordinateOutOfRange(out)) => {
             out_of_range = Some(out.file);
+            Vec::new()
+        }
+        Err(reda_output::GerberError::InvalidFileName(why)) => {
+            invalid_file_name = Some(why);
             Vec::new()
         }
     };
@@ -193,5 +200,6 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         cpl: cpl.table,
         placements: cpl.placements,
         out_of_range,
+        invalid_file_name,
     })
 }

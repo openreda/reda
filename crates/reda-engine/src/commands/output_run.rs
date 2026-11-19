@@ -243,7 +243,11 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         part: reda_output::Part::Single,
         not_fitted_paste: job.not_fitted_paste,
     };
-    let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
+    let gerbers = reda_output::gerber_files(&plot).map_err(|problem| {
+        let out = match problem {
+            reda_output::GerberError::InvalidFileName(why) => return CommandError::rejected(why),
+            reda_output::GerberError::CoordinateOutOfRange(out) => out,
+        };
         let blocker = checks::out_of_range(&out);
         let mut err = CommandError::rejected(format!(
             "Output Job \"{}\" cannot run: {} holds a coordinate beyond ±2147.483647 mm, \

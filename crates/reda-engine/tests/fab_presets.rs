@@ -884,3 +884,45 @@ fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
         assert_eq!(err.code, ErrorCode::InvalidParams);
     }
 }
+
+#[test]
+fn the_inner_copper_pattern_is_checked_and_preserves_existing_layer_names() {
+    let dir = TempDir::new("gerber-pattern-preset");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    let set = |names| json!({"preset":preset,"values":{"gerber":{"file_names":names}}});
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!([{"layer":"Top Copper","name":"top.grb"}])),
+    );
+    let original = only_preset(&engine);
+    for invalid in [
+        "copper.gbr",
+        "$${position}.gbr",
+        "${layer}.gbr",
+        "L${inner",
+        "sub/L${inner}.gbr",
+    ] {
+        let error = engine.run_err("fab_preset.set", set(json!({"inner_copper":invalid})));
+        assert_eq!(error.code, ErrorCode::InvalidParams);
+        assert_eq!(only_preset(&engine), original);
+    }
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!({"inner_copper":"${project}.g${position}l"})),
+    );
+    let names = only_preset(&engine).gerber.file_names;
+    assert!(
+        names
+            .iter()
+            .any(|row| row.layer == "Top Copper" && row.name == "top.grb")
+    );
+    assert!(
+        names
+            .iter()
+            .any(|row| row.layer == "inner_copper" && row.name == "${project}.g${position}l")
+    );
+    engine.run_ok("fab_preset.set", set(json!({"inner_copper":null})));
+    assert_eq!(only_preset(&engine), original);
+}

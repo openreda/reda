@@ -112,11 +112,17 @@ pub struct CoordinateOutOfRange {
     pub at: Point,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GerberError {
+    CoordinateOutOfRange(CoordinateOutOfRange),
+    InvalidFileName(String),
+}
+
 /// The Gerber files of `plot`: every copper Layer top to bottom, Solder Mask, Paste and
 /// Silkscreen, then the Profile. Copper, Solder Mask and the Profile are always written,
 /// because a missing mask file could read as "no mask"; an empty Silkscreen or Paste is
 /// left out and listed in `skipped`. A coordinate beyond the format's range is an error.
-pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
+pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     let mut out = Gerbers {
         files: Vec::new(),
         skipped: Vec::new(),
@@ -127,10 +133,13 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
     };
     let project = &plot.project.props().name;
     let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
-        let name = file.name(project, plot.gerber);
+        let name = file.name(project, plot.gerber)?;
         out.layers.push((name.clone(), file.label()));
         if let Some(at) = rendered.out_of_range {
-            return Err(CoordinateOutOfRange { file: name, at });
+            return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
+                file: name,
+                at,
+            }));
         }
         if optional && rendered.empty {
             out.skipped.push(SkippedFile { name, function });
@@ -283,19 +292,32 @@ impl FileName {
     /// The file's name under `settings`: a `file_names` entry for its Layer, else
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
-    fn name(&self, project: &str, settings: &GerberSettings) -> String {
+    fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, GerberError> {
         let layer = if self.layer.is_empty() {
             self.label()
         } else {
             self.layer.clone()
         };
-        if let Some(own) = settings.file_names.iter().find(|f| f.layer == layer) {
-            return own.name.clone();
+        if let Some(own) = settings
+            .file_names
+            .iter()
+            .find(|f| f.layer == layer && f.layer != "inner_copper")
+        {
+            return Ok(own.name.clone());
         }
-        match settings.naming {
+        if let Some(position) = self.inner_position
+            && let Some(pattern) = settings
+                .file_names
+                .iter()
+                .find(|f| f.layer == "inner_copper")
+        {
+            return GerberSettings::inner_copper_file_name(&pattern.name, project, position)
+                .map_err(GerberError::InvalidFileName);
+        }
+        Ok(match settings.naming {
             FileNaming::Classic => format!("{project}.{}", self.extension),
             FileNaming::Descriptive => format!("{project}-{}.gbr", layer.replace(' ', "_")),
-        }
+        })
     }
 }
 
