@@ -140,13 +140,14 @@ pub fn page(kind: RuleKind) -> String {
     let rule = match kind {
         RuleKind::Clearance => Rule::Clearance,
         RuleKind::TrackWidth => Rule::TrackWidth,
-        RuleKind::ViaSize => Rule::Vias,
+        RuleKind::ViaSize | RuleKind::MicroviaSize | RuleKind::ViaSpan => Rule::Vias,
         RuleKind::HoleSize | RuleKind::AnnularRing | RuleKind::HoleToHole => Rule::Holes,
         RuleKind::EdgeClearance | RuleKind::SilkToEdge => Rule::BoardEdge,
-        RuleKind::SilkToMask => Rule::Silkscreen,
+        RuleKind::SilkToMask | RuleKind::SilkWidth | RuleKind::SilkTextHeight => Rule::Silkscreen,
         RuleKind::MaskExpansion | RuleKind::PasteExpansion => Rule::MaskPaste,
         RuleKind::ZoneConnection => Rule::ZoneConnections,
-        RuleKind::CourtyardClearance
+        RuleKind::Teardrop
+        | RuleKind::CourtyardClearance
         | RuleKind::Dangling
         | RuleKind::MicroSegment
         | RuleKind::DeadCopper => return crate::tr!("board-setup-page-drc"),

@@ -248,7 +248,7 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         Item::FreePad { uuid } => placed::placed_free_pad(pcb.free_pad(uuid)?),
         Item::Via { uuid } => {
             let via = pcb.via(uuid)?;
-            let r = via.diameter.0 / 2;
+            let r = via.diameter.start.0 / 2;
             return Some(Frame {
                 centre: [via.at.x.0, via.at.y.0],
                 angle: Millideg::ZERO,

@@ -36,11 +36,12 @@ pub use footprint::{
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
     Bounds, ConnectionTarget, ConnectionValue, DesignRule, PortableClass, PortableRule, RuleField,
-    RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
+    RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode, TeardropTarget,
+    ViaRuleValues,
 };
 pub use stackup::{
-    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, Stackup, StackupEntry,
-    StackupSeeds, StackupTotals,
+    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind, Stackup,
+    StackupEntry, StackupSeeds, StackupTotals, ViaDiameter, ViaType,
 };
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};
@@ -129,6 +130,12 @@ crate::check::severities! {
     track_width => TrackWidth = Error,
     /// A Via diameter or hole outside the `via_size` range.
     via_size => ViaSize = Error,
+    via_span => ViaSpan = Error,
+    microvia_size => MicroviaSize = Error,
+    aspect_ratio => AspectRatio = Error,
+    max_stack => MaxStack = Error,
+    silk_width => SilkWidth = Warning,
+    silk_text_height => SilkTextHeight = Warning,
     /// A Pad, Free Pad or non-plated hole outside the `hole_size` range.
     hole_size => HoleSize = Error,
     /// An annular ring below the minimum.
@@ -973,7 +980,7 @@ impl PcbDocument {
             if !net_exists(via.net) {
                 return Err(format!("Via {uuid} is on a Net that does not exist"));
             }
-            if via.hole <= Nm::ZERO || via.diameter <= via.hole {
+            if via.hole <= Nm::ZERO || via.diameter.start <= via.hole {
                 return Err(format!(
                     "Via {uuid} needs a hole and a diameter larger than it"
                 ));

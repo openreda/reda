@@ -18,6 +18,8 @@ pub struct Stackup {
     /// The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so
     /// on, with one copper entry per copper Layer in Layer order.
     pub entries: Vec<StackupEntry>,
+    /// The ordered Via types, including the through type.
+    pub via_types: Vec<ViaType>,
     /// The surface finish, as typed; left out when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish: Option<String>,
@@ -54,9 +56,60 @@ pub struct CopperEntry {
 #[serde(deny_unknown_fields)]
 pub struct DielectricEntry {
     pub uuid: Uuid,
+    pub kind: DielectricKind,
     /// Its thickness; left out, it takes the remainder of the Stackup's thickness.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thickness: Option<Nm>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DielectricKind {
+    Core,
+    Prepreg,
+}
+
+/// Diameters at the start, middle and end of a Via. A missing shape inherits start.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ViaDiameter {
+    pub start: Nm,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middle: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<Nm>,
+}
+
+impl From<Nm> for ViaDiameter {
+    fn from(start: Nm) -> Self {
+        Self {
+            start,
+            middle: None,
+            end: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ViaType {
+    pub uuid: Uuid,
+    pub from: Uuid,
+    pub to: Uuid,
+    pub hole: Nm,
+    pub diameter: ViaDiameter,
+}
+
+impl ViaType {
+    pub fn through(stackup: Uuid, from: Uuid, to: Uuid, hole: Nm, start: Nm) -> Self {
+        Self {
+            uuid: stackup.child("through"),
+            from,
+            to,
+            hole,
+            diameter: start.into(),
+        }
+    }
 }
 
 /// A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:
@@ -98,6 +151,19 @@ pub struct StackupTotals {
 }
 
 impl Stackup {
+    pub fn through_type(&self) -> &ViaType {
+        let first = self.copper().next().expect("a board has top copper").layer;
+        let last = self
+            .copper()
+            .last()
+            .expect("a board has bottom copper")
+            .layer;
+        self.via_types
+            .iter()
+            .find(|v| v.from == first && v.to == last)
+            .expect("a board has a through Via type")
+    }
+
     /// The copper entries, top to bottom.
     pub fn copper(&self) -> impl Iterator<Item = &CopperEntry> {
         self.entries.iter().filter_map(|e| match e {
@@ -186,6 +252,15 @@ impl Stackup {
         {
             return Some(
                 "the Stackup must have one copper entry per copper Layer, in Layer order".into(),
+            );
+        }
+        if !self
+            .via_types
+            .iter()
+            .any(|v| Some(&v.from) == copper_layers.first() && Some(&v.to) == copper_layers.last())
+        {
+            return Some(
+                "the Stackup needs a through Via type joining the outer copper Layers".into(),
             );
         }
         let mut seen = std::collections::BTreeSet::new();

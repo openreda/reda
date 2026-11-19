@@ -92,8 +92,8 @@ impl Field {
             Field::MaskTop => "rules.mask_expansion.top",
             Field::MaskBottom => "rules.mask_expansion.bottom",
             Field::Paste => "rules.paste_expansion",
-            Field::SeedThickness => "stackup.thickness",
-            Field::SeedCopper => "stackup.copper",
+            Field::SeedThickness => "constructions.thickness",
+            Field::SeedCopper => "constructions.copper",
             Field::SuggestThickness => "stackup_suggestions.thickness",
             Field::SuggestCopper => "stackup_suggestions.copper",
             Field::SuggestFinish => "stackup_suggestions.finish",
@@ -139,8 +139,16 @@ impl Field {
                 PasteExpansion::Expansion { expansion } => format_mm(expansion),
                 PasteExpansion::Percent { percent } => percent.to_string(),
             },
-            Field::SeedThickness => preset.stackup.thickness.map(format_mm).unwrap_or_default(),
-            Field::SeedCopper => preset.stackup.copper.map(copper_text).unwrap_or_default(),
+            Field::SeedThickness => preset
+                .stackup_seeds()
+                .thickness
+                .map(format_mm)
+                .unwrap_or_default(),
+            Field::SeedCopper => preset
+                .stackup_seeds()
+                .copper
+                .map(copper_text)
+                .unwrap_or_default(),
             Field::SuggestThickness => lengths(&preset.stackup_suggestions.thickness, format_mm),
             Field::SuggestCopper => lengths(&preset.stackup_suggestions.copper, copper_text),
             Field::SuggestFinish => list(&preset.stackup_suggestions.finish),
@@ -207,8 +215,46 @@ impl Field {
                     },
                 }
             }
-            Field::SeedThickness => preset.stackup.thickness = optional(text, size)?,
-            Field::SeedCopper => preset.stackup.copper = optional(text, copper)?,
+            Field::SeedThickness | Field::SeedCopper => {
+                use reda_engine::model::{
+                    Construction, ConstructionEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER,
+                };
+                let value = optional(
+                    text,
+                    if self == Field::SeedThickness {
+                        size
+                    } else {
+                        copper
+                    },
+                )?;
+                let index = preset
+                    .constructions
+                    .iter()
+                    .position(|c| {
+                        c.default
+                            && c.entries
+                                .iter()
+                                .filter(|e| matches!(e, ConstructionEntry::Copper { .. }))
+                                .count()
+                                == 2
+                    })
+                    .unwrap_or_else(|| {
+                        preset
+                            .constructions
+                            .push(Construction::two_layer(Default::default()));
+                        preset.constructions.len() - 1
+                    });
+                let construction = &mut preset.constructions[index];
+                if self == Field::SeedThickness {
+                    construction.thickness = value.unwrap_or(DEFAULT_BOARD_THICKNESS);
+                } else {
+                    for entry in &mut construction.entries {
+                        if let ConstructionEntry::Copper { copper } = entry {
+                            *copper = value.unwrap_or(DEFAULT_COPPER);
+                        }
+                    }
+                }
+            }
             Field::SuggestThickness => {
                 preset.stackup_suggestions.thickness = each(text, size)?;
             }

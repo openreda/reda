@@ -125,7 +125,7 @@ pub(super) fn vias(b: &mut Builder) {
         for layer in pcb.span_layers(via.span) {
             let disc = Primitive::Ring {
                 center: via.at,
-                outer: Nm(via.diameter.0 / 2),
+                outer: Nm(via.diameter.start.0 / 2),
                 inner: Nm(0),
             };
             b.on_layer(via.uuid, layer, disc);

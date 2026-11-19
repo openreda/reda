@@ -42,6 +42,7 @@ pub fn generic() -> FabPreset {
     FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
+            clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
                 bottom: Nm(50_000),
@@ -68,7 +69,7 @@ pub fn generic() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
-        stackup: StackupSeeds::default(),
+        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings::default(),
         zip_assembly: false,
         stackup_suggestions: suggestions(GENERIC_NAME),
@@ -102,6 +103,7 @@ fn jlcpcb() -> FabPreset {
     let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
+            clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(0),
                 bottom: Nm(0),
@@ -132,7 +134,7 @@ fn jlcpcb() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
-        stackup: StackupSeeds::default(),
+        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings::default(),
         zip_assembly: false,
         stackup_suggestions: suggestions("JLCPCB"),
@@ -156,10 +158,10 @@ fn jlcpcb() -> FabPreset {
             ..Default::default()
         },
     };
-    preset.stackup = StackupSeeds {
+    preset.constructions = vec![reda_model::Construction::two_layer(StackupSeeds {
         thickness: Some(Nm::from_um(1600)),
         copper: Some(Nm::from_um(35)),
-    };
+    })];
     preset.bom.required_fields = vec!["LCSC".into()];
     preset.bom.list_unplaced = false;
     preset.cpl.bottom_rotation = BottomRotation::Negate;
@@ -174,6 +176,7 @@ fn pcbway() -> FabPreset {
     let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
+            clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
                 bottom: Nm(50_000),
@@ -200,7 +203,7 @@ fn pcbway() -> FabPreset {
                 via_hole: Nm::from_um(300),
             },
         },
-        stackup: StackupSeeds::default(),
+        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
         gerber: GerberSettings {
             file_origin: FileOrigin::Relative,
             ..Default::default()
@@ -237,10 +240,10 @@ fn pcbway() -> FabPreset {
             ..Default::default()
         },
     };
-    preset.stackup = StackupSeeds {
+    preset.constructions = vec![reda_model::Construction::two_layer(StackupSeeds {
         thickness: Some(Nm::from_um(1600)),
         copper: Some(Nm::from_um(35)),
-    };
+    })];
     preset.bom.required_fields = vec!["MPN".into()];
     preset.bom.list_unplaced = false;
     preset.bom.line_numbers.enabled = true;

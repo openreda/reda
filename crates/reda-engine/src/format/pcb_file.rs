@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 1,
+//!   "format": 2,
 //!   "pcb": {"uuid":"…"},
 //!   "layers": {"uuid":"…","layers":[
 //!     {"uuid":"…","kind":"courtyard","side":"top"},
@@ -11,9 +11,9 @@
 //!   "stackups": [
 //!     {"uuid":"…","thickness":1600000,"entries":[
 //!       {"layer":"…","thickness":35000},
-//!       {"uuid":"…"},
+//!       {"uuid":"…","kind":"core"},
 //!       {"layer":"…","thickness":35000}
-//!     ],"finish":"ENIG"}
+//!     ],"via_types":[{"uuid":"…","from":"…","to":"…","hole":300000,"diameter":{"start":600000}}],"finish":"ENIG"}
 //!   ],
 //!   "board": {"uuid":"…"},
 //!   "rules": [
@@ -56,7 +56,7 @@
 //!     {"uuid":"…","layer":"…","net":"…","width":200000,"geometry":{"kind":"line","from":{…},"to":{…}}}
 //!   ],
 //!   "vias": [
-//!     {"uuid":"…","at":{…},"net":"…","diameter":600000,"hole":300000,"span":{"from":"…","to":"…"}}
+//!     {"uuid":"…","at":{…},"net":"…","diameter":{"start":600000},"hole":300000,"span":{"from":"…","to":"…"}}
 //!   ],
 //!   "free_pads": [
 //!     {"uuid":"…","kind":"plated_through_hole","shape":"circle","at":{…},"rotation":0,"width":6000000,"height":6000000,"hole":{…},"net":"…"}

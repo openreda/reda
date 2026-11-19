@@ -61,7 +61,7 @@ impl PresetPage {
     pub fn keys(self) -> &'static [&'static str] {
         match self {
             PresetPage::Rules => &["rules"],
-            PresetPage::Stackup => &["stackup", "stackup_suggestions"],
+            PresetPage::Stackup => &["constructions", "stackup_suggestions"],
             PresetPage::Gerber => &[
                 "gerber.naming",
                 "gerber.file_names",

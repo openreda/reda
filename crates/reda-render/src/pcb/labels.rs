@@ -82,7 +82,11 @@ pub(super) fn vias(b: &mut Builder) {
         let Some(net) = via.net.and_then(|n| pcb.net(n)) else {
             continue;
         };
-        let height = fit(&net.name, Nm(via.diameter.0 * 30 / 100), via.diameter);
+        let height = fit(
+            &net.name,
+            Nm(via.diameter.start.0 * 30 / 100),
+            via.diameter.start,
+        );
         label(
             b,
             via.uuid,

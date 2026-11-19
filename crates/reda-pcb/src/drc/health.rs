@@ -135,7 +135,7 @@ fn duplicates(pcb: &PcbDocument) -> Vec<Finding> {
         let key = (
             (via.at.x, via.at.y),
             via.net,
-            via.diameter,
+            via.diameter.start,
             via.hole,
             (via.span.from, via.span.to),
         );

@@ -194,6 +194,7 @@ impl StackupDraft {
                     })
                 } else {
                     StackupEntry::Dielectric(DielectricEntry {
+                        kind: reda_engine::model::DielectricKind::Core,
                         uuid: row.uuid,
                         thickness: value,
                     })
@@ -201,6 +202,7 @@ impl StackupDraft {
             })
             .collect::<Option<Vec<_>>>()?;
         Some(Stackup {
+            via_types: vec![],
             uuid: Uuid::NIL,
             thickness,
             entries,
