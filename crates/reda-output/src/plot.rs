@@ -12,6 +12,7 @@ use reda_model::{
     CopperRole, FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument,
     Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
+use reda_pcb::copper::{Item, UnusedLands};
 use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
 
@@ -181,6 +182,11 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
             }
             Ok(())
         };
+    let unused: std::collections::BTreeMap<_, _> = plot
+        .instances
+        .iter()
+        .map(|board| (board.pcb.uuid, UnusedLands::of(board.pcb)))
+        .collect();
     for (i, layer) in first.pcb.copper_layers().enumerate() {
         let number = i + 1;
         let file = FileName::copper(number, layer.side, layer.name.as_deref());
@@ -200,7 +206,7 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
             "Positive",
             |board, g| {
                 if let Some(layer) = board.pcb.copper_layers().nth(i) {
-                    copper_layer(board, layer.uuid, g);
+                    copper_layer(board, layer.uuid, &unused[&board.pcb.uuid], g);
                 }
             },
         );
@@ -464,7 +470,7 @@ fn net_attribute(net: &Option<String>) -> Vec<(&'static str, &str)> {
 /// The attributes of copper that belongs to no Net: text, drawing.
 pub(crate) const NO_NET: [(&str, &str); 1] = [(".N", "")];
 
-fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
+fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, unused: &UnusedLands, g: &mut Gerber) {
     let pcb = plot.pcb;
     // Zone fills first, biggest outline first, each shape's holes cleared right after it:
     // copper inside a hole is smaller than the hole, so it is drawn after the clearing.
@@ -501,7 +507,9 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     }
 
     for via in pcb.vias() {
-        if pcb.span_layers(via.span).contains(&layer) {
+        if pcb.span_layers(via.span).contains(&layer)
+            && !unused.contains(Item::Via { uuid: via.uuid }, layer)
+        {
             let net = net_name(pcb, via.net);
             g.flash(
                 Template::Circle(via.diameter_on(layer)),
@@ -513,15 +521,21 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     }
 
     let side = pcb.layers().layer(layer).expect("copper Layer").side;
-    let on_layer = |pad: &PlacedPad| match pad.kind {
+    let on_layer = |pad: &PlacedPad, item| match pad.kind {
         PadKind::NonPlated => false,
-        PadKind::PlatedThroughHole => true,
+        PadKind::PlatedThroughHole => !unused.contains(item, layer),
         PadKind::Smd => pad.side == side,
     };
     let mask_defined = mask_defined_pads(pcb);
     for instance in pcb.footprints() {
         for pad in placed::placed_pads_on(pcb, instance, side) {
-            if on_layer(&pad) {
+            if on_layer(
+                &pad,
+                Item::Pad {
+                    footprint: instance.uuid,
+                    pad: pad.pad,
+                },
+            ) {
                 let pin = format!("{},{}", escape(&instance.designator), escape(&pad.number));
                 let net = net_name(pcb, pad.net);
                 let mut attrs = vec![(".P", pin.as_str())];
@@ -540,7 +554,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
     }
     for free in pcb.free_pads() {
         let pad = placed::placed_free_pad_on(free, side);
-        if on_layer(&pad) {
+        if on_layer(&pad, Item::FreePad { uuid: free.uuid }) {
             let net = net_name(pcb, pad.net);
             let (template, at) = pad_template(&pad);
             g.flash(template, "OtherPad,FreePad", at, &net_attribute(&net));

@@ -887,3 +887,54 @@ fn a_plated_pads_mask_opens_over_the_land_on_each_physical_side() {
         );
     }
 }
+
+#[test]
+fn copper_gerbers_only_flash_retained_pad_and_via_lands() {
+    let dir = TempDir::new("gerber-unused-lands");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let net = e.run_ok("test.net.add", json!({"name":"A"}))["result"]["uuid"].clone();
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"2mm","hole":{"width":"0.5mm"},
+        "at":pt(4.,5.),"unused_layers":"remove","net":net}),
+    );
+    let placed=e.run_ok("test.footprint.add",json!({"side":"bottom","at":pt(10.,5.),
+        "pads":[{"at":pt(0.,0.),"net":net,"kind":"plated_through_hole","width":"2mm","height":"2mm","hole":{"width":500000,"height":500000}}]}));
+    e.run_ok("pcb.pad.edit",json!({"instance":placed["result"]["footprint"],"pad":placed["result"]["pads"][0],"unused_layers":"remove"}));
+    e.run_ok(
+        "pcb.via.add",
+        json!({"at":pt(18.,5.),"net":net,"unused_layers":"remove"}),
+    );
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":layers[2],"net":net,"points":[pt(4.,5.),pt(18.,5.)]}),
+    );
+    let files = plot(&e);
+    for (layer_file, free, placed, via) in [
+        ("Demo.gtl", true, true, false),
+        ("Demo.g2l", false, false, false),
+        ("Demo.g3l", true, false, true),
+        ("Demo.gbl", true, true, false),
+    ] {
+        let plot = layer(&files, layer_file);
+        for (x, expected) in [(4., free), (10., placed), (18., via)] {
+            assert_eq!(
+                flash_at(&plot, (mm(x), mm(5.))).is_some(),
+                expected,
+                "{layer_file} x={x}"
+            );
+        }
+    }
+}

@@ -402,7 +402,9 @@ impl JsonSchema for Corners {
 
 /// How a Zone fill joins a Pad of its own Net. Each value left out inherits from the
 /// `zone_connection` rule.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ZoneConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -444,7 +446,9 @@ impl ZoneConnection {
 }
 
 /// How a fill meets a Pad or Via.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionStyle {
     /// Through spokes across a clear ring, so the Pad solders easily.

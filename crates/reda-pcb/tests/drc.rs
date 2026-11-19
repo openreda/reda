@@ -1299,3 +1299,20 @@ fn only_retained_lands_have_annular_ring_checks_but_an_omitted_layer_keeps_hole_
     assert_eq!(hits[0]["layers"], json!([layers[1]]));
     assert_eq!(hits[0]["measured"]["length"], 250000);
 }
+
+#[test]
+fn a_via_with_missing_lands_is_not_duplicate_copper() {
+    let dir = TempDir::new("drc-duplicate-unused");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    for mode in ["remove_keep_ends", "keep"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"unused_layers":mode}),
+        );
+    }
+    assert!(of(&drc(&mut e), "duplicate_copper").is_empty());
+}

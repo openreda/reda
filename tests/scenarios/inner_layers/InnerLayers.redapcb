@@ -73,10 +73,10 @@
     {"uuid":"00000000-0000-4000-8000-000000000033","layer":"00000000-0000-4000-8000-00000000000b","width":200000,"geometry":{"kind":"line","from":{"x":6100000,"y":4000000},"to":{"x":6100000,"y":6000000}}}
   ],
   "vias": [
-    {"uuid":"00000000-0000-4000-8000-00000000002f","at":{"x":10000000,"y":5000000},"diameter":{"start":700000,"middle":1000000,"end":900000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d"},"zone_connection":{"style":"relief","spokes":2,"gap":350000}}
+    {"uuid":"00000000-0000-4000-8000-00000000002f","at":{"x":10000000,"y":5000000},"diameter":{"start":700000,"middle":1000000,"end":900000},"hole":300000,"span":{"from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000d"},"unused_layers":"remove_keep_ends","zone_connection":{"style":"relief","spokes":2,"gap":350000}}
   ],
   "free_pads": [
-    {"uuid":"00000000-0000-4000-8000-00000000002e","kind":"plated_through_hole","shape":"oval","middle":{"shape":"rect","width":1500000,"height":3000000},"bottom":{"shape":"circle","width":2000000,"height":2000000},"at":{"x":5000000,"y":5000000},"rotation":0,"width":3000000,"height":2000000,"hole":{"width":700000,"height":700000}}
+    {"uuid":"00000000-0000-4000-8000-00000000002e","kind":"plated_through_hole","shape":"oval","middle":{"shape":"rect","width":1500000,"height":3000000},"bottom":{"shape":"circle","width":2000000,"height":2000000},"unused_layers":"remove","at":{"x":5000000,"y":5000000},"rotation":0,"width":3000000,"height":2000000,"hole":{"width":700000,"height":700000}}
   ],
   "zones": [
     {"uuid":"00000000-0000-4000-8000-000000000031","layer":"00000000-0000-4000-8000-00000000000b","follows_outline":true,"pour_over":"zones_only","remove_unconnected":true,"min_island_area":0,"priority":0}

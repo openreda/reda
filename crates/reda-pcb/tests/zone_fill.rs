@@ -811,3 +811,37 @@ fn restoring_a_via_land_from_a_lower_zone_invalidates_the_upper_fill() {
         "the restored land keeps copper clear"
     );
 }
+
+#[test]
+fn a_disconnected_same_net_zone_measures_its_gap_from_the_omitted_lands_hole() {
+    let dir = TempDir::new("fill-omitted-hole-gap");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let inner = pcb(&e).copper_layers().nth(1).unwrap().uuid;
+    let net = add_net(&mut e, "GND");
+    e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","width":"2mm",
+        "at":{"x":"5mm","y":"5mm"},"hole":{"width":"0.4mm"},"unused_layers":"remove","net":net,
+        "zone_connection":{"style":"none","gap":"0.6mm"}}),
+    );
+    let z = zone(
+        &mut e,
+        Some(net),
+        rect(0., 0., 10., 10.),
+        json!({"layer":inner,"remove_unconnected":false}),
+    );
+    let fills = fill(&e);
+    let s = shapes(&fills, z);
+    assert!(
+        !filled(s, at(5.75, 5.)),
+        "0.2 mm bore radius plus the 0.6 mm connection gap"
+    );
+    assert!(
+        filled(s, at(5.9, 5.)),
+        "the removed 1 mm land radius adds no gap"
+    );
+}
