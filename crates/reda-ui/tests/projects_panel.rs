@@ -229,6 +229,14 @@ fn the_pcb_document_is_deleted_and_added_back() {
 
     menu(&mut h, "PCB", "Add PCB Document");
     h.get_by_role_and_label(Role::TextInput, "Copper Layers")
+        .set_text_value_accesskit("33");
+    h.run();
+    assert!(
+        h.get_by_role_and_label(Role::Button, "Add PCB")
+            .accesskit_node()
+            .is_disabled()
+    );
+    h.get_by_role_and_label(Role::TextInput, "Copper Layers")
         .set_text_value_accesskit("3");
     h.run();
     h.get_by_role_and_label(Role::Button, "Add PCB").click();

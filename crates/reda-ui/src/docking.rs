@@ -1093,8 +1093,10 @@ impl Cx<'_, '_> {
     fn content(&mut self, ui: &mut Ui, tab: &TabKey) {
         self.note_use(ui, ui.available_rect_before_wrap(), tab);
         match tab {
-            TabKey::Stackup(_) => {
-                ui.label(tr!("board-setup-page-stackup"));
+            TabKey::Stackup(document) => {
+                let (rect, start) = (ui.available_rect_before_wrap(), self.frame.commands.len());
+                crate::stackup_editor::show(ui, self.shell, *document);
+                self.focus_on_press(ui, rect, tab, start);
             }
             TabKey::Start => {
                 if let Some(action) = start_page::show(ui, self.recent) {

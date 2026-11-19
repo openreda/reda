@@ -338,5 +338,120 @@ fn stackup_field_commits_copper_thickness_once_and_rejects_an_overfull_board() {
     h.run();
     assert_eq!(pcb(&h).stackup().thickness.0, 1_600_000);
     assert_eq!(value(&h, "Finished thickness (mm)"), "0.05");
-    h.get_by_label_contains("blank dielectric");
+    assert!(h.query_all_by_label_contains("blank dielectric").count() > 0);
+}
+
+#[test]
+fn dielectric_rows_edit_material_measurements_and_keep_one_sheet_in_each_gap() {
+    let (home, work) = (TempDir::new("sd-home"), TempDir::new("sd-work"));
+    let mut h = harness(home.path(), work.path(), "Dielectrics");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document": document}))
+        .unwrap();
+    h.run();
+    retype(&mut h, "Dielectric 1 name", "Top prepreg");
+    h.key_press(Key::Enter);
+    h.run();
+    choose(&mut h, "Top prepreg kind", "Prepreg");
+    assert!(
+        h.get_by_role_and_label(Role::Button, "Remove sheet")
+            .accesskit_node()
+            .is_disabled()
+    );
+    for (label, text) in [
+        ("Material", "7628"),
+        ("Dk", "4.21"),
+        ("Df", "0.0123"),
+        ("Test frequency (Hz)", "1000000000"),
+    ] {
+        retype(&mut h, label, text);
+        h.key_press(Key::Enter);
+        h.run();
+    }
+    let board = pcb(&h);
+    let sheet = board.stackup().dielectrics().next().unwrap();
+    assert_eq!(sheet.name.as_deref(), Some("Top prepreg"));
+    assert_eq!(sheet.material.as_deref(), Some("7628"));
+    assert_eq!(
+        (sheet.dk, sheet.df, sheet.test_frequency),
+        (Some(4210), Some(12_300), Some(1_000_000_000))
+    );
+    assert_eq!(sheet.kind, reda_ui::engine::model::DielectricKind::Prepreg);
+    h.get_by_role_and_label(Role::Button, "Add sheet").click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().dielectrics().count(), 2);
+    h.get_by_role_and_label(Role::Button, "Remove sheet")
+        .click();
+    h.run();
+    assert_eq!(pcb(&h).stackup().dielectrics().count(), 1);
+}
+
+#[test]
+fn applying_a_saved_layout_keeps_the_stackup_visible_and_reopening_restores_it() {
+    let (home, work) = (
+        TempDir::new("layout-stack-home"),
+        TempDir::new("layout-stack-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Layout");
+    let doc = pcb(&h).uuid;
+    let key = TabKey::Stackup(doc);
+    let shell = h.state_mut().shell_mut();
+    shell.run("document.open", json!({"document":doc})).unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":doc}))
+        .unwrap();
+    shell.run("layout.save", json!({"name":"editor"})).unwrap();
+    shell.run("layout.apply:editor", json!({})).unwrap();
+    assert!(shell.layout().is_shown(&key));
+    shell.run("project.close", json!({})).unwrap();
+    shell
+        .open_project(&work.path().join("Layout/Layout.reda"))
+        .unwrap();
+    assert!(shell.layout().is_shown(&key));
+    shell
+        .run("document.delete", json!({"document":doc}))
+        .unwrap();
+    assert!(shell.layout().place(&key).is_none());
+}
+
+#[test]
+fn the_layers_and_board_forms_edit_an_odd_boards_inner_layer_and_finish() {
+    let (home, work) = (TempDir::new("sf-home"), TempDir::new("sf-work"));
+    let mut h = harness(home.path(), work.path(), "First");
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "project.new",
+            json!({"path":work.path(),"name":"Odd", "layers":3}),
+        )
+        .unwrap();
+    let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_label("Not symmetric");
+    retype(&mut h, "L2 name", "Ground");
+    h.key_press(Key::Enter);
+    h.run();
+    choose(&mut h, "Ground kind", "Plane");
+    choose(&mut h, "Surface finish", "ENIG");
+    for (label, text) in [
+        ("Solder mask colour", "Purple"),
+        ("Silkscreen colour", "White"),
+    ] {
+        retype(&mut h, label, text);
+        h.key_press(Key::Enter);
+        h.run();
+    }
+    let board = pcb(&h);
+    let layer = board.copper_layers().nth(1).unwrap();
+    assert_eq!(layer.name.as_deref(), Some("Ground"));
+    assert_eq!(layer.role, reda_ui::engine::model::CopperRole::Plane);
+    let stack = board.stackup();
+    assert_eq!(stack.finish.as_deref(), Some("ENIG"));
+    assert_eq!(stack.mask_color.as_deref(), Some("Purple"));
+    assert_eq!(stack.silk_color.as_deref(), Some("White"));
 }
