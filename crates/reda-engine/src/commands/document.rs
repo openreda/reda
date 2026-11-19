@@ -35,7 +35,8 @@ pub struct DocumentAddParams {
     #[serde(default)]
     #[schemars(range(min = 2, max = 32))]
     pub layers: Option<u8>,
-    /// A Project Fab Preset copy by UUID or name, or a shipped or user preset by name.
+    /// A Project Fab Preset copy by UUID, or a shipped or user preset by name. If its
+    /// source is unavailable, a Project copy can also be selected by name. Defaults to Generic.
     pub fab_preset: Option<String>,
     /// The Construction name in that preset. Defaults to its build for this count.
     pub construction: Option<String>,
@@ -104,23 +105,21 @@ impl Command for DocumentAdd {
             DocumentKind::Pcb => {
                 let name = p.fab_preset.as_deref().unwrap_or(reda_output::GENERIC_NAME);
                 let project = cx.project()?;
-                let copy = name
-                    .parse()
-                    .ok()
-                    .and_then(|id| project.fab_preset(id))
-                    .or_else(|| {
-                        project
-                            .fab_presets()
-                            .find(|p| p.name.eq_ignore_ascii_case(name))
-                    });
-                let preset = match copy {
-                    Some(copy) if p.fab_preset.is_some() => copy.preset(),
-                    _ => {
-                        crate::fab_presets::find_or_fail("/fab_preset", name, cx.user_dirs())?
-                            .preset
-                    }
+                let preset = match name.parse().ok().and_then(|id| project.fab_preset(id)) {
+                    Some(copy) => copy.preset(),
+                    None => crate::fab_presets::find_or_fail("/fab_preset", name, cx.user_dirs())
+                        .map(|source| source.preset)
+                        .or_else(|error| {
+                            project
+                                .fab_presets()
+                                .find(|p| p.name.eq_ignore_ascii_case(name))
+                                .map(reda_model::ProjectFabPreset::preset)
+                                .ok_or(error)
+                        })?,
                 };
-                let needs_copy = copy.is_none();
+                let needs_copy = !project.fab_presets().any(|copy| {
+                    copy.name.eq_ignore_ascii_case(&preset.name) && copy.preset() == preset
+                });
                 let objects = reda_pcb::new_board_from_preset(
                     uuid,
                     &preset,

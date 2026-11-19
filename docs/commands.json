@@ -797,7 +797,7 @@
             ]
           },
           "fab_preset": {
-            "description": "A Project Fab Preset copy by UUID or name, or a shipped or user preset by name.",
+            "description": "A Project Fab Preset copy by UUID, or a shipped or user preset by name. If its\nsource is unavailable, a Project copy can also be selected by name. Defaults to Generic.",
             "type": [
               "string",
               "null"

@@ -175,3 +175,48 @@ fn invalid_physical_builds_are_refused_before_they_enter_a_preset() {
         );
     }
 }
+
+#[test]
+fn a_readded_board_can_use_the_source_while_the_project_keeps_its_edited_copy() {
+    let dir = TempDir::new("construction-copy-and-source");
+    let mut engine = test_engine();
+    engine.run_ok("project.new", json!({"path":dir.path(),"name":"Demo"}));
+    let project = engine.project().unwrap();
+    let original = project
+        .pcb()
+        .unwrap()
+        .stackup()
+        .construction
+        .clone()
+        .unwrap();
+    let copy = project.fab_presets().next().unwrap().uuid;
+    let job = project.output_jobs().next().unwrap().uuid;
+    let mut board = project.pcb().unwrap().uuid;
+    engine.run_ok("output.job.delete", json!({"job":job}));
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":copy,"values":{"constructions":{(&original):null}}}),
+    );
+    for selection in [Some("Generic"), None] {
+        engine.run_ok("document.delete", json!({"document":board}));
+        let mut params = json!({"kind":"pcb"});
+        if let Some(name) = selection {
+            params["fab_preset"] = json!(name);
+        }
+        engine.run_ok("document.add", params);
+        let project = engine.project().unwrap();
+        let pcb = project.pcb().unwrap();
+        assert_eq!(pcb.stackup().construction.as_ref(), Some(&original));
+        assert!(project.construction_matches(pcb.stackup()));
+        assert_eq!(project.fab_presets().count(), 2);
+        assert!(
+            project
+                .fab_preset(copy)
+                .unwrap()
+                .constructions
+                .iter()
+                .all(|b| b.name != original)
+        );
+        board = pcb.uuid;
+    }
+}

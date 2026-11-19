@@ -273,8 +273,8 @@ impl LayerCount {
 /// Preset and physical build for the Project panel's Add PCB Document dialog.
 #[derive(Clone, Debug)]
 pub struct NewPcbForm {
-    presets: Vec<(String, FabPreset)>,
-    selected: String,
+    presets: Vec<(Option<reda_engine::model::Uuid>, FabPreset)>,
+    selected: usize,
     layers: LayerCount,
 }
 
@@ -285,20 +285,14 @@ impl NewPcbForm {
     ) -> Self {
         let mut presets: Vec<_> = project
             .fab_presets()
-            .map(|copy| (copy.uuid.to_string(), copy.preset()))
+            .map(|copy| (Some(copy.uuid), copy.preset()))
             .collect();
         for source in reda_engine::fab_presets::available(dirs).0 {
-            if !presets
-                .iter()
-                .any(|(_, copy)| copy.name.eq_ignore_ascii_case(&source.preset.name))
-            {
-                presets.push((source.preset.name.clone(), source.preset));
-            }
+            presets.push((None, source.preset));
         }
         let selected = presets
             .iter()
-            .find(|(_, p)| p.name.eq_ignore_ascii_case("Generic"))
-            .map(|(id, _)| id.clone())
+            .position(|(id, p)| id.is_none() && p.name == reda_engine::output::GENERIC_NAME)
             .unwrap_or_default();
         Self {
             presets,
@@ -311,12 +305,20 @@ impl NewPcbForm {
         let choices: Vec<_> = self
             .presets
             .iter()
-            .map(|(id, p)| (id.clone(), p.name.clone()))
+            .enumerate()
+            .map(|(index, (copy, preset))| {
+                let label = if copy.is_some() {
+                    tr!("construction-project-copy", name = preset.name.as_str())
+                } else {
+                    preset.name.clone()
+                };
+                (index, label)
+            })
             .collect();
         ui.horizontal(|ui| {
             let label = tr!("new-project-fab-preset");
             ui.add(widgets::form_name(&label));
-            let old = self.selected.clone();
+            let old = self.selected;
             settings::dropdown(
                 ui,
                 "pcb-fab-preset",
@@ -329,14 +331,17 @@ impl NewPcbForm {
                 self.layers.context = None;
             }
         });
-        if let Some((_, preset)) = self.presets.iter().find(|(id, _)| id == &self.selected) {
+        if let Some((_, preset)) = self.presets.get(self.selected) {
             self.layers.show(ui, preset);
         }
     }
 
     pub fn params(&self) -> Option<Value> {
-        let mut params =
-            json!({"kind":"pcb","fab_preset":self.selected,"layers":self.layers.value()?});
+        let (copy, preset) = self.presets.get(self.selected)?;
+        let key = copy
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| preset.name.clone());
+        let mut params = json!({"kind":"pcb","fab_preset":key,"layers":self.layers.value()?});
         if let Some(name) = &self.layers.construction {
             params["construction"] = json!(name);
         }
