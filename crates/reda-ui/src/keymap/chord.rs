@@ -135,6 +135,19 @@ impl Chord {
     /// [`Chord::from_event`] as on macOS (`mac`) or elsewhere.
     pub fn from_event_for(event: &Event, mac: bool) -> Vec<Chord> {
         let (key, modifiers) = match event {
+            // A native '*' has its own markers. F23 is a dedicated multiply,
+            // F22 a key needing Shift to produce the character.
+            Event::Key {
+                key: key @ (Key::F22 | Key::F23),
+                physical_key: Some(Key::F24),
+                pressed: true,
+                modifiers,
+                ..
+            } => {
+                let mut modifiers = *modifiers;
+                modifiers.shift &= *key == Key::F23;
+                (KeyName::Char('*'), modifiers)
+            }
             Event::Key {
                 key,
                 pressed: true,

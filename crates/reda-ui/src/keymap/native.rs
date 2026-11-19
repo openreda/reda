@@ -1,12 +1,12 @@
-//! egui-winit normalizes both digit rows to Num0..Num9. Preserve the native
-//! location before that translation, while leaving logical keys and typed text
-//! available to text fields. All windows use the same adapter.
+//! Preserve keys that egui-winit otherwise collapses: both digit rows become
+//! Num0..Num9, and '*' is delivered as text without its modifiers.
 
 use eframe::{AppCreator, EframeWinitApplication, NativeOptions, UserEvent};
 use winit::application::ApplicationHandler;
 use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::keyboard::{Key, KeyCode, KeyLocation, PhysicalKey};
+use winit::keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey};
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement as _;
 use winit::window::WindowId;
 
 pub(super) struct Window(EframeWinitApplication<'static>);
@@ -25,14 +25,22 @@ pub(crate) fn run(
 impl ApplicationHandler<UserEvent> for Window {
     fn window_event(&mut self, events: &ActiveEventLoop, id: WindowId, mut event: WindowEvent) {
         if let WindowEvent::KeyboardInput { event: key, .. } = &mut event
-            && key.location == KeyLocation::Numpad
             && let Key::Character(text) = &key.logical_key
-            && text.len() == 1
-            && text.as_bytes()[0].is_ascii_digit()
         {
-            // A physical marker paired only with a logical digit. A normal F24
-            // press still has F24 as its logical key and is handled normally.
-            key.physical_key = PhysicalKey::Code(KeyCode::F24);
+            if text == "*" {
+                // egui needs a key event to preserve the modifiers at the
+                // instant of the press. Keep its companion text for editing.
+                let direct = key.location == KeyLocation::Numpad
+                    || key.key_without_modifiers().to_text() == Some("*");
+                key.text.get_or_insert_with(|| text.clone());
+                key.logical_key = Key::Named(if direct { NamedKey::F23 } else { NamedKey::F22 });
+                key.physical_key = PhysicalKey::Code(KeyCode::F24);
+            } else if key.location == KeyLocation::Numpad
+                && text.len() == 1
+                && text.as_bytes()[0].is_ascii_digit()
+            {
+                key.physical_key = PhysicalKey::Code(KeyCode::F24);
+            }
         }
         self.0.window_event(events, id, event);
     }

@@ -380,30 +380,25 @@ impl Keymap {
         wanted: impl Fn(&Chord) -> bool,
     ) -> Vec<Action> {
         let mut actions = Vec::new();
-        let mut shifted_main_key = false;
+        let mut handled_asterisk: Option<bool> = None;
         input.events.retain(|event| {
-            // A main-row punctuation key can need Shift just to type its
-            // character (e.g. Shift+8 for "*"). Keypad multiply produces
-            // the text alone, so Shift there remains a shortcut modifier.
-            let shift_for_text = input.modifiers.shift && !shifted_main_key;
-            shifted_main_key = matches!(event, egui::Event::Key { pressed:true, physical_key:Some(_), modifiers, .. } if modifiers.shift);
-            let mut chords = Chord::from_event(event);
-            if matches!(event, egui::Event::Text(_))
-                && shift_for_text
-                && let Some(first) = chords.first().copied()
+            // A native '*' key is followed by its text in the same event
+            // batch. A binding consumes both; a focused text field keeps it.
+            if let Some(handled) = handled_asterisk.take()
+                && matches!(event, egui::Event::Text(text) if text == "*")
             {
-                chords.insert(
-                    0,
-                    Chord {
-                        shift: true,
-                        ..first
-                    },
-                );
+                return !handled;
             }
+            let chords = Chord::from_event(event);
             let found = chords
                 .iter()
                 .filter(|chord| wanted(chord))
                 .find_map(|chord| self.lookup(chord, active));
+            if matches!(event, egui::Event::Key { .. })
+                && chords.first().is_some_and(|c| c.key == KeyName::Char('*'))
+            {
+                handled_asterisk = Some(found.is_some());
+            }
             match found {
                 Some(action) => {
                     actions.push(action.clone());

@@ -1211,14 +1211,14 @@ fn layer_keys_follow_the_shown_copper_and_signal_roles_outside_a_route() {
     w.h.key_press(Key::Plus);
     w.h.run();
     assert_eq!(current(&w), copper[2]);
-    // A main-row asterisk needs Shift on many layouts. A shifted keypad
-    // multiply sends the character without the preceding main-row key.
+    // The native adapter marks whether Shift typed '*' on the current layout
+    // (F22), or modified a dedicated multiply key (F23).
     w.h.input_mut()
         .events
         .push(egui::Event::ModifiersChanged(Modifiers::SHIFT));
     w.h.input_mut().events.push(egui::Event::Key {
-        key: Key::Num8,
-        physical_key: Some(Key::Num8),
+        key: Key::F22,
+        physical_key: Some(Key::F24),
         pressed: true,
         repeat: false,
         modifiers: Modifiers::SHIFT,
@@ -1227,8 +1227,19 @@ fn layer_keys_follow_the_shown_copper_and_signal_roles_outside_a_route() {
     w.h.run();
     assert_eq!(current(&w), copper[3]);
     assert_eq!(last_command(&w), "pcb.layer.next_signal");
-    w.h.event(egui::Event::ModifiersChanged(Modifiers::SHIFT));
-    w.h.event(egui::Event::Text("*".into()));
+    // A fast shifted multiply can be released before the next repaint.
+    w.h.input_mut().events.extend([
+        egui::Event::ModifiersChanged(Modifiers::SHIFT),
+        egui::Event::Key {
+            key: Key::F23,
+            physical_key: Some(Key::F24),
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::SHIFT,
+        },
+        egui::Event::Text("*".into()),
+        egui::Event::ModifiersChanged(Modifiers::NONE),
+    ]);
     w.h.run();
     assert_eq!(current(&w), copper[0]);
     assert_eq!(last_command(&w), "pcb.layer.previous_signal");
