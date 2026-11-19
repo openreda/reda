@@ -103,6 +103,11 @@ pub struct Menu<'a> {
 }
 
 impl Menu<'_> {
+    /// Horizontal space to reserve for a scrolling menu's vertical scrollbar.
+    pub fn scrollbar_width(ui: &Ui) -> f32 {
+        ui.spacing().scroll.allocated_width()
+    }
+
     /// The popup's id, instead of one made from the anchor's.
     pub fn id(mut self, id: Id) -> Self {
         self.popup = self.popup.id(id);

@@ -138,28 +138,40 @@ impl Construction {
             .count()
     }
 
+    /// Preserve the automatically sized Core of a format-1 Stackup seed.
     pub fn two_layer(seeds: StackupSeeds) -> Self {
-        Self::evenly_spaced(2, seeds)
+        Self::with_core_gaps(2, seeds, |_| None)
     }
 
-    /// Plain copper and a Core sharing the unassigned thickness in each gap.
+    /// Plain copper and Core gaps. At its four supported counts Generic specifies
+    /// the gaps in whole nanometres. Other counts use the Stackup's equal-share rule.
     pub fn evenly_spaced(layers: u8, seeds: StackupSeeds) -> Self {
+        let fixed_gaps = matches!(layers, 2 | 4 | 6 | 8) && seeds.is_empty();
+        let gaps = i64::from(layers) - 1;
+        let insulation = DEFAULT_BOARD_THICKNESS.0 - i64::from(layers) * DEFAULT_COPPER.0;
+        // Round successive boundaries to preserve the exact total and mirrored gaps.
+        let boundary = |n: u8| (insulation * i64::from(n) + gaps / 2) / gaps;
+        Self::with_core_gaps(layers, seeds, |n| {
+            fixed_gaps.then(|| Nm(boundary(n) - boundary(n - 1)))
+        })
+    }
+
+    fn with_core_gaps(layers: u8, seeds: StackupSeeds, gap: impl Fn(u8) -> Option<Nm>) -> Self {
+        let copper = seeds.copper.unwrap_or(DEFAULT_COPPER);
         let mut entries = Vec::new();
         for n in 0..layers {
             if n > 0 {
                 entries.push(ConstructionEntry::Dielectric {
                     kind: DielectricKind::Core,
                     name: None,
-                    thickness: None,
+                    thickness: gap(n),
                     material: None,
                     dk: None,
                     df: None,
                     test_frequency: None,
                 });
             }
-            entries.push(ConstructionEntry::Copper {
-                copper: seeds.copper.unwrap_or(DEFAULT_COPPER),
-            });
+            entries.push(ConstructionEntry::Copper { copper });
         }
         Self {
             name: format!("{layers} Layer"),
