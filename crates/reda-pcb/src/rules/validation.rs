@@ -283,10 +283,21 @@ pub fn validate(pcb: &PcbDocument, presets: &[PresetRules]) -> Validation {
                         );
                     }
                 }
-                if layers
-                    .iter()
-                    .all(|l| inherited(&records, record, l).get(field) == Some(value))
-                {
+                if layers.iter().all(|l| {
+                    let parent = match &record.scope.net_class_pair {
+                        Some([a, b]) => super::resolve_class_pair(
+                            pcb,
+                            [Some(std::slice::from_ref(a)), Some(std::slice::from_ref(b))],
+                            Some(l.uuid),
+                            record.kind,
+                            field,
+                            Some(record.uuid),
+                        )
+                        .map(|s| s.value),
+                        None => inherited(&records, record, l).get(field),
+                    };
+                    parent == Some(value)
+                }) {
                     notes.push(
                         Note::new(
                             NoteKind::SameAsInherited,

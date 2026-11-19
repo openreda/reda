@@ -41,6 +41,7 @@ pub use route::Leg;
 #[derive(Clone, Debug)]
 struct Route {
     net: Option<Uuid>,
+    follows_preferred_width: bool,
     /// Earlier legs and Vias.
     steps: Vec<Step>,
     /// The leg being routed; its last point is where the path ahead starts.
@@ -365,13 +366,17 @@ impl Router {
         route.leg.points.extend_from_slice(&path[1..]);
         let next = Leg {
             layer: other,
-            width: route::width::changed_layer(pcb, net, route.leg.layer, other, route.leg.width),
+            width: route::width::changed_layer(
+                pcb,
+                net,
+                other,
+                (!route.follows_preferred_width).then_some(route.leg.width),
+            ),
             points: vec![at],
         };
         let done = std::mem::replace(&mut route.leg, next);
-        if done.points.len() > 1 {
-            route.steps.push(Step::Leg(done));
-        }
+        // Keep even a one-point leg so undo restores its Layer and original width.
+        route.steps.push(Step::Leg(done));
         route.steps.push(Step::Via(at, via_size));
         self.depend_on(shell, at);
         let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": other }));
@@ -389,15 +394,10 @@ impl Router {
             route.leg.points.pop();
         } else if let Some(Step::Via(..)) = route.steps.last() {
             route.steps.pop();
-            let at = route.last();
-            route.leg = match route.steps.pop() {
-                Some(Step::Leg(leg)) => leg,
-                _ => Leg {
-                    layer: other_side_of(shell, route.leg.layer),
-                    width: route.leg.width,
-                    points: vec![at],
-                },
+            let Some(Step::Leg(leg)) = route.steps.pop() else {
+                unreachable!("a Via follows the leg on its starting Layer");
             };
+            route.leg = leg;
             let layer = route.leg.layer;
             let _ = shell.run_reporting("pcb.layer.activate", json!({ "layer": layer }));
         } else if route.steps.is_empty() {
@@ -466,7 +466,7 @@ impl Router {
                 let width = route::width::mode_width_on(pcb, net, layer, next, self.user_width);
                 set(shell, "width_mode", json!(next));
                 if let Some(width) = width {
-                    self.apply_width(shell, width);
+                    self.apply_width(shell, width, next == route::WidthMode::Preferred);
                 }
             }
         }
@@ -586,14 +586,15 @@ impl Router {
             }
             (None, None) => return,
         };
-        self.apply_width(shell, width);
+        self.apply_width(shell, width, false);
     }
 
     /// Routes on at `width` from the last placed vertex.
-    fn apply_width(&mut self, shell: &mut Shell, width: Nm) {
+    fn apply_width(&mut self, shell: &mut Shell, width: Nm, follows_preferred: bool) {
         let Some(route) = self.route.as_mut() else {
             return;
         };
+        route.follows_preferred_width = follows_preferred;
         if width == route.leg.width {
             return;
         }
@@ -870,8 +871,14 @@ impl Router {
             self.user_width,
             prefs.pickup_width,
         );
+        let mode =
+            route::width::mode_width_on(pcb, net, Some(layer), prefs.width_mode, self.user_width);
+        let follows_preferred_width = (prefs.width_mode == route::WidthMode::Preferred
+            || mode.is_none())
+            && width == route::width::changed_layer(pcb, net, layer, None);
         self.route = Some(Route {
             net,
+            follows_preferred_width,
             steps: Vec::new(),
             leg: Leg {
                 layer,
@@ -979,12 +986,6 @@ fn other_side(pcb: &PcbDocument, layer: Uuid) -> Uuid {
         Some(i) => copper[i + 1],
         None => first,
     }
-}
-
-fn other_side_of(shell: &Shell, layer: Uuid) -> Uuid {
-    board(shell)
-        .and_then(|(p, _)| p.pcb())
-        .map_or(layer, |pcb| other_side(pcb, layer))
 }
 
 /// The open Project and its PCB Document's UUID.

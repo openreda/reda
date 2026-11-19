@@ -615,14 +615,21 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
         .map(|c| (c.kind, c.field, c.layers))
         .collect();
     let applied = reseeded(pcb, &out, &ticked);
+    let blockers = preset_problems(pcb, &applied);
     for change in out.iter_mut().filter(|c| c.field.is_preferred()) {
-        let record = applied
-            .iter()
-            .find(|r| r.kind == change.kind && r.scope.is_board_wide())
-            .unwrap_or_else(|| pcb.board_rule(change.kind));
-        change.ticked = crate::rules::blocking_problems(record, record)
-            .iter()
-            .any(|p| p.field == change.field);
+        change.ticked = blockers.iter().any(|p| {
+            p.kind == change.kind
+                && p.net_class.is_none()
+                && p.value == change.field.path()
+                && p.problem == crate::rules::ProblemKind::PreferredOutside
+                && applied
+                    .iter()
+                    .find(|r| r.uuid == p.rule)
+                    .or_else(|| pcb.rule(p.rule))
+                    .is_some_and(|r| {
+                        r.scope.is_board_wide() || r.values.get(change.field).is_none()
+                    })
+        });
     }
     out
 }

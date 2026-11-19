@@ -30,11 +30,13 @@ pub struct Sourced<T> {
 
 /// The Net Classes of `net`, highest rank first; none for no Net or an unknown one.
 pub fn ranked_classes(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<Uuid> {
-    let Some(net) = net.and_then(|n| pcb.net(n)) else {
-        return Vec::new();
-    };
-    let mut classes: Vec<(u32, Uuid)> = net
-        .classes
+    net.and_then(|id| pcb.net(id))
+        .map(|net| rank_classes(pcb, &net.classes))
+        .unwrap_or_default()
+}
+
+fn rank_classes(pcb: &PcbDocument, members: &[Uuid]) -> Vec<Uuid> {
+    let mut classes: Vec<(u32, Uuid)> = members
         .iter()
         .filter_map(|c| pcb.net_class(*c).map(|class| (class.rank, class.uuid)))
         .collect();
@@ -571,20 +573,41 @@ pub fn resolve_pair_on(
     kind: RuleKind,
     field: RuleField,
 ) -> Option<Sourced<RuleValue>> {
+    let classes = [a, b].map(|id| {
+        id.and_then(|id| pcb.net(id))
+            .map(|net| rank_classes(pcb, &net.classes))
+    });
+    resolve_class_pair(
+        pcb,
+        [classes[0].as_deref(), classes[1].as_deref()],
+        layer,
+        kind,
+        field,
+        None,
+    )
+}
+
+/// Resolve between two class memberships. Excluding a pair record shows the value it inherits.
+fn resolve_class_pair(
+    pcb: &PcbDocument,
+    classes: [Option<&[Uuid]>; 2],
+    layer: Option<Uuid>,
+    kind: RuleKind,
+    field: RuleField,
+    except: Option<Uuid>,
+) -> Option<Sourced<RuleValue>> {
     if kind == RuleKind::Clearance
-        && let (Some(a), Some(b)) = (a.and_then(|n| pcb.net(n)), b.and_then(|n| pcb.net(n)))
+        && let [Some(a), Some(b)] = classes
     {
         let has = |classes: &[Uuid], id| id == Uuid::NIL || classes.contains(&id);
         let rank = |id| pcb.net_class(id).map_or(u32::MAX, |c| c.rank);
         let layer = layer.and_then(|id| pcb.layers().layer(id));
         let best = pcb
             .rules()
-            .filter(|r| r.kind == kind && r.enabled)
+            .filter(|r| r.kind == kind && r.enabled && Some(r.uuid) != except)
             .filter_map(|r| {
                 let [x, y] = r.scope.net_class_pair?;
-                if !(has(&a.classes, x) && has(&b.classes, y)
-                    || has(&b.classes, x) && has(&a.classes, y))
-                {
+                if !(has(a, x) && has(b, y) || has(b, x) && has(a, y)) {
                     return None;
                 }
                 let value = r.values.get(field)?;
@@ -608,8 +631,8 @@ pub fn resolve_pair_on(
         }
     }
     match (
-        resolve_on(pcb, a, layer, kind, field),
-        resolve_on(pcb, b, layer, kind, field),
+        resolve_for_classes(pcb, classes[0].unwrap_or_default(), layer, kind, field),
+        resolve_for_classes(pcb, classes[1].unwrap_or_default(), layer, kind, field),
     ) {
         (Some(a), Some(b)) => Some(if a.value.length() >= b.value.length() {
             a

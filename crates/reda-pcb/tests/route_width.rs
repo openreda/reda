@@ -215,16 +215,11 @@ fn changing_layer_follows_preferred_or_clips_a_chosen_width() {
         json!({"kind":"track_width","scope":{"net_class":class,"layers":[layers[1]]},
         "values":{"min":"0.32mm","preferred":"0.42mm","max":"0.48mm"}}),
     );
-    let change = |width| {
-        reda_pcb::route::width::changed_layer(
-            pcb(&engine),
-            Some(net),
-            layers[0],
-            layers[1],
-            um(width),
-        )
+    let change = |width: Option<i64>| {
+        reda_pcb::route::width::changed_layer(pcb(&engine), Some(net), layers[1], width.map(um))
     };
-    assert_eq!(change(300), um(420));
-    assert_eq!(change(210), um(320));
-    assert_eq!(change(450), um(450));
+    assert_eq!(change(None), um(420));
+    assert_eq!(change(Some(300)), um(320));
+    assert_eq!(change(Some(210)), um(320));
+    assert_eq!(change(Some(450)), um(450));
 }

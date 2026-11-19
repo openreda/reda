@@ -247,13 +247,9 @@ pub fn via_choices(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<ViaChoice> {
     out
 }
 
-/// The width of the new leg after crossing a Via.
-pub fn changed_layer(pcb: &PcbDocument, net: Option<Uuid>, from: Uuid, to: Uuid, width: Nm) -> Nm {
-    let old = net_rules_on(pcb, net, Some(from)).track_width;
-    let new = net_rules_on(pcb, net, Some(to)).track_width;
-    if width == old.default_size() {
-        new.default_size()
-    } else {
-        new.clip(width)
-    }
+/// The width on the destination Layer. A route following the preferred width takes
+/// that Layer's preference; an explicit or picked-up width stays inside its limits.
+pub fn changed_layer(pcb: &PcbDocument, net: Option<Uuid>, to: Uuid, chosen: Option<Nm>) -> Nm {
+    let range = net_rules_on(pcb, net, Some(to)).track_width;
+    chosen.map_or_else(|| range.default_size(), |width| range.clip(width))
 }

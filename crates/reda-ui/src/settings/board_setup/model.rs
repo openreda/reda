@@ -181,6 +181,7 @@ pub struct FabPreview {
 pub struct BoardSetupDraft {
     /// The PCB Document, while there is one.
     pcb: Option<Uuid>,
+    has_inner_layers: bool,
     rules: BTreeMap<RuleField, Draft<String>>,
     scoped: ScopedRows,
     severities: Vec<(DrcCheck, Draft<Severity>)>,
@@ -317,6 +318,7 @@ impl BoardSetupDraft {
             self.follow.clear();
         }
         let setup = pcb.setup();
+        self.has_inner_layers = pcb.copper_layers().any(|l| l.side.is_none());
         self.load_scoped(pcb, reset);
         self.records = pcb
             .rules()
@@ -877,6 +879,24 @@ impl BoardSetupDraft {
     /// Whether the preferred value `rule` as drafted falls outside its range once the
     /// ticked rows of `changes` are taken.
     fn outside_new_range(&self, rule: RuleField, changes: &[RuleChange]) -> bool {
+        if rule == RuleField::TrackPreferred
+            && self.has_inner_layers
+            && self.scoped_value(&m::RuleScope::INNER, rule).is_empty()
+        {
+            let inner_min = changes
+                .iter()
+                .find(|c| c.inner && c.rule == RuleField::TrackWidth && c.ticked)
+                .map_or_else(
+                    || self.scoped_value(&m::RuleScope::INNER, RuleField::TrackWidth),
+                    |c| c.preset.as_str(),
+                );
+            let length = |text| super::length::optional(text).ok().flatten();
+            if let (Some(preferred), Some(min)) = (length(self.rule(rule)), length(inner_min))
+                && preferred < min
+            {
+                return true;
+            }
+        }
         let value = |f: RuleField| {
             let text = changes
                 .iter()

@@ -654,3 +654,31 @@ fn applying_and_saving_inner_fab_limits_preserves_an_independent_layer_override(
         .collect();
     assert_eq!(records.len(), 2);
 }
+
+#[test]
+fn applying_inner_minimums_takes_the_preferred_width_when_needed() {
+    let dir = TempDir::new("preset-inner-preferred");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{
+            "inner":{"track_width_min":350000},"preferred":{"track_width":400000,"via_diameter":700000,"via_hole":300000}
+        }}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    assert!(
+        rows(&diff)
+            .iter()
+            .any(|r| r.0 == "track_width" && r.1 == "preferred" && r.3)
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(
+        pcb(&e).board_rule(RuleKind::TrackWidth).values.preferred,
+        Some(um(400))
+    );
+}

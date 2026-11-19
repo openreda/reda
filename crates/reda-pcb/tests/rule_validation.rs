@@ -186,6 +186,19 @@ fn validation_explains_an_empty_layer_group_and_a_relaxed_pair() {
         notes(&out).iter().any(|(n, _)| n == "pair_below_class"),
         "{out}"
     );
+    // A pair equal to the board still relaxes Power. With no pair it inherits Power's 1 mm.
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.16mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(!notes(&out).iter().any(|(n, _)| n == "same_as_inherited"));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"1mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(notes(&out).iter().any(|(n, _)| n == "same_as_inherited"));
     let out = engine.run_ok("pcb.rules.validate", json!({"scope":{"layers":"inner"}}));
     assert!(
         notes(&out).iter().any(|(n, _)| n == "no_matching_layers"),
