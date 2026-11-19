@@ -655,24 +655,6 @@ fn flipping_the_board_reverses_the_whole_copper_stack_and_keeps_the_active_layer
 #[test]
 fn holes_and_their_labels_follow_the_copper_span_in_single_layer_mode() {
     let mut b = board_with_layers(6);
-    let via = uuid(
-        &run(
-            &mut b.shell,
-            "pcb.via.add",
-            json!({"at":{"x":"3mm","y":0},"net":b.net}),
-        )["result"]["uuid"],
-    );
-    let pad = uuid(
-        &run(
-            &mut b.shell,
-            "pcb.free_pad.add",
-            json!({"kind":"plated_through_hole","at":{"x":0,"y":"4mm"},"width":"1mm","hole":{"width":"0.5mm"},"net":b.net}),
-        )["result"]["uuid"],
-    );
-    // Open a six-layer board with a blind Via from L1 to L3.
-    run(&mut b.shell, "project.save", json!({}));
-    let file = b.project.with_extension("redapcb");
-    let mut board: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
     let copper: Vec<_> = b
         .shell
         .engine()
@@ -683,9 +665,20 @@ fn holes_and_their_labels_follow_the_copper_span_in_single_layer_mode() {
         .copper_layers()
         .map(|l| l.uuid)
         .collect();
-    board["vias"][0]["span"]["to"] = json!(copper[2]);
-    std::fs::write(&file, serde_json::to_vec_pretty(&board).unwrap()).unwrap();
-    b.shell = reopen(&mut b);
+    let via = uuid(
+        &run(
+            &mut b.shell,
+            "pcb.via.add",
+            json!({"from":copper[0],"to":copper[2],"at":{"x":"3mm","y":0},"net":b.net}),
+        )["result"]["uuid"],
+    );
+    let pad = uuid(
+        &run(
+            &mut b.shell,
+            "pcb.free_pad.add",
+            json!({"kind":"plated_through_hole","at":{"x":0,"y":"4mm"},"width":"1mm","hole":{"width":"0.5mm"},"net":b.net}),
+        )["result"]["uuid"],
+    );
     let opacity = |b: &Board, id| {
         scene(b)
             .items_of(id)
@@ -752,7 +745,14 @@ fn blind_vias_have_two_layer_coloured_half_holes_and_a_switchable_span_label() {
         .filter(|i| i.layer == SceneLayer::Drill)
         .collect::<Vec<_>>();
     assert_eq!(drill.len(), 2);
-    assert_ne!(drill[0].color, drill[1].color);
+    assert_eq!(
+        drill[0].color,
+        ColorKey::Board(reda_ui::engine::render::BoardColor::CopperTop)
+    );
+    assert_eq!(
+        drill[1].color,
+        ColorKey::Board(reda_ui::engine::render::BoardColor::Inner2)
+    );
     assert!(
         drill
             .iter()
