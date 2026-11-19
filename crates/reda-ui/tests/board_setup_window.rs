@@ -669,6 +669,10 @@ fn apply_construction_preselects_empty_middle_layers_and_revert_restores_the_nam
     let mut h = harness(home.path(), work.path(), "Board");
     let board = pcb(&h);
     let document = board.uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
     let preset = h
         .state()
         .shell()
@@ -693,10 +697,6 @@ fn apply_construction_preselects_empty_middle_layers_and_revert_restores_the_nam
             "pcb.text.add",
             json!({"layer":l[2],"text":"GND","x":0,"y":0}),
         )
-        .unwrap();
-    h.state_mut()
-        .shell_mut()
-        .run("pcb.stackup.open", json!({"document":document}))
         .unwrap();
     h.run();
     h.get_by_role_and_label(Role::Button, "Apply Construction…")
@@ -725,6 +725,20 @@ fn apply_construction_preselects_empty_middle_layers_and_revert_restores_the_nam
     h.get_by_role_and_label(Role::Button, "Revert").click();
     h.run();
     assert_eq!(pcb(&h).stackup().thickness.0, 1_600_000);
+
+    let recording = reda_ui::engine::journal::export(h.state().shell().engine().journal());
+    let mut steps = reda_ui::engine::journal::parse(&recording).unwrap();
+    let into = TempDir::new("apply-editor-replay");
+    reda_ui::engine::journal::relocate_new_projects(&mut steps, into.path());
+    let mut replay = Shell::new(Engine::builder().headless(false).user_dirs(None).build());
+    reda_ui::engine::journal::replay_with(|id, params| replay.run(id, params), &steps).unwrap();
+    let restored = replay.engine().project().unwrap().pcb().unwrap();
+    assert_eq!(restored.copper_layers().count(), 4);
+    assert_eq!(
+        restored.copper_number(restored.texts().next().unwrap().layer),
+        Some(2)
+    );
+    assert_eq!(restored.stackup().thickness.0, 1_600_000);
 }
 
 #[test]
