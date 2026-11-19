@@ -251,7 +251,12 @@ pub(super) fn zones_section(ui: &mut Ui, shell: &Shell, out: &mut Vec<(&'static 
     let units = shell.board_view().units;
     ui.separator();
     if let [zone] = &zones[..] {
-        let listing = reda_engine::pcb::zone_listing(pcb, project.zone_fills(pcb.uuid), None);
+        let listing = reda_engine::pcb::ZoneListing::with_fonts(
+            pcb,
+            project.zone_fills(pcb.uuid),
+            None,
+            shell.engine().fonts(),
+        );
         if let Some(row) = listing
             .layers
             .iter()

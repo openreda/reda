@@ -683,7 +683,7 @@ impl Router {
     /// The board's copper index, kept in the Project between edits.
     fn copper(&self, shell: &Shell) -> Option<std::sync::Arc<Copper>> {
         let (project, _) = board(shell)?;
-        Copper::of(project)
+        Copper::of_with_fonts(project, shell.engine().fonts())
     }
 
     /// Checks the path ahead to `at` (or, with the Via Tool, a Via at `at`).

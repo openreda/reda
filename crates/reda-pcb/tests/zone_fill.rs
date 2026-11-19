@@ -768,3 +768,151 @@ fn inner_relief_spokes_reach_the_fill_across_the_inner_land_gap() {
     assert!(filled(s, at(7.25, 5.0)), "spoke to the wide inner land");
     assert!(!filled(s, at(7.25, 5.3)), "relief gap off the spoke");
 }
+
+#[test]
+fn edits_to_free_copper_drawings_refill_only_their_layer() {
+    let dir = TempDir::new("zone-copper-drawing");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 20., 15.),
+        json!({"remove_unconnected":false}),
+    );
+    let before = fill(&engine);
+    let rect = engine.run_ok("pcb.graphic.add_rect", json!({
+        "layer":"copper_top","from":{"x":"4mm","y":"3mm"},"to":{"x":"12mm","y":"10mm"},"width":"0.4mm"
+    }))["result"]["uuid"].clone();
+    let after = reda_pcb::zone::current(pcb(&engine), Some(&before));
+    let copper = shapes(&after, z);
+    assert!(
+        !filled(copper, at(6., 10.6)),
+        "0.4 mm from the graphic's edge is inside its clearance"
+    );
+    assert!(filled(copper, at(6., 10.8)));
+    assert!(
+        filled(copper, at(8., 6.)),
+        "the rectangle is only an outline"
+    );
+    engine.run_ok("pcb.graphic.delete", json!({"uuid":rect}));
+    assert!(reda_pcb::zone::status(pcb(&engine), Some(&after)).needs_refill);
+    let text = engine.run_ok(
+        "pcb.text.add",
+        json!({
+            "layer":"copper_bottom","font":"Noto Sans","text":"O","x":"4mm","y":"3mm","height":"7mm"
+        }),
+    )["result"]["uuid"]
+        .clone();
+    assert!(!reda_pcb::zone::status(pcb(&engine), Some(&before)).needs_refill);
+    engine.run_ok("pcb.text.set", json!({"uuid":text,"layer":"copper_top"}));
+    let after = reda_pcb::zone::current(pcb(&engine), Some(&before));
+    assert!(
+        !filled(shapes(&after, z), at(4.8, 6.5)),
+        "the left side of the O clears the fill"
+    );
+    assert!(
+        filled(shapes(&after, z), at(7.8, 6.5)),
+        "the counter still fills"
+    );
+}
+
+#[test]
+fn an_installed_copper_font_changes_clearance_and_invalidates_the_fallback_fill() {
+    let dir = TempDir::new("zone-installed-font");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 16., 15.),
+        json!({"remove_unconnected":false}),
+    );
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer":"copper_top","x":0,"y":0,
+        "text":"I","height":"10mm","font":"Board Mono"}),
+    );
+    let probe = json!({"layer":"copper_top","from":{"x":"4.1mm","y":"4mm"},
+        "to":{"x":"4.1mm","y":"6mm"},"width":"0.1mm"});
+    // At a 10 mm cap height, the centre stroke is at x=2.37 mm for the fallback
+    // Noto Sans I and x=4.11 mm for JetBrains Mono.
+    assert_eq!(
+        engine.run_ok("pcb.clearance.track", probe.clone())["clear"],
+        true
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    assert!(filled(
+        shapes(
+            engine
+                .project()
+                .unwrap()
+                .zone_fills(pcb(&engine).uuid)
+                .unwrap(),
+            z
+        ),
+        at(4.1, 5.)
+    ));
+    let previous = engine.run_ok("drc.run", json!({"checks":["clearance"]}))["design"].clone();
+    engine.fonts_mut().add(
+        "Board Mono",
+        &include_bytes!("../../reda-ui/fonts/jetbrains-mono/JetBrainsMonoNL-Regular.ttf")[..],
+    );
+    assert_eq!(
+        engine.run_ok("drc.stale", json!({"design":previous}))["stale"],
+        true
+    );
+    assert_eq!(engine.run_ok("pcb.clearance.track", probe)["clear"], false);
+    assert_eq!(
+        engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
+        true
+    );
+    engine.run_ok("pcb.zone.fill", json!({}));
+    let stored = engine
+        .project()
+        .unwrap()
+        .zone_fills(pcb(&engine).uuid)
+        .unwrap();
+    assert!(!filled(shapes(stored, z), at(4.1, 5.)));
+    assert!(filled(shapes(stored, z), at(2.37, 5.)));
+    assert_eq!(
+        engine.run_ok("pcb.zone.fill_status", json!({}))["needs_refill"],
+        false
+    );
+}
+
+#[test]
+fn supplied_zone_copper_touching_a_graphic_is_a_clearance_violation() {
+    let dir = TempDir::new("drc-zone-free-drawing");
+    let mut engine = engine_with_pcb(&dir);
+    let z = zone(
+        &mut engine,
+        None,
+        rect(0., 0., 12., 12.),
+        json!({"remove_unconnected":false}),
+    );
+    let before = fill(&engine);
+    let graphic = uuid(
+        &engine.run_ok(
+            "pcb.graphic.add_arc",
+            json!({
+                "layer":"copper_top","from":{"x":"3mm","y":"5mm"},"to":{"x":"9mm","y":"5mm"},
+                "sweep":"180deg","width":"0.2mm"
+            }),
+        )["result"]["uuid"],
+    );
+    let pcb = pcb(&engine);
+    let reports = |fills| {
+        reda_pcb::drc::check_only(
+            pcb,
+            fills,
+            engine.fonts(),
+            Some(&[reda_model::DrcCheck::Clearance]),
+        )
+    };
+    let hits = reports(&before);
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert!(hits[0].objects.contains(&z) && hits[0].objects.contains(&graphic));
+    let fresh = reda_pcb::zone::current(pcb, Some(&before));
+    assert!(reports(&fresh).is_empty());
+    assert!(!filled(shapes(&fresh, z), at(6., 2.)));
+    assert!(filled(shapes(&fresh, z), at(6., 5.)));
+}

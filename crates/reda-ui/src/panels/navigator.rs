@@ -94,7 +94,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             Mode::Footprints => footprints(ui, shell, pcb, &state.search, look, &mut out),
             Mode::Zones => {
                 let fills = project.zone_fills(pcb.uuid);
-                let listing = rows::zones(pcb, fills, &state.search);
+                let listing =
+                    rows::zones_with_fonts(pcb, fills, &state.search, shell.engine().fonts());
                 zones(ui, shell, pcb, &listing.layers, look, &mut out)
             }
         };

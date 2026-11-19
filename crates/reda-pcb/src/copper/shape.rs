@@ -1,8 +1,8 @@
 //! Copper shapes on the board: the [grown shapes](reda_model::geom::grown) of Pads,
 //! Tracks and Vias, placed by their Footprint instance and boxed for the R-tree index.
 
-use reda_model::geom::Millideg;
-use reda_model::{FootprintInstance, FreePad, Pad, Side, TrackGeometry};
+use reda_model::geom::{Millideg, Nm, Point};
+use reda_model::{FootprintInstance, FreePad, GraphicShape, Pad, Side, TrackGeometry};
 use rstar::AABB;
 
 pub(crate) use reda_model::geom::grown::{Core, P, Prim, Shape, arc_points};
@@ -81,4 +81,49 @@ pub(crate) fn board_point(instance: &FootprintInstance, p: P) -> P {
 pub(crate) fn rotate(p: P, angle: Millideg) -> P {
     let (x, y) = reda_model::geom::rotate(p[0], p[1], angle);
     [x, y]
+}
+
+fn p(point: Point) -> [i64; 2] {
+    [point.x.0, point.y.0]
+}
+
+/// A board graphic drawn with a round pen of `width`.
+pub(crate) fn graphic_shape(shape: &GraphicShape, width: Nm) -> Shape {
+    let (region, strokes) = shape.drawing(width);
+    let mut prims = Vec::new();
+    if let Some(corners) = region {
+        prims.push(Prim {
+            core: Core::Poly(corners.into_iter().map(p).collect()),
+            radius: 0,
+        });
+    }
+    for stroke in strokes {
+        let points = arc_points(stroke.from, stroke.to, stroke.sweep);
+        prims.extend(Shape::chain(&points, width.0 / 2).prims);
+    }
+    Shape { prims }
+}
+
+impl crate::PlacedText {
+    /// The etched or drawn area, including glyph counters and any knockout.
+    pub(crate) fn shape(&self) -> Shape {
+        let mut prims: Vec<Prim> = self
+            .strokes
+            .iter()
+            .map(|s| Prim {
+                core: Core::Seg(p(s.a), p(s.b)),
+                radius: self.stroke_width.0 / 2,
+            })
+            .collect();
+        for tri in self.fill.indices.chunks(3) {
+            let corner = |i: u32| p(self.fill.points[i as usize]);
+            if let [a, b, c] = *tri {
+                prims.push(Prim {
+                    core: Core::Poly(vec![corner(a), corner(b), corner(c)]),
+                    radius: 0,
+                });
+            }
+        }
+        Shape { prims }
+    }
 }
