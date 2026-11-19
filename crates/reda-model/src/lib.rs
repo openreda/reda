@@ -63,12 +63,13 @@ pub use pcb::{
     FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, HoleRuleValues,
     Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer,
     LayerGroup, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin,
-    PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver,
-    ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
-    RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
-    StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation, TeardropTarget,
-    TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via,
-    ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableLayers, PortableRule,
+    PortableSpan, PourOver, ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope,
+    RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo,
+    StackupSeeds, StackupTotals, TeardropField, TeardropFill, TeardropKind, TeardropLocation,
+    TeardropTarget, TeardropValues, TextAutoposition, TextOverride, Track, TrackGeometry,
+    UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills,
+    ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

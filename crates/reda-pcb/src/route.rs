@@ -15,11 +15,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::copper::shape::BoardShape as _;
+use crate::copper::shape::{BoardShape as _, Shape};
 use crate::copper::{ClearanceHit, Copper, Item, Proposal};
 
 pub mod loops;
 pub mod path;
+mod vias;
+pub use vias::ViaCandidates;
 pub mod width;
 
 pub use loops::{LoopOptions, Piece, Removal};
@@ -200,13 +202,35 @@ impl Proposed {
 /// Tie rule (the same ones DRC uses), clipped, split for look-ahead, and with what loop
 /// removal would delete if the click ends the route. Reads `copper` and changes nothing.
 pub fn propose(copper: &Copper, pcb: &PcbDocument, r: &Request) -> Proposed {
+    propose_with_vias(copper, pcb, r, &[], &[])
+}
+
+/// Extend the route with its earlier Vias in view. A new segment end can restore
+/// a land on the active Layer of a stack already placed in this route.
+pub fn propose_with_vias(
+    copper: &Copper,
+    pcb: &PcbDocument,
+    r: &Request,
+    steps: &[Step],
+    ends: &[(Uuid, Point)],
+) -> Proposed {
     let path = corner_path(r.start, r.cursor, r.corner, r.posture);
+    let restorations = vias::restored_lands(copper, pcb, r, steps, ends, &path);
+    let check = |from, to| {
+        let mut found = check(copper, pcb, r, from, to);
+        for (land, hits) in &restorations {
+            if land.contains(from) || land.contains(to) {
+                found.extend(hits.clone());
+            }
+        }
+        found
+    };
     let mut obstacles = Obstacles::default();
     let mut reached = vec![path[0]];
     let mut blocked = Vec::new();
     let mut violating = false;
     for (i, pair) in path.windows(2).enumerate() {
-        let found = check(copper, pcb, r, pair[0], pair[1]);
+        let found = check(pair[0], pair[1]);
         if found.is_empty() {
             reached.push(pair[1]);
             continue;
@@ -219,7 +243,7 @@ pub fn propose(copper: &Copper, pcb: &PcbDocument, r: &Request) -> Proposed {
             reached.push(pair[1]);
             continue;
         }
-        let clip = last_clear(copper, pcb, r, pair[0], pair[1]);
+        let clip = last_clear(&check, pair[0], pair[1]);
         obstacles.extend(found);
         if clip != pair[0] {
             reached.push(clip);
@@ -289,20 +313,35 @@ fn check(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: Point
 /// The Board Outline and Board Cutouts `proposal` comes closer to than the Net's
 /// `edge_clearance`, or crosses to the wrong side of.
 pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
-    let Proposal::Track {
-        geometry,
-        width,
-        net,
-        ..
-    } = *proposal
-    else {
-        return Vec::new();
+    let (shape, (a, b), net) = match *proposal {
+        Proposal::Track {
+            geometry,
+            width,
+            net,
+            ..
+        } => (Shape::track(&geometry, width), geometry.ends(), net),
+        Proposal::Via {
+            span,
+            diameter,
+            at,
+            net,
+            ..
+        } => {
+            let largest = pcb
+                .span_layers(span)
+                .into_iter()
+                .filter(|&l| proposal.has_land(l))
+                .map(|l| diameter.on(span, l))
+                .max();
+            let Some(largest) = largest else {
+                return Vec::new();
+            };
+            (Shape::disc(at, largest), (at, at), net)
+        }
     };
     let Some(required) = crate::rules::net_rules(pcb, net).edge_clearance else {
         return Vec::new();
     };
-    let shape = crate::copper::shape::Shape::track(&geometry, width);
-    let (a, b) = geometry.ends();
     crate::drc::edge::Edge::all(pcb)
         .into_iter()
         .filter(|edge| {
@@ -318,7 +357,7 @@ pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
 /// The furthest point from `from` towards `to` up to which the segment stays clear, to
 /// the nanometre: it may be off grid, because pulling back to the grid could stop short
 /// of a gap the route fits through.
-fn last_clear(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: Point) -> Point {
+fn last_clear(check: &impl Fn(Point, Point) -> Obstacles, from: Point, to: Point) -> Point {
     let along = |t: f64| {
         Point::new(
             Nm((from.x.0 as f64 + (to.x.0 - from.x.0) as f64 * t).floor() as i64),
@@ -326,13 +365,13 @@ fn last_clear(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: 
         )
     };
     let length = ((to.x.0 - from.x.0) as f64).hypot((to.y.0 - from.y.0) as f64);
-    if !check(copper, pcb, r, from, from).is_empty() {
+    if !check(from, from).is_empty() {
         return from;
     }
     let (mut lo, mut hi) = (0.0f64, 1.0f64);
     while (hi - lo) * length > 1.0 {
         let mid = (lo + hi) / 2.0;
-        if check(copper, pcb, r, from, along(mid)).is_empty() {
+        if check(from, along(mid)).is_empty() {
             lo = mid;
         } else {
             hi = mid;
@@ -383,12 +422,21 @@ pub struct Leg {
     pub points: Vec<Point>,
 }
 
+/// One physical Via held by the Track Tool until the route commits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RouteVia {
+    pub span: reda_model::LayerSpan,
+    pub diameter: reda_model::ViaDiameter,
+    pub hole: Nm,
+    pub unused_layers: reda_model::UnusedLayers,
+}
+
 /// What a route has placed, in order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Step {
     Leg(Leg),
-    /// A Via at a point, of a chosen size or (`None`) the Net's.
-    Via(Point, Option<ViaSize>),
+    /// A single placement, undone together even when its stack has several Vias.
+    Via(Point, Vec<RouteVia>),
 }
 
 /// The Commands that commit a route, and what loop removal decided.
@@ -447,22 +495,16 @@ pub fn commit(
         out.removes = removes;
         out.note = note;
     }
-    let net_param = |params: &mut Value| {
-        if let Some(net) = net {
-            params["net"] = json!(net);
-        }
-    };
     if !out.removes.objects.is_empty() {
         out.steps.push(json!({"id": "pcb.copper.delete",
                               "params": {"objects": out.removes.objects}}));
     }
     for piece in &out.removes.keep {
-        let mut params = json!({
-            "layer": piece.layer,
+        let params = json!({
+            "net": net, "layer": piece.layer,
             "points": [point(piece.from), point(piece.to)],
             "width": piece.width.0,
         });
-        net_param(&mut params);
         out.steps
             .push(json!({"id": "pcb.track.add", "params": params}));
     }
@@ -470,23 +512,25 @@ pub fn commit(
         match step {
             Step::Leg(leg) if leg.points.len() > 1 => {
                 let points: Vec<Value> = leg.points.iter().map(|p| point(*p)).collect();
-                let mut params = json!({
-                    "layer": leg.layer, "points": points, "width": leg.width.0
+                let params = json!({
+                    "net": net, "layer": leg.layer, "points": points, "width": leg.width.0
                 });
-                net_param(&mut params);
                 out.steps
                     .push(json!({"id": "pcb.track.add", "params": params}));
             }
             Step::Leg(_) => {}
-            Step::Via(at, size) => {
-                let mut params = json!({"at": point(*at)});
-                if let Some(size) = size {
-                    params["diameter"] = json!(size.diameter.0);
-                    params["hole"] = json!(size.hole.0);
+            Step::Via(at, members) => {
+                for via in members {
+                    let diameter = if via.diameter.middle.is_none() && via.diameter.end.is_none() {
+                        json!(via.diameter.start)
+                    } else {
+                        json!(via.diameter)
+                    };
+                    let params = json!({"at": point(*at), "net": net,
+                        "from": via.span.from, "to": via.span.to, "diameter": diameter,
+                        "hole": via.hole, "unused_layers": via.unused_layers});
+                    out.steps.push(json!({"id":"pcb.via.add","params":params}));
                 }
-                net_param(&mut params);
-                out.steps
-                    .push(json!({"id": "pcb.via.add", "params": params}));
             }
         }
     }

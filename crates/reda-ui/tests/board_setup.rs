@@ -948,14 +948,32 @@ fn layer_and_pair_edits_in_board_setup_commit_in_one_batch() {
         net_class_pair: Some([Uuid::NIL, hv]),
         ..RuleScope::BOARD
     };
+    let inner_hv = RuleScope {
+        net_class: Some(hv),
+        ..RuleScope::INNER
+    };
     let mut d = dialog(&shell);
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         board.set_scoped(&RuleScope::INNER, RuleField::TrackWidth, "0.125");
         board.set_scoped(&pair, RuleField::Clearance, "0.75");
+        let field = RuleField::Teardrop(
+            reda_ui::engine::model::TeardropKind::WidthChange,
+            reda_ui::engine::model::TeardropField::Enabled,
+        );
+        board.set_scoped(&inner_hv, field, "true");
     }
     assert!(d.apply(&mut shell).is_ok());
     let pcb = pcb(&shell);
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::Teardrop, &inner_hv)
+            .unwrap()
+            .values
+            .width_change
+            .unwrap()
+            .enabled,
+        Some(true)
+    );
     assert_eq!(
         pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
             .unwrap()

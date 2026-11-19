@@ -1,5 +1,6 @@
 {
   "format": 2,
+  "copper_layers": 2,
   "net_classes": [],
   "rules": [
     {"kind":"clearance","values":{"value":100000}},

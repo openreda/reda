@@ -192,6 +192,17 @@ impl Hole {
         self.width.min(self.height)
     }
 
+    /// The slot's axis-aligned extents: its rotated centre line plus the cutter diameter.
+    fn rotated_size(&self) -> (Nm, Nm) {
+        let diameter = self.diameter();
+        let (x, y) = reda_geom::rotate(
+            (self.width - diameter).0,
+            (self.height - diameter).0,
+            self.rotation,
+        );
+        (Nm(x.abs()) + diameter, Nm(y.abs()) + diameter)
+    }
+
     /// The ends of a slot's centre line in the Pad's frame, about the anchor; both at the
     /// anchor for a round hole.
     pub fn ends(&self) -> (Point, Point) {
@@ -677,7 +688,7 @@ impl PadForm {
                 {
                     return at("/hole/tolerance", "a tolerance cannot be negative");
                 }
-                let (hw, hh) = turned_size(hole.width, hole.height, hole.rotation);
+                let (hw, hh) = hole.rotated_size();
                 if hw > self.width || hh > self.height {
                     return at("/hole", "the hole is larger than the Pad");
                 }
@@ -699,15 +710,6 @@ impl PadForm {
         }
         None
     }
-}
-
-/// The box a `width` × `height` rectangle turned by `rotation` fills, to the nanometre.
-fn turned_size(width: Nm, height: Nm, rotation: Millideg) -> (Nm, Nm) {
-    let (hw, hh) = (width.0 / 2, height.0 / 2);
-    let corners = [(hw, hh), (hw, -hh)].map(|(x, y)| reda_geom::rotate(x, y, rotation));
-    let x = corners.iter().map(|c| c.0.abs()).max().unwrap_or(0);
-    let y = corners.iter().map(|c| c.1.abs()).max().unwrap_or(0);
-    (Nm(2 * x), Nm(2 * y))
 }
 
 #[cfg(test)]

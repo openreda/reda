@@ -78,12 +78,10 @@ impl Command for ZoneFill {
     const META: Meta = Meta {
         id: "pcb.zone.fill",
         title: "Fill Zones",
-        description: "Fills the Zones of the PCB Document and stores the fills in the \
-                      Project's `.reda/` cache (never in the Document, so filling is not an \
-                      edit): every stale or unfilled Zone, or with `zones` those Zones and \
-                      the ones depending on them. Shelved Zones are skipped. Long-running: \
-                      reports progress per Zone and can be cancelled, which keeps the \
-                      previous fills.",
+        description: "Regenerates stale Teardrops, then fills stale or unfilled Zones. With \
+                      `zones`, refills the named Zones and their dependents. Skips shelved \
+                      Zones and stores the generated copper in the Project’s `.reda/` cache. \
+                      Reports progress and preserves the previous fills when cancelled.",
         category: "pcb",
         icon: "zone_fill",
         kind: Kind::File,

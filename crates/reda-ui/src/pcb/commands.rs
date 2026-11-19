@@ -161,6 +161,17 @@ impl Command for LayerPick {
     }
 }
 
+fn request_layer(set: &LayerSet, view: &mut BoardView, target: Uuid) -> ActiveLayer {
+    if view.route_layer == super::view::RouteLayer::Inactive {
+        view.activate(set, target);
+    } else {
+        view.route_layer = super::view::RouteLayer::Requested(target);
+    }
+    ActiveLayer {
+        layer: Some(target),
+    }
+}
+
 struct LayerActivate;
 
 impl Command for LayerActivate {
@@ -219,7 +230,7 @@ impl Command for LayerActivate {
         };
         let view = board_view(cx)?;
         if let Some(target) = target {
-            view.activate(&set, target);
+            return Ok(request_layer(&set, view, target));
         }
         Ok(ActiveLayer {
             layer: active(&set, view),
@@ -309,10 +320,7 @@ fn step(
         let layer = copper[i];
         if !view.layers.hidden.contains(&layer.uuid) && (!signal || layer.role != CopperRole::Plane)
         {
-            view.activate(&set, layer.uuid);
-            return Ok(ActiveLayer {
-                layer: Some(layer.uuid),
-            });
+            return Ok(request_layer(&set, view, layer.uuid));
         }
     }
     Ok(ActiveLayer { layer: current })
@@ -392,7 +400,7 @@ impl Command for LayerSwapSide {
         }
         .map(|l| l.uuid);
         if let Some(twin) = twin {
-            view.activate(&set, twin);
+            return Ok(request_layer(&set, view, twin));
         }
         Ok(ActiveLayer { layer: twin })
     }

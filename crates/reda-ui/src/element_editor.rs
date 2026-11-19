@@ -90,7 +90,7 @@ pub fn open_elements(engine: &Engine) -> Vec<Uuid> {
 }
 
 /// What the element's canvas draws: its Scene and, for a Footprint, the Layers to
-/// composite (every Layer, top copper active).
+/// composite for its active copper group.
 pub fn scene(
     engine: &Engine,
     uuid: Uuid,
@@ -98,17 +98,24 @@ pub fn scene(
     match engine.element(uuid)? {
         LibraryElement::Footprint(f) => {
             let drawn = reda_engine::footprint_scene(f, engine.fonts());
+            use reda_engine::model::LayerKind;
+            let side = crate::footprint_editor::preview_layer(engine, f).side();
             let active = drawn
                 .layers
                 .iter()
-                .find(|l| {
-                    l.kind == reda_engine::model::LayerKind::Copper
-                        && l.side == Some(reda_engine::model::Side::Top)
+                .find(|l| l.kind == LayerKind::Copper && l.side == side);
+            let visible = drawn
+                .layers
+                .iter()
+                .filter(|l| match l.kind {
+                    LayerKind::Copper | LayerKind::SolderMask | LayerKind::Paste => l.side == side,
+                    _ => true,
                 })
-                .map(|l| l.uuid);
+                .map(|l| l.uuid)
+                .collect();
             let view = LayerView {
-                visible: None,
-                active,
+                visible: Some(visible),
+                active: active.map(|l| l.uuid),
                 inactive: InactiveLayers::Normal,
                 from_bottom: false,
                 ratsnest: false,

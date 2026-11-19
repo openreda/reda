@@ -665,6 +665,14 @@ fn track_properties_edit_start_end_length_layer_and_net_with_a_canvas_pick() {
     let len = ((b.x.0 - a.x.0) as f64).hypot((b.y.0 - a.y.0) as f64);
     assert!((len - 5e6).abs() < 2.0, "{len}");
 
+    w.h.get_by_label("Allow Teardrops").click();
+    w.h.run();
+    assert_eq!(last_command(&w).1["teardrop"], false);
+    assert!(!pcb_track(&w).teardrop);
+    w.h.get_by_label("Allow Teardrops").click();
+    w.h.run();
+    assert!(pcb_track(&w).teardrop);
+
     // Layer.
     w.h.get_by_role_and_label(Role::ComboBox, "Layer").click();
     w.h.run();

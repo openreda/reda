@@ -318,8 +318,7 @@ fn hash_inputs(pcb: &PcbDocument, fonts: &Fonts, unused: &UnusedLands) -> BTreeM
 /// Where a PCB Document's stored fills stand.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 pub struct FillStatus {
-    /// Whether the status bar should say "Zones need refilling": some Zone has no fill
-    /// yet or has changed inputs since it was filled.
+    /// Whether a Zone needs filling or a Teardrop has been added, changed or removed.
     pub needs_refill: bool,
     /// Junctions added, changed or removed since the last fill.
     pub stale_teardrops: usize,

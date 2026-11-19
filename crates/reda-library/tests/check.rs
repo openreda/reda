@@ -912,3 +912,36 @@ fn the_spec_defaults() {
         assert_eq!(LibrarySeverities::DEFAULT.get(check), severity, "{check:?}");
     }
 }
+
+#[test]
+fn holes_must_fit_middle_and_bottom_copper_in_the_library() {
+    let mut files = MemFiles::default();
+    let mut f = footprint(20, "Header");
+    for (index, pad) in f.pads.iter_mut().enumerate() {
+        pad.kind = PadKind::PlatedThroughHole;
+        pad.shape = PadShape::Rect;
+        pad.corner_ratio = None;
+        pad.width = Nm::from_um(1200);
+        pad.height = Nm::from_um(1200);
+        pad.hole = Some(Hole::new(Nm::from_um(600), Nm::from_um(400)));
+        pad.offset = Some(Point::new(Nm::from_um(150), Nm(0)));
+        let narrow = reda_model::PadCopperShape {
+            width: Nm::from_um(if index == 0 { 500 } else { 800 }),
+            ..pad.form().copper()
+        };
+        if index == 0 {
+            pad.middle = Some(narrow); // Smaller than the slot.
+        } else {
+            pad.bottom = Some(narrow); // Wide enough, but offset past the slot.
+        }
+    }
+    let pads: Vec<_> = f.pads.iter().map(|p| p.uuid).collect();
+    files.footprint(&format!("{ROOT}/footprints/Header.redafp"), f);
+    let found = check_of(&scanned(&mut files), 20);
+    assert_eq!(
+        checks(&found),
+        ["hole_outside_copper", "hole_outside_copper"]
+    );
+    assert_eq!(found[0].objects, [uuid(20), pads[0]]);
+    assert_eq!(found[1].objects, [uuid(20), pads[1]]);
+}

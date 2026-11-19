@@ -347,8 +347,17 @@ fn imported_board_and_net_class_rules_control_the_next_fill() {
     let source = TempDir::new("teardrop-import");
     let (mut e, _) = board(&source);
     let class = uuid(&e.run_ok("pcb.net_class.add", json!({"name":"RF"}))["result"]["uuid"]);
+    let top = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .next()
+        .unwrap()
+        .uuid;
     enable(&mut e, json!({"enabled":true,"length":100}));
-    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":class},"values":{"width_change":{"enabled":false}}}));
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":class,"layers":[top]},"values":{"width_change":{"enabled":false}}}));
     let path = source.path().join("house.redarules");
     e.run_ok("pcb.rules.export", json!({"path":path}));
     let target = TempDir::new("teardrop-import-board");
@@ -359,18 +368,40 @@ fn imported_board_and_net_class_rules_control_the_next_fill() {
         track(&mut e, net, 1_000_000, &[(-2_000_000, y), (0, y)]);
         track(&mut e, net, 100_000, &[(0, y), (3_000_000, y)]);
     }
+    let bottom = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .last()
+        .unwrap()
+        .uuid;
+    let mut bottom_tracks = track(&mut e, rf, 1_000_000, &[(-2_000_000, 0), (0, 0)]);
+    bottom_tracks.extend(track(&mut e, rf, 100_000, &[(0, 0), (3_000_000, 0)]));
+    e.run_ok(
+        "pcb.track.set",
+        json!({"tracks":bottom_tracks,"layer":bottom}),
+    );
     e.run_ok(
         "pcb.rules.import",
         json!({"path":path,"kinds":["teardrop"]}),
     );
     assert_eq!(
         e.run_ok("pcb.zone.fill", json!({}))["teardrops"]["generated"],
-        1
+        2
     );
     let project = e.project().unwrap();
     let pcb = project.pcb().unwrap();
-    let d = &project.zone_fills(pcb.uuid).unwrap().teardrops[0];
-    assert_eq!(pcb.track(d.location.track).unwrap().net, Some(digital));
+    let junctions = &project.zone_fills(pcb.uuid).unwrap().teardrops;
+    assert!(
+        junctions
+            .iter()
+            .any(|d| pcb.track(d.location.track).unwrap().net == Some(digital))
+    );
+    assert!(junctions.iter().any(
+        |d| d.location.layer == bottom && pcb.track(d.location.track).unwrap().net == Some(rf)
+    ));
 }
 
 #[test]

@@ -222,7 +222,13 @@ fn the_keys_are_bound_in_the_track_tool() {
     };
     for (key, command) in [
         ("1", "pcb.route.mode:lookahead"),
+        ("2", "pcb.route.via_stay"),
         ("3", "pcb.route.mode:width_mode"),
+        ("4", "pcb.route.mode:via_size"),
+        ("6", "pcb.route.cycle_via"),
+        ("8", "pcb.route.pick_via"),
+        ("L", "pcb.route.start_layer"),
+        ("V", "pcb.route.previous_layer"),
         ("Space", "pcb.route.mode:posture"),
         ("Shift+R", "pcb.route.mode:obstacle_mode"),
         ("Shift+A", "pcb.route.mode:auto_terminate"),

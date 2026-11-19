@@ -32,11 +32,22 @@ pub const VIEW_TYPES: [ObjectType; 9] = [
     ObjectType::PcbGraphic,
 ];
 
+/// Activation commands hand their destination to the Track Tool during a route.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum RouteLayer {
+    #[default]
+    Inactive,
+    Routing,
+    Requested(Uuid),
+}
+
 /// The PCB view: the Layer state and units.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardView {
     pub(crate) document: Option<Uuid>,
     pub layers: LayerView,
+    /// During routing a Layer Command asks the Tool to place copper before switching.
+    pub(crate) route_layer: RouteLayer,
     /// Session selection for standalone Via placement.
     pub stitching_type: Option<Uuid>,
     /// The units lengths show in.
@@ -60,6 +71,7 @@ impl BoardView {
             document: None,
             layers: LayerView::default(),
             stitching_type: None,
+            route_layer: RouteLayer::Inactive,
             units,
             pick_requested: false,
             hover_solo: None,
@@ -119,6 +131,20 @@ impl BoardView {
     ) {
         let old = std::mem::replace(&mut self.layers.copper_order, current);
         let current = &self.layers.copper_order;
+        // Choices are saved by position. Move them with their physical Layers,
+        // dropping a pair only when one of its Layers was removed.
+        self.layers.via_choices.retain_mut(|choice| {
+            let remap = |n: usize| {
+                let layer = old.get(n.checked_sub(1)?)?;
+                current.iter().position(|id| id == layer).map(|i| i + 1)
+            };
+            let [a, b] = choice.positions.map(remap);
+            let (Some(a), Some(b)) = (a, b) else {
+                return false;
+            };
+            choice.positions = [a.min(b), a.max(b)];
+            true
+        });
         let gone = |id: &Uuid| old.contains(id) && !current.contains(id);
         if !old.iter().any(gone) {
             return;
