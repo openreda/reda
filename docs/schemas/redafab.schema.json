@@ -455,6 +455,16 @@
           "format": "int64",
           "type": "integer"
         },
+        "inner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InnerFabRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "mask_expansion": {
           "$ref": "#/$defs/MaskExpansion",
           "description": "The Solder Mask expansion and Via tenting a new board starts with."
@@ -606,6 +616,37 @@
         "via",
         "pad"
       ],
+      "type": "object"
+    },
+    "InnerFabRules": {
+      "additionalProperties": false,
+      "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+      "properties": {
+        "annular_ring_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "clearance": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "track_width_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "InnerFileNames": {

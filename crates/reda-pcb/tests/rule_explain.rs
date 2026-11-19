@@ -174,3 +174,107 @@ fn affected_leaves_out_objects_another_record_overrides() {
     assert_eq!(by_board["objects"], json!([on_gnd, loose]));
     assert_eq!(by_board["pads"], json!([]));
 }
+
+#[test]
+fn a_pair_can_relax_both_classes_on_the_measured_layer() {
+    let dir = TempDir::new("pair-clearance");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "P");
+    let b = net(&mut engine, "N");
+    let hv = class(&mut engine, "Power", &[a, b]);
+    set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class":hv},"values":{"value":"1mm"}}),
+    );
+    set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Default","Power"]},"values":{"value":"0.6mm"}}),
+    );
+    let pair = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Power","Power"],"layers":"outer"},"values":{"value":"0.2mm"}}),
+    );
+    let ta = track(&mut engine, Some(a), "0mm");
+    let tb = track(&mut engine, Some(b), "1mm");
+    let out = engine.run_ok("pcb.rules.applicable", json!({"objects":[tb,ta]}));
+    let between = &kind(&out, "clearance")["between"];
+    assert_eq!(between["rule"], json!(pair));
+    assert_eq!(between["layers"], "outer");
+    assert_eq!(between["value"], 200_000);
+    assert_eq!(between["net_class_pair"], json!([hv, hv]));
+    assert!(between.get("object").is_none());
+}
+
+#[test]
+fn affected_limits_a_class_pairs_tracks_to_its_named_layer() {
+    let dir = TempDir::new("affected-by-layer");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    class(&mut engine, "HV", &[a]);
+    let top = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .next()
+        .unwrap()
+        .uuid;
+    let scope = json!({"net_class_pair":["Default","HV"],"layers":[top]});
+    let id = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.3mm"}}),
+    );
+    let first = track(&mut engine, Some(a), "0mm");
+    let second = track(&mut engine, Some(b), "2mm");
+    engine.run_ok(
+        "pcb.track.add",
+        json!({"layer":"copper_bottom","net":a,
+        "points":[{"x":0,"y":0},{"x":"4mm","y":0}]}),
+    );
+    let out = engine.run_ok(
+        "pcb.rules.affected",
+        json!({"kind":"clearance","scope":scope}),
+    );
+    assert_eq!(out["objects"], json!([first, second]));
+    assert_eq!(out, engine.run_ok("pcb.rules.affected", json!({"rule":id})));
+}
+
+#[test]
+fn a_through_via_lists_each_distinct_layer_result_once() {
+    let dir = TempDir::new("via-layer-explanation");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Via","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let inner = set(
+        &mut e,
+        json!({"kind":"annular_ring","scope":{"layers":"inner"},"values":{"min":"0.35mm"}}),
+    );
+    let via = uuid(&e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0}}))["result"]["uuid"]);
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[via]}));
+    let groups = out["kinds"].as_array().unwrap();
+    let rings: Vec<_> = groups
+        .iter()
+        .filter(|k| k["kind"] == "annular_ring")
+        .collect();
+    assert_eq!(rings.len(), 2);
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[3]]));
+    assert_eq!(rings[1]["layers"], json!([layers[1], layers[2]]));
+    assert_eq!(rings[1]["objects"][0]["values"][0]["rule"], json!(inner));
+    assert_eq!(
+        groups.iter().filter(|k| k["kind"] == "track_width").count(),
+        1
+    );
+    assert!(kind(&out, "track_width").get("layers").is_none());
+}

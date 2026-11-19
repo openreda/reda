@@ -45,8 +45,8 @@ pub use library::{
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
     Construction, ConstructionEntry, CplSettings, CplUnits, FabPreset, FabRules, FileNaming,
-    FileOrigin, GerberFileNames, GerberSettings, HoleClearance, LayerFileName, LineNumbers,
-    MountValues, NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError, NotFittedBom,
+    FileOrigin, GerberFileNames, GerberSettings, HoleClearance, InnerFabRules, LayerFileName,
+    LineNumbers, MountValues, NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError, NotFittedBom,
     NotFittedPaste, OutputJob, Outputs, PdfColour, PlacementAdjustment, PlacementCorrection,
     PlacementMatch, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
 };
@@ -60,13 +60,13 @@ pub use pcb::{
     DielectricEntry, DielectricKind, Dimension, DimensionEnd, DimensionFormat,
     DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
     FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument,
-    Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer, LayerKind, LayerSet, LayerSpan,
-    NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
-    PortableClass, PortableRule, PourOver, ResolvedEntry, Restriction, RuleField, RuleKind,
-    RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry,
-    StackupInfo, StackupSeeds, StackupTotals, TeardropTarget, TextAutoposition, TextOverride,
-    Track, TrackGeometry, UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout,
-    ZoneFill, ZoneFills, ZoneNameScheme,
+    Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer, LayerGroup, LayerKind, LayerSet,
+    LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument,
+    PcbGraphic, PcbText, PortableClass, PortableRule, PourOver, ResolvedEntry, Restriction,
+    RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode,
+    Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, TeardropTarget,
+    TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via, ViaDiameter,
+    ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

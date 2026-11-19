@@ -33,11 +33,36 @@ impl HoleClearance {
     };
 }
 
+/// Limits that differ on inner copper. Each missing field inherits its flat limit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InnerFabRules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_width_min: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clearance: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annular_ring_min: Option<Nm>,
+}
+
+impl InnerFabRules {
+    pub fn limits(self) -> [(crate::RuleKind, crate::RuleField, Option<Nm>); 3] {
+        use crate::{RuleField, RuleKind};
+        [
+            (RuleKind::TrackWidth, RuleField::Min, self.track_width_min),
+            (RuleKind::Clearance, RuleField::Value, self.clearance),
+            (RuleKind::AnnularRing, RuleField::Min, self.annular_ring_min),
+        ]
+    }
+}
+
 /// A Fab Preset's design rules: flat limits with no scope, which a job compares the board
 /// with, and the preferred values a new board's routing starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FabRules {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inner: Option<InnerFabRules>,
     pub clearance_hole: HoleClearance,
     /// Minimum clearance between copper of different Nets.
     pub clearance: Nm,

@@ -913,3 +913,89 @@ fn the_net_table_makes_a_class_from_the_selection_and_assigns_by_pattern() {
     assert_eq!(pcb.net(vcc).unwrap().classes, [power]);
     assert_eq!(pcb.net(gnd).unwrap().classes, [power]);
 }
+
+#[test]
+fn layer_and_pair_edits_in_board_setup_commit_in_one_batch() {
+    use reda_ui::engine::model::RuleScope;
+    let (home, work) = (TempDir::new("scoped-home"), TempDir::new("scoped-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let hv: Uuid = serde_json::from_value(
+        shell
+            .run("pcb.net_class.add", json!({"name":"HV"}))
+            .unwrap()["result"]["uuid"]
+            .clone(),
+    )
+    .unwrap();
+    let pair = RuleScope {
+        net_class_pair: Some([Uuid::NIL, hv]),
+        ..RuleScope::BOARD
+    };
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.set_scoped(&RuleScope::INNER, RuleField::TrackWidth, "0.125");
+        board.set_scoped(&pair, RuleField::Clearance, "0.75");
+    }
+    assert!(d.apply(&mut shell).is_ok());
+    let pcb = pcb(&shell);
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
+            .unwrap()
+            .values
+            .min,
+        Some(Nm(125000))
+    );
+    assert_eq!(
+        pcb.scoped_rule(RuleKind::Clearance, &pair)
+            .unwrap()
+            .values
+            .value,
+        Some(Nm(750000))
+    );
+}
+
+#[test]
+fn an_inner_minimum_ticks_the_preferred_width_in_the_dialog_and_command() {
+    let (home, work) = (TempDir::new("bs-inner-home"), TempDir::new("bs-inner-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let four = TempDir::new("bs-four-layer");
+    shell
+        .run(
+            "project.new",
+            json!({"path":four.path(),"name":"Four","layers":4}),
+        )
+        .unwrap();
+    let preset = shell
+        .engine()
+        .project()
+        .unwrap()
+        .fab_presets()
+        .next()
+        .unwrap()
+        .uuid;
+    shell
+        .run(
+            "fab_preset.set",
+            json!({"preset":preset,"values":{"rules":{
+                "inner":{"track_width_min":350000},"preferred":{"track_width":400000,"via_diameter":700000,"via_hole":300000}
+            }}}),
+        )
+        .unwrap();
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<DrcPage>().unwrap().board();
+        board.preview_fab_preset(preset);
+        let changes = &board.fab_preview().unwrap().changes;
+        assert!(
+            changes
+                .iter()
+                .any(|r| r.rule == RuleField::TrackPreferred && r.ticked)
+        );
+        board.accept_fab_preview();
+    }
+    d.apply(&mut shell).unwrap();
+    assert_eq!(
+        board_value(&shell, RuleField::TrackPreferred),
+        Some(Nm::from_um(400))
+    );
+}

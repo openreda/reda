@@ -2197,7 +2197,7 @@ board-setup-import = Import Rules…
 board-setup-take-row = Take { $rule }
 board-setup-preset-name = Fab Preset name
 board-setup-save = Save Preset
-board-setup-save-preset-note = The new Fab Preset holds the board-wide rules; Net Class values stay on the board.
+board-setup-save-preset-note = Saves board-wide values and Inner limits. Other Layer rules and Net Class rules are left out.
 board-setup-import-preview = Importing { $path } changes:
 board-setup-import-nothing = Nothing: the board already has these rules.
 board-setup-import-confirm = Import
@@ -3080,3 +3080,15 @@ placement-written = Written rotation
 placement-correction = Correction
 placement-match = Matched row
 placement-match-value = Pattern or field and value
+
+
+board-layer-inner = Inner
+board-layer-outer = Outer
+board-layer-plane = Plane
+board-rule-by-layer = By Layer
+board-rule-add-layer = Add Layer rule
+board-rule-class-pairs = Class pairs
+board-rule-layers = Layer rules
+board-rule-named = Pick Layers
+board-rule-add = Add
+board-rule-pair-lower = Below a class's own clearance
