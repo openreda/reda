@@ -97,6 +97,7 @@ pub(super) fn class_section(
     board: &mut BoardSetupDraft,
     class: Uuid,
 ) {
+    let owner = RuleScope::class(class);
     for kind in [
         RuleKind::TrackWidth,
         RuleKind::Clearance,
@@ -110,9 +111,25 @@ pub(super) fn class_section(
         widgets::section(kind_name(kind))
             .id_salt(kind)
             .show(ui, |ui| {
-                layer_rows(ui, pcb, board, &RuleScope::class(class), kind, &fields);
+                layer_rows(ui, pcb, board, &owner, kind, &fields);
             });
     }
+    let rule = super::Rule::Teardrops;
+    widgets::section(rule.title())
+        .id_salt(RuleKind::Teardrop)
+        .show(ui, |ui| {
+            for section in rule.sections() {
+                let RuleField::Teardrop(target, _) = section.fields[0] else {
+                    continue;
+                };
+                let name = super::super::model::tear_target_name(target);
+                widgets::section(name)
+                    .id_salt(section.fields[0])
+                    .show(ui, |ui| {
+                        layer_rows(ui, pcb, board, &owner, RuleKind::Teardrop, section.fields);
+                    });
+            }
+        });
 }
 
 fn classes(pcb: &PcbDocument) -> Vec<(Uuid, String)> {
