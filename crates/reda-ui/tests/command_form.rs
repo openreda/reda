@@ -140,12 +140,13 @@ fn fields_follow_the_schema_types() {
     assert_eq!(options, &[json!("schematic"), json!("pcb")]);
     assert_eq!(*selected, None);
 
-    // Choices also come from `oneOf` consts.
+    // Documented DRC checks are individual constants in the schema’s choice list.
     let f = form(&shell, "drc.set_severity", json!({"severity": "warning"}));
     let Input::Choice { options, selected } = &f.field("check").unwrap().input else {
-        panic!("a oneOf of consts is a choice");
+        panic!("all DRC checks are available as choices");
     };
     assert_eq!(options[0], json!("clearance"));
+    assert!(options.contains(&json!("via_span")));
     assert_eq!(*selected, None);
     let Input::Choice { options, selected } = &f.field("severity").unwrap().input else {
         panic!("an enum is a choice");

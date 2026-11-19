@@ -898,6 +898,12 @@ violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
     }
+violation-via-span = The Via span has no matching Via type allowed on this Net
+violation-microvia-size = The micro Via diameter or hole is outside its size limits
+violation-aspect-ratio = The Via depth exceeds the aspect ratio allowed for its drill diameter
+violation-max-stack = The Via Stack contains more micro Vias than the allowed maximum
+violation-silk-width = The silkscreen stroke is narrower than the minimum width
+violation-silk-text-height = The silkscreen text is shorter than the minimum height
 violation-via-size = Via { $part ->
         [hole] hole
        *[diameter] diameter
