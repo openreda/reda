@@ -500,6 +500,7 @@ fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
         pcb(&h).stackup().via_types[1].name.as_deref(),
         Some("Laser")
     );
+    choose(&mut h, "New Via lands", "Remove and keep both ends");
     let shell = h.state_mut().shell_mut();
     shell
         .run(
@@ -507,6 +508,10 @@ fn stackup_table_names_and_moves_used_via_types_via_the_preview() {
             json!({"from":kind.from,"to":kind.to,"at":{"x":0,"y":0}}),
         )
         .unwrap();
+    assert_eq!(
+        pcb(&h).vias().next().unwrap().unused_layers,
+        reda_ui::engine::model::UnusedLayers::RemoveKeepEnds
+    );
     choose(&mut h, "Laser to", "L3");
     h.get_by_role_and_label(Role::Button, "Move Vias").click();
     h.run();

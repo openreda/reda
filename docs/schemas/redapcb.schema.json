@@ -1290,6 +1290,10 @@
           ],
           "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
         },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers",
+          "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+        },
         "uuid": {
           "format": "uuid",
           "type": "string"
@@ -2016,6 +2020,10 @@
             }
           ],
           "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers",
+          "description": "Whether unused inner lands of a plated through-hole Pad are removed."
         },
         "uuid": {
           "format": "uuid",
