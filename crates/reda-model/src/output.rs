@@ -98,6 +98,12 @@ pub struct FabRules {
     pub clearance_hole: HoleClearance,
     /// Minimum clearance between copper of different Nets.
     pub clearance: Nm,
+    /// Minimum silk stroke width across both sides, when specified by the preset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub silk_width: Option<Nm>,
+    /// Minimum silk capital height across both sides, when specified by the preset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub silk_text_height: Option<Nm>,
     /// Minimum Track width.
     pub track_width: Nm,
     /// Minimum Via diameter.

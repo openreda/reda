@@ -2,7 +2,7 @@
   "format": 1,
   "reda": "0.0.0-test",
   "job": {"uuid":"00000000-0000-4000-8000-000000000028","name":"JLCPCB"},
-  "fab_preset": {"name":"JLCPCB","sha256":"c1c7a00fdf04529c62ad98d35adce82143ecde88100474afdf2af28bf9d092a6"},
+  "fab_preset": {"name":"JLCPCB","sha256":"453c737c9ae96fbc0213a6adbf797fcd472c55dfb002a5b8f0159541a8eee23e"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
   "date": "2026-01-01T00:00:00Z",
@@ -26,7 +26,7 @@
     {"path":"Blinky-JLCPCB-CPL.csv","size":304,"sha256":"263368963e0f92b03a6e63d09bf25108c9705281b4404ea10fdca7d97620eb9d","kind":"cpl"},
     {"path":"Blinky-JLCPCB-schematic.pdf","size":395659,"sha256":"9f93d95f6b8b1ae95fa43d6f76c4e95663063c9b2be4a3e96522139a62fe4900","kind":"schematic_pdf"},
     {"path":"reports/Blinky-erc.json","size":195,"sha256":"8a435f11150786d4295d6a303e900b09a49fadb24c82fe3f09bab6b26d8f8e93","kind":"erc_report"},
-    {"path":"reports/Blinky-drc.json","size":240,"sha256":"593a93bbb57b5bb9c800e954c0593c45928de0c096f1480a3099191060a678cf","kind":"drc_report"},
+    {"path":"reports/Blinky-drc.json","size":6895,"sha256":"558b0a5029da6f859234a4878fe580e9e878263afca15dd699f366a6c21bfbc4","kind":"drc_report"},
     {"path":"reports/Blinky-change-list.json","size":179,"sha256":"e632e6a0f1364ff21c790ce8c599e4dcc77f2de4f62616ce0603eede8b28491f","kind":"change_list_report"}
   ],
   "warnings": [

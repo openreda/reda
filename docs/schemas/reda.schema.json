@@ -761,6 +761,22 @@
           "$ref": "#/$defs/PreferredSeeds",
           "description": "The preferred sizes a new board is seeded with. They are never compared with the\nboard."
         },
+        "silk_text_height": {
+          "description": "Minimum silk capital height across both sides, when specified by the preset.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "silk_width": {
+          "description": "Minimum silk stroke width across both sides, when specified by the preset.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "track_width": {
           "description": "Minimum Track width.",
           "format": "int64",

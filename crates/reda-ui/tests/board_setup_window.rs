@@ -154,6 +154,47 @@ fn mask_paste_zone_connections_and_stackup_pages_edit_and_ok_commits_them() {
 }
 
 #[test]
+fn the_silkscreen_page_commits_both_fabrication_limits_and_their_severities() {
+    use reda_ui::engine::model::{DrcCheck, Severity};
+    let (home, work) = (TempDir::new("silk-win-home"), TempDir::new("silk-win-work"));
+    let mut h = harness(home.path(), work.path(), "Silk");
+    open_board_setup(&mut h, "Silk");
+    page(&mut h, "Silkscreen");
+    retype(&mut h, "Minimum silkscreen stroke width (mm)", "0.18");
+    retype(&mut h, "Minimum silkscreen text height (mm)", "1.2");
+    for choice in ["Silkscreen width: Error", "Silkscreen text height: Off"] {
+        h.get_by_label(choice).scroll_to_me();
+        h.run();
+        h.get_by_label(choice).click();
+        h.run();
+    }
+    h.get_by_label("OK").click();
+    h.run();
+    let board = pcb(&h);
+    assert_eq!(
+        board.board_rule(RuleKind::SilkWidth).values.min.unwrap().0,
+        180_000
+    );
+    assert_eq!(
+        board
+            .board_rule(RuleKind::SilkTextHeight)
+            .values
+            .min
+            .unwrap()
+            .0,
+        1_200_000
+    );
+    assert_eq!(
+        board.setup().severities.get(DrcCheck::SilkWidth),
+        Severity::Error
+    );
+    assert_eq!(
+        board.setup().severities.get(DrcCheck::SilkTextHeight),
+        Severity::Off
+    );
+}
+
+#[test]
 fn mod_z_inside_board_setup_steps_back_through_pending_edits_first() {
     let (home, work) = (TempDir::new("bsw-home"), TempDir::new("bsw-work"));
     let mut h = harness(home.path(), work.path(), "Win");

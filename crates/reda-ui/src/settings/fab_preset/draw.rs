@@ -126,6 +126,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
             (Field::AnnularRing, tr!("preset-annular-ring")),
             (Field::HoleToHole, tr!("preset-hole-to-hole")),
             (Field::EdgeClearance, tr!("preset-edge-clearance")),
+            (Field::SilkWidth, tr!("board-setup-silk-width")),
+            (Field::SilkTextHeight, tr!("board-setup-silk-text-height")),
         ] {
             typed(ui, editor, f, label);
         }

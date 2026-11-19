@@ -132,9 +132,21 @@ The two rule kinds reserved in v0.1 arrive.
 - Text in an outline font has no stroke, so `silk_width` skips it.
 - Fab Presets hold them as limits and seed them. The values come with the shipped Fab Preset data.
 
+The shipped presets use the following standard-service values.
+
+| Fab Preset | Minimum stroke width | Minimum text height | Source |
+|---|---|---|---|
+| Generic | 0.15 mm | 1.0 mm | REDA selects these defaults for a board with no chosen fab. |
+| JLCPCB | 0.15 mm | 1.0 mm | [Standard order instructions, Silkscreen/Texts](https://jlcpcb.com/help/article/instructions-for-ordering) |
+| PCBWay | 0.15 mm | 0.8 mm | [Positive legend design instructions](https://www.pcbway.com/helpcenter/design_instruction/How_to_make_my_silkscreen_clear_and_beautiful_on_PCB__.html) |
+| OSH Park | 0.127 mm | Unspecified | OSH Park recommends a 0.127 mm stroke and leaves text height to the designer. [Service guidance](https://docs.oshpark.com/services/six-layer/) and [DRC setup](https://docs.oshpark.com/design-tools/kicad/kicad-design-rules/) |
+
+PCBWay gives separate guidance of 0.25 mm width and 1.25 mm height for negative text. Its board-wide preset uses the positive legend figures in the table.
+
+OSH Park also publishes a 0.0762 mm exception for short lines, text and graphics. REDA uses the general recommendation for its single board-wide width rule. Applying a preset with no published height leaves that minimum at zero.
+
 ## Left to other tickets
 
 - The Command ids, the schema for the two scopes and the Fab Preset `inner` block, and how a Rules File names a Layer on another board: the Command and file-format work on the [v0.2 map](https://github.com/openreda/reda/issues/319).
-- Silkscreen limit values per shipped Fab Preset: the shipped Fab Preset data on the map.
 - `through_hole_paste` (paste on a through-hole Pad) has nothing to do with Layers or scopes. Whether it ships in 0.2.0 is decided in [Which other work marked v0.2 ships in 0.2.0?](https://github.com/openreda/reda/issues/340).
 - The `priority` field and the `footprint`, `pcb_net`, `zone` and `keepout` scope filters stay reserved for later.
