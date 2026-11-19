@@ -9,8 +9,8 @@ mod openings;
 use reda_command::Fonts;
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument, Project, Side,
-    TrackGeometry, Uuid, ZoneFills,
+    CopperRole, FileNaming, GerberSettings, LayerKind, NotFittedPaste, PadKind, PcbDocument,
+    Project, Side, TrackGeometry, Uuid, ZoneFills,
 };
 use reda_pcb::openings::{self as resolved, Kind};
 use reda_pcb::placed::{self, PlacedPad};
@@ -144,28 +144,32 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, CoordinateOutOfRange> {
         }
         Ok(())
     };
-    let copper = first.pcb.copper_layers().count();
-    for i in 0..copper {
+    for (i, layer) in first.pcb.copper_layers().enumerate() {
         let number = i + 1;
-        let (file, function, attribute) = match i {
-            0 => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
-            i if i + 1 == copper => (
+        let (file, function, face) = match layer.side {
+            Some(Side::Top) => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
+            Some(Side::Bottom) => (
                 FileName::new("gbl", "Bottom Copper"),
                 "copper_bottom",
                 "Bot",
             ),
-            i => (
+            None => (
                 FileName {
-                    extension: format!("g{i}"),
+                    extension: format!("g{number}l"),
                     layer: format!("Inner Copper L{number}"),
                 },
                 "copper_inner",
                 "Inr",
             ),
         };
+        let role = match layer.role {
+            CopperRole::Signal => "Signal",
+            CopperRole::Plane => "Plane",
+            CopperRole::Mixed => "Mixed",
+        };
         let rendered = render(
             plot,
-            format!("Copper,L{number},{attribute}"),
+            format!("Copper,L{number},{face},{role}"),
             "Positive",
             |board, g| {
                 if let Some(layer) = board.pcb.copper_layers().nth(i) {
