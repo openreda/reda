@@ -13,18 +13,18 @@ Board
   Silkscreen colour: White
 
 Stackup
-  | Layer           | Kind    | Role   | Thickness    | Material | Dk |
-  | L1 (top)        | Copper  | Signal | 1 oz (35 µm) |          |    |
-  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
-  | L2              | Copper  | Signal | 1 oz (35 µm) |          |    |
-  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
-  | L3 HDI breakout | Copper  | Mixed  | 1 oz (35 µm) |          |    |
-  |                 | Core    |        | 1.13 mm      | FR-4     |    |
-  | L4              | Copper  | Signal | 1 oz (35 µm) |          |    |
-  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
-  | L5              | Copper  | Signal | 1 oz (35 µm) |          |    |
-  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
-  | L6 (bottom)     | Copper  | Signal | 1 oz (35 µm) |          |    |
+  | Layer           | Kind    | Role   | Thickness    | Material | Dk  |
+  | L1 (top)        | Copper  | Signal | 1 oz (35 µm) |          |     |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     | 4   |
+  | L2              | Copper  | Signal | 1 oz (35 µm) |          |     |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     | 4   |
+  | L3 HDI breakout | Copper  | Mixed  | 1 oz (35 µm) |          |     |
+  |                 | Core    |        | 1.13 mm      | FR-4     | 4.3 |
+  | L4              | Copper  | Signal | 1 oz (35 µm) |          |     |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     | 4   |
+  | L5              | Copper  | Signal | 1 oz (35 µm) |          |     |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     | 4   |
+  | L6 (bottom)     | Copper  | Signal | 1 oz (35 µm) |          |     |
 
 Via types
   | Name         | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file            |
@@ -67,6 +67,7 @@ Files in the zip
   SixLayerHdi.gbo
   SixLayerHdi.gm1
   SixLayerHdi-PTH.drl
+  SixLayerHdi-NPTH.drl
   SixLayerHdi-L1-L2.drl
   SixLayerHdi-L2-L3.drl
   SixLayerHdi-L3-L5.drl

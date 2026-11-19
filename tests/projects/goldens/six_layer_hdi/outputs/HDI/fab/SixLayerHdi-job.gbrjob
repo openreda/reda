@@ -92,6 +92,11 @@
       "FilePolarity": "Positive"
     },
     {
+      "Path": "SixLayerHdi-NPTH.drl",
+      "FileFunction": "NonPlated,1,6,NPTH",
+      "FilePolarity": "Positive"
+    },
+    {
       "Path": "SixLayerHdi-L1-L2.drl",
       "FileFunction": "Plated,1,2,Blind",
       "FilePolarity": "Positive"
@@ -129,7 +134,9 @@
     {
       "Type": "Dielectric",
       "Thickness": 0.065,
-      "Material": "FR-4"
+      "Material": "FR-4",
+      "DielectricConstant": 4.0,
+      "LossTangent": 0.013
     },
     {
       "Type": "Copper",
@@ -139,7 +146,9 @@
     {
       "Type": "Dielectric",
       "Thickness": 0.065,
-      "Material": "FR-4"
+      "Material": "FR-4",
+      "DielectricConstant": 4.0,
+      "LossTangent": 0.013
     },
     {
       "Type": "Copper",
@@ -149,7 +158,9 @@
     {
       "Type": "Dielectric",
       "Thickness": 1.13,
-      "Material": "FR-4"
+      "Material": "FR-4",
+      "DielectricConstant": 4.3,
+      "LossTangent": 0.018
     },
     {
       "Type": "Copper",
@@ -159,7 +170,9 @@
     {
       "Type": "Dielectric",
       "Thickness": 0.065,
-      "Material": "FR-4"
+      "Material": "FR-4",
+      "DielectricConstant": 4.0,
+      "LossTangent": 0.013
     },
     {
       "Type": "Copper",
@@ -169,7 +182,9 @@
     {
       "Type": "Dielectric",
       "Thickness": 0.065,
-      "Material": "FR-4"
+      "Material": "FR-4",
+      "DielectricConstant": 4.0,
+      "LossTangent": 0.013
     },
     {
       "Type": "Copper",

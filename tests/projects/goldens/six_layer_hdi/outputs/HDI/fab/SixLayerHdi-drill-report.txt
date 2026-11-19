@@ -7,7 +7,9 @@ SixLayerHdi-PTH.drl (L1-L6, through)
   Total                                    1     0
 
 SixLayerHdi-NPTH.drl (L1-L6, through)
-  No holes: the file is not written.
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      1.200  non-plated mechanical     1     0  -
+  Total                                    1     0
 
 SixLayerHdi-L1-L2.drl (L1-L2, blind, micro)
   Tool     Size  Plating    Kind       Holes Slots  Tolerance
@@ -29,4 +31,4 @@ SixLayerHdi-L5-L6.drl (L5-L6, blind)
   T1      0.300  plated     via            1     0  -
   Total                                    1     0
 
-All files: 5 holes, 0 slots
+All files: 6 holes, 0 slots

@@ -9,7 +9,7 @@ use std::path::Path;
 
 use gerber_reader::{Aperture, Object};
 use reda_model::geom::Point;
-use reda_model::{PadShape, PcbDocument, Side, StackupEntry};
+use reda_model::{PadKind, PadShape, PcbDocument, Side, StackupEntry};
 use reda_testkit::{open_reference_copy, read_csv};
 use serde_json::json;
 
@@ -24,6 +24,7 @@ fn the_six_layer_hdi_job_describes_the_board() {
     let job = engine.project().unwrap().output_jobs().next().unwrap().uuid;
     let report = engine.run_ok("output.job.run", json!({"job":job}));
     assert_eq!(report["warnings"], json!([]));
+    assert_eq!(report["skipped"], json!([]));
     let output = Path::new(report["destination"].as_str().unwrap());
     let pcb = engine.project().unwrap().pcb().unwrap();
 
@@ -70,7 +71,10 @@ fn check_materials(pcb: &PcbDocument, job: &job_reader::Job) {
 }
 
 fn check_copper(pcb: &PcbDocument, fab: &Path, job: &job_reader::Job) {
-    let pad = pcb.free_pads().next().unwrap();
+    let pad = pcb
+        .free_pads()
+        .find(|p| p.kind == PadKind::PlatedThroughHole)
+        .unwrap();
     let names = [
         "SixLayerHdi.gtl",
         "SixLayerHdi-L2.ger",
@@ -194,7 +198,12 @@ fn check_drills(pcb: &PcbDocument, fab: &Path) {
             .push((xy(via.at), via.hole.0, "ViaDrill".to_string()));
     }
     for pad in pcb.free_pads() {
-        expected.entry("Plated,1,6,PTH".into()).or_default().push((
+        let function = match pad.kind {
+            PadKind::PlatedThroughHole => "Plated,1,6,PTH",
+            PadKind::NonPlated => "NonPlated,1,6,NPTH",
+            PadKind::Smd => continue,
+        };
+        expected.entry(function.into()).or_default().push((
             xy(pad.at),
             pad.hole.unwrap().width.0,
             "MechanicalDrill".into(),

@@ -59,6 +59,10 @@
         "path": "fab/SixLayerHdi-PTH.drl"
       },
       {
+        "function": "drill_non_plated",
+        "path": "fab/SixLayerHdi-NPTH.drl"
+      },
+      {
         "function": "drill_blind",
         "path": "fab/SixLayerHdi-L1-L2.drl"
       },
@@ -116,12 +120,7 @@
       }
     ],
     "manifest": "outputs/HDI/manifest.json",
-    "skipped": [
-      {
-        "function": "drill_non_plated",
-        "name": "SixLayerHdi-NPTH.drl"
-      }
-    ],
+    "skipped": [],
     "warnings": [],
     "zip": "outputs/HDI/SixLayerHdi-HDI.zip"
   }
