@@ -18,6 +18,8 @@
 //! A new kind of element editor adds an arm to [`scene`], [`edit`], [`cancel`],
 //! [`panels`] and [`has_canvas`].
 
+pub mod select;
+
 use std::sync::Arc;
 
 use reda_engine::Engine;
