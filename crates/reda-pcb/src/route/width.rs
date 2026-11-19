@@ -227,18 +227,45 @@ pub fn preferred_via(pcb: &PcbDocument, net: Option<Uuid>) -> ViaSize {
 /// The Via size chooser's list: the Net's preferred size, then the sizes of the Vias
 /// already on the board, each size once, sorted.
 pub fn via_choices(pcb: &PcbDocument, net: Option<Uuid>) -> Vec<ViaChoice> {
-    let preferred = preferred_via(pcb, net);
-    let mut out = vec![ViaChoice {
-        size: preferred,
-        source: WidthSource::Preferred,
-    }];
-    let board: BTreeSet<ViaSize> = pcb
+    via_choices_for(pcb, net, [pcb.stackup().through_type()])
+}
+
+/// Each member of a proposed stack contributes its own preferred size.
+pub fn via_choices_for<'a>(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    types: impl IntoIterator<Item = &'a reda_model::ViaType>,
+) -> Vec<ViaChoice> {
+    let mut out = Vec::new();
+    let mut seen = BTreeSet::new();
+    for kind in types {
+        let (diameter, hole) = crate::rules::via_starting_size(pcb, net, kind);
+        let size = ViaSize {
+            diameter: diameter.start,
+            hole,
+        };
+        if seen.insert(size) {
+            out.push(ViaChoice {
+                size,
+                source: WidthSource::Preferred,
+            });
+        }
+    }
+    if out.is_empty() {
+        let size = preferred_via(pcb, net);
+        out.push(ViaChoice {
+            size,
+            source: WidthSource::Preferred,
+        });
+        seen.insert(size);
+    }
+    let board: BTreeSet<_> = pcb
         .vias()
         .map(|v| ViaSize {
             diameter: v.diameter.start,
             hole: v.hole,
         })
-        .filter(|s| *s != preferred)
+        .filter(|s| !seen.contains(s))
         .collect();
     out.extend(board.into_iter().map(|size| ViaChoice {
         size,

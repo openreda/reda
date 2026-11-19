@@ -123,13 +123,7 @@ pub struct Via {
 impl Via {
     /// Copper diameter on a Layer of this Via's span, in drilling order.
     pub fn diameter_on(&self, layer: Uuid) -> Nm {
-        if layer == self.span.from {
-            self.diameter.start
-        } else if layer == self.span.to {
-            self.diameter.end.unwrap_or(self.diameter.start)
-        } else {
-            self.diameter.middle.unwrap_or(self.diameter.start)
-        }
+        self.diameter.on(self.span, layer)
     }
 }
 

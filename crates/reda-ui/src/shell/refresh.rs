@@ -80,25 +80,6 @@ impl Shell {
                     crate::schematic_editor::edit_selected(self, sheet);
                 }
             }
-            "pcb.route.add_via" => self.with_router(|r, shell| r.add_via(shell)),
-            "pcb.route.via_end" => self.with_router(|r, shell| r.via_end(shell)),
-            "pcb.route.end" => self.with_router(|r, shell| r.end(shell)),
-            "pcb.route.mode" => {
-                if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
-                    self.with_router(|r, shell| r.change_mode(shell, mode));
-                }
-            }
-            "pcb.route.chooser" => {
-                if let Ok(kind) = serde_json::from_value(out["kind"].clone()) {
-                    self.with_router(|r, shell| r.open_chooser(shell, kind));
-                }
-            }
-            "pcb.route.via_size" => {
-                if let (Some(d), Some(h)) = (out["diameter"].as_i64(), out["hole"].as_i64()) {
-                    self.with_router(|r, shell| r.set_via_size(shell, Nm(d), Nm(h)));
-                }
-            }
-            "pcb.route.finish" => self.with_router(|r, shell| r.finish(shell)),
             "pcb.drag.mode" => {
                 if let Ok(mode) = serde_json::from_value(out["mode"].clone()) {
                     self.with_pcb_tool(|t, shell| t.drag_mode(shell, mode));
@@ -113,15 +94,6 @@ impl Shell {
                 let _ = self
                     .engine
                     .run("selection.set", json!({ "objects": objects }));
-            }
-            "pcb.route.width" => {
-                let width = out["width"].as_i64().map(Nm);
-                let step = match out["step"].as_str() {
-                    Some("next") => Some(1),
-                    Some("previous") => Some(-1),
-                    _ => None,
-                };
-                self.with_router(|r, shell| r.set_width(shell, width, step));
             }
             id if id.starts_with("pcb.place.") => pcb::placing::after_run(self, id, out),
             "pcb.delete.confirm" => pcb::delete::after_confirm(self, out),

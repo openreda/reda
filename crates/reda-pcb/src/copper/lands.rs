@@ -1,10 +1,11 @@
 //! Derive omitted lands from the design intent on each Layer, independently of fills.
-use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 use reda_model::geom::Point;
 use reda_model::{
-    ConnectionStyle, ConnectionTarget, PcbDocument, Side, UnusedLayers, Uuid, ZoneConnection,
+    ConnectionStyle, ConnectionTarget, LayerSpan, PcbDocument, Side, UnusedLayers, Uuid,
+    ViaDiameter, ZoneConnection,
 };
 use rstar::RTree;
 
@@ -21,7 +22,7 @@ impl UnusedLands {
     pub fn of(pcb: &PcbDocument) -> Self {
         let mut out = Self::default();
         // A board using the default keep mode needs no endpoint or Zone index.
-        let connections = OnceCell::new();
+        let connections = OnceLock::new();
         let mut remove_pad = |item, pad: &PlacedPad| {
             for layer in pcb.copper_layers().filter(|l| l.side.is_none()) {
                 let connected = pad.net.is_some_and(|net| {
@@ -65,25 +66,16 @@ impl UnusedLands {
             }
         }
         for via in pcb.vias().filter(|v| !v.unused_layers.is_keep()) {
-            for layer in pcb.span_layers(via.span) {
-                if via.unused_layers == UnusedLayers::RemoveKeepEnds
-                    && (layer == via.span.from || layer == via.span.to)
-                {
-                    continue;
-                }
-                let connected = via.net.is_some_and(|net| {
-                    connections.get_or_init(|| Connections::of(pcb)).connected(
-                        pcb,
-                        (layer, net),
-                        &Shape::disc(via.at, via.diameter_on(layer)),
-                        via.at,
-                        ConnectionTarget::Via,
-                        via.zone_connection.as_ref(),
-                    )
-                });
-                if !connected {
-                    out.0.insert((Item::Via { uuid: via.uuid }, layer));
-                }
+            let intent = ViaIntent {
+                at: via.at,
+                span: via.span,
+                diameter: via.diameter,
+                mode: via.unused_layers,
+                net: via.net,
+                connection: via.zone_connection.as_ref(),
+            };
+            for layer in intent.omitted(pcb, &connections, &[]) {
+                out.0.insert((Item::Via { uuid: via.uuid }, layer));
             }
         }
         out
@@ -106,12 +98,61 @@ pub(super) fn pad_shape(pad: &PlacedPad, side: Option<Side>) -> Shape {
     })
 }
 
-#[derive(Default)]
-struct Connections {
+/// Shared by stored Vias and the route preview, whose endpoints have not been committed.
+pub(super) struct ViaIntent<'a> {
+    pub at: Point,
+    pub span: LayerSpan,
+    pub diameter: ViaDiameter,
+    pub mode: UnusedLayers,
+    pub net: Option<Uuid>,
+    pub connection: Option<&'a ZoneConnection>,
+}
+
+impl ViaIntent<'_> {
+    pub fn omitted(
+        &self,
+        pcb: &PcbDocument,
+        connections: &OnceLock<Connections>,
+        route_ends: &[(Uuid, Point)],
+    ) -> Vec<Uuid> {
+        if self.mode.is_keep() {
+            return Vec::new();
+        }
+        pcb.span_layers(self.span)
+            .into_iter()
+            .filter(|&layer| {
+                if self.mode == UnusedLayers::RemoveKeepEnds
+                    && (layer == self.span.from || layer == self.span.to)
+                {
+                    return false;
+                }
+                let Some(net) = self.net else {
+                    return true;
+                };
+                let land = Shape::disc(self.at, self.diameter.on(self.span, layer));
+                !(route_ends
+                    .iter()
+                    .any(|&(l, p)| l == layer && land.contains(p))
+                    || connections.get_or_init(|| Connections::of(pcb)).connected(
+                        pcb,
+                        (layer, net),
+                        &land,
+                        self.at,
+                        ConnectionTarget::Via,
+                        self.connection,
+                    ))
+            })
+            .collect()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct Connections {
     ends: BTreeMap<(Uuid, Uuid), RTree<P>>,
     outlines: BTreeMap<(Uuid, Uuid), Vec<ZoneOutline>>,
 }
 
+#[derive(Clone, Debug)]
 struct ZoneOutline {
     area: poly::Area,
     edges: Shape,
