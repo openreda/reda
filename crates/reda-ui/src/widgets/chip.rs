@@ -11,6 +11,8 @@ use egui::{
     WidgetInfo, pos2, vec2,
 };
 
+use reda_engine::model::CopperRole;
+
 use super::button::ICON_GAP;
 use super::glyph::{self, Glyph};
 use super::mark::{SWATCH, paint_swatch};
@@ -30,6 +32,7 @@ pub fn chip(text: impl Into<String>) -> Chip {
         text: text.into(),
         name: None,
         swatch: None,
+        copper_role: None,
         selected: false,
         chevron: false,
         state: State::Live,
@@ -41,6 +44,7 @@ pub struct Chip {
     text: String,
     name: Option<String>,
     swatch: Option<Color32>,
+    copper_role: Option<CopperRole>,
     selected: bool,
     chevron: bool,
     state: State,
@@ -50,6 +54,13 @@ impl Chip {
     /// The swatch of a data colour before the text: the Layer's.
     pub fn swatch_rgb(mut self, r: u8, g: u8, b: u8) -> Self {
         self.swatch = Some(Color32::from_rgb(r, g, b));
+        self
+    }
+
+    /// A line, square or both on the swatch identifies a copper Layer's role even
+    /// when the strip is too narrow to show its name.
+    pub fn copper_role(mut self, role: Option<CopperRole>) -> Self {
+        self.copper_role = role;
         self
     }
 
@@ -141,6 +152,27 @@ impl Widget for Chip {
                     Rect::from_center_size(at, Vec2::splat(SWATCH)),
                     color,
                 );
+                if let Some(role) = self.copper_role {
+                    let ink = if color.intensity() > 0.5 {
+                        c.surface.base
+                    } else {
+                        c.text.primary
+                    };
+                    if role != CopperRole::Plane {
+                        ui.painter().hline(
+                            at.x - 3.0..=at.x + 3.0,
+                            at.y,
+                            Stroke::new(t.stroke.hairline, ink),
+                        );
+                    }
+                    if role != CopperRole::Signal {
+                        ui.painter().rect_filled(
+                            Rect::from_center_size(at, Vec2::splat(3.0)),
+                            0.0,
+                            ink,
+                        );
+                    }
+                }
                 left += SWATCH + ICON_GAP;
             }
             if !self.text.is_empty() {

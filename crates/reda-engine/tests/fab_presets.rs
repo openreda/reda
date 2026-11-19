@@ -84,7 +84,7 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
 /// (a 0.18 mm ring) because 0.60/0.30 mm left 0.15 mm, under JLCPCB's 0.18 mm.
 #[test]
 fn a_default_via_on_every_shipped_preset_has_enough_annular_ring() {
-    for preset in ["Generic", "JLCPCB", "PCBWay"] {
+    for preset in ["Generic", "JLCPCB", "PCBWay", "OSH Park"] {
         let dir = TempDir::new("fab-via");
         let mut engine = test_engine();
         new_project(
@@ -199,7 +199,7 @@ fn the_last_used_preset_is_remembered_and_listed_as_the_default() {
         .iter()
         .map(|p| p["preset"]["name"].as_str().unwrap())
         .collect();
-    assert_eq!(names, ["Generic", "JLCPCB", "PCBWay"]);
+    assert_eq!(names, ["Generic", "JLCPCB", "PCBWay", "OSH Park"]);
 }
 
 #[test]
@@ -673,7 +673,7 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
         assert_eq!(standard["thickness"], 1_600_000);
         assert_eq!(
             standard["entries"],
-            json!([{"copper":35_000},{"kind":"core"},{"copper":35_000}])
+            json!([{"copper":35_000},{"kind":"core","thickness":1_530_000},{"copper":35_000}])
         );
     }
 }
@@ -891,21 +891,28 @@ fn construction_patches_are_case_insensitive_ordered_and_atomic() {
     let mut engine = test_engine();
     new_project(&mut engine, &dir, json!({}));
     let baseline = only_preset(&engine);
+    let original_count = baseline.constructions.len();
     let uuid = baseline.uuid;
     let patch = |values| json!({"preset":uuid,"values":{"constructions":values}});
     let build = json!({"default":false,"thickness":1800000,
         "entries":[{"copper":35000},{"kind":"core","thickness":1730000},{"copper":35000}]});
     engine.run_ok("fab_preset.set", patch(json!({"Custom":build})));
     let preset = only_preset(&engine);
-    assert_eq!(preset.constructions.len(), 2);
-    assert_eq!(preset.constructions[0], baseline.constructions[0]);
-    assert_eq!(preset.constructions[1].name, "Custom");
+    assert_eq!(preset.constructions.len(), original_count + 1);
+    assert_eq!(
+        preset.constructions[..original_count],
+        baseline.constructions
+    );
+    assert_eq!(preset.constructions[original_count].name, "Custom");
     let mut updated = build.clone();
     updated["thickness"] = json!(1600000);
     engine.run_ok("fab_preset.set", patch(json!({"CUSTOM":updated})));
     let preset = only_preset(&engine);
-    assert_eq!(preset.constructions.len(), 2);
-    assert_eq!(preset.constructions[1].thickness, Nm(1_600_000));
+    assert_eq!(preset.constructions.len(), original_count + 1);
+    assert_eq!(
+        preset.constructions[original_count].thickness,
+        Nm(1_600_000)
+    );
     for bad in [
         json!([]),
         json!({"custom":null,"Broken":{"entries":[]}}),

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "2 Layer Prototype",
+    "default": true,
+    "notes": "Prototype service minima are 0.1524 mm track and clearance, 0.127 mm annular ring, 0.254 mm drill. ENIG finish.",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35600},
+      {"kind": "core", "material": "Kingboard KB6167F FR-4", "thickness": 1524000, "dk": 4500, "test_frequency": 10000000},
+      {"copper": 35600}
+    ]
+  },
+  {
+    "name": "4 Layer Prototype",
+    "default": true,
+    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.254 mm drill. ENIG finish.",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 43200},
+      {"kind": "prepreg", "material": "FR408HR 2113", "thickness": 199900, "dk": 3610, "test_frequency": 1000000000},
+      {"copper": 17500},
+      {"kind": "core", "material": "FR408HR", "thickness": 990600},
+      {"copper": 17500},
+      {"kind": "prepreg", "material": "FR408HR 2113", "thickness": 199900, "dk": 3610, "test_frequency": 1000000000},
+      {"copper": 43200}
+    ]
+  },
+  {
+    "name": "6 Layer Prototype",
+    "default": true,
+    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.2032 mm drill. ENIG finish.",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 43200},
+      {"kind": "prepreg", "material": "FR408HR 106 75%", "thickness": 110700, "dk": 3230, "test_frequency": 1000000000, "df": 11000},
+      {"copper": 17500},
+      {"kind": "core", "material": "FR408HR 2113", "thickness": 101600, "dk": 3660, "test_frequency": 1000000000, "df": 9000},
+      {"copper": 17500},
+      {"kind": "core", "material": "FR408HR", "thickness": 925600},
+      {"copper": 17500},
+      {"kind": "core", "material": "FR408HR 2113", "thickness": 101600, "dk": 3660, "test_frequency": 1000000000, "df": 9000},
+      {"copper": 17500},
+      {"kind": "prepreg", "material": "FR408HR 106 75%", "thickness": 110700, "dk": 3230, "test_frequency": 1000000000, "df": 11000},
+      {"copper": 43200}
+    ]
+  }
+]

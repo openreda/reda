@@ -241,7 +241,7 @@ fn menu_width(ui: &Ui, pcb: &PcbDocument) -> f32 {
         + widgets::ICON_GAP
         + 2.0 * t.space.row_x
         + frame
-        + ui.spacing().scroll.allocated_width()
+        + widgets::Menu::scrollbar_width(ui)
         + t.space.gap;
     ordered(pcb)
         .into_iter()
@@ -484,37 +484,14 @@ fn chip(
     selected: bool,
 ) -> Response {
     let [r, g, b] = layer_rgb(ui, shell, pcb, layer);
-    let response = ui.add(
+    let role = (layer.kind == LayerKind::Copper
+        && (layer.role != CopperRole::Signal || pcb.copper_layers().nth(2).is_some()))
+    .then_some(layer.role);
+    ui.add(
         widgets::chip(name)
             .swatch_rgb(r, g, b)
+            .copper_role(role)
             .selected(selected)
             .name(label),
-    );
-    if layer.kind == LayerKind::Copper
-        && (layer.role != CopperRole::Signal || pcb.copper_layers().nth(2).is_some())
-    {
-        // A line, a filled square, or the two together remains legible when
-        // a crowded strip has room for the swatch alone.
-        let center = egui::pos2(
-            response.rect.left() + ui.tokens().space.row_x + widgets::SWATCH / 2.0,
-            response.rect.center().y,
-        );
-        let color = if egui::Color32::from_rgb(r, g, b).intensity() > 0.5 {
-            ui.tokens().color.surface.base
-        } else {
-            ui.tokens().color.text.primary
-        };
-        if layer.role != CopperRole::Plane {
-            ui.painter().hline(
-                center.x - 3.0..=center.x + 3.0,
-                center.y,
-                egui::Stroke::new(1.0, color),
-            );
-        }
-        if layer.role != CopperRole::Signal {
-            ui.painter()
-                .rect_filled(Rect::from_center_size(center, vec2(3.0, 3.0)), 0.0, color);
-        }
-    }
-    response
+    )
 }

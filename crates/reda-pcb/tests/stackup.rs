@@ -36,7 +36,7 @@ fn ids(engine: &TestEngine) -> (Uuid, Uuid, Uuid) {
 }
 
 #[test]
-fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_core_of_unspecified_thickness() {
+fn a_new_board_uses_the_finished_dimensions_of_the_two_layer_construction() {
     let dir = TempDir::new("stackup-new");
     let engine = engine(&dir);
     let (top, bottom, dielectric) = ids(&engine);
@@ -46,7 +46,7 @@ fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_core_of_unspecified_thickness(
         serde_json::to_value(&stackup.entries).unwrap(),
         json!([
             {"layer": top, "thickness": 35_000},
-            {"uuid": dielectric, "kind": "core"},
+            {"uuid": dielectric, "kind": "core", "thickness": 1_530_000},
             {"layer": bottom, "thickness": 35_000},
         ])
     );
@@ -59,13 +59,13 @@ fn a_new_board_is_1_6_mm_with_1_oz_copper_and_one_core_of_unspecified_thickness(
 fn copper_is_entered_in_ounces_at_exactly_35_um_and_stored_in_nm() {
     let dir = TempDir::new("stackup-oz");
     let mut engine = engine(&dir);
-    let (top, bottom, _) = ids(&engine);
+    let (top, bottom, dielectric) = ids(&engine);
     let out = engine.run_ok(
         "pcb.stackup.set",
         json!({"copper": [
             {"layer": top, "thickness": "2oz"},
             {"layer": bottom, "thickness": "0.5 oz"},
-        ]}),
+        ], "dielectrics": [{"uuid": dielectric, "thickness": null}]}),
     );
     let copper: Vec<Nm> = stackup(&engine).copper().map(|c| c.thickness).collect();
     assert_eq!(copper, [Nm(70_000), Nm(17_500)]);
@@ -106,7 +106,11 @@ fn finish_and_colours_are_optional_free_text() {
 fn a_negative_remainder_is_refused_on_the_thickness() {
     let dir = TempDir::new("stackup-negative");
     let mut engine = engine(&dir);
-    let err = engine.run_err("pcb.stackup.set", json!({"thickness": "0.05mm"}));
+    let (_, _, dielectric) = ids(&engine);
+    let err = engine.run_err(
+        "pcb.stackup.set",
+        json!({"thickness": "0.05mm", "dielectrics":[{"uuid":dielectric, "thickness":null}]}),
+    );
     assert_eq!(err.code, ErrorCode::InvalidParams);
     assert_eq!(err.details.unwrap()["pointer"], "/thickness");
     assert_eq!(stackup(&engine).thickness, Nm(1_600_000));
@@ -297,6 +301,26 @@ fn named_inner_copper_and_roles_survive_save_and_can_be_reset() {
 }
 
 #[test]
+fn adding_a_blank_sheet_to_an_over_nominal_construction_preserves_the_saved_stackup() {
+    let dir = TempDir::new("stackup-over-nominal");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"fab_preset":"JLCPCB",
+               "construction":"JLC04161H-2116A"}),
+    );
+    let original = stackup(&engine).clone();
+    assert!(original.totals().total > original.thickness);
+    let sheet = original.dielectrics().next().unwrap().uuid;
+    let err = engine.run_err("pcb.stackup.dielectric.add", json!({"beside":sheet}));
+    assert_eq!(err.code, ErrorCode::Rejected);
+    assert_eq!(stackup(&engine), &original);
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.open", json!({"path":dir.path().join("Demo")}));
+    assert_eq!(stackup(&engine), &original);
+}
+
+#[test]
 fn adding_and_removing_a_sheet_keeps_at_least_one_in_each_gap() {
     let dir = TempDir::new("stackup-multiple-sheets");
     let mut engine = probe_engine();
@@ -348,7 +372,10 @@ fn stackup_info_resolves_equal_shares_and_checks_mirrored_material_and_thickness
     let second = &added["result"]["uuid"];
     let info =
         |engine: &mut TestEngine| engine.run_ok("pcb.stackup.info", json!({"document":document}));
-    engine.run_ok("pcb.stackup.set", json!({"thickness":1_600_001}));
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"thickness":1_600_001,"dielectrics":[{"uuid":first,"thickness":null}]}),
+    );
     engine.run_ok("pcb.layer.set", json!({"layer":top,"role":"mixed"}));
     let readout = info(&mut engine);
     assert_eq!(readout["symmetric"], true);

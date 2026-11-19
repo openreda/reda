@@ -368,6 +368,10 @@ fn an_add_without_a_selection_splits_the_middle_dielectric_among_several_sheets(
     let first = pcb(&e).stackup().dielectrics().next().unwrap().uuid;
     let second = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":first})));
     let third = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":second})));
+    e.run_ok(
+        "pcb.stackup.set",
+        json!({"dielectrics":[{"uuid":first,"thickness":null}]}),
+    );
     let added = created(e.run_ok("pcb.layer.add", json!({"document":doc})));
     let entries = &pcb(&e).stackup().entries;
     assert_eq!(entries[2].uuid(), second);
@@ -385,7 +389,8 @@ fn an_added_layer_inherits_the_nearest_inner_copper_across_a_multi_sheet_gap() {
     let lower = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":upper})));
     e.run_ok(
         "pcb.stackup.set",
-        json!({"copper":[{"layer":l[1],"thickness":18000},{"layer":l[2],"thickness":70000}]}),
+        json!({"copper":[{"layer":l[1],"thickness":18000},{"layer":l[2],"thickness":70000}],
+               "dielectrics":[{"uuid":upper,"thickness":200000}]}),
     );
     let added = created(e.run_ok("pcb.layer.add", json!({"document":doc,"split":lower})));
     assert_eq!(
