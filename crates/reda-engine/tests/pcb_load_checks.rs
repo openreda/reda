@@ -115,7 +115,7 @@ fn inner_copper_is_copper_with_no_side_and_is_numbered_from_its_position() {
         layers.insert(i, json!({"uuid": inner, "kind": "copper"}));
         let entries = f["stackups"][0]["entries"].as_array_mut().unwrap();
         entries.insert(2, json!({"layer": inner, "thickness": 35_000}));
-        entries.insert(3, json!({"uuid": dielectric}));
+        entries.insert(3, json!({"uuid": dielectric, "kind": "core"}));
     })
     .unwrap();
     let pcb = engine.project().unwrap().pcb().unwrap();
