@@ -166,6 +166,9 @@ fn general(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
     ui.add_space(t.space.section);
     strong(ui, tr!("output-job-zip-contents"));
     from_preset(ui, cx, draft, Section::General);
+    if let Some(why) = &preview.invalid_file_name {
+        layout::error(ui, why);
+    }
     if preview.zip.is_empty() {
         layout::muted(ui, tr!("output-job-zip-empty"));
     }
@@ -255,7 +258,6 @@ fn gerber(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
     }
     if let Some(why) = &preview.invalid_file_name {
         layout::error(ui, why);
-        return;
     }
     files(ui, "output-job-gerber-files", &preview.gerber, true);
 }

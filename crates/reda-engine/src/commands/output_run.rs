@@ -352,19 +352,8 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
             CommandError::rejected(format!("Output file {name:?} cannot be used: {why}"))
         })?;
     }
-    let mut names = BTreeMap::new();
-    for file in &zipped {
-        let function = file
-            .attributes
-            .as_ref()
-            .map_or(file.function, |a| &a.function);
-        if let Some(previous) = names.insert(file.name.to_lowercase(), function) {
-            return Err(CommandError::rejected(format!(
-                "Output files {previous} and {function} both resolve to {:?}",
-                file.name
-            )));
-        }
-    }
+    check_zip_names(zipped.iter().map(OutputFile::name_and_function))
+        .map_err(CommandError::rejected)?;
 
     cx.progress(3.0, Some(STEPS), "Zipping");
     cx.check_cancelled()?;
@@ -453,6 +442,21 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         skipped,
         warnings,
     })
+}
+
+/// Returns the first filename clash in zip order, with both output functions.
+pub(crate) fn check_zip_names<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Result<(), String> {
+    let mut names = BTreeMap::new();
+    for (name, function) in entries {
+        if let Some(previous) = names.insert(name.to_lowercase(), function) {
+            return Err(format!(
+                "Output files {previous} and {function} both resolve to {name:?}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The folder in the destination that holds loose copies of the zip's files.

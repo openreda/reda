@@ -73,6 +73,17 @@ pub struct OutputFile {
     pub attributes: Option<FileAttributes>,
 }
 
+impl OutputFile {
+    /// The name and function shown when two zip entries have the same name.
+    pub fn name_and_function(&self) -> (&str, &str) {
+        let function = self
+            .attributes
+            .as_ref()
+            .map_or(self.function, |a| &a.function);
+        (&self.name, function)
+    }
+}
+
 /// A fabrication file's `.FileFunction` and `.FilePolarity`, as its attributes state them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileAttributes {
@@ -97,9 +108,17 @@ pub struct SkippedFile {
 pub struct Gerbers {
     pub files: Vec<OutputFile>,
     pub skipped: Vec<SkippedFile>,
-    /// Every file's name, written or skipped, in plot order, with the Layer it plots,
-    /// such as ("Demo.gtl", "Top Copper").
-    pub layers: Vec<(String, String)>,
+    /// Every Layer in plot order, including empty ones.
+    pub layers: Vec<GerberLayer>,
+}
+
+/// A Layer's row in the Output Job's Gerber table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GerberLayer {
+    pub name: String,
+    pub layer: String,
+    pub function: &'static str,
+    pub plotted: bool,
 }
 
 /// A coordinate the Gerber format can't hold (beyond ±2147.483647 mm, Gerber
@@ -136,14 +155,20 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
         let name = file
             .name(project, plot.gerber)
             .map_err(GerberError::InvalidFileName)?;
-        out.layers.push((name.clone(), file.label()));
         if let Some(at) = rendered.out_of_range {
             return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
                 file: name,
                 at,
             }));
         }
-        if optional && rendered.empty {
+        let plotted = !optional || !rendered.empty;
+        out.layers.push(GerberLayer {
+            name: name.clone(),
+            layer: file.label(),
+            function,
+            plotted,
+        });
+        if !plotted {
             out.skipped.push(SkippedFile { name, function });
         } else {
             out.files.push(OutputFile {

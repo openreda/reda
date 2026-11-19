@@ -29,8 +29,8 @@ pub use instance::{BoardInstance, InstanceTransform, resolve_origin};
 pub use job_file::{gerber_job_file, gerber_job_name};
 pub use jobs::{job_destination, name_values, new_job, register_all, resolve_destination};
 pub use plot::{
-    CoordinateOutOfRange, FileAttributes, GerberError, Gerbers, OutputFile, Part, Plot,
-    SkippedFile, copper_file_name, gerber_files,
+    CoordinateOutOfRange, FileAttributes, GerberError, GerberLayer, Gerbers, OutputFile, Part,
+    Plot, SkippedFile, copper_file_name, gerber_files,
 };
 pub use presets::{GENERIC_NAME, generic, shipped, shipped_named};
 pub use sha256::sha256_hex;

@@ -249,3 +249,43 @@ fn multilayer_preview_matches_the_physical_order_in_the_zip_manifest_and_job() {
         "the empty inner plane carries the requested board outline"
     );
 }
+
+#[test]
+fn preview_names_both_files_in_an_active_zip_clash_and_keeps_empty_plots_out() {
+    let dir = TempDir::new("preview-clash");
+    let mut engine = board(&dir);
+    let job = job(&engine);
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{"zip_assembly":true,"gerber":{
+            "file_names":[{"layer":"Top Copper","name":"DEMO-bom.csv"},{"layer":"Top Paste","name":"DEMO-bom.csv"}]
+        }}}),
+    );
+    let preview = job_preview(&engine, &job).unwrap();
+    let why = preview
+        .invalid_file_name
+        .expect("the preview identifies the name clash");
+    for label in ["Copper,L1,Top", "bom", "Demo-BOM.csv"] {
+        assert!(why.contains(label), "{why}");
+    }
+    let error = engine.run_err("output.job.run", json!({"job":job.uuid}));
+    assert_eq!(why, error.message);
+
+    let mut draft = job;
+    draft.outputs.bom = false;
+    let preview = job_preview(&engine, &draft).unwrap();
+    assert_eq!(preview.invalid_file_name, None);
+    assert_eq!(
+        preview.zip.iter().filter(|f| *f == "DEMO-bom.csv").count(),
+        1
+    );
+    let paste = preview
+        .gerber
+        .iter()
+        .find(|f| f.layer == "Top Paste")
+        .unwrap();
+    assert_eq!(
+        (paste.function, paste.state),
+        ("paste_top", FileState::Empty)
+    );
+}
