@@ -250,6 +250,30 @@ _Avoid_: Trace, wire (wires are on Schematic Sheets), route
 A plated hole that joins copper on different Layers within one Net.
 _Avoid_: Through-hole (that describes parts), feedthrough
 
+**Via Span**:
+The two copper Layers a Via joins, written as their positions from the top, such as `1:3`.
+_Avoid_: Layer pair (that is a routing choice), via depth
+
+**Via Type**:
+One of the kinds of Via a board allows, defined with the Stackup by its Via Span, how it is drilled and its starting size.
+_Avoid_: Padstack, via style, via template
+
+**Blind Via**:
+A Via that reaches one outer Layer and ends inside the board.
+_Avoid_: Partial via
+
+**Buried Via**:
+A Via that reaches neither outer Layer.
+_Avoid_: Hidden via, inner via
+
+**Micro Via**:
+A laser-drilled Via joining copper Layers that are adjacent or one apart.
+_Avoid_: µVia, laser via, HDI via
+
+**Via Stack**:
+Several Vias of one Net sharing a centre, whose Via Spans meet end to end. It is not an object of its own.
+_Avoid_: Stacked via (as one object), via chain
+
 **Zone**:
 A Net-assigned area on a copper Layer that is filled with copper around everything it must keep clear of.
 _Avoid_: Pour, polygon, plane, fill
