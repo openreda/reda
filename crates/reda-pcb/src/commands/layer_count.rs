@@ -158,12 +158,6 @@ pub(crate) fn add_plan(
         .iter()
         .filter(|e| matches!(e, StackupEntry::Copper(_)))
         .count();
-    let thickness = copper[if copper.len() == 2 {
-        0
-    } else {
-        (before - 1).clamp(1, copper.len() - 2)
-    }]
-    .thickness;
     let stretches = |a, b| {
         let a = pcb.copper_number(a).unwrap();
         let b = pcb.copper_number(b).unwrap();
@@ -187,6 +181,15 @@ pub(crate) fn add_plan(
             "give the blank dielectric sheets a positive physical thickness first",
         ));
     }
+    // The two halves of the split sheet are equally close. Compare the rest
+    // of its gap, preferring the upper foil on a tie.
+    let above = distance_to_copper(stack.entries[..index].iter().rev());
+    let below = distance_to_copper(stack.entries[index + 1..].iter());
+    let mut nearest = if above <= below { before - 1 } else { before };
+    if copper.len() > 2 {
+        nearest = nearest.clamp(1, copper.len() - 2);
+    }
+    let thickness = copper[nearest].thickness;
     let StackupEntry::Dielectric(upper) = &mut stack.entries[index] else {
         unreachable!()
     };
@@ -232,6 +235,15 @@ pub(crate) fn add_plan(
         },
     );
     Ok(plan)
+}
+
+fn distance_to_copper<'a>(entries: impl Iterator<Item = &'a StackupEntry>) -> i64 {
+    entries
+        .map_while(|entry| match entry {
+            StackupEntry::Copper(_) => None,
+            StackupEntry::Dielectric(sheet) => Some(sheet.thickness.expect("resolved sheet").0),
+        })
+        .sum()
 }
 
 /// Store equal shares to whole nanometres, distributing the remainder from the top.

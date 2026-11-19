@@ -95,18 +95,18 @@ impl BoardView {
             .and_then(|id| set.layer(id))
             .is_none_or(|l| l.kind != LayerKind::Copper)
         {
-            let opposite = match view
-                .layers
-                .active
-                .and_then(|id| set.layer(id))
-                .and_then(|l| l.side)
-            {
-                Some(Side::Bottom) => Side::Top,
-                _ => Side::Bottom,
-            };
-            view.layers.previous = set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid);
+            view.layers.previous = view.opposite_outer(set);
         }
         view
+    }
+
+    pub(crate) fn opposite_outer(&self, set: &LayerSet) -> Option<Uuid> {
+        let active = self.layers.active.and_then(|id| set.layer(id));
+        let opposite = match active.and_then(|l| l.side) {
+            Some(Side::Bottom) => Side::Top,
+            _ => Side::Bottom,
+        };
+        set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid)
     }
 
     /// Repair references while the previous physical order still identifies the copper
@@ -114,6 +114,7 @@ impl BoardView {
     pub(crate) fn update_copper_order(
         &mut self,
         current: Vec<Uuid>,
+        opposite_outer: Option<Uuid>,
         sets: &mut [reda_engine::preferences::SavedLayerSet],
     ) {
         let old = std::mem::replace(&mut self.layers.copper_order, current);
@@ -134,11 +135,7 @@ impl BoardView {
             self.layers.hidden.remove(&fallback);
         }
         if self.layers.previous.is_some_and(|id| gone(&id)) {
-            self.layers.previous = if self.layers.active == current.last().copied() {
-                current.first().copied()
-            } else {
-                current.last().copied()
-            };
+            self.layers.previous = opposite_outer;
         }
         self.layers.last_copper = self.layers.last_copper.filter(|id| !gone(id));
         self.layers.highlighted = self.layers.highlighted.filter(|id| !gone(id));

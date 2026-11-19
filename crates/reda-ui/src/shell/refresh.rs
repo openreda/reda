@@ -343,6 +343,7 @@ impl Shell {
                 .eq(pcb.copper_layers().map(|l| l.uuid))
         {
             let current = pcb.copper_layers().map(|l| l.uuid).collect();
+            let opposite_outer = self.board_view().opposite_outer(pcb.layers());
             let mut sets = self
                 .engine
                 .user_dirs()
@@ -350,7 +351,7 @@ impl Shell {
                 .unwrap_or_default();
             let before = sets.clone();
             self.board_view_mut()
-                .update_copper_order(current, &mut sets);
+                .update_copper_order(current, opposite_outer, &mut sets);
             if before != sets
                 && let Some(dirs) = self.engine.user_dirs()
             {

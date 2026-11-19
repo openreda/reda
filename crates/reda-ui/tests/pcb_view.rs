@@ -588,6 +588,24 @@ fn removing_active_or_previous_copper_repairs_the_view_once() {
 }
 
 #[test]
+fn removing_the_previous_layer_while_editing_bottom_silkscreen_falls_back_to_top_copper() {
+    let mut b = board();
+    let top = layer(&b, LayerKind::Copper, Some(Side::Top));
+    let bottom = layer(&b, LayerKind::Copper, Some(Side::Bottom));
+    let silk = layer(&b, LayerKind::Silkscreen, Some(Side::Bottom));
+    let document = b.pcb;
+    let added = run(&mut b.shell, "pcb.layer.add", json!({"document":document}));
+    let inner = uuid(&added["result"]["uuid"]);
+    for target in [inner, bottom, silk] {
+        run(&mut b.shell, "pcb.layer.activate", json!({"layer":target}));
+    }
+    assert_eq!(b.shell.board_view().layers.previous, Some(inner));
+    run(&mut b.shell, "pcb.layer.remove", json!({"layer":inner}));
+    assert_eq!(b.shell.board_view().layers.active, Some(silk));
+    assert_eq!(b.shell.board_view().layers.previous, Some(top));
+}
+
+#[test]
 fn reopening_after_a_headless_removal_finds_the_active_layers_surviving_neighbour() {
     let mut b = board();
     let doc = b.pcb;

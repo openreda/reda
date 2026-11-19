@@ -374,3 +374,22 @@ fn an_add_without_a_selection_splits_the_middle_dielectric_among_several_sheets(
     assert_eq!(entries[3].uuid(), added);
     assert_eq!(entries[5].uuid(), third);
 }
+
+#[test]
+fn an_added_layer_inherits_the_nearest_inner_copper_across_a_multi_sheet_gap() {
+    let dir = TempDir::new("layer-nearest-copper");
+    let mut e = board(&dir, 4);
+    let l = copper(&e);
+    let doc = pcb(&e).uuid;
+    let upper = pcb(&e).stackup().dielectrics().nth(1).unwrap().uuid;
+    let lower = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":upper})));
+    e.run_ok(
+        "pcb.stackup.set",
+        json!({"copper":[{"layer":l[1],"thickness":18000},{"layer":l[2],"thickness":70000}]}),
+    );
+    let added = created(e.run_ok("pcb.layer.add", json!({"document":doc,"split":lower})));
+    assert_eq!(
+        pcb(&e).stackup().copper_of(added).unwrap().thickness.0,
+        70000
+    );
+}
