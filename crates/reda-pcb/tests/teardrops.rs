@@ -346,9 +346,9 @@ fn a_taper_reduced_entirely_inside_the_wide_cap_is_left_out() {
 fn imported_board_and_net_class_rules_control_the_next_fill() {
     let source = TempDir::new("teardrop-import");
     let (mut e, _) = board(&source);
-    e.run_ok("pcb.net_class.add", json!({"name":"RF"}));
+    let class = uuid(&e.run_ok("pcb.net_class.add", json!({"name":"RF"}))["result"]["uuid"]);
     enable(&mut e, json!({"enabled":true,"length":100}));
-    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":"RF"},"values":{"width_change":{"enabled":false}}}));
+    e.run_ok("pcb.rules.set",json!({"kind":"teardrop","scope":{"net_class":class},"values":{"width_change":{"enabled":false}}}));
     let path = source.path().join("house.redarules");
     e.run_ok("pcb.rules.export", json!({"path":path}));
     let target = TempDir::new("teardrop-import-board");
