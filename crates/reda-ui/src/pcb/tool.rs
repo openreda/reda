@@ -211,6 +211,10 @@ impl SelectTool {
         }
     }
 
+    pub(crate) fn in_progress(&self) -> bool {
+        !matches!(self.state, State::Idle) || self.queue.is_some()
+    }
+
     /// Whether a move is in flight.
     pub fn moving(&self) -> bool {
         matches!(self.state, State::Moving(_))

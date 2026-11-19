@@ -11,8 +11,8 @@ use reda_engine::render::{BoardColor, ColorKey, Rgba};
 use serde_json::{Value, json};
 
 use crate::layout::PanelId;
-use crate::pcb::layer_control::{ordered, set_buttons};
-use crate::pcb::view::{VIEW_TYPES, color_key, format_length, to_hex};
+use crate::pcb::layer_control::{chip_name, ordered, role_name, set_buttons};
+use crate::pcb::view::{VIEW_TYPES, format_length, layer_key, to_hex};
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::widgets::{self, Tooltip as _};
@@ -102,11 +102,11 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
 
         let canvas_theme = theme::canvas_theme(ui.ctx().theme());
         let palette = shell.palette().palette(canvas_theme);
-        for layer in &pcb.layers().layers {
+        let mut layer_row = |ui: &mut Ui, layer: &Layer| {
             ui.horizontal(|ui| {
                 let mut visible = !layers.hidden.contains(&layer.uuid);
                 let pinned = layers.pinned.contains(&layer.uuid);
-                let name = layer_name(pcb, layer);
+                let name = chip_name(pcb, layer);
                 let check = ui
                     .add(widgets::checkbox(&mut visible, ""))
                     .tooltip(tr!("layers-pin-hint"));
@@ -138,9 +138,9 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                         ));
                     }
                 }
-                let key = ColorKey::Board(BoardColor::layer(layer.kind, layer.side));
+                let key = ColorKey::Board(BoardColor::for_layer(pcb, layer));
                 if let Some(color) =
-                    colour_swatch(ui, layer, &name, palette.color(key), canvas_theme)
+                    colour_swatch(ui, pcb, layer, &name, palette.color(key), canvas_theme)
                 {
                     out.push(("app.preferences.set".into(), color));
                 }
@@ -149,14 +149,36 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                     .selected(active == Some(layer.uuid))
                     .muted(!visible)
                     .panel_focused(focused);
+                let row = if let Some(role) = role_name(layer) {
+                    row.trailing(role)
+                } else {
+                    row
+                };
                 let row = ui.add(row);
+                crate::pcb::layer_hover::chip(&row, layer.uuid);
                 // Mod+click on a Layer's name highlights its content, as on a chip.
                 if row.clicked() && ui.input(|i| i.modifiers.command) {
                     out.push(("pcb.layer.highlight".into(), json!({ "layer": layer.uuid })));
-                } else if row.clicked() && active != Some(layer.uuid) {
+                } else if row.clicked() && (!visible || active != Some(layer.uuid)) {
                     out.push(("pcb.layer.activate".into(), json!({ "layer": layer.uuid })));
                 }
             });
+        };
+        widgets::section(tr!("layers-copper-group"))
+            .id_salt("copper-group")
+            .default_open(true)
+            .show(ui, |ui| {
+                for layer in pcb.copper_layers() {
+                    layer_row(ui, layer);
+                }
+            });
+        for layer in pcb
+            .layers()
+            .layers
+            .iter()
+            .filter(|l| l.kind != LayerKind::Copper)
+        {
+            layer_row(ui, layer);
         }
         ui.separator();
 
@@ -269,6 +291,7 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
 /// colour has been picked (when the pointer lets go, so a drag writes once).
 fn colour_swatch(
     ui: &mut Ui,
+    pcb: &PcbDocument,
     layer: &Layer,
     name: &str,
     current: Rgba,
@@ -296,7 +319,7 @@ fn colour_swatch(
             let hex = to_hex(Rgba::rgb(c.r(), c.g(), c.b()));
             let key = format!(
                 "display.layer_colors.{theme_name}.{}",
-                color_key(layer.kind, layer.side)
+                layer_key(pcb.layers(), layer)
             );
             Some(json!({ "key": key, "value": hex }))
         }
@@ -305,16 +328,10 @@ fn colour_swatch(
 }
 
 /// "Top Copper", "Bottom Silkscreen", "Board Outline"... Inner copper is named by its copper
-/// number, "Inner Copper L2", which comes from its position in `pcb`.
+/// position and optional user name.
 pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
-    if layer.kind == LayerKind::Copper
-        && layer.side.is_none()
-        && let Some(number) = pcb.copper_number(layer.uuid)
-    {
-        return layer
-            .name
-            .clone()
-            .unwrap_or_else(|| tr!("layer-inner-copper", number = number));
+    if let Some(name) = pcb.inner_layer_label(layer.uuid) {
+        return name;
     }
     let kind = match layer.kind {
         LayerKind::Copper => tr!("layer-copper"),
