@@ -206,6 +206,15 @@
       ],
       "type": "object"
     },
+    "CopperRole": {
+      "description": "How a copper Layer is used in the Stackup.",
+      "enum": [
+        "signal",
+        "plane",
+        "mixed"
+      ],
+      "type": "string"
+    },
     "Corner": {
       "description": "A corner of a Pad, in its own frame (+y up).",
       "enum": [
@@ -257,8 +266,49 @@
       "additionalProperties": false,
       "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
       "properties": {
+        "df": {
+          "description": "Loss tangent in micro-units.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "dk": {
+          "description": "Relative permittivity in milli-units.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
         "kind": {
           "$ref": "#/$defs/DielectricKind"
+        },
+        "material": {
+          "description": "The material or glass style as specified by the fab.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "The optional name shown in the Stackup.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "test_frequency": {
+          "description": "The measurement frequency for Dk and Df, in Hz.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "thickness": {
           "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
@@ -1530,6 +1580,17 @@
         "kind": {
           "$ref": "#/$defs/LayerKind"
         },
+        "name": {
+          "description": "An inner copper Layer's user-supplied name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/CopperRole",
+          "description": "The copper role. Signal is the implicit default."
+        },
         "side": {
           "anyOf": [
             {
@@ -2778,7 +2839,7 @@
       "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
       "properties": {
         "entries": {
-          "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+          "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
           "items": {
             "$ref": "#/$defs/StackupEntry"
           },

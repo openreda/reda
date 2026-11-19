@@ -773,6 +773,17 @@
           "kind": {
             "$ref": "#/$defs/DocumentKind"
           },
+          "layers": {
+            "default": null,
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "format": "uint8",
+            "maximum": 32,
+            "minimum": 2,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "title": {
             "default": null,
             "description": "The title. Defaults to \"Sheet <n>\" for a sheet and the Project name for the PCB\nDocument.",
@@ -22241,6 +22252,15 @@
             ],
             "type": "object"
           },
+          "CopperRole": {
+            "description": "How a copper Layer is used in the Stackup.",
+            "enum": [
+              "signal",
+              "plane",
+              "mixed"
+            ],
+            "type": "string"
+          },
           "Corner": {
             "description": "A corner of a Pad, in its own frame (+y up).",
             "enum": [
@@ -22343,8 +22363,49 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "df": {
+                "description": "Loss tangent in micro-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "dk": {
+                "description": "Relative permittivity in milli-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "kind": {
                 "$ref": "#/$defs/DielectricKind"
+              },
+              "material": {
+                "description": "The material or glass style as specified by the fab.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "The optional name shown in the Stackup.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "test_frequency": {
+                "description": "The measurement frequency for Dk and Df, in Hz.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
@@ -24700,7 +24761,7 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "entries": {
-                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
                   "$ref": "#/$defs/StackupEntry"
                 },
@@ -25141,6 +25202,17 @@
             "properties": {
               "kind": {
                 "$ref": "#/$defs/LayerKind"
+              },
+              "name": {
+                "description": "An inner copper Layer's user-supplied name.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role": {
+                "$ref": "#/$defs/CopperRole",
+                "description": "The copper role. Signal is the implicit default."
               },
               "side": {
                 "anyOf": [
@@ -30027,6 +30099,15 @@
             ],
             "type": "object"
           },
+          "CopperRole": {
+            "description": "How a copper Layer is used in the Stackup.",
+            "enum": [
+              "signal",
+              "plane",
+              "mixed"
+            ],
+            "type": "string"
+          },
           "Corner": {
             "description": "A corner of a Pad, in its own frame (+y up).",
             "enum": [
@@ -30129,8 +30210,49 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "df": {
+                "description": "Loss tangent in micro-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "dk": {
+                "description": "Relative permittivity in milli-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "kind": {
                 "$ref": "#/$defs/DielectricKind"
+              },
+              "material": {
+                "description": "The material or glass style as specified by the fab.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "The optional name shown in the Stackup.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "test_frequency": {
+                "description": "The measurement frequency for Dk and Df, in Hz.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
@@ -32486,7 +32608,7 @@
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
               "entries": {
-                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
                   "$ref": "#/$defs/StackupEntry"
                 },
@@ -32927,6 +33049,17 @@
             "properties": {
               "kind": {
                 "$ref": "#/$defs/LayerKind"
+              },
+              "name": {
+                "description": "An inner copper Layer's user-supplied name.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role": {
+                "$ref": "#/$defs/CopperRole",
+                "description": "The copper role. Signal is the implicit default."
               },
               "side": {
                 "anyOf": [
@@ -47461,6 +47594,65 @@
     },
     {
       "category": "pcb",
+      "description": "Sets a copper Layer's role or an inner Layer's name. Null clears the name.",
+      "icon": "layers",
+      "id": "pcb.layer.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "CopperRole": {
+            "description": "How a copper Layer is used in the Stackup.",
+            "enum": [
+              "signal",
+              "plane",
+              "mixed"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "description": "A Layer: its UUID, its kind followed by _top or _bottom for sided kinds, such as \"silkscreen_top\", \"copper_bottom\" or \"mechanical\", or a copper Layer by its copper number, such as \"copper_l1\" for the top copper.",
+            "type": "string"
+          },
+          "name": {
+            "default": null,
+            "description": "An inner copper Layer's name. Null or blank clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CopperRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The copper Layer's role in the Stackup."
+          }
+        },
+        "required": [
+          "layer"
+        ],
+        "title": "LayerSetParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Set Copper Layer"
+    },
+    {
+      "category": "pcb",
       "description": "Locks placed objects (Footprints, Tracks, Vias, Zones, Free Pads, text, graphics, Dimensions, Keepouts, the Board Outline and Board Cutouts) against geometry changes, or unlocks them. A lock refuses moving, turning, flipping, deleting and reshaping unless a Command is given `include_locked`; other values stay editable, and Sync, Update from Library and `pcb.board.move` still apply.",
       "icon": "lock",
       "id": "pcb.lock",
@@ -56381,6 +56573,209 @@
     },
     {
       "category": "pcb",
+      "description": "Inserts a blank sheet below the given dielectric, sharing unassigned thickness.",
+      "icon": "layers",
+      "id": "pcb.stackup.dielectric.add",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "beside": {
+            "description": "The dielectric immediately above the new sheet.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "uuid": {
+            "description": "The new sheet's UUID. Omit to allocate one.",
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "beside"
+        ],
+        "title": "SheetAddParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "What a Command that creates one object returns.",
+        "properties": {
+          "uuid": {
+            "description": "The new object's UUID.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uuid"
+        ],
+        "title": "Created",
+        "type": "object"
+      },
+      "title": "Add Dielectric Sheet"
+    },
+    {
+      "category": "pcb",
+      "description": "Removes a sheet if another sheet separates the same copper Layers.",
+      "icon": "layers",
+      "id": "pcb.stackup.dielectric.remove",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "dielectric": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dielectric"
+        ],
+        "title": "SheetRemoveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Remove Dielectric Sheet"
+    },
+    {
+      "category": "pcb",
+      "description": "Resolves each entry's physical thickness and reports the symmetry and ordered-thickness checks.",
+      "icon": "inspect",
+      "id": "pcb.stackup.info",
+      "kind": "query",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "description": "The PCB Document whose Stackup to inspect.",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "InfoParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$defs": {
+          "ResolvedEntry": {
+            "description": "The resolved physical thickness of a copper Layer or dielectric sheet.",
+            "properties": {
+              "thickness": {
+                "description": "Nanometres, including the fractional share of a blank sheet.",
+                "format": "double",
+                "type": "number"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "thickness"
+            ],
+            "type": "object"
+          },
+          "StackupTotals": {
+            "description": "A Stackup's thicknesses, added up.",
+            "properties": {
+              "copper": {
+                "description": "All copper entries.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "dielectric": {
+                "description": "The dielectrics typed in.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "remainder": {
+                "description": "The total thickness left for all blank sheets to share. None when all are specified.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "total": {
+                "description": "Copper and dielectric together, the blank ones at their share of the remainder.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "copper",
+              "dielectric",
+              "remainder",
+              "total"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "description": "The readouts and checks for a single Stackup.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/$defs/ResolvedEntry"
+            },
+            "type": "array"
+          },
+          "symmetric": {
+            "type": "boolean"
+          },
+          "symmetry_mismatches": {
+            "description": "Pairs of mirrored entries whose kind, material or resolved thickness differs.",
+            "items": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "thickness_warning": {
+            "description": "The total differs from the ordered thickness by more than ten percent.",
+            "type": "boolean"
+          },
+          "totals": {
+            "$ref": "#/$defs/StackupTotals"
+          }
+        },
+        "required": [
+          "entries",
+          "totals",
+          "symmetric",
+          "symmetry_mismatches",
+          "thickness_warning"
+        ],
+        "title": "StackupInfo",
+        "type": "object"
+      },
+      "title": "Stackup Information"
+    },
+    {
+      "category": "pcb",
       "description": "Sets the board's Stackup: the finished `thickness`, the `copper` of each copper Layer (in nm, a length, or oz at exactly 35 µm per oz), the `dielectrics` (`null` leaves one blank, to take the remainder of the thickness), and the free-text `finish`, `mask_color` and `silk_color`. Values left out keep theirs. Refuses a thickness the copper and typed dielectrics already exceed while a dielectric is blank; warns when every dielectric is typed in and they do not add up to the thickness. Returns the Stackup, its totals and the warnings.",
       "icon": "layers",
       "id": "pcb.stackup.set",
@@ -56421,10 +56816,74 @@
               }
             ]
           },
+          "DielectricKind": {
+            "enum": [
+              "core",
+              "prepreg"
+            ],
+            "type": "string"
+          },
           "DielectricParam": {
             "additionalProperties": false,
-            "description": "One dielectric's new thickness.",
+            "description": "A patch to one dielectric. Omitted fields retain their stored values.",
             "properties": {
+              "df": {
+                "default": null,
+                "description": "Loss tangent in micro-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "dk": {
+                "default": null,
+                "description": "Relative permittivity in milli-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/DielectricKind"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Core or Prepreg."
+              },
+              "material": {
+                "default": null,
+                "description": "The material or glass style as specified by the fab.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "default": null,
+                "description": "The optional name shown in the Stackup.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "test_frequency": {
+                "default": null,
+                "description": "The measurement frequency for Dk and Df, in Hz.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "thickness": {
                 "anyOf": [
                   {
@@ -56434,7 +56893,8 @@
                     "type": "null"
                   }
                 ],
-                "description": "Its thickness, or `null` to leave it blank so it takes the remainder."
+                "default": null,
+                "description": "Finished thickness, or null to share the remainder."
               },
               "uuid": {
                 "description": "The dielectric entry's UUID.",
@@ -56548,8 +57008,49 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "df": {
+                "description": "Loss tangent in micro-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "dk": {
+                "description": "Relative permittivity in milli-units.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "kind": {
                 "$ref": "#/$defs/DielectricKind"
+              },
+              "material": {
+                "description": "The material or glass style as specified by the fab.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "description": "The optional name shown in the Stackup.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "test_frequency": {
+                "description": "The measurement frequency for Dk and Df, in Hz.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
@@ -56582,7 +57083,7 @@
             "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
             "properties": {
               "entries": {
-                "description": "The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so\non, with one copper entry per copper Layer in Layer order.",
+                "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
                   "$ref": "#/$defs/StackupEntry"
                 },
@@ -56661,7 +57162,7 @@
                 "type": "integer"
               },
               "remainder": {
-                "description": "What each dielectric left blank takes: the thickness left over, shared evenly. `None`\nwhen every dielectric is typed in.",
+                "description": "The total thickness left for all blank sheets to share. None when all are specified.",
                 "format": "int64",
                 "type": [
                   "integer",
@@ -60756,6 +61257,17 @@
             "description": "The Fab Preset that seeds the board's rules and names the first Output Job: a\nshipped preset (Generic, JLCPCB, PCBWay) or one of the user's `.redafab` presets.\nDefaults to Generic.",
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "layers": {
+            "default": null,
+            "description": "The PCB Document's copper Layer count, from 2 to 32. Defaults to 2.",
+            "format": "uint8",
+            "maximum": 32,
+            "minimum": 2,
+            "type": [
+              "integer",
               "null"
             ]
           },
