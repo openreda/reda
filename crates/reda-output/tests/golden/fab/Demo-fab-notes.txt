@@ -6,11 +6,21 @@ Board
   Size: 30 x 20 mm
   Copper layers: 2
   Thickness: 1.2 mm
-  Copper L1 (top): 1 oz (35 µm)
-  Copper L2 (bottom): 1 oz (35 µm)
+  Symmetry: Symmetric
+  Thickness check: Outside 10% tolerance
   Finish: ENIG
   Solder mask colour: Matte black
   Silkscreen colour: White
+
+Stackup
+  | Layer       | Kind   | Role   | Thickness    | Material | Dk |
+  | L1 (top)    | Copper | Signal | 1 oz (35 µm) |          |    |
+  |             | Core   |        | 1.53 mm      |          |    |
+  | L2 (bottom) | Copper | Signal | 1 oz (35 µm) |          |    |
+
+Via types
+  | Name    | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file   |
+  | Through | L1-L2 | No    | 0.3        | 0.7      | 1    | Demo-PTH.drl |
 
 Minimum features
   Clearance: 0.16 mm
@@ -30,9 +40,20 @@ Hole tolerances
 Deliberate shorts (Net Ties)
   NT1: joins AGND and GND on purpose; this short is deliberate
 
+Copper files in order
+  Demo.gtl
+  Demo.gbl
+
 Files in the zip
   Demo.gtl
+  Demo.gbl
+  Demo.gts
+  Demo.gbs
+  Demo.gtp
+  Demo.gto
+  Demo.gm1
   Demo-PTH.drl
+  Demo-NPTH.drl
   Demo-fab-notes.txt
 
 Notes

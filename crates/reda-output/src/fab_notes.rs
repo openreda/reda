@@ -1,14 +1,18 @@
-//! The Fab Notes: `<project>-fab-notes.txt`, UTF-8 plain text for a person at the fab, in
-//! a fixed order: the board, its Stackup values, the minimum features of the board-wide
-//! rules, holes with a `hole.tolerance`, Net Ties as deliberate shorts, the files in the
-//! zip and the board's own `fab_notes` text. A section with nothing to say is left out.
+//! The UTF-8 Fab Notes accompanying an Output Job describe the board, Stackup,
+//! drilling, minimum features, hole tolerances and deliberate shorts. They list
+//! the copper files and zip contents, followed by the board's own notes.
 
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use reda_model::geom::{NM_PER_OZ, Nm, Point, contour_bounds, exact_decimal};
-use reda_model::{ComponentType, Hole, PadKind, PcbDocument, RuleKind, RuleValues};
+use reda_model::{
+    ComponentType, CopperRole, DielectricKind, Hole, PadKind, PcbDocument, Project, RuleKind,
+    RuleValues, Side, StackupEntry, ViaDiameter, ViaType,
+};
 use reda_pcb::placed;
 
+use crate::drill::{partial_file_name, span_positions};
 use crate::plot::{OutputFile, Plot};
 
 /// The Fab Notes' file name for the Project `name`.
@@ -16,9 +20,13 @@ pub fn fab_notes_name(name: &str) -> String {
     format!("{name}-fab-notes.txt")
 }
 
-/// The Fab Notes of `plot`'s board, listing `zip` as the files in the zip (the Fab Notes
-/// among them).
-pub fn fab_notes_file(plot: &Plot<'_>, zip: &[String]) -> OutputFile {
+/// Describe the board and list the files in archive order: manufacturing files,
+/// these notes, then the job's remaining reports and attachments.
+pub fn fab_notes_file(
+    plot: &Plot<'_>,
+    manufacturing: &[OutputFile],
+    after: &[OutputFile],
+) -> OutputFile {
     let props = plot.project.props();
     let mut out = String::new();
     let _ = writeln!(out, "Fab Notes for {}", props.name);
@@ -29,12 +37,27 @@ pub fn fab_notes_file(plot: &Plot<'_>, zip: &[String]) -> OutputFile {
     let _ = writeln!(out, "Written by REDA {}", plot.version);
     if let Some(instance) = plot.instances.first() {
         let pcb = instance.pcb;
-        board(&mut out, pcb);
+        board(&mut out, plot.project, pcb);
+        stackup_table(&mut out, pcb);
+        via_table(&mut out, plot, pcb, manufacturing);
         minimum_features(&mut out, pcb);
         tolerances(&mut out, plot);
         net_ties(&mut out, pcb);
     }
-    section(&mut out, "Files in the zip", zip.to_vec());
+    let copper = manufacturing
+        .iter()
+        .filter(|f| matches!(f.function, "copper_top" | "copper_inner" | "copper_bottom"))
+        .map(|f| f.name.clone())
+        .collect();
+    section(&mut out, "Copper files in order", copper);
+    let name = fab_notes_name(&props.name);
+    let zip = manufacturing
+        .iter()
+        .map(|f| f.name.clone())
+        .chain([name.clone()])
+        .chain(after.iter().map(|f| f.name.clone()))
+        .collect();
+    section(&mut out, "Files in the zip", zip);
     if let Some(notes) = plot
         .instances
         .first()
@@ -44,7 +67,7 @@ pub fn fab_notes_file(plot: &Plot<'_>, zip: &[String]) -> OutputFile {
         out.push('\n');
     }
     OutputFile {
-        name: fab_notes_name(&props.name),
+        name,
         function: "fab_notes",
         bytes: out.into_bytes(),
         attributes: None,
@@ -68,16 +91,7 @@ pub(crate) fn board_size(pcb: &PcbDocument) -> Option<(Nm, Nm)> {
     Some((bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y))
 }
 
-/// The name of copper Layer `i` (from 0) of `count`: `L1 (top)`, `L2`, `L4 (bottom)`.
-fn copper_name(i: usize, count: usize) -> String {
-    match i {
-        0 => "L1 (top)".into(),
-        i if i + 1 == count => format!("L{} (bottom)", i + 1),
-        i => format!("L{}", i + 1),
-    }
-}
-
-fn board(out: &mut String, pcb: &PcbDocument) {
+fn board(out: &mut String, project: &Project, pcb: &PcbDocument) {
     let mut lines = Vec::new();
     if let Some((width, height)) = board_size(pcb) {
         lines.push(format!("Size: {} x {} mm", number(width), number(height)));
@@ -86,15 +100,26 @@ fn board(out: &mut String, pcb: &PcbDocument) {
     lines.push(format!("Copper layers: {count}"));
     let stackup = pcb.stackup();
     lines.push(format!("Thickness: {} mm", number(stackup.thickness)));
-    for (i, layer) in pcb.copper_layers().enumerate() {
-        if let Some(copper) = stackup.copper_of(layer.uuid) {
-            lines.push(format!(
-                "Copper {}: {}",
-                copper_name(i, count),
-                copper_weight(copper.thickness)
-            ));
-        }
+    if let Some(name) = stackup
+        .construction
+        .as_ref()
+        .filter(|_| project.construction_matches(stackup))
+    {
+        lines.push(format!("Construction: {name}"));
     }
+    let info = stackup.info();
+    let symmetry = if info.symmetric {
+        "Symmetric"
+    } else {
+        "Not symmetric"
+    };
+    let thickness = if info.thickness_warning {
+        "Outside"
+    } else {
+        "Within"
+    };
+    lines.push(format!("Symmetry: {symmetry}"));
+    lines.push(format!("Thickness check: {thickness} 10% tolerance"));
     for (label, value) in [
         ("Finish", &stackup.finish),
         ("Solder mask colour", &stackup.mask_color),
@@ -105,6 +130,173 @@ fn board(out: &mut String, pcb: &PcbDocument) {
         }
     }
     section(out, "Board", lines);
+}
+
+/// Align the text columns and keep blank cells visible between the separators.
+fn table<const N: usize>(
+    out: &mut String,
+    heading: &str,
+    header: [&str; N],
+    rows: Vec<[String; N]>,
+) {
+    let rows: Vec<_> = std::iter::once(header.map(str::to_owned))
+        .chain(rows)
+        .collect();
+    let widths: [usize; N] = std::array::from_fn(|i| {
+        rows.iter()
+            .map(|row| row[i].chars().count())
+            .max()
+            .unwrap_or(0)
+    });
+    let _ = writeln!(out, "\n{heading}");
+    for row in rows {
+        out.push_str("  |");
+        for (cell, width) in row.iter().zip(widths) {
+            let _ = write!(out, " {cell:<width$} |");
+        }
+        out.push('\n');
+    }
+}
+
+fn stackup_table(out: &mut String, pcb: &PcbDocument) {
+    let rows = pcb
+        .stackup()
+        .entries
+        .iter()
+        .map(|entry| match entry {
+            StackupEntry::Copper(copper) => {
+                let layer = pcb
+                    .layers()
+                    .layer(copper.layer)
+                    .expect("Stackup copper Layer");
+                let name = match layer.side {
+                    Some(Side::Top) => String::from("L1 (top)"),
+                    Some(Side::Bottom) => format!("L{} (bottom)", pcb.copper_layers().count()),
+                    None => pcb
+                        .inner_layer_label(layer.uuid)
+                        .expect("inner copper Layer"),
+                };
+                let role = match layer.role {
+                    CopperRole::Signal => "Signal",
+                    CopperRole::Plane => "Plane",
+                    CopperRole::Mixed => "Mixed",
+                };
+                [
+                    name,
+                    "Copper".into(),
+                    role.into(),
+                    copper_weight(copper.thickness),
+                    String::new(),
+                    String::new(),
+                ]
+            }
+            StackupEntry::Dielectric(sheet) => {
+                let kind = match sheet.kind {
+                    DielectricKind::Core => "Core",
+                    DielectricKind::Prepreg => "Prepreg",
+                };
+                [
+                    sheet.name.clone().unwrap_or_default(),
+                    kind.into(),
+                    String::new(),
+                    sheet
+                        .thickness
+                        .map(|t| format!("{} mm", number(t)))
+                        .unwrap_or_default(),
+                    sheet.material.clone().unwrap_or_default(),
+                    sheet
+                        .dk
+                        .map(|dk| exact_decimal(i64::from(dk), 1000))
+                        .unwrap_or_default(),
+                ]
+            }
+        })
+        .collect();
+    table(
+        out,
+        "Stackup",
+        ["Layer", "Kind", "Role", "Thickness", "Material", "Dk"],
+        rows,
+    );
+}
+
+/// Type defaults follow drilling direction. A Via may override the sizes while
+/// still counting towards the type whose span joins its two Layers.
+fn via_table(out: &mut String, plot: &Plot<'_>, pcb: &PcbDocument, files: &[OutputFile]) {
+    let mut counts = BTreeMap::<(usize, usize), usize>::new();
+    for instance in plot.instances {
+        for via in instance.pcb.vias() {
+            let (from, to) = span_positions(instance.pcb, via.span);
+            *counts.entry((from.min(to), from.max(to))).or_default() += 1;
+        }
+    }
+    let layers = pcb.copper_layers().count();
+    let through = files
+        .iter()
+        .find(|f| matches!(f.function, "drill_plated" | "drill_mixed"));
+    let row = |kind: Option<&ViaType>, from: usize, to: usize, count: usize| {
+        let file = if count == 0 {
+            None
+        } else if from.min(to) == 1 && from.max(to) == layers {
+            through
+        } else {
+            let name = partial_file_name(&plot.project.props().name, from, to);
+            files
+                .iter()
+                .find(|f| matches!(f.function, "drill_blind" | "drill_buried") && f.name == name)
+        };
+        [
+            kind.map_or_else(|| "Unmatched".into(), |v| v.display_name(pcb)),
+            format!("L{from}-L{to}"),
+            if kind.is_some_and(|v| v.micro) {
+                "Yes"
+            } else {
+                "No"
+            }
+            .into(),
+            kind.map(|v| number(v.hole)).unwrap_or_default(),
+            kind.map(|v| pad_diameters(v.diameter)).unwrap_or_default(),
+            count.to_string(),
+            file.map(|f| f.name.clone()).unwrap_or_default(),
+        ]
+    };
+    let mut rows = Vec::new();
+    for kind in &pcb.stackup().via_types {
+        let (from, to) = span_positions(pcb, kind.span());
+        let count = counts
+            .remove(&(from.min(to), from.max(to)))
+            .unwrap_or_default();
+        rows.push(row(Some(kind), from, to, count));
+    }
+    for ((from, to), count) in counts {
+        rows.push(row(None, from, to, count));
+    }
+    table(
+        out,
+        "Via types",
+        [
+            "Name",
+            "Span",
+            "Micro",
+            "Drill (mm)",
+            "Pad (mm)",
+            "Vias",
+            "Drill file",
+        ],
+        rows,
+    );
+}
+
+fn pad_diameters(diameter: ViaDiameter) -> String {
+    let mut pad = number(diameter.start);
+    let overrides: Vec<_> = [("middle", diameter.middle), ("end", diameter.end)]
+        .into_iter()
+        .filter_map(|(label, size)| Some(format!("{label} {}", number(size?))))
+        .collect();
+    if !overrides.is_empty() {
+        let _ = write!(pad, " ({})", overrides.join(", "));
+    }
+    pad
 }
 
 /// A copper thickness: `1 oz (35 µm)` for a standard weight (a whole number of half
