@@ -218,6 +218,10 @@ _Avoid_: Stackup template, stackup preset, build-up
 A copper area, with or without a hole, through which a Footprint (or a free-standing hole) connects to the board; each Pad belongs to at most one Net.
 _Avoid_: Land, pin (pins are on Symbols)
 
+**Pad Stack**:
+The copper a through-hole Pad or a Via has on each Layer it passes through, which may differ between its top, middle and bottom Layers.
+_Avoid_: Padstack (as a library object), layer stack
+
 **Free Pad**:
 A Pad placed directly on the board without belonging to any Footprint, such as a mounting hole.
 _Avoid_: Standalone pad, hole object
