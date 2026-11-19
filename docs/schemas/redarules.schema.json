@@ -606,7 +606,7 @@
         "smd_pad": {
           "anyOf": [
             {
-              "$ref": "#/$defs/TeardropTarget"
+              "$ref": "#/$defs/TeardropValues"
             },
             {
               "type": "null"
@@ -639,7 +639,7 @@
         "through_hole_pad": {
           "anyOf": [
             {
-              "$ref": "#/$defs/TeardropTarget"
+              "$ref": "#/$defs/TeardropValues"
             },
             {
               "type": "null"
@@ -684,7 +684,7 @@
         "width_change": {
           "anyOf": [
             {
-              "$ref": "#/$defs/TeardropTarget"
+              "$ref": "#/$defs/TeardropValues"
             },
             {
               "type": "null"
@@ -725,51 +725,62 @@
         }
       ]
     },
-    "TeardropTarget": {
+    "TeardropValues": {
       "additionalProperties": false,
-      "description": "The shape and enable switch for one Teardrop target.",
       "properties": {
         "curved": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "enabled": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "length": {
           "format": "uint32",
           "minimum": 0,
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "max_length": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "max_width": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "skip_ratio": {
           "format": "uint32",
           "minimum": 0,
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "width": {
           "format": "uint32",
           "minimum": 0,
-          "type": "integer"
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
-      "required": [
-        "enabled",
-        "length",
-        "max_length",
-        "width",
-        "max_width",
-        "curved",
-        "skip_ratio"
-      ],
       "type": "object"
     },
     "ViaRuleValues": {
@@ -778,7 +789,7 @@
           "$ref": "#/$defs/ZoneConnection"
         },
         {
-          "$ref": "#/$defs/TeardropTarget"
+          "$ref": "#/$defs/TeardropValues"
         }
       ],
       "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
