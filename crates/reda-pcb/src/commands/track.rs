@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use super::layer::LayerRef;
 use super::outline::PointParam;
 use super::{needs_pcb, pcb, positive};
-use crate::rules::net_rules;
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(TrackAdd);
@@ -125,7 +124,9 @@ impl Command for TrackAdd {
         };
         let width = match p.width {
             Some(w) => positive("/width", w)?,
-            None => net_rules(pcb, net).track_width.default_size(),
+            None => crate::rules::net_rules_on(pcb, net, Some(layer))
+                .track_width
+                .default_size(),
         };
         let mut tracks = Vec::new();
         for pair in points.windows(2) {

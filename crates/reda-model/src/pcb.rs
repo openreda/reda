@@ -35,9 +35,9 @@ pub use footprint::{
 };
 pub use placement::{FreePad, OutputOrigin};
 pub use rules::{
-    Bounds, ConnectionTarget, ConnectionValue, DesignRule, PortableClass, PortableRule, RuleField,
-    RuleKind, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode, TeardropTarget,
-    ViaRuleValues,
+    Bounds, ConnectionTarget, ConnectionValue, DesignRule, LayerGroup, PortableClass, PortableRule,
+    RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue, RuleValues, SilkMaskMode,
+    TeardropTarget, ViaRuleValues,
 };
 pub use stackup::{
     CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
@@ -457,14 +457,14 @@ impl PcbDocument {
     pub fn class_rule(&self, kind: RuleKind, class: Uuid) -> Option<&DesignRule> {
         self.rules
             .values()
-            .find(|r| r.kind == kind && r.scope.net_class == Some(class))
+            .find(|r| r.kind == kind && r.scope == RuleScope::class(class))
     }
 
     /// The record of `kind` in `scope`, if there is one.
-    pub fn scoped_rule(&self, kind: RuleKind, scope: RuleScope) -> Option<&DesignRule> {
+    pub fn scoped_rule(&self, kind: RuleKind, scope: &RuleScope) -> Option<&DesignRule> {
         self.rules
             .values()
-            .find(|r| r.kind == kind && r.scope == scope)
+            .find(|r| r.kind == kind && &r.scope == scope)
     }
 
     pub fn outline(&self) -> Option<&BoardOutline> {
@@ -949,8 +949,47 @@ impl PcbDocument {
         Ok(())
     }
 
-    /// Exactly one board-wide record per kind, at most one record per class and kind,
-    /// scopes naming classes that exist, and values that fit their kind.
+    /// Refuses scopes that could never identify a unique record on this board.
+    pub fn rule_layer_problem(
+        &self,
+        kind: RuleKind,
+        scope: &RuleScope,
+        except: Option<Uuid>,
+    ) -> Option<String> {
+        if scope.net_class_pair.is_some()
+            && (kind != RuleKind::Clearance || scope.net_class.is_some())
+        {
+            return Some("a class pair scopes only clearance, without a single class".into());
+        }
+        if scope.layers.is_some() && !kind.accepts_layers() {
+            return Some(format!("{} does not accept a Layer scope", kind.id()));
+        }
+        let Some(RuleLayers::Named(ids)) = &scope.layers else {
+            return None;
+        };
+        if ids.is_empty()
+            || ids.iter().collect::<std::collections::BTreeSet<_>>().len() != ids.len()
+        {
+            return Some("select one or more distinct copper Layers".into());
+        }
+        if ids.iter().any(|id| self.copper_number(*id).is_none()) {
+            return Some("a named Layer is not a copper Layer of this board".into());
+        }
+        self.rules()
+            .filter(|r| {
+                r.kind == kind
+                    && Some(r.uuid) != except
+                    && r.scope.net_class == scope.net_class
+                    && r.scope.net_class_pair == scope.net_class_pair
+            })
+            .find_map(|r| match &r.scope.layers {
+                Some(RuleLayers::Named(other)) if ids.iter().any(|id| other.contains(id)) => {
+                    Some("a named Layer occurs in two rules for the same owner".into())
+                }
+                _ => None,
+            })
+    }
+
     fn check_rules(&self) -> Result<(), String> {
         let mut scopes = std::collections::BTreeSet::new();
         for rule in self.rules.values() {
@@ -961,6 +1000,17 @@ impl PcbDocument {
                     "rule {} is scoped to Net Class {class}, which does not exist",
                     rule.uuid
                 ));
+            }
+            if let Some(pair) = rule.scope.net_class_pair
+                && pair
+                    .iter()
+                    .any(|c| *c != Uuid::NIL && !self.net_classes.contains_key(c))
+            {
+                return Err(format!("rule {} names a missing Net Class", rule.uuid));
+            }
+            if let Some(problem) = self.rule_layer_problem(rule.kind, &rule.scope, Some(rule.uuid))
+            {
+                return Err(problem);
             }
             if let Some(allowed) = &rule.values.allowed {
                 let mut seen = std::collections::BTreeSet::new();
@@ -973,7 +1023,7 @@ impl PcbDocument {
                     ));
                 }
             }
-            if !scopes.insert((rule.kind, rule.scope)) {
+            if !scopes.insert((rule.kind, rule.scope.clone())) {
                 return Err(match rule.scope.net_class {
                     None => format!("two board-wide `{}` rules", rule.kind.id()),
                     Some(class) => {

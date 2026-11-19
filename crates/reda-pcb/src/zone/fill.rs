@@ -18,7 +18,7 @@ use super::poly::{
 use crate::copper::shape::{self as copper_shape, Core, P, Prim, Shape};
 use crate::copper::{Copper, Item};
 use crate::placed;
-use crate::rules::{Connection, clearance_between, net_rules, zone_connection};
+use crate::rules::{Connection, clearance_between_on, net_rules, net_rules_on, zone_connection_on};
 
 /// A fill already made on the same Layer by a Zone of higher priority.
 pub(super) struct Filled<'a> {
@@ -29,14 +29,14 @@ pub(super) struct Filled<'a> {
 /// The clearance `zone` keeps from copper on `net`: the rule's, or the Zone's own where
 /// that is larger.
 fn clearance_to(pcb: &PcbDocument, zone: &Zone, net: Option<Uuid>) -> Nm {
-    let rule = clearance_between(pcb, zone.net, net).unwrap_or(Nm::ZERO);
+    let rule = clearance_between_on(pcb, zone.net, net, Some(zone.layer)).unwrap_or(Nm::ZERO);
     zone.clearance.map_or(rule, |own| own.max(rule))
 }
 
 /// The narrowest copper `zone` may leave: its own, else its Net's `track_width` minimum.
 pub(super) fn min_width(pcb: &PcbDocument, zone: &Zone) -> Nm {
     zone.min_width.unwrap_or_else(|| {
-        let range = net_rules(pcb, zone.net).track_width;
+        let range = net_rules_on(pcb, zone.net, Some(zone.layer)).track_width;
         range.min.unwrap_or(range.preferred)
     })
 }
@@ -123,7 +123,8 @@ pub(super) fn fill_zone(
         if merges(prior) {
             continue;
         }
-        let rule = clearance_between(pcb, zone.net, prior.zone.net).unwrap_or(Nm::ZERO);
+        let rule = clearance_between_on(pcb, zone.net, prior.zone.net, Some(zone.layer))
+            .unwrap_or(Nm::ZERO);
         let clearance = [zone.clearance, prior.zone.clearance]
             .into_iter()
             .flatten()
@@ -253,7 +254,13 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
                 centre: [via.at.x.0, via.at.y.0],
                 angle: Millideg::ZERO,
                 half: (r, r),
-                connection: zone_connection(pcb, zone.net, ConnectionTarget::Via, None),
+                connection: zone_connection_on(
+                    pcb,
+                    zone.net,
+                    Some(zone.layer),
+                    ConnectionTarget::Via,
+                    None,
+                ),
             });
         }
         _ => return None,
@@ -268,7 +275,7 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
         centre: [centre.x.0, centre.y.0],
         angle: placed.rotation,
         half: (placed.outline.width.0 / 2, placed.outline.height.0 / 2),
-        connection: zone_connection(pcb, zone.net, target, own.as_ref()),
+        connection: zone_connection_on(pcb, zone.net, Some(zone.layer), target, own.as_ref()),
     })
 }
 

@@ -40,24 +40,38 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         });
     }
     for hole in &holes {
-        let minimum = net_rules(board.pcb, hole.net).annular_ring;
-        if let (Some(ring), Some(minimum)) = (hole.ring, minimum)
-            && ring < minimum
-        {
+        let Some(ring) = hole.ring else {
+            continue;
+        };
+        let layers = if hole.via {
+            board
+                .pcb
+                .span_layers(board.pcb.via(hole.objects[0]).expect("Via hole").span)
+        } else {
+            board.pcb.copper_layers().map(|l| l.uuid).collect()
+        };
+        let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
+        for layer in layers {
+            if let Some(source) = crate::rules::resolve_on(
+                board.pcb,
+                hole.net,
+                Some(layer),
+                RuleKind::AnnularRing,
+                RuleField::Min,
+            ) && let Some(min) = source.value.length()
+                && ring < min
+            {
+                breaches.entry((source.rule, min)).or_default().push(layer);
+            }
+        }
+        for ((rule, minimum), layers) in breaches {
             report.add(DrcCheck::AnnularRing, |v| {
-                v.length(
-                    ring,
-                    minimum,
-                    Limit::Min,
-                    resolve(board.pcb, hole.net, RuleKind::AnnularRing, RuleField::Min)
-                        .expect("ring limit applies")
-                        .rule,
-                )
-                .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
-                .on_layers(board.pcb.copper_layers().map(|l| l.uuid))
-                .arg("minimum", minimum)
-                .arg("actual", ring)
-                .objects(hole.objects.iter().copied())
+                v.length(ring, minimum, Limit::Min, rule)
+                    .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
+                    .on_layers(layers)
+                    .arg("minimum", minimum)
+                    .arg("actual", ring)
+                    .objects(hole.objects.iter().copied())
             });
         }
     }

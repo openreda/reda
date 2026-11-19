@@ -562,3 +562,123 @@ fn saving_rules_as_a_fab_preset_writes_board_wide_values_only() {
     let err = engine.run_err("pcb.rules.save_as_preset", json!({"name": " "}));
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn new_tracks_take_the_preferred_width_on_their_copper_layer() {
+    let dir = TempDir::new("preferred-by-layer");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let layers: Vec<_> = pcb(&engine).copper_layers().map(|l| l.uuid).collect();
+    set(
+        &mut engine,
+        json!({"kind":"track_width","scope":{"layers":"inner"},
+                            "values":{"preferred":"0.4mm"}}),
+    );
+    for (layer, width) in [(layers[0], 250), (layers[1], 400), (layers[3], 250)] {
+        let out = engine.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,
+                "points":[{"x":"0mm","y":"0mm"},{"x":"1mm","y":"0mm"}]}),
+        );
+        let track: Uuid = serde_json::from_value(out["result"]["tracks"][0].clone()).unwrap();
+        assert_eq!(pcb(&engine).track(track).unwrap().width, um(width));
+    }
+}
+
+#[test]
+fn drc_measures_other_net_clearance_on_the_tracks_layer() {
+    let dir = TempDir::new("clearance-drc-layer");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    class(&mut engine, "Power", &[a, b]);
+    let board = pcb(&engine);
+    let bottom = board.copper_layers().last().unwrap().uuid;
+    let record = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"layers":[bottom],"net_class_pair":["Power","Power"]},"values":{"value":"1mm"}}),
+    );
+    for layer in ["copper_top", "copper_bottom"] {
+        for (n, y) in [(a, 0), (b, 500_000)] {
+            engine.run_ok("pcb.track.add",json!({"layer":layer,"net":n,"width":"0.2mm","points":[{"x":0,"y":y},{"x":"2mm","y":y}]}));
+        }
+    }
+    let out = engine.run_ok("drc.run", json!({}));
+    let hits: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "clearance")
+        .collect();
+    assert_eq!(hits.len(), 1, "{out}");
+    assert_eq!(hits[0]["layers"], json!([bottom]));
+    assert!(
+        hits[0]
+            .to_string()
+            .contains(record["uuid"].as_str().unwrap())
+    );
+}
+
+#[test]
+fn applying_and_saving_inner_fab_limits_preserves_an_independent_layer_override() {
+    let dir = TempDir::new("inner-fab");
+    let mut e = engine(&dir);
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":{"clearance":125000}}}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    let changes = diff["changes"].as_array().unwrap();
+    assert_eq!(changes.len(), 1, "{diff}");
+    assert_eq!(changes[0]["layers"], "inner");
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    set(
+        &mut e,
+        json!({"kind":"clearance","scope":{"layers":"outer"},"values":{"value":"0.45mm"}}),
+    );
+    let saved = uuid(&e.run_ok("pcb.rules.save_as_preset", json!({"name":"My process"})));
+    let data = serde_json::to_value(e.project().unwrap().fab_preset(saved).unwrap()).unwrap();
+    assert_eq!(data["rules"]["inner"], json!({"clearance":125000}));
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{"inner":null}}}),
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    let records: Vec<_> = pcb(&e)
+        .rules()
+        .filter(|r| r.kind == RuleKind::Clearance)
+        .collect();
+    assert_eq!(records.len(), 2);
+}
+
+#[test]
+fn applying_inner_minimums_takes_the_preferred_width_when_needed() {
+    let dir = TempDir::new("preset-inner-preferred");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    e.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"rules":{
+            "inner":{"track_width_min":350000},"preferred":{"track_width":400000,"via_diameter":700000,"via_hole":300000}
+        }}}),
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    assert!(
+        rows(&diff)
+            .iter()
+            .any(|r| r.0 == "track_width" && r.1 == "preferred" && r.3)
+    );
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(
+        pcb(&e).board_rule(RuleKind::TrackWidth).values.preferred,
+        Some(um(400))
+    );
+}
