@@ -211,3 +211,58 @@ fn a_user_presets_pages_in_preferences_write_its_file_at_once() {
         "only the shown page resets"
     );
 }
+
+#[test]
+fn placement_grid_edits_reorders_and_removes_rows_in_the_project_copy() {
+    let (home, work) = (
+        TempDir::new("placement-grid-home"),
+        TempDir::new("placement-grid"),
+    );
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Placement");
+    for pattern in ["SO*", "SO-8"] {
+        h.get_by_role_and_label(Role::Button, "Add correction…")
+            .click();
+        h.run();
+        retype(&mut h, "Footprint pattern", pattern);
+        if pattern == "SO*" {
+            retype(&mut h, "Rotation (°)", "-90");
+            retype(&mut h, "Offset X (mm)", "0.25");
+        }
+        h.get_by_role_and_label(Role::Button, "Save correction")
+            .click();
+        h.run();
+    }
+    h.get_all_by_role_and_label(Role::Button, "Up")
+        .last()
+        .unwrap()
+        .scroll_to_me();
+    h.run();
+    h.get_all_by_role_and_label(Role::Button, "Up")
+        .last()
+        .unwrap()
+        .click();
+    h.run();
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).placement_corrections),
+        serde_json::json!([
+            {"footprint":"SO-8","rotation":0},{"footprint":"SO*","rotation":-90000,"offset":{"x":250000,"y":0}}
+        ])
+    );
+    h.get_all_by_role_and_label(Role::Button, "Remove")
+        .next()
+        .unwrap()
+        .scroll_to_me();
+    h.run();
+    h.get_all_by_role_and_label(Role::Button, "Remove")
+        .next()
+        .unwrap()
+        .click();
+    h.run();
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(copy(&h).placement_corrections.len(), 1);
+}

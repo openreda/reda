@@ -637,6 +637,18 @@ fn column() -> impl Strategy<Value = Column> {
     (any::<String>(), source).prop_map(|(header, source)| Column { header, source })
 }
 
+fn placement_correction() -> impl Strategy<Value = reda_model::PlacementCorrection> {
+    use reda_model::{PlacementCorrection, PlacementMatch};
+    let matcher = prop_oneof![
+        any::<String>().prop_map(|footprint| PlacementMatch::Footprint { footprint }),
+        (any::<String>(), any::<String>())
+            .prop_map(|(field, value)| PlacementMatch::Field { field, value }),
+    ];
+    (matcher, any::<i64>(), prop::option::of(point())).prop_map(|(matcher, rotation, offset)| {
+        PlacementCorrection::new(matcher, Millideg(rotation), offset)
+    })
+}
+
 prop_compose! {
     /// A Fab Preset copy and an Output Job using it.
     fn settings()(
@@ -648,6 +660,7 @@ prop_compose! {
         x2_attributes in any::<bool>(),
         bom in prop::collection::vec(column(), 0..4),
         cpl in prop::collection::vec(column(), 0..3),
+        placement_corrections in prop::collection::vec(placement_correction(), 0..4),
         job_name in stem("j"),
         outputs in prop::array::uniform4(any::<bool>()),
         destination in prop::option::of(stem("d")),
@@ -659,7 +672,7 @@ prop_compose! {
             copper: Some(Nm(1 + lengths[1].0.unsigned_abs() as i64 % 200_000)),
         });
         construction.name = job_name.clone();
-        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, constructions: vec![construction], stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, placement_corrections, constructions: vec![construction], stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
             uuid: job,

@@ -4480,6 +4480,14 @@
                 "description": "The preset's name, such as \"JLCPCB\". It names the preset a Project copy came from.",
                 "type": "string"
               },
+              "placement_corrections": {
+                "default": [],
+                "description": "Ordered, fab-specific adjustments to CPL rotation and centre.",
+                "items": {
+                  "$ref": "#/$defs/PlacementCorrection"
+                },
+                "type": "array"
+              },
               "rules": {
                 "$ref": "#/$defs/FabRules",
                 "description": "The limits a job checks the board against, and the seeds of a new board's rules."
@@ -4501,7 +4509,8 @@
               "stackup_suggestions",
               "zip_assembly",
               "bom",
-              "cpl"
+              "cpl",
+              "placement_corrections"
             ],
             "type": "object"
           },
@@ -4846,6 +4855,91 @@
             ],
             "description": "The board's paste seed: length per edge or signed change in area in percent."
           },
+          "PlacementCorrection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "footprint": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "footprint",
+                  "rotation"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "value",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
+          },
           "PreferredSeeds": {
             "additionalProperties": false,
             "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
@@ -5097,7 +5191,7 @@
             "type": "string"
           },
           "values": {
-            "description": "Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,\n`gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each\nwhole, such as `{\"gerber\": {\"slot_command\": \"g85\"}}`; `zip_assembly` is set as it\nis. The name cannot be set."
+            "description": "Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,\n`gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each\nwhole, such as `{\"gerber\": {\"slot_command\": \"g85\"}}`; `zip_assembly` is set as it\nis. `placement_corrections` replaces the whole list, with integer base units or\nunit strings for rotation and offsets. The name cannot be set."
           }
         },
         "required": [
@@ -5218,6 +5312,91 @@
                 "type": "string"
               }
             ]
+          },
+          "PlacementCorrection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "footprint": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "footprint",
+                  "rotation"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "value",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5226,6 +5405,13 @@
             "description": "Every field that differs; empty when the copy is up to date.",
             "items": {
               "$ref": "#/$defs/FieldChange"
+            },
+            "type": "array"
+          },
+          "kept_placement_corrections": {
+            "description": "Corrections specific to this Project that the update keeps in their original order.",
+            "items": {
+              "$ref": "#/$defs/PlacementCorrection"
             },
             "type": "array"
           },
@@ -5245,7 +5431,7 @@
     },
     {
       "category": "output",
-      "description": "Replaces one of the Project's Fab Preset copies with the current values of the preset it came from, after `fab_preset.source_diff` has shown what changes. The board's own rules are not touched; use `pcb.rules.apply_fab_preset` for those. Returns the changes.",
+      "description": "Updates one of the Project's Fab Preset copies with the current values of the preset it came from, after `fab_preset.source_diff` has shown what changes. Local placement matches the source lacks are kept. The board's own rules are not touched; use `pcb.rules.apply_fab_preset` for those. Returns the changes.",
       "icon": "fab_preset_update",
       "id": "fab_preset.update_from_source",
       "kind": "edit",
@@ -5304,6 +5490,91 @@
                 "type": "string"
               }
             ]
+          },
+          "PlacementCorrection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "footprint": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "footprint",
+                  "rotation"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "value",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "Point": {
+            "additionalProperties": false,
+            "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+            "properties": {
+              "x": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "y": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5312,6 +5583,13 @@
             "description": "Every field that differs; empty when the copy is up to date.",
             "items": {
               "$ref": "#/$defs/FieldChange"
+            },
+            "type": "array"
+          },
+          "kept_placement_corrections": {
+            "description": "Corrections specific to this Project that the update keeps in their original order.",
+            "items": {
+              "$ref": "#/$defs/PlacementCorrection"
             },
             "type": "array"
           },
@@ -25909,6 +26187,14 @@
                     "description": "The name of the preset it was copied from.",
                     "type": "string"
                   },
+                  "placement_corrections": {
+                    "default": [],
+                    "description": "Ordered, fab-specific adjustments to CPL rotation and centre.",
+                    "items": {
+                      "$ref": "#/$defs/PlacementCorrection"
+                    },
+                    "type": "array"
+                  },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
                   },
@@ -25937,7 +26223,8 @@
                   "stackup_suggestions",
                   "zip_assembly",
                   "bom",
-                  "cpl"
+                  "cpl",
+                  "placement_corrections"
                 ],
                 "type": "object"
               },
@@ -27615,6 +27902,70 @@
               "not_connected"
             ],
             "type": "string"
+          },
+          "PlacementCorrection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "footprint": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "footprint",
+                  "rotation"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "value",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "Point": {
             "additionalProperties": false,
@@ -33762,6 +34113,14 @@
                     "description": "The name of the preset it was copied from.",
                     "type": "string"
                   },
+                  "placement_corrections": {
+                    "default": [],
+                    "description": "Ordered, fab-specific adjustments to CPL rotation and centre.",
+                    "items": {
+                      "$ref": "#/$defs/PlacementCorrection"
+                    },
+                    "type": "array"
+                  },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
                   },
@@ -33790,7 +34149,8 @@
                   "stackup_suggestions",
                   "zip_assembly",
                   "bom",
-                  "cpl"
+                  "cpl",
+                  "placement_corrections"
                 ],
                 "type": "object"
               },
@@ -35489,6 +35849,70 @@
               "not_connected"
             ],
             "type": "string"
+          },
+          "PlacementCorrection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "footprint": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "footprint",
+                  "rotation"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "offset": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Point"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "rotation": {
+                    "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field",
+                  "value",
+                  "rotation"
+                ],
+                "type": "object"
+              }
+            ]
           },
           "Point": {
             "additionalProperties": false,
