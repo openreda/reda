@@ -1,5 +1,5 @@
 //! Compatibility with manufacturing files written by the 0.1.0 release.
-use super::{V1_PROJECTS, assert_golden_tree, open_copy_from, projects_dir};
+use super::{V1_PROJECTS, assert_golden_tree, open_reference_copy, projects_dir};
 use reda_testkit::read_tree;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -48,7 +48,7 @@ fn migrated_boards_preserve_v01_manufacturing_outputs() {
     let formats = projects_dir().join("formats");
     let frozen = formats.join("v1");
     for &(name, project) in V1_PROJECTS {
-        let (work, mut engine) = open_copy_from(&frozen.join(name), project);
+        let (work, mut engine) = open_reference_copy(&frozen.join(name), project);
         engine.run_ok("project.save", json!({}));
         let jobs: Vec<_> = engine
             .project()
@@ -95,7 +95,7 @@ fn migrated_boards_preserve_v01_manufacturing_outputs() {
 #[test]
 fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update() {
     let (_work, mut engine) =
-        open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
+        open_reference_copy(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
     let project = engine.project().unwrap();
     let original = project.pcb().unwrap().stackup().clone();
     assert_eq!(original.dielectrics().next().unwrap().thickness, None);
@@ -116,7 +116,7 @@ fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update(
 fn a_migrated_board_switches_its_pours_only_when_the_copied_hole_rules_are_applied() {
     use reda_engine::model::RuleKind;
     let (work, mut e) =
-        open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
+        open_reference_copy(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
     let board_holes = |e: &reda_testkit::TestEngine| {
         e.project()
             .unwrap()
