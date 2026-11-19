@@ -100,7 +100,10 @@ fn pieces(raw: &str) -> Vec<Piece<'_>> {
 
 /// `raw` with every `${name}` token replaced by `lookup(name)`, and `$${` shown as `${`.
 /// A token `lookup` does not know, or one never closed, is an error.
-pub fn resolve(raw: &str, lookup: impl Fn(&str) -> Option<String>) -> Result<String, TextError> {
+pub fn resolve(
+    raw: &str,
+    mut lookup: impl FnMut(&str) -> Option<String>,
+) -> Result<String, TextError> {
     let mut out = String::with_capacity(raw.len());
     for piece in pieces(raw) {
         match piece {

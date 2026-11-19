@@ -13,6 +13,7 @@ mod checks;
 mod manifest;
 mod run_all;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use reda_command::{
@@ -242,7 +243,11 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         part: reda_output::Part::Single,
         not_fitted_paste: job.not_fitted_paste,
     };
-    let gerbers = reda_output::gerber_files(&plot).map_err(|out| {
+    let gerbers = reda_output::gerber_files(&plot).map_err(|problem| {
+        let out = match problem {
+            reda_output::GerberError::InvalidFileName(why) => return CommandError::rejected(why),
+            reda_output::GerberError::CoordinateOutOfRange(out) => out,
+        };
         let blocker = checks::out_of_range(&out);
         let mut err = CommandError::rejected(format!(
             "Output Job \"{}\" cannot run: {} holds a coordinate beyond ±2147.483647 mm, \
@@ -342,6 +347,8 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         zipped.push(reda_output::fab_notes_file(&plot, &zip_names));
     }
     zipped.extend(after);
+    check_zip_names(zipped.iter().map(OutputFile::name_and_function))
+        .map_err(CommandError::rejected)?;
 
     cx.progress(3.0, Some(STEPS), "Zipping");
     cx.check_cancelled()?;
@@ -402,7 +409,10 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     cx.check_cancelled()?;
     let destination: PathBuf = folder.join(destination).components().collect();
     let mut stale: Vec<String> = Vec::new();
-    for name in &known {
+    for name in known
+        .iter()
+        .filter(|name| super::project::check_file_stem(name).is_ok())
+    {
         // The top level too: runs before `fab/` wrote the files there.
         stale.push(name.clone());
         stale.push(format!("{FAB}/{name}"));
@@ -430,6 +440,24 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         skipped,
         warnings,
     })
+}
+
+/// Checks that the active zip entries have usable, distinct filenames.
+pub(crate) fn check_zip_names<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Result<(), String> {
+    let mut names = BTreeMap::new();
+    for (name, function) in entries {
+        super::project::check_file_stem(name)
+            .map_err(|why| format!("Output file {function} cannot use {name:?}: {why}"))?;
+        if let Some((previous, previous_name)) = names.insert(name.to_lowercase(), (function, name))
+        {
+            return Err(format!(
+                "Output filenames clash between {previous} ({previous_name:?}) and {function} ({name:?})"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The folder in the destination that holds loose copies of the zip's files.

@@ -4712,6 +4712,19 @@
             ],
             "type": "object"
           },
+          "FileNameOverrides": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              {
+                "$ref": "#/$defs/InnerFileNames"
+              }
+            ]
+          },
           "FileNaming": {
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
@@ -4747,11 +4760,8 @@
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
               "file_names": {
-                "description": "Layer name to output file name; portable between boards and Projects.",
-                "items": {
-                  "$ref": "#/$defs/LayerFileName"
-                },
-                "type": "array"
+                "$ref": "#/$defs/FileNameOverrides",
+                "description": "Layer name to output file name; portable between boards and Projects."
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
@@ -4839,6 +4849,25 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "InnerFileNames": {
+            "additionalProperties": false,
+            "description": "A preset with an inner copper pattern can also keep its per-Layer overrides.",
+            "properties": {
+              "inner_copper": {
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "inner_copper"
+            ],
             "type": "object"
           },
           "LayerFileName": {
@@ -23801,6 +23830,19 @@
             },
             "type": "object"
           },
+          "FileNameOverrides": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              {
+                "$ref": "#/$defs/InnerFileNames"
+              }
+            ]
+          },
           "FileNaming": {
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
@@ -24056,11 +24098,8 @@
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
               "file_names": {
-                "description": "Layer name to output file name; portable between boards and Projects.",
-                "items": {
-                  "$ref": "#/$defs/LayerFileName"
-                },
-                "type": "array"
+                "$ref": "#/$defs/FileNameOverrides",
+                "description": "Layer name to output file name; portable between boards and Projects."
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
@@ -25882,6 +25921,25 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "InnerFileNames": {
+            "additionalProperties": false,
+            "description": "A preset with an inner copper pattern can also keep its per-Layer overrides.",
+            "properties": {
+              "inner_copper": {
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "inner_copper"
+            ],
             "type": "object"
           },
           "InsideEdge": {
@@ -31959,6 +32017,19 @@
             },
             "type": "object"
           },
+          "FileNameOverrides": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              },
+              {
+                "$ref": "#/$defs/InnerFileNames"
+              }
+            ]
+          },
           "FileNaming": {
             "description": "How the Gerber and drill files of a job are named.",
             "oneOf": [
@@ -32214,11 +32285,8 @@
             "description": "The Gerber and drill switches of a Fab Preset.",
             "properties": {
               "file_names": {
-                "description": "Layer name to output file name; portable between boards and Projects.",
-                "items": {
-                  "$ref": "#/$defs/LayerFileName"
-                },
-                "type": "array"
+                "$ref": "#/$defs/FileNameOverrides",
+                "description": "Layer name to output file name; portable between boards and Projects."
               },
               "file_origin": {
                 "$ref": "#/$defs/FileOrigin",
@@ -34040,6 +34108,25 @@
                 ]
               }
             },
+            "type": "object"
+          },
+          "InnerFileNames": {
+            "additionalProperties": false,
+            "description": "A preset with an inner copper pattern can also keep its per-Layer overrides.",
+            "properties": {
+              "inner_copper": {
+                "type": "string"
+              },
+              "layers": {
+                "items": {
+                  "$ref": "#/$defs/LayerFileName"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "inner_copper"
+            ],
             "type": "object"
           },
           "InsideEdge": {

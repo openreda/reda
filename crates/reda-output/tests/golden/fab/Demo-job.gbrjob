@@ -23,12 +23,12 @@
   "FilesAttributes": [
     {
       "Path": "Demo.gtl",
-      "FileFunction": "Copper,L1,Top",
+      "FileFunction": "Copper,L1,Top,Signal",
       "FilePolarity": "Positive"
     },
     {
       "Path": "Demo.gbl",
-      "FileFunction": "Copper,L2,Bot",
+      "FileFunction": "Copper,L2,Bot,Signal",
       "FilePolarity": "Positive"
     },
     {

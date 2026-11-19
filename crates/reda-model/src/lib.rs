@@ -45,10 +45,11 @@ pub use library::{
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
     Construction, ConstructionEntry, ConstructionViaType, CplSettings, CplUnits, FabPreset,
-    FabRules, FileNaming, FileOrigin, GerberSettings, HoleClearance, InnerFabRules, LayerFileName,
-    LineNumbers, MountValues, NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError, NotFittedBom,
-    NotFittedPaste, OutputJob, Outputs, PdfColour, PlacementAdjustment, PlacementCorrection,
-    PlacementMatch, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
+    FabRules, FileNaming, FileOrigin, GerberFileNames, GerberSettings, HoleClearance,
+    InnerFabRules, LayerFileName, LineNumbers, MountValues, NAME_TEMPLATE_TOKENS, NameTemplate,
+    NameTemplateError, NotFittedBom, NotFittedPaste, OutputJob, Outputs, PdfColour,
+    PlacementAdjustment, PlacementCorrection, PlacementMatch, PreferredSeeds, ProjectFabPreset,
+    SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,

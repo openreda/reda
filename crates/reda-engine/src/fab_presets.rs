@@ -239,6 +239,16 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
             }
             (Some(Value::Object(section)), Value::Object(keys)) => {
                 for (k, v) in keys {
+                    if key == "gerber"
+                        && k == "file_names"
+                        && let Some(patch) = v.as_object()
+                    {
+                        section.insert(
+                            k.clone(),
+                            patch_file_names(&preset.gerber.file_names, patch)?,
+                        );
+                        continue;
+                    }
                     section.insert(k.clone(), v.clone());
                 }
             }
@@ -337,6 +347,49 @@ fn patch_constructions(
         }
     }
     Ok(rows)
+}
+
+/// The pattern can be patched by itself. A supplied Layer list replaces the ordinary overrides.
+fn patch_file_names(
+    current: &reda_model::GerberFileNames,
+    patch: &serde_json::Map<String, serde_json::Value>,
+) -> Result<serde_json::Value, CommandError> {
+    use serde_json::Value;
+    const POINTER: &str = "/values/gerber/file_names";
+    if let Some(key) = patch
+        .keys()
+        .find(|k| !matches!(k.as_str(), "inner_copper" | "layers"))
+    {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            format!("unknown file_names field {key:?}"),
+        ));
+    }
+    let layers = patch
+        .get("layers")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!(current.layers));
+    if !layers.is_array() {
+        return Err(CommandError::invalid_params(
+            POINTER,
+            "expected an array of Layer overrides",
+        ));
+    }
+    let pattern = match patch.get("inner_copper") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value),
+        Some(_) => {
+            return Err(CommandError::invalid_params(
+                POINTER,
+                "expected an inner copper pattern or null",
+            ));
+        }
+        None => current.inner_copper.as_ref(),
+    };
+    Ok(match pattern {
+        Some(inner) => serde_json::json!({"inner_copper": inner, "layers": layers}),
+        None => layers,
+    })
 }
 
 /// Lays `values` over the user preset `name` ([`edited`]) and writes its file; returns
