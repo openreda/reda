@@ -548,3 +548,102 @@ fn the_symbol_active_bar_switches_units() {
     h.run();
     assert_eq!(shown(&h), Some(units[1]));
 }
+
+#[test]
+fn plated_free_pad_properties_customize_and_clear_a_copper_group() {
+    let home = TempDir::new("pad-stack-home");
+    let work = TempDir::new("pad-stack-work");
+    let mut shell = shell(home.path());
+    shell.new_project(work.path(), "Stack").unwrap();
+    let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
+    shell
+        .run("document.open", json!({"document":document}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1400.0, 2600.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let pad = run(
+        &mut h,
+        "pcb.free_pad.add",
+        json!({
+            "kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":0},
+            "width":"2mm","height":"1.5mm","hole":{"width":"0.5mm"}
+        }),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects":[pad]}));
+    h.get_by_label("Customize Middle copper").click();
+    h.run();
+    type_into(&mut h, "Middle width", "2.4mm");
+    let (id, p) = last_entry(&h);
+    assert_eq!(id, "pcb.free_pad.edit");
+    assert_eq!(
+        p["middle"],
+        json!({"shape":"rect", "width":2400000, "height":1500000})
+    );
+    h.get_by_label("Clear Middle copper").click();
+    h.run();
+    let (_, p) = last_entry(&h);
+    assert_eq!(p.get("middle"), Some(&serde_json::Value::Null));
+    h.get_by_label("Customize Middle copper");
+}
+
+#[test]
+fn via_properties_preserve_sibling_diameters_and_omit_an_absent_middle() {
+    let home = TempDir::new("via-stack-home");
+    let work = TempDir::new("via-stack-work");
+    let mut shell = shell(home.path());
+    shell
+        .run(
+            "project.new",
+            json!({"path":work.path(),"name":"Stack","layers":4}),
+        )
+        .unwrap();
+    let board = shell.engine().project().unwrap().pcb().unwrap();
+    let document = board.uuid;
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    shell
+        .run("document.open", json!({"document":document}))
+        .unwrap();
+    let mut h = Harness::builder()
+        .with_size([1400.0, 2600.0])
+        .build_ui_state(|ui, app: &mut App| app.ui(ui), App::new(shell));
+    h.run();
+    let via = run(
+        &mut h,
+        "pcb.via.add",
+        json!({"at":{"x":0,"y":0}, "hole":"0.3mm",
+        "diameter":{"start":"0.8mm","end":"0.75mm"}}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects":[via]}));
+    type_into(&mut h, "Middle diameter", "0.65mm");
+    let (id, p) = last_entry(&h);
+    assert_eq!(id, "pcb.via.set");
+    assert_eq!(
+        p["diameter"],
+        json!({"start":800000,"middle":650000,"end":750000})
+    );
+    h.get_by_role_and_label(Role::TextInput, "Middle diameter")
+        .click();
+    h.run();
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.key_press(egui::Key::Backspace);
+    h.run();
+    h.key_press(egui::Key::Enter);
+    h.run();
+    let (_, p) = last_entry(&h);
+    assert_eq!(p["diameter"], json!({"start":800000,"end":750000}));
+    let blind = run(
+        &mut h,
+        "pcb.via.add",
+        json!({"at":{"x":"1mm","y":0},"from":layers[0],"to":layers[1]}),
+    )["result"]["uuid"]
+        .clone();
+    run(&mut h, "selection.set", json!({"objects":[blind]}));
+    assert!(
+        h.query_by_role_and_label(Role::TextInput, "Middle diameter")
+            .is_none()
+    );
+}

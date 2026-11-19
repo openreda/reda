@@ -49,6 +49,7 @@ pub(super) fn selected(
     let mask = via.mask.unwrap_or_default();
     widgets::form(("via-properties",via.uuid)).show(ui,|ui|{
         widgets::form_row(ui,tr!("via-type"),|ui|ui.label(name));
+        diameter_rows(ui, shell, pcb, via, out);
         for (side,label,value) in [(Side::Top,tr!("via-top-mask"),mask.top),(Side::Bottom,tr!("via-bottom-mask"),mask.bottom)] {
             let shown=match value {
                 Some(MaskSide::Mode(_))=>"tent".into(),
@@ -72,4 +73,45 @@ pub(super) fn selected(
             ui.end_row();
         }
     });
+}
+
+fn diameter_rows(ui: &mut Ui, shell: &Shell, pcb: &PcbDocument, via: &Via, out: &mut Vec<Out>) {
+    let units = units(shell);
+    let middle = pcb.span_layers(via.span).len() > 2;
+    for (field, label, value) in [
+        ("start", tr!("via-start-diameter"), Some(via.diameter.start)),
+        ("middle", tr!("via-middle-diameter"), via.diameter.middle),
+        ("end", tr!("via-end-diameter"), via.diameter.end),
+        ("hole", tr!("via-hole-size"), Some(via.hole)),
+    ] {
+        if field == "middle" && !middle {
+            continue;
+        }
+        let shown = value
+            .map(|v| crate::pcb::view::format_length(v, units))
+            .unwrap_or_default();
+        let key = format!("via-size-{}-{field}", via.uuid);
+        if let Some(edit) = text_field(ui, &key, &label, &Shared::Same(shown), !via.locked) {
+            let text = edit.trim();
+            let mut params = json!({"vias":[via.uuid]});
+            if field == "hole" {
+                params["hole"] =
+                    super::parse_length(text, units).map_or_else(|| json!(text), |v| json!(v));
+            } else {
+                let mut diameter = json!(via.diameter);
+                if text.is_empty() && field != "start" {
+                    diameter
+                        .as_object_mut()
+                        .expect("diameter is an object")
+                        .remove(field);
+                } else {
+                    diameter[field] =
+                        super::parse_length(text, units).map_or_else(|| json!(text), |v| json!(v));
+                }
+                params["diameter"] = diameter;
+            }
+            out.push(Out::Run("pcb.via.set", params));
+        }
+        ui.end_row();
+    }
 }

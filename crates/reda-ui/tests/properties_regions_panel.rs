@@ -192,7 +192,7 @@ fn a_locally_edited_pad_reverts_from_properties() {
     run(
         &mut h,
         "pcb.pad.edit",
-        json!({"instance": footprint, "pad": pad, "width": "2mm"}),
+        json!({"instance": footprint, "pad": pad, "kind":"plated_through_hole", "width":"2mm","hole":{"width":"0.3mm"}, "side":null}),
     );
     run(
         &mut h,
@@ -200,6 +200,13 @@ fn a_locally_edited_pad_reverts_from_properties() {
         json!({"pads": [{"footprint": footprint, "pad": pad}]}),
     );
     h.run();
+    h.get_by_label("Customize Bottom copper").click();
+    h.run();
+    let (id, p) = last_entry(&h);
+    assert_eq!(id, "pcb.pad.edit");
+    assert_eq!(p["instance"], json!(footprint));
+    assert_eq!(p["pad"], json!(pad));
+    assert_eq!(p["bottom"]["width"], 2_000_000);
     h.get_by_label("Locally edited");
     h.get_by_label("Compare").click();
     h.run();
