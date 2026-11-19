@@ -26,7 +26,7 @@ fn via_set_changes_the_diameter_and_hole_of_every_via_given() {
     for via in [a, b] {
         let via = pcb(&engine).via(via).unwrap();
         assert_eq!(
-            (via.diameter, via.hole),
+            (via.diameter.start, via.hole),
             (Nm::from_um(800), Nm::from_um(400))
         );
     }

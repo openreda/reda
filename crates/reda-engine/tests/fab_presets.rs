@@ -52,11 +52,11 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
     );
     assert_eq!(
         value(RuleKind::ViaSize, RuleField::DiameterPreferred),
-        Some(Nm::from_um(660))
+        None
     );
     assert_eq!(
         value(RuleKind::ViaSize, RuleField::HolePreferred),
-        Some(Nm::from_um(300))
+        None
     );
     assert_eq!(
         value(RuleKind::HoleSize, RuleField::Min),
@@ -66,6 +66,10 @@ fn a_new_project_is_seeded_from_the_chosen_shipped_preset() {
         value(RuleKind::HoleSize, RuleField::Max),
         Some(Nm::from_um(6300))
     );
+
+    let through = pcb.stackup().through_type();
+    assert_eq!(through.diameter.start, Nm::from_um(660));
+    assert_eq!(through.hole, Nm::from_um(300));
 
     let preset = only_preset(&engine);
     assert_eq!(preset.name, "JLCPCB");
