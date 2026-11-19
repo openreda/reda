@@ -9,20 +9,13 @@ use reda_command::{
 use reda_model::geom::Nm;
 use reda_model::{BoardSetup, InDocument, Object, Stackup, StackupEntry, StackupTotals, Uuid};
 use schemars::JsonSchema;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
-use super::{needs_pcb, pcb};
+use super::{needs_pcb, nullable, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
     registry.add(FabNotesSet);
-}
-
-/// Reads a field that may be given as `null`: missing is `None`, `null` is `Some(None)`.
-fn nullable<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
-    d: D,
-) -> Result<Option<Option<T>>, D::Error> {
-    Option::<T>::deserialize(d).map(Some)
 }
 
 pub struct StackupSet;
@@ -64,15 +57,38 @@ pub struct CopperParam {
     pub thickness: CopperThickness,
 }
 
-/// One dielectric's new thickness.
+/// A patch to one dielectric. Omitted fields retain their stored values.
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DielectricParam {
     /// The dielectric entry's UUID.
     pub uuid: Uuid,
-    /// Its thickness, or `null` to leave it blank so it takes the remainder.
+    /// Core or Prepreg.
+    pub kind: Option<reda_model::DielectricKind>,
+    /// The optional name shown in the Stackup.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<String>")]
+    pub name: Option<Option<String>>,
+    /// Finished thickness, or null to share the remainder.
+    #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
-    pub thickness: Option<Length>,
+    pub thickness: Option<Option<Length>>,
+    /// The material or glass style as specified by the fab.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<String>")]
+    pub material: Option<Option<String>>,
+    /// Relative permittivity in milli-units.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub dk: Option<Option<u32>>,
+    /// Loss tangent in micro-units.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u32>")]
+    pub df: Option<Option<u32>>,
+    /// The measurement frequency for Dk and Df, in Hz.
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<u64>")]
+    pub test_frequency: Option<Option<u64>>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -155,16 +171,6 @@ impl Command for StackupSet {
             entry.thickness = thickness;
         }
         for (i, dielectric) in p.dielectrics.into_iter().enumerate() {
-            let thickness = dielectric
-                .thickness
-                .map(|t| {
-                    positive(
-                        format!("/dielectrics/{i}/thickness"),
-                        t.nm(),
-                        "dielectric thickness",
-                    )
-                })
-                .transpose()?;
             let entry = stackup.entries.iter_mut().find_map(|e| match e {
                 StackupEntry::Dielectric(d) if d.uuid == dielectric.uuid => Some(d),
                 _ => None,
@@ -175,7 +181,35 @@ impl Command for StackupSet {
                     format!("{} is not a dielectric of the Stackup", dielectric.uuid),
                 ));
             };
-            entry.thickness = thickness;
+            if let Some(kind) = dielectric.kind {
+                entry.kind = kind;
+            }
+            if let Some(value) = dielectric.thickness {
+                entry.thickness = value
+                    .map(|t| {
+                        positive(
+                            format!("/dielectrics/{i}/thickness"),
+                            t.nm(),
+                            "dielectric thickness",
+                        )
+                    })
+                    .transpose()?;
+            }
+            if let Some(value) = dielectric.name {
+                entry.name = text(value);
+            }
+            if let Some(value) = dielectric.material {
+                entry.material = text(value);
+            }
+            if let Some(value) = dielectric.dk {
+                entry.dk = value;
+            }
+            if let Some(value) = dielectric.df {
+                entry.df = value;
+            }
+            if let Some(value) = dielectric.test_frequency {
+                entry.test_frequency = value;
+            }
         }
         for (value, field) in [
             (p.finish, &mut stackup.finish),

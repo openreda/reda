@@ -194,9 +194,8 @@ impl StackupDraft {
                     })
                 } else {
                     StackupEntry::Dielectric(DielectricEntry {
-                        kind: reda_engine::model::DielectricKind::Core,
-                        uuid: row.uuid,
                         thickness: value,
+                        ..DielectricEntry::new(row.uuid, reda_engine::model::DielectricKind::Core)
                     })
                 })
             })

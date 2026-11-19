@@ -78,6 +78,22 @@ pub enum LayerKind {
     Documentation,
 }
 
+/// How a copper Layer is used in the Stackup.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CopperRole {
+    #[default]
+    Signal,
+    Plane,
+    Mixed,
+}
+
+impl CopperRole {
+    fn is_signal(&self) -> bool {
+        *self == Self::Signal
+    }
+}
+
 /// One Layer. Objects name their Layer by UUID, never by position.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -87,6 +103,12 @@ pub struct Layer {
     /// The board face, for sided Layers; left out for the others.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub side: Option<Side>,
+    /// An inner copper Layer's user-supplied name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// The copper role. Signal is the implicit default.
+    #[serde(default, skip_serializing_if = "CopperRole::is_signal")]
+    pub role: CopperRole,
 }
 
 /// The PCB Document's Layers as one ordered list, top to bottom. A generic list, so more
@@ -880,6 +902,12 @@ impl PcbDocument {
         }
         for (i, layer) in layers.iter().enumerate() {
             let uuid = layer.uuid;
+            if layer.name.is_some() && (layer.kind != LayerKind::Copper || layer.side.is_some()) {
+                return Err(format!("only inner copper Layers can be named: {uuid}"));
+            }
+            if layer.role != CopperRole::Signal && layer.kind != LayerKind::Copper {
+                return Err(format!("only copper Layers have a role: {uuid}"));
+            }
             let expected = match layer.kind {
                 LayerKind::Copper if i == first => Some(Some(Side::Top)),
                 LayerKind::Copper if i == last => Some(Some(Side::Bottom)),

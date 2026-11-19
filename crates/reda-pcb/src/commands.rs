@@ -63,6 +63,7 @@ pub fn register_all_with_user(
     outline::register_all(registry);
     rules::register_all(registry);
     stackup::register_all(registry);
+    registry.add(layer::LayerSetCommand);
     net_class::register_all(registry);
     net::register_all(registry);
     text::register_all(registry);

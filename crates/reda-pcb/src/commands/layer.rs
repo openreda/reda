@@ -2,8 +2,8 @@
 
 use std::borrow::Cow;
 
-use reda_command::CommandError;
-use reda_model::{Layer, LayerKind, PcbDocument, Side, Uuid};
+use reda_command::{AvailabilityContext, Command, CommandError, Context, Kind, Meta, Unavailable};
+use reda_model::{CopperRole, InDocument, Layer, LayerKind, Object, PcbDocument, Side, Uuid};
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer};
 
@@ -121,4 +121,68 @@ pub fn drawing_layer<'p>(
         ));
     }
     Ok(layer)
+}
+
+pub(super) struct LayerSetCommand;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LayerSetParams {
+    pub layer: LayerRef,
+    /// An inner copper Layer's name. Null or blank clears it.
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<String>")]
+    pub name: Option<Option<String>>,
+    /// The copper Layer's role in the Stackup.
+    pub role: Option<CopperRole>,
+}
+
+impl Command for LayerSetCommand {
+    const META: Meta = Meta {
+        id: "pcb.layer.set",
+        title: "Set Copper Layer",
+        description: "Sets a copper Layer's role or an inner Layer's name. Null clears the name.",
+        category: "pcb",
+        icon: "layers",
+        kind: Kind::Edit,
+    };
+    type Params = LayerSetParams;
+    type Output = ();
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        super::needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<(), CommandError> {
+        let pcb = super::pcb(cx)?;
+        let document = pcb.uuid;
+        let layer = p.layer.resolve(pcb, "/layer")?;
+        if layer.kind != LayerKind::Copper {
+            return Err(CommandError::invalid_params(
+                "/layer",
+                "choose a copper Layer",
+            ));
+        }
+        let mut layers = pcb.layers().clone();
+        let edit = layers
+            .layers
+            .iter_mut()
+            .find(|l| l.uuid == layer.uuid)
+            .unwrap();
+        if let Some(name) = p.name {
+            let name = name.filter(|s| !s.trim().is_empty());
+            if layer.side.is_some() && name.is_some() {
+                return Err(CommandError::rejected(
+                    "the outer copper Layers have fixed names",
+                ));
+            }
+            edit.name = name;
+        }
+        if let Some(role) = p.role {
+            edit.role = role;
+        }
+        cx.tx()?
+            .replace(Object::LayerSet(InDocument::new(document, layers)))?;
+        Ok(())
+    }
 }

@@ -137,6 +137,8 @@ mod tests {
             uuid: Uuid::from_u128(n),
             kind,
             side,
+            name: None,
+            role: Default::default(),
         }
     }
 

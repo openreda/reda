@@ -313,6 +313,8 @@ pub fn new_board_with_layers(
                 uuid: new_id(),
                 kind,
                 side,
+                name: None,
+                role: Default::default(),
             })
             .collect(),
     };
@@ -361,11 +363,10 @@ fn seeded_stackup(
     let mut entries = Vec::new();
     for layer in layers.layers.iter().filter(|l| l.kind == LayerKind::Copper) {
         if !entries.is_empty() {
-            entries.push(StackupEntry::Dielectric(DielectricEntry {
-                kind: reda_model::DielectricKind::Core,
-                uuid: new_id(),
-                thickness: None,
-            }));
+            entries.push(StackupEntry::Dielectric(DielectricEntry::new(
+                new_id(),
+                reda_model::DielectricKind::Core,
+            )));
         }
         entries.push(StackupEntry::Copper(CopperEntry {
             layer: layer.uuid,

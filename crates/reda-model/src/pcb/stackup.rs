@@ -32,7 +32,7 @@ pub struct Stackup {
 }
 
 /// One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum StackupEntry {
     /// A copper Layer's thickness.
@@ -52,14 +52,45 @@ pub struct CopperEntry {
 }
 
 /// A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DielectricEntry {
     pub uuid: Uuid,
     pub kind: DielectricKind,
+    /// The optional name shown in the Stackup.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Its thickness; left out, it takes the remainder of the Stackup's thickness.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thickness: Option<Nm>,
+    /// The material or glass style as specified by the fab.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<String>,
+    /// Relative permittivity in milli-units.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dk: Option<u32>,
+    /// Loss tangent in micro-units.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub df: Option<u32>,
+    /// The measurement frequency for Dk and Df, in Hz.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_frequency: Option<u64>,
+}
+
+impl DielectricEntry {
+    /// A blank sheet of this kind, sharing any unassigned board thickness.
+    pub fn new(uuid: Uuid, kind: DielectricKind) -> Self {
+        Self {
+            uuid,
+            kind,
+            name: None,
+            thickness: None,
+            material: None,
+            dk: None,
+            df: None,
+            test_frequency: None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
