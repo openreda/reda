@@ -301,6 +301,26 @@ fn named_inner_copper_and_roles_survive_save_and_can_be_reset() {
 }
 
 #[test]
+fn adding_a_blank_sheet_to_an_over_nominal_construction_preserves_the_saved_stackup() {
+    let dir = TempDir::new("stackup-over-nominal");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"fab_preset":"JLCPCB",
+               "construction":"JLC04161H-2116A"}),
+    );
+    let original = stackup(&engine).clone();
+    assert!(original.totals().total > original.thickness);
+    let sheet = original.dielectrics().next().unwrap().uuid;
+    let err = engine.run_err("pcb.stackup.dielectric.add", json!({"beside":sheet}));
+    assert_eq!(err.code, ErrorCode::Rejected);
+    assert_eq!(stackup(&engine), &original);
+    engine.run_ok("project.save", json!({}));
+    engine.run_ok("project.open", json!({"path":dir.path().join("Demo")}));
+    assert_eq!(stackup(&engine), &original);
+}
+
+#[test]
 fn adding_and_removing_a_sheet_keeps_at_least_one_in_each_gap() {
     let dir = TempDir::new("stackup-multiple-sheets");
     let mut engine = probe_engine();
