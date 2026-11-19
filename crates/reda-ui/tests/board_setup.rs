@@ -807,7 +807,7 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
     );
     board.selected_rows = [p].into();
     let copied = board.copy_rows();
-    assert_eq!(copied, "0.3\t\t0.5\t\t\t\t\t\t\t");
+    assert_eq!(copied, "0.3\t\t0.5\t\t\t\t\t\t\t\t\t");
     board.selected_rows = [s].into();
     board.paste_rows(&copied);
     assert_eq!(board.cell(s, RuleField::Clearance), "0.3");

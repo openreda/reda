@@ -257,7 +257,18 @@ pub(crate) fn write_pcb_file(pcb: &PcbDocument) -> Result<Vec<u8>, CanonicalErro
         w.field("output_origin", origin)?;
     }
     if pcb.zones().next().is_some() {
-        w.containers("zones", pcb.zones(), |z| z.uuid, "vertices")?;
+        w.containers_by(
+            "zones",
+            pcb.zones(),
+            |z| z.uuid,
+            |z| {
+                if z.follows_outline {
+                    &[]
+                } else {
+                    &["vertices"]
+                }
+            },
+        )?;
     }
     if pcb.keepouts().next().is_some() {
         w.containers("keepouts", pcb.keepouts(), |k| k.uuid, "vertices")?;

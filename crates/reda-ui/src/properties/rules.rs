@@ -70,6 +70,7 @@ pub struct KindRows {
     pub severity: Option<Severity>,
     pub rows: Vec<RuleRow>,
     pub pair: Option<String>,
+    pub between_holes: Vec<(String, RuleValue, Option<usize>, Option<String>)>,
     /// For two objects: the value that applies between them and the object it came from.
     pub between: Option<(String, RuleValue, Option<usize>)>,
 }
@@ -145,6 +146,19 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
             }
         }
     }
+    let pair_label = |b: &explain::Between| {
+        let ids = b.net_class_pair?;
+        let names = ids
+            .map(|id| {
+                pcb.net_class(id)
+                    .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
+            })
+            .join(" / ");
+        Some(match &b.layers {
+            Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
+            None => names,
+        })
+    };
     KindRows {
         kind: kind.kind,
         layer_numbers: kind
@@ -152,22 +166,15 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
             .iter()
             .filter_map(|id| pcb.copper_number(*id))
             .collect(),
-        pair: kind
-            .between
-            .as_ref()
-            .and_then(|b| b.net_class_pair)
-            .map(|ids| {
-                let names = ids
-                    .map(|id| {
-                        pcb.net_class(id)
-                            .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
-                    })
-                    .join(" / ");
-                match kind.between.as_ref().and_then(|b| b.layers.as_ref()) {
-                    Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
-                    None => names,
-                }
-            }),
+        pair: kind.between.as_ref().and_then(pair_label),
+        between_holes: kind
+            .between_holes
+            .into_iter()
+            .map(|b| {
+                let pair = pair_label(&b);
+                (b.field, b.value, b.object, pair)
+            })
+            .collect(),
         severity: kind.severity,
         rows,
         between: kind.between.map(|b| (b.field, b.value, b.object)),

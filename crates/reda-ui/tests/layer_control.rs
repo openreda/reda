@@ -500,3 +500,37 @@ fn the_live_hover_outline_runs_round_each_copper_item_of_the_net() {
         (r - 300_000.0).abs() < 2.0
     }));
 }
+
+#[test]
+fn the_layers_panel_creates_an_outline_zone_on_the_context_layers_net() {
+    let mut w = window();
+    w.h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.board_outline.add_rect",
+            json!({"width":"20mm","height":"15mm"}),
+        )
+        .unwrap();
+    w.h.run();
+    w.h.get_by_label("Bottom Copper").scroll_to_me();
+    w.h.run();
+    w.h.get_by_label("Bottom Copper").click_secondary();
+    w.h.run();
+    w.h.get_by_label("Fill Layer with plane…").click();
+    w.h.run();
+    w.h.get_by_role_and_label(Role::ComboBox, "Plane Net")
+        .click();
+    w.h.run();
+    w.h.get_all_by_label("GND").last().unwrap().click();
+    w.h.run();
+    w.h.get_by_role_and_label(Role::Button, "Create Zone")
+        .click();
+    w.h.run();
+    let bottom = layer(&w, LayerKind::Copper, Some(Side::Bottom));
+    let pcb = shell(&w).engine().project().unwrap().pcb().unwrap();
+    let zone = pcb.zones().next().unwrap();
+    assert_eq!(
+        (zone.layer, zone.net, zone.follows_outline),
+        (bottom, Some(w.gnd), true)
+    );
+}

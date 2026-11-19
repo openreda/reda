@@ -32,6 +32,8 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
         ui.vertical_centered(|ui| ui.weak(tr!("layers-no-pcb")));
         return out;
     };
+    let picker_id = Id::NULL.with(("layers-plane-picker", pcb.uuid));
+    let mut picker = ui.data(|d| d.get_temp(picker_id)).unwrap_or_default();
     let view = shell.board_view();
     let layers = &view.layers;
     let active = shell.engine().project().and_then(|p| view.active_layer(p));
@@ -156,6 +158,11 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
                 };
                 let row = ui.add(row);
                 crate::pcb::layer_hover::chip(&row, layer.uuid);
+                if layer.kind == LayerKind::Copper
+                    && let Some(p) = crate::pcb::plane::Picker::menu(&row, layer.uuid)
+                {
+                    picker = Some(p);
+                }
                 // Mod+click on a Layer's name highlights its content, as on a chip.
                 if row.clicked() && ui.input(|i| i.modifiers.command) {
                     out.push(("pcb.layer.highlight".into(), json!({ "layer": layer.uuid })));
@@ -284,6 +291,10 @@ pub fn show(ui: &mut Ui, shell: &Shell) -> Vec<Invocation> {
             }
         });
     });
+    if let Some(params) = crate::pcb::plane::Picker::show(ui, pcb, &mut picker) {
+        out.push(("pcb.zone.add_from_board_outline".into(), params));
+    }
+    ui.data_mut(|d| d.insert_temp(picker_id, picker));
     out
 }
 

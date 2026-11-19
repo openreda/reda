@@ -696,4 +696,11 @@ fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
         h.query_by_role_and_label(Role::Button, "Fill Layer with plane…")
             .is_none()
     );
+    h.get_by_role_and_label(Role::Row, "L2").click_secondary();
+    h.run();
+    h.get_by_label("Fill Layer with plane…").click();
+    h.run();
+    h.get_by_label("Cancel").click();
+    h.run();
+    assert_eq!(pcb(&h).zones().count(), 1);
 }
