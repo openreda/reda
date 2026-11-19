@@ -458,11 +458,11 @@ pub struct PresetSet;
 pub struct PresetSetParams {
     /// The Project copy's UUID.
     pub preset: Uuid,
-    /// Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,
-    /// `gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each
-    /// whole, such as `{"gerber": {"slot_command": "g85"}}`; `zip_assembly` is set as it
-    /// is. `placement_corrections` replaces the whole list, with integer base units or
-    /// unit strings for rotation and offsets. The name cannot be set.
+    /// Preset keys to change. Sections such as `rules` and `gerber` change only the keys
+    /// supplied. `constructions` is an object keyed by case-insensitive Construction name.
+    /// Each value replaces or adds the named Construction, and null removes it.
+    /// `placement_corrections` replaces the whole list, with integer base units or unit
+    /// strings for rotation and offsets. The preset name cannot be set.
     pub values: Value,
 }
 

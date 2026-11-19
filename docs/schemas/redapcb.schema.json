@@ -1619,6 +1619,14 @@
       ],
       "type": "object"
     },
+    "LayerGroup": {
+      "enum": [
+        "outer",
+        "inner",
+        "plane"
+      ],
+      "type": "string"
+    },
     "LayerKind": {
       "description": "What a Layer is for. Copper and the sided kinds come with a [`Side`].",
       "enum": [
@@ -2416,15 +2424,52 @@
         }
       ]
     },
+    "RuleLayers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LayerGroup"
+        },
+        {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Copper Layers selected by a design rule."
+    },
     "RuleScope": {
       "additionalProperties": false,
-      "description": "Where a rule record applies: filters that must all match. Empty is board-wide; v0.1\naccepts only empty or `{net_class}`.",
+      "description": "All the filters of one design rule. An empty scope is the board-wide fallback.",
       "properties": {
+        "layers": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleLayers"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "net_class": {
-          "description": "The Net Class whose Nets it applies to.",
           "format": "uuid",
           "type": [
             "string",
+            "null"
+          ]
+        },
+        "net_class_pair": {
+          "description": "Two sorted class UUIDs. The nil UUID denotes the implicit Default class.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
             "null"
           ]
         }
@@ -2855,6 +2900,13 @@
       "additionalProperties": false,
       "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
       "properties": {
+        "construction": {
+          "description": "The original named Construction, including while the board differs from it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "entries": {
           "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
           "items": {

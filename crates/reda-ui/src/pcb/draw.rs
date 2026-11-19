@@ -151,6 +151,14 @@ impl Draw {
         shape(self.tool, self.keepout)
     }
 
+    pub(crate) fn in_progress(&self) -> bool {
+        self.pressed.is_some()
+            || !self.points.is_empty()
+            || !self.ends.is_empty()
+            || self.text_at.is_some()
+            || self.measure.is_some()
+    }
+
     /// The Tool being drawn with.
     pub fn tool(&self) -> Tool {
         self.tool

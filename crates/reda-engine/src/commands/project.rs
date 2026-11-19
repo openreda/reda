@@ -95,6 +95,8 @@ pub struct ProjectNewParams {
     #[serde(default)]
     #[schemars(range(min = 2, max = 32))]
     pub layers: Option<u8>,
+    /// Named physical build in the chosen Fab Preset. Defaults to its build for this count.
+    pub construction: Option<String>,
     /// A rectangular Board Outline to start with; left out to draw it later.
     #[serde(default)]
     pub board: Option<BoardParam>,
@@ -143,7 +145,14 @@ impl Command for ProjectNew {
             .transpose()?;
         check_free_folder(&folder)?;
 
-        let project = build_project(cx, p.name, preset, outline, p.layers.unwrap_or(2))?;
+        let project = build_project(
+            cx,
+            p.name,
+            preset,
+            outline,
+            p.layers.unwrap_or(2),
+            p.construction.as_deref(),
+        )?;
         std::fs::create_dir_all(&folder)
             .map_err(|e| CommandError::internal(format!("creating {}: {e}", folder.display())))?;
         store::save(&folder, &project, None)?;
@@ -183,6 +192,7 @@ fn build_project(
     preset: FabPreset,
     outline: Option<Vec<Vertex>>,
     layers: u8,
+    construction: Option<&str>,
 ) -> Result<Project, CommandError> {
     let mut project = Project::new(ProjectProps {
         uuid: cx.new_id(),
@@ -208,13 +218,8 @@ fn build_project(
         name: name.clone(),
         title: name,
     };
-    let board = reda_pcb::new_board_with_layers(
-        pcb.uuid,
-        &preset.rules,
-        preset.stackup_seeds(),
-        layers,
-        || cx.new_id(),
-    )?;
+    let board =
+        reda_pcb::new_board_from_preset(pcb.uuid, &preset, layers, construction, || cx.new_id())?;
     let copy = ProjectFabPreset::new(cx.new_id(), preset);
     let job = reda_output::new_job(cx.new_id(), copy.name.clone(), pcb.uuid, copy.uuid);
     let outline = outline.map(|vertices| {

@@ -117,7 +117,11 @@ fn preset_preview(ui: &mut Ui, board: &mut BoardSetupDraft) {
                             if response.changed() {
                                 toggled = Some((i, ticked));
                             }
-                            row.text(c.rule.name());
+                            row.text(if c.inner {
+                                format!("{} · {}", tr!("board-layer-inner"), c.rule.name())
+                            } else {
+                                c.rule.name()
+                            });
                             row.ui(|ui| mono(ui, &c.board));
                             row.ui(|ui| mono(ui, &c.preset));
                         });

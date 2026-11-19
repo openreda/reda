@@ -8,19 +8,20 @@ use std::collections::BTreeSet;
 use reda_engine::command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, Preset, Registry, Unavailable,
 };
-use reda_engine::model::{Layer, LayerKind, LayerSet, ObjectType, Side, Uuid};
+use reda_engine::model::{CopperRole, Layer, LayerKind, LayerSet, ObjectType, Side, Uuid};
 use reda_engine::preferences::{self, SavedLayerSet};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::view::{BoardView, VIEW_TYPES, color_key};
+use super::view::{BoardView, VIEW_TYPES, layer_key};
 use crate::view_state::{KindDisplay, LabelView};
 
 /// The Layer sets every board has, in the order the Layer control lists them.
-pub const LAYER_SETS: [&str; 7] = [
+pub const LAYER_SETS: [&str; 8] = [
     "all",
     "signal",
+    "plane",
     "non_signal",
     "mechanical",
     "top",
@@ -73,7 +74,8 @@ pub fn built_in(name: &str, layer: &Layer) -> Option<bool> {
     let outline = layer.kind == K::BoardOutline;
     Some(match name {
         "all" => true,
-        "signal" => layer.kind == K::Copper,
+        "signal" => layer.kind == K::Copper && layer.role != CopperRole::Plane,
+        "plane" => layer.kind == K::Copper && layer.role != CopperRole::Signal,
         "non_signal" => matches!(layer.kind, K::Silkscreen | K::SolderMask | K::Paste),
         "mechanical" => matches!(
             layer.kind,
@@ -94,7 +96,7 @@ pub fn built_in(name: &str, layer: &Layer) -> Option<bool> {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LayerSetApplyParams {
-    /// A built-in set (all, signal, non_signal, mechanical, top, bottom, fab) or the
+    /// A built-in set (all, signal, plane, non_signal, mechanical, top, bottom, fab) or the
     /// name of one saved in the Preferences.
     set: String,
 }
@@ -112,7 +114,7 @@ impl Command for LayerSetApply {
         id: "pcb.view.layer_set.apply",
         title: "Apply Layer Set",
         description: "Shows exactly the Layers of a Layer set and hides the rest: a \
-                      built-in set (all, signal, non_signal, mechanical, top, bottom, fab) \
+                      built-in set (all, signal, plane, non_signal, mechanical, top, bottom, fab) \
                       or one saved in the Preferences. The active Layer stays shown.",
         category: "pcb_view",
         icon: "layers",
@@ -151,7 +153,11 @@ impl Command for LayerSetApply {
             Box::new(move |l: &Layer| built_in(&name, l).unwrap_or(false))
         } else if let Some(saved) = saved.into_iter().find(|s| s.name == p.set) {
             let keys: BTreeSet<String> = saved.layers.into_iter().collect();
-            Box::new(move |l: &Layer| keys.contains(&color_key(l.kind, l.side)))
+            let layers = &set;
+            Box::new(move |l: &Layer| {
+                keys.contains(&layer_key(layers, l))
+                    || (l.kind == LayerKind::Copper && l.side.is_none() && keys.contains("copper"))
+            })
         } else {
             return Err(CommandError::invalid_params(
                 "/set",
@@ -176,7 +182,11 @@ impl Command for LayerSetApply {
             .filter(|l| set.layer(*l).is_some())
             .or_else(|| set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid));
         if active.is_some_and(|a| !shown.contains(&a)) {
-            view.layers.active = shown.first().copied();
+            if let Some(first) = shown.first() {
+                view.activate(&set, *first);
+            } else {
+                view.layers.active = None;
+            }
         }
         Ok(LayersShown { layers: shown })
     }
@@ -187,6 +197,7 @@ fn title(set: &str) -> &'static str {
     match set {
         "all" => "All",
         "signal" => "Signal",
+        "plane" => "Plane",
         "non_signal" => "NonSignal",
         "mechanical" => "Mechanical",
         "top" => "Top",
@@ -266,7 +277,7 @@ impl Command for LayerSetSave {
             .layers
             .iter()
             .filter(|l| !hidden.contains(&l.uuid))
-            .map(|l| color_key(l.kind, l.side))
+            .map(|l| layer_key(&set, l))
             .collect();
         let mut sets = saved_sets(cx);
         sets.retain(|s| s.name != name);

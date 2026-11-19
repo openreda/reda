@@ -5,7 +5,7 @@ use reda_model::{ComponentType, DrcCheck, Limit, RuleField, RuleKind, footprint_
 use super::{Board, Report, item_objects};
 use crate::copper::shape::{BoardShape as _, Shape};
 use crate::keepout;
-use crate::rules::{net_rules, resolve, resolve_pair};
+use crate::rules::{net_rules_on, resolve_on};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     clearance(board, report);
@@ -22,22 +22,16 @@ fn clearance(board: &Board<'_>, report: &mut Report) {
         return;
     }
     for gap in board.copper.gaps(board.pcb) {
-        let source = resolve_pair(
-            board.pcb,
-            board.copper.net(gap.a),
-            board.copper.net(gap.b),
-            RuleKind::Clearance,
-            RuleField::Value,
-        )
-        .expect("gap has a limit");
-        let found = closest_gap(
-            &board.copper.item_pieces(gap.a),
-            &board.copper.item_pieces(gap.b),
-            gap.required,
-        )
-        .expect("gap shares a Layer");
+        let pieces: Vec<_> = board
+            .copper
+            .item_pieces(gap.a)
+            .into_iter()
+            .filter(|(layer, _)| gap.layers.contains(layer))
+            .collect();
+        let found = closest_gap(&pieces, &board.copper.item_pieces(gap.b), gap.required)
+            .expect("gap shares a Layer");
         report.add(DrcCheck::Clearance, |v| {
-            v.length(gap.actual, gap.required, Limit::Min, source.rule)
+            v.length(gap.actual, gap.required, Limit::Min, gap.rule)
                 .distance_points(found.points[0], found.points[1])
                 .on_layers(found.layers)
                 .arg("required", gap.required)
@@ -195,7 +189,7 @@ fn footprint_copper(board: &Board<'_>, report: &mut Report) {
 /// to their Net.
 fn track_width(board: &Board<'_>, report: &mut Report) {
     for track in board.pcb.tracks() {
-        let range = net_rules(board.pcb, track.net).track_width;
+        let range = net_rules_on(board.pcb, track.net, Some(track.layer)).track_width;
         let Some(found) = range.breach(track.width) else {
             continue;
         };
@@ -203,8 +197,14 @@ fn track_width(board: &Board<'_>, report: &mut Report) {
             Limit::Min => RuleField::Min,
             Limit::Max => RuleField::Max,
         };
-        let source = resolve(board.pcb, track.net, RuleKind::TrackWidth, field)
-            .expect("a breached limit applies");
+        let source = resolve_on(
+            board.pcb,
+            track.net,
+            Some(track.layer),
+            RuleKind::TrackWidth,
+            field,
+        )
+        .expect("a breached limit applies");
         report.add(DrcCheck::TrackWidth, |v| {
             breach(v, track.width, found, source.rule).object(track.uuid)
         });

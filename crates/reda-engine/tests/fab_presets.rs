@@ -884,3 +884,160 @@ fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
         assert_eq!(err.code, ErrorCode::InvalidParams);
     }
 }
+
+#[test]
+fn construction_patches_are_case_insensitive_ordered_and_atomic() {
+    let dir = TempDir::new("construction-patches");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let baseline = only_preset(&engine);
+    let uuid = baseline.uuid;
+    let patch = |values| json!({"preset":uuid,"values":{"constructions":values}});
+    let build = json!({"default":false,"thickness":1800000,
+        "entries":[{"copper":35000},{"kind":"core","thickness":1730000},{"copper":35000}]});
+    engine.run_ok("fab_preset.set", patch(json!({"Custom":build})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), 2);
+    assert_eq!(preset.constructions[0], baseline.constructions[0]);
+    assert_eq!(preset.constructions[1].name, "Custom");
+    let mut updated = build.clone();
+    updated["thickness"] = json!(1600000);
+    engine.run_ok("fab_preset.set", patch(json!({"CUSTOM":updated})));
+    let preset = only_preset(&engine);
+    assert_eq!(preset.constructions.len(), 2);
+    assert_eq!(preset.constructions[1].thickness, Nm(1_600_000));
+    for bad in [
+        json!([]),
+        json!({"custom":null,"Broken":{"entries":[]}}),
+        json!({"Dupe":build,"dupe":build}),
+    ] {
+        assert_eq!(
+            engine.run_err("fab_preset.set", patch(bad)).code,
+            ErrorCode::InvalidParams
+        );
+        assert_eq!(only_preset(&engine), preset);
+    }
+    engine.run_ok("fab_preset.set", patch(json!({"custom":null})));
+    assert_eq!(only_preset(&engine), baseline);
+}
+
+#[test]
+fn the_inner_copper_pattern_is_checked_and_preserves_existing_layer_names() {
+    let dir = TempDir::new("gerber-pattern-preset");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    let set = |names| json!({"preset":preset,"values":{"gerber":{"file_names":names}}});
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!([{"layer":"Top Copper","name":"top.grb"}])),
+    );
+    let original = only_preset(&engine);
+    for invalid in [
+        "copper.gbr",
+        "$${position}.gbr",
+        "${layer}.gbr",
+        "L${inner",
+        "sub/L${inner}.gbr",
+    ] {
+        let error = engine.run_err("fab_preset.set", set(json!({"inner_copper":invalid})));
+        assert_eq!(error.code, ErrorCode::InvalidParams);
+        assert_eq!(only_preset(&engine), original);
+    }
+    engine.run_ok(
+        "fab_preset.set",
+        set(json!({"inner_copper":"${project}.g${position}l"})),
+    );
+    assert_eq!(
+        json!(only_preset(&engine).gerber)["file_names"],
+        json!({"inner_copper":"${project}.g${position}l","layers":[{"layer":"Top Copper","name":"top.grb"}]})
+    );
+    engine.run_ok("fab_preset.set", set(json!({"inner_copper":null})));
+    assert_eq!(only_preset(&engine), original);
+}
+
+#[test]
+fn a_reopened_user_pattern_can_override_a_layer_named_inner_copper() {
+    let (home, dir) = (
+        TempDir::new("fab-pattern-home"),
+        TempDir::new("fab-pattern-source"),
+    );
+    let mut engine = with_user_preset(&home, &dir);
+    let names = json!({
+        "inner_copper": "plane${inner}.ger",
+        "layers": [{"layer":"inner_copper","name":"ground.ger"}]
+    });
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name":"My JLC","values":{"gerber":{"file_names":names}}}),
+    );
+    drop(engine);
+
+    let destination = TempDir::new("fab-pattern-board");
+    let mut reopened = test_engine_in(home.path());
+    new_project(
+        &mut reopened,
+        &destination,
+        json!({"fab_preset":"My JLC","layers":4}),
+    );
+    let layer = reopened
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    reopened.run_ok(
+        "pcb.layer.set",
+        json!({"layer":layer,"name":"inner_copper"}),
+    );
+    let project = reopened.project().unwrap();
+    let job = project.output_jobs().next().unwrap();
+    let preview = reda_engine::output_preview::job_preview(&reopened, job).unwrap();
+    assert_eq!(
+        &preview.zip[..4],
+        ["Demo.gtl", "ground.ger", "plane2.ger", "Demo.gbl"]
+    );
+    assert_eq!(json!(only_preset(&reopened).gerber)["file_names"], names);
+}
+
+#[test]
+fn a_user_fab_seeds_inner_limits_on_a_new_multilayer_board() {
+    let home = TempDir::new("inner-process-home");
+    let dir = TempDir::new("inner-process-source");
+    let mut e = test_engine_in(home.path());
+    new_project(&mut e, &dir, json!({}));
+    let preset = only_preset(&e).uuid;
+    e.run_ok("fab_preset.set",json!({"preset":preset,"values":{"rules":{"inner":{"track_width_min":125000,"annular_ring_min":110000}}}}));
+    e.run_ok(
+        "fab_preset.save_user",
+        json!({"preset":preset,"name":"Inner process"}),
+    );
+    let dir = TempDir::new("inner-process-board");
+    new_project(
+        &mut e,
+        &dir,
+        json!({"layers":4,"fab_preset":"Inner process"}),
+    );
+    let board = e.project().unwrap().pcb().unwrap();
+    for (kind, want) in [
+        (RuleKind::TrackWidth, 125000),
+        (RuleKind::AnnularRing, 110000),
+    ] {
+        assert_eq!(
+            board
+                .scoped_rule(kind, &reda_model::RuleScope::INNER)
+                .unwrap()
+                .values
+                .min,
+            Some(Nm(want))
+        );
+    }
+    assert!(
+        board
+            .scoped_rule(RuleKind::Clearance, &reda_model::RuleScope::INNER)
+            .is_none()
+    );
+}

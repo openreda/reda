@@ -293,7 +293,6 @@
     },
     "Construction": {
       "additionalProperties": false,
-      "description": "One named physical build offered by a Fab Preset.",
       "properties": {
         "default": {
           "type": "boolean"
@@ -307,10 +306,22 @@
         "name": {
           "type": "string"
         },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "thickness": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
           "type": "integer"
+        },
+        "via_types": {
+          "items": {
+            "$ref": "#/$defs/ConstructionViaType"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -340,8 +351,44 @@
         {
           "additionalProperties": false,
           "properties": {
+            "df": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "dk": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
             "kind": {
               "$ref": "#/$defs/DielectricKind"
+            },
+            "material": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "test_frequency": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
             },
             "thickness": {
               "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -358,6 +405,51 @@
           "type": "object"
         }
       ]
+    },
+    "ConstructionViaType": {
+      "additionalProperties": false,
+      "description": "Portable Via type, with drilling direction expressed as one-based copper positions.",
+      "properties": {
+        "diameter": {
+          "$ref": "#/$defs/ViaDiameter"
+        },
+        "from": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hole": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "micro": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unused_layers": {
+          "$ref": "#/$defs/UnusedLayers"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "hole",
+        "diameter"
+      ],
+      "type": "object"
     },
     "CplSettings": {
       "additionalProperties": false,
@@ -622,6 +714,16 @@
           "format": "int64",
           "type": "integer"
         },
+        "inner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InnerFabRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "mask_expansion": {
           "$ref": "#/$defs/MaskExpansion",
           "description": "The Solder Mask expansion and Via tenting a new board starts with."
@@ -666,6 +768,19 @@
         "paste_expansion"
       ],
       "type": "object"
+    },
+    "FileNameOverrides": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        },
+        {
+          "$ref": "#/$defs/InnerFileNames"
+        }
+      ]
     },
     "FileNaming": {
       "description": "How the Gerber and drill files of a job are named.",
@@ -717,11 +832,8 @@
       "description": "The Gerber and drill switches of a Fab Preset.",
       "properties": {
         "file_names": {
-          "description": "Layer name to output file name; portable between boards and Projects.",
-          "items": {
-            "$ref": "#/$defs/LayerFileName"
-          },
-          "type": "array"
+          "$ref": "#/$defs/FileNameOverrides",
+          "description": "Layer name to output file name; portable between boards and Projects."
         },
         "file_origin": {
           "$ref": "#/$defs/FileOrigin",
@@ -777,6 +889,56 @@
       "required": [
         "via",
         "pad"
+      ],
+      "type": "object"
+    },
+    "InnerFabRules": {
+      "additionalProperties": false,
+      "description": "Limits that differ on inner copper. Each missing field inherits its flat limit.",
+      "properties": {
+        "annular_ring_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "clearance": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "track_width_min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "InnerFileNames": {
+      "additionalProperties": false,
+      "description": "A preset with an inner copper pattern can also keep its per-Layer overrides.",
+      "properties": {
+        "inner_copper": {
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/LayerFileName"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "inner_copper"
       ],
       "type": "object"
     },
@@ -2092,6 +2254,45 @@
         "finish",
         "mask_color",
         "silk_color"
+      ],
+      "type": "object"
+    },
+    "UnusedLayers": {
+      "enum": [
+        "keep",
+        "remove",
+        "remove_keep_ends"
+      ],
+      "type": "string"
+    },
+    "ViaDiameter": {
+      "additionalProperties": false,
+      "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+      "properties": {
+        "end": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "middle": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "start": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start"
       ],
       "type": "object"
     }

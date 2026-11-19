@@ -438,7 +438,7 @@ fn the_job_file_is_minimal_json_in_the_job_spec_form() {
     let entries = value["FilesAttributes"].as_array().unwrap();
     assert_eq!(
         entries[0],
-        json!({"Path": "Demo.gtl", "FileFunction": "Copper,L1,Top", "FilePolarity": "Positive"})
+        json!({"Path": "Demo.gtl", "FileFunction": "Copper,L1,Top,Signal", "FilePolarity": "Positive"})
     );
     let find = |path: &str| entries.iter().find(|e| e["Path"] == path).cloned();
     assert_eq!(

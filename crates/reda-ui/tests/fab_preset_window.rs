@@ -131,6 +131,24 @@ fn the_gerber_page_sets_the_file_origin_and_the_drill_and_cpl_pages_show_it() {
 }
 
 #[test]
+fn the_gerber_page_validates_inner_copper_patterns_before_apply() {
+    let (home, work) = (TempDir::new("inner-home"), TempDir::new("inner-work"));
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    retype(&mut h, "Inner copper file name", "plane.ger");
+    h.get_by_label_contains("must include ${position} or ${inner}");
+    assert!(h.get_by_label("Apply").accesskit_node().is_disabled());
+    retype(&mut h, "Inner copper file name", "plane${inner}.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!({"inner_copper": "plane${inner}.ger"})
+    );
+}
+
+#[test]
 fn the_stackup_page_edits_finish_and_colour_suggestions_as_free_text() {
     let (home, work) = (TempDir::new("fpw-home"), TempDir::new("fpw-work"));
     let mut h = harness(home.path(), Some(work.path()));
@@ -265,4 +283,106 @@ fn placement_grid_edits_reorders_and_removes_rows_in_the_project_copy() {
     h.get_by_label("Apply").click();
     h.run();
     assert_eq!(copy(&h).placement_corrections.len(), 1);
+}
+
+#[test]
+fn a_construction_can_be_duplicated_and_made_default_on_the_stackup_page() {
+    let (home, work) = (
+        TempDir::new("construction-page-home"),
+        TempDir::new("construction-page"),
+    );
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Stackup");
+    retype(&mut h, "Construction name", "Prototype");
+    h.get_by_role_and_label(Role::Button, "Duplicate Construction")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Set as default")
+        .click();
+    h.run();
+    h.get_by_label("Apply").click();
+    h.run();
+    let preset = copy(&h).preset();
+    assert_eq!(preset.default_construction(2).unwrap().name, "Prototype");
+    assert_eq!(
+        preset.construction("Prototype").unwrap().entries,
+        preset.construction("2 Layer").unwrap().entries
+    );
+}
+
+#[test]
+fn gerber_preset_previews_a_four_layer_boards_copper_files_as_the_pattern_changes() {
+    let (home, work) = (
+        TempDir::new("inner-preview-home"),
+        TempDir::new("inner-preview"),
+    );
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    for name in ["Board.gtl", "Board.g2l", "Board.g3l", "Board.gbl"] {
+        h.get_by_label(name);
+    }
+    choose(&mut h, "File naming", "Project and Layer name (.gbr)");
+    for name in [
+        "Board-Top_Copper.gbr",
+        "Board-L2.gbr",
+        "Board-L3.gbr",
+        "Board-Bottom_Copper.gbr",
+    ] {
+        h.get_by_label(name);
+    }
+    retype(
+        &mut h,
+        "Inner copper file name",
+        "${project}-${position}-${inner}.ger",
+    );
+    h.get_by_label("Board-2-1.ger");
+    h.get_by_label("Board-3-2.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Inner copper file name")
+        .click();
+    h.run();
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.key_press(Key::Backspace);
+    h.run();
+    h.get_by_label("Board-L2.gbr");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!([])
+    );
+}
+
+#[test]
+fn removing_the_last_layer_override_reveals_and_preserves_the_copper_pattern() {
+    let (home, work) = (TempDir::new("override-home"), TempDir::new("override-work"));
+    let mut h = harness(home.path(), Some(work.path()));
+    let preset = copy(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "fab_preset.set",
+            serde_json::json!({"preset":preset,"values":{"gerber":{"file_names":{
+                "inner_copper":"plane${inner}.ger","layers":[{"layer":"L2","name":"ground.ger"}]
+            }}}}),
+        )
+        .unwrap();
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    h.get_by_label("ground.ger");
+    h.get_by_role_and_label(Role::Button, "Remove")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Remove").click();
+    h.run();
+    h.get_by_label("plane1.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!({"inner_copper":"plane${inner}.ger"})
+    );
 }

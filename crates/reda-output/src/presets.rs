@@ -42,6 +42,7 @@ pub fn generic() -> FabPreset {
     FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
+            inner: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
@@ -104,6 +105,7 @@ fn jlcpcb() -> FabPreset {
     let mut preset = FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
+            inner: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(0),
@@ -178,6 +180,7 @@ fn pcbway() -> FabPreset {
     let mut preset = FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
+            inner: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
