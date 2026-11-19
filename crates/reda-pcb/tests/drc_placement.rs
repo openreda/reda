@@ -393,3 +393,36 @@ fn silk_minimums_measure_lines_and_stroke_text_on_both_sides_and_skip_outline_st
         }
     }
 }
+
+#[test]
+fn a_filled_silkscreen_rectangle_without_an_outline_has_no_stroke_width_to_check() {
+    let dir = TempDir::new("silk-filled-rectangle");
+    let mut engine = engine(&dir);
+    engine.run_ok(
+        "pcb.graphic.add_rect",
+        json!({
+            "layer": "silkscreen_bottom", "from": {"x": 0, "y": 0},
+            "to": {"x": "3mm", "y": "1mm"}, "filled": true, "width": 0
+        }),
+    );
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    assert_eq!(report["violations"], json!([]));
+}
+
+#[test]
+fn knockout_text_keeps_the_stroke_fonts_width_for_silkscreen_checks() {
+    let dir = TempDir::new("silk-knockout");
+    let mut engine = engine(&dir);
+    let mut place = |font: &str| {
+        created(&engine.run_ok(
+            "pcb.text.add",
+            json!({"layer":"silkscreen_bottom","text":"R","x":0,"y":0,
+                   "font":font,"height":"1mm","thickness":"0.1mm",
+                   "knockout":{"margin":"0.3mm"}}),
+        ))
+    };
+    let stroke = place(reda_model::HERSHEY_FONT);
+    place(reda_model::NOTO_SANS_FONT);
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    assert_eq!(objects_of(&report, "silk_width"), [vec![stroke]]);
+}

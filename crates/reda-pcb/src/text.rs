@@ -41,6 +41,10 @@ pub struct PlacedText {
     pub missing_font: bool,
     /// Wrapped lines omitted because their whole capital height or width did not fit.
     pub dropped_lines: usize,
+    /// Whether any visible glyph uses the pen, including strokes cut out of a knockout.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) has_stroke_glyphs: bool,
     /// The pen width of the strokes.
     pub stroke_width: Nm,
     /// Stroke-font glyphs: capsules of `stroke_width` from `a` to `b`.
@@ -227,6 +231,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
             .extend(geometry.fill.indices.iter().map(|i| i + base));
         regions.extend(geometry.regions.iter().map(|r| r.map(at)));
     }
+    let has_stroke_glyphs = !strokes.is_empty();
     if let Some(knockout) = text.knockout {
         let frame = text.frame.map(|frame| Bounds {
             min: Point::new(Nm(left), Nm(bottom)),
@@ -251,6 +256,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
         drawn_font,
         missing_font: matches!(resolved, Resolved::Missing),
         dropped_lines,
+        has_stroke_glyphs,
         stroke_width: text.thickness,
         strokes,
         fill,

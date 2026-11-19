@@ -40,7 +40,7 @@ pub(super) struct Silk {
 impl Silk {
     fn text(owner: Uuid, side: Side, text: &reda_model::PcbText, fonts: &Fonts) -> Self {
         let laid_out = text_geometry(text, fonts);
-        let width = (!laid_out.strokes.is_empty()).then_some(laid_out.stroke_width);
+        let width = laid_out.has_stroke_glyphs.then_some(laid_out.stroke_width);
         Self {
             objects: vec![owner],
             side,
@@ -288,7 +288,7 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
                 objects: vec![instance.uuid],
                 side,
                 area: drawing_area(&graphic.shape, graphic.width.0, graphic.fill),
-                width: Some(graphic.width),
+                width: (graphic.width > Nm::ZERO).then_some(graphic.width),
                 height: None,
             });
         }
@@ -321,7 +321,7 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
         out.push(Silk {
             objects: vec![graphic.uuid],
             side,
-            width: Some(graphic.width),
+            width: (graphic.width > Nm::ZERO).then_some(graphic.width),
             height: None,
             area,
         });
