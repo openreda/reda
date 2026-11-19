@@ -228,10 +228,7 @@ impl Router {
             }
             let proposal = copper.propose_via(pcb, at, route.net, *member, &ends);
             rings.insert(member.hole);
-            for layer in pcb.span_layers(member.span) {
-                let land = proposal
-                    .has_land(layer)
-                    .then(|| member.diameter.on(member.span, layer));
+            for (layer, land) in proposal.via_layers(pcb) {
                 rings.extend(land);
                 if display != ClearanceDisplay::Off {
                     self.halos.extend(copper.via_halos(

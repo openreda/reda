@@ -179,6 +179,7 @@ pub struct Router {
     chooser: Option<Chooser>,
     candidates: Option<PairCandidates>,
     via_candidate: Option<ViaPreview>,
+    stack_rings: Vec<(Point, std::collections::BTreeSet<Nm>)>,
     hovered_layer: Option<Uuid>,
     picked_target: Option<Uuid>,
     /// What the clearance display shades.
@@ -205,6 +206,7 @@ impl Default for Router {
             chooser: None,
             candidates: None,
             via_candidate: None,
+            stack_rings: Vec::new(),
             hovered_layer: None,
             picked_target: None,
             halos: Vec::new(),
@@ -788,8 +790,26 @@ impl Router {
             )
         };
         let pcb = project.pcb().expect("a board");
-        let proposed =
-            route::propose_with_vias(&copper, pcb, &request, &route.steps, &route.track_ends(&[]));
+        let ends = route.track_ends(&[]);
+        let proposed = route::propose_with_vias(&copper, pcb, &request, &route.steps, &ends);
+        self.stack_rings.clear();
+        for step in &route.steps {
+            let Step::Via(at, members) = step else {
+                continue;
+            };
+            let mut rings = std::collections::BTreeSet::new();
+            for &via in members {
+                let proposal = copper.propose_via(pcb, *at, route.net, via, &ends);
+                rings.insert(via.hole);
+                rings.extend(
+                    proposal
+                        .via_layers(pcb)
+                        .into_iter()
+                        .filter_map(|(_, diameter)| diameter),
+                );
+            }
+            self.stack_rings.push((*at, rings));
+        }
         let display = prefs.clearance_display;
         let layer = route.leg.layer;
         let net = route.net;
@@ -1159,26 +1179,10 @@ pub fn draw(ui: &egui::Ui, shell: &Shell, input: &crate::canvas::CanvasInputs) {
                 painter.line_segment([c + egui::vec2(-d, d), c + egui::vec2(d, -d)], x);
             }
         }
-        let draw_vias = |at, members: &[RouteVia], color| {
-            let mut rings = std::collections::BTreeSet::new();
-            for member in members {
-                rings.extend(
-                    [
-                        Some(member.diameter.start),
-                        member.diameter.middle,
-                        member.diameter.end,
-                        Some(member.hole),
-                    ]
-                    .into_iter()
-                    .flatten(),
-                );
+        for (at, rings) in &router.stack_rings {
+            for &ring in rings {
+                via(*at, ring, placed);
             }
-            for ring in rings {
-                via(at, ring, color);
-            }
-        };
-        for (at, members) in p.via_stacks {
-            draw_vias(at, &members, placed);
         }
         if let Some(candidate) = p.via_candidate {
             let color = if candidate.blocked.is_some() {

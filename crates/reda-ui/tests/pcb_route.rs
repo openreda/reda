@@ -1144,7 +1144,7 @@ fn a_stack_can_clear_an_obstacle_on_an_omitted_land_but_its_bore_still_needs_cle
         let obstacle = run(
             &mut b.shell,
             "pcb.track.add",
-            json!({"layer":layers[1],
+            json!({"layer":layers[1], "net":(mode == "remove").then_some(b.net),
             "points":[{"x":"2mm","y":"0.7mm"},{"x":"8mm","y":"0.7mm"}],"width":"0.1mm"}),
         );
         let track: Uuid = obstacle["result"]["tracks"][0]
@@ -1171,6 +1171,10 @@ fn a_stack_can_clear_an_obstacle_on_an_omitted_land_but_its_bore_still_needs_cle
         assert_eq!(
             candidate.blocked, None,
             "the middle land is absent in {mode}"
+        );
+        assert!(
+            !candidate.rings.contains(&Nm::from_mm(2)),
+            "the omitted land has no preview ring"
         );
         let halo = b
             .shell
@@ -1256,4 +1260,67 @@ fn an_uncommitted_track_restores_a_removed_via_land_only_on_its_own_layer() {
     let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
     assert_eq!(pcb.vias().count(), 1);
     assert_eq!(pcb.tracks().filter(|t| t.net == Some(b.net)).count(), 1);
+}
+
+#[test]
+fn the_candidate_list_can_jump_to_its_last_page_and_cycle_back_to_the_single_via() {
+    use reda_ui::pcb::route::Chooser;
+    let mut b = board();
+    let add_layer = json!({"id":"pcb.layer.add","params":{"document":b.pcb}});
+    run(
+        &mut b.shell,
+        "batch",
+        json!({"commands":vec![add_layer; 10]}),
+    );
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let mut add_types = Vec::new();
+    for (i, &from) in layers.iter().enumerate() {
+        for &to in &layers[i + 1..] {
+            if i != 0 || to != layers[11] {
+                add_types.push(json!({"id":"pcb.via_type.add","params":{"document":b.pcb,"from":from,"to":to}}));
+            }
+        }
+    }
+    run(&mut b.shell, "batch", json!({"commands":add_types}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    b.shell.route_hover(mm(4., 0.));
+    run(
+        &mut b.shell,
+        "pcb.route.pick_via",
+        json!({"target":layers[11],"page":usize::MAX}),
+    );
+    assert!(matches!(
+        b.shell.router().chooser(),
+        Some(Chooser::Candidates {
+            page: 63,
+            count: 1024,
+            ..
+        })
+    ));
+    run(&mut b.shell, "pcb.route.pick_via", json!({"index":1023}));
+    assert!(
+        b.shell
+            .route_preview()
+            .unwrap()
+            .via_candidate
+            .unwrap()
+            .members
+            .len()
+            > 1
+    );
+    run(&mut b.shell, "pcb.route.cycle_via", json!({}));
+    let candidate = b.shell.route_preview().unwrap().via_candidate.unwrap();
+    assert_eq!(candidate.members.len(), 1);
+    assert_eq!(candidate.members[0].span.from, layers[0]);
+    assert_eq!(candidate.members[0].span.to, layers[11]);
 }

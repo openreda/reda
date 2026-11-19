@@ -44,6 +44,22 @@ impl Proposal {
         !matches!(self, Self::Via { omitted, .. } if omitted.contains(&layer))
     }
 
+    /// The physical span and retained land diameters of a proposed Via, in board order.
+    pub fn via_layers(&self, pcb: &PcbDocument) -> Vec<(Uuid, Option<Nm>)> {
+        let Self::Via { span, diameter, .. } = *self else {
+            return Vec::new();
+        };
+        pcb.span_layers(span)
+            .into_iter()
+            .map(|layer| {
+                (
+                    layer,
+                    self.has_land(layer).then(|| diameter.on(span, layer)),
+                )
+            })
+            .collect()
+    }
+
     /// The physical outline on every traversed Layer, including the bare bore.
     pub(crate) fn pieces(&self, pcb: &PcbDocument) -> (Vec<(Uuid, Shape)>, Option<Uuid>) {
         match *self {
@@ -53,24 +69,10 @@ impl Proposal {
                 width,
                 net,
             } => (vec![(layer, Shape::track(&geometry, width))], net),
-            Proposal::Via {
-                at,
-                diameter,
-                span,
-                hole,
-                net,
-                ..
-            } => (
-                pcb.span_layers(span)
+            Proposal::Via { at, hole, net, .. } => (
+                self.via_layers(pcb)
                     .into_iter()
-                    .map(|layer| {
-                        let size = if self.has_land(layer) {
-                            diameter.on(span, layer)
-                        } else {
-                            hole
-                        };
-                        (layer, Shape::disc(at, size))
-                    })
+                    .map(|(layer, land)| (layer, Shape::disc(at, land.unwrap_or(hole))))
                     .collect(),
                 net,
             ),

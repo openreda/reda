@@ -477,3 +477,95 @@ fn choosing_a_stack_then_jumping_by_chip_or_key_uses_the_same_layer_and_journal_
         ]
     );
 }
+
+#[test]
+fn layer_steps_and_keypad_jumps_during_a_route_place_one_via_per_successful_key() {
+    use egui::{Event, Modifiers};
+    let mut w = window();
+    let s = w.h.state_mut().shell_mut();
+    for _ in 0..2 {
+        s.run("pcb.layer.add", json!({"document":w.pcb})).unwrap();
+    }
+    let layers: Vec<_> = s
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    s.run("pcb.layer.set", json!({"layer":layers[1], "role":"plane"}))
+        .unwrap();
+    s.run(
+        "pcb.layer.show",
+        json!({"layer":layers[2], "visible":false}),
+    )
+    .unwrap();
+    route_with_keys(&mut w);
+    let origin = on_screen(&w, mm(0., 0.));
+    click(&mut w, origin);
+    let mut centres = Vec::new();
+    for (i, (key, position)) in [
+        (Key::Plus, 1),
+        (Key::Minus, 0),
+        (Key::F22, 3),
+        (Key::F23, 0),
+        (Key::Num3, 2),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        w.h.hover_at(on_screen(&w, mm(i as f64 + 1., 4.)));
+        w.h.run();
+        centres.push(shell(&w).router().snap().unwrap().at);
+        match key {
+            Key::Plus | Key::Minus => w.h.key_press(key),
+            Key::F22 | Key::F23 => {
+                w.h.input_mut().events.extend([
+                    Event::ModifiersChanged(Modifiers::SHIFT),
+                    Event::Key {
+                        key,
+                        physical_key: Some(Key::F24),
+                        pressed: true,
+                        repeat: false,
+                        modifiers: Modifiers::SHIFT,
+                    },
+                    Event::Text("*".into()),
+                    Event::ModifiersChanged(Modifiers::NONE),
+                ]);
+            }
+            _ => w.h.event(Event::Key {
+                key,
+                physical_key: Some(Key::F24),
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }),
+        }
+        w.h.run();
+        let preview = shell(&w).route_preview().unwrap();
+        assert_eq!(preview.layer, layers[position], "{key:?}");
+        assert_eq!(shell(&w).board_view().layers.active, Some(layers[position]));
+        assert_eq!(preview.vias, centres);
+    }
+    assert!(!shell(&w).board_view().layers.hidden.contains(&layers[2]));
+    w.h.key_press(Key::Enter);
+    w.h.run();
+    assert_eq!(last_command(&w), "batch");
+    let commands = shell(&w).engine().journal().last().unwrap().params["commands"]
+        .as_array()
+        .unwrap();
+    let placed: Vec<_> = commands
+        .iter()
+        .filter(|c| c["id"] == "pcb.via.add")
+        .map(|c| c["params"]["at"].clone())
+        .collect();
+    assert_eq!(
+        placed,
+        centres
+            .into_iter()
+            .map(|at| json!({"x":at.x,"y":at.y}))
+            .collect::<Vec<_>>()
+    );
+}

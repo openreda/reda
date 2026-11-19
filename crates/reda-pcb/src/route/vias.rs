@@ -1,7 +1,8 @@
 //! Ranked Via choices for a route changing physical Layer. A 32-Layer board can
 //! offer over a billion distinct stacks, so only counts and individual choices
 //! are stored. Table order breaks ties within the same amount of excess span.
-use reda_model::{PcbDocument, Uuid};
+use super::{Copper, Obstacles, Proposal, Request, Shape, Step};
+use reda_model::{LayerSpan, PcbDocument, Uuid, geom::Point};
 
 #[derive(Clone, Debug)]
 struct Edge {
@@ -175,19 +176,20 @@ impl ViaCandidates {
 /// Check only lands that the next Track's endpoints could bring back. Restrict
 /// the geometry to the restored Layer: the rest of the stack was already checked.
 pub(super) fn restored_lands(
-    copper: &super::Copper,
+    copper: &Copper,
     pcb: &PcbDocument,
-    r: &super::Request,
-    steps: &[super::Step],
-    ends: &[(Uuid, reda_model::geom::Point)],
-    path: &[reda_model::geom::Point],
-) -> Vec<(super::Shape, super::Obstacles)> {
+    r: &Request,
+    steps: &[Step],
+    ends: &[(Uuid, Point)],
+    path: &[Point],
+) -> Vec<(Shape, Obstacles)> {
     let mut out = Vec::new();
-    if r.net.is_none() || path.len() < 2 {
+    if steps.is_empty() || r.net.is_none() || path.len() < 2 {
         return out;
     }
+    let ahead = Shape::chain(path, 0);
     for step in steps {
-        let super::Step::Via(at, members) = step else {
+        let Step::Via(at, members) = step else {
             continue;
         };
         for &member in members {
@@ -195,17 +197,17 @@ pub(super) fn restored_lands(
                 continue;
             }
             let diameter = member.diameter.on(member.span, r.layer);
-            let land = super::Shape::disc(*at, diameter);
-            if !path.iter().any(|&point| land.contains(point))
+            let land = Shape::disc(*at, diameter);
+            if !ahead.touches(&land)
                 || copper
                     .propose_via(pcb, *at, r.net, member, ends)
                     .has_land(r.layer)
             {
                 continue;
             }
-            let restored = super::Proposal::Via {
+            let restored = Proposal::Via {
                 at: *at,
-                span: reda_model::LayerSpan {
+                span: LayerSpan {
                     from: r.layer,
                     to: r.layer,
                 },
@@ -214,7 +216,7 @@ pub(super) fn restored_lands(
                 hole: member.hole,
                 omitted: Vec::new(),
             };
-            let hits = super::Obstacles {
+            let hits = Obstacles {
                 copper: copper.clearance(pcb, &restored, &[]),
                 keepouts: crate::keepout::keepouts_hit(pcb, &restored),
                 edges: super::edges_hit(pcb, &restored),
