@@ -359,3 +359,18 @@ fn previewing_an_unassigned_layer_does_not_reserve_or_reuse_an_existing_id() {
     assert_eq!(counts["via_types_changed"], 1);
     assert_eq!(copper(&e).len(), 3);
 }
+
+#[test]
+fn an_add_without_a_selection_splits_the_middle_dielectric_among_several_sheets() {
+    let dir = TempDir::new("layer-middle-sheet");
+    let mut e = board(&dir, 2);
+    let doc = pcb(&e).uuid;
+    let first = pcb(&e).stackup().dielectrics().next().unwrap().uuid;
+    let second = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":first})));
+    let third = created(e.run_ok("pcb.stackup.dielectric.add", json!({"beside":second})));
+    let added = created(e.run_ok("pcb.layer.add", json!({"document":doc})));
+    let entries = &pcb(&e).stackup().entries;
+    assert_eq!(entries[2].uuid(), second);
+    assert_eq!(entries[3].uuid(), added);
+    assert_eq!(entries[5].uuid(), third);
+}

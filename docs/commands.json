@@ -48899,7 +48899,7 @@
             "type": "string"
           },
           "split": {
-            "description": "Split this dielectric, or the middle gap when omitted.",
+            "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
             "format": "uuid",
             "type": [
               "string",
@@ -58697,7 +58697,7 @@
                 "type": "string"
               },
               "split": {
-                "description": "Split this dielectric, or the middle gap when omitted.",
+                "description": "Split this dielectric, or the middle dielectric sheet when omitted.",
                 "format": "uuid",
                 "type": [
                   "string",

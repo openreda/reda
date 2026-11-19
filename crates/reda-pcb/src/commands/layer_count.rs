@@ -60,7 +60,7 @@ impl Plan {
 #[serde(deny_unknown_fields)]
 pub struct AddParams {
     pub document: Uuid,
-    /// Split this dielectric, or the middle gap when omitted.
+    /// Split this dielectric, or the middle dielectric sheet when omitted.
     pub split: Option<Uuid>,
     /// The new copper Layer's UUID.
     pub uuid: Option<Uuid>,
@@ -139,24 +139,21 @@ pub(crate) fn add_plan(
             .unwrap(),
     };
     let lower = uuid.child("dielectric");
-    let index = match split {
-        Some(id) => stack
-            .entries
-            .iter()
-            .position(|e| matches!(e,StackupEntry::Dielectric(d) if d.uuid==id))
-            .ok_or_else(|| {
-                CommandError::invalid_params("/split", "choose a dielectric in this Stackup")
-            })?,
-        None => {
-            let middle = copper[copper.len().div_ceil(2)].layer;
-            stack
-                .entries
-                .iter()
-                .position(|e| e.uuid() == middle)
-                .unwrap()
-                - 1
-        }
-    };
+    let split = split.unwrap_or_else(|| {
+        let middle = stack.dielectrics().count() / 2;
+        stack
+            .dielectrics()
+            .nth(middle)
+            .expect("a Stackup has dielectric")
+            .uuid
+    });
+    let index = stack
+        .entries
+        .iter()
+        .position(|e| matches!(e, StackupEntry::Dielectric(d) if d.uuid==split))
+        .ok_or_else(|| {
+            CommandError::invalid_params("/split", "choose a dielectric in this Stackup")
+        })?;
     let before = stack.entries[..index]
         .iter()
         .filter(|e| matches!(e, StackupEntry::Copper(_)))
