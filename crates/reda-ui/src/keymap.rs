@@ -117,7 +117,11 @@ pub fn resolve_keys(
     // Panels and settings windows take only global keys.
     let panel = matches!(
         shell.layout().focus,
-        Some(crate::layout::TabKey::Panel(_) | crate::layout::TabKey::Settings(_))
+        Some(
+            crate::layout::TabKey::Panel(_)
+                | crate::layout::TabKey::Settings(_)
+                | crate::layout::TabKey::Stackup(_)
+        )
     );
     if dialog.is_some() || panel {
         active = Active::default();

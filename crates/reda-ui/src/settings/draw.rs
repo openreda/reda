@@ -32,6 +32,7 @@ pub enum Outcome {
     /// A page wants a page of a Project Fab Preset copy shown in Project Settings
     /// (**Edit preset copy…**).
     EditPreset(Uuid, PresetPage),
+    OpenStackup(Uuid),
 }
 
 /// What a page may use while it draws.
@@ -46,6 +47,10 @@ pub struct PageCx<'a> {
 }
 
 impl PageCx<'_> {
+    pub(crate) fn open_stackup(&mut self, pcb: Uuid) {
+        self.asked = Some(Outcome::OpenStackup(pcb));
+    }
+
     /// The invalid value on `field`, if there is one.
     pub fn problem(&self, field: &str) -> Option<&Problem> {
         self.problems.iter().find(|p| p.field == field)

@@ -26,9 +26,9 @@ mod length;
 mod model;
 
 pub use model::{
-    ANGLES, Band, BoardSetupDraft, ClassKey, ClassRow, CrossBand, FabPreview, GRID_FIELDS,
-    GRID_KINDS, ImportPreview, NetRow, PasteMode, RuleChange, RuleField, SPOKES, STYLES,
-    StackupDraft, StackupRow, ValueKind, class_field, kind_name,
+    ANGLES, BoardSetupDraft, ClassKey, ClassRow, FabPreview, GRID_FIELDS, GRID_KINDS,
+    ImportPreview, NetRow, PasteMode, RuleChange, RuleField, SPOKES, STYLES, ValueKind,
+    class_field, kind_name,
 };
 
 /// The draft every page of one dialog shares.
@@ -356,8 +356,7 @@ impl Page for NetClassesPage {
     }
 }
 
-/// The Stackup page: the copper and dielectric thicknesses with their totals and a
-/// cross-section, the finish and colours, and the Fab Notes text.
+/// The Stackup summary and the board’s Fab Notes.
 pub struct StackupPage {
     view: View,
 }
@@ -369,6 +368,10 @@ impl StackupPage {
 }
 
 impl Page for StackupPage {
+    fn problems(&self) -> Vec<Problem> {
+        Vec::new()
+    }
+
     fn title(&self) -> String {
         tr!("board-setup-page-stackup")
     }
@@ -391,12 +394,6 @@ impl Page for StackupPage {
 
     fn picked_file(&mut self, shell: &mut Shell, request: FileRequest, path: &Path) {
         self.view.picked_file(shell, request, path);
-    }
-
-    fn problems(&self) -> Vec<Problem> {
-        let problems = self.view.board.borrow().problems();
-        let ours = |p: &Problem| p.field.starts_with("stackup/");
-        problems.into_iter().filter(ours).collect()
     }
 
     fn show(&mut self, ui: &mut egui::Ui, cx: &mut PageCx<'_>) {

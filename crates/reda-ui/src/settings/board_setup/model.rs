@@ -17,18 +17,16 @@ use serde_json::{Map, Value, json};
 mod actions;
 mod field;
 mod grid;
-pub use actions::ImportPreview;
-mod stackup;
 use super::Rule;
 use crate::settings::{Draft, Problem, Step};
 use crate::show_on_board::Shown;
 use crate::tr;
+pub use actions::ImportPreview;
 pub use field::{
     ANGLES, GRID_FIELDS, GRID_KINDS, RuleField, SPOKES, STYLES, ValueKind, connection_value_name,
     kind_name, style_name, target_name,
 };
 use field::{by_kind, values_param};
-pub use stackup::{Band, CrossBand, StackupDraft, StackupRow};
 
 /// A Net Class row: the Default Net Class, one the board has, or one added in the dialog
 /// and not applied yet.
@@ -213,7 +211,7 @@ pub struct BoardSetupDraft {
     mask_linked: bool,
     /// How Zones with no typed name are named.
     zone_scheme: Draft<ZoneNameScheme>,
-    stackup: StackupDraft,
+    fab_notes: Draft<String>,
     /// The board's rule records, by Net Class (`None` board-wide) and kind.
     records: BTreeMap<(Option<Uuid>, RuleKind), Uuid>,
     /// What the last rule action reported.
@@ -242,7 +240,7 @@ struct Edits {
     follow: BTreeSet<(ClassKey, RuleField)>,
     mask_linked: bool,
     zone_scheme: Draft<ZoneNameScheme>,
-    stackup: StackupDraft,
+    fab_notes: Draft<String>,
 }
 
 /// Loads a value's draft from `fresh` text; a typed value that means the same (`0.20`
@@ -351,7 +349,8 @@ impl BoardSetupDraft {
         for (check, draft) in &mut self.severities {
             draft.load(setup.severities.get(*check), reset);
         }
-        self.stackup.load(project, pcb, reset);
+        self.fab_notes
+            .load(pcb.setup().fab_notes.clone().unwrap_or_default(), reset);
         self.load_classes(pcb, reset);
         self.load_nets(pcb, reset);
     }
@@ -368,7 +367,7 @@ impl BoardSetupDraft {
             follow: self.follow.clone(),
             mask_linked: self.mask_linked,
             zone_scheme: self.zone_scheme.clone(),
-            stackup: self.stackup.clone(),
+            fab_notes: self.fab_notes.clone(),
         }
     }
 
@@ -383,7 +382,7 @@ impl BoardSetupDraft {
         self.follow = edits.follow;
         self.mask_linked = edits.mask_linked;
         self.zone_scheme = edits.zone_scheme;
-        self.stackup = edits.stackup;
+        self.fab_notes = edits.fab_notes;
     }
 
     /// Notes the edits as they are now: a change since the last check becomes one step
@@ -436,13 +435,9 @@ impl BoardSetupDraft {
         }
     }
 
-    /// The Stackup page's drafts.
-    pub fn stackup(&self) -> &StackupDraft {
-        &self.stackup
-    }
-
-    pub fn stackup_mut(&mut self) -> &mut StackupDraft {
-        &mut self.stackup
+    /// Free text included in the board's fabrication notes.
+    pub fn fab_notes_mut(&mut self) -> &mut String {
+        self.fab_notes.value_mut()
     }
 
     fn load_classes(&mut self, pcb: &PcbDocument, reset: bool) {
@@ -887,7 +882,6 @@ impl BoardSetupDraft {
                 problems.push(Problem::new(rule.problem_field(), message));
             }
         }
-        problems.extend(self.stackup.problems());
         // No class may take the Default Net Class's name.
         let mut seen: BTreeMap<String, ClassKey> = BTreeMap::from([(
             reda_engine::pcb::DEFAULT_NET_CLASS.to_lowercase(),
@@ -994,7 +988,13 @@ impl BoardSetupDraft {
                 ));
             }
         }
-        steps.extend(self.stackup.steps());
+        if self.fab_notes.value().trim() != self.fab_notes.base().trim() {
+            let text = self.fab_notes.value().trim();
+            steps.push(Step::new(
+                "pcb.fab_notes.set",
+                json!({"text": (!text.is_empty()).then_some(text)}),
+            ));
+        }
         if self.zone_scheme.changed() {
             steps.push(Step::new(
                 "pcb.zone.set_name_scheme",

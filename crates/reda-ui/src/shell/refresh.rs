@@ -27,10 +27,12 @@ impl Shell {
             .flat_map(|p| p.documents())
             .map(|d| (d.uuid, d.title.clone()))
             .collect();
+        let pcb = project.and_then(|p| p.pcb()).map(|p| p.uuid);
         open.extend(elements);
         self.layout_mut().retain_tabs(|t| match t {
             // The Start page stays beside Library element tabs while no Project is open.
             TabKey::Start => no_project,
+            TabKey::Stackup(uuid) => Some(*uuid) == pcb,
             TabKey::Document(uuid) => open.iter().any(|(u, _)| u == uuid),
             TabKey::Panel(_) => true,
             // The Project's settings windows close with it.

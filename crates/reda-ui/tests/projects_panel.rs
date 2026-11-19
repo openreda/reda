@@ -228,7 +228,24 @@ fn the_pcb_document_is_deleted_and_added_back() {
     assert!(!pcb(&h));
 
     menu(&mut h, "PCB", "Add PCB Document");
-    assert!(pcb(&h));
+    h.get_by_role_and_label(Role::TextInput, "Copper Layers")
+        .set_text_value_accesskit("3");
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Add PCB").click();
+    h.run();
+    assert_eq!(
+        h.state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .stackup()
+            .copper()
+            .count(),
+        3
+    );
 }
 
 #[test]
@@ -408,6 +425,8 @@ fn a_missing_document_is_greyed_with_a_note_in_messages_and_can_be_removed() {
     );
     // A missing PCB Document leaves Add PCB Document on offer.
     menu(&mut h, "PCB", "Add PCB Document");
+    h.get_by_role_and_label(Role::Button, "Add PCB").click();
+    h.run();
     assert!(h.query_by_label("Gone (missing)").is_none());
     assert!(
         h.state()

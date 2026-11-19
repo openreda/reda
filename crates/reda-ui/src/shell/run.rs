@@ -298,7 +298,7 @@ impl Shell {
             return dialog;
         }
         match &self.layout().focus {
-            Some(TabKey::Document(uuid)) => Some(Scope::Document(*uuid)),
+            Some(TabKey::Document(uuid) | TabKey::Stackup(uuid)) => Some(Scope::Document(*uuid)),
             // Board Setup's changes go on the PCB Document's stack.
             Some(TabKey::Settings(SettingsWindow::BoardSetup)) => {
                 let pcb = self.engine.project().and_then(|p| p.pcb());

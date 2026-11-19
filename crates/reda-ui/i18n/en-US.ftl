@@ -2993,3 +2993,9 @@ pref-pcb-route-auto-terminate = Auto-terminate routing
 pref-pcb-route-clearance-display = Display clearance boundaries
 pref-pcb-route-clearance-display-near = Near the cursor
 pref-cross-select-reposition = Reposition
+
+stackup-summary = { $count } copper Layers · { $thickness } mm ordered
+stackup-open = Open Stackup editor
+stackup-copper-layers = Copper Layers
+stackup-layer-range = 2–32
+stackup-add-pcb = Add PCB

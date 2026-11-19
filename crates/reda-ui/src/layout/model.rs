@@ -117,6 +117,8 @@ pub enum TabKey {
     /// The Start page, shown while no Project is open.
     Start,
     Document(Uuid),
+    /// The Stackup editor bound to a PCB Document.
+    Stackup(Uuid),
     Panel(PanelId),
     Settings(SettingsWindow),
 }
@@ -125,6 +127,7 @@ impl fmt::Display for TabKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TabKey::Start => f.write_str("start"),
+            TabKey::Stackup(uuid) => write!(f, "stackup/{uuid}"),
             TabKey::Document(uuid) => write!(f, "{uuid}"),
             TabKey::Panel(panel) => f.write_str(panel.id()),
             TabKey::Settings(window) => f.write_str(window.id()),
@@ -149,6 +152,12 @@ impl FromStr for TabKey {
     type Err = String;
 
     fn from_str(s: &str) -> Result<TabKey, String> {
+        if let Some(uuid) = s.strip_prefix("stackup/") {
+            return uuid
+                .parse::<Uuid>()
+                .map(TabKey::Stackup)
+                .map_err(|e| e.to_string());
+        }
         if s == "start" {
             return Ok(TabKey::Start);
         }
@@ -703,7 +712,8 @@ impl Layout {
     /// The active Document: the one last activated, or else the first open one.
     pub fn active_document(&self) -> Option<Uuid> {
         if let Some(uuid) = self.last_document
-            && self.place(&TabKey::Document(uuid)).is_some()
+            && (self.place(&TabKey::Document(uuid)).is_some()
+                || self.place(&TabKey::Stackup(uuid)).is_some())
         {
             return Some(uuid);
         }
@@ -711,7 +721,7 @@ impl Layout {
             .into_iter()
             .flat_map(|(_, g)| g.tabs.iter())
             .find_map(|t| match t {
-                TabKey::Document(uuid) => Some(*uuid),
+                TabKey::Document(uuid) | TabKey::Stackup(uuid) => Some(*uuid),
                 _ => None,
             })
     }
@@ -742,7 +752,7 @@ impl Layout {
         self.open_in_document_group(TabKey::Start)
     }
 
-    fn open_in_document_group(&mut self, tab: TabKey) -> GroupId {
+    pub(super) fn open_in_document_group(&mut self, tab: TabKey) -> GroupId {
         if self.place(&tab).is_none() {
             let group = self.document_group();
             if let Some(g) = self.group_mut(group) {
@@ -1176,7 +1186,7 @@ impl Layout {
         self.focus = Some(tab.clone());
         self.memory.recent.retain(|t| t != tab);
         self.memory.recent.push(tab.clone());
-        if let TabKey::Document(uuid) = tab {
+        if let TabKey::Document(uuid) | TabKey::Stackup(uuid) = tab {
             self.last_document = Some(*uuid);
         }
         self.flyout = match place.area {

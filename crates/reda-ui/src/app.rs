@@ -728,6 +728,21 @@ impl App {
                     self.files
                         .start_save(ctx, Pick::SettingsFile(window, request), name);
                 }
+                SettingsRequest::OpenStackup(pcb) => {
+                    if self
+                        .shell
+                        .run_reporting("pcb.stackup.open", json!({"document": pcb}))
+                        .is_ok()
+                    {
+                        let viewport = self
+                            .shell
+                            .layout()
+                            .window_of(&TabKey::Stackup(pcb))
+                            .map_or(egui::ViewportId::ROOT, docking::viewport_of);
+                        ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd_to(viewport, egui::ViewportCommand::Focus);
+                    }
+                }
                 SettingsRequest::ShowFolder(folder) => {
                     let _ = std::fs::create_dir_all(&folder);
                     self.show_in_folder(&folder);
