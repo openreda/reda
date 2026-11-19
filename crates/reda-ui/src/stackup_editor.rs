@@ -76,7 +76,7 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         });
     });
     pane(ui, right, (document, "drawing"), |ui| {
-        preview::show(ui, pcb, &info)
+        preview::show(ui, pcb, &info, &mut view, &mut edits)
     });
     ui.allocate_rect(full, Sense::hover());
     if view
