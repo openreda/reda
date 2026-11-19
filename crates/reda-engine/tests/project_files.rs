@@ -3,6 +3,7 @@
 use std::path::Path;
 
 use reda_engine::command::ErrorCode;
+use reda_engine::format::FORMAT;
 use reda_testkit::{TempDir, assert_golden, read_tree, test_engine};
 use serde_json::json;
 
@@ -169,7 +170,7 @@ fn open_refuses_a_file_from_a_newer_reda() {
     let (_dir, folder) = saved_project("open-newer");
     edit(
         &folder.join("Demo.redasch"),
-        "\"format\": 1",
+        &format!("\"format\": {FORMAT}"),
         "\"format\": 99",
     );
     let err = test_engine().run_err("project.open", json!({"path": folder}));
@@ -183,8 +184,8 @@ fn open_refuses_unknown_fields() {
     let (_dir, folder) = saved_project("open-unknown");
     edit(
         &folder.join("Demo.reda"),
-        "\"format\": 1",
-        "\"format\": 1, \"colour\": 3",
+        "\"project\":",
+        "\"colour\": 3, \"project\":",
     );
     let err = test_engine().run_err("project.open", json!({"path": folder}));
     assert_eq!(err.code, ErrorCode::Rejected);
@@ -224,8 +225,8 @@ fn grids_and_guides_stay_reserved_in_the_pcb_file() {
         let err = {
             edit(
                 &file,
-                "\"format\": 1",
-                &format!("\"format\": 1, \"{name}\": []"),
+                "\"format\":",
+                &format!("\"{name}\": [], \"format\":"),
             );
             test_engine().run_err("project.open", json!({"path": folder}))
         };

@@ -224,7 +224,10 @@ fn a_project_copy_saved_as_a_user_preset_can_seed_a_new_project() {
     assert_eq!(out["path"], json!(path));
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(
-        text.starts_with("{\n  \"format\": 1,\n  \"name\": \"My JLC\",\n"),
+        text.starts_with(&format!(
+            "{{\n  \"format\": {},\n  \"name\": \"My JLC\",\n",
+            reda_engine::format::FORMAT
+        )),
         "{text}"
     );
 
