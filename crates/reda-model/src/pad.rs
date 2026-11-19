@@ -25,6 +25,9 @@ pub struct Pad {
     /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<PadCopperShape>,
+    /// Whether unused inner lands of a plated through-hole Pad are removed.
+    #[serde(default, skip_serializing_if = "crate::UnusedLayers::is_keep")]
+    pub unused_layers: crate::UnusedLayers,
     /// The Pad's anchor, relative to the Footprint origin: the hole sits there, Tracks
     /// connect there and the Pad turns about it.
     pub at: Point,
@@ -75,6 +78,7 @@ impl Pad {
     pub fn stored_problem(&self) -> Option<(String, String)> {
         self.form()
             .stack_kind_problem(self.middle, self.bottom)
+            .or_else(|| self.unused_layers.pad_problem(self.kind))
             .or_else(|| {
                 crate::opening_problem(
                     self.kind,

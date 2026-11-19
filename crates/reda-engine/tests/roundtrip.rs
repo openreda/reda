@@ -443,6 +443,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             height: Nm(3_000_000),
             middle: None,
             bottom: None,
+            unused_layers: Default::default(),
             corner_ratio: None,
             chamfer_ratio: None,
             corners: None,

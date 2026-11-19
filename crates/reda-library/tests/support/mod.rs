@@ -160,6 +160,7 @@ pub fn footprint(n: u128, name: &str) -> Footprint {
         height: Nm::from_um(900),
         middle: None,
         bottom: None,
+        unused_layers: Default::default(),
         corner_ratio: Some(reda_model::Ratio::percent(50)),
         chamfer_ratio: None,
         corners: None,
