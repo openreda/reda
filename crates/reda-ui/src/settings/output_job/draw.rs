@@ -259,27 +259,27 @@ fn gerber(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
     if let Some(why) = &preview.invalid_file_name {
         layout::error(ui, why);
     }
-    files(ui, "output-job-gerber-files", &preview.gerber, true);
+    files(
+        ui,
+        "output-job-gerber-files",
+        &preview.gerber,
+        tr!("output-job-column-layer"),
+    );
 }
 
 /// A read-only table of planned files.
-fn files(ui: &mut Ui, id: &str, files: &[PlannedFile], layers: bool) {
-    let count = if layers { 3 } else { 2 };
+fn files(ui: &mut Ui, id: &str, files: &[PlannedFile], heading: String) {
     widgets::table(id)
-        .columns(std::iter::repeat_n(Column::auto(), count))
+        .columns([Column::auto(); 3])
         .show(ui, |table| {
             table.header(|h| {
-                if layers {
-                    h.text(tr!("output-job-column-layer"));
-                }
+                h.text(heading);
                 h.text(tr!("output-job-column-file"));
                 h.text(tr!("output-job-column-plotted"));
             });
             for file in files {
                 table.row(|row| {
-                    if layers {
-                        row.text(&file.layer);
-                    }
+                    row.text(&file.layer);
                     row.ui(|ui| mono(ui, &file.name));
                     let text = state_text(file.state);
                     if file.state == FileState::Plotted {
@@ -326,7 +326,12 @@ fn drill(ui: &mut Ui, cx: &mut PageCx<'_>, draft: &mut JobDraft) {
         ui.add_space(t.space.section);
     }
     if let Some(preview) = preview_of(cx, draft) {
-        files(ui, "output-job-drill-files", &preview.drill, false);
+        files(
+            ui,
+            "output-job-drill-files",
+            &preview.drill,
+            tr!("output-job-column-span"),
+        );
     }
 }
 

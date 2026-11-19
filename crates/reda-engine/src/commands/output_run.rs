@@ -53,7 +53,7 @@ pub struct WrittenFile {
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,
     /// `silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`
-    /// (with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
+    /// (with `merge_drill`), `drill_blind`, `drill_buried`, `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
     /// `schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.
     pub function: &'static str,
 }

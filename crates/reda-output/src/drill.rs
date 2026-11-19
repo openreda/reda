@@ -22,6 +22,17 @@ use crate::plot::{FileAttributes, OutputFile, Plot, SkippedFile, file_attributes
 pub struct Drills {
     pub files: Vec<OutputFile>,
     pub skipped: Vec<SkippedFile>,
+    /// Through rows, including empty files, then the occupied partial spans in physical order.
+    pub spans: Vec<DrillSpan>,
+}
+
+/// An Output Job Drill table row, in the writer's order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DrillSpan {
+    pub name: String,
+    pub span: String,
+    pub function: &'static str,
+    pub plotted: bool,
 }
 
 /// The possible through-drill file names of the Project `name`:
@@ -41,8 +52,15 @@ pub fn drill_files(plot: &Plot<'_>) -> Drills {
     let mut drills = Drills {
         files: Vec::new(),
         skipped: Vec::new(),
+        spans: Vec::new(),
     };
     for set in drill_sets(plot) {
+        drills.spans.push(DrillSpan {
+            name: set.name.clone(),
+            span: set.span_description,
+            function: set.function,
+            plotted: !set.holes.is_empty(),
+        });
         if set.holes.is_empty() {
             drills.skipped.push(SkippedFile {
                 name: set.name,
