@@ -412,6 +412,18 @@ fn four_layer_is_clean_and_uses_the_signal_to_return_clearance() {
         assert_eq!(via.span, pcb.stackup().through_type().span());
         assert_eq!(via.unused_layers, UnusedLayers::Remove);
     }
+    // The through-hole Free Pad leaves out its unconnected inner lands.
+    let pad = pcb
+        .free_pads()
+        .find(|p| p.unused_layers == UnusedLayers::Remove)
+        .unwrap();
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let item = reda_engine::pcb::Item::FreePad { uuid: pad.uuid };
+    let lands: Vec<bool> = pcb
+        .copper_layers()
+        .map(|l| copper.items_at(l.uuid, pad.at).contains(&item))
+        .collect();
+    assert_eq!(lands, [true, false, false, true]);
 }
 
 fn check_clean_board(name: &str, file: &str, expected_layers: usize) {

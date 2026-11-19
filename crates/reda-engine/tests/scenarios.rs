@@ -163,17 +163,28 @@ fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements()
     let via = pcb.vias().next().unwrap();
     let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
     let pad = pcb.free_pads().next().unwrap();
-    for (item, at) in [
-        (reda_engine::pcb::Item::Via { uuid: via.uuid }, via.at),
-        (reda_engine::pcb::Item::FreePad { uuid: pad.uuid }, pad.at),
-    ] {
-        assert!(!copper.items_at(plane.uuid, at).contains(&item));
-        assert!(
-            copper
-                .items_at(pcb.copper_layers().next().unwrap().uuid, at)
-                .contains(&item)
-        );
-    }
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let on = |item: &reda_engine::pcb::Item, at| -> Vec<bool> {
+        layers
+            .iter()
+            .map(|l| copper.items_at(*l, at).contains(item))
+            .collect()
+    };
+    // The Via (`remove_keep_ends`) keeps its ends, and the plane Zone of its Net brings
+    // its land back on the plane through its relief; nothing joins it on Layer 3.
+    let via_item = reda_engine::pcb::Item::Via { uuid: via.uuid };
+    assert_eq!(on(&via_item, via.at), [true, true, false, true]);
+    // The Free Pad (`remove`) is joined by the plane Zone on Layer 2 and by a Track of its
+    // Net that ends on it on Layer 3.
+    let pad_item = reda_engine::pcb::Item::FreePad { uuid: pad.uuid };
+    assert_eq!(on(&pad_item, pad.at), [true, true, true, true]);
+    assert_eq!(via.net, pad.net);
+    assert!(pcb.zones().all(|z| z.net == via.net));
+    let inner_track = pcb
+        .tracks()
+        .find(|t| t.layer == layers[2])
+        .map(|t| t.uuid)
+        .unwrap();
     let relief = via.zone_connection.unwrap();
     assert_eq!(
         relief.style,
@@ -203,6 +214,24 @@ fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements()
             ("hole.via", serde_json::json!([plane]), 650000, 1200000)
         ]
     );
+
+    // It is live: with the Track gone, the Pad's land on Layer 3 goes too.
+    engine.run_ok(
+        "pcb.copper.delete",
+        serde_json::json!({"objects":[inner_track]}),
+    );
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let pad = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .free_pads()
+        .next()
+        .unwrap();
+    let pad_item = reda_engine::pcb::Item::FreePad { uuid: pad.uuid };
+    assert!(!copper.items_at(layers[2], pad.at).contains(&pad_item));
+    assert!(copper.items_at(layers[1], pad.at).contains(&pad_item));
 }
 
 #[test]

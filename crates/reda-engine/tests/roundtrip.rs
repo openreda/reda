@@ -20,7 +20,11 @@ use reda_engine::model::{
     SheetSize, SheetText, Side, Stackup, StackupEntry, Track, TrackGeometry, UnitInstance, Uuid,
     Via, Waiver, Wire, Zone, ZoneCutout, ZoneNameScheme,
 };
-use reda_engine::model::{DesignRule, FabRules, PreferredSeeds, RuleKind, RuleScope, RuleValues};
+use reda_engine::model::{
+    ConnectionStyle, CopperRole, DesignRule, DielectricKind, FabRules, LayerGroup, PadCopperShape,
+    PreferredSeeds, RuleKind, RuleLayers, RuleScope, RuleValues, UnusedLayers, ViaDiameter,
+    ViaType, ZoneConnection,
+};
 use reda_engine::store::{encode, load_from};
 use serde_json::Value;
 
@@ -78,11 +82,22 @@ struct PcbSeed {
     graphics: Vec<(usize, Nm, GraphicShape)>,
     /// A Footprint instance: Designator, position, linked and flags, first Pad's Net index.
     footprint: Option<(String, Point, bool, usize)>,
-    /// A Track and a Via: ends, an arc's sweep (0 for a line), width, Net index (None for
-    /// no Net), bottom Layer.
+    /// A Track with its Zone, Keepout and Waiver: ends, an arc's sweep (0 for a line),
+    /// width, Net index (None for no Net), and a flag that varies the rest.
     copper: Option<(Point, Point, i64, Nm, Option<usize>, bool)>,
-    /// The Stackup: copper per Layer, the dielectric (None for blank), finish and colours.
-    stackup: ([Nm; 2], Option<Nm>, [Option<String>; 3]),
+    /// The copper Layers, Stackup entries and Via types.
+    stack: StackSeed,
+    /// The finish and colours.
+    finish: [Option<String>; 3],
+    vias: Vec<ViaSeed>,
+    rules_v2: RuleSeed,
+    /// The through-hole Free Pad's Pad Stack, `unused_layers: remove`, and Zone connection.
+    pad_stack: (
+        Option<PadCopperShape>,
+        Option<PadCopperShape>,
+        bool,
+        Option<ZoneConnection>,
+    ),
 }
 
 /// A text object; the Layer is an index into the seed's Layers.
@@ -140,6 +155,516 @@ fn shape() -> impl Strategy<Value = GraphicShape> {
     ]
 }
 
+fn unused_layers() -> impl Strategy<Value = UnusedLayers> {
+    prop_oneof![
+        Just(UnusedLayers::Keep),
+        Just(UnusedLayers::Remove),
+        Just(UnusedLayers::RemoveKeepEnds),
+    ]
+}
+
+fn zone_connection() -> BoxedStrategy<ZoneConnection> {
+    let style = prop_oneof![
+        Just(ConnectionStyle::Relief),
+        Just(ConnectionStyle::Solid),
+        Just(ConnectionStyle::None),
+    ];
+    let angle = prop_oneof![Just(0), Just(45_000), Just(90_000)].prop_map(Millideg);
+    (
+        prop::option::of(style),
+        prop::option::of(prop_oneof![Just(2u8), Just(4)]),
+        prop::option::of((1i64..1_000_000).prop_map(Nm)),
+        prop::option::of((0i64..1_000_000).prop_map(Nm)),
+        prop::option::of(angle),
+    )
+        .prop_map(|(style, spokes, spoke_width, gap, angle)| ZoneConnection {
+            style,
+            spokes,
+            spoke_width,
+            gap,
+            angle,
+        })
+        .boxed()
+}
+
+/// A Via hole and diameters that each clear it.
+fn via_size() -> BoxedStrategy<(Nm, ViaDiameter)> {
+    let grow = 1i64..1_000_000;
+    (
+        1i64..1_000_000,
+        grow.clone(),
+        prop::option::of(grow.clone()),
+        prop::option::of(grow),
+    )
+        .prop_map(|(hole, start, middle, end)| {
+            let over = |d: i64| Nm(hole + d);
+            (
+                Nm(hole),
+                ViaDiameter {
+                    start: over(start),
+                    middle: middle.map(over),
+                    end: end.map(over),
+                },
+            )
+        })
+        .boxed()
+}
+
+/// A Pad Stack group's copper, larger than the 1 mm hole it surrounds.
+fn pad_copper() -> BoxedStrategy<PadCopperShape> {
+    let shape = prop_oneof![
+        Just(PadShape::Circle),
+        Just(PadShape::Rect),
+        Just(PadShape::Oval)
+    ];
+    (shape, 1_500_000i64..5_000_000, 1_500_000i64..5_000_000)
+        .prop_map(|(shape, w, h)| PadCopperShape {
+            shape,
+            width: Nm(w),
+            height: Nm(if shape == PadShape::Circle { w } else { h }),
+            corner_ratio: None,
+            chamfer_ratio: None,
+            corners: None,
+        })
+        .boxed()
+}
+
+/// One dielectric sheet: prepreg or core, and each optional field set or left out.
+#[derive(Clone, Debug)]
+struct DielectricSeed {
+    prepreg: bool,
+    name: Option<String>,
+    thickness: Option<Nm>,
+    material: Option<String>,
+    dk: Option<u32>,
+    df: Option<u32>,
+    test_frequency: Option<u64>,
+}
+
+fn dielectric_seed() -> BoxedStrategy<DielectricSeed> {
+    (
+        any::<bool>(),
+        prop::option::of(any::<String>()),
+        prop::option::of((1i64..500_000).prop_map(Nm)),
+        prop::option::of(any::<String>()),
+        prop::option::of(any::<u32>()),
+        prop::option::of(any::<u32>()),
+        prop::option::of(any::<u64>()),
+    )
+        .prop_map(
+            |(prepreg, name, thickness, material, dk, df, test_frequency)| DielectricSeed {
+                prepreg,
+                name,
+                thickness,
+                material,
+                dk,
+                df,
+                test_frequency,
+            },
+        )
+        .boxed()
+}
+
+/// A Via type beyond the through type; its ends are indices into the copper Layers.
+#[derive(Clone, Debug)]
+struct ViaTypeSeed {
+    from: usize,
+    to: usize,
+    micro: bool,
+    name: Option<String>,
+    size: (Nm, ViaDiameter),
+    unused_layers: UnusedLayers,
+}
+
+fn via_type_seed() -> BoxedStrategy<ViaTypeSeed> {
+    (
+        any::<usize>(),
+        any::<usize>(),
+        any::<bool>(),
+        prop::option::of(any::<String>()),
+        via_size(),
+        unused_layers(),
+    )
+        .prop_map(|(from, to, micro, name, size, unused_layers)| ViaTypeSeed {
+            from,
+            to,
+            micro,
+            name,
+            size,
+            unused_layers,
+        })
+        .boxed()
+}
+
+/// The copper Layers and their physical build: 2 to 6 copper Layers.
+#[derive(Clone, Debug)]
+struct StackSeed {
+    /// Per copper Layer, top to bottom: copper thickness, role, and a name that only inner
+    /// Layers keep.
+    copper: Vec<(Nm, CopperRole, Option<String>)>,
+    /// One or two sheets in each gap between copper Layers.
+    gaps: Vec<Vec<DielectricSeed>>,
+    via_types: Vec<ViaTypeSeed>,
+}
+
+fn stack_seed() -> BoxedStrategy<StackSeed> {
+    let role = prop_oneof![
+        Just(CopperRole::Signal),
+        Just(CopperRole::Plane),
+        Just(CopperRole::Mixed),
+    ];
+    (2usize..=6)
+        .prop_flat_map(move |n| {
+            (
+                prop::collection::vec(
+                    (
+                        (1i64..200_000).prop_map(Nm),
+                        role.clone(),
+                        prop::option::of(any::<String>()),
+                    ),
+                    n,
+                ),
+                prop::collection::vec(prop::collection::vec(dielectric_seed(), 1..3), n - 1),
+                prop::collection::vec(via_type_seed(), 0..4),
+            )
+                .prop_map(|(copper, gaps, via_types)| StackSeed {
+                    copper,
+                    gaps,
+                    via_types,
+                })
+        })
+        .boxed()
+}
+
+/// The copper Layers and the Stackup built from a seed, with the through type sized from
+/// the preferred seeds. The Layers run top to bottom.
+fn build_stack(
+    seed: StackSeed,
+    preferred: PreferredSeeds,
+    id: &mut dyn FnMut() -> Uuid,
+) -> (Vec<Layer>, Stackup) {
+    let n = seed.copper.len();
+    let layers: Vec<Layer> = seed
+        .copper
+        .iter()
+        .enumerate()
+        .map(|(i, (_, role, name))| Layer {
+            uuid: id(),
+            kind: LayerKind::Copper,
+            side: match i {
+                0 => Some(Side::Top),
+                i if i == n - 1 => Some(Side::Bottom),
+                _ => None,
+            },
+            name: (i != 0 && i != n - 1).then(|| name.clone()).flatten(),
+            role: *role,
+        })
+        .collect();
+    let mut entries = vec![];
+    let mut typed = 0;
+    for (i, (thickness, _, _)) in seed.copper.iter().enumerate() {
+        typed += thickness.0;
+        entries.push(StackupEntry::Copper(CopperEntry {
+            layer: layers[i].uuid,
+            thickness: *thickness,
+        }));
+        for sheet in seed.gaps.get(i).into_iter().flatten() {
+            typed += sheet.thickness.map_or(0, |t| t.0);
+            let kind = if sheet.prepreg {
+                DielectricKind::Prepreg
+            } else {
+                DielectricKind::Core
+            };
+            entries.push(StackupEntry::Dielectric(DielectricEntry {
+                name: sheet.name.clone(),
+                thickness: sheet.thickness,
+                material: sheet.material.clone(),
+                dk: sheet.dk,
+                df: sheet.df,
+                test_frequency: sheet.test_frequency,
+                ..DielectricEntry::new(id(), kind)
+            }));
+        }
+    }
+    let mut via_types = vec![ViaType::through(
+        id(),
+        layers[0].uuid,
+        layers[n - 1].uuid,
+        preferred.via_hole,
+        preferred.via_diameter,
+    )];
+    let mut spans = std::collections::BTreeSet::from([(0, n - 1)]);
+    for kind in seed.via_types {
+        let (a, b) = (kind.from % n, kind.to % n);
+        if a == b || !spans.insert((a.min(b), a.max(b))) {
+            continue;
+        }
+        let (hole, diameter) = kind.size;
+        via_types.push(ViaType {
+            uuid: id(),
+            name: kind.name,
+            from: layers[a].uuid,
+            to: layers[b].uuid,
+            micro: kind.micro,
+            hole,
+            diameter,
+            unused_layers: kind.unused_layers,
+        });
+    }
+    let stackup = Stackup {
+        uuid: id(),
+        construction: None,
+        thickness: Nm(typed + 1_000_000),
+        entries,
+        via_types,
+        finish: None,
+        mask_color: None,
+        silk_color: None,
+    };
+    (layers, stackup)
+}
+
+/// A Via on the board; its ends are indices into the copper Layers.
+#[derive(Clone, Debug)]
+struct ViaSeed {
+    from: usize,
+    to: usize,
+    at: Point,
+    size: (Nm, ViaDiameter),
+    unused_layers: UnusedLayers,
+    zone_connection: Option<ZoneConnection>,
+    net: Option<usize>,
+    teardrop: bool,
+    locked: bool,
+}
+
+fn via_seed() -> BoxedStrategy<ViaSeed> {
+    (
+        (any::<usize>(), any::<usize>()),
+        point(),
+        via_size(),
+        unused_layers(),
+        prop::option::of(zone_connection()),
+        prop::option::of(any::<usize>()),
+        (any::<bool>(), any::<bool>()),
+    )
+        .prop_map(
+            |((from, to), at, size, unused_layers, zone_connection, net, (teardrop, locked))| {
+                ViaSeed {
+                    from,
+                    to,
+                    at,
+                    size,
+                    unused_layers,
+                    zone_connection,
+                    net,
+                    teardrop,
+                    locked,
+                }
+            },
+        )
+        .boxed()
+}
+
+/// A rule record's Layer scope: a group, or copper Layers by index.
+#[derive(Clone, Debug)]
+enum LayersSeed {
+    Group(LayerGroup),
+    Named(Vec<usize>),
+}
+
+fn layers_seed() -> BoxedStrategy<LayersSeed> {
+    prop_oneof![
+        prop_oneof![
+            Just(LayerGroup::Outer),
+            Just(LayerGroup::Inner),
+            Just(LayerGroup::Plane)
+        ]
+        .prop_map(LayersSeed::Group),
+        prop::collection::vec(any::<usize>(), 1..4).prop_map(LayersSeed::Named),
+    ]
+    .boxed()
+}
+
+impl LayersSeed {
+    fn resolve(self, copper: &[Uuid]) -> RuleLayers {
+        match self {
+            Self::Group(group) => RuleLayers::Group(group),
+            Self::Named(picks) => {
+                let ids: std::collections::BTreeSet<Uuid> = picks
+                    .into_iter()
+                    .map(|i| copper[i % copper.len()])
+                    .collect();
+                RuleLayers::Named(ids.into_iter().collect())
+            }
+        }
+    }
+}
+
+/// The v0.2 rule records: Layer-scoped records (kind, owner class, Layers, value),
+/// class pair clearances (two classes, the Default among them, optional Layers, value), and
+/// Net Classes' allowed Via types (class, Via type picks).
+#[derive(Clone, Debug)]
+struct RuleSeed {
+    layered: Vec<(usize, Option<usize>, LayersSeed, Nm)>,
+    pairs: Vec<(usize, usize, Option<LayersSeed>, Nm)>,
+    allowed: Vec<(usize, Vec<usize>)>,
+}
+
+fn rule_seed() -> BoxedStrategy<RuleSeed> {
+    (
+        prop::collection::vec(
+            (
+                0usize..3,
+                prop::option::of(any::<usize>()),
+                layers_seed(),
+                length(),
+            ),
+            0..4,
+        ),
+        prop::collection::vec(
+            (
+                any::<usize>(),
+                any::<usize>(),
+                prop::option::of(layers_seed()),
+                length(),
+            ),
+            0..3,
+        ),
+        prop::collection::vec(
+            (any::<usize>(), prop::collection::vec(any::<usize>(), 0..4)),
+            0..2,
+        ),
+    )
+        .prop_map(|(layered, pairs, allowed)| RuleSeed {
+            layered,
+            pairs,
+            allowed,
+        })
+        .boxed()
+}
+
+/// Whether `rule` would clash with a record already in `rules`: the same kind and owner,
+/// with the same Layer scope or a named Layer in common.
+fn clashes(rules: &[DesignRule], rule: &DesignRule) -> bool {
+    rules.iter().any(|r| {
+        r.kind == rule.kind
+            && r.scope.net_class == rule.scope.net_class
+            && r.scope.net_class_pair == rule.scope.net_class_pair
+            && (r.scope.layers == rule.scope.layers
+                || matches!(
+                    (&r.scope.layers, &rule.scope.layers),
+                    (Some(RuleLayers::Named(a)), Some(RuleLayers::Named(b)))
+                        if a.iter().any(|id| b.contains(id))
+                ))
+    })
+}
+
+/// The v0.2 rule records of a seed, against the board's copper Layers, Net Classes and Via
+/// types. Records that would clash are left out.
+fn v2_rules(
+    seed: RuleSeed,
+    copper: &[Uuid],
+    classes: &[Uuid],
+    via_types: &[Uuid],
+    rules: &mut Vec<DesignRule>,
+    id: &mut dyn FnMut() -> Uuid,
+) {
+    let push = |rules: &mut Vec<DesignRule>, rule: DesignRule| {
+        if !clashes(rules, &rule) {
+            rules.push(rule);
+        }
+    };
+    for (kind, class, layers, value) in seed.layered {
+        let (kind, values) = match kind {
+            0 => (
+                RuleKind::Clearance,
+                RuleValues {
+                    value: Some(value),
+                    ..RuleValues::default()
+                },
+            ),
+            1 => (
+                RuleKind::TrackWidth,
+                RuleValues {
+                    preferred: Some(value),
+                    ..RuleValues::default()
+                },
+            ),
+            _ => (
+                RuleKind::AnnularRing,
+                RuleValues {
+                    min: Some(value),
+                    ..RuleValues::default()
+                },
+            ),
+        };
+        let net_class = class
+            .filter(|_| !classes.is_empty())
+            .map(|c| classes[c % classes.len()]);
+        let rule = DesignRule {
+            uuid: id(),
+            kind,
+            scope: RuleScope {
+                net_class,
+                layers: Some(layers.resolve(copper)),
+                net_class_pair: None,
+            },
+            values,
+            enabled: value.0 % 2 == 0,
+            comment: None,
+        };
+        push(rules, rule);
+    }
+    let owners: Vec<Uuid> = std::iter::once(Uuid::NIL)
+        .chain(classes.iter().copied())
+        .collect();
+    for (a, b, layers, value) in seed.pairs {
+        let mut pair = [owners[a % owners.len()], owners[b % owners.len()]];
+        pair.sort();
+        let rule = DesignRule {
+            uuid: id(),
+            kind: RuleKind::Clearance,
+            scope: RuleScope {
+                net_class: None,
+                layers: layers.map(|l| l.resolve(copper)),
+                net_class_pair: Some(pair),
+            },
+            values: RuleValues {
+                value: Some(value),
+                ..RuleValues::default()
+            },
+            enabled: true,
+            comment: Some("pair".into()),
+        };
+        push(rules, rule);
+    }
+    for (class, picks) in seed.allowed {
+        if classes.is_empty() {
+            break;
+        }
+        let mut allowed: Vec<Uuid> = vec![];
+        for pick in picks {
+            let kind = via_types[pick % via_types.len()];
+            if !allowed.contains(&kind) {
+                allowed.push(kind);
+            }
+        }
+        let rule = DesignRule {
+            uuid: id(),
+            kind: RuleKind::ViaSpan,
+            scope: RuleScope::class(classes[class % classes.len()]),
+            values: RuleValues {
+                allowed: Some(allowed),
+                ..RuleValues::default()
+            },
+            enabled: true,
+            comment: None,
+        };
+        push(rules, rule);
+    }
+}
+
 prop_compose! {
     fn pcb_seed()(
         base in any::<u128>(),
@@ -161,15 +686,20 @@ prop_compose! {
             point(), point(), prop_oneof![Just(0i64), -359_999i64..360_000],
             (1i64..10_000_000).prop_map(Nm), prop::option::of(any::<usize>()), any::<bool>(),
         )),
-        stackup in (
-            prop::array::uniform2((1i64..200_000).prop_map(Nm)),
-            prop::option::of((1i64..5_000_000).prop_map(Nm)),
-            prop::array::uniform3(prop::option::of(any::<String>())),
+        stack in stack_seed(),
+        finish in prop::array::uniform3(prop::option::of(any::<String>())),
+        vias in prop::collection::vec(via_seed(), 0..4),
+        rules_v2 in rule_seed(),
+        pad_stack in (
+            prop::option::of(pad_copper()),
+            prop::option::of(pad_copper()),
+            any::<bool>(),
+            prop::option::of(zone_connection()),
         ),
     ) -> PcbSeed {
         PcbSeed {
             base, name, title, rules, severities, outline, cutouts, classes, nets, texts,
-            graphics, footprint, copper, stackup,
+            graphics, footprint, copper, stack, finish, vias, rules_v2, pad_stack,
         }
     }
 }
@@ -193,23 +723,21 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         Uuid::v4_from_bits(next)
     };
     let doc = id();
-    let layers = LayerSet {
-        uuid: id(),
-        layers: [
-            (LayerKind::Copper, Some(Side::Top)),
-            (LayerKind::Copper, Some(Side::Bottom)),
-            (LayerKind::BoardOutline, None),
-        ]
-        .into_iter()
-        .map(|(kind, side)| Layer {
-            uuid: id(),
-            kind,
-            side,
-            name: None,
-            role: Default::default(),
-        })
-        .collect(),
+    let preferred = fab_rules(seed.rules).preferred;
+    let set = id();
+    let (copper_layers, mut stackup) = build_stack(seed.stack, preferred, &mut id);
+    let copper_ids: Vec<Uuid> = copper_layers.iter().map(|l| l.uuid).collect();
+    let mut layers = LayerSet {
+        uuid: set,
+        layers: copper_layers,
     };
+    layers.layers.push(Layer {
+        uuid: id(),
+        kind: LayerKind::BoardOutline,
+        side: None,
+        name: None,
+        role: Default::default(),
+    });
     let mut classes: Vec<NetClass> = Vec::new();
     let mut rules: Vec<DesignRule> = Vec::new();
     for (name, clearance, track_width) in seed.classes {
@@ -290,38 +818,22 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     pad.curved = Some(seed.base & 2 != 0);
     pad.length = Some(1 + (seed.base % 100) as u32);
     rules.extend(added);
-    let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
-    let stack_id = id();
-    let preferred = fab_rules(seed.rules).preferred;
-    let stackup = Stackup {
-        uuid: stack_id,
-        construction: None,
-        via_types: vec![reda_model::ViaType::through(
-            id(),
-            layers.layers[0].uuid,
-            layers.layers[1].uuid,
-            preferred.via_hole,
-            preferred.via_diameter,
-        )],
-        thickness: Nm(top.0 + bottom.0 + 1_000_000),
-        entries: vec![
-            StackupEntry::Copper(CopperEntry {
-                layer: layers.layers[0].uuid,
-                thickness: top,
-            }),
-            StackupEntry::Dielectric(DielectricEntry {
-                thickness: dielectric,
-                ..DielectricEntry::new(id(), reda_model::DielectricKind::Core)
-            }),
-            StackupEntry::Copper(CopperEntry {
-                layer: layers.layers[1].uuid,
-                thickness: bottom,
-            }),
-        ],
-        finish,
-        mask_color,
-        silk_color,
-    };
+    let class_ids: Vec<Uuid> = classes.iter().map(|c| c.uuid).collect();
+    let type_ids: Vec<Uuid> = stackup.via_types.iter().map(|v| v.uuid).collect();
+    v2_rules(
+        seed.rules_v2,
+        &copper_ids,
+        &class_ids,
+        &type_ids,
+        &mut rules,
+        &mut id,
+    );
+    let [finish, mask_color, silk_color] = seed.finish;
+    stackup.finish = finish;
+    stackup.mask_color = mask_color;
+    stackup.silk_color = silk_color;
+    stackup.construction = (seed.base & 64 != 0).then(|| "JLC04161H-7628".into());
+    let typed = stackup.clone();
     let mut objects = vec![
         Object::LayerSet(InDocument::new(doc, layers)),
         Object::Stackup(InDocument::new(doc, stackup)),
@@ -372,6 +884,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             },
         )));
     }
+    let pad_stack = seed.pad_stack;
     if let Some((designator, at, flag, net)) = seed.footprint {
         let mut footprint = read_footprint(Path::new("x"), FOOTPRINT.as_bytes()).unwrap();
         footprint.pads[0].teardrop = seed.base & 4 != 0;
@@ -443,9 +956,13 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             rotation: Millideg(if flag { 45_000 } else { 0 }),
             width: Nm(3_000_000),
             height: Nm(3_000_000),
-            middle: None,
-            bottom: None,
-            unused_layers: Default::default(),
+            middle: pad_stack.0.filter(|_| flag),
+            bottom: pad_stack.1.filter(|_| flag),
+            unused_layers: if flag && pad_stack.2 {
+                UnusedLayers::Remove
+            } else {
+                UnusedLayers::Keep
+            },
             corner_ratio: None,
             chamfer_ratio: None,
             corners: None,
@@ -453,7 +970,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             hole: flag.then_some(Hole::new(Nm(1_000_000), Nm(1_000_000))),
             side: (!flag).then_some(Side::Bottom),
             net: if flag { nets.first().copied() } else { None },
-            zone_connection: None,
+            zone_connection: pad_stack.3,
         };
         objects.push(Object::FreePad(InDocument::new(doc, free_pad)));
         objects.push(Object::OutputOrigin(InDocument::new(
@@ -498,7 +1015,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 sweep: Millideg(s),
             },
         };
-        let layer = layer_ids[usize::from(bottom)];
+        let layer = copper_ids[width.0 as usize % copper_ids.len()];
         objects.push(Object::Track(InDocument::new(
             doc,
             Track {
@@ -509,29 +1026,6 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 net,
                 width,
                 geometry,
-            },
-        )));
-        objects.push(Object::Via(InDocument::new(
-            doc,
-            Via {
-                unused_layers: Default::default(),
-                teardrop: seed.base & 32 != 0,
-                zone_connection: None,
-                locked: false,
-                mask: None,
-                uuid: id(),
-                at: from,
-                net,
-                diameter: reda_model::ViaDiameter {
-                    start: Nm(width.0 + 1),
-                    middle: Some(Nm(width.0 + 2)),
-                    end: Some(Nm(width.0 + 3)),
-                },
-                hole: width,
-                span: LayerSpan {
-                    from: layer_ids[0],
-                    to: layer_ids[1],
-                },
             },
         )));
         let third = Point::new(Nm(to.x.0 + 1000), Nm(to.y.0 + 7));
@@ -612,6 +1106,36 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             )));
         }
     }
+    let n = copper_ids.len();
+    for via in seed.vias {
+        let (a, b) = (via.from % n, via.to % n);
+        let b = if a == b { (a + 1) % n } else { b };
+        let span = LayerSpan {
+            from: copper_ids[a],
+            to: copper_ids[b],
+        };
+        let (hole, diameter) = via.size;
+        objects.push(Object::Via(InDocument::new(
+            doc,
+            Via {
+                unused_layers: via.unused_layers,
+                teardrop: via.teardrop,
+                zone_connection: via.zone_connection,
+                locked: via.locked,
+                mask: None,
+                uuid: id(),
+                at: via.at,
+                net: via
+                    .net
+                    .filter(|_| !nets.is_empty())
+                    .map(|i| nets[i % nets.len()]),
+                diameter,
+                hole,
+                // A Via on a typed span follows its type's drilling direction.
+                span: typed.type_for_span(span).map_or(span, ViaType::span),
+            },
+        )));
+    }
     for (layer, width, shape) in seed.graphics {
         objects.push(Object::PcbGraphic(InDocument::new(
             doc,
@@ -674,14 +1198,24 @@ prop_compose! {
         job_name in stem("j"),
         outputs in prop::array::uniform4(any::<bool>()),
         destination in prop::option::of(stem("d")),
+        stack in stack_seed(),
+        notes in prop::option::of(any::<String>()),
+        inner in prop::option::of(prop::array::uniform3(prop::option::of(length()))),
     ) -> (ProjectFabPreset, OutputJob) {
-        let rules = fab_rules(lengths);
-        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
-        let mut construction = reda_engine::pcb::construction::two_layer(reda_model::StackupSeeds {
-            thickness: Some(Nm(1_000_000 + lengths[0].0.unsigned_abs() as i64)),
-            copper: Some(Nm(1 + lengths[1].0.unsigned_abs() as i64 % 200_000)),
+        let mut rules = fab_rules(lengths);
+        rules.inner = inner.map(|[track_width_min, clearance, annular_ring_min]| {
+            reda_model::InnerFabRules { track_width_min, clearance, annular_ring_min }
         });
-        construction.name = job_name.clone();
+        let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
+        // A Construction of 2 to 6 copper Layers, saved from a board Stackup.
+        let mut next = 0u128;
+        let (_, stackup) = build_stack(stack, rules.preferred, &mut || {
+            next += 1;
+            Uuid::from_u128(next)
+        });
+        let mut construction = reda_model::Construction::from_stackup(job_name.clone(), &stackup);
+        construction.default = x2_attributes;
+        construction.notes = notes;
         let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, placement_corrections, constructions: vec![construction], stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
@@ -1056,6 +1590,95 @@ proptest! {
         prop_assert_eq!(&loaded, &project);
         prop_assert_eq!(save(&loaded), canonical);
     }
+}
+
+/// Every key, and every `key=value` for string and boolean values, anywhere in `value`,
+/// with the copper count of each Layer list and Construction.
+fn facts(value: &Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, value) in map {
+                out.insert(key.clone());
+                match value {
+                    Value::String(s) => {
+                        out.insert(format!("{key}={s}"));
+                    }
+                    Value::Bool(b) => {
+                        out.insert(format!("{key}={b}"));
+                    }
+                    Value::Array(items) if key == "layers" => {
+                        let copper = items.iter().filter(|l| l["kind"] == "copper").count();
+                        out.insert(format!("copper={copper}"));
+                        if items.iter().any(|l| l.get("name").is_some()) {
+                            out.insert("named Layer".into());
+                        }
+                        if !items.is_empty() && items.iter().all(Value::is_string) {
+                            out.insert("layers=[named]".into());
+                        }
+                    }
+                    Value::Array(items) if key == "entries" => {
+                        let copper = items.iter().filter(|e| e.get("copper").is_some()).count();
+                        out.insert(format!("construction copper={copper}"));
+                    }
+                    _ => {}
+                }
+                facts(value, out);
+            }
+        }
+        Value::Array(items) => items.iter().for_each(|v| facts(v, out)),
+        _ => {}
+    }
+}
+
+/// The generator reaches every v0.2 field, so the property tests above cover them: Layer
+/// names and roles, 2 to 6 copper Layers, every Via type form, Dielectric values,
+/// `unused_layers` and Zone connection on Vias and Pads, Pad Stacks, Layer and class pair
+/// rule scopes, allowed Via types, and multilayer Constructions.
+#[test]
+fn the_project_generator_reaches_every_v2_field() {
+    use proptest::strategy::ValueTree;
+    use proptest::test_runner::{Config, RngAlgorithm, TestRng, TestRunner};
+    let rng = TestRng::deterministic_rng(RngAlgorithm::ChaCha);
+    let mut runner = TestRunner::new_with_rng(Config::default(), rng);
+    let strategy = project();
+    let mut seen = std::collections::BTreeSet::new();
+    for _ in 0..200 {
+        let project = strategy.new_tree(&mut runner).unwrap().current();
+        for bytes in save(&project).values() {
+            if let Ok(value) = serde_json::from_slice::<Value>(bytes) {
+                facts(&value, &mut seen);
+            }
+        }
+    }
+    let wanted = [
+        "copper=2",
+        "copper=4",
+        "copper=6",
+        "named Layer",
+        "role=plane",
+        "role=mixed",
+        "micro=true",
+        "kind=prepreg",
+        "material",
+        "dk",
+        "df",
+        "test_frequency",
+        "unused_layers=remove",
+        "unused_layers=remove_keep_ends",
+        "zone_connection",
+        "spokes",
+        "middle",
+        "layers=inner",
+        "layers=plane",
+        "layers=outer",
+        "layers=[named]",
+        "net_class_pair",
+        "allowed",
+        "construction copper=5",
+        "notes",
+    ];
+    let missing: Vec<_> = wanted.iter().filter(|f| !seen.contains(**f)).collect();
+    assert!(missing.is_empty(), "never generated: {missing:?}");
 }
 
 #[test]

@@ -9,10 +9,4 @@
 %LPD*%
 G75*
 G01*
-%TA.AperFunction,OtherPad,FreePad*%
-%ADD10R,1.400000X1.400000*%
-%TD*%
-D10*
-%TO.N,RETURN*%
-X10000000Y4000000D03*
 M02*
