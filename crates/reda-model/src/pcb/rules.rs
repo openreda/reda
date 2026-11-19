@@ -131,13 +131,24 @@ impl RuleKind {
                 ZeroKeepoutClearance,
             ],
             RuleKind::TrackWidth => &[Min, Preferred, Max],
-            RuleKind::ViaSize | RuleKind::MicroviaSize => &[
+            RuleKind::ViaSize => &[
                 DiameterMin,
                 DiameterPreferred,
                 DiameterMax,
                 HoleMin,
                 HolePreferred,
                 HoleMax,
+                AspectRatioMax,
+            ],
+            RuleKind::MicroviaSize => &[
+                DiameterMin,
+                DiameterPreferred,
+                DiameterMax,
+                HoleMin,
+                HolePreferred,
+                HoleMax,
+                AspectRatioMax,
+                MaxStack,
             ],
             RuleKind::HoleSize => &[Min, Max],
             RuleKind::AnnularRing | RuleKind::HoleToHole => &[Min],
@@ -201,6 +212,8 @@ pub enum RuleField {
     HoleMin,
     HolePreferred,
     HoleMax,
+    AspectRatioMax,
+    MaxStack,
     Top,
     Bottom,
     FromHoleEdge,
@@ -283,6 +296,8 @@ impl RuleField {
             RuleField::HoleMin => "hole.min",
             RuleField::HolePreferred => "hole.preferred",
             RuleField::HoleMax => "hole.max",
+            RuleField::AspectRatioMax => "aspect_ratio.max",
+            RuleField::MaxStack => "max_stack",
             RuleField::Top => "top",
             RuleField::Bottom => "bottom",
             RuleField::FromHoleEdge => "from_hole_edge",
@@ -374,6 +389,8 @@ pub enum RuleValue {
     Style(ConnectionStyle),
     /// A spoke count.
     Count(u8),
+    /// Depth-to-diameter ratio in thousandths (8000 is 8:1).
+    MilliRatio(u32),
     Angle(Millideg),
 }
 
@@ -447,6 +464,14 @@ impl Bounds {
     fn is_empty(&self) -> bool {
         *self == Bounds::default()
     }
+}
+
+/// Optional depth-to-hole ratio, in thousandths, for one drilling method.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AspectRatioLimit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<u32>,
 }
 
 /// A drilled size range (Via size rules) or per-object edge clearances (clearance rules).
@@ -529,6 +554,11 @@ pub struct RuleValues {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hole: Option<HoleRuleValues>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<AspectRatioLimit>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_stack: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top: Option<Nm>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<Nm>,
@@ -603,6 +633,8 @@ impl RuleValues {
             RuleField::HoleMin => length(hole.min),
             RuleField::HolePreferred => length(hole.preferred),
             RuleField::HoleMax => length(hole.max),
+            RuleField::AspectRatioMax => self.aspect_ratio?.max.map(RuleValue::MilliRatio),
+            RuleField::MaxStack => self.max_stack.map(RuleValue::Count),
             RuleField::Top => length(self.top),
             RuleField::Bottom => length(self.bottom),
             RuleField::FromHoleEdge => self.from_hole_edge.map(RuleValue::Flag),
@@ -699,6 +731,22 @@ impl RuleValues {
             }
             return Ok(());
         }
+        if field == RuleField::AspectRatioMax {
+            self.aspect_ratio = match value {
+                Some(RuleValue::MilliRatio(max)) => Some(AspectRatioLimit { max: Some(max) }),
+                None => None,
+                _ => return Err(wrong()),
+            };
+            return Ok(());
+        }
+        if field == RuleField::MaxStack {
+            self.max_stack = match value {
+                Some(RuleValue::Count(count)) => Some(count),
+                None => None,
+                _ => return Err(wrong()),
+            };
+            return Ok(());
+        }
         if field == RuleField::Mode {
             self.mode = match value {
                 None => None,
@@ -777,6 +825,8 @@ fn type_name(field: RuleField) -> &'static str {
         RuleField::Percent => "percentage",
         RuleField::Mode => "mode (`exposed_copper` or `mask_opening`)",
         RuleField::MinArea => "area",
+        RuleField::AspectRatioMax => "ratio in thousandths",
+        RuleField::MaxStack => "count",
         f => match f.connection() {
             Some((_, ConnectionValue::Style)) => "style (`relief`, `solid` or `none`)",
             Some((_, ConnectionValue::Spokes)) => "spoke count",
@@ -786,7 +836,7 @@ fn type_name(field: RuleField) -> &'static str {
     }
 }
 
-const ALL_FIELDS: [RuleField; 40] = [
+const ALL_FIELDS: [RuleField; 42] = [
     RuleField::HoleVia,
     RuleField::HolePad,
     RuleField::Value,
@@ -801,6 +851,8 @@ const ALL_FIELDS: [RuleField; 40] = [
     RuleField::HoleMin,
     RuleField::HolePreferred,
     RuleField::HoleMax,
+    RuleField::AspectRatioMax,
+    RuleField::MaxStack,
     RuleField::Top,
     RuleField::Bottom,
     RuleField::FromHoleEdge,
