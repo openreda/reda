@@ -1,13 +1,18 @@
 //! Physical materials in their own colours, shared with the Layers table.
 mod drawing;
+mod scene;
 use super::{Edits, Field, View};
 use crate::settings::strong;
 use crate::theme::TokensExt as _;
 use crate::{tr, widgets};
 pub(super) use drawing::Scale;
 use drawing::{Band, Barrel};
-use egui::{Align2, Color32, Rect, Role, Sense, Stroke, StrokeKind, Ui, WidgetInfo, pos2, vec2};
-use reda_engine::model::{DielectricKind, PcbDocument, StackupEntry, StackupInfo, ViaType};
+use egui::{Color32, Rect, Role, Sense, Stroke, StrokeKind, Ui, WidgetInfo, pos2, vec2};
+use reda_engine::model::{
+    DielectricKind, PcbDocument, Stackup, StackupEntry, StackupInfo, ViaType,
+};
+use scene::{Names, Section};
+use std::sync::Arc;
 
 pub(super) fn color(entry: &StackupEntry) -> Color32 {
     match entry {
@@ -39,6 +44,17 @@ pub(super) fn mm(nm: f64) -> String {
         .to_owned()
 }
 
+/// Glyph runs and material geometry change only with the board, layout or theme.
+pub(super) struct Cached {
+    stack: Stackup,
+    names: Names,
+    tokens: Arc<crate::theme::Tokens>,
+    body: Rect,
+    scale: Scale,
+    pitch: f32,
+    section: Section,
+}
+
 pub(super) fn show(
     ui: &mut Ui,
     pcb: &PcbDocument,
@@ -56,41 +72,32 @@ pub(super) fn show(
         ui.add(widgets::segmented(&mut view.scale, &options));
     });
     let stack = pcb.stackup();
-    let names: Vec<_> = stack
-        .entries
-        .iter()
-        .enumerate()
-        .map(|(i, _)| super::entry_name(pcb, i))
-        .collect();
-    let labels: Vec<_> = names
-        .iter()
-        .zip(&info.entries)
-        .map(|(name, entry)| format!("{name} · {} mm", mm(entry.thickness)))
-        .collect();
+    let names = Names::new(pcb, info);
     let text_width = |label: &str| {
         ui.painter()
             .layout_no_wrap(label.to_owned(), t.ty.small.font_id(), t.color.text.primary)
             .size()
             .x
     };
-    let via_names: Vec<_> = stack
-        .via_types
-        .iter()
-        .map(|kind| kind.display_name(pcb))
-        .collect();
-    let pitch = via_names
+    let pitch = names
+        .vias
         .iter()
         .map(|s| text_width(s))
         .fold(t.size.of(40.0), f32::max)
         + t.space.panel;
     let margin = t.size.of(84.0);
-    let callouts = labels.iter().map(|s| text_width(s)).fold(0.0, f32::max) + 2.0 * t.space.gap;
+    let callouts = names
+        .callouts
+        .iter()
+        .map(|s| text_width(s))
+        .fold(0.0, f32::max)
+        + 2.0 * t.space.gap;
     let height = ui
         .available_height()
         .max(t.size.of(140.0) + t.ty.small.line * stack.entries.len() as f32);
     let width = ui
         .available_width()
-        .max(margin + callouts + (pitch * via_names.len() as f32).max(t.size.of(120.0)));
+        .max(margin + callouts + (pitch * names.vias.len() as f32).max(t.size.of(120.0)));
     egui::ScrollArea::both()
         .id_salt("cross-section-scroll")
         .auto_shrink(false)
@@ -100,7 +107,10 @@ pub(super) fn show(
                 WidgetInfo::labeled(
                     Role::Image,
                     true,
-                    tr!("board-setup-cross-section-of", bands = labels.join(", ")),
+                    tr!(
+                        "board-setup-cross-section-of",
+                        bands = names.callouts.join(", ")
+                    ),
                 )
             });
             let body = Rect::from_min_max(
@@ -108,27 +118,36 @@ pub(super) fn show(
                 pos2(area.right() - callouts, area.bottom() - t.control_height()),
             );
             let draw = ui.painter_at(area);
-            let bands = drawing::bands(pcb, info, body, view.scale, t.ty.small.line);
-            let mask = mask_color(stack.mask_color.as_deref());
-            for y in [body.top() - t.stroke.accent_line, body.bottom()] {
-                draw.rect_filled(
-                    Rect::from_min_size(
-                        pos2(body.left(), y),
-                        vec2(body.width(), t.stroke.accent_line),
-                    ),
-                    0.0,
-                    mask,
-                );
-            }
+            let cache = view
+                .section
+                .take()
+                .filter(|c| {
+                    c.body == body
+                        && c.scale == view.scale
+                        && c.pitch == pitch
+                        && Arc::ptr_eq(&c.tokens, &t)
+                        && c.names == names
+                        && c.stack == *stack
+                })
+                .unwrap_or_else(|| {
+                    let section = Section::new(pcb, info, &names, body, view.scale, pitch, &t);
+                    Arc::new(Cached {
+                        stack: stack.clone(),
+                        names,
+                        tokens: Arc::clone(&t),
+                        body,
+                        scale: view.scale,
+                        pitch,
+                        section,
+                    })
+                });
+            view.section = Some(Arc::clone(&cache));
+            let section = &cache.section;
+            let bands = &section.bands;
+            let labels = section.paint(&draw, &t, view.selected);
             let mut hovered = None;
             for (i, band) in bands.iter().enumerate() {
                 let selected = Some(band.id) == view.selected;
-                let ink = if selected {
-                    t.color.accent.text
-                } else {
-                    t.color.text.primary
-                };
-                draw.rect_filled(band.rect, 0.0, color(&stack.entries[i]));
                 if selected {
                     draw.rect_stroke(
                         band.rect,
@@ -137,18 +156,7 @@ pub(super) fn show(
                         StrokeKind::Outside,
                     );
                 }
-                let leader_end = pos2(body.right() + t.space.gap, band.label_y);
-                draw.line_segment(
-                    [band.rect.right_center(), leader_end],
-                    Stroke::new(t.stroke.hairline, t.color.stroke.strong),
-                );
-                let label = draw.text(
-                    leader_end + vec2(t.space.gap, 0.0),
-                    Align2::LEFT_CENTER,
-                    &labels[i],
-                    t.ty.small.font_id(),
-                    ink,
-                );
+                let label = labels[&band.id];
                 let hit = ui.interact(
                     band.rect,
                     ui.scope_id().with(("band", band.id)),
@@ -159,13 +167,13 @@ pub(super) fn show(
                         Role::Button,
                         true,
                         selected,
-                        tr!("stackup-select-band", name = names[i].as_str()),
+                        tr!("stackup-select-band", name = cache.names.bands[i].as_str()),
                     )
                 });
                 let label_hit = ui.interact(
                     label,
                     ui.scope_id().with(("callout", band.id)),
-                    Sense::click(),
+                    Sense::CLICK,
                 );
                 if hit.clicked() || label_hit.clicked() {
                     view.selected = Some(band.id);
@@ -176,36 +184,20 @@ pub(super) fn show(
                     hovered = Some(band);
                 }
             }
-            let guide = Stroke::new(t.stroke.hairline, t.color.text.primary);
-            let x = body.left() - t.space.gap;
-            draw.vline(x, body.y_range(), guide);
-            for y in [body.top(), body.bottom()] {
-                draw.hline(x - t.space.gap..=body.left(), y, guide);
-            }
-            draw.text(
-                pos2(x - t.space.gap, body.center().y),
-                Align2::RIGHT_CENTER,
-                format!("{} mm", info.totals.total.mm_exact()),
-                t.ty.numeric.font_id(),
-                t.color.text.primary,
-            );
-            let first =
-                body.center().x - (stack.via_types.len().saturating_sub(1) as f32) * pitch / 2.0;
-            for (i, (kind, name)) in stack.via_types.iter().zip(via_names).enumerate() {
-                let x = first + pitch * i as f32;
-                if let Some(barrel) = drawing::barrel(&bands, kind, x, t.size.of(13.0)) {
-                    via(
-                        ui,
-                        &barrel,
-                        kind,
-                        &name,
-                        body,
-                        &bands,
-                        view,
-                        edits,
-                        stack.through_type().uuid != kind.uuid,
-                    );
-                }
+            for (i, barrel) in &section.barrels {
+                let kind = &stack.via_types[*i];
+                via(
+                    ui,
+                    barrel,
+                    kind,
+                    &cache.names.vias[*i],
+                    labels[&kind.uuid],
+                    body,
+                    bands,
+                    view,
+                    edits,
+                    stack.through_type().uuid != kind.uuid,
+                );
             }
             let button_bounds = |band: &Band| {
                 Rect::from_center_size(
@@ -244,6 +236,7 @@ fn via(
     barrel: &Barrel,
     kind: &ViaType,
     name: &str,
+    label: Rect,
     body: Rect,
     bands: &[Band],
     view: &mut View,
@@ -253,37 +246,6 @@ fn via(
     let t = ui.tokens();
     let draw = ui.painter();
     let selected = view.selected == Some(kind.uuid);
-    let copper = widgets::data_color(0xc8, 0x75, 0x33);
-    let rim = Stroke::new(t.stroke.hairline, t.color.stroke.strong);
-    for land in &barrel.pads {
-        draw.rect_filled(*land, 0.0, copper);
-        draw.rect_stroke(*land, 0.0, rim, StrokeKind::Inside);
-    }
-    let [a, b, c, d] = barrel.hole;
-    draw.add(egui::Shape::convex_polygon(
-        vec![a, b, c, d],
-        t.color.surface.base,
-        Stroke::NONE,
-    ));
-    let wall = Stroke::new(t.stroke.accent_line, copper);
-    for line in [[a, d], [b, c]] {
-        draw.line_segment(line, wall);
-    }
-    if kind.micro {
-        draw.line_segment([d, c], wall);
-    }
-    let ink = if selected {
-        t.color.accent.text
-    } else {
-        t.color.text.primary
-    };
-    let label = draw.text(
-        pos2(barrel.x, body.top() - t.space.gap),
-        Align2::CENTER_BOTTOM,
-        name,
-        t.ty.small.font_id(),
-        ink,
-    );
     let hit = ui.interact(
         barrel.bounds,
         ui.scope_id().with(("barrel", kind.uuid)),
@@ -300,7 +262,7 @@ fn via(
     let label_hit = ui.interact(
         label,
         ui.scope_id().with(("barrel-name", kind.uuid)),
-        Sense::click(),
+        Sense::CLICK,
     );
     if hit.clicked() || label_hit.clicked() {
         view.selected = Some(kind.uuid);
@@ -368,3 +330,6 @@ fn via(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

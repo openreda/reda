@@ -1113,3 +1113,163 @@ fn a_thin_dielectric_keeps_its_split_button_while_the_pointer_is_on_it() {
     h.run();
     assert_eq!(pcb(&h).copper_layers().count(), 5);
 }
+
+#[test]
+fn the_stackup_tables_and_drawing_share_keyboard_and_pointer_selection() {
+    let (home, work) = (
+        TempDir::new("section-selection-home"),
+        TempDir::new("section-selection-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "Selection");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+
+    // In a small tab, selecting a band in the right pane selects its table row.
+    h.set_size(egui::vec2(1060.0, 640.0));
+    h.run();
+    let sheet = h
+        .get_by_role_and_label(Role::Button, "Select band Dielectric 1")
+        .rect();
+    let row = h.get_by_role_and_label(Role::Row, "Dielectric 1").rect();
+    assert!(row.left() < sheet.left() && sheet.left() < 1060.0);
+    let at = egui::pos2(sheet.left() + 4.0, sheet.center().y);
+    h.drag_at(at);
+    h.drop_at(at);
+    h.run();
+    assert_eq!(
+        h.get_by_role_and_label(Role::Row, "Dielectric 1")
+            .accesskit_node()
+            .is_selected(),
+        Some(true)
+    );
+    // A keyboard user can select a Via type in the left table.
+    h.get_by_role_and_label(Role::Row, "Through").focus();
+    h.run();
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        h.get_by_role_and_label(Role::Button, "Select Via type Through")
+            .accesskit_node()
+            .toggled(),
+        Some(egui::accesskit::Toggled::True)
+    );
+    assert_eq!(
+        h.get_by_role_and_label(Role::Row, "Dielectric 1")
+            .accesskit_node()
+            .is_selected(),
+        Some(false)
+    );
+
+    h.get_by_role_and_label(Role::Row, "Top Copper").focus();
+    h.run();
+    h.key_press(Key::Enter);
+    h.run();
+    assert_eq!(
+        h.get_by_role_and_label(Role::Button, "Select band Top Copper")
+            .accesskit_node()
+            .toggled(),
+        Some(egui::accesskit::Toggled::True)
+    );
+    h.get_by_role_and_label(Role::Button, "Select Via type Through")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Select Via type Through")
+        .click();
+    h.run();
+    assert_eq!(
+        h.get_by_role_and_label(Role::Row, "Through")
+            .accesskit_node()
+            .is_selected(),
+        Some(true)
+    );
+}
+
+#[test]
+fn the_keyboard_can_split_the_selected_dielectric_and_change_a_via_end() {
+    fn enter(h: &mut Harness<'static, App>, role: Role, label: &str) {
+        h.get_by_role_and_label(role, label).focus();
+        h.run();
+        h.key_press(Key::Enter);
+        h.run();
+    }
+
+    let (home, work) = (
+        TempDir::new("section-keys-home"),
+        TempDir::new("section-keys-work"),
+    );
+    let mut h = harness(home.path(), work.path(), "SectionKeys");
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "project.new",
+            json!({"name":"Keyed","path":work.path(),"layers":4}),
+        )
+        .unwrap();
+    let board = pcb(&h);
+    let document = board.uuid;
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    let sheet = board.stackup().dielectrics().nth(2).unwrap().uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":document,"from":layers[0],"to":layers[1],"name":"Blind"}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+
+    enter(&mut h, Role::ComboBox, "Blind to");
+    enter(&mut h, Role::Button, "L3");
+    assert_eq!(pcb(&h).stackup().via_types[1].to, layers[2]);
+    enter(&mut h, Role::Row, "Dielectric 3");
+    enter(&mut h, Role::Button, "Add Layer");
+    enter(&mut h, Role::Button, "Apply");
+    assert_eq!(pcb(&h).copper_layers().count(), 5);
+    let journal = h.state().shell().engine().journal();
+    let adds: Vec<_> = journal.iter().filter(|e| e.id == "pcb.layer.add").collect();
+    assert_eq!(adds.len(), 1);
+    assert_eq!(adds[0].params["split"], json!(sheet));
+    assert_eq!(
+        journal
+            .iter()
+            .filter(|e| e.id == "pcb.via_type.set")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn schematic_scale_makes_thin_copper_legible_without_changing_the_stackup() {
+    let (home, work) = (TempDir::new("scale-home"), TempDir::new("scale-work"));
+    let mut h = harness(home.path(), work.path(), "Scale");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    let heights = |h: &Harness<'static, App>| {
+        let band = |name| h.get_by_role_and_label(Role::Button, name).rect().height();
+        (
+            band("Select band Top Copper"),
+            band("Select band Dielectric 1"),
+        )
+    };
+    let (copper, sheet) = heights(&h);
+    // The default two-Layer board has 35 μm foil and 1.53 mm of dielectric.
+    assert!((copper / sheet - 0.035 / 1.53).abs() < 0.001);
+    let before = h.state().shell().engine().journal().len();
+    h.get_by_role_and_label(Role::RadioButton, "Schematic")
+        .click();
+    h.run();
+    let (thicker, thinner) = heights(&h);
+    assert!(thicker > copper * 4.0 && thinner < sheet);
+    assert_eq!(h.state().shell().engine().journal().len(), before);
+}

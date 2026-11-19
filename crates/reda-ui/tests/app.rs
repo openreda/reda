@@ -1713,22 +1713,14 @@ fn snapshot_of_the_stackup_editor_tab() {
     };
     h.set_size(egui::vec2(1920.0, 1080.0));
     let shell = h.state_mut().shell_mut();
-    shell.new_project(work.path(), "Stackup").unwrap();
+    let file = copy_reference_project(work.path(), "six_layer_hdi");
+    shell.open_project(&file).unwrap();
     let document = shell.engine().project().unwrap().pcb().unwrap().uuid;
-    for _ in 0..2 {
-        shell
-            .run("pcb.layer.add", json!({"document":document}))
-            .unwrap();
-    }
-    let pcb = shell.engine().project().unwrap().pcb().unwrap();
-    let document = pcb.uuid;
-    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
-    shell.run("pcb.via_type.add",json!({"document":document,"name":"Laser","from":layers[3],"to":layers[2],"micro":true})).unwrap();
     shell
         .run("pcb.stackup.open", json!({"document":document}))
         .unwrap();
     h.run();
-    h.get_by_role_and_label(Role::Button, "Select Via type Laser")
+    h.get_by_role_and_label(Role::Button, "Select Via type Outer laser")
         .click();
     h.run();
     h.hover_at(egui::pos2(1.0, 1.0));
