@@ -898,7 +898,11 @@ violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
     }
-violation-via-span = The Via span has no matching Via type allowed on this Net
+violation-via-span = { $reason ->
+        [not_allowed] This Net Class does not allow the Via type
+        [micro_too_long] The micro Via type spans more than a micro Via can
+       *[no_type] No Via type matches this span
+    }
 violation-microvia-size = The micro Via diameter or hole is outside its size limits
 violation-aspect-ratio = The Via depth exceeds the aspect ratio allowed for its drill diameter
 violation-max-stack = The Via Stack contains more micro Vias than the allowed maximum

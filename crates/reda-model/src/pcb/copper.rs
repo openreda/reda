@@ -118,6 +118,19 @@ pub struct Via {
 }
 
 impl Via {
+    /// Copper diameter on a Layer of this Via's span, in drilling order.
+    pub fn diameter_on(&self, layer: Uuid) -> Nm {
+        if layer == self.span.from {
+            self.diameter.start
+        } else if layer == self.span.to {
+            self.diameter.end.unwrap_or(self.diameter.start)
+        } else {
+            self.diameter.middle.unwrap_or(self.diameter.start)
+        }
+    }
+}
+
+impl Via {
     /// Change drilling direction on the same span without moving copper between Layers.
     /// A different span carries its start, middle and end sizes to the new Layers.
     pub fn set_span(&mut self, span: LayerSpan) {
