@@ -87,7 +87,7 @@ pub struct ProjectNewParams {
     /// The Project name: its folder name and the stem of its `.reda` file.
     pub name: String,
     /// The Fab Preset that seeds the board's rules and names the first Output Job: a
-    /// shipped preset (Generic, JLCPCB, PCBWay) or one of the user's `.redafab` presets.
+    /// shipped preset (Generic, JLCPCB, PCBWay, OSH Park) or one of the user's `.redafab` presets.
     /// Defaults to Generic.
     #[serde(default)]
     pub fab_preset: Option<String>,

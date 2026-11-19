@@ -313,7 +313,7 @@ fn the_drill_report_lists_every_tool_of_each_file_with_its_counts_and_the_totals
     let report = drill_report(&engine, |_| {});
     let row = |r: &[&str]| r.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     assert_eq!(
-        rows(&report, "Demo-PTH.drl"),
+        rows(&report, "Demo-PTH.drl (L1-L2, through)"),
         [
             // The new board's Via hole, then J1's two holes (one with a tolerance), J2's slot.
             row(&["T1", "0.300", "plated", "via", "1", "0", "-"]),
@@ -340,7 +340,7 @@ fn the_drill_report_lists_every_tool_of_each_file_with_its_counts_and_the_totals
         ]
     );
     assert_eq!(
-        rows(&report, "Demo-NPTH.drl"),
+        rows(&report, "Demo-NPTH.drl (L1-L2, through)"),
         [
             row(&["T1", "1.000", "non-plated", "mechanical", "0", "1", "-"]),
             row(&[
@@ -379,7 +379,7 @@ fn the_drill_report_follows_merge_drill_and_says_when_a_file_has_no_holes() {
     let merged = drill_report(&engine, |g| g.merge_drill = true);
     assert!(!merged.contains("Demo-PTH.drl"), "{merged}");
     assert_eq!(
-        rows(&merged, "Demo.drl").last().unwrap(),
+        rows(&merged, "Demo.drl (L1-L2, through)").last().unwrap(),
         &["Total", "4", "2"]
     );
 
@@ -388,7 +388,7 @@ fn the_drill_report_follows_merge_drill_and_says_when_a_file_has_no_holes() {
     engine.run_ok("pcb.via.add", json!({"at": pt(10.0, 6.0)}));
     let report = drill_report(&engine, |_| {});
     assert_eq!(
-        section(&report, "Demo-NPTH.drl"),
+        section(&report, "Demo-NPTH.drl (L1-L2, through)"),
         ["No holes: the file is not written."]
     );
 }
@@ -478,4 +478,38 @@ fn the_job_file_matches_its_golden_byte_for_byte() {
     let dir = TempDir::new("job-file-golden");
     let engine = demo(&dir);
     golden(&job(&engine));
+}
+
+#[test]
+fn drill_report_labels_the_actual_micro_and_unmatched_spans() {
+    let dir = TempDir::new("span-report");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    engine.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document,"from":layers[1],"to":layers[0],"micro":true}),
+    );
+    for (from, to) in [(1, 0), (1, 2)] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":pt(5.0,7.0),"from":layers[from],"to":layers[to]}),
+        );
+    }
+    let report = drill_report(&engine, |_| {});
+    assert!(report.contains("Demo-PTH.drl (L1-L4, through)"), "{report}");
+    assert!(
+        report.contains("Demo-L1-L2.drl (L1-L2, blind, micro)"),
+        "{report}"
+    );
+    assert!(
+        report.contains("Demo-L2-L3.drl (L2-L3, buried)"),
+        "{report}"
+    );
+    assert!(report.contains("All files: 2 holes, 0 slots"));
 }

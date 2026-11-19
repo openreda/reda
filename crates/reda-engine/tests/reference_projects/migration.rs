@@ -8,6 +8,7 @@ use std::path::Path;
 /// Only the two reference copper files and the plated through drill have a
 /// changed file-function record. Compare all other bytes, including line endings.
 fn permitted_file_function(path: &str, old: &[u8]) -> Option<Vec<u8>> {
+    let text = std::str::from_utf8(old).ok()?;
     let (before, after) = if path.ends_with(".gtl") {
         (
             "TF.FileFunction,Copper,L1,Top*",
@@ -20,13 +21,17 @@ fn permitted_file_function(path: &str, old: &[u8]) -> Option<Vec<u8>> {
         )
     } else if path.ends_with("-PTH.drl") {
         (
-            "TF.FileFunction,Plated,1,2,PTH,Drill\n",
+            [
+                "TF.FileFunction,Plated,1,2,PTH,Drill\n",
+                "TF.FileFunction,Plated,1,2,PTH,Mixed\n",
+            ]
+            .into_iter()
+            .find(|line| text.contains(line))?,
             "TF.FileFunction,Plated,1,2,PTH\n",
         )
     } else {
         return None;
     };
-    let text = std::str::from_utf8(old).ok()?;
     (text.matches(before).count() == 1).then(|| text.replacen(before, after, 1).into_bytes())
 }
 
@@ -85,4 +90,24 @@ fn migrated_boards_preserve_v01_manufacturing_outputs() {
             .collect();
         assert_golden_tree(&formats.join("migrated-outputs").join(name), &reports);
     }
+}
+
+#[test]
+fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update() {
+    let (_work, mut engine) =
+        open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
+    let project = engine.project().unwrap();
+    let original = project.pcb().unwrap().stackup().clone();
+    assert_eq!(original.dielectrics().next().unwrap().thickness, None);
+    let copy = project.fab_presets().next().unwrap();
+    let preset = copy.uuid;
+    assert_eq!(copy.name, "JLCPCB");
+    assert_eq!(copy.constructions.len(), 1);
+    assert_eq!(copy.constructions[0].name, "2 Layer");
+    let changes = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    assert!(!changes["changes"].as_array().unwrap().is_empty());
+    engine.run_ok("fab_preset.update_from_source", json!({"preset":preset}));
+    let project = engine.project().unwrap();
+    assert_eq!(project.fab_preset(preset).unwrap().constructions.len(), 37);
+    assert_eq!(*project.pcb().unwrap().stackup(), original);
 }

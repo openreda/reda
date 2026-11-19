@@ -318,6 +318,14 @@ fn stackup_field_commits_copper_thickness_once_and_rejects_an_overfull_board() {
     let (home, work) = (TempDir::new("se-home"), TempDir::new("se-work"));
     let mut h = harness(home.path(), work.path(), "Copper");
     let document = pcb(&h).uuid;
+    let sheet = pcb(&h).stackup().dielectrics().next().unwrap().uuid;
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.stackup.set",
+            json!({"dielectrics":[{"uuid":sheet, "thickness":null}]}),
+        )
+        .unwrap();
     h.state_mut()
         .shell_mut()
         .run("pcb.stackup.open", json!({"document": document}))

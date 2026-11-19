@@ -1,4 +1,4 @@
-//! The Fab Presets REDA ships: Generic, JLCPCB and PCBWay.
+//! The Fab Presets REDA ships: Generic, JLCPCB, PCBWay and OSH Park.
 //!
 //! The limits come from the fab requirements research (openreda/reda#4), which read each
 //! fab's capability and assembly pages in October 2026. Where a fab publishes two minimums
@@ -8,25 +8,31 @@
 //! a 0.25 mm Track everywhere, and a looser Via on the per-fab presets (0.66/0.30 mm on
 //! JLCPCB, so its ring meets the 0.18 mm minimum; 0.60/0.30 mm on PCBWay).
 
+use std::sync::LazyLock;
+
 use reda_model::geom::Nm;
 use reda_model::{
-    BomSettings, BottomRotation, Column, ColumnSource, CplSettings, FabPreset, FabRules,
-    FileOrigin, GerberSettings, PreferredSeeds, StackupSeeds, StackupSuggestions,
+    BomSettings, BottomRotation, Column, ColumnSource, Construction, CplSettings, FabPreset,
+    FabRules, FileOrigin, GerberSettings, PreferredSeeds, StackupSeeds, StackupSuggestions,
 };
 
 /// The name of the preset a Project gets when none is asked for.
 pub const GENERIC_NAME: &str = "Generic";
 
+static SHIPPED: LazyLock<Vec<FabPreset>> =
+    LazyLock::new(|| vec![generic(), jlcpcb(), pcbway(), osh_park()]);
+
 /// Every preset REDA ships, Generic first.
 pub fn shipped() -> Vec<FabPreset> {
-    vec![generic(), jlcpcb(), pcbway()]
+    SHIPPED.clone()
 }
 
 /// The shipped preset with this name, compared case-insensitively.
 pub fn shipped_named(name: &str) -> Option<FabPreset> {
-    shipped()
-        .into_iter()
+    SHIPPED
+        .iter()
         .find(|p| p.name.eq_ignore_ascii_case(name))
+        .cloned()
 }
 
 fn columns(list: &[(&str, ColumnSource)]) -> Vec<Column> {
@@ -71,7 +77,9 @@ pub fn generic() -> FabPreset {
             },
         },
         placement_corrections: Vec::new(),
-        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
+        constructions: [2, 4, 6, 8]
+            .map(|n| Construction::evenly_spaced(n, StackupSeeds::default()))
+            .to_vec(),
         gerber: GerberSettings::default(),
         zip_assembly: false,
         stackup_suggestions: suggestions(GENERIC_NAME),
@@ -99,6 +107,16 @@ pub fn generic() -> FabPreset {
     }
 }
 
+/// Start with the released nominal two-layer dimensions and add the measured multilayer builds.
+fn with_two_layer(catalogue: &str) -> Vec<Construction> {
+    let mut builds = vec![Construction::evenly_spaced(2, StackupSeeds::default())];
+    builds.extend(
+        serde_json::from_str::<Vec<Construction>>(catalogue)
+            .expect("shipped Construction catalogue"),
+    );
+    builds
+}
+
 /// JLCPCB's 2-layer standard service and its assembly BOM and CPL columns.
 fn jlcpcb() -> FabPreset {
     use ColumnSource::*;
@@ -107,8 +125,8 @@ fn jlcpcb() -> FabPreset {
         rules: FabRules {
             inner: None,
             clearance_hole: reda_model::HoleClearance {
-                via: Nm::from_um(200),
-                pad: Nm::from_um(300),
+                via: Nm(200_000),
+                pad: Nm(300_000),
             },
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(0),
@@ -141,7 +159,7 @@ fn jlcpcb() -> FabPreset {
             },
         },
         placement_corrections: Vec::new(),
-        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
+        constructions: with_two_layer(include_str!("../data/constructions/jlcpcb.json")),
         gerber: GerberSettings::default(),
         zip_assembly: false,
         stackup_suggestions: suggestions("JLCPCB"),
@@ -165,10 +183,6 @@ fn jlcpcb() -> FabPreset {
             ..Default::default()
         },
     };
-    preset.constructions = vec![reda_model::Construction::two_layer(StackupSeeds {
-        thickness: Some(Nm::from_um(1600)),
-        copper: Some(Nm::from_um(35)),
-    })];
     preset.bom.required_fields = vec!["LCSC".into()];
     preset.bom.list_unplaced = false;
     preset.cpl.bottom_rotation = BottomRotation::Negate;
@@ -185,8 +199,8 @@ fn pcbway() -> FabPreset {
         rules: FabRules {
             inner: None,
             clearance_hole: reda_model::HoleClearance {
-                via: Nm::from_um(200),
-                pad: Nm::from_um(200),
+                via: Nm(200_000),
+                pad: Nm(200_000),
             },
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
@@ -215,7 +229,7 @@ fn pcbway() -> FabPreset {
             },
         },
         placement_corrections: Vec::new(),
-        constructions: vec![reda_model::Construction::two_layer(StackupSeeds::default())],
+        constructions: with_two_layer(include_str!("../data/constructions/pcbway.json")),
         gerber: GerberSettings {
             file_origin: FileOrigin::Relative,
             ..Default::default()
@@ -252,10 +266,6 @@ fn pcbway() -> FabPreset {
             ..Default::default()
         },
     };
-    preset.constructions = vec![reda_model::Construction::two_layer(StackupSeeds {
-        thickness: Some(Nm::from_um(1600)),
-        copper: Some(Nm::from_um(35)),
-    })];
     preset.bom.required_fields = vec!["MPN".into()];
     preset.bom.list_unplaced = false;
     preset.bom.line_numbers.enabled = true;
@@ -265,10 +275,60 @@ fn pcbway() -> FabPreset {
     preset
 }
 
+/// The Prototype services use one flat rule table. The two-layer service sets the
+/// limiting width, spacing and ring. The multilayer services set plated-hole isolation.
+fn osh_park() -> FabPreset {
+    let generic = generic();
+    FabPreset {
+        name: "OSH Park".into(),
+        constructions: serde_json::from_str(include_str!("../data/constructions/osh-park.json"))
+            .expect("shipped OSH Park Construction catalogue"),
+        rules: FabRules {
+            track_width: Nm(152_400),
+            clearance: Nm(152_400),
+            annular_ring: Nm(127_000),
+            via_hole: Nm(254_000),
+            via_diameter: Nm(508_000),
+            hole_min: Nm(254_000),
+            // Above 250 mil the service mills holes with looser tolerances.
+            hole_max: Nm(6_350_000),
+            hole_to_hole: Nm(127_000),
+            edge_clearance: Nm(381_000),
+            clearance_hole: reda_model::HoleClearance {
+                via: Nm(254_000),
+                pad: Nm(254_000),
+            },
+            preferred: PreferredSeeds {
+                via_diameter: Nm(600_000),
+                ..generic.rules.preferred
+            },
+            mask_expansion: reda_model::MaskExpansion {
+                top: Nm(50_800),
+                bottom: Nm(50_800),
+                ..generic.rules.mask_expansion
+            },
+            ..generic.rules
+        },
+        gerber: GerberSettings {
+            slot_command: reda_model::SlotCommand::G85,
+            ..generic.gerber
+        },
+        stackup_suggestions: suggestions("OSH Park"),
+        ..generic
+    }
+}
+
 /// Published 2-layer options, from the 2026-11-04 fab research (#142).
 fn suggestions(name: &str) -> StackupSuggestions {
     let strings = |values: &[&str]| values.iter().map(|v| (*v).to_owned()).collect();
     let (thickness, copper, finish, mask_color, silk_color) = match name {
+        "OSH Park" => (
+            vec![1600],
+            vec![35_600],
+            strings(&["ENIG"]),
+            strings(&["Purple"]),
+            strings(&["White"]),
+        ),
         "PCBWay" => (
             vec![
                 200, 400, 600, 800, 1000, 1200, 1600, 2000, 2400, 2600, 2800, 3000, 3200,

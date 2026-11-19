@@ -119,7 +119,7 @@ fn plated_and_non_plated_holes_go_to_separate_files() {
 
     let pth = read(&file(&files, "Demo-PTH.drl").bytes);
     assert!(pth.metric && pth.ended);
-    assert_eq!(pth.file["FileFunction"], "Plated,1,2,PTH,Drill");
+    assert_eq!(pth.file["FileFunction"], "Plated,1,2,PTH");
     assert_eq!(pth.file["FilePolarity"], "Positive");
     assert_eq!(
         sorted(pth.hits),
@@ -364,7 +364,7 @@ fn the_file_function_label_says_drill_rout_or_mixed() {
         read(&file(files, name).bytes).file["FileFunction"].clone()
     };
     let files = plot(&engine);
-    assert_eq!(function(&files, "Demo-PTH.drl"), "Plated,1,2,PTH,Drill");
+    assert_eq!(function(&files, "Demo-PTH.drl"), "Plated,1,2,PTH");
     assert_eq!(function(&files, "Demo-NPTH.drl"), "NonPlated,1,2,NPTH,Rout");
     engine.run_ok(
         "pcb.free_pad.add",
@@ -521,5 +521,86 @@ fn non_plated_slots_stay_in_the_npth_file_in_every_shipped_preset() {
             "{}",
             preset.name
         );
+    }
+}
+
+#[test]
+fn every_hole_reads_back_once_in_its_physical_span_with_or_without_through_merging() {
+    let dir = TempDir::new("span-drill-readback");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":6}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    for (from, to, micro) in [(2, 1, true), (2, 3, false), (5, 6, false)] {
+        engine.run_ok(
+            "pcb.via_type.add",
+            json!({"document":document,"from":layers[from-1],"to":layers[to-1],"micro":micro}),
+        );
+    }
+    // Two Vias at the same centre form a stack. L3:L5 is unmatched, and no Via uses L5:L6.
+    for (from, to, x) in [
+        (5, 3, 12.0),
+        (1, 6, 15.0),
+        (3, 2, 7.0),
+        (1, 2, 7.0),
+        (2, 1, 4.0),
+    ] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":pt(x,5.0),"from":layers[from-1],"to":layers[to-1],"hole":"0.2mm"}),
+        );
+    }
+    engine.run_ok("pcb.free_pad.add",json!({"at":pt(20.0,8.0),"kind":"non_plated","shape":"oval","width":"3mm","height":"1mm","hole":{"width":"3mm","height":"1mm"}}));
+    let through = hit(0.2, (15.0, 5.0), "ViaDrill");
+    let mounting_slot = slot(1.0, (19.0, 8.0), (21.0, 8.0), "MechanicalDrill");
+    for merge in [false, true] {
+        let files = plot_with(&engine, |g| g.merge_drill = merge).files;
+        let mut expected = if merge {
+            vec![(
+                "Demo.drl",
+                "MixedPlating,1,6,Mixed",
+                vec![through.clone(), mounting_slot.clone()],
+            )]
+        } else {
+            vec![
+                ("Demo-PTH.drl", "Plated,1,6,PTH", vec![through.clone()]),
+                (
+                    "Demo-NPTH.drl",
+                    "NonPlated,1,6,NPTH",
+                    vec![mounting_slot.clone()],
+                ),
+            ]
+        };
+        expected.extend([
+            (
+                "Demo-L1-L2.drl",
+                "Plated,1,2,Blind",
+                vec![
+                    hit(0.2, (4.0, 5.0), "ViaDrill"),
+                    hit(0.2, (7.0, 5.0), "ViaDrill"),
+                ],
+            ),
+            (
+                "Demo-L2-L3.drl",
+                "Plated,2,3,Buried",
+                vec![hit(0.2, (7.0, 5.0), "ViaDrill")],
+            ),
+            (
+                "Demo-L3-L5.drl",
+                "Plated,3,5,Buried",
+                vec![hit(0.2, (12.0, 5.0), "ViaDrill")],
+            ),
+        ]);
+        assert_eq!(files.len(), expected.len());
+        for (file, (name, function, hits)) in files.iter().zip(expected) {
+            assert_eq!(file.name, name);
+            let data = read(&file.bytes);
+            assert_eq!(data.file["FileFunction"], function);
+            assert_eq!(sorted(data.hits), sorted(hits), "{name}");
+        }
     }
 }

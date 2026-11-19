@@ -1,0 +1,859 @@
+[
+  {
+    "name": "PCBWay 4-Layer #1",
+    "default": true,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 185500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 1030000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 185500, "dk": 4740},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #2",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 1030000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #3",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.58 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 1030000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #4",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.58 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628", "thickness": 185500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 930000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 185500, "dk": 4740},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #5",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.56 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 930000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #6",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.55 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 930000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #7",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628", "thickness": 180300, "dk": 4740},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 895000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "7628", "thickness": 180300, "dk": 4740},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #44",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 795000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #45",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "1080 + 7628", "thickness": 240300, "name": "1080 + 7628"},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 795000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "1080 + 7628", "thickness": 240300, "name": "7628 + 1080"},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #46",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 305000, "name": "2116 + 7628"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 630000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 305000, "name": "7628 + 2116"},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #47",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.56 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 291000, "name": "2116 + 7628"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 630000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 291000, "name": "7628 + 2116"},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #48",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.66 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 343000, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 630000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 343000, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #49",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 249500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 590000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 249500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 105000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #50",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 381500, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 340000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 381500, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 105000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #51",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 315500, "name": "2116 + 7628"},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 470000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 315500, "name": "7628 + 2116"},
+      {"copper": 105000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #52",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 378000, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 140000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "7628 + 7628", "thickness": 378000, "name": "7628 + 7628", "dk": 4740},
+      {"copper": 140000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #53",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.58 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 219000, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 140000},
+      {"kind": "core", "thickness": 520000, "material": "FR-4", "dk": 4600},
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 219000, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 140000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #54",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 312000, "name": "2116 + 7628"},
+      {"copper": 140000},
+      {"kind": "core", "thickness": 320000, "material": "FR-4", "dk": 4600},
+      {"copper": 140000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 312000, "name": "7628 + 2116"},
+      {"copper": 140000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #55",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 285500, "name": "3313 + 7628"},
+      {"copper": 175000},
+      {"kind": "core", "thickness": 320000, "material": "FR-4", "dk": 4600},
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 285500, "name": "7628 + 3313"},
+      {"copper": 175000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #56",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.60 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 226500, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 175000},
+      {"kind": "core", "thickness": 450000, "material": "FR-4", "dk": 4600},
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 226500, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 175000}
+    ]
+  },
+  {
+    "name": "PCBWay 4-Layer #57",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 285500, "name": "3313 + 7628"},
+      {"copper": 175000},
+      {"kind": "core", "thickness": 320000, "material": "FR-4", "dk": 4600},
+      {"copper": 175000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 285500, "name": "7628 + 3313"},
+      {"copper": 175000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #1",
+    "default": true,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.55 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 175000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #2",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.65 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 161000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 178500, "dk": 4740},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #3",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.55 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 109000, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #4",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.66 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 225000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #24",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.56 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 211000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #25",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.63 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 211000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 430000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #26",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.65 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 244300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 228500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 244300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #27",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 207500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #28",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 223300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 186500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 261000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 223300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #29",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 239000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 218000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 239000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #30",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.62 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 225000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 1080 + 2116", "thickness": 271000, "name": "2116 + 1080 + 2116"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 225000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #31",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.60 mm finished (±10%). The two different plies in the centre gap are asymmetric.",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 250000, "name": "3313 + 7628"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 201000, "name": "3313 + 7628"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 206000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 250000, "name": "7628 + 3313"},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #32",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.64 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 249500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 103000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 239000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 103000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 249500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 105000}
+    ]
+  },
+  {
+    "name": "PCBWay 6-Layer #33",
+    "default": false,
+    "notes": "Nominal pressed thickness at 90% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%). The two different plies in the centre gap are asymmetric.",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 222500, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 212000, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 105000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 105000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 222500, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 105000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #1",
+    "default": true,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.62 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 175000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 175000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #2",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.58 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 161000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 161000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #3",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.56 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 109000, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 109000, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 119500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #4",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.65 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 161000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 161000, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 230000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 112500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #19",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.58 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 250000, "name": "7628 + 3313"},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "3313 + 7628", "thickness": 250000, "name": "3313 + 7628"},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "7628", "thickness": 171500, "dk": 4740},
+      {"copper": 35000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #20",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.57 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 277000, "name": "2116 + 7628"},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116 + 7628", "thickness": 277000, "name": "7628 + 2116"},
+      {"copper": 35000},
+      {"kind": "core", "thickness": 130000, "material": "FR-4", "dk": 4600},
+      {"copper": 35000},
+      {"kind": "prepreg", "material": "2116", "thickness": 105500, "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #21",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.60 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 217300, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 201500, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 201500, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 217300, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #22",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.65 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 207500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 207500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 233800, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #23",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 223300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 186500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 186500, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 52500},
+      {"kind": "core", "thickness": 82000, "material": "FR-4", "dk": 4600},
+      {"copper": 52500},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 223300, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #24",
+    "default": false,
+    "notes": "Nominal pressed thickness at 70% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "1080 + 2116", "thickness": 190000, "name": "1080 + 2116"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "1080 + 2116", "thickness": 169000, "name": "1080 + 2116"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "1080 + 2116", "thickness": 169000, "name": "2116 + 1080"},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "1080 + 2116", "thickness": 190000, "name": "2116 + 1080"},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #25",
+    "default": false,
+    "notes": "Nominal pressed thickness at 50% inner copper coverage. PCBWay estimates 1.59 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 198000, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 163000, "name": "3313 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 163000, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 3313", "thickness": 198000, "name": "2116 + 3313", "dk": 4450},
+      {"copper": 70000}
+    ]
+  },
+  {
+    "name": "PCBWay 8-Layer #26",
+    "default": false,
+    "notes": "Nominal pressed thickness at 30% inner copper coverage. PCBWay estimates 1.61 mm finished (±10%).",
+    "thickness": 1600000,
+    "entries": [
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 211000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 162000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 162000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000},
+      {"kind": "core", "thickness": 81000, "material": "FR-4", "dk": 4600},
+      {"copper": 70000},
+      {"kind": "prepreg", "material": "2116 + 2116", "thickness": 211000, "name": "2116 + 2116", "dk": 4450},
+      {"copper": 70000}
+    ]
+  }
+]

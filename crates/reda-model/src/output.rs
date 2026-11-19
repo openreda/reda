@@ -128,7 +128,8 @@ pub struct GerberSettings {
     pub file_origin: FileOrigin,
     /// How the drill file writes slots.
     pub slot_command: SlotCommand,
-    /// One drill file with plated and non-plated holes, instead of PTH and NPTH.
+    /// Merge the plated and non-plated through holes into one drill file.
+    /// Blind and buried spans keep separate files.
     pub merge_drill: bool,
     /// Adds the Board Outline to every Gerber plot.
     pub outline_on_every_plot: bool,
