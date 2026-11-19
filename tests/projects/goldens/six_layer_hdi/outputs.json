@@ -1,0 +1,127 @@
+[
+  {
+    "destination": "outputs/HDI",
+    "files": [
+      {
+        "function": "copper_top",
+        "path": "fab/SixLayerHdi.gtl"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/SixLayerHdi-L2.ger"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/SixLayerHdi-L3.ger"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/SixLayerHdi-L4.ger"
+      },
+      {
+        "function": "copper_inner",
+        "path": "fab/SixLayerHdi-L5.ger"
+      },
+      {
+        "function": "copper_bottom",
+        "path": "fab/SixLayerHdi.gbl"
+      },
+      {
+        "function": "solder_mask_top",
+        "path": "fab/SixLayerHdi.gts"
+      },
+      {
+        "function": "solder_mask_bottom",
+        "path": "fab/SixLayerHdi.gbs"
+      },
+      {
+        "function": "paste_top",
+        "path": "fab/SixLayerHdi.gtp"
+      },
+      {
+        "function": "paste_bottom",
+        "path": "fab/SixLayerHdi.gbp"
+      },
+      {
+        "function": "silkscreen_top",
+        "path": "fab/SixLayerHdi.gto"
+      },
+      {
+        "function": "silkscreen_bottom",
+        "path": "fab/SixLayerHdi.gbo"
+      },
+      {
+        "function": "profile",
+        "path": "fab/SixLayerHdi.gm1"
+      },
+      {
+        "function": "drill_plated",
+        "path": "fab/SixLayerHdi-PTH.drl"
+      },
+      {
+        "function": "drill_non_plated",
+        "path": "fab/SixLayerHdi-NPTH.drl"
+      },
+      {
+        "function": "drill_blind",
+        "path": "fab/SixLayerHdi-L1-L2.drl"
+      },
+      {
+        "function": "drill_buried",
+        "path": "fab/SixLayerHdi-L2-L3.drl"
+      },
+      {
+        "function": "drill_buried",
+        "path": "fab/SixLayerHdi-L3-L5.drl"
+      },
+      {
+        "function": "drill_blind",
+        "path": "fab/SixLayerHdi-L5-L6.drl"
+      },
+      {
+        "function": "fab_notes",
+        "path": "fab/SixLayerHdi-fab-notes.txt"
+      },
+      {
+        "function": "drill_report",
+        "path": "fab/SixLayerHdi-drill-report.txt"
+      },
+      {
+        "function": "gerber_job",
+        "path": "fab/SixLayerHdi-job.gbrjob"
+      },
+      {
+        "function": "zip",
+        "path": "SixLayerHdi-HDI.zip"
+      },
+      {
+        "function": "bom",
+        "path": "SixLayerHdi-HDI-BOM.csv"
+      },
+      {
+        "function": "cpl",
+        "path": "SixLayerHdi-HDI-CPL.csv"
+      },
+      {
+        "function": "schematic_pdf",
+        "path": "SixLayerHdi-HDI-schematic.pdf"
+      },
+      {
+        "function": "erc_report",
+        "path": "reports/SixLayerHdi-erc.json"
+      },
+      {
+        "function": "drc_report",
+        "path": "reports/SixLayerHdi-drc.json"
+      },
+      {
+        "function": "change_list_report",
+        "path": "reports/SixLayerHdi-change-list.json"
+      }
+    ],
+    "manifest": "outputs/HDI/manifest.json",
+    "skipped": [],
+    "warnings": [],
+    "zip": "outputs/HDI/SixLayerHdi-HDI.zip"
+  }
+]

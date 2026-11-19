@@ -1,0 +1,16 @@
+M48
+; #@! TF.GenerationSoftware,openreda,REDA,0.0.0-test
+; #@! TF.ProjectId,SixLayerHdi,00000000-0000-4000-8000-000000000001,A
+; #@! TF.SameCoordinates,8acfb376-ac3c-8272-94d5-d47d8ed7aed2
+; #@! TF.FileFunction,NonPlated,1,6,NPTH
+; #@! TF.FilePolarity,Positive
+FMAT,2
+METRIC
+; #@! TA.AperFunction,MechanicalDrill
+T1C1.200
+%
+G90
+G05
+T1
+X2.000Y2.000
+M30
