@@ -136,6 +136,7 @@ pub fn decorate(ui: &Ui, shell: &mut Shell, input: &CanvasInputs) -> Vec<(String
     }
     outline_hint(ui, shell, input);
     text_form(ui, shell, input);
+    super::layer_control::picker(ui, shell, &input.response, &mut out);
     out.extend(super::layer_control::show(
         ui,
         shell,

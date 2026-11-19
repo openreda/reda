@@ -349,6 +349,7 @@ impl App {
             .max_rect(status)
             .id_salt("status-bar-content");
         ui.scope_builder(builder, |ui| self.status_bar(ui));
+        crate::pcb::layer_hover::finish(&ctx, &mut self.shell);
         tab_switcher::show(&ctx, &mut self.shell);
         title_bar::edge(&ctx, chrome);
         // A menu or toolbar item that lacks params asks for them.
@@ -1325,7 +1326,7 @@ pub fn run(
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
-    eframe::run_native(
+    crate::keymap::native::run(
         "REDA",
         options,
         Box::new(move |cc| {

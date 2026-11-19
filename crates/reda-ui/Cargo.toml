@@ -23,13 +23,9 @@ serde_json.workspace = true
 # The font reader egui itself uses: validates a font file before egui gets it.
 skrifa.workspace = true
 toml_edit.workspace = true
-unic-langid.workspace = true
-
-# The system window menu on a right-click in the Title bar: winit's own call, which egui
-# has no command for (title_bar/wayland.rs, title_bar/windows.rs). The same winit eframe
-# opens the window with.
-[target.'cfg(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android")))))'.dependencies]
+# Read physical keypad location before egui translates a digit.
 winit.workspace = true
+unic-langid.workspace = true
 
 # The OS reduced-motion read (theme/motion/system.rs), one platform each; versions and
 # features are in the workspace. No `unsafe` is written for it.
