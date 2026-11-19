@@ -1,7 +1,7 @@
 //! Colour schemes: one fixed scheme per app theme, keyed by schematic object kind (and, for
 //! PCB Scenes, by Layer kind and side), never by Layer UUID.
 
-use reda_model::{LayerKind, Side};
+use reda_model::{Layer, LayerKind, PcbDocument, Side};
 
 /// The app theme, which the schematic sheet follows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -168,6 +168,27 @@ colors! {
     Graphic: Rgba::rgb(0xa0, 0xa8, 0xb4), Rgba::rgb(0x44, 0x4c, 0x58);
 }}
 
+const INNER_DARK: [Rgba; 8] = [
+    Rgba::rgb(0xc8, 0xb4, 0x3c),
+    Rgba::rgb(0x50, 0xbc, 0x74),
+    Rgba::rgb(0xce, 0x78, 0xc6),
+    Rgba::rgb(0x52, 0xc3, 0xc0),
+    Rgba::rgb(0xe7, 0x9a, 0x50),
+    Rgba::rgb(0xa7, 0x87, 0xdf),
+    Rgba::rgb(0x9e, 0xc8, 0x68),
+    Rgba::rgb(0xd2, 0x7e, 0x91),
+];
+const INNER_LIGHT: [Rgba; 8] = [
+    Rgba::rgb(0x89, 0x71, 0x0f),
+    Rgba::rgb(0x28, 0x76, 0x41),
+    Rgba::rgb(0x94, 0x35, 0x8d),
+    Rgba::rgb(0x18, 0x7a, 0x78),
+    Rgba::rgb(0xa1, 0x53, 0x11),
+    Rgba::rgb(0x68, 0x41, 0xa0),
+    Rgba::rgb(0x59, 0x76, 0x27),
+    Rgba::rgb(0xa3, 0x40, 0x5c),
+];
+
 colors! {
     /// The kinds of PCB ink: one per Layer kind and side, plus what is on no Layer.
     BoardColor {
@@ -202,9 +223,61 @@ colors! {
     NetName: Rgba::rgb(0xf0, 0xf0, 0xd8), Rgba::rgb(0xff, 0xff, 0xf0);
     /// The derived sheet-name label over a cluster of Footprints off the board.
     SheetLabel: Rgba::rgb(0x9c, 0xa8, 0xb8), Rgba::rgb(0x4a, 0x55, 0x66);
+    // Each inner position has a separate GPU slot for its theme override.
+    Inner1: INNER_DARK[0], INNER_LIGHT[0];
+    Inner2: INNER_DARK[1], INNER_LIGHT[1];
+    Inner3: INNER_DARK[2], INNER_LIGHT[2];
+    Inner4: INNER_DARK[3], INNER_LIGHT[3];
+    Inner5: INNER_DARK[4], INNER_LIGHT[4];
+    Inner6: INNER_DARK[5], INNER_LIGHT[5];
+    Inner7: INNER_DARK[6], INNER_LIGHT[6];
+    Inner8: INNER_DARK[7], INNER_LIGHT[7];
+    Inner9: INNER_DARK[0], INNER_LIGHT[0];
+    Inner10: INNER_DARK[1], INNER_LIGHT[1];
+    Inner11: INNER_DARK[2], INNER_LIGHT[2];
+    Inner12: INNER_DARK[3], INNER_LIGHT[3];
+    Inner13: INNER_DARK[4], INNER_LIGHT[4];
+    Inner14: INNER_DARK[5], INNER_LIGHT[5];
+    Inner15: INNER_DARK[6], INNER_LIGHT[6];
+    Inner16: INNER_DARK[7], INNER_LIGHT[7];
+    Inner17: INNER_DARK[0], INNER_LIGHT[0];
+    Inner18: INNER_DARK[1], INNER_LIGHT[1];
+    Inner19: INNER_DARK[2], INNER_LIGHT[2];
+    Inner20: INNER_DARK[3], INNER_LIGHT[3];
+    Inner21: INNER_DARK[4], INNER_LIGHT[4];
+    Inner22: INNER_DARK[5], INNER_LIGHT[5];
+    Inner23: INNER_DARK[6], INNER_LIGHT[6];
+    Inner24: INNER_DARK[7], INNER_LIGHT[7];
+    Inner25: INNER_DARK[0], INNER_LIGHT[0];
+    Inner26: INNER_DARK[1], INNER_LIGHT[1];
+    Inner27: INNER_DARK[2], INNER_LIGHT[2];
+    Inner28: INNER_DARK[3], INNER_LIGHT[3];
+    Inner29: INNER_DARK[4], INNER_LIGHT[4];
+    Inner30: INNER_DARK[5], INNER_LIGHT[5];
+
 }}
 
 impl BoardColor {
+    /// Per-position colour of the first to thirtieth inner Layer.
+    pub fn inner(position: usize) -> Option<BoardColor> {
+        (1..=30)
+            .contains(&position)
+            .then(|| Self::ALL[Self::Inner1 as usize + position - 1])
+    }
+
+    /// Ink on a board Layer, including inner copper at its physical position.
+    pub fn for_layer(pcb: &PcbDocument, layer: &Layer) -> BoardColor {
+        if layer.kind == LayerKind::Copper
+            && layer.side.is_none()
+            && let Some(color) = pcb
+                .copper_number(layer.uuid)
+                .and_then(|n| Self::inner(n - 1))
+        {
+            return color;
+        }
+        Self::layer(layer.kind, layer.side)
+    }
+
     /// The colour of ink on a Layer of `kind` on `side`. A copper Layer with no side is an
     /// inner one.
     pub const fn layer(kind: LayerKind, side: Option<Side>) -> BoardColor {

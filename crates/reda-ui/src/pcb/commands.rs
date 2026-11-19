@@ -6,7 +6,7 @@ use reda_engine::command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NoParams, Preset, Registry,
     Unavailable,
 };
-use reda_engine::model::{LayerKind, LayerSet, ObjectType, Side, Uuid};
+use reda_engine::model::{CopperRole, LayerKind, LayerSet, ObjectType, Side, Uuid};
 use reda_engine::preferences::{InactiveLayerMode, Units};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,12 @@ use crate::grid::Grids;
 pub fn register_all(registry: &mut Registry) {
     registry.add(LayerShow);
     registry.add(LayerActivate);
+    registry.add(LayerPick);
     registry.add(LayerStep);
+    registry.add(Next);
+    registry.add(Previous);
+    registry.add(NextSignal);
+    registry.add(PreviousSignal);
     registry.add(LayerSwapSide);
     registry.add(InactiveLayersSet);
     registry.add(FromBottom);
@@ -129,7 +134,31 @@ impl Command for LayerShow {
 #[serde(deny_unknown_fields)]
 pub struct LayerActivateParams {
     /// The Layer to edit on, by UUID.
-    layer: Uuid,
+    layer: Option<Uuid>,
+    /// Copper position counting from the top, starting at one.
+    position: Option<usize>,
+}
+
+struct LayerPick;
+
+impl Command for LayerPick {
+    const META: Meta = Meta {
+        id: "pcb.layer.pick",
+        title: "Pick Copper Layer",
+        description: "Opens the copper Layer list at the pointer.",
+        category: "pcb_view",
+        icon: "layers",
+        kind: Kind::View,
+    };
+    type Params = NoParams;
+    type Output = ();
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<(), CommandError> {
+        board_view(cx)?.pick_requested = true;
+        Ok(())
+    }
 }
 
 struct LayerActivate;
@@ -147,6 +176,19 @@ impl Command for LayerActivate {
     type Params = LayerActivateParams;
     type Output = ActiveLayer;
 
+    fn presets(&self) -> Vec<Preset> {
+        (1..=9)
+            .map(|position| {
+                Preset::new(
+                    position.to_string(),
+                    format!("Activate L{position}"),
+                    "layer_active",
+                    json!({"position":position}),
+                )
+            })
+            .collect()
+    }
+
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
@@ -156,12 +198,31 @@ impl Command for LayerActivate {
         cx: &mut Context<'_>,
         p: LayerActivateParams,
     ) -> Result<ActiveLayer, CommandError> {
-        check_layer(&layer_set(cx)?, p.layer)?;
+        let set = layer_set(cx)?;
+        let target = match (p.layer, p.position) {
+            (Some(layer), None) => {
+                check_layer(&set, layer)?;
+                Some(layer)
+            }
+            (None, Some(position @ 1..)) => set
+                .layers
+                .iter()
+                .filter(|l| l.kind == LayerKind::Copper)
+                .nth(position - 1)
+                .map(|l| l.uuid),
+            _ => {
+                return Err(CommandError::invalid_params(
+                    "/position",
+                    "choose a Layer UUID or a positive copper position",
+                ));
+            }
+        };
         let view = board_view(cx)?;
-        view.layers.active = Some(p.layer);
-        view.layers.hidden.remove(&p.layer);
+        if let Some(target) = target {
+            view.activate(&set, target);
+        }
         Ok(ActiveLayer {
-            layer: Some(p.layer),
+            layer: active(&set, view),
         })
     }
 }
@@ -218,29 +279,85 @@ impl Command for LayerStep {
     }
 
     fn run(&self, cx: &mut Context<'_>, p: LayerStepParams) -> Result<ActiveLayer, CommandError> {
-        let set = layer_set(cx)?;
-        let copper: Vec<Uuid> = set
-            .layers
-            .iter()
-            .filter(|l| l.kind == LayerKind::Copper)
-            .map(|l| l.uuid)
-            .collect();
-        let view = board_view(cx)?;
-        let current = active(&set, view).and_then(|a| copper.iter().position(|c| *c == a));
-        let n = copper.len();
-        let next = match (current, p.direction) {
-            (_, _) if n == 0 => return Ok(ActiveLayer { layer: None }),
-            (None, _) => 0,
-            (Some(i), Direction::Next) => (i + 1) % n,
-            (Some(i), Direction::Previous) => (i + n - 1) % n,
-        };
-        view.layers.active = Some(copper[next]);
-        view.layers.hidden.remove(&copper[next]);
-        Ok(ActiveLayer {
-            layer: Some(copper[next]),
-        })
+        step(cx, p.direction, false)
     }
 }
+
+/// Walk the physical order from the current position, even when the current Layer
+/// itself is hidden or has a role the step skips.
+fn step(
+    cx: &mut Context<'_>,
+    direction: Direction,
+    signal: bool,
+) -> Result<ActiveLayer, CommandError> {
+    let set = layer_set(cx)?;
+    let view = board_view(cx)?;
+    let copper: Vec<_> = set
+        .layers
+        .iter()
+        .filter(|l| l.kind == LayerKind::Copper)
+        .collect();
+    let current = active(&set, view);
+    let index = copper.iter().position(|l| Some(l.uuid) == current);
+    let n = copper.len();
+    for distance in 1..=n {
+        let i = match (index, direction) {
+            (None, _) => distance - 1,
+            (Some(i), Direction::Next) => (i + distance) % n,
+            (Some(i), Direction::Previous) => (i + n - distance) % n,
+        };
+        let layer = copper[i];
+        if !view.layers.hidden.contains(&layer.uuid) && (!signal || layer.role != CopperRole::Plane)
+        {
+            view.activate(&set, layer.uuid);
+            return Ok(ActiveLayer {
+                layer: Some(layer.uuid),
+            });
+        }
+    }
+    Ok(ActiveLayer { layer: current })
+}
+
+macro_rules! step_command {
+    ($name:ident, $id:literal, $title:literal, $direction:ident, $signal:literal) => {
+        struct $name;
+        impl Command for $name {
+            const META: Meta = Meta {
+                id: $id, title: $title,
+                description: "Steps to the next matching visible copper Layer in Stackup order, wrapping around.",
+                category: "pcb_view", icon: "layer_active", kind: Kind::View,
+            };
+            type Params = NoParams;
+            type Output = ActiveLayer;
+            fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> { needs_pcb(cx) }
+            fn run(&self, cx: &mut Context<'_>, _: NoParams) -> Result<ActiveLayer, CommandError> {
+                step(cx, Direction::$direction, $signal)
+            }
+        }
+    };
+}
+step_command!(Next, "pcb.layer.next", "Next Copper Layer", Next, false);
+step_command!(
+    Previous,
+    "pcb.layer.previous",
+    "Previous Copper Layer",
+    Previous,
+    false
+);
+step_command!(
+    NextSignal,
+    "pcb.layer.next_signal",
+    "Next Signal Layer",
+    Next,
+    true
+);
+step_command!(
+    PreviousSignal,
+    "pcb.layer.previous_signal",
+    "Previous Signal Layer",
+    Previous,
+    true
+);
 
 struct LayerSwapSide;
 
@@ -275,8 +392,7 @@ impl Command for LayerSwapSide {
         }
         .map(|l| l.uuid);
         if let Some(twin) = twin {
-            view.layers.active = Some(twin);
-            view.layers.hidden.remove(&twin);
+            view.activate(&set, twin);
         }
         Ok(ActiveLayer { layer: twin })
     }

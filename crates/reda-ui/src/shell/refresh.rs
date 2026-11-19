@@ -314,9 +314,26 @@ impl Shell {
     /// Hands the PCB tab the board's Layer state after a Command changed it, and redraws
     /// the board with it.
     pub(super) fn sync_board_view(&mut self) {
-        let Some(pcb) = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid) else {
-            return;
-        };
+        let pcb = self.engine.project().and_then(|p| p.pcb());
+        let document = pcb.map(|p| p.uuid);
+        if self.board_view().document != document {
+            let units = self.preferences().pcb.default_units;
+            let next = pcb.map_or_else(
+                || BoardView::new(units),
+                |pcb| BoardView::for_document(pcb, self.closed_views.get(&pcb.uuid), units),
+            );
+            let old = std::mem::replace(self.board_view_mut(), next);
+            if let Some(id) = old.document
+                && self.engine.project().is_some()
+            {
+                // Undoing a PCB deletion brings back its last view, even if
+                // another PCB was created in this Project in the meantime.
+                let saved = self.closed_views.entry(id).or_default();
+                saved.layers = old.layers;
+                saved.units = Some(old.units);
+            }
+        }
+        let Some(pcb) = document else { return };
         let layers = self.board_view().layers.clone();
         if self.document_tab(pcb).is_some_and(|t| t.layers != layers) {
             let scene = self.scene_of(pcb);
@@ -376,9 +393,10 @@ impl Shell {
         .unwrap_or_default();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
-            board
-                .composites(pcb, self.preferences.values().display.inactive_layer_mode)
-                .into()
+            let layers =
+                board.composites(pcb, self.preferences.values().display.inactive_layer_mode);
+            crate::pcb::view::filter_drills(pcb, &mut scene, &layers);
+            layers.into()
         });
         SceneHandle {
             generation: 0,

@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use reda_engine::model::geom::{Millideg, Nm, Point};
-use reda_engine::model::{LayerKind, ObjectType, PcbDocument, Project, Side, Uuid};
+use reda_engine::model::{
+    Layer, LayerKind, LayerSet, ObjectType, PcbDocument, Project, Side, Uuid,
+};
 use reda_engine::preferences::{InactiveLayerMode, Preferences, Units};
 use reda_engine::render::{
     self, BoardColor, BoardStyle, ColorKey, Composite, InactiveLayers, Item, NetColorPattern,
@@ -15,7 +17,7 @@ use reda_engine::render::{
 };
 
 use crate::canvas::PaletteHandle;
-use crate::view_state::LayerView;
+use crate::view_state::{DocumentView, LayerView};
 
 /// The kinds of board object the Layers panel can hide, in its order.
 pub const VIEW_TYPES: [ObjectType; 9] = [
@@ -33,11 +35,16 @@ pub const VIEW_TYPES: [ObjectType; 9] = [
 /// The PCB view: the Layer state and units.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardView {
+    pub(crate) document: Option<Uuid>,
     pub layers: LayerView,
     /// Session selection for standalone Via placement.
     pub stitching_type: Option<Uuid>,
     /// The units lengths show in.
     pub units: Units,
+    /// Consumed by the focused board canvas when it opens the Layer list.
+    pub(crate) pick_requested: bool,
+    /// Temporary Layer inspection while the pointer rests on a chip.
+    pub(crate) hover_solo: Option<Uuid>,
 }
 
 impl Default for BoardView {
@@ -50,10 +57,46 @@ impl BoardView {
     /// A fresh view in `units`.
     pub fn new(units: Units) -> BoardView {
         BoardView {
+            document: None,
             layers: LayerView::default(),
             stitching_type: None,
             units,
+            pick_requested: false,
+            hover_solo: None,
         }
+    }
+
+    /// Restores this Document's view, with the opposite outer copper as its
+    /// first Previous Layer for a fresh board or an older view file.
+    pub(crate) fn for_document(
+        pcb: &PcbDocument,
+        saved: Option<&DocumentView>,
+        default_units: Units,
+    ) -> Self {
+        let mut view = Self::new(saved.and_then(|v| v.units).unwrap_or(default_units));
+        view.document = Some(pcb.uuid);
+        if let Some(saved) = saved {
+            view.layers = saved.layers.clone();
+        }
+        let set = pcb.layers();
+        if view
+            .layers
+            .previous
+            .and_then(|id| set.layer(id))
+            .is_none_or(|l| l.kind != LayerKind::Copper)
+        {
+            let opposite = match view
+                .layers
+                .active
+                .and_then(|id| set.layer(id))
+                .and_then(|l| l.side)
+            {
+                Some(Side::Bottom) => Side::Top,
+                _ => Side::Bottom,
+            };
+            view.layers.previous = set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid);
+        }
+        view
     }
 
     pub fn stitching_type<'p>(
@@ -77,6 +120,30 @@ impl BoardView {
             .or_else(|| set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid))
     }
 
+    pub(crate) fn activate(&mut self, set: &LayerSet, target: Uuid) {
+        let copper = |id| {
+            set.layer(id)
+                .filter(|l| l.kind == LayerKind::Copper)
+                .map(|l| l.uuid)
+        };
+        let old = self
+            .layers
+            .active
+            .and_then(copper)
+            .or_else(|| self.layers.last_copper.and_then(copper))
+            .or_else(|| set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid));
+        if copper(target).is_some() {
+            if old != Some(target) {
+                self.layers.previous = old;
+            }
+            self.layers.last_copper = None;
+        } else {
+            self.layers.last_copper = old;
+        }
+        self.layers.active = Some(target);
+        self.layers.hidden.remove(&target);
+    }
+
     /// The Layers to composite for `pcb`, bottom first; `default_mode` is the
     /// Preference used while the view has no Inactive-Layer mode of its own.
     pub fn composites(&self, pcb: &PcbDocument, default_mode: InactiveLayerMode) -> Vec<Composite> {
@@ -86,22 +153,29 @@ impl BoardView {
             .active
             .filter(|l| set.layer(*l).is_some())
             .or_else(|| set.find(LayerKind::Copper, Some(Side::Top)).map(|l| l.uuid));
+        let solo = self.hover_solo;
         let view = render::LayerView {
             visible: Some(
                 set.layers
                     .iter()
                     .map(|l| l.uuid)
-                    .filter(|l| !self.layers.hidden.contains(l))
+                    .filter(|l| solo == Some(*l) || !self.layers.hidden.contains(l))
                     .collect(),
             ),
-            active,
-            inactive: inactive_layers(self.layers.inactive_mode.unwrap_or(default_mode)),
+            active: solo.or(active),
+            inactive: if solo.is_some() {
+                InactiveLayers::Hidden
+            } else {
+                inactive_layers(self.layers.inactive_mode.unwrap_or(default_mode))
+            },
             from_bottom: self.layers.from_bottom,
             ratsnest: !self.layers.ratsnest.hidden,
             pinned: self.layers.pinned.iter().copied().collect(),
         };
         let mut out = board_composites(&set.layers, &view);
-        if let Some(lit) = self.layers.highlighted {
+        if solo.is_none()
+            && let Some(lit) = self.layers.highlighted
+        {
             highlight_layer(&mut out, lit);
         }
         out
@@ -192,6 +266,58 @@ impl BoardView {
             }
         }
     }
+}
+
+/// Holes and their labels are composited above the board. Apply the strength of
+/// the strongest visible copper in their physical span to that overlay too.
+pub(crate) fn filter_drills(pcb: &PcbDocument, scene: &mut Scene, layers: &[Composite]) {
+    use reda_engine::model::PadKind;
+    use reda_engine::render::Child;
+    let opacity: HashMap<_, _> = layers
+        .iter()
+        .filter_map(|c| match c.layer {
+            SceneLayer::Board(id) => Some((id, c.opacity)),
+            _ => None,
+        })
+        .collect();
+    let through = pcb
+        .copper_layers()
+        .filter_map(|l| opacity.get(&l.uuid))
+        .copied()
+        .fold(0.0_f32, f32::max);
+    let mut spans = HashMap::new();
+    scene.items.retain_mut(|item| {
+        if item.layer != SceneLayer::Drill {
+            return true;
+        }
+        let strength = if let Some(via) = pcb.via(item.object) {
+            *spans
+                .entry((via.span.from, via.span.to))
+                .or_insert_with(|| {
+                    pcb.span_layers(via.span)
+                        .iter()
+                        .filter_map(|id| opacity.get(id))
+                        .copied()
+                        .fold(0.0_f32, f32::max)
+                })
+        } else {
+            let kind = match &item.child {
+                Some(Child::Pad { footprint, pad }) => pcb
+                    .footprint(*footprint)
+                    .and_then(|fp| pcb.footprint_copy(fp.footprint))
+                    .and_then(|copy| copy.footprint.pads.iter().find(|p| p.uuid == *pad))
+                    .map(|p| p.kind),
+                _ => pcb.free_pad(item.object).map(|p| p.kind),
+            };
+            if kind != Some(PadKind::PlatedThroughHole) {
+                return true;
+            }
+            through
+        };
+        item.look.transparency =
+            100 - ((100 - item.look.transparency) as f32 * strength).round() as u8;
+        strength > 0.0
+    });
 }
 
 /// How strong the other Layers stay while one Layer's content is highlighted.
@@ -316,6 +442,18 @@ pub fn color_key(kind: LayerKind, side: Option<Side>) -> String {
     }
 }
 
+/// Preference key shared by the Layer's swatch override and saved Layer Sets.
+pub fn layer_key(set: &LayerSet, layer: &Layer) -> String {
+    if layer.kind == LayerKind::Copper
+        && layer.side.is_none()
+        && let Some(n) = set.copper_number(layer.uuid)
+    {
+        format!("inner_{}", n - 1)
+    } else {
+        color_key(layer.kind, layer.side)
+    }
+}
+
 /// `#rrggbb` as a colour.
 pub fn parse_hex(text: &str) -> Option<Rgba> {
     if !reda_engine::preferences::is_hex_color(text) {
@@ -339,6 +477,14 @@ pub fn palette_handle(prefs: &Preferences, generation: u64) -> PaletteHandle {
             let Some(color) = parse_hex(text) else {
                 continue;
             };
+            if let Some(inner) = key
+                .strip_prefix("inner_")
+                .and_then(|n| n.parse().ok())
+                .and_then(BoardColor::inner)
+            {
+                out.push((ColorKey::Board(inner), color));
+                continue;
+            }
             for kind in LAYER_KINDS {
                 for side in [Some(Side::Top), Some(Side::Bottom), None] {
                     if color_key(kind, side) == key {

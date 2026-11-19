@@ -17,6 +17,7 @@
 mod chord;
 mod file;
 pub mod modifiers;
+pub(crate) mod native;
 
 use std::fmt;
 
@@ -379,11 +380,25 @@ impl Keymap {
         wanted: impl Fn(&Chord) -> bool,
     ) -> Vec<Action> {
         let mut actions = Vec::new();
+        let mut handled_asterisk: Option<bool> = None;
         input.events.retain(|event| {
-            let found = Chord::from_event(event)
+            // A native '*' key is followed by its text in the same event
+            // batch. A binding consumes both; a focused text field keeps it.
+            if let Some(handled) = handled_asterisk.take()
+                && matches!(event, egui::Event::Text(text) if text == "*")
+            {
+                return !handled;
+            }
+            let chords = Chord::from_event(event);
+            let found = chords
                 .iter()
                 .filter(|chord| wanted(chord))
                 .find_map(|chord| self.lookup(chord, active));
+            if matches!(event, egui::Event::Key { .. })
+                && chords.first().is_some_and(|c| c.key == KeyName::Char('*'))
+            {
+                handled_asterisk = Some(found.is_some());
+            }
             match found {
                 Some(action) => {
                     actions.push(action.clone());
