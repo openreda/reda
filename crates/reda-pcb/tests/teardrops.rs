@@ -607,3 +607,42 @@ fn tapers_follow_a_nonuniform_vias_actual_copper_on_each_layer() {
         assert_eq!(max, 10_000_000 + radius);
     }
 }
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config { cases: 24, ..Default::default() })]
+    #[test]
+    fn enabling_pad_and_via_tapers_keeps_other_net_tracks_clear(
+        x in 715_000i64..1_200_000, y in 275_000i64..640_000,
+        offset in -190_000i64..190_000, curved in proptest::prelude::any::<bool>(),
+        length in 80u32..180,
+    ) {
+        for kind in ["via", "through_hole_pad", "smd_pad"] {
+            let dir = TempDir::new("land-clearance-property");
+            let (mut e, net) = board(&dir);
+            let other = uuid(&e.run_ok("test.net.add", json!({"name":"OTHER"}))["result"]["uuid"]);
+            let at=json!({"x":"10mm","y":"10mm"});
+            match kind {
+                "via" => { e.run_ok("pcb.via.add",json!({"net":net,"at":at,"hole":"0.3mm","diameter":"1mm"})); },
+                "through_hole_pad" => { e.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","net":net,"at":at,"hole":{"width":"0.4mm"},"width":"1mm","shape":"rect"})); },
+                _ => { e.run_ok("pcb.free_pad.add",json!({"kind":"smd","net":net,"at":at,"width":"1mm","shape":"rounded_rect"})); },
+            };
+            track(&mut e,net,100_000,&[(0,offset),(3_000_000,offset)]);
+            track(&mut e,other,100_000,&[(x,y+offset),(x,y+offset+1_000_000)]);
+            let report=|e:&mut TestEngine| {
+                let value=e.run_ok("drc.run",json!({}));
+                value["violations"].as_array().unwrap().iter()
+                    .filter(|v|matches!(v["check"].as_str(),Some("clearance"|"short_circuit")))
+                    .cloned().collect::<Vec<_>>()
+            };
+            let before=report(&mut e);
+            // The other Track stays outside the original 1 mm land and the narrow route.
+            proptest::prop_assert!(before.is_empty(),"{kind}: {before:?}");
+            e.run_ok("pcb.rules.set",json!({"kind":"teardrop","values":{kind:{"enabled":true,"length":length,"max_length":"2mm","curved":curved}}}));
+            proptest::prop_assert_eq!(report(&mut e),before);
+            e.run_ok("pcb.zone.fill",json!({}));
+            let project=e.project().unwrap();
+            let fills=project.zone_fills(project.pcb().unwrap().uuid).unwrap();
+            proptest::prop_assert_eq!(fills.teardrops.len(),1);
+        }
+    }
+}

@@ -190,6 +190,24 @@ pub(crate) fn update(
             .add(&j.path);
         if let Item::Track { uuid } = j.target {
             hash.add(&pcb.track(uuid).expect("indexed Track").geometry);
+        } else if let Some((_, land)) = copper
+            .item_pieces(j.target)
+            .into_iter()
+            .find(|(l, _)| *l == j.track.layer)
+        {
+            // An outline edit can expose or cover a constrained taper even when the
+            // edge crossing and transverse size at the Track end stay the same.
+            for prim in &land.prims {
+                hash.add(&prim.radius);
+                match &prim.core {
+                    reda_model::geom::grown::Core::Seg(a, b) => {
+                        hash.add(&(a, b));
+                    }
+                    reda_model::geom::grown::Core::Poly(points) => {
+                        hash.add(points);
+                    }
+                }
+            }
         }
         obstacles.fingerprint(&mut hash);
         let inputs = hash.finish();
