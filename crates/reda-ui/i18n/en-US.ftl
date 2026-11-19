@@ -3070,6 +3070,10 @@ stackup-asymmetric = Not symmetric
 stackup-odd = Odd copper Layer count
 stackup-suggestions = Suggestions
 stackup-section-total = { $thickness } mm total · to scale
+stackup-z0-width = Default Track width { $widths } · without solder mask
+stackup-z0-embedded = Approximate embedded microstrip with a reference on one side.
+stackup-z0-offset = Approximate stripline with unequal plane gaps or different dielectric materials.
+stackup-z0-missing-dk = A dielectric has no Dk specified. The estimate uses 4.5 for that sheet.
 stackup-thickness-mm = Thickness (mm)
 stackup-resolved = Blank sheet · { $thickness } mm resolved
 

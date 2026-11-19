@@ -61472,7 +61472,7 @@
     },
     {
       "category": "pcb",
-      "description": "Resolves each entry's physical thickness and reports the symmetry and ordered-thickness checks.",
+      "description": "Reports physical thickness, symmetry, the ordered-thickness check, Construction match and Track impedance without solder mask per copper Layer.",
       "icon": "inspect",
       "id": "pcb.stackup.info",
       "kind": "query",
@@ -61495,6 +61495,77 @@
       "presets": [],
       "result": {
         "$defs": {
+          "Estimate": {
+            "properties": {
+              "approximate": {
+                "type": "boolean"
+              },
+              "missing_dk": {
+                "description": "At least one sheet in the field region used the 4.5 fallback.",
+                "type": "boolean"
+              },
+              "model": {
+                "$ref": "#/$defs/Model"
+              },
+              "ohms": {
+                "format": "double",
+                "type": "number"
+              },
+              "references": {
+                "description": "Reference Layer UUIDs, in physical order.",
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "ohms",
+              "model",
+              "approximate",
+              "references",
+              "missing_dk"
+            ],
+            "type": "object"
+          },
+          "LayerImpedance": {
+            "properties": {
+              "estimate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Estimate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "layer": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "layer",
+              "width"
+            ],
+            "type": "object"
+          },
+          "Model": {
+            "enum": [
+              "surface_microstrip",
+              "centred_stripline",
+              "offset_stripline",
+              "embedded_microstrip"
+            ],
+            "type": "string"
+          },
           "ResolvedEntry": {
             "description": "The resolved physical thickness of a copper Layer or dielectric sheet.",
             "properties": {
@@ -61570,6 +61641,13 @@
             },
             "type": "array"
           },
+          "impedance": {
+            "description": "Bare Track impedance and the Default Net Class width on each copper Layer.",
+            "items": {
+              "$ref": "#/$defs/LayerImpedance"
+            },
+            "type": "array"
+          },
           "symmetric": {
             "type": "boolean"
           },
@@ -61600,6 +61678,7 @@
           "symmetric",
           "symmetry_mismatches",
           "thickness_warning",
+          "impedance",
           "construction",
           "construction_matches"
         ],
