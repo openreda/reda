@@ -10,7 +10,7 @@ fn uuid(v: &Value) -> Uuid {
 }
 
 fn track(engine: &mut TestEngine, net: Uuid, width: i64, pts: &[(i64, i64)]) -> Vec<Uuid> {
-    let points: Vec<_> = pts.iter().map(|(x,y)| json!({"x":x, "y":y})).collect();
+    let points: Vec<_> = pts.iter().map(|(x,y)| json!({"x":x+10_000_000, "y":y+10_000_000})).collect();
     let v = engine.run_ok("pcb.track.add", json!({"layer":"copper_top", "net":net, "width":width, "points":points}));
     v["result"]["tracks"].as_array().unwrap().iter().map(uuid).collect()
 }
@@ -33,7 +33,7 @@ fn width_change_makes_copper_belonging_to_the_narrow_track() {
     track(&mut engine, net, 1_000_000, &[(-2_000_000,0),(0,0)]);
     let narrow = track(&mut engine, net, 100_000, &[(0,0),(3_000_000,0)])[0];
     // At 0.75 mm beyond the junction the wide Track's round cap no longer reaches.
-    let point = Point::new(Nm(750_000),Nm(120_000));
+    let point = Point::new(Nm(10_750_000),Nm(10_120_000));
     let pick = |engine: &TestEngine| {
         let project = engine.project().unwrap();
         let layer = project.pcb().unwrap().track(narrow).unwrap().layer;

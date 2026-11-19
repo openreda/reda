@@ -70,7 +70,7 @@ fn taper(path: &[Point], length: f64, base: f64, tip: f64, curved: bool) -> poly
     let steps = if curved { ((base-tip)/(8.*ARC_TOLERANCE.0 as f64)).sqrt().ceil().max(1.) } else {1.};
     let mut strips = Vec::new();
     let mut s = 0.;
-    let mut prior = None;
+    let mut prior: Option<[i_overlay::i_float::int::point::IntPoint<i64>;2]> = None;
     for pair in path.windows(2) {
         let (a,b) = (pair[0],pair[1]);
         let d = distance(a,b);
