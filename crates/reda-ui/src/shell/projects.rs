@@ -283,11 +283,11 @@ impl Shell {
         }
         if let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) {
             let set = pcb.layers();
-            if !board
+            if board
                 .layers
                 .previous
                 .and_then(|id| set.layer(id))
-                .is_some_and(|l| l.kind == reda_engine::model::LayerKind::Copper)
+                .is_none_or(|l| l.kind != reda_engine::model::LayerKind::Copper)
             {
                 use reda_engine::model::{LayerKind, Side};
                 let active_is_bottom = board
