@@ -239,3 +239,53 @@ fn a_new_type_claims_existing_unmatched_vias_in_its_drilling_direction() {
     e.run_ok("edit.undo", json!({"document":PCB}));
     assert_eq!(pcb(&e).via(via).unwrap().span.from, l[1]);
 }
+
+#[test]
+fn the_mask_opens_over_the_diameter_at_the_reached_outer_face() {
+    let dir = TempDir::new("via-mask-end");
+    let (mut e, l) = board(&dir);
+    let via = created(&e.run_ok(
+        "pcb.via.add",
+        json!({"at":{"x":0,"y":0},"from":l[2],"to":l[0],
+        "diameter":{"start":"0.8mm","end":"1.2mm"},"mask":{"top":{"expansion":"0.05mm"}}}),
+    ));
+    let opening = reda_pcb::openings::resolve(pcb(&e))
+        .into_iter()
+        .find(|o| o.objects.contains(&via))
+        .unwrap();
+    assert_eq!(opening.side, reda_model::Side::Top);
+    assert_eq!(opening.copper.outline.width.0, 1200000);
+    assert_eq!(opening.geometry.unwrap().outline.width.0, 1300000);
+}
+
+#[test]
+fn pasting_a_via_copied_before_a_type_exists_keeps_each_physical_pad() {
+    let dir = TempDir::new("via-paste-direction");
+    let (mut e, l) = board(&dir);
+    let source = created(&e.run_ok(
+        "pcb.via.add",
+        json!({"at":{"x":0,"y":0},"from":l[0],"to":l[2],
+       "diameter":{"start":"1mm","end":"0.8mm"}}),
+    ));
+    let clip = e.run_ok("pcb.copy", json!({"objects":[source]}));
+    e.run_ok(
+        "pcb.via_type.add",
+        json!({"document":PCB,"from":l[2],"to":l[0]}),
+    );
+    let paste = e.run_ok(
+        "pcb.paste",
+        json!({"clipboard":clip,"at":{"x":"4mm","y":0}}),
+    );
+    let id = paste["result"]["objects"][0]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    for uuid in [source, id] {
+        let via = pcb(&e).via(uuid).unwrap();
+        assert_eq!(via.span.from, l[2]);
+        assert_eq!(via.diameter.start.0, 800000);
+        assert_eq!(via.diameter.end.unwrap().0, 1000000);
+        assert_eq!(via.diameter.middle.unwrap().0, 1000000);
+    }
+}

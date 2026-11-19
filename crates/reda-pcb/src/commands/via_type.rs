@@ -136,7 +136,7 @@ impl Command for Add {
             .filter(|v| v.span.joins(kind.span()) && v.span != kind.span())
             .map(|v| {
                 let mut via = v.clone();
-                via.span = kind.span();
+                via.set_span(kind.span());
                 via
             })
             .collect();
@@ -270,7 +270,7 @@ pub(super) fn set_plan(pcb: &PcbDocument, p: SetParams) -> Result<Plan, CommandE
             if (used && p.move_vias) || via.span.joins(kind.span()) {
                 if via.span != kind.span() {
                     let mut moved = via.clone();
-                    moved.span = kind.span();
+                    moved.set_span(kind.span());
                     vias.push(moved);
                     if used {
                         counts.vias_stretched += usize::from(new_len > old_len);

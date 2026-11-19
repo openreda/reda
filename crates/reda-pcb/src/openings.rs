@@ -122,7 +122,18 @@ fn pad_openings(
         let from_hole = mask
             .from_hole_edge
             .unwrap_or_else(|| flag(pcb, pad.net, RuleField::FromHoleEdge));
-        let mut opening = pad.clone();
+        let mut copper = pad.clone();
+        if let Some(via) = via
+            && let Some(end) = via.diameter.end
+            && pcb
+                .layers()
+                .layer(via.span.to)
+                .is_some_and(|l| l.side == Some(side))
+        {
+            copper.outline =
+                CornerRect::uniform(end, end, Point::default(), CornerCut::Round(Nm(end.0 / 2)));
+        }
+        let mut opening = copper.clone();
         if from_hole && let Some(hole) = pad.hole {
             opening.outline = CornerRect::uniform(
                 hole.width,
@@ -141,7 +152,7 @@ fn pad_openings(
             side,
             kind: Kind::Mask,
             geometry,
-            copper: pad.clone(),
+            copper,
             at: pad.at,
         });
     }

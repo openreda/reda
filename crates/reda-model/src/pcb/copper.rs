@@ -117,6 +117,24 @@ pub struct Via {
     pub teardrop: bool,
 }
 
+impl Via {
+    /// Change drilling direction on the same span without moving copper between Layers.
+    /// A different span carries its start, middle and end sizes to the new Layers.
+    pub fn set_span(&mut self, span: LayerSpan) {
+        if self.span != span && self.span.joins(span) {
+            let old = self.diameter;
+            let start = old.end.unwrap_or(old.start);
+            let middle = old.middle.unwrap_or(old.start);
+            self.diameter = super::ViaDiameter {
+                start,
+                middle: (middle != start).then_some(middle),
+                end: (old.start != start).then_some(old.start),
+            };
+        }
+        self.span = span;
+    }
+}
+
 fn is_false(b: &bool) -> bool {
     !*b
 }

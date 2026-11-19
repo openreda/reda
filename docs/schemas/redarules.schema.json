@@ -389,6 +389,17 @@
       "additionalProperties": false,
       "description": "The values a rule record sets. Which ones a record may hold depends on its kind\n([`RuleKind::fields`]); every one left out is inherited.",
       "properties": {
+        "allowed": {
+          "description": "The ordered permissions of a Via Span Net Class record. An explicit empty list allows all types.",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",

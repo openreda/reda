@@ -33,13 +33,13 @@ pub struct ViaAddParams {
     pub from: Option<Uuid>,
     pub to: Option<Uuid>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
-    /// any copper Layer, or else no Net.
+    /// a copper Layer in its span, or else no Net.
     #[serde(default)]
     pub net: Option<Uuid>,
-    /// The copper diameter; left out, the Net Class's Via diameter, else the board's rule.
+    /// The copper diameters in drilling order, defaulting to the type with the Net Class preference.
     #[serde(default)]
     pub diameter: Option<DiameterParam>,
-    /// The hole; left out, the Net Class's Via hole, else the board's rule.
+    /// The hole, defaulting to the Net Class preference or the type’s hole.
     #[serde(default)]
     pub hole: Option<Length>,
 }
@@ -214,9 +214,7 @@ impl Command for ViaSet {
     const META: Meta = Meta {
         id: "pcb.via.set",
         title: "Set Via",
-        description: "Sets the copper diameter and the hole of Vias. Values left out stay; \
-                      the diameter must stay larger than the hole. Returns the Vias that \
-                      changed.",
+        description: "Updates Via spans, diameters, holes, and overrides. Returns the changed Vias.",
         category: "pcb",
         icon: "via",
         kind: Kind::Edit,
@@ -242,14 +240,14 @@ impl Command for ViaSet {
                 )
             })?;
             let mut via = before.clone();
-            via.diameter = diameter.unwrap_or(via.diameter);
             via.hole = hole.unwrap_or(via.hole);
             let span = LayerSpan {
                 from: p.from.unwrap_or(via.span.from),
                 to: p.to.unwrap_or(via.span.to),
             };
             check_span(pcb, span)?;
-            via.span = pcb.stackup().type_for_span(span).map_or(span, |t| t.span());
+            via.set_span(pcb.stackup().type_for_span(span).map_or(span, |t| t.span()));
+            via.diameter = diameter.unwrap_or(via.diameter);
             via.unused_layers = p.unused_layers.unwrap_or(via.unused_layers);
             via.teardrop = p.teardrop.unwrap_or(via.teardrop);
             if let Some(mask) = p.mask {
