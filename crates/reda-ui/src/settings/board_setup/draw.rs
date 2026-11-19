@@ -148,10 +148,11 @@ pub fn rule_page(ui: &mut Ui, cx: &mut PageCx<'_>, rule: Rule, board: &mut Board
         section_ui(ui, cx, section, board);
         let kind = section.fields[0].rule().0;
         if kind.accepts_layers()
-            && let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb())
+            && let Some(project) = cx.shell.engine().project()
+            && project.pcb().is_some()
         {
             ui.push_id(("layer-rules", i), |ui| {
-                scoped::rule_section(ui, pcb, board, kind, section.fields)
+                scoped::rule_section(ui, project, board, kind, section.fields)
             });
         }
     }

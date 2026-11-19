@@ -3204,6 +3204,7 @@ board-layer-inner = Inner
 board-layer-outer = Outer
 board-layer-plane = Plane
 board-rule-by-layer = By Layer
+board-rule-by-layer-class = By Layer Net Class
 board-rule-add-layer = Add Layer rule
 board-rule-class-pairs = Class pairs
 board-rule-layers = Layer rules

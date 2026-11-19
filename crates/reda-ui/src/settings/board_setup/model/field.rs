@@ -514,6 +514,29 @@ impl RuleField {
         }))
     }
 
+    /// Typed `text` as the value a record holds; `Ok(None)` when it is empty.
+    pub fn value(self, text: &str) -> Result<Option<RuleValue>, String> {
+        let Some(param) = self.parse(text)? else {
+            return Ok(None);
+        };
+        let int = param.as_i64().unwrap_or_default();
+        let narrow = |n: i64| u32::try_from(n).unwrap_or_default();
+        Ok(Some(match self.kind() {
+            ValueKind::Length | ValueKind::Signed => RuleValue::Length(Nm(int)),
+            ValueKind::Flag => RuleValue::Flag(param.as_bool().unwrap_or_default()),
+            ValueKind::SizePercent => RuleValue::UnsignedPercent(narrow(int)),
+            ValueKind::Percent => RuleValue::Percent(i32::try_from(int).unwrap_or_default()),
+            ValueKind::Style => {
+                RuleValue::Style(serde_json::from_value(param).map_err(|e| e.to_string())?)
+            }
+            ValueKind::Spokes | ValueKind::Count => {
+                RuleValue::Count(u8::try_from(int).unwrap_or_default())
+            }
+            ValueKind::Angle => RuleValue::Angle(reda_engine::model::geom::Millideg(int)),
+            ValueKind::Ratio => RuleValue::MilliRatio(narrow(int)),
+        }))
+    }
+
     /// Why typed `text` is not a valid value, if it is not; `required` refuses an empty
     /// one.
     pub fn check(self, text: &str, required: bool) -> Result<(), String> {

@@ -1840,3 +1840,39 @@ fn the_net_classes_grid_has_micro_via_size_columns() {
         [Some(Nm(100_000)); 3]
     );
 }
+
+#[test]
+fn by_layer_resolves_the_drafted_records_before_apply() {
+    let (home, work) = (TempDir::new("by-layer-home"), TempDir::new("by-layer-work"));
+    let mut h = harness(home.path(), work.path(), "ByLayer");
+    add_power_class(&mut h);
+    let layers = pcb(&h).copper_layers().count();
+    open_board_setup(&mut h, "ByLayer");
+    // Clearance is the first page. Neither value is on the board yet.
+    retype(&mut h, "Board-wide minimum Clearance (mm)", "0.27");
+    retype(&mut h, "Power: Clearance", "0.41");
+    h.get_by_role_and_label(Role::DisclosureTriangle, "By Layer")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::DisclosureTriangle, "By Layer")
+        .click();
+    h.run();
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.27").count(),
+        layers,
+        "the Default class resolves the drafted board-wide clearance on every Layer"
+    );
+    choose(&mut h, "By Layer Net Class", "Power");
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.41").count(),
+        layers,
+        "Power resolves its drafted override"
+    );
+    // Clearing the override falls back to the drafted board-wide value.
+    clear(&mut h, "Power: Clearance");
+    assert_eq!(
+        h.get_all_by_role_and_label(Role::Label, "0.27").count(),
+        layers
+    );
+    assert!(pending(&h) > 0, "nothing is applied yet");
+}

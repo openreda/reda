@@ -4,7 +4,7 @@ use super::{BoardSetupDraft, RuleField, kind_name, value_field};
 use crate::widgets::Column;
 use crate::{tr, widgets};
 use egui::Ui;
-use reda_engine::model::{LayerGroup, PcbDocument, RuleKind, RuleLayers, RuleScope, Uuid};
+use reda_engine::model::{LayerGroup, PcbDocument, Project, RuleKind, RuleLayers, RuleScope, Uuid};
 use reda_engine::pcb::rules::resolve_for_classes;
 
 use crate::properties::rules::{layer_name, layer_scope_label};
@@ -209,13 +209,18 @@ fn pairs(ui: &mut Ui, pcb: &PcbDocument, board: &mut BoardSetupDraft, fields: &[
         });
 }
 
+/// Every copper Layer against the values resolved for the chosen class, from the
+/// records as drafted: what applies once the dialog's edits are applied.
 fn by_layer(
     ui: &mut Ui,
+    project: &Project,
     pcb: &PcbDocument,
     board: &BoardSetupDraft,
     kind: RuleKind,
     fields: &[RuleField],
 ) {
+    let drafted = board.drafted_pcb(project);
+    let resolved = drafted.as_ref().unwrap_or(pcb);
     let classes = classes(pcb);
     let key = ui.scope_id().with("chosen-class");
     let mut chosen = ui.data(|d| d.get_temp(key)).unwrap_or(Uuid::NIL);
@@ -225,11 +230,15 @@ fn by_layer(
         .unwrap_or(&classes[0])
         .1
         .clone();
-    widgets::dropdown("by-layer-class", name).show(ui, |ui| {
+    let combo = widgets::dropdown("by-layer-class", name).show(ui, |ui| {
         for (id, name) in classes {
             widgets::choice_value(ui, &mut chosen, id, name);
         }
     });
+    let label = tr!("board-rule-by-layer-class");
+    combo
+        .response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::Role::ComboBox, true, &label));
     ui.data_mut(|d| d.insert_temp(key, chosen));
     widgets::table("by-layer-values")
         .columns(std::iter::repeat_n(Column::auto(), fields.len() + 1))
@@ -245,13 +254,13 @@ fn by_layer(
                     row.text(layer_name(pcb, layer.uuid));
                     for &field in fields {
                         let text = resolve_for_classes(
-                            pcb,
+                            resolved,
                             &[chosen],
                             Some(layer.uuid),
                             kind,
                             field.rule().1,
                         )
-                        .and_then(|s| pcb.rule(s.rule))
+                        .and_then(|s| resolved.rule(s.rule))
                         .map(|r| field.text_in(&r.values))
                         .unwrap_or_default();
                         row.ui(|ui| {
@@ -270,11 +279,14 @@ fn by_layer(
 
 pub(super) fn rule_section(
     ui: &mut Ui,
-    pcb: &PcbDocument,
+    project: &Project,
     board: &mut BoardSetupDraft,
     kind: RuleKind,
     fields: &[RuleField],
 ) {
+    let Some(pcb) = project.pcb() else {
+        return;
+    };
     widgets::section(tr!("board-rule-layers"))
         .id_salt("board-layer-rows")
         .show(ui, |ui| {
@@ -287,5 +299,5 @@ pub(super) fn rule_section(
     }
     widgets::section(tr!("board-rule-by-layer"))
         .id_salt("by-layer")
-        .show(ui, |ui| by_layer(ui, pcb, board, kind, fields));
+        .show(ui, |ui| by_layer(ui, project, pcb, board, kind, fields));
 }
