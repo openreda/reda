@@ -907,6 +907,7 @@ fn construction_patches_are_case_insensitive_ordered_and_atomic() {
     assert_eq!(preset.constructions.len(), 2);
     assert_eq!(preset.constructions[1].thickness, Nm(1_600_000));
     for bad in [
+        json!([]),
         json!({"custom":null,"Broken":{"entries":[]}}),
         json!({"Dupe":build,"dupe":build}),
     ] {

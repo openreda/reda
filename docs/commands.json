@@ -4568,7 +4568,7 @@
                 "description": "The BOM table form, columns and row conventions."
               },
               "constructions": {
-                "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither.",
+                "description": "The named physical builds available when creating or editing a board.",
                 "items": {
                   "$ref": "#/$defs/Construction"
                 },
@@ -5377,7 +5377,7 @@
             "type": "string"
           },
           "values": {
-            "description": "Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,\n`gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each\nwhole, such as `{\"gerber\": {\"slot_command\": \"g85\"}}`; `zip_assembly` is set as it\nis. `placement_corrections` replaces the whole list, with integer base units or\nunit strings for rotation and offsets. The name cannot be set."
+            "description": "Preset keys to change. Sections such as `rules` and `gerber` change only the keys\nsupplied. `constructions` is an object keyed by case-insensitive Construction name.\nEach value replaces or adds the named Construction, and null removes it.\n`placement_corrections` replaces the whole list, with integer base units or unit\nstrings for rotation and offsets. The preset name cannot be set."
           }
         },
         "required": [

@@ -217,8 +217,7 @@ pub struct FabPreset {
     pub name: String,
     /// The limits a job checks the board against, and the seeds of a new board's rules.
     pub rules: FabRules,
-    /// The thickness and copper a new board's Stackup starts with; left out when the
-    /// preset seeds neither.
+    /// The named physical builds available when creating or editing a board.
     #[serde(deserialize_with = "Construction::read_list")]
     #[schemars(with = "Vec<Construction>")]
     pub constructions: Vec<Construction>,

@@ -228,7 +228,13 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
     };
     for (key, value) in values {
         match (target.get_mut(key), value) {
-            (Some(current), Value::Object(patch)) if key == "constructions" => {
+            (Some(current), patch) if key == "constructions" => {
+                let patch = patch.as_object().ok_or_else(|| {
+                    CommandError::invalid_params(
+                        "/values/constructions",
+                        "expected an object keyed by Construction name",
+                    )
+                })?;
                 *current = serde_json::json!(patch_constructions(&preset.constructions, patch)?);
             }
             (Some(Value::Object(section)), Value::Object(keys)) => {
