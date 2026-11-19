@@ -207,6 +207,57 @@ fn osh_park_prototype_materials_rules_and_files_match_the_fabrication_services()
 }
 
 #[test]
+fn osh_park_construction_notes_give_the_limits_of_their_own_service() {
+    let osh = shipped_named("osh park").unwrap();
+    // Track and clearance, annular ring, Via diameter, drill, hole to hole, copper to
+    // edge, and plated hole to unrelated inner copper where the service has inner Layers.
+    let what = [
+        " mm track and clearance",
+        " mm annular ring",
+        " mm Via diameter",
+        " mm drill",
+        " mm hole to hole",
+        " mm copper to board edge",
+        " mm plated hole to unrelated inner copper",
+    ];
+    for (count, limits) in [
+        (
+            2,
+            ["0.1524", "0.127", "0.508", "0.254", "0.127", "0.381", ""],
+        ),
+        (
+            4,
+            [
+                "0.127", "0.1016", "0.4572", "0.254", "0.127", "0.381", "0.254",
+            ],
+        ),
+        (
+            6,
+            [
+                "0.127", "0.1016", "0.4064", "0.2032", "0.127", "0.381", "0.254",
+            ],
+        ),
+    ] {
+        let notes = osh
+            .default_construction(count)
+            .unwrap()
+            .notes
+            .clone()
+            .unwrap();
+        for (value, what) in limits.iter().zip(what) {
+            if value.is_empty() {
+                assert!(!notes.contains(what), "{count} Layers: {notes}");
+            } else {
+                assert!(
+                    notes.contains(&format!(" {value}{what}")),
+                    "{count} Layers lacks {value}{what}: {notes}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn shipped_presets_state_their_plated_hole_isolation_without_layer_overrides() {
     for (name, via, pad) in [
         ("Generic", 250_000, 250_000),

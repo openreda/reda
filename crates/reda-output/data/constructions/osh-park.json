@@ -2,7 +2,7 @@
   {
     "name": "2 Layer Prototype",
     "default": true,
-    "notes": "Prototype service minima are 0.1524 mm track and clearance, 0.127 mm annular ring, 0.254 mm drill. ENIG finish.",
+    "notes": "Prototype service minima are 0.1524 mm track and clearance, 0.127 mm annular ring, 0.508 mm Via diameter, 0.254 mm drill, 0.127 mm hole to hole and 0.381 mm copper to board edge. ENIG finish.",
     "thickness": 1600000,
     "entries": [
       {"copper": 35600},
@@ -13,7 +13,7 @@
   {
     "name": "4 Layer Prototype",
     "default": true,
-    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.254 mm drill. ENIG finish.",
+    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.4572 mm Via diameter, 0.254 mm drill, 0.127 mm hole to hole, 0.381 mm copper to board edge and 0.254 mm plated hole to unrelated inner copper. ENIG finish.",
     "thickness": 1600000,
     "entries": [
       {"copper": 43200},
@@ -28,7 +28,7 @@
   {
     "name": "6 Layer Prototype",
     "default": true,
-    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.2032 mm drill. ENIG finish.",
+    "notes": "Prototype service minima are 0.127 mm track and clearance, 0.1016 mm annular ring, 0.4064 mm Via diameter, 0.2032 mm drill, 0.127 mm hole to hole, 0.381 mm copper to board edge and 0.254 mm plated hole to unrelated inner copper. ENIG finish.",
     "thickness": 1600000,
     "entries": [
       {"copper": 43200},
