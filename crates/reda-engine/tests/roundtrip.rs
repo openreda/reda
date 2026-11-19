@@ -1080,6 +1080,9 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         hole_to_hole,
         edge_clearance,
     ] = lengths;
+    // Preferred seeds become a physical through Via when the PCB is created.
+    let preferred_hole = Nm(via_hole.0.abs() + 1);
+    let preferred_diameter = Nm(preferred_hole.0 + via_diameter.0.abs() + 1);
     FabRules {
         clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
@@ -1095,8 +1098,8 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         edge_clearance,
         preferred: PreferredSeeds {
             track_width,
-            via_diameter,
-            via_hole,
+            via_diameter: preferred_diameter,
+            via_hole: preferred_hole,
         },
     }
 }

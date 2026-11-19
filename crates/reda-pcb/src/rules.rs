@@ -141,16 +141,13 @@ fn range(
     net: Option<Uuid>,
     kind: RuleKind,
     [min, preferred, max]: [RuleField; 3],
+    fallback: Option<Nm>,
 ) -> SizeRange {
     SizeRange {
         min: limit(pcb, net, kind, min),
-        preferred: resolve(pcb, net, kind, preferred)
-            .and_then(|s| s.value.length())
-            .unwrap_or_else(|| match preferred {
-                RuleField::DiameterPreferred => pcb.stackup().through_type().diameter.start,
-                RuleField::HolePreferred => pcb.stackup().through_type().hole,
-                _ => unreachable!("the board-wide Track rule holds a preferred width"),
-            }),
+        preferred: limit(pcb, net, kind, preferred)
+            .or(fallback)
+            .expect("Track rules and Via types supply a starting size"),
         max: limit(pcb, net, kind, max),
     }
 }
@@ -169,21 +166,48 @@ pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool 
         .is_none_or(|list| list.is_empty() || list.contains(&id))
 }
 
-/// Starting sizes of a single Via. Class preferences override the type field by field.
-pub fn via_starting_size(
+fn via_ranges(
     pcb: &PcbDocument,
     net: Option<Uuid>,
     via_type: &reda_model::ViaType,
-) -> (reda_model::ViaDiameter, Nm) {
+) -> (SizeRange, SizeRange) {
+    use RuleField::*;
     let kind = if via_type.micro {
         RuleKind::MicroviaSize
     } else {
         RuleKind::ViaSize
     };
+    (
+        range(
+            pcb,
+            net,
+            kind,
+            [DiameterMin, DiameterPreferred, DiameterMax],
+            Some(via_type.diameter.start),
+        ),
+        range(
+            pcb,
+            net,
+            kind,
+            [HoleMin, HolePreferred, HoleMax],
+            Some(via_type.hole),
+        ),
+    )
+}
+
+/// Class preferences override the type's starting sizes. Every pad and the hole
+/// are clipped to the effective limits for the drilling method.
+pub fn via_starting_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let (pads, hole) = via_ranges(pcb, net, via_type);
     let mut diameter = via_type.diameter;
-    diameter.start = limit(pcb, net, kind, RuleField::DiameterPreferred).unwrap_or(diameter.start);
-    let hole = limit(pcb, net, kind, RuleField::HolePreferred).unwrap_or(via_type.hole);
-    (diameter, hole)
+    diameter.start = pads.default_size();
+    diameter.middle = diameter.middle.map(|d| pads.clip(d));
+    diameter.end = diameter.end.map(|d| pads.clip(d));
+    (diameter, hole.default_size())
 }
 
 /// Every rule value that applies to copper on one Net.
@@ -207,24 +231,15 @@ pub struct NetRules {
 /// The rules for copper on `net` (or on no Net, which takes the board-wide records).
 pub fn net_rules(pcb: &PcbDocument, net: Option<Uuid>) -> NetRules {
     use RuleField::*;
+    let (via_diameter, via_hole) = via_ranges(pcb, net, pcb.stackup().through_type());
     NetRules {
         clearance: limit(pcb, net, RuleKind::Clearance, Value),
         ignore_pad_to_pad: resolve(pcb, net, RuleKind::Clearance, IgnorePadToPad)
             .and_then(|s| s.value.flag())
             .unwrap_or(false),
-        track_width: range(pcb, net, RuleKind::TrackWidth, [Min, Preferred, Max]),
-        via_diameter: range(
-            pcb,
-            net,
-            RuleKind::ViaSize,
-            [DiameterMin, DiameterPreferred, DiameterMax],
-        ),
-        via_hole: range(
-            pcb,
-            net,
-            RuleKind::ViaSize,
-            [HoleMin, HolePreferred, HoleMax],
-        ),
+        track_width: range(pcb, net, RuleKind::TrackWidth, [Min, Preferred, Max], None),
+        via_diameter,
+        via_hole,
         hole_min: limit(pcb, net, RuleKind::HoleSize, Min),
         hole_max: limit(pcb, net, RuleKind::HoleSize, Max),
         annular_ring: limit(pcb, net, RuleKind::AnnularRing, Min),

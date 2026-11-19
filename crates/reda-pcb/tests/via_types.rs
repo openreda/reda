@@ -134,6 +134,44 @@ fn removing_a_type_previews_empty_class_permissions_and_undo_restores_them() {
 }
 
 #[test]
+fn micro_size_limits_clip_the_implicit_pads_and_hole_but_keep_explicit_sizes() {
+    let dir = TempDir::new("via-size-clipping");
+    let (mut e, l) = board(&dir);
+    let diameter = json!({"start":"0.28mm","middle":"0.31mm","end":"0.4mm"});
+    e.run_ok(
+        "pcb.via_type.add",
+        json!({"document":PCB,"from":l[0],"to":l[2],
+        "micro":true,"hole":"0.10mm","diameter":diameter}),
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{
+        "diameter":{"min":"0.30mm","max":"0.35mm"},"hole":{"min":"0.12mm"}}}),
+    );
+    let implicit = created(&e.run_ok(
+        "pcb.via.add",
+        json!({"from":l[0],"to":l[2],"at":{"x":0,"y":0}}),
+    ));
+    let explicit = created(&e.run_ok(
+        "pcb.via.add",
+        json!({"from":l[0],"to":l[2],"at":{"x":"2mm","y":0},
+        "diameter":diameter,"hole":"0.10mm"}),
+    ));
+    let sizes = |id| {
+        let via = pcb(&e).via(id).unwrap();
+        (serde_json::to_value(via.diameter).unwrap(), via.hole.0)
+    };
+    assert_eq!(
+        sizes(implicit),
+        (json!({"start":300000,"middle":310000,"end":350000}), 120000)
+    );
+    assert_eq!(
+        sizes(explicit),
+        (json!({"start":280000,"middle":310000,"end":400000}), 100000)
+    );
+}
+
+#[test]
 fn reordering_keeps_the_through_type_permanent_and_micro_spans_short() {
     let dir = TempDir::new("via-type-order");
     let (mut e, l) = board(&dir);
