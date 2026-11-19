@@ -125,9 +125,8 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
             assert!(*dark && points.len() >= 4 && arcs.is_empty());
             assert_eq!(function.as_deref(), Some("Conductor"));
             assert_eq!(points.first(), points.last());
-            let mut vertices = points[..points.len() - 1].to_vec();
-            vertices.sort();
-            actual.push((attributes[".N"].clone(), vertices));
+            let ring = canonical_ring(points[..points.len() - 1].to_vec());
+            actual.push((attributes[".N"].clone(), ring));
         }
         let mut expected = Vec::new();
         for drop in fills.teardrops.iter().filter(|d| d.location.layer == layer) {
@@ -135,9 +134,8 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
             let name = &pcb.net(track.net.unwrap()).unwrap().name;
             for shape in &drop.shapes {
                 assert!(shape.holes.is_empty());
-                let mut vertices: Vec<_> = shape.outer.iter().map(|p| (p.x.0, p.y.0)).collect();
-                vertices.sort();
-                expected.push((name.clone(), vertices));
+                let vertices = shape.outer.iter().map(|p| (p.x.0, p.y.0)).collect();
+                expected.push((name.clone(), canonical_ring(vertices)));
             }
         }
         actual.sort();
@@ -196,4 +194,15 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
             ["R2", "17.000000", "6.250000", "Bottom", "180.000"]
         ]
     );
+}
+
+/// A simple outer contour may start at any vertex and wind in either direction.
+fn canonical_ring(mut vertices: Vec<(i64, i64)>) -> Vec<(i64, i64)> {
+    assert!(vertices.len() >= 3);
+    let first = (0..vertices.len()).min_by_key(|&i| vertices[i]).unwrap();
+    vertices.rotate_left(first);
+    if vertices[1] > vertices[vertices.len() - 1] {
+        vertices[1..].reverse();
+    }
+    vertices
 }
