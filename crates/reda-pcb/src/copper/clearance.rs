@@ -31,6 +31,7 @@ pub enum Proposal {
         span: reda_model::LayerSpan,
         at: Point,
         diameter: reda_model::ViaDiameter,
+        hole: Nm,
         net: Option<Uuid>,
     },
 }
@@ -50,6 +51,7 @@ impl Proposal {
                 diameter,
                 span,
                 net,
+                ..
             } => (
                 pcb.span_layers(span)
                     .into_iter()
@@ -89,16 +91,49 @@ impl Copper {
         ignore: &[Uuid],
     ) -> Vec<ClearanceHit> {
         let (pieces, net) = proposal.pieces(pcb);
-        let reach = max_clearance(pcb).0;
+        let reach = max_clearance(pcb)
+            .0
+            .max(largest(pcb, RuleKind::Clearance, RuleField::HoleVia).0)
+            .max(largest(pcb, RuleKind::Clearance, RuleField::HolePad).0);
+        let planned_bore = match *proposal {
+            Proposal::Via { at, hole, .. } => Some(Shape::disc(at, hole)),
+            Proposal::Track { .. } => None,
+        };
+        let bores = self.bores.get_or_init(|| super::bores::Bores::of(pcb));
         let ties = super::ties::Ties::of(pcb);
         let mut hits = Vec::new();
         for (layer, shape) in pieces {
-            let env = shape.envelope();
+            let mut env = shape.envelope();
+            if let Some(bore) = &planned_bore {
+                use rstar::Envelope;
+                env.merge(&bore.envelope());
+            }
             let (lo, hi) = (env.lower(), env.upper());
             let search = AABB::from_corners(
                 [lo[0] - reach, lo[1] - reach],
                 [hi[0] + reach, hi[1] + reach],
             );
+            for bore in bores.near(layer, search) {
+                if ignore.contains(&bore.item.object())
+                    || ties.tie_pad_on(net, bore.item)
+                    || (net.is_some()
+                        && net == bore.net
+                        && self.joins_bore(pcb, layer, bore, proposal))
+                {
+                    continue;
+                }
+                let required = super::bores::clearance(pcb, net, bore.net, layer, bore.field);
+                let gap = shape.distance(&bore.shape);
+                if gap < required.0 as f64 {
+                    hits.push(ClearanceHit {
+                        item: bore.item,
+                        layer,
+                        net: bore.net,
+                        required,
+                        actual: Nm(gap.max(0.).floor() as i64),
+                    });
+                }
+            }
             for piece in self.candidates(layer, search) {
                 let other = self.net(piece.item);
                 // Zone fills make way for new copper when they are refilled.
@@ -115,6 +150,22 @@ impl Copper {
                 if ties.tie_pad_on(net, piece.item) && !shape.touches(&piece.shape) {
                     continue;
                 }
+                if let Some(bore) = &planned_bore
+                    && !ties.tie_pad_on(net, piece.item)
+                {
+                    let bore_limit =
+                        super::bores::clearance(pcb, net, other, layer, RuleField::HoleVia);
+                    let actual = bore.distance(&piece.shape);
+                    if actual < bore_limit.0 as f64 {
+                        hits.push(ClearanceHit {
+                            item: piece.item,
+                            layer,
+                            net: other,
+                            required: bore_limit,
+                            actual: Nm(actual.max(0.).floor() as i64),
+                        });
+                    }
+                }
                 if gap < required.0 as f64
                     || (piece.item.is_artwork() && gap <= reda_model::geom::grown::TOUCH)
                 {
@@ -128,8 +179,9 @@ impl Copper {
                 }
             }
         }
-        hits.sort_by_key(|h| (h.item, h.layer));
-        hits.dedup();
+        // One hit per item and Layer, showing the measurement furthest below its limit.
+        hits.sort_by_key(|h| (h.item, h.layer, h.actual.0 - h.required.0));
+        hits.dedup_by_key(|h| (h.item, h.layer));
         hits
     }
 }
@@ -157,6 +209,31 @@ impl Copper {
         net: Option<Uuid>,
         near: Option<(Point, Nm)>,
     ) -> Vec<Halo> {
+        self.route_halos(pcb, layer, net, near, None)
+    }
+
+    /// Halos for a proposed Via land on this Layer. A larger bore-to-copper gap
+    /// can set the exclusion boundary even where copper-to-copper clearance is small.
+    pub fn via_halos(
+        &self,
+        pcb: &PcbDocument,
+        layer: Uuid,
+        net: Option<Uuid>,
+        near: Option<(Point, Nm)>,
+        diameter: Nm,
+        hole: Nm,
+    ) -> Vec<Halo> {
+        self.route_halos(pcb, layer, net, near, Some((diameter, hole)))
+    }
+
+    fn route_halos(
+        &self,
+        pcb: &PcbDocument,
+        layer: Uuid,
+        net: Option<Uuid>,
+        near: Option<(Point, Nm)>,
+        via_size: Option<(Nm, Nm)>,
+    ) -> Vec<Halo> {
         let envelope = match near {
             Some((at, reach)) => AABB::from_corners(
                 [at.x.0 - reach.0, at.y.0 - reach.0],
@@ -164,6 +241,7 @@ impl Copper {
             ),
             None => AABB::from_corners([i64::MIN / 4, i64::MIN / 4], [i64::MAX / 4, i64::MAX / 4]),
         };
+        let ties = super::ties::Ties::of(pcb);
         let mut out: Vec<Halo> = Vec::new();
         for piece in self.candidates(layer, envelope) {
             let other = self.net(piece.item);
@@ -175,7 +253,16 @@ impl Copper {
             {
                 continue;
             }
-            let clearance = clearance_between_on(pcb, net, other, Some(layer)).unwrap_or(Nm::ZERO);
+            let clearance = if ties.tie_pad_on(net, piece.item) {
+                Nm::ZERO
+            } else {
+                let copper = clearance_between_on(pcb, net, other, Some(layer)).unwrap_or(Nm::ZERO);
+                via_size.map_or(copper, |(diameter, hole)| {
+                    let drill = super::bores::clearance(pcb, net, other, layer, RuleField::HoleVia);
+                    // The land's outline will be compared to this displayed halo.
+                    copper.max(Nm(drill.0 + hole.0 / 2 - diameter.0 / 2))
+                })
+            };
             let mut shape = piece.shape.clone();
             for prim in &mut shape.prims {
                 prim.radius += clearance.0;
@@ -185,6 +272,49 @@ impl Copper {
                 shape,
                 clearance,
             });
+        }
+        let bores = self.bores.get_or_init(|| super::bores::Bores::of(pcb));
+        let land_halos: std::collections::BTreeMap<_, _> =
+            out.iter().enumerate().map(|(i, h)| (h.item, i)).collect();
+        for bore in bores.near(layer, envelope) {
+            if (net.is_some() && net == bore.net && !self.unused.contains(bore.item, layer))
+                || ties.tie_pad_on(net, bore.item)
+                || near.is_some_and(|(at, r)| {
+                    bore.shape.distance(&Shape::disc(at, Nm::ZERO)) > r.0 as f64
+                })
+            {
+                continue;
+            }
+            let clearance = super::bores::clearance(pcb, net, bore.net, layer, bore.field);
+            if clearance == Nm::ZERO {
+                continue;
+            }
+            let mut shape = bore.shape.clone();
+            for p in &mut shape.prims {
+                p.radius += clearance.0;
+            }
+            if let Some(&slot) = land_halos.get(&bore.item) {
+                let existing = &mut out[slot];
+                for prim in shape.prims {
+                    if let Some(same) = existing
+                        .shape
+                        .prims
+                        .iter_mut()
+                        .find(|p| p.core == prim.core)
+                    {
+                        same.radius = same.radius.max(prim.radius);
+                    } else {
+                        existing.shape.prims.push(prim);
+                    }
+                }
+                existing.clearance = existing.clearance.max(clearance);
+            } else {
+                out.push(Halo {
+                    item: bore.item,
+                    shape,
+                    clearance,
+                });
+            }
         }
         out.sort_by_key(|h| h.item);
         out

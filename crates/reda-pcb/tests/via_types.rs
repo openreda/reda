@@ -402,6 +402,7 @@ fn routed_via_preview_uses_each_physical_lands_diameter_within_its_span() {
         },
         at: Point::default(),
         diameter,
+        hole: Nm::from_um(100),
         net: None,
     };
     let mut layers: Vec<_> = Copper::build(pcb)

@@ -499,3 +499,134 @@ fn rounded_triangles_in_mirrored_rotated_letters_do_not_extend_their_copper() {
             .is_empty()
     );
 }
+
+#[test]
+fn routing_clearance_and_halos_observe_a_plated_bore_without_a_land() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("live-plated-clearance");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Bores","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let document = e.project().unwrap().pcb().unwrap().uuid;
+    e.run_ok(
+        "pcb.via_type.add",
+        json!({"document":document,"from":layers[1],"to":layers[2]}),
+    );
+    let via = uuid(
+        &e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":0,"y":0},"from":layers[1],"to":layers[2],
+        "diameter":"0.4mm","hole":"0.2mm","unused_layers":"remove"}),
+        )["result"]["uuid"],
+    );
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"value":"0.01mm","hole":{"via":"0.35mm"}}}),
+    );
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    let copper = Copper::of(project).unwrap();
+    let origin = Point::default();
+    for (i, layer) in layers.iter().enumerate() {
+        let shape = reda_pcb::Proposal::Track {
+            layer: *layer,
+            net: None,
+            width: Nm::from_um(100),
+            geometry: reda_model::TrackGeometry::Line {
+                from: Point::new(Nm::from_um(450), Nm::ZERO),
+                to: Point::new(Nm::from_um(450), Nm::from_mm(1)),
+            },
+        };
+        let hits = copper.clearance(pcb, &shape, &[]);
+        let halos = copper.halos(pcb, *layer, None, Some((origin, Nm::from_mm(2))));
+        if i == 1 || i == 2 {
+            assert_eq!(
+                hits.iter()
+                    .map(|h| (h.item.object(), h.required, h.actual))
+                    .collect::<Vec<_>>(),
+                [(via, Nm::from_um(350), Nm::from_um(300))]
+            );
+            assert!(
+                halos
+                    .iter()
+                    .any(|h| h.item.object() == via && h.shape.prims[0].radius == 450_000)
+            );
+            assert!(copper.clearance(pcb, &shape, &[via]).is_empty());
+        } else {
+            assert!(hits.is_empty() && halos.is_empty());
+        }
+    }
+}
+
+#[test]
+fn a_proposed_via_checks_its_own_drilled_diameter_against_stored_copper() {
+    use reda_model::{
+        LayerSpan,
+        geom::{Nm, Point},
+    };
+    let dir = TempDir::new("planned-bore");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Bores","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"value":"0.01mm","hole":{"via":"0.35mm"}}}),
+    );
+    for l in &layers {
+        e.run_ok("pcb.track.add",json!({"layer":l,"width":"0.1mm","points":[{"x":"0.45mm","y":0},{"x":"0.45mm","y":"1mm"}]}));
+    }
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let copper = Copper::build(pcb);
+    let check = |hole| {
+        copper.clearance(
+            pcb,
+            &reda_pcb::Proposal::Via {
+                span: LayerSpan {
+                    from: layers[1],
+                    to: layers[2],
+                },
+                at: Point::default(),
+                net: None,
+                diameter: Nm::from_um(400).into(),
+                hole: Nm::from_um(hole),
+            },
+            &[],
+        )
+    };
+    let hits = check(200);
+    assert_eq!(hits.len(), 2);
+    assert!(hits.iter().all(|h| layers[1..3].contains(&h.layer)
+        && h.actual == Nm::from_um(300)
+        && h.required == Nm::from_um(350)));
+    assert!(check(80).is_empty());
+    let halos = copper.via_halos(
+        pcb,
+        layers[1],
+        None,
+        None,
+        Nm::from_um(400),
+        Nm::from_um(200),
+    );
+    assert_eq!(halos.len(), 1);
+    assert_eq!(halos[0].clearance, Nm::from_um(250));
+}

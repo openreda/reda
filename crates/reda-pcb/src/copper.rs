@@ -29,6 +29,7 @@ use rstar::{AABB, RTree, RTreeObject};
 use schemars::JsonSchema;
 use serde::Serialize;
 
+mod bores;
 mod clearance;
 mod lands;
 pub use lands::UnusedLands;
@@ -131,6 +132,7 @@ struct Info {
 /// keep it current with [`Copper::apply`] after each committed change set.
 #[derive(Clone, Debug)]
 pub struct Copper {
+    bores: std::sync::OnceLock<bores::Bores>,
     unused: UnusedLands,
     fonts: Fonts,
     pieces: Vec<Option<Piece>>,
@@ -192,6 +194,7 @@ impl Copper {
 
     pub(crate) fn with_lands(pcb: &PcbDocument, fonts: &Fonts, unused: UnusedLands) -> Copper {
         let mut copper = Copper {
+            bores: Default::default(),
             unused,
             fonts: fonts.clone(),
             pieces: Vec::new(),
@@ -271,6 +274,9 @@ impl Copper {
                 }
                 _ => {}
             }
+        }
+        if !vias.is_empty() || !free_pads.is_empty() || !footprints.is_empty() {
+            self.bores.take();
         }
         // An edit to a Track end, Zone outline or its connection rules can also
         // change a land on a different object. Re-index just the affected owners.

@@ -37,6 +37,7 @@ pub fn hits(pcb: &PcbDocument, copper: &Copper, plan: &Plan) -> BTreeSet<Item> {
             span: via.span,
             at: via.at,
             diameter: via.diameter,
+            hole: via.hole,
             net: via.net,
         };
         out.extend(
