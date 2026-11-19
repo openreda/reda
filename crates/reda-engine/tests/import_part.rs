@@ -292,7 +292,7 @@ fn imported_and_authored_pad_stacks_survive_placement_flipping_and_save_open() {
     use reda_engine::format::library::{read_footprint, write_footprint};
     use reda_engine::model::{
         PadShape, Side, UnusedLayers,
-        geom::{CornerCut, Nm},
+        geom::{CornerCut, Nm, Point},
     };
     use reda_engine::pcb::placed::placed_pads;
 
@@ -334,6 +334,9 @@ fn imported_and_authored_pad_stacks_survive_placement_flipping_and_save_open() {
     };
     let (instance, top) = pads(&e);
     let p = top.iter().find(|p| p.number == "1").unwrap();
+    // A 0.6 × 0.4 mm slot has a 0.2 mm centre line, turned by the Pad's 30°.
+    let half_slot = Point::new(Nm(86_603), Nm(50_000));
+    assert_eq!(p.hole_ends(), Some((p.at - half_slot, p.at + half_slot)));
     assert_eq!(
         (p.shape, p.outline.width, p.unused_layers),
         (PadShape::Rect, Nm(2_000_000), UnusedLayers::Remove)
@@ -350,6 +353,11 @@ fn imported_and_authored_pad_stacks_survive_placement_flipping_and_save_open() {
     e.run_ok("pcb.flip", json!({"objects":[instance]}));
     let (_, bottom) = pads(&e);
     let p = bottom.iter().find(|p| p.number == "1").unwrap();
+    let mirrored_axis = Point::new(half_slot.x, -half_slot.y);
+    assert_eq!(
+        p.hole_ends(),
+        Some((p.at - mirrored_axis, p.at + mirrored_axis))
+    );
     assert_eq!(p.shape, PadShape::ChamferedRect);
     assert_eq!(p.outline.corners[1], CornerCut::Chamfer(Nm(200_000)));
     assert_eq!(p.copper_on(Some(Side::Bottom)).1.width, Nm(2_000_000));

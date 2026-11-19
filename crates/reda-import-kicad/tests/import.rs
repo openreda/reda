@@ -1093,3 +1093,25 @@ fn an_explicit_front_land_supplies_inherited_groups_and_the_shared_offset() {
             .any(|w| w.contains("offset") && w.contains("B.Cu"))
     );
 }
+
+#[test]
+fn kicad_unused_layer_flags_keep_their_boolean_value() {
+    use reda_model::UnusedLayers::{Keep, Remove};
+    let symbol = fixture("divider.kicad_sym");
+    for (flag, expected) in [
+        ("", Keep),
+        ("remove_unused_layers", Remove),
+        ("(remove_unused_layers)", Remove),
+        ("(remove_unused_layers yes)", Remove),
+        ("(remove_unused_layers true)", Remove),
+        ("(remove_unused_layers no)", Keep),
+        ("(remove_unused_layers false)", Keep),
+    ] {
+        let source = format!(
+            r#"(footprint "Header" (pad "1" thru_hole circle
+                (at 0 0) (size 1 1) (drill 0.5) (layers "*.Cu" "*.Mask") {flag}))"#
+        );
+        let imported = import(&symbol, &source, &ImportOptions::default(), &mut ids()).unwrap();
+        assert_eq!(imported.footprint.pads[0].unused_layers, expected, "{flag}");
+    }
+}
