@@ -31,7 +31,7 @@ pub(super) fn build(
             continue;
         };
         let color = match state {
-            ZoneFillState::Filled => BoardColor::layer(layer.kind, layer.side),
+            ZoneFillState::Filled => BoardColor::for_layer(pcb, layer),
             ZoneFillState::Stale => BoardColor::stale_fill(layer.side),
             ZoneFillState::Unfilled => continue,
         };

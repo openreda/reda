@@ -603,7 +603,7 @@ impl Shell {
             .expect("the Shell installs its BoardView")
     }
 
-    fn board_view_mut(&mut self) -> &mut BoardView {
+    pub(crate) fn board_view_mut(&mut self) -> &mut BoardView {
         self.engine
             .view_mut()
             .get_mut::<BoardView>()

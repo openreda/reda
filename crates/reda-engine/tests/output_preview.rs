@@ -186,3 +186,147 @@ fn the_bom_and_cpl_previews_are_the_writers_rows() {
         assert_eq!(lines.collect::<Vec<_>>(), rows, "{file}");
     }
 }
+
+#[test]
+fn multilayer_preview_matches_the_physical_order_in_the_zip_manifest_and_job() {
+    let dir = TempDir::new("multilayer-preview");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,
+                                         "board":{"width":"20mm","height":"15mm"}}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    engine.run_ok(
+        "pcb.layer.set",
+        json!({"layer":inner,"name":"GND Plane","role":"plane"}),
+    );
+    let job = engine
+        .project()
+        .unwrap()
+        .output_jobs()
+        .next()
+        .unwrap()
+        .clone();
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{
+            "gerber":{"naming":"descriptive","x2_attributes":false,"outline_on_every_plot":true}
+        }}),
+    );
+    let names = [
+        "Demo-Top_Copper.gbr",
+        "Demo-GND_Plane.gbr",
+        "Demo-L3.gbr",
+        "Demo-Bottom_Copper.gbr",
+    ];
+    let labels = ["Top Copper", "L2 GND Plane", "L3", "Bottom Copper"];
+    let preview = job_preview(&engine, &job).unwrap();
+    let run = engine.run_ok("output.job.run", json!({"job":job.uuid}));
+    let dest = std::path::Path::new(run["destination"].as_str().unwrap());
+    let read_json =
+        |path| serde_json::from_slice::<Value>(&std::fs::read(dest.join(path)).unwrap()).unwrap();
+    let manifest = read_json("manifest.json");
+    let gerber_job = read_json("fab/Demo-job.gbrjob");
+    let zipped = std::fs::File::open(run["zip"].as_str().unwrap()).unwrap();
+    let mut zip = zip::ZipArchive::new(zipped).unwrap();
+    for (index, (name, label)) in names.iter().zip(labels).enumerate() {
+        assert_eq!(preview.gerber[index].layer, label);
+        assert_eq!(preview.gerber[index].name, *name);
+        assert_eq!(preview.gerber[index].state, FileState::Plotted);
+        assert_eq!(preview.zip[index], *name);
+        assert_eq!(zip.by_index(index).unwrap().name().unwrap(), *name);
+        let path = format!("fab/{name}");
+        assert_eq!(run["files"][index]["path"], path);
+        assert_eq!(manifest["files"][index]["path"], path);
+        assert_eq!(gerber_job["FilesAttributes"][index]["Path"], *name);
+    }
+    let inner_artwork = std::fs::read_to_string(dest.join("fab/Demo-GND_Plane.gbr")).unwrap();
+    assert!(inner_artwork.contains("G04 #@! TF.FileFunction,Copper,L2,Inr,Plane*"));
+    assert!(
+        inner_artwork.contains("D01*"),
+        "the empty inner plane carries the requested board outline"
+    );
+}
+
+#[test]
+fn preview_names_both_files_in_an_active_zip_clash_and_keeps_empty_plots_out() {
+    let dir = TempDir::new("preview-clash");
+    let mut engine = board(&dir);
+    let job = job(&engine);
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{"zip_assembly":true,"gerber":{
+            "file_names":[{"layer":"Top Copper","name":"DEMO-bom.csv"},{"layer":"Top Paste","name":"DEMO-bom.csv"}]
+        }}}),
+    );
+    let preview = job_preview(&engine, &job).unwrap();
+    let why = preview
+        .invalid_file_name
+        .expect("the preview identifies the name clash");
+    for label in ["Copper,L1,Top", "bom", "DEMO-bom.csv", "Demo-BOM.csv"] {
+        assert!(why.contains(label), "{why}");
+    }
+    let error = engine.run_err("output.job.run", json!({"job":job.uuid}));
+    assert_eq!(why, error.message);
+
+    let mut draft = job;
+    draft.outputs.bom = false;
+    let preview = job_preview(&engine, &draft).unwrap();
+    assert_eq!(preview.invalid_file_name, None);
+    assert_eq!(
+        preview.zip.iter().filter(|f| *f == "DEMO-bom.csv").count(),
+        1
+    );
+    let paste = preview
+        .gerber
+        .iter()
+        .find(|f| f.layer == "Top Paste")
+        .unwrap();
+    assert_eq!(
+        (paste.function, paste.state),
+        ("paste_top", FileState::Empty)
+    );
+}
+
+#[test]
+fn a_layer_name_with_a_slash_blocks_only_jobs_that_write_it_as_a_filename() {
+    let dir = TempDir::new("preview-inner-file-name");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","layers":4,
+               "board":{"width":"20mm","height":"15mm"}}),
+    );
+    let project = engine.project().unwrap();
+    let job = project.output_jobs().next().unwrap().clone();
+    let inner = project.pcb().unwrap().copper_layers().nth(1).unwrap().uuid;
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"name":"Power/GND"}));
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":job.fab_preset,"values":{"gerber":{"naming":"descriptive"}}}),
+    );
+    let why = job_preview(&engine, &job)
+        .unwrap()
+        .invalid_file_name
+        .unwrap();
+    assert!(why.contains("Board-Power/GND.gbr"), "{why}");
+    assert_eq!(
+        why,
+        engine
+            .run_err("output.job.run", json!({"job":job.uuid}))
+            .message
+    );
+
+    engine.run_ok(
+        "output.job.set",
+        json!({"job":job.uuid,"outputs":{"gerber":false}}),
+    );
+    let disabled = engine.project().unwrap().output_job(job.uuid).unwrap();
+    assert_eq!(
+        job_preview(&engine, disabled).unwrap().invalid_file_name,
+        None
+    );
+    engine.run_ok("output.job.run", json!({"job":job.uuid}));
+}

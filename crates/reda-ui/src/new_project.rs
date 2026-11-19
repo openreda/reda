@@ -2,6 +2,7 @@
 //! params of one `project.new` Command.
 
 use egui::{Id, Ui};
+use reda_engine::model::FabPreset;
 use serde_json::{Value, json};
 
 use crate::settings::{self, layout};
@@ -24,7 +25,7 @@ pub struct NewProjectForm {
     pub name: String,
     pub location: String,
     /// The Fab Presets to pick from: the shipped ones, then the user's.
-    pub presets: Vec<String>,
+    pub presets: Vec<FabPreset>,
     pub preset: String,
     pub board: Board,
     pub layers: LayerCount,
@@ -46,7 +47,7 @@ pub enum FormAction {
 impl NewProjectForm {
     /// A dialog with a suggested name in the user's home folder, offering `presets` with
     /// `default` picked.
-    pub fn new(presets: Vec<String>, default: String) -> NewProjectForm {
+    pub fn new(presets: Vec<FabPreset>, default: String) -> NewProjectForm {
         NewProjectForm {
             name: tr!("new-project-default-name"),
             location: std::env::home_dir()
@@ -69,6 +70,9 @@ impl NewProjectForm {
             return None;
         }
         let mut params = json!({"path": location, "name": name, "fab_preset": self.preset, "layers": self.layers.value()?});
+        if let Some(name) = &self.layers.construction {
+            params["construction"] = json!(name);
+        }
         if self.board == Board::Rectangle {
             let width = positive_mm(&self.width)?;
             let height = positive_mm(&self.height)?;
@@ -103,12 +107,14 @@ impl NewProjectForm {
                     ui.add_space(t.space.section);
                     settings::strong(ui, tr!("new-project-fab-preset"));
                     for preset in &self.presets {
-                        radio(ui, &mut self.preset, preset.clone(), preset);
+                        radio(ui, &mut self.preset, preset.name.clone(), &preset.name);
                     }
                     layout::muted(ui, tr!("new-project-fab-preset-note"));
                     ui.add_space(t.space.section);
                     settings::strong(ui, tr!("new-project-board"));
-                    self.layers.show(ui);
+                    if let Some(preset) = self.presets.iter().find(|p| p.name == self.preset) {
+                        self.layers.show(ui, preset);
+                    }
                     radio(
                         ui,
                         &mut self.board,
@@ -179,26 +185,166 @@ fn radio<T: PartialEq>(ui: &mut Ui, value: &mut T, choice: T, text: impl Into<St
 
 /// The copper Layer count entered when creating a board.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LayerCount(String);
+pub struct LayerCount {
+    text: String,
+    context: Option<(String, Option<u8>)>,
+    pub construction: Option<String>,
+}
 
 impl Default for LayerCount {
     fn default() -> Self {
-        Self("2".into())
+        Self {
+            text: "2".into(),
+            context: None,
+            construction: None,
+        }
     }
 }
 
 impl LayerCount {
     pub fn value(&self) -> Option<u8> {
-        self.0.trim().parse().ok().filter(|n| (2..=32).contains(n))
+        self.text
+            .trim()
+            .parse()
+            .ok()
+            .filter(|n| (2..=32).contains(n))
     }
 
-    pub fn show(&mut self, ui: &mut Ui) {
+    pub fn show(&mut self, ui: &mut Ui, preset: &FabPreset) {
         ui.horizontal(|ui| {
             let label = ui.add(widgets::form_name(tr!("stackup-copper-layers")));
             let width = ui.tokens().size.of(60.0);
-            ui.add(widgets::text_field(&mut self.0).width(width))
+            ui.add(widgets::text_field(&mut self.text).width(width))
                 .labelled_by(label.id);
             layout::muted(ui, tr!("stackup-layer-range"));
         });
+        let counts: std::collections::BTreeSet<_> = preset
+            .constructions
+            .iter()
+            .map(|c| c.layer_count())
+            .collect();
+        ui.horizontal_wrapped(|ui| {
+            for count in counts {
+                if ui.add(widgets::button(count.to_string())).clicked() {
+                    self.text = count.to_string();
+                }
+            }
+        });
+        let count = self.value();
+        let context = (preset.name.clone(), count);
+        if self.context.as_ref() != Some(&context) {
+            self.construction = count
+                .and_then(|n| preset.default_construction(usize::from(n)))
+                .map(|c| c.name.clone());
+            self.context = Some(context);
+        }
+        let mut builds: Vec<_> = preset
+            .constructions
+            .iter()
+            .filter(|c| Some(c.layer_count()) == count.map(usize::from))
+            .map(|c| (Some(c.name.clone()), c.name.clone()))
+            .collect();
+        if !builds.is_empty() {
+            if !preset
+                .constructions
+                .iter()
+                .any(|c| c.default && Some(c.layer_count()) == count.map(usize::from))
+            {
+                builds.insert(0, (None, tr!("construction-generic")));
+            }
+            ui.horizontal(|ui| {
+                let label = tr!("construction-title");
+                ui.add(widgets::form_name(&label));
+                settings::dropdown(
+                    ui,
+                    "board-construction",
+                    &label,
+                    &mut self.construction,
+                    &builds,
+                    200.,
+                );
+            });
+        } else if count.is_some() {
+            layout::muted(ui, tr!("construction-generic"));
+        }
+    }
+}
+
+/// Preset and physical build for the Project panel's Add PCB Document dialog.
+#[derive(Clone, Debug)]
+pub struct NewPcbForm {
+    presets: Vec<(Option<reda_engine::model::Uuid>, FabPreset)>,
+    selected: usize,
+    layers: LayerCount,
+}
+
+impl NewPcbForm {
+    pub fn new(
+        project: &reda_engine::model::Project,
+        dirs: Option<&reda_engine::command::UserDirs>,
+    ) -> Self {
+        let mut presets: Vec<_> = project
+            .fab_presets()
+            .map(|copy| (Some(copy.uuid), copy.preset()))
+            .collect();
+        for source in reda_engine::fab_presets::available(dirs).0 {
+            presets.push((None, source.preset));
+        }
+        let selected = presets
+            .iter()
+            .position(|(id, p)| id.is_none() && p.name == reda_engine::output::GENERIC_NAME)
+            .unwrap_or_default();
+        Self {
+            presets,
+            selected,
+            layers: LayerCount::default(),
+        }
+    }
+
+    pub fn show(&mut self, ui: &mut Ui) {
+        let choices: Vec<_> = self
+            .presets
+            .iter()
+            .enumerate()
+            .map(|(index, (copy, preset))| {
+                let label = if copy.is_some() {
+                    tr!("construction-project-copy", name = preset.name.as_str())
+                } else {
+                    preset.name.clone()
+                };
+                (index, label)
+            })
+            .collect();
+        ui.horizontal(|ui| {
+            let label = tr!("new-project-fab-preset");
+            ui.add(widgets::form_name(&label));
+            let old = self.selected;
+            settings::dropdown(
+                ui,
+                "pcb-fab-preset",
+                &label,
+                &mut self.selected,
+                &choices,
+                200.,
+            );
+            if self.selected != old {
+                self.layers.context = None;
+            }
+        });
+        if let Some((_, preset)) = self.presets.get(self.selected) {
+            self.layers.show(ui, preset);
+        }
+    }
+
+    pub fn params(&self) -> Option<Value> {
+        let (copy, preset) = self.presets.get(self.selected)?;
+        let key = copy
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| preset.name.clone());
+        let mut params = json!({"kind":"pcb","fab_preset":key,"layers":self.layers.value()?});
+        if let Some(name) = &self.layers.construction {
+            params["construction"] = json!(name);
+        }
+        Some(params)
     }
 }

@@ -57,7 +57,7 @@ struct PanelState {
     focus_rename: bool,
     /// A sheet waiting for the user to confirm its delete.
     confirm_delete: Option<Uuid>,
-    new_pcb: Option<(Uuid, crate::new_project::LayerCount)>,
+    new_pcb: Option<(Uuid, crate::new_project::NewPcbForm)>,
 }
 
 /// The payload of a dragged sheet.
@@ -454,7 +454,13 @@ impl Tree<'_> {
         widgets::context_menu(&group.row, |ui| {
             let refused = present.is_some().then(|| tr!("projects-pcb-exists"));
             if item(ui, tr!("projects-add-pcb"), refused) {
-                self.state.new_pcb = Some((self.project.uuid(), Default::default()));
+                self.state.new_pcb = Some((
+                    self.project.uuid(),
+                    crate::new_project::NewPcbForm::new(
+                        self.project,
+                        self.shell.engine().user_dirs(),
+                    ),
+                ));
             }
         });
     }
@@ -555,7 +561,7 @@ impl Tree<'_> {
 
     /// Asks before deleting a sheet that holds Components.
     fn new_pcb(&mut self, ctx: &egui::Context) {
-        let Some((project, count)) = &mut self.state.new_pcb else {
+        let Some((project, form)) = &mut self.state.new_pcb else {
             return;
         };
         if *project != self.project.uuid() || self.project.pcb().is_some() {
@@ -565,18 +571,18 @@ impl Tree<'_> {
         let mut close = false;
         let modal = crate::modal::Dialog::new(Id::NULL.with("new-pcb"), tr!("projects-add-pcb"))
             .show(ctx, |ui| {
-                count.show(ui);
+                form.show(ui);
                 crate::modal::buttons(ui, |ui| {
-                    let layers = count.value();
+                    let params = form.params();
                     if ui
                         .add_enabled(
-                            layers.is_some(),
+                            params.is_some(),
                             widgets::button(tr!("stackup-add-pcb")).primary(),
                         )
                         .clicked()
+                        && let Some(params) = params
                     {
-                        self.commands
-                            .push(("document.add", json!({"kind": "pcb", "layers": layers})));
+                        self.commands.push(("document.add", params));
                         close = true;
                     }
                     if ui.add(widgets::button(tr!("dialog-cancel"))).clicked() {
