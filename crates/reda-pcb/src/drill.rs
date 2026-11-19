@@ -129,16 +129,20 @@ impl DrillHole {
         self.via.is_some()
     }
 
-    /// Disjoint drilling depths share no hole clearance. On a shared end face, two
-    /// Vias of the same Net may meet at the same centre to form a stack.
-    pub fn needs_spacing(&self, other: &Self) -> bool {
-        let (Some(a), Some(b)) = (self.via, other.via) else {
-            return true;
-        };
-        let first = a.first.max(b.first);
-        let last = a.last.min(b.last);
-        first < last
-            || (first == last && (a.at != b.at || self.net.is_none() || self.net != other.net))
+    /// The inclusive copper positions where hole spacing applies. Two Vias of one
+    /// Net can meet end to end at the same centre without a spacing violation.
+    pub fn spacing_span(&self, other: &Self, layer_count: usize) -> Option<(usize, usize)> {
+        match (self.via, other.via) {
+            (Some(a), Some(b)) => {
+                let first = a.first.max(b.first);
+                let last = a.last.min(b.last);
+                let stacked =
+                    first == last && a.at == b.at && self.net.is_some() && self.net == other.net;
+                (first <= last && !stacked).then_some((first, last))
+            }
+            (Some(via), None) | (None, Some(via)) => Some((via.first, via.last)),
+            (None, None) => Some((1, layer_count)),
+        }
     }
 
     pub fn layers(&self, pcb: &PcbDocument) -> Vec<Uuid> {

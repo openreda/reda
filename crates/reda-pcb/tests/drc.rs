@@ -1081,6 +1081,9 @@ fn hole_spacing_exempts_end_to_end_vias_of_one_net_at_the_same_centre() {
     let found = of(&drc(&mut engine), "hole_to_hole");
     let pairs: Vec<_> = found.iter().map(objects).collect();
     assert_eq!(pairs, [overlap, different_nets, offset]);
+    assert_eq!(found[0]["layers"], json!(&layers[1..3]));
+    assert_eq!(found[1]["layers"], json!([layers[1]]));
+    assert_eq!(found[2]["layers"], json!([layers[1]]));
 }
 
 #[test]
@@ -1211,19 +1214,30 @@ fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes()
     let bridge = place(1_000_000, 2, 3);
     let last = place(1_000_000, 3, 4);
     let independent = place(5_000_000, 4, 3);
+    // An unlisted mechanical span between two lasers does not join their stacks.
+    let unconnected_first = place(9_000_000, 0, 1);
+    place(9_000_000, 1, 3);
+    let unconnected_last = place(9_000_000, 3, 4);
     let clean = drc(&mut engine);
     assert!(of(&clean, "aspect_ratio").is_empty());
     assert!(of(&clean, "max_stack").is_empty());
     engine.run_ok(
         "pcb.rules.set",
-        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":1740},"max_stack":2}}),
+        json!({"kind":"microvia_size","values":{"aspect_ratio":{"max":1740},"max_stack":1}}),
     );
     let run = drc(&mut engine);
     let ratios = of(&run, "aspect_ratio");
     // The fractional share puts the ratio just over 1.740:1, with no nm rounding.
     let mut actual: Vec<_> = ratios.iter().map(|v| objects(v)[0]).collect();
     actual.sort();
-    let mut expected = vec![first, second, last, independent];
+    let mut expected = vec![
+        first,
+        second,
+        last,
+        independent,
+        unconnected_first,
+        unconnected_last,
+    ];
     expected.sort();
     assert_eq!(actual, expected);
     assert!(
@@ -1234,7 +1248,7 @@ fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes()
     let stacks = of(&run, "max_stack");
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0]["args"]["actual"], 3);
-    assert_eq!(stacks[0]["args"]["maximum"], 2);
+    assert_eq!(stacks[0]["args"]["maximum"], 1);
     assert_eq!(stacks[0]["layers"], json!(&layers[..5]));
     engine.run_ok(
         "pcb.rules.set",

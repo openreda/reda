@@ -182,6 +182,7 @@ fn via_size(board: &Board<'_>, report: &mut Report) {
 /// two), overlapping ones included. One Violation per pair, in the order of [`holes`].
 fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
     let reach = largest(pcb, RuleKind::HoleToHole, RuleField::Min);
+    let copper: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
     let mut order: Vec<usize> = (0..holes.len()).collect();
     let left = |i: usize| holes[i].shape.envelope().lower()[0];
     let right = |i: usize| holes[i].shape.envelope().upper()[0];
@@ -192,21 +193,21 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
             if left(j) - right(i) >= reach.0 {
                 break;
             }
-            if !holes[i].needs_spacing(&holes[j]) {
+            let Some(span) = holes[i].spacing_span(&holes[j], copper.len()) else {
                 continue;
-            }
+            };
             let Some(required) = hole_to_hole_between(pcb, holes[i].net, holes[j].net) else {
                 continue;
             };
             let gap = holes[i].shape.distance(&holes[j].shape);
             if gap < required.0 as f64 {
                 let actual = Nm(gap.max(0.0).floor() as i64);
-                pairs.push((i.min(j), i.max(j), actual, required));
+                pairs.push((i.min(j), i.max(j), actual, required, span));
             }
         }
     }
     pairs.sort();
-    for (i, j, actual, required) in pairs {
+    for (i, j, actual, required, (first, last)) in pairs {
         let source = resolve_pair(
             pcb,
             holes[i].net,
@@ -219,7 +220,7 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
         report.add(DrcCheck::HoleToHole, |v| {
             v.length(actual, required, Limit::Min, source.rule)
                 .distance_points(a, b)
-                .on_layers(pcb.copper_layers().map(|l| l.uuid))
+                .on_layers(copper[first - 1..last].iter().copied())
                 .arg("required", required)
                 .arg("actual", actual)
                 .objects(holes[i].objects.iter().copied())

@@ -130,7 +130,8 @@ fn stack_limits(pcb: &PcbDocument, report: &mut Report) {
         let mut starts = BTreeSet::new();
         let mut edges: Vec<_> = vias
             .into_iter()
-            .map(|via| {
+            .filter_map(|via| {
+                let kind = pcb.stackup().type_for_span(via.span)?;
                 let a = pcb
                     .copper_number(via.span.from)
                     .expect("Via starts on copper")
@@ -138,24 +139,20 @@ fn stack_limits(pcb: &PcbDocument, report: &mut Report) {
                 let b = pcb.copper_number(via.span.to).expect("Via ends on copper") - 1;
                 let first = a.min(b);
                 starts.insert(first);
-                (a.max(b), first, via)
+                Some((a.max(b), first, via.uuid, kind.micro))
             })
             .collect();
-        edges.sort_by_key(|(last, first, via)| (*last, *first, via.uuid));
+        edges.sort_unstable();
         // Physical order is a topological ordering of end-to-end spans. Keep the
         // highest microvia count ending at each Layer so overlapping holes never stack.
         let mut ends = BTreeMap::<usize, Stack>::new();
-        for (last, first, via) in edges {
+        for (last, first, uuid, micro) in edges {
             let mut path = ends.get(&first).cloned().unwrap_or_else(|| Stack {
                 first,
                 ..Stack::default()
             });
-            path.holes.push(via.uuid);
-            if pcb
-                .stackup()
-                .type_for_span(via.span)
-                .is_some_and(|t| t.micro)
-            {
+            path.holes.push(uuid);
+            if micro {
                 path.lasers += 1;
             }
             if ends.get(&last).is_none_or(|p| p.lasers < path.lasers) {
