@@ -45,29 +45,30 @@ pub use library::{
 pub use output::{
     BomGroup, BomLayout, BomSettings, BottomPosition, BottomRotation, Column, ColumnSource,
     Construction, ConstructionEntry, ConstructionViaType, CplSettings, CplUnits, FabPreset,
-    FabRules, FileNaming, FileOrigin, GerberFileNames, GerberSettings, HoleClearance,
-    InnerFabRules, LayerFileName, LineNumbers, MountValues, NAME_TEMPLATE_TOKENS, NameTemplate,
-    NameTemplateError, NotFittedBom, NotFittedPaste, OutputJob, Outputs, PdfColour,
-    PlacementAdjustment, PlacementCorrection, PlacementMatch, PreferredSeeds, ProjectFabPreset,
-    SideValues, SlotCommand, StackupSuggestions,
+    FabRules, FabSizeLimits, FileNaming, FileOrigin, GerberFileNames, GerberSettings,
+    HoleClearance, InnerFabRules, LayerFileName, LineNumbers, MicroviaLimits, MountValues,
+    NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError, NotFittedBom, NotFittedPaste, OutputJob,
+    Outputs, PdfColour, PlacementAdjustment, PlacementCorrection, PlacementMatch, PreferredSeeds,
+    ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadCopperShape,
     PadForm, PadKind, PadShape, PasteExpansion, Ratio, ZoneConnection,
 };
 pub use pcb::{
-    ArrowPosition, BoardCutout, BoardOutline, BoardSetup, Bounds, ConnectionTarget,
-    ConnectionValue, CopperEntry, CopperRole, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DesignRule,
-    DielectricEntry, DielectricKind, Dimension, DimensionEnd, DimensionFormat,
-    DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, FillShape, FootprintInstance,
-    FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument,
-    Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer, LayerGroup, LayerKind, LayerSet,
-    LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument,
-    PcbGraphic, PcbText, PortableClass, PortableRule, PourOver, ResolvedEntry, Restriction,
-    RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode,
-    Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, TeardropTarget,
-    TextAutoposition, TextOverride, Track, TrackGeometry, UnusedLayers, Via, ViaDiameter,
-    ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    ArrowPosition, AspectRatioLimit, BoardCutout, BoardOutline, BoardSetup, Bounds,
+    ConnectionTarget, ConnectionValue, CopperEntry, CopperRole, DEFAULT_BOARD_THICKNESS,
+    DEFAULT_COPPER, DesignRule, DielectricEntry, DielectricKind, Dimension, DimensionEnd,
+    DimensionFormat, DimensionTextPosition, DimensionUnits, DrcCheck, DrcSeverities, FillShape,
+    FootprintInstance, FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, HoleRuleValues,
+    Hotspot, HotspotRef, InDocument, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer,
+    LayerGroup, LayerKind, LayerSet, LayerSpan, NOTO_SANS_FONT, Net, NetClass, OutputOrigin,
+    PadNet, PadRef, PcbDocument, PcbGraphic, PcbText, PortableClass, PortableRule, PourOver,
+    ResolvedEntry, Restriction, RuleField, RuleKind, RuleLayers, RuleScope, RuleSet, RuleValue,
+    RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupInfo, StackupSeeds,
+    StackupTotals, TeardropTarget, TextAutoposition, TextOverride, Track, TrackGeometry,
+    UnusedLayers, Via, ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills,
+    ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

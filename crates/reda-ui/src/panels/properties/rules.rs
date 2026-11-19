@@ -109,18 +109,23 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     )));
                 }
             }
-            if let Some((field, value, None)) = &kind.between
-                && let Some(pair) = &kind.pair
+            for model::PairLimit {
+                field,
+                value,
+                object,
+                pair,
+            } in kind.between.iter().chain(&kind.between_holes)
             {
-                ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
-            }
-            if let Some((field, value, Some(object))) = &kind.between {
-                ui.weak(tr!(
-                    "properties-rules-between",
-                    field = field.clone(),
-                    value = value_text(value, units),
-                    object = (object + 1) as i64
-                ));
+                if let Some(pair) = pair {
+                    ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
+                } else if let Some(object) = object {
+                    ui.weak(tr!(
+                        "properties-rules-between",
+                        field = field.clone(),
+                        value = value_text(value, units),
+                        object = (object + 1) as i64
+                    ));
+                }
             }
             ui.add_space(t.space.gap / 2.0);
         }
@@ -145,6 +150,10 @@ fn value_text(value: &RuleValue, units: Units) -> String {
         RuleValue::Flag(on) => on.to_string(),
         RuleValue::Percent(p) => format!("{p}%"),
         RuleValue::Area(nm2) => format!("{} mm2", *nm2 as f64 / 1e12),
+        RuleValue::MilliRatio(n) => format!(
+            "{}:1",
+            reda_engine::model::geom::exact_decimal(i64::from(*n), 1000)
+        ),
         RuleValue::Count(n) => n.to_string(),
         RuleValue::Angle(md) => format!("{} deg", md.0 as f64 / 1000.0),
         other => match serde_json::to_value(other) {

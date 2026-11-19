@@ -97,8 +97,11 @@ fn scaled(text: &str, places: usize) -> Option<u32> {
 #[derive(Clone, Default)]
 pub(super) struct View {
     pub selected: Option<Uuid>,
+    pub apply_construction: Option<super::apply::Form>,
     pub save_construction: Option<super::construction::SaveForm>,
     pub pending: Option<super::types::Pending>,
+    pub plane_offer: Option<Uuid>,
+    pub plane_picker: Option<crate::pcb::plane::Picker>,
     pub layer_change: Option<super::layer_actions::Pending>,
     drafts: BTreeMap<Field, String>,
     errors: BTreeMap<Field, String>,

@@ -292,6 +292,11 @@ fn rules_set_refuses_what_it_cannot_store_or_what_blocks() {
         json!({"kind": "hole_size", "values": {"max": "0.4mm"}}),
         "/values/min",
     );
+    refused(
+        &mut engine,
+        json!({"kind":"microvia_size", "values":{"hole":{"min":"0.15mm","max":"0.10mm"}}}),
+        "/values/hole/min",
+    );
     // A class record is judged on its values over the board-wide record.
     let power = class(&mut engine, "Power", &[]);
     refused(
@@ -681,4 +686,36 @@ fn applying_inner_minimums_takes_the_preferred_width_when_needed() {
         pcb(&e).board_rule(RuleKind::TrackWidth).values.preferred,
         Some(um(400))
     );
+}
+
+#[test]
+fn the_preset_seeds_applies_and_saves_each_plated_hole_limit() {
+    let dir = TempDir::new("preset-plated-holes");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","fab_preset":"JLCPCB"}),
+    );
+    let rule = |e: &TestEngine| {
+        serde_json::to_value(&pcb(e).board_rule(RuleKind::Clearance).values).unwrap()
+    };
+    assert_eq!(rule(&e)["hole"], json!({"via":200000,"pad":300000}));
+    let preset = e.project().unwrap().fab_presets().next().unwrap().uuid;
+    set(
+        &mut e,
+        json!({"kind":"clearance","values":{"hole":{"via":"0.17mm"}}}),
+    );
+    let saved = uuid(&e.run_ok(
+        "pcb.rules.save_as_preset",
+        json!({"name":"My drill process"}),
+    ));
+    let data = serde_json::to_value(e.project().unwrap().fab_preset(saved).unwrap()).unwrap();
+    assert_eq!(
+        data["rules"]["clearance_hole"],
+        json!({"via":170000,"pad":300000})
+    );
+    let diff = e.run_ok("pcb.rules.fab_preset_diff", json!({"preset":preset}));
+    assert_eq!(diff["changes"][0]["field"], "hole_via");
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":preset}));
+    assert_eq!(rule(&e)["hole"], json!({"via":200000,"pad":300000}));
 }

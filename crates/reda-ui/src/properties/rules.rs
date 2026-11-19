@@ -61,6 +61,15 @@ pub struct RuleRow {
     pub value: Option<RuleValue>,
 }
 
+/// A clearance between two selected objects and the source that supplied it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PairLimit {
+    pub field: String,
+    pub value: RuleValue,
+    pub object: Option<usize>,
+    pub pair: Option<String>,
+}
+
 /// One kind of rule as it applies to the selection.
 #[derive(Clone, Debug, PartialEq)]
 pub struct KindRows {
@@ -69,9 +78,9 @@ pub struct KindRows {
     /// The DRC check's severity; `None` for kinds that shape outputs.
     pub severity: Option<Severity>,
     pub rows: Vec<RuleRow>,
-    pub pair: Option<String>,
+    pub between_holes: Vec<PairLimit>,
     /// For two objects: the value that applies between them and the object it came from.
-    pub between: Option<(String, RuleValue, Option<usize>)>,
+    pub between: Option<PairLimit>,
 }
 
 /// The Rules region's content.
@@ -145,6 +154,25 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
             }
         }
     }
+    let pair_label = |b: &explain::Between| {
+        let ids = b.net_class_pair?;
+        let names = ids
+            .map(|id| {
+                pcb.net_class(id)
+                    .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
+            })
+            .join(" / ");
+        Some(match &b.layers {
+            Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
+            None => names,
+        })
+    };
+    let limit = |b: explain::Between| PairLimit {
+        pair: pair_label(&b),
+        field: b.field,
+        value: b.value,
+        object: b.object,
+    };
     KindRows {
         kind: kind.kind,
         layer_numbers: kind
@@ -152,25 +180,10 @@ fn rows(pcb: &PcbDocument, kind: KindRules) -> KindRows {
             .iter()
             .filter_map(|id| pcb.copper_number(*id))
             .collect(),
-        pair: kind
-            .between
-            .as_ref()
-            .and_then(|b| b.net_class_pair)
-            .map(|ids| {
-                let names = ids
-                    .map(|id| {
-                        pcb.net_class(id)
-                            .map_or(reda_engine::pcb::DEFAULT_NET_CLASS, |c| c.name.as_str())
-                    })
-                    .join(" / ");
-                match kind.between.as_ref().and_then(|b| b.layers.as_ref()) {
-                    Some(layers) => format!("{names} · {}", layer_scope_label(pcb, layers)),
-                    None => names,
-                }
-            }),
+        between_holes: kind.between_holes.into_iter().map(limit).collect(),
         severity: kind.severity,
         rows,
-        between: kind.between.map(|b| (b.field, b.value, b.object)),
+        between: kind.between.map(limit),
     }
 }
 

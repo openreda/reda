@@ -258,6 +258,18 @@ fn a_placed_pad_is_edited_from_properties_and_marked_locally_edited() {
         copy(&h, &instance).pads[1].hole.map(|h| h.width),
         Some(Nm::from_um(900))
     );
+    pick(&mut h, "Zone connection", "Relief");
+    pick(&mut h, "Spokes", "2");
+    let shell = h.state_mut().shell_mut();
+    shell.run("project.save", json!({})).unwrap();
+    shell.run("project.close", json!({})).unwrap();
+    shell
+        .open_project(&work.path().join("Demo/Demo.reda"))
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(copy(&h, &instance).pads[1].zone_connection).unwrap(),
+        json!({"style":"relief","spokes":2})
+    );
     // The number stays: Nets come from the schematic.
     assert!(
         h.query_by_role_and_label(Role::TextInput, "Number")

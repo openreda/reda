@@ -15,6 +15,21 @@
         }
       ]
     },
+    "AspectRatioLimit": {
+      "additionalProperties": false,
+      "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+      "properties": {
+        "max": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "BoardCutout": {
       "additionalProperties": false,
       "description": "A closed shape inside the Board Outline where board material is removed.",
@@ -788,7 +803,7 @@
         "via_span": {
           "$ref": "#/$defs/Severity",
           "default": "error",
-          "description": "A Via span with no matching type, or one outside the Net Class’s allowed list."
+          "description": "An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals."
         },
         "via_under_smd": {
           "$ref": "#/$defs/Severity",
@@ -1437,6 +1452,53 @@
         "width",
         "height"
       ],
+      "type": "object"
+    },
+    "HoleRuleValues": {
+      "additionalProperties": false,
+      "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "pad": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "preferred": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "via": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "HoleTolerance": {
@@ -2588,6 +2650,16 @@
             "null"
           ]
         },
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "bottom": {
           "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
           "format": "int64",
@@ -2624,13 +2696,13 @@
         "hole": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Bounds"
+              "$ref": "#/$defs/HoleRuleValues"
             },
             {
               "type": "null"
             }
           ],
-          "description": "Via size only: the Via's drilled hole."
+          "description": "Via size limits or clearance to a plated hole."
         },
         "ignore_pad_to_pad": {
           "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -2650,6 +2722,16 @@
         "max_length": {
           "description": "`micro_segment` only: Tracks up to this long are micro-segments.",
           "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_stack": {
+          "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
           "type": [
             "integer",
             "null"

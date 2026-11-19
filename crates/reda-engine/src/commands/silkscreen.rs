@@ -411,6 +411,8 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
         inner: None,
         silk_width: None,
         silk_text_height: None,
+        microvia_size: None,
+        via_aspect_ratio: None,
         clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),

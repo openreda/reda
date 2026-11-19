@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "AspectRatioLimit": {
+      "additionalProperties": false,
+      "description": "Optional depth-to-hole ratio, in thousandths, for one drilling method.",
+      "properties": {
+        "max": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "BomGroup": {
       "description": "Sources shared by Components on a grouped BOM row.",
       "oneOf": [
@@ -561,6 +576,16 @@
           "$ref": "#/$defs/MaskExpansion",
           "description": "The Solder Mask expansion and Via tenting a new board starts with."
         },
+        "microvia_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MicroviaLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "paste_expansion": {
           "$ref": "#/$defs/PasteExpansion",
           "description": "The paste expansion a new board starts with."
@@ -590,6 +615,16 @@
           "format": "int64",
           "type": "integer"
         },
+        "via_aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "via_diameter": {
           "description": "Minimum Via diameter.",
           "format": "int64",
@@ -616,6 +651,29 @@
         "mask_expansion",
         "paste_expansion"
       ],
+      "type": "object"
+    },
+    "FabSizeLimits": {
+      "additionalProperties": false,
+      "description": "Published minimum and maximum dimensions for a laser-drilled hole or its land.",
+      "properties": {
+        "max": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "min": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "FileNameOverrides": {
@@ -854,6 +912,53 @@
         "tent_vias_top",
         "tent_vias_bottom"
       ],
+      "type": "object"
+    },
+    "MicroviaLimits": {
+      "additionalProperties": false,
+      "description": "A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.",
+      "properties": {
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AspectRatioLimit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diameter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FabSizeLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hole": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FabSizeLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_stack": {
+          "description": "Maximum number of micro Vias meeting end to end in one Via Stack.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
       "type": "object"
     },
     "MountValues": {

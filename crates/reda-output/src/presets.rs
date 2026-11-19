@@ -51,6 +51,8 @@ pub fn generic() -> FabPreset {
             silk_width: Some(Nm(150000)),
             silk_text_height: Some(Nm(1000000)),
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
@@ -128,6 +130,8 @@ fn jlcpcb() -> FabPreset {
             silk_width: Some(Nm(150000)),
             silk_text_height: Some(Nm(1000000)),
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
                 pad: Nm(300_000),
@@ -204,6 +208,8 @@ fn pcbway() -> FabPreset {
             silk_width: Some(Nm(150000)),
             silk_text_height: Some(Nm(800000)),
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
                 pad: Nm(200_000),
@@ -292,6 +298,8 @@ fn osh_park() -> FabPreset {
         rules: FabRules {
             silk_width: Some(Nm(127000)),
             silk_text_height: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             track_width: Nm(152_400),
             clearance: Nm(152_400),
             annular_ring: Nm(127_000),

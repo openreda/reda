@@ -72,6 +72,20 @@ pub(super) fn show(
             }
             let params = serde_json::json!({"instance":rows.instance,"pad":rows.pad.uuid});
             pad_stack(ui, &rows.pad, units, "pcb.pad.edit", &params, out);
+            if rows.pad.kind != PadKind::NonPlated {
+                let id = egui::Id::NULL.with((
+                    "placed-pad-zone-connection",
+                    rows.instance,
+                    rows.pad.uuid,
+                ));
+                if let Some(connection) =
+                    crate::pad_form::draw::zone_override(ui, id, units, rows.pad.zone_connection)
+                {
+                    let mut params = params;
+                    params["zone_connection"] = serde_json::json!(connection);
+                    out.push(Out::Run("pcb.pad.edit", params));
+                }
+            }
         });
     }
     if let Some(free) = one_free_pad(project, selection) {

@@ -156,7 +156,7 @@ fn affected_leaves_out_objects_another_record_overrides() {
     let hv_class = class(&mut engine, "HV", &[hv]);
     let hv_rule = set(
         &mut engine,
-        json!({"kind": "clearance", "scope": {"net_class": hv_class}, "values": {"value": "0.5mm"}}),
+        json!({"kind": "clearance", "scope": {"net_class": hv_class}, "values": {"value": "0.5mm", "hole": {"via":"0.5mm","pad":"0.5mm"}}}),
     );
     let board = set(&mut engine, json!({"kind": "clearance"}));
     let on_gnd = track(&mut engine, Some(gnd), "0mm");
@@ -277,4 +277,26 @@ fn a_through_via_lists_each_distinct_layer_result_once() {
         1
     );
     assert!(kind(&out, "track_width").get("layers").is_none());
+}
+
+#[test]
+fn clearance_explains_a_class_pair_hole_override_only_on_the_drilled_layers() {
+    let dir = TempDir::new("applicable-hole-pair");
+    let mut e = engine(&dir);
+    let gnd = net(&mut e, "GND");
+    let sig = net(&mut e, "Signal");
+    class(&mut e, "Return", &[gnd]);
+    let via =
+        e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0},"net":gnd}))["result"]["uuid"].clone();
+    let t = track(&mut e, Some(sig), "1mm");
+    let pair = set(
+        &mut e,
+        json!({"kind":"clearance","scope":{"net_class_pair":["Return","Default"]},"values":{"hole":{"via":"0.19mm"}}}),
+    );
+    let out = e.run_ok("pcb.rules.applicable", json!({"objects":[via,t]}));
+    let holes = &kind(&out, "clearance")["between_holes"];
+    assert_eq!(holes[0]["field"], "hole.via");
+    assert_eq!(holes[0]["value"], 190000);
+    assert_eq!(holes[0]["rule"], pair.to_string());
+    assert_eq!(holes.as_array().unwrap().len(), 1);
 }

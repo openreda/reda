@@ -30,6 +30,7 @@ mod ratsnest;
 pub(crate) mod shape;
 pub(crate) mod ties;
 
+pub(crate) use clearance::exempt_pair;
 pub use clearance::{ClearanceHit, Halo, Proposal};
 pub use ratsnest::{Connections, RatsnestEnds, RatsnestLine, RatsnestVisibility};
 
@@ -382,6 +383,21 @@ impl Copper {
                 let piece = self.piece(entry.slot);
                 (piece.item, &piece.shape)
             })
+    }
+
+    /// Indexed pieces whose bounding boxes lie within `reach` of a physical shape's box.
+    pub(crate) fn pieces_near(
+        &self,
+        layer: Uuid,
+        shape: &Shape,
+        reach: reda_model::geom::Nm,
+    ) -> impl Iterator<Item = (Item, &Shape)> {
+        let (lo, hi) = shape.bounds();
+        let search = AABB::from_corners(
+            [lo[0] - reach.0, lo[1] - reach.0],
+            [hi[0] + reach.0, hi[1] + reach.0],
+        );
+        self.candidates(layer, search).map(|p| (p.item, &p.shape))
     }
 
     /// The copper of `item`, one shape per Layer it is on.

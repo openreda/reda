@@ -111,3 +111,50 @@ fn a_migrated_project_gets_the_new_fab_catalogue_only_on_explicit_source_update(
     assert_eq!(project.fab_preset(preset).unwrap().constructions.len(), 37);
     assert_eq!(*project.pcb().unwrap().stackup(), original);
 }
+
+#[test]
+fn a_migrated_board_switches_its_pours_only_when_the_copied_hole_rules_are_applied() {
+    use reda_engine::model::RuleKind;
+    let (work, mut e) =
+        open_copy_from(&projects_dir().join("formats/v1/blinky_555"), "Blinky.reda");
+    let board_holes = |e: &reda_testkit::TestEngine| {
+        e.project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .board_rule(RuleKind::Clearance)
+            .values
+            .hole
+    };
+    let project = e.project().unwrap();
+    let job = project.output_jobs().next().unwrap().uuid;
+    let preset = project.fab_presets().next().unwrap();
+    let copy = preset.uuid;
+    // The v0.1 preset copy gains the Generic hole limits. The board itself keeps
+    // its v0.1 clearance until Apply, including its old pours around mounting holes.
+    assert_eq!(
+        serde_json::to_value(preset.rules.clearance_hole).unwrap(),
+        json!({"via":250000,"pad":250000})
+    );
+    assert_eq!(board_holes(&e), None);
+    let copper = work.path().join("outputs/JLCPCB/fab/Blinky.gbl");
+    e.run_ok("output.job.run", json!({"job":job}));
+    let old = std::fs::read(&copper).unwrap();
+
+    e.run_ok("pcb.rules.apply_fab_preset", json!({"preset":copy}));
+    e.run_ok("project.save", json!({}));
+    e.run_ok("project.close", json!({}));
+    e.run_ok(
+        "project.open",
+        json!({"path":work.path().join("Blinky.reda")}),
+    );
+    assert_eq!(
+        serde_json::to_value(board_holes(&e)).unwrap(),
+        json!({"via":250000,"pad":250000})
+    );
+    e.run_ok("output.job.run", json!({"job":job}));
+    assert!(
+        std::fs::read(copper).unwrap() != old,
+        "Apply switches the mounting-hole and plated-hole clearances"
+    );
+}

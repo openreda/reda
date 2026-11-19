@@ -12,6 +12,8 @@ use crate::tr;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
     Clearance,
+    ViaHoleClearance,
+    PadHoleClearance,
     TrackWidth,
     ViaDiameter,
     ViaHole,
@@ -52,6 +54,8 @@ impl Field {
     /// Every typed field, in page order.
     pub const ALL: [Field; 33] = [
         Field::Clearance,
+        Field::ViaHoleClearance,
+        Field::PadHoleClearance,
         Field::TrackWidth,
         Field::ViaDiameter,
         Field::ViaHole,
@@ -91,6 +95,9 @@ impl Field {
     pub fn id(self) -> &'static str {
         match self {
             Field::Clearance => "rules.clearance",
+            Field::ViaHoleClearance => "rules.clearance_hole.via",
+            Field::PadHoleClearance => "rules.clearance_hole.pad",
+
             Field::TrackWidth => "rules.track_width",
             Field::ViaDiameter => "rules.via_diameter",
             Field::ViaHole => "rules.via_hole",
@@ -142,6 +149,9 @@ impl Field {
         let list = |items: &[String]| items.join(", ");
         match self {
             Field::Clearance => format_mm(r.clearance),
+            Field::ViaHoleClearance => format_mm(r.clearance_hole.via),
+            Field::PadHoleClearance => format_mm(r.clearance_hole.pad),
+
             Field::TrackWidth => format_mm(r.track_width),
             Field::ViaDiameter => format_mm(r.via_diameter),
             Field::ViaHole => format_mm(r.via_hole),
@@ -231,6 +241,9 @@ impl Field {
         };
         match self {
             Field::Clearance => r.clearance = size(text)?,
+            Field::ViaHoleClearance => r.clearance_hole.via = size(text)?,
+            Field::PadHoleClearance => r.clearance_hole.pad = size(text)?,
+
             Field::TrackWidth => r.track_width = size(text)?,
             Field::ViaDiameter => r.via_diameter = size(text)?,
             Field::ViaHole => r.via_hole = size(text)?,

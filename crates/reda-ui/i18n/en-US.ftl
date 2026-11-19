@@ -904,10 +904,20 @@ violation-track-width = Track width { $actual } is { $limit ->
         [max] above { $maximum }
        *[min] below { $minimum }
     }
-violation-via-span = The Via span has no matching Via type allowed on this Net
-violation-microvia-size = The micro Via diameter or hole is outside its size limits
-violation-aspect-ratio = The Via depth exceeds the aspect ratio allowed for its drill diameter
-violation-max-stack = The Via Stack contains more micro Vias than the allowed maximum
+violation-via-span = { $reason ->
+        [not_allowed] This Net Class does not allow the Via type
+        [micro_too_long] The micro Via type spans more than a micro Via can
+       *[no_type] No Via type matches this span
+    }
+violation-microvia-size = Micro Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-aspect-ratio = Via depth-to-hole ratio { $actual }:1 exceeds the { $maximum }:1 limit
+violation-max-stack = The Via Stack contains { $actual } micro Vias and allows at most { $maximum }
 violation-silk-width = The silkscreen stroke is narrower than the minimum width
 violation-silk-text-height = The silkscreen text is shorter than the minimum height
 violation-via-size = Via { $part ->
@@ -3075,7 +3085,7 @@ via-from-field = { $name } from
 via-to-field = { $name } to
 via-drill-field = { $name } drill
 via-pad-field = { $name } pad
-via-limits = { $name } exceeds the board’s Via size limits.
+via-limits = { $name } has a drill or pad outside the board’s size limits.
 via-add-type = Add Via type
 via-remove-type = Remove Via type
 via-move-up = Move up
@@ -3157,3 +3167,26 @@ board-rule-layers = Layer rules
 board-rule-named = Pick Layers
 board-rule-add = Add
 board-rule-pair-lower = Below a class's own clearance
+construction-apply-action = Apply Construction…
+construction-apply-title = Apply Construction
+construction-revert = Revert
+construction-choice = { $preset } · { $name } ({ $layers } Layers)
+construction-unavailable = This Construction is no longer in the Project preset.
+construction-choose-removals = { $count ->
+    [one] Choose 1 inner Layer to remove.
+   *[other] Choose { $count } inner Layers to remove.
+    }
+construction-layer-objects = { $layer } · { $count ->
+    [one] 1 object
+   *[other] { $count } objects
+    }
+construction-apply-types = Apply Via types
+construction-types-changed = Via types changed: { $count }
+construction-vias-unmatched = Vias left without a type: { $count }
+
+plane-fill-layer = Fill Layer with plane…
+plane-net = Plane Net
+plane-select-net = Choose a Net
+plane-create-zone = Create Zone
+rule-via-hole-clearance = Via hole clearance
+rule-pad-hole-clearance = Plated Pad hole clearance

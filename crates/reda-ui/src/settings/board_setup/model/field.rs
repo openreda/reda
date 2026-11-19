@@ -19,6 +19,8 @@ use crate::tr;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RuleField {
     Clearance,
+    ViaHoleClearance,
+    PadHoleClearance,
     TrackWidth,
     TrackPreferred,
     TrackMax,
@@ -72,7 +74,7 @@ pub enum ValueKind {
 }
 
 /// The values the Net Classes grid has a column for: clearance, Track width and Via size.
-pub const GRID_FIELDS: [RuleField; 10] = [
+pub const GRID_FIELDS: [RuleField; 12] = [
     RuleField::Clearance,
     RuleField::TrackWidth,
     RuleField::TrackPreferred,
@@ -83,6 +85,8 @@ pub const GRID_FIELDS: [RuleField; 10] = [
     RuleField::ViaHole,
     RuleField::ViaHolePreferred,
     RuleField::ViaHoleMax,
+    RuleField::ViaHoleClearance,
+    RuleField::PadHoleClearance,
 ];
 
 /// The rule kinds of the grid's columns, each with its own `enabled` and comment.
@@ -146,6 +150,8 @@ impl RuleField {
         use RuleField as R;
         [
             R::Clearance,
+            R::ViaHoleClearance,
+            R::PadHoleClearance,
             R::TrackWidth,
             R::TrackPreferred,
             R::TrackMax,
@@ -242,6 +248,8 @@ impl RuleField {
         use m::RuleField as F;
         match self {
             RuleField::Clearance => (RuleKind::Clearance, F::Value),
+            RuleField::ViaHoleClearance => (RuleKind::Clearance, F::HoleVia),
+            RuleField::PadHoleClearance => (RuleKind::Clearance, F::HolePad),
             RuleField::TrackWidth => (RuleKind::TrackWidth, F::Min),
             RuleField::TrackPreferred => (RuleKind::TrackWidth, F::Preferred),
             RuleField::TrackMax => (RuleKind::TrackWidth, F::Max),
@@ -295,6 +303,10 @@ impl RuleField {
             RuleValue::Length(n) => mm(n),
             RuleValue::Flag(b) => b.to_string(),
             RuleValue::Percent(p) => p.to_string(),
+            RuleValue::MilliRatio(n) => format!(
+                "{}:1",
+                reda_engine::model::geom::exact_decimal(i64::from(n), 1000)
+            ),
             RuleValue::Count(n) => n.to_string(),
             RuleValue::Angle(a) => mm(Nm(a.0 * 1000)),
             RuleValue::Style(s) => serde_json::to_value(s)
@@ -405,6 +417,8 @@ impl RuleField {
     fn base_name(self) -> String {
         match self {
             RuleField::Clearance => tr!("board-setup-clearance"),
+            RuleField::ViaHoleClearance => tr!("rule-via-hole-clearance"),
+            RuleField::PadHoleClearance => tr!("rule-pad-hole-clearance"),
             RuleField::TrackWidth | RuleField::TrackPreferred | RuleField::TrackMax => {
                 tr!("board-setup-track-width")
             }

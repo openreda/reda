@@ -280,3 +280,41 @@ fn replay_with_random_uuids_remaps_the_change_list_a_sync_names() {
     let pcb = replayed.project().unwrap().pcb().unwrap();
     assert_eq!(pcb.footprints().count(), 3);
 }
+
+#[test]
+fn replay_maps_copper_and_dielectric_identities_created_by_apply_construction() {
+    let dir = TempDir::new("construction-replay");
+    let mut e = test_engine();
+    let new = e.run_ok("project.new", json!({"path":dir.path(),"name":"Replay"}));
+    let document = &new["documents"][1]["uuid"];
+    let preset = e.run_ok("fab_preset.add", json!({"name":"Generic"}))["result"]["uuid"].clone();
+    let p = json!({"document":document,"preset":preset,"construction":"4 Layer"});
+    e.run_ok(
+        "pcb.stackup.change_preview",
+        json!({"change":{"id":"pcb.stackup.apply_construction","params":p}}),
+    );
+    let ids = e.run_ok("pcb.stackup.apply_construction", p);
+    e.run_ok(
+        "pcb.layer.set",
+        json!({"layer":ids["result"]["layers"][1],"name":"Replay return"}),
+    );
+    e.run_ok("pcb.stackup.set",json!({"dielectrics":[{"uuid":ids["result"]["dielectrics"][1],"material":"Test material"}]}));
+    let (_dir, script) = script(&journal::export(e.journal()));
+    let mut replayed = engine_seeded(31);
+    journal::replay(&mut replayed, &script).unwrap();
+    let board = replayed.project().unwrap().pcb().unwrap();
+    assert_eq!(
+        board.copper_layers().nth(1).unwrap().name.as_deref(),
+        Some("Replay return")
+    );
+    assert_eq!(
+        board
+            .stackup()
+            .dielectrics()
+            .nth(1)
+            .unwrap()
+            .material
+            .as_deref(),
+        Some("Test material")
+    );
+}
