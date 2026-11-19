@@ -115,14 +115,14 @@ fn with_plot<T>(
     })
 }
 
-fn zip_names() -> Vec<String> {
-    ["Demo.gtl", "Demo-PTH.drl", "Demo-fab-notes.txt"]
-        .map(String::from)
-        .to_vec()
+fn notes_file(plot: &Plot<'_>) -> OutputFile {
+    let mut files = gerber_files(plot).unwrap().files;
+    files.extend(reda_output::drill_files(plot).files);
+    fab_notes_file(plot, &files, &[])
 }
 
 fn fab_notes(engine: &TestEngine) -> String {
-    let file = with_plot(engine, |_| {}, |plot| fab_notes_file(plot, &zip_names()));
+    let file = with_plot(engine, |_| {}, notes_file);
     assert_eq!(file.name, "Demo-fab-notes.txt");
     String::from_utf8(file.bytes).unwrap()
 }
@@ -148,6 +148,19 @@ fn section(text: &str, heading: &str) -> Vec<String> {
         .collect()
 }
 
+/// A plain-text table in the notes, in the same order the fab sees it.
+fn table(text: &str, heading: &str) -> Vec<Vec<String>> {
+    section(text, heading)
+        .iter()
+        .map(|line| {
+            line.trim_matches('|')
+                .split('|')
+                .map(|s| s.trim().to_owned())
+                .collect()
+        })
+        .collect()
+}
+
 #[test]
 fn fab_notes_list_the_board_and_its_stackup_values() {
     let dir = TempDir::new("fab-notes-board");
@@ -163,11 +176,20 @@ fn fab_notes_list_the_board_and_its_stackup_values() {
             "Size: 30 x 20 mm",
             "Copper layers: 2",
             "Thickness: 1.2 mm",
-            "Copper L1 (top): 1 oz (35 µm)",
-            "Copper L2 (bottom): 1 oz (35 µm)",
+            "Symmetry: Symmetric",
+            "Thickness check: Within 10% tolerance",
             "Finish: ENIG",
             "Solder mask colour: Matte black",
             "Silkscreen colour: White",
+        ]
+    );
+    assert_eq!(
+        table(&notes, "Stackup"),
+        [
+            ["Layer", "Kind", "Role", "Thickness", "Material", "Dk"],
+            ["L1 (top)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
+            ["", "Core", "", "", "", ""],
+            ["L2 (bottom)", "Copper", "Signal", "1 oz (35 µm)", "", ""],
         ]
     );
 }
@@ -196,13 +218,53 @@ fn fab_notes_leave_out_stackup_values_that_are_unset_and_show_odd_copper_in_um()
             "Size: 30 x 20 mm",
             "Copper layers: 2",
             "Thickness: 1.6 mm",
-            "Copper L1 (top): 18 µm",
-            "Copper L2 (bottom): 2.5 oz (87.5 µm)",
+            "Symmetry: Not symmetric",
+            "Thickness check: Within 10% tolerance"
         ]
     );
+    let stack = table(&notes, "Stackup");
+    assert_eq!(stack[1][3], "18 µm");
+    assert_eq!(stack[3][3], "2.5 oz (87.5 µm)");
     for absent in ["Hole tolerances", "Deliberate shorts", "\nNotes"] {
         assert!(!notes.contains(absent), "{absent} in:\n{notes}");
     }
+}
+
+#[test]
+fn fab_notes_identify_the_unmodified_build_and_print_its_current_checks() {
+    let dir = TempDir::new("fab-notes-build");
+    let mut engine = bare(&dir);
+    let original = fab_notes(&engine);
+    let board = section(&original, "Board");
+    for line in [
+        "Construction: 2 Layer",
+        "Symmetry: Symmetric",
+        "Thickness check: Within 10% tolerance",
+    ] {
+        assert!(board.iter().any(|row| row == line), "{original}");
+    }
+
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let top = pcb.copper_layers().next().unwrap().uuid;
+    let first = pcb.stackup().dielectrics().next().unwrap().uuid;
+    let second =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":top, "role":"mixed"}));
+    engine.run_ok("pcb.stackup.set", json!({"dielectrics":[
+        {"uuid":first,"kind":"prepreg","name":"Bond","material":"2116","dk":4180,"thickness":"0.13mm"},
+        {"uuid":second,"kind":"core","thickness":"0.5mm"}]}));
+    let modified = fab_notes(&engine);
+    assert!(!modified.contains("Construction:"), "{modified}");
+    assert!(modified.contains("Symmetry: Not symmetric"), "{modified}");
+    assert!(
+        modified.contains("Thickness check: Outside 10% tolerance"),
+        "{modified}"
+    );
+    let stack = table(&modified, "Stackup");
+    assert_eq!(stack[1][2], "Mixed");
+    assert_eq!(stack[2], ["Bond", "Prepreg", "", "0.13 mm", "2116", "4.18"]);
+    assert_eq!(stack[3], ["", "Core", "", "0.5 mm", "", ""]);
 }
 
 #[test]
@@ -273,7 +335,21 @@ fn fab_notes_list_the_zip_and_end_with_the_boards_own_text() {
     let dir = TempDir::new("fab-notes-text");
     let engine = demo(&dir);
     let notes = fab_notes(&engine);
-    assert_eq!(section(&notes, "Files in the zip"), zip_names());
+    assert_eq!(
+        section(&notes, "Files in the zip"),
+        [
+            "Demo.gtl",
+            "Demo.gbl",
+            "Demo.gts",
+            "Demo.gbs",
+            "Demo.gtp",
+            "Demo.gto",
+            "Demo.gm1",
+            "Demo-PTH.drl",
+            "Demo-NPTH.drl",
+            "Demo-fab-notes.txt"
+        ]
+    );
     assert!(
         notes.ends_with("\n\nNotes\nPlease keep the slot ends square.\nNo X-outs.\n"),
         "{notes}"
@@ -281,14 +357,32 @@ fn fab_notes_list_the_zip_and_end_with_the_boards_own_text() {
 }
 
 #[test]
+fn fab_notes_list_the_written_copper_files_in_physical_order() {
+    let dir = TempDir::new("fab-notes-copper-files");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let notes = with_plot(
+        &engine,
+        |g| g.file_names.inner_copper = Some("layer-${inner}.ger".into()),
+        |plot| {
+            let files = gerber_files(plot).unwrap().files;
+            String::from_utf8(fab_notes_file(plot, &files, &[]).bytes).unwrap()
+        },
+    );
+    assert_eq!(
+        section(&notes, "Copper files in order"),
+        ["Demo.gtl", "layer-1.ger", "layer-2.ger", "Demo.gbl"]
+    );
+}
+
+#[test]
 fn fab_notes_match_their_golden_byte_for_byte() {
     let dir = TempDir::new("fab-notes-golden");
     let engine = demo(&dir);
-    golden(&with_plot(
-        &engine,
-        |_| {},
-        |plot| fab_notes_file(plot, &zip_names()),
-    ));
+    golden(&with_plot(&engine, |_| {}, notes_file));
 }
 
 fn drill_report(engine: &TestEngine, set: impl FnOnce(&mut GerberSettings)) -> String {
@@ -408,7 +502,7 @@ fn job(engine: &TestEngine) -> OutputFile {
         |plot| {
             let mut files = gerber_files(plot).unwrap().files;
             files.extend(reda_output::drill_files(plot).files);
-            files.push(fab_notes_file(plot, &[]));
+            files.push(fab_notes_file(plot, &files, &[]));
             gerber_job_file(plot, &files)
         },
     )
