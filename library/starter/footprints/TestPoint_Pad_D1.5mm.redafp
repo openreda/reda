@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"068a2e9e-2381-49d3-9b44-29dc7758faa7","name":"TestPoint_Pad_D1.5mm","description":"Test point, 1.5 mm round SMD Pad, no paste","height":35000},
   "pads": [
     {"uuid":"b92b28a0-c36e-44e3-8af5-0321457669dc","number":"1","kind":"smd","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":1500000,"height":1500000,"paste":"none"}

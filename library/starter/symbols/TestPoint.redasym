@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"f76c71b7-b687-486e-ad67-039ced3ac747","name":"TestPoint","designator_prefix":"TP","description":"Test point"},
   "units": [
     {"uuid":"f840ac8a-2abb-4c74-9d17-d551a77e0eac","name":"A"}

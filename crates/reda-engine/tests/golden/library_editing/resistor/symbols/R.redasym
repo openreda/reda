@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-000000000029","name":"R","designator_prefix":"R","description":"Resistor"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-00000000002a","name":"A"}

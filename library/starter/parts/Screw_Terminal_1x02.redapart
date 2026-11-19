@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "part": {"uuid":"a424eeb2-4fa8-44b9-9b13-62bfa4f2c075","name":"Screw_Terminal_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},
   "footprints": [
     "279b0c57-2dcb-4d73-9fc5-a41b91ab587b",

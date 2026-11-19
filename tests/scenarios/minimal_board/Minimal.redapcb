@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "pcb": {"uuid":"00000000-0000-4000-8000-000000000003"},
   "layers": {"uuid":"00000000-0000-4000-8000-000000000004","layers":[
     {"uuid":"00000000-0000-4000-8000-000000000005","kind":"courtyard","side":"top"},
@@ -21,15 +21,15 @@
   "stackups": [
     {"uuid":"00000000-0000-4000-8000-000000000026","thickness":1600000,"entries":[
       {"layer":"00000000-0000-4000-8000-00000000000a","thickness":35000},
-      {"uuid":"00000000-0000-4000-8000-000000000025"},
+      {"uuid":"00000000-0000-4000-8000-000000000025","kind":"core"},
       {"layer":"00000000-0000-4000-8000-00000000000b","thickness":35000}
-    ]}
+    ],"via_types":[{"uuid":"fb26f99f-7b7e-84e5-9de6-c52686ec3a58","from":"00000000-0000-4000-8000-00000000000a","to":"00000000-0000-4000-8000-00000000000b","hole":300000,"diameter":{"start":700000}}]}
   ],
   "board": {"uuid":"00000000-0000-4000-8000-000000000014"},
   "rules": [
     {"uuid":"00000000-0000-4000-8000-000000000015","kind":"clearance","scope":{},"values":{"value":160000}},
     {"uuid":"00000000-0000-4000-8000-000000000016","kind":"track_width","scope":{},"values":{"min":200000,"preferred":250000}},
-    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"via_size","scope":{},"values":{"diameter":{"min":700000,"preferred":700000},"hole":{"min":300000,"preferred":300000}}},
+    {"uuid":"00000000-0000-4000-8000-000000000017","kind":"via_size","scope":{},"values":{"diameter":{"min":700000},"hole":{"min":300000}}},
     {"uuid":"00000000-0000-4000-8000-000000000018","kind":"hole_size","scope":{},"values":{"min":500000,"max":6300000}},
     {"uuid":"00000000-0000-4000-8000-000000000019","kind":"annular_ring","scope":{},"values":{"min":200000}},
     {"uuid":"00000000-0000-4000-8000-00000000001a","kind":"hole_to_hole","scope":{},"values":{"min":500000}},
@@ -42,9 +42,14 @@
     {"uuid":"00000000-0000-4000-8000-000000000021","kind":"dangling","scope":{},"values":{"tolerance":0}},
     {"uuid":"00000000-0000-4000-8000-000000000022","kind":"micro_segment","scope":{},"values":{"max_length":10000}},
     {"uuid":"00000000-0000-4000-8000-000000000023","kind":"dead_copper","scope":{},"values":{"min_area":64516000000}},
-    {"uuid":"00000000-0000-4000-8000-000000000024","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}}
+    {"uuid":"00000000-0000-4000-8000-000000000024","kind":"zone_connection","scope":{},"values":{"through_hole":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"smd":{"style":"relief","spokes":4,"spoke_width":250000,"gap":250000,"angle":0},"via":{"style":"solid","spokes":4,"spoke_width":250000,"gap":250000,"angle":0}}},
+    {"uuid":"7532afb4-37fb-87ed-8203-85c674d4d3ed","kind":"via_span","scope":{},"values":{}},
+    {"uuid":"a4d4d018-617c-8b32-a339-a772f645a99c","kind":"microvia_size","scope":{},"values":{}},
+    {"uuid":"ba43999e-06fb-87e2-b1e3-242726bfa195","kind":"teardrop","scope":{},"values":{"via":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"through_hole_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"smd_pad":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90},"width_change":{"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90}}},
+    {"uuid":"be90e6de-b053-8133-8354-030261527951","kind":"silk_text_height","scope":{},"values":{"min":0}},
+    {"uuid":"f0795c00-2af6-8b6f-a29c-1e9c117f1a6e","kind":"silk_width","scope":{},"values":{"min":0}}
   ],
-  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
+  "severities": {"clearance":"error","short_circuit":"error","shorted_copper":"error","net_tie_not_joined":"error","track_width":"error","via_size":"error","via_span":"error","microvia_size":"error","aspect_ratio":"error","max_stack":"error","silk_width":"warning","silk_text_height":"warning","hole_size":"error","annular_ring":"error","hole_to_hole":"error","edge_clearance":"error","keepout":"error","footprint_outside_board":"error","unrouted":"error","copper_without_net":"warning","dangling":"warning","poor_connection":"warning","via_under_smd":"warning","courtyard_overlap":"warning","silk_to_mask":"warning","silk_to_edge":"warning","zero_length_track":"warning","micro_segment":"warning","duplicate_copper":"warning","zero_area_zone":"warning","dead_copper":"warning","empty_zone":"warning","shelved_zone":"warning","out_of_sync":"warning","opening_collapsed":"warning","rule_invalid":"error","rule_outside_preset":"warning"},
   "board_outline": {"uuid":"00000000-0000-4000-8000-000000000029","vertices":[
     {"x":1000000,"y":0},
     {"x":29000000,"y":0,"sweep":90000},
@@ -67,7 +72,7 @@
   ],
   "graphics": [],
   "footprint_copies": [
-    {"uuid":"00000000-0000-4000-8000-00000000004c","hash":"3770e81d0d091f3d1490638d299e4bfb","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004c","hash":"eb9f167fe4a9094b6c840ac8bec797e4","footprint":{"uuid":"dc181a05-7861-4a1b-b740-ff448eb58ad6","name":"LEDC1608X80N","description":"Chip LED, 1608 metric, IPC-7351 Nominal","height":800000},"pads":[
       {"uuid":"1e89d7b9-eb92-4f8a-89f7-76cee37a3fc7","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000},
       {"uuid":"b034cab0-2c1e-489e-9521-1346c8e2152b","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-812500,"y":0},"rotation":0,"width":825000,"height":950000,"corner_ratio":25000}
     ],"graphics":[
@@ -79,7 +84,7 @@
       {"uuid":"68127592-062c-43f9-9f7f-15c75d5bc9c0","field":"Value","at":{"x":0,"y":-1150000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"},
       {"uuid":"fc5a1da4-a477-4e33-a0c3-e21a2e8ca40b","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":400000,"thickness":60000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-00000000004e","hash":"9c7acb87bfab89bf7602ee0d90e34794","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-00000000004e","hash":"73d840269fae51e8f317a2a74943f70b","footprint":{"uuid":"26d79843-0798-462a-8497-835a14905264","name":"HDRV0W64P254R1L508T254H850B","description":"Pin header, 1 × 2, 2.54 mm pitch","height":8500000},"pads":[
       {"uuid":"51072fb9-94c3-4b5d-80bf-636681ace084","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":0,"y":1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}},
       {"uuid":"75bf775f-bdf6-476e-a21c-ac73893d1705","number":"2","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":-1270000},"rotation":0,"width":1650000,"height":1650000,"hole":{"width":1150000,"height":1150000}}
     ],"graphics":[
@@ -94,7 +99,7 @@
       {"uuid":"81bd3f94-6d32-4707-9448-c1ab0ecaf351","field":"Designator","at":{"x":0,"y":3500000},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"silkscreen_top"},
       {"uuid":"f1df2496-ae83-446e-8b38-1147ebc7f2b9","field":"Designator","at":{"x":0,"y":0},"rotation":0,"style":{"font":"Hershey Roman Simplex","height":1000000,"thickness":150000,"justify":{"h":"center","v":"center"}},"layer":"assembly_top"}
     ]},
-    {"uuid":"00000000-0000-4000-8000-000000000050","hash":"8663e2c08d4adca1947ea9e5cb2fda42","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
+    {"uuid":"00000000-0000-4000-8000-000000000050","hash":"944f6dc12a28899e184ca437cf38be39","footprint":{"uuid":"0691e5e7-9eb6-49f3-9f3e-d4159258693e","name":"RESC1608X55N","description":"Chip resistor, 0603 (1608 metric), IPC-7351 Nominal","height":550000},"pads":[
       {"uuid":"0c71e033-af95-4f12-87ae-8d0c35399464","number":"1","kind":"smd","shape":"rounded_rect","at":{"x":-775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000},
       {"uuid":"53384bba-48b7-4032-9f0b-0b1238401de3","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":775000,"y":0},"rotation":0,"width":900000,"height":950000,"corner_ratio":25000}
     ],"graphics":[

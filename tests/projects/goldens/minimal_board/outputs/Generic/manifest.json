@@ -2,7 +2,7 @@
   "format": 1,
   "reda": "0.0.0-test",
   "job": {"uuid":"00000000-0000-4000-8000-000000000028","name":"Generic"},
-  "fab_preset": {"name":"Generic","sha256":"328c42f6667a185d7219e2bd43813b2010b995ab17f81ac77b7fe70823b1fedd"},
+  "fab_preset": {"name":"Generic","sha256":"30c763e5bac308549c2c11271164fd5fc16257e67ce8fb9584c25e3c621d190c"},
   "pcb": "00000000-0000-4000-8000-000000000003",
   "revision": "A",
   "date": "2026-01-01T00:00:00Z",

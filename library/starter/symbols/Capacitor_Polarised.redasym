@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"69a098aa-4952-4c5a-9ee5-5d47a7acfdbe","name":"Capacitor_Polarised","designator_prefix":"C","description":"Polarised capacitor; Pin 1 is positive"},
   "units": [
     {"uuid":"bbc21cfa-ac43-40fe-8487-d7db08a9fbbf","name":"A"}

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"00000040-0000-4000-8000-000000000000","name":"MountingHole_M3","description":"3.2 mm non-plated hole"},
   "pads": [
     {"uuid":"00000041-0000-4000-8000-000000000000","number":"","kind":"non_plated","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":3200000,"height":3200000,"hole":{"width":3200000,"height":3200000},"mask":{"top":{"expansion":50000},"bottom":{"expansion":50000}}}
