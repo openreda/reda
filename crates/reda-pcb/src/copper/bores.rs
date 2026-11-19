@@ -3,7 +3,10 @@ use super::shape::{BoardShape as _, P, Shape};
 use super::{Copper, Entry, Item, Proposal};
 use crate::drill::holes;
 use crate::placed::{placed_free_pad, placed_pads};
-use reda_model::{PcbDocument, RuleField, RuleKind, Uuid, geom::Nm};
+use reda_model::{
+    PcbDocument, RuleField, RuleKind, Uuid,
+    geom::{Nm, Point},
+};
 use rstar::{AABB, RTree};
 use std::collections::BTreeMap;
 
@@ -79,21 +82,39 @@ impl Copper {
         let Proposal::Track { geometry, .. } = proposal else {
             return false;
         };
-        let side = pcb.layers().layer(layer).and_then(|l| l.side);
-        let land = match bore.item {
-            Item::Via { uuid } => pcb
-                .via(uuid)
-                .map(|v| Shape::disc(v.at, v.diameter_on(layer))),
-            Item::FreePad { uuid } => pcb
-                .free_pad(uuid)
-                .map(|p| super::lands::pad_shape(&placed_free_pad(p), side)),
-            Item::Pad { footprint, pad } => pcb
-                .footprint(footprint)
-                .and_then(|f| placed_pads(pcb, f).into_iter().find(|p| p.pad == pad))
-                .map(|p| super::lands::pad_shape(&p, side)),
-            _ => None,
-        };
+        let land = design_land(pcb, bore.item, layer);
         let (start, end) = geometry.ends();
         land.is_some_and(|shape| shape.contains(start) || shape.contains(end))
+    }
+
+    /// The Pads and Vias whose land on `layer` was removed as unused although its design
+    /// land holds `point`, sorted. A Track ending there brings the land back, so a route
+    /// may start from one and take its Net.
+    pub fn removed_lands_at(&self, pcb: &PcbDocument, layer: Uuid, point: Point) -> Vec<Item> {
+        self.unused
+            .iter()
+            .filter(|&(item, l)| {
+                l == layer && design_land(pcb, item, layer).is_some_and(|s| s.contains(point))
+            })
+            .map(|(item, _)| item)
+            .collect()
+    }
+}
+
+/// The land `item` has on `layer` by design, whether or not it is omitted there.
+fn design_land(pcb: &PcbDocument, item: Item, layer: Uuid) -> Option<Shape> {
+    let side = pcb.layers().layer(layer).and_then(|l| l.side);
+    match item {
+        Item::Via { uuid } => pcb
+            .via(uuid)
+            .map(|v| Shape::disc(v.at, v.diameter_on(layer))),
+        Item::FreePad { uuid } => pcb
+            .free_pad(uuid)
+            .map(|p| super::lands::pad_shape(&placed_free_pad(p), side)),
+        Item::Pad { footprint, pad } => pcb
+            .footprint(footprint)
+            .and_then(|f| placed_pads(pcb, f).into_iter().find(|p| p.pad == pad))
+            .map(|p| super::lands::pad_shape(&p, side)),
+        _ => None,
     }
 }

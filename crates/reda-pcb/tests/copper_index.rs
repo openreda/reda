@@ -631,3 +631,49 @@ fn a_proposed_via_checks_its_own_drilled_diameter_against_stored_copper() {
     assert_eq!(halos.len(), 1);
     assert_eq!(halos[0].clearance, Nm::from_um(250));
 }
+
+#[test]
+fn a_track_from_a_removed_land_takes_its_owners_net_and_brings_the_land_back() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-route-from-removed-land");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+    );
+    let inner = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    let net = uuid(&e.run_ok("test.net.add", json!({"name":"GND"}))["result"]["uuid"]);
+    let pad = uuid(
+        &e.run_ok(
+            "pcb.free_pad.add",
+            json!({"kind":"plated_through_hole","width":"2mm","hole":{"width":"0.8mm"},
+            "at":{"x":"5mm","y":"5mm"},"unused_layers":"remove","net":net}),
+        )["result"]["uuid"],
+    );
+    let item = Item::FreePad { uuid: pad };
+    let centre = Point::new(Nm::from_mm(5), Nm::from_mm(5));
+    let copper = Copper::of(e.project().unwrap()).unwrap();
+    assert!(copper.unused_lands().contains(item, inner));
+    assert_eq!(
+        copper.removed_lands_at(e.project().unwrap().pcb().unwrap(), inner, centre),
+        [item]
+    );
+    let track = &e.run_ok(
+        "pcb.track.add",
+        json!({"layer":inner,"points":[{"x":"5mm","y":"5mm"},{"x":"9mm","y":"5mm"}]}),
+    )["result"]["tracks"][0];
+    let project = e.project().unwrap();
+    let pcb = project.pcb().unwrap();
+    assert_eq!(pcb.track(uuid(track)).unwrap().net, Some(net));
+    let copper = Copper::of(project).unwrap();
+    assert!(!copper.unused_lands().contains(item, inner));
+    assert!(copper.items_at(inner, centre).contains(&item));
+}
