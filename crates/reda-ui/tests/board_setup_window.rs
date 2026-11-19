@@ -436,7 +436,7 @@ fn the_layers_and_board_forms_edit_an_odd_boards_inner_layer_and_finish() {
     retype(&mut h, "L2 name", "Ground");
     h.key_press(Key::Enter);
     h.run();
-    choose(&mut h, "Ground kind", "Plane");
+    choose(&mut h, "L2 Ground kind", "Plane");
     choose(&mut h, "Surface finish", "ENIG");
     for (label, text) in [
         ("Solder mask colour", "Purple"),
