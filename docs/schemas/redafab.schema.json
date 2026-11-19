@@ -658,7 +658,7 @@
           "description": "Where coordinates are measured from; shared by Gerber, drill and CPL."
         },
         "merge_drill": {
-          "description": "One drill file with plated and non-plated holes, instead of PTH and NPTH.",
+          "description": "Merge the plated and non-plated through holes into one drill file.\nBlind and buried spans keep separate files.",
           "type": "boolean"
         },
         "naming": {

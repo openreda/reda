@@ -22,9 +22,20 @@ use crate::plot::{FileAttributes, OutputFile, Plot, SkippedFile, file_attributes
 pub struct Drills {
     pub files: Vec<OutputFile>,
     pub skipped: Vec<SkippedFile>,
+    /// Through rows, including empty files, then the occupied partial spans in physical order.
+    pub spans: Vec<DrillSpan>,
 }
 
-/// Every name a drill file of the Project `name` can have, whichever the switches:
+/// An Output Job Drill table row, in the writer's order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DrillSpan {
+    pub name: String,
+    pub span: String,
+    pub function: &'static str,
+    pub plotted: bool,
+}
+
+/// The possible through-drill file names of the Project `name`:
 /// `<name>-PTH.drl`, `<name>-NPTH.drl` and the merged `<name>.drl`.
 pub fn drill_file_names(name: &str) -> [String; 3] {
     [
@@ -34,22 +45,29 @@ pub fn drill_file_names(name: &str) -> [String; 3] {
     ]
 }
 
-/// The drill files of `plot`: the plated holes, then the non-plated ones, or with the Fab
-/// Preset's `merge_drill` one file holding both. A file with no holes is left out and
-/// listed in `skipped`.
+/// Drill files in physical order. Through holes come first, split by plating or
+/// combined with `merge_drill`. Each occupied blind or buried span follows in its
+/// own file. Empty through files are listed in `skipped`.
 pub fn drill_files(plot: &Plot<'_>) -> Drills {
     let mut drills = Drills {
         files: Vec::new(),
         skipped: Vec::new(),
+        spans: Vec::new(),
     };
     for set in drill_sets(plot) {
+        drills.spans.push(DrillSpan {
+            name: set.name.clone(),
+            span: set.span_description,
+            function: set.function,
+            plotted: !set.holes.is_empty(),
+        });
         if set.holes.is_empty() {
             drills.skipped.push(SkippedFile {
                 name: set.name,
                 function: set.function,
             });
         } else {
-            let file_function = set.file_function();
+            let file_function = set.file_function;
             drills.files.push(OutputFile {
                 bytes: write(plot, &file_function, &set.holes),
                 name: set.name,
@@ -67,72 +85,97 @@ pub fn drill_files(plot: &Plot<'_>) -> Drills {
 /// The holes of one drill file, written or (with no holes) skipped.
 pub(crate) struct DrillSet {
     pub name: String,
-    /// What it holds: `drill_plated`, `drill_non_plated` or `drill_mixed`.
+    /// Human-readable span and drilling method for the drill report.
+    pub span_description: String,
+    /// Its output kind, including `drill_blind` and `drill_buried` for partial spans.
     pub function: &'static str,
-    /// The `.FileFunction` without its `<label>`, such as `Plated,1,2,PTH`.
+    /// The complete file function, shared by Excellon and its Gerber job entry.
     file_function: String,
     pub holes: Vec<DrillHole>,
 }
 
-impl DrillSet {
-    /// The full `.FileFunction`, with its `Drill`, `Rout` or `Mixed` label.
-    fn file_function(&self) -> String {
-        format!("{},{}", self.file_function, label(&self.holes))
-    }
-}
-
-/// The drill files `plot` makes, holes and all, in file order: plated then non-plated,
-/// or one merged file with the Fab Preset's `merge_drill`.
 pub(crate) fn drill_sets(plot: &Plot<'_>) -> Vec<DrillSet> {
-    if plot.instances.is_empty() {
+    let Some(first) = plot.instances.first() else {
         return Vec::new();
-    }
+    };
     let name = &plot.project.props().name;
-    let layers = plot
-        .instances
-        .first()
-        .map_or(0, |i| i.pcb.copper_layers().count());
-    let holes: Vec<_> = plot
-        .instances
-        .iter()
-        .flat_map(|instance| {
-            let mut holes = holes(instance.pcb);
-            for hole in &mut holes {
-                hole.at = instance.transform.point(hole.at);
-                hole.to = hole.to.map(|p| instance.transform.point(p));
+    let layers = first.pcb.copper_layers().count();
+    let mut through = Vec::new();
+    let mut partial = BTreeMap::<(usize, usize), Vec<DrillHole>>::new();
+    for instance in plot.instances {
+        for mut hole in holes(instance.pcb) {
+            hole.at = instance.transform.point(hole.at);
+            hole.to = hole.to.map(|p| instance.transform.point(p));
+            if let Some(span) = hole.span {
+                partial.entry(span).or_default().push(hole);
+            } else {
+                through.push(hole);
             }
-            holes
-        })
-        .collect();
-    let [pth, npth, merged] = drill_file_names(name);
-    if plot.gerber.merge_drill {
-        return vec![DrillSet {
-            name: merged,
-            function: "drill_mixed",
-            file_function: format!("MixedPlating,1,{layers}"),
-            holes,
-        }];
+        }
     }
-    let (plated, non_plated): (Vec<DrillHole>, Vec<DrillHole>) =
-        holes.into_iter().partition(|h| h.plated);
-    vec![
-        DrillSet {
-            name: pth,
-            function: "drill_plated",
-            file_function: format!("Plated,1,{layers},PTH"),
-            holes: plated,
-        },
-        DrillSet {
-            name: npth,
-            function: "drill_non_plated",
-            file_function: format!("NonPlated,1,{layers},NPTH"),
-            holes: non_plated,
-        },
-    ]
+
+    let [pth, npth, merged] = drill_file_names(name);
+    let through_span = format!("L1-L{layers}, through");
+    let mut sets = if plot.gerber.merge_drill {
+        vec![DrillSet {
+            name: merged,
+            span_description: through_span,
+            function: "drill_mixed",
+            file_function: format!("MixedPlating,1,{layers},{}", label(&through)),
+            holes: through,
+        }]
+    } else {
+        let (plated, non_plated): (Vec<_>, Vec<_>) =
+            through.into_iter().partition(|hole| hole.plated);
+        let mut non_plated_function = format!("NonPlated,1,{layers},NPTH");
+        // Version 0.1's two-Layer non-plated files retain their drill/route qualifier.
+        if layers == 2 {
+            let _ = write!(non_plated_function, ",{}", label(&non_plated));
+        }
+        vec![
+            DrillSet {
+                name: pth,
+                span_description: through_span.clone(),
+                function: "drill_plated",
+                file_function: format!("Plated,1,{layers},PTH"),
+                holes: plated,
+            },
+            DrillSet {
+                name: npth,
+                span_description: through_span,
+                function: "drill_non_plated",
+                file_function: non_plated_function,
+                holes: non_plated,
+            },
+        ]
+    };
+    for ((from, to), holes) in partial {
+        let (function, kind) = if from == 1 || to == layers {
+            ("drill_blind", "Blind")
+        } else {
+            ("drill_buried", "Buried")
+        };
+        let micro = if holes.iter().any(|hole| hole.micro) {
+            ", micro"
+        } else {
+            ""
+        };
+        sets.push(DrillSet {
+            name: format!("{name}-L{from}-L{to}.drl"),
+            span_description: format!("L{from}-L{to}, {}{micro}", kind.to_ascii_lowercase()),
+            function,
+            file_function: format!("Plated,{from},{to},{kind}"),
+            holes,
+        });
+    }
+    sets
 }
 
 /// One hole on the board.
 pub(crate) struct DrillHole {
+    /// Physical first and last positions for a partial Via. All other holes go through.
+    span: Option<(usize, usize)>,
+    micro: bool,
     pub plated: bool,
     /// The drill or routing tool diameter, rounded to 1 µm.
     diameter: Nm,
@@ -147,15 +190,30 @@ pub(crate) struct DrillHole {
 
 /// Every hole: Vias, then Footprint Pads, then Free Pads, each in UUID order.
 fn holes(pcb: &reda_model::PcbDocument) -> Vec<DrillHole> {
+    let layers = pcb.copper_layers().count();
     let mut holes: Vec<DrillHole> = pcb
         .vias()
-        .map(|via| DrillHole {
-            plated: true,
-            diameter: micron(via.hole),
-            function: "ViaDrill",
-            tolerance: None,
-            at: via.at,
-            to: None,
+        .map(|via| {
+            let from = pcb
+                .copper_number(via.span.from)
+                .expect("validated Via starts on copper");
+            let to = pcb
+                .copper_number(via.span.to)
+                .expect("validated Via ends on copper");
+            let span = (from.min(to), from.max(to));
+            DrillHole {
+                span: (span != (1, layers)).then_some(span),
+                micro: pcb
+                    .stackup()
+                    .type_for_span(via.span)
+                    .is_some_and(|t| t.micro),
+                plated: true,
+                diameter: micron(via.hole),
+                function: "ViaDrill",
+                tolerance: None,
+                at: via.at,
+                to: None,
+            }
         })
         .collect();
     for instance in pcb.footprints() {
@@ -193,6 +251,8 @@ fn pad_hole(pad: &PlacedPad, plated_function: &'static str) -> Option<DrillHole>
         (from, Some(to))
     };
     Some(DrillHole {
+        span: None,
+        micro: false,
         plated,
         diameter: micron(hole.diameter()),
         function,

@@ -24,7 +24,7 @@ pub enum FileState {
 /// One Gerber or drill file a run plans.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlannedFile {
-    /// The Layer it plots, such as "Top Copper"; empty for a drill file.
+    /// The Gerber Layer or drill span, such as "Top Copper" or "L2-L3, buried".
     pub layer: String,
     /// Its name in the zip, such as `Demo.gtl`.
     pub name: String,
@@ -130,29 +130,16 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         }
     };
     let drills = reda_output::drill_files(&plot);
-    let mut drill: Vec<PlannedFile> = drills
-        .files
-        .iter()
-        .map(|f| (f.name.clone(), f.function, true))
-        .chain(
-            drills
-                .skipped
-                .iter()
-                .map(|f| (f.name.clone(), f.function, false)),
-        )
-        .map(|(name, function, written)| PlannedFile {
-            layer: String::new(),
-            name,
-            function,
-            state: state(job.outputs.drill, written),
+    let drill = drills
+        .spans
+        .into_iter()
+        .map(|span| PlannedFile {
+            layer: span.span,
+            name: span.name,
+            function: span.function,
+            state: state(job.outputs.drill, span.plotted),
         })
         .collect();
-    // In file order: plated, then non-plated (or the one merged file).
-    let order = |f: &PlannedFile| match f.function {
-        "drill_plated" | "drill_mixed" => 0,
-        _ => 1,
-    };
-    drill.sort_by_key(order);
     if job.outputs.drill {
         zip.extend(drills.files.iter().map(zip_entry));
     }

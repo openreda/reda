@@ -330,9 +330,18 @@ fn general_previews_the_paths_and_flags_the_name_template_inline() {
 fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     let (home, work) = (TempDir::new("jd-home"), TempDir::new("jd-work"));
     let mut h = harness_with_layers(home.path(), work.path(), true, 4);
+    let board = h.state().shell().engine().project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
     h.state_mut()
         .shell_mut()
         .run("pcb.layer.set", json!({"layer":"copper_l2","name":"GND"}))
+        .unwrap();
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.via.add",
+            json!({"at":{"x":"4mm","y":"4mm"}, "from":layers[1],"to":layers[2]}),
+        )
         .unwrap();
     job_menu(&mut h, "Edit…");
     h.run();
@@ -357,8 +366,12 @@ fn gerber_and_drill_pages_list_each_file_and_whether_it_is_plotted() {
     h.get_by_label("Edit preset copy…");
     page(&mut h, "Drill");
     h.get_by_label("Routed (G00, M15, G01, M16, G05)");
-    h.get_by_label("Split: plated and non-plated files");
+    h.get_by_label("Plated and non-plated through holes use separate files");
+    h.get_by_label("Span");
     h.get_by_label("Jobs-PTH.drl");
+    h.get_by_label("Jobs-NPTH.drl");
+    h.get_by_label("Jobs-L2-L3.drl");
+    h.get_by_label("L2-L3, buried");
 }
 
 #[test]
