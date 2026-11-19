@@ -582,6 +582,21 @@ fn plated_free_pad_properties_customize_and_clear_a_copper_group() {
         p["middle"],
         json!({"shape":"rect", "width":2400000, "height":1500000})
     );
+    for (label, shape) in [
+        ("Chamfered rectangle", "chamfered_rect"),
+        ("Rounded rectangle", "rounded_rect"),
+        ("Oval", "oval"),
+    ] {
+        h.get_by_role_and_label(Role::ComboBox, "Middle shape")
+            .click();
+        h.run();
+        click(&mut h, label);
+        let board = h.state().shell().engine().project().unwrap().pcb().unwrap();
+        let free = board
+            .free_pad(serde_json::from_value(pad.clone()).unwrap())
+            .unwrap();
+        assert_eq!(json!(free.middle.unwrap().shape), shape);
+    }
     h.get_by_label("Clear Middle copper").click();
     h.run();
     let (_, p) = last_entry(&h);

@@ -104,3 +104,70 @@ fn the_copper_index_finds_only_the_land_present_on_the_queried_layer() {
         );
     }
 }
+
+#[test]
+fn adding_an_inner_layer_uses_the_local_pad_stack_and_undo_restores_the_copy() {
+    use reda_engine::model::geom::Point;
+    use reda_engine::pcb::{Copper, Item};
+    let dir = TempDir::new("placed-pad-stack-undo");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new", json!({"name":"Demo","path":dir.path()}));
+    let added = engine.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":"5mm","y":"5mm"}, "pads":[{
+                "at":{"x":0,"y":0}, "width":"2mm","height":"2mm","shape":"circle",
+                "kind":"plated_through_hole","hole":{"width":500000,"height":500000}
+            }]
+        }),
+    );
+    let footprint = serde_json::from_value(added["result"]["footprint"].clone()).unwrap();
+    let pad = serde_json::from_value(added["result"]["pads"][0].clone()).unwrap();
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let original = pcb.footprint(footprint).unwrap().footprint;
+    engine.run_ok(
+        "pcb.pad.edit",
+        json!({"instance":footprint,"pad":pad,
+            "middle":{"shape":"rect","width":"4mm","height":"1mm"}
+        }),
+    );
+    let copy = |e: &TestEngine| {
+        e.project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .footprint(footprint)
+            .unwrap()
+            .footprint
+    };
+    let edited = copy(&engine);
+    assert_ne!(edited, original);
+    let added = engine.run_ok("pcb.layer.add", json!({"document":document}));
+    let inner: Uuid = serde_json::from_value(added["result"]["uuid"].clone()).unwrap();
+    let indexed_layers = |e: &TestEngine| {
+        let project = e.project().unwrap();
+        let copper = Copper::of(project).unwrap();
+        project
+            .pcb()
+            .unwrap()
+            .copper_layers()
+            .filter(|l| {
+                copper
+                    .items_at(l.uuid, Point::new(Nm(6_900_000), Nm(5_000_000)))
+                    .contains(&Item::Pad { footprint, pad })
+            })
+            .map(|l| l.uuid)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(indexed_layers(&engine), [inner]);
+    assert_eq!(copy(&engine), edited);
+    engine.run_ok("edit.undo", json!({"document":document}));
+    assert!(indexed_layers(&engine).is_empty());
+    engine.run_ok("edit.undo", json!({"document":document}));
+    assert_eq!(copy(&engine), original);
+    engine.run_ok("edit.redo", json!({"document":document}));
+    engine.run_ok("edit.redo", json!({"document":document}));
+    assert_eq!(copy(&engine), edited);
+    assert_eq!(indexed_layers(&engine), [inner]);
+}

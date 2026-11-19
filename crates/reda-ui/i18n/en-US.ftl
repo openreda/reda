@@ -463,7 +463,6 @@ properties-x = X
 properties-y = Y
 properties-width = Width
 properties-length = Length
-properties-diameter = Diameter
 properties-hole = Hole
 properties-region-general = General
 properties-region-location = Location

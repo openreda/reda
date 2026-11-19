@@ -70,8 +70,14 @@ fn fields(row: &mut Row<'_>, group: &str, copper: &mut PadCopperShape) {
         shape_name,
     ) {
         copper.shape = shape;
-        if shape == PadShape::ChamferedRect && copper.chamfer_ratio.is_none() {
-            copper.chamfer_ratio = Some(DEFAULT_CHAMFER_RATIO);
+        if shape == PadShape::ChamferedRect {
+            copper.chamfer_ratio.get_or_insert(DEFAULT_CHAMFER_RATIO);
+        } else {
+            copper.chamfer_ratio = None;
+        }
+        if !cornered(shape) {
+            copper.corner_ratio = None;
+            copper.corners = None;
         }
     }
     if let Some(width) = row.length(
