@@ -309,6 +309,10 @@ fn class_grid(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetupDraft) {
                                     row.empty();
                                 }
                                 for &f in fields(kind) {
+                                    if default && !f.applies_board_wide() {
+                                        row.empty();
+                                        continue;
+                                    }
                                     let label = tr!(
                                         "board-setup-override",
                                         class = name.as_str(),

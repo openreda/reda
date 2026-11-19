@@ -257,6 +257,18 @@ fn rule_pages_hold_each_check_with_values_preset_limits_overrides_and_severity()
     h.get_by_role_and_label(Role::TextInput, "Power: Maximum Track width");
     h.get_by_label("Generic limit: at least 0.2");
     h.get_by_label("Track Width: Error");
+    page(&mut h, "Vias");
+    for size in ["Via diameter", "Via hole"] {
+        h.get_by_role_and_label(Role::TextInput, &format!("Board-wide minimum {size} (mm)"));
+        assert!(
+            h.query_by_role_and_label(
+                Role::TextInput,
+                &format!("Board-wide preferred {size} (mm)")
+            )
+            .is_none()
+        );
+        h.get_by_role_and_label(Role::TextInput, &format!("Power: Preferred {size}"));
+    }
     page(&mut h, "Holes");
     for check in ["Hole Size", "Annular Ring", "Hole to Hole"] {
         h.get_by_label(&format!("{check}: Error"));
@@ -368,6 +380,13 @@ fn the_net_classes_grid_has_a_bold_default_row_and_grey_inherited_values() {
         strong
     );
     assert_eq!(value(&h, "Default: Clearance"), "0.16");
+    for size in ["Via diameter", "Via hole"] {
+        h.get_by_role_and_label(Role::TextInput, &format!("Power: Preferred {size}"));
+        assert!(
+            h.query_by_role_and_label(Role::TextInput, &format!("Default: Preferred {size}"))
+                .is_none()
+        );
+    }
     // Power overrides clearance (normal) and inherits Track width (grey).
     let track = h
         .get_by_role_and_label(Role::TextInput, "Power: Track width")

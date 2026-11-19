@@ -65,6 +65,14 @@ pub struct Section {
 }
 
 impl Section {
+    /// Values editable on the board-wide record. The override table uses all fields.
+    pub fn board_fields(&self) -> impl Iterator<Item = RuleField> {
+        self.fields
+            .iter()
+            .copied()
+            .filter(|f| f.applies_board_wide())
+    }
+
     const fn check(check: DrcCheck, fields: &'static [RuleField]) -> Section {
         Section {
             check: Some(check),

@@ -411,13 +411,14 @@ fn the_fab_preset_preview_ticks_limits_and_applies_only_the_ticked_rows() {
     shell
         .run(
             "pcb.rules.set",
-            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm"}}}),
         )
         .unwrap();
     let preset = preset(&shell);
     let d = dialog(&shell);
     let mut board = d.page::<DrcPage>().unwrap().board();
     board.set_rule(RuleField::Clearance, "0.3");
+    board.set_rule(RuleField::TrackPreferred, "0.4");
     board.set_rule(RuleField::MaskTop, "0.1");
     board.preview_fab_preset(preset);
     let rows: Vec<(RuleField, String, bool)> = board
@@ -427,23 +428,23 @@ fn the_fab_preset_preview_ticks_limits_and_applies_only_the_ticked_rows() {
         .iter()
         .map(|c| (c.rule, c.preset.clone(), c.ticked))
         .collect();
-    // The preferred hole stays inside the new range, so its row starts unticked.
+    // The preferred Track width stays inside the new range, so it starts unticked.
     assert_eq!(
         rows,
         [
             (RuleField::Clearance, "0.16".to_owned(), true),
+            (RuleField::TrackPreferred, "0.25".to_owned(), false),
             (RuleField::ViaHole, "0.3".to_owned(), true),
-            (RuleField::ViaHolePreferred, "0.3".to_owned(), false),
             (RuleField::MaskTop, "0.05".to_owned(), true),
             (RuleField::MaskBottom, "0.05".to_owned(), true),
         ]
     );
     board.set_preview_ticked(0, false);
-    board.set_preview_ticked(2, true);
+    board.set_preview_ticked(1, true);
     board.accept_fab_preview();
     assert_eq!(board.rule(RuleField::Clearance), "0.3", "unticked");
     assert_eq!(board.rule(RuleField::ViaHole), "0.3");
-    assert_eq!(board.rule(RuleField::ViaHolePreferred), "0.3");
+    assert_eq!(board.rule(RuleField::TrackPreferred), "0.25");
     assert_eq!(board.rule(RuleField::MaskTop), "0.05");
 }
 

@@ -2032,6 +2032,7 @@ board-setup-board-wide-maximum = Board-wide maximum { $rule } (mm)
 board-setup-overrides = Net Class overrides (mm)
 board-setup-override = { $class }: { $rule }
 board-setup-overrides-note = Net Class values override the board value. Leave one empty to use the board value. Where a Net is in several Net Classes, the highest-ranked one that sets a value wins, and where two Nets meet, the larger clearance applies.
+board-setup-via-overrides-note = Leave a limit empty to use the board-wide limit. A Via starts at its type’s diameter and hole unless a Net Class sets a preferred size. When several classes set a value, the highest-ranked one wins.
 board-setup-no-classes = The board has no Net Classes yet. Add them on the Net Classes page.
 board-setup-net-class = Net Class
 board-setup-severity = DRC severity of { $check }:

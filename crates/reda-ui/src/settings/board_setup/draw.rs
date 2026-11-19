@@ -163,7 +163,7 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
     let t = ui.tokens();
     let salt = section.fields[0];
     widgets::form(("board-setup-rule", salt)).show(ui, |ui| {
-        for &f in section.fields {
+        for f in section.board_fields() {
             if f == RuleField::PastePercent {
                 continue;
             }
@@ -256,7 +256,12 @@ fn section_ui(ui: &mut Ui, cx: &mut PageCx<'_>, section: &Section, board: &mut B
                     });
             });
     }
-    layout::muted(ui, tr!("board-setup-overrides-note"));
+    let note = if section.check == Some(DrcCheck::ViaSize) {
+        tr!("board-setup-via-overrides-note")
+    } else {
+        tr!("board-setup-overrides-note")
+    };
+    layout::muted(ui, note);
     if let Some(check) = section.check {
         ui.add_space(t.space.stack);
         ui.horizontal(|ui| {
