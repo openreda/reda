@@ -378,7 +378,7 @@ fn silk_minimums_measure_lines_and_stroke_text_on_both_sides_and_skip_outline_st
     let checks = drc(&mut e);
     let widths = objects_of(&checks, "silk_width");
     assert!(widths.contains(&vec![line]));
-    assert!(widths.contains(&vec![fp]));
+    assert!(widths.iter().any(|objects| objects.first() == Some(&fp)));
     assert!(widths.contains(&vec![stroke]));
     assert!(!widths.contains(&vec![outline]));
     assert!(!widths.contains(&vec![copper]));
@@ -425,4 +425,48 @@ fn knockout_text_keeps_the_stroke_fonts_width_for_silkscreen_checks() {
     place(reda_model::NOTO_SANS_FONT);
     let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
     assert_eq!(objects_of(&report, "silk_width"), [vec![stroke]]);
+}
+
+#[test]
+fn waiving_one_narrow_footprint_stroke_leaves_the_other_stroke_visible() {
+    let dir = TempDir::new("silk-footprint-waiver");
+    let mut engine = reda_testkit::probe_engine();
+    engine.run_ok("project.new", json!({"name":"Silk","path":dir.path()}));
+    let graphic = |y: i32| {
+        json!({"layer":"silkscreen_top","width":"0.12mm",
+               "shape":{"kind":"line","start":{"x":0,"y":y},"end":{"x":1000000,"y":y}}})
+    };
+    engine.run_ok(
+        "test.footprint.add",
+        json!({
+            "at":{"x":0,"y":0},"pads":[],"graphics":[graphic(0), graphic(1_000_000)]
+        }),
+    );
+    let checks = json!({"checks":["silk_width"]});
+    let report = engine.run_ok("drc.run", checks.clone());
+    let rows = of(&report, "silk_width");
+    assert_eq!(rows.len(), 2);
+    engine.run_ok(
+        "drc.waive",
+        json!({"violations":[{"check":"silk_width","objects":rows[0]["objects"]}],
+                                    "reason":"Qualified this stroke"}),
+    );
+    let report = engine.run_ok("drc.run", checks);
+    assert_eq!(report["waived"], 1);
+    assert_eq!(report["violations"], json!([rows[1]]));
+}
+
+#[test]
+fn a_one_nanometre_silkscreen_line_is_still_measured() {
+    let dir = TempDir::new("silk-one-nm");
+    let mut engine = engine(&dir);
+    let line = created(&engine.run_ok("pcb.graphic.add_line", json!({
+        "layer":"silkscreen_top","from":{"x":"2mm","y":"3mm"},"to":{"x":"4mm","y":"3mm"},"width":1
+    })));
+    let report = engine.run_ok("drc.run", json!({"checks":["silk_width"]}));
+    let rows = of(&report, "silk_width");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["objects"], json!([line]));
+    assert_eq!(rows[0]["measured"]["length"], 1);
+    assert_eq!(rows[0]["at"], json!({"x":3_000_000,"y":3_000_000}));
 }

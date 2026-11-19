@@ -1,6 +1,4 @@
-//! The silkscreen checks: `silk_to_mask`, silkscreen too close to exposed copper or to
-//! the solder-mask openings on its side, and `silk_to_edge`, silkscreen too close to the
-//! Board Outline or a Board Cutout.
+//! Silkscreen stroke width, text height and clearance from mask openings and board edges.
 //!
 //! The silkscreen is the Footprints' silkscreen drawing and Designators, and the PCB
 //! graphics and text on the silkscreen Layers. The openings are the [resolved
@@ -30,7 +28,11 @@ use crate::zone::poly::{self, Area, Contour, ip};
 
 /// One piece of silkscreen: the objects it belongs to, its side and its area.
 pub(super) struct Silk {
-    pub objects: Vec<Uuid>,
+    owner: Uuid,
+    /// The graphic or field text within a placed Footprint, for individual size Waivers.
+    element: Option<Uuid>,
+    /// A positive one-nanometre pen may collapse when its radius is rounded to nanometres.
+    anchor: Point,
     pub side: Side,
     pub area: Area,
     width: Option<Nm>,
@@ -42,11 +44,14 @@ impl Silk {
         let laid_out = text_geometry(text, fonts);
         let width = laid_out.has_stroke_glyphs.then_some(laid_out.stroke_width);
         Self {
-            objects: vec![owner],
+            owner,
+            element: (text.uuid != owner).then_some(text.uuid),
+            anchor: text.position,
             side,
             area: text_area(&laid_out),
             width,
-            height: Some(text.height),
+            height: (laid_out.has_stroke_glyphs || !laid_out.fill.indices.is_empty())
+                .then_some(text.height),
         }
     }
 }
@@ -91,17 +96,17 @@ pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
             let Some(actual) = value.filter(|v| *v < required) else {
                 continue;
             };
-            let Some((lo, hi)) = poly::bounds(&piece.area) else {
-                continue;
-            };
-            let at = Point::new(Nm(lo[0]), Nm(lo[1])).midpoint(Point::new(Nm(hi[0]), Nm(hi[1])));
+            let at = poly::bounds(&piece.area).map_or(piece.anchor, |(lo, hi)| {
+                Point::new(Nm(lo[0]), Nm(lo[1])).midpoint(Point::new(Nm(hi[0]), Nm(hi[1])))
+            });
             report.add(check, |v| {
                 v.length(actual, required, Limit::Min, rule.rule)
                     .located(board.pcb.uuid, at)
                     .on_layers([silk_layer(board.pcb, piece.side)])
                     .arg("actual", actual)
                     .arg("required", required)
-                    .objects(piece.objects.iter().copied())
+                    .object(piece.owner)
+                    .objects(piece.element)
             });
         }
     }
@@ -148,7 +153,7 @@ fn silk_to_mask(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
             if !overlaps && gap >= required.0 as f64 {
                 continue;
             }
-            let mut objects = piece.objects.clone();
+            let mut objects = vec![piece.owner];
             for &o in &target.objects {
                 if !objects.contains(&o) {
                     objects.push(o);
@@ -208,7 +213,7 @@ fn silk_to_edge(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
                     .on_layers([silk_layer(pcb, piece.side)])
                     .arg("required", required)
                     .arg("actual", actual)
-                    .objects(piece.objects.iter().copied())
+                    .object(piece.owner)
                     .object(edge.uuid)
             });
         }
@@ -285,7 +290,9 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
                 continue;
             };
             out.push(Silk {
-                objects: vec![instance.uuid],
+                owner: instance.uuid,
+                element: Some(graphic.graphic),
+                anchor: graphic.shape.bounds().map_or(instance.at, |b| b.center()),
                 side,
                 area: drawing_area(&graphic.shape, graphic.width.0, graphic.fill),
                 width: (graphic.width > Nm::ZERO).then_some(graphic.width),
@@ -319,7 +326,13 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
             ),
         };
         out.push(Silk {
-            objects: vec![graphic.uuid],
+            owner: graphic.uuid,
+            element: None,
+            anchor: match graphic.shape {
+                GraphicShape::Line { from, to }
+                | GraphicShape::Arc { from, to, .. }
+                | GraphicShape::Rect { from, to, .. } => from.midpoint(to),
+            },
             side,
             width: (graphic.width > Nm::ZERO).then_some(graphic.width),
             height: None,
@@ -340,7 +353,9 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
         let drawn = crate::dimension::drawing(dimension, fonts);
         for line in &drawn.lines {
             out.push(Silk {
-                objects: vec![dimension.uuid],
+                owner: dimension.uuid,
+                element: None,
+                anchor: line.from.midpoint(line.to),
                 side,
                 area: strokes_area(&[vec![line.from, line.to]], line.width.0),
                 width: Some(line.width),

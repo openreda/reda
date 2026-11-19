@@ -52,7 +52,7 @@ pub enum Field {
 
 impl Field {
     /// Every typed field, in page order.
-    pub const ALL: [Field; 33] = [
+    pub const ALL: [Field; 35] = [
         Field::Clearance,
         Field::ViaHoleClearance,
         Field::PadHoleClearance,

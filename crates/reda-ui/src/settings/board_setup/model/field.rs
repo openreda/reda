@@ -169,7 +169,7 @@ pub fn style_name(style: &str) -> String {
 }
 
 impl RuleField {
-    pub const ALL: [RuleField; 72] = {
+    pub const ALL: [RuleField; 74] = {
         use ConnectionTarget as T;
         use ConnectionValue as V;
         use RuleField as R;
