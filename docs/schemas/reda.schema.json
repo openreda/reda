@@ -1584,6 +1584,91 @@
       },
       "type": "object"
     },
+    "PlacementCorrection": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "footprint": {
+              "type": "string"
+            },
+            "offset": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "footprint",
+            "rotation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "offset": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rotation": {
+              "description": "An angle in integer millidegrees, counter-clockwise. Serialises as a bare integer.",
+              "format": "int64",
+              "type": "integer"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "value",
+            "rotation"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A position on a Schematic Sheet or the PCB Document, which share one coordinate type.",
+      "properties": {
+        "x": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "y": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
     "PreferredSeeds": {
       "additionalProperties": false,
       "description": "The preferred Track and Via sizes a Fab Preset seeds a new board with.",
@@ -1633,6 +1718,14 @@
         "name": {
           "description": "The name of the preset it was copied from.",
           "type": "string"
+        },
+        "placement_corrections": {
+          "default": [],
+          "description": "Ordered, fab-specific adjustments to CPL rotation and centre.",
+          "items": {
+            "$ref": "#/$defs/PlacementCorrection"
+          },
+          "type": "array"
         },
         "rules": {
           "$ref": "#/$defs/FabRules"

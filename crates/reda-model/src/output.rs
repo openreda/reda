@@ -11,9 +11,11 @@ use serde::{Deserialize, Serialize};
 use crate::{StackupSeeds, Uuid};
 
 mod name_template;
+mod placement;
 mod settings;
 
 pub use name_template::{NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError};
+pub use placement::{PlacementAdjustment, PlacementCorrection, PlacementMatch};
 pub use settings::*;
 
 /// Clearance to the plated holes of another Net.
@@ -200,6 +202,9 @@ pub struct FabPreset {
     pub bom: BomSettings,
     /// The CPL table form, columns and position conventions.
     pub cpl: CplSettings,
+    /// Ordered, fab-specific adjustments to CPL rotation and centre.
+    #[serde(default)]
+    pub placement_corrections: Vec<PlacementCorrection>,
 }
 
 /// The Project's own copy of a Fab Preset, so outputs come out the same on any machine.
@@ -217,6 +222,9 @@ pub struct ProjectFabPreset {
     pub zip_assembly: bool,
     pub bom: BomSettings,
     pub cpl: CplSettings,
+    /// Ordered, fab-specific adjustments to CPL rotation and centre.
+    #[serde(default)]
+    pub placement_corrections: Vec<PlacementCorrection>,
 }
 
 /// One named physical build offered by a Fab Preset.
@@ -299,6 +307,7 @@ impl ProjectFabPreset {
             zip_assembly,
             bom,
             cpl,
+            placement_corrections,
         } = preset;
         ProjectFabPreset {
             uuid,
@@ -310,6 +319,7 @@ impl ProjectFabPreset {
             zip_assembly,
             bom,
             cpl,
+            placement_corrections,
         }
     }
 
@@ -324,6 +334,7 @@ impl ProjectFabPreset {
             zip_assembly: self.zip_assembly,
             bom: self.bom.clone(),
             cpl: self.cpl.clone(),
+            placement_corrections: self.placement_corrections.clone(),
         }
     }
 }

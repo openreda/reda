@@ -40,6 +40,7 @@ pub struct FieldChange {
 pub struct Preview {
     pub preset: Uuid,
     pub changes: Result<Vec<FieldChange>, String>,
+    pub kept: Vec<reda_engine::model::PlacementCorrection>,
 }
 
 /// The outcome of the last "Save as User Preset".
@@ -80,14 +81,25 @@ impl FabPresetsPage {
 
     /// Previews what updating `preset` from its source would change.
     pub fn preview_update(&mut self, shell: &mut Shell, preset: Uuid) {
-        let changes = shell
+        #[derive(Deserialize)]
+        struct Diff {
+            changes: Vec<FieldChange>,
+            #[serde(default)]
+            kept_placement_corrections: Vec<reda_engine::model::PlacementCorrection>,
+        }
+        let diff = shell
             .run("fab_preset.source_diff", json!({ "preset": preset }))
             .map_err(|e| e.message)
-            .and_then(|out| {
-                serde_json::from_value::<Vec<FieldChange>>(out["changes"].clone())
-                    .map_err(|e| e.to_string())
-            });
-        self.preview = Some(Preview { preset, changes });
+            .and_then(|out| serde_json::from_value::<Diff>(out).map_err(|e| e.to_string()));
+        let (changes, kept) = match diff {
+            Ok(d) => (Ok(d.changes), d.kept_placement_corrections),
+            Err(e) => (Err(e), Vec::new()),
+        };
+        self.preview = Some(Preview {
+            preset,
+            changes,
+            kept,
+        });
     }
 
     /// Marks the previewed copy for updating on Apply, if the preview found changes.
@@ -210,6 +222,10 @@ impl FabPresetsPage {
                             }
                         });
                 }
+            }
+            for kept in &preview.kept {
+                let name = crate::settings::fab_preset::placement::match_name(&kept.matcher());
+                layout::text(ui, tr!("preset-placement-kept", name = name));
             }
             widgets::button_row(ui, |ui| {
                 let changes = preview.changes.as_ref().is_ok_and(|c| !c.is_empty());

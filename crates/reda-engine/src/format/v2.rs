@@ -38,6 +38,7 @@ fn preset(preset: &mut Value) -> Result<(), String> {
     let object = preset
         .as_object_mut()
         .ok_or("expected a Fab Preset object")?;
+    object.insert("placement_corrections".into(), json!([]));
     let seeds = object
         .remove("stackup")
         .map(serde_json::from_value)
