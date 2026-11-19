@@ -121,7 +121,14 @@ fn fields_follow_the_schema_types() {
     // Required fields first, in the Command's order, then the rest by name.
     assert_eq!(
         field_names(&f),
-        ["path", "name", "board", "fab_preset", "layers"]
+        [
+            "path",
+            "name",
+            "board",
+            "construction",
+            "fab_preset",
+            "layers"
+        ]
     );
     let name = f.field("name").unwrap();
     assert!(name.required);

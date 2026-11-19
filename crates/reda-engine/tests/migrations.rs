@@ -3,7 +3,7 @@
 //! Release inputs live under `tests/projects/formats/v<n>`. Their canonical successors
 //! live beside them in `migrated-v<n+1>`. The standalone codec tests in `format::v2`
 //! exercise the same file pairs for Library files, user presets and Rules Files.
-//! The Demo under `tests/golden/formats` also opens as today's canonical new Project.
+//! The frozen Demo likewise has a canonical migrated successor.
 
 use std::path::{Path, PathBuf};
 
@@ -13,7 +13,10 @@ use serde_json::{Value, json};
 
 const GOLDEN: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/migrations");
 const FORMATS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/formats");
-const CURRENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/new_project");
+const CURRENT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/golden/formats/migrated-v2"
+);
 
 #[test]
 fn every_frozen_format_opens_and_saves_as_the_current_goldens() {

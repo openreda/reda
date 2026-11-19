@@ -180,15 +180,8 @@ fn rules(ui: &mut Ui, editor: &mut PresetEditor) {
 }
 
 fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
+    editor.construction_list.show(ui, &mut editor.value);
     rows(ui, "preset-stackup", |ui| {
-        subheading(ui, tr!("preset-seeds"));
-        typed(
-            ui,
-            editor,
-            Field::SeedThickness,
-            tr!("preset-seed-thickness"),
-        );
-        typed(ui, editor, Field::SeedCopper, tr!("preset-seed-copper"));
         subheading(ui, tr!("preset-suggestions"));
         for (f, label) in [
             (Field::SuggestThickness, tr!("preset-suggest-thickness")),
@@ -200,7 +193,6 @@ fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
             typed(ui, editor, f, label);
         }
     });
-    note(ui, tr!("preset-seeds-note"));
     note(ui, tr!("preset-suggestions-note"));
 }
 

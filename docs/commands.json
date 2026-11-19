@@ -789,6 +789,20 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "properties": {
+          "construction": {
+            "description": "The Construction name in that preset. Defaults to its build for this count.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fab_preset": {
+            "description": "A Project Fab Preset copy by UUID, or a shipped or user preset by name. If its\nsource is unavailable, a Project copy can also be selected by name. Defaults to Generic.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "kind": {
             "$ref": "#/$defs/DocumentKind"
           },
@@ -4313,7 +4327,6 @@
           },
           "Construction": {
             "additionalProperties": false,
-            "description": "One named physical build offered by a Fab Preset.",
             "properties": {
               "default": {
                 "type": "boolean"
@@ -4327,10 +4340,22 @@
               "name": {
                 "type": "string"
               },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "thickness": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_types": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
@@ -4360,8 +4385,44 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "df": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "dk": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
                   "kind": {
                     "$ref": "#/$defs/DielectricKind"
+                  },
+                  "material": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "test_frequency": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "thickness": {
                     "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -4378,6 +4439,51 @@
                 "type": "object"
               }
             ]
+          },
+          "ConstructionViaType": {
+            "additionalProperties": false,
+            "description": "Portable Via type, with drilling direction expressed as one-based copper positions.",
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "micro": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "hole",
+              "diameter"
+            ],
+            "type": "object"
           },
           "CplSettings": {
             "additionalProperties": false,
@@ -4462,7 +4568,7 @@
                 "description": "The BOM table form, columns and row conventions."
               },
               "constructions": {
-                "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither.",
+                "description": "The named physical builds available when creating or editing a board.",
                 "items": {
                   "$ref": "#/$defs/Construction"
                 },
@@ -5123,6 +5229,45 @@
               "silk_color"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
+            ],
+            "type": "object"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -5261,7 +5406,7 @@
             "type": "string"
           },
           "values": {
-            "description": "Preset keys to change, in the preset's own shape: a section (`rules`, `stackup`,\n`gerber`, `stackup_suggestions`, `bom`, `cpl`) changes only the keys it names, each\nwhole, such as `{\"gerber\": {\"slot_command\": \"g85\"}}`; `zip_assembly` is set as it\nis. `placement_corrections` replaces the whole list, with integer base units or\nunit strings for rotation and offsets. The name cannot be set."
+            "description": "Preset keys to change. Sections such as `rules` and `gerber` change only the keys\nsupplied. `constructions` is an object keyed by case-insensitive Construction name.\nEach value replaces or adds the named Construction, and null removes it.\n`placement_corrections` replaces the whole list, with integer base units or unit\nstrings for rotation and offsets. The preset name cannot be set."
           }
         },
         "required": [
@@ -22608,7 +22753,6 @@
           },
           "Construction": {
             "additionalProperties": false,
-            "description": "One named physical build offered by a Fab Preset.",
             "properties": {
               "default": {
                 "type": "boolean"
@@ -22622,10 +22766,22 @@
               "name": {
                 "type": "string"
               },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "thickness": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_types": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
@@ -22655,8 +22811,44 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "df": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "dk": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
                   "kind": {
                     "$ref": "#/$defs/DielectricKind"
+                  },
+                  "material": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "test_frequency": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "thickness": {
                     "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -22673,6 +22865,51 @@
                 "type": "object"
               }
             ]
+          },
+          "ConstructionViaType": {
+            "additionalProperties": false,
+            "description": "Portable Via type, with drilling direction expressed as one-based copper positions.",
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "micro": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "hole",
+              "diameter"
+            ],
+            "type": "object"
           },
           "CopperEntry": {
             "additionalProperties": false,
@@ -25245,6 +25482,13 @@
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "construction": {
+                "description": "The original named Construction, including while the board differs from it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "entries": {
                 "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
@@ -30696,7 +30940,6 @@
           },
           "Construction": {
             "additionalProperties": false,
-            "description": "One named physical build offered by a Fab Preset.",
             "properties": {
               "default": {
                 "type": "boolean"
@@ -30710,10 +30953,22 @@
               "name": {
                 "type": "string"
               },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "thickness": {
                 "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "via_types": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
@@ -30743,8 +30998,44 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "df": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "dk": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
                   "kind": {
                     "$ref": "#/$defs/DielectricKind"
+                  },
+                  "material": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "test_frequency": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
                   },
                   "thickness": {
                     "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
@@ -30761,6 +31052,51 @@
                 "type": "object"
               }
             ]
+          },
+          "ConstructionViaType": {
+            "additionalProperties": false,
+            "description": "Portable Via type, with drilling direction expressed as one-based copper positions.",
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "micro": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "to": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "hole",
+              "diameter"
+            ],
+            "type": "object"
           },
           "CopperEntry": {
             "additionalProperties": false,
@@ -33333,6 +33669,13 @@
           "InDocument3": {
             "description": "An object stored in a Document, with the Document it lives in. The Document is not\nserialised: object views and files say where an object is in their own way.",
             "properties": {
+              "construction": {
+                "description": "The original named Construction, including while the board differs from it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "entries": {
                 "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
@@ -58660,6 +59003,17 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "The readouts and checks for a single Stackup.",
         "properties": {
+          "construction": {
+            "description": "Original Construction name, including while the Stackup is modified.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "construction_matches": {
+            "description": "Whether a Project copy still offers the named physical build.",
+            "type": "boolean"
+          },
           "entries": {
             "items": {
               "$ref": "#/$defs/ResolvedEntry"
@@ -58695,12 +59049,52 @@
           "totals",
           "symmetric",
           "symmetry_mismatches",
-          "thickness_warning"
+          "thickness_warning",
+          "construction",
+          "construction_matches"
         ],
-        "title": "StackupInfo",
+        "title": "InfoOutput",
         "type": "object"
       },
       "title": "Stackup Information"
+    },
+    {
+      "category": "pcb",
+      "description": "Saves this board's Stackup and Via types into a named Construction in a Project Fab Preset copy.",
+      "icon": "save",
+      "id": "pcb.stackup.save_as_construction",
+      "kind": "edit",
+      "params": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "preset": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "preset",
+          "name"
+        ],
+        "title": "SaveParams",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "null",
+        "type": "null"
+      },
+      "title": "Save as Construction"
     },
     {
       "category": "pcb",
@@ -59010,6 +59404,13 @@
             "additionalProperties": false,
             "description": "The board's physical build, top to bottom. v0.1 boards hold one; the table leaves room\nfor more stacks later, such as rigid-flex substacks.",
             "properties": {
+              "construction": {
+                "description": "The original named Construction, including while the board differs from it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "entries": {
                 "description": "The copper Layers in physical order, with one or more dielectric sheets in every gap.",
                 "items": {
@@ -64021,6 +64422,13 @@
               }
             ],
             "description": "A rectangular Board Outline to start with; left out to draw it later."
+          },
+          "construction": {
+            "description": "Named physical build in the chosen Fab Preset. Defaults to its build for this count.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "fab_preset": {
             "default": null,

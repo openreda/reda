@@ -3089,6 +3089,23 @@ placement-correction = Correction
 placement-match = Matched row
 placement-match-value = Pattern or field and value
 
+construction-title = Construction
+construction-generic = Generic evenly spaced build
+construction-list = Constructions
+construction-count = { $name } · { $layers } Layers
+construction-default = Set as default
+construction-remove = Remove Construction
+construction-name = Construction name
+construction-add = Add Construction
+construction-duplicate = Duplicate Construction
+construction-save-action = Save as Construction…
+construction-save-title = Save as Construction
+construction-save = Save Construction
+construction-modified = Modified from { $name }
+construction-started = Construction: { $name }
+construction-project-copy = { $name } (Project)
+construction-user-preset = { $name } (user preset)
+construction-no-presets = Add a Fab Preset to this Project to save a Construction.
 
 board-layer-inner = Inner
 board-layer-outer = Outer
