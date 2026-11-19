@@ -434,7 +434,15 @@ fn the_job_file_is_minimal_json_in_the_job_spec_form() {
                "Finish": "ENIG"})
     );
     let keys: Vec<&String> = value.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["FilesAttributes", "GeneralSpecs", "Header"]);
+    assert_eq!(
+        keys,
+        [
+            "FilesAttributes",
+            "GeneralSpecs",
+            "Header",
+            "MaterialStackup"
+        ]
+    );
     let entries = value["FilesAttributes"].as_array().unwrap();
     assert_eq!(
         entries[0],
@@ -512,4 +520,93 @@ fn drill_report_labels_the_actual_micro_and_unmatched_spans() {
         "{report}"
     );
     assert!(report.contains("All files: 2 holes, 0 slots"));
+}
+
+mod job_reader;
+
+#[test]
+fn the_job_reader_matches_all_physical_sheets_and_actual_outer_files() {
+    use reda_model::StackupEntry;
+    let dir = TempDir::new("multilayer-job-readback");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let first = pcb.stackup().dielectrics().next().unwrap().uuid;
+    let inner = pcb.copper_layers().nth(1).unwrap().uuid;
+    let extra =
+        engine.run_ok("pcb.stackup.dielectric.add", json!({"beside":first}))["result"]["uuid"]
+            .clone();
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"name":"Return"}));
+    engine.run_ok("pcb.stackup.set",json!({
+        "mask_color":"Black","silk_color":"White",
+        "dielectrics":[{"uuid":first,"name":"Bond","material":"1080","thickness":"0.10mm","dk":4210,"df":19500},
+                       {"uuid":extra,"thickness":null}]
+    }));
+    engine.run_ok(
+        "pcb.text.add",
+        json!({"layer":"silkscreen_top","text":"REDA","x":"1mm","y":"3mm"}),
+    );
+    with_plot(
+        &engine,
+        |_| {},
+        |plot| {
+            let pcb = plot.instances[0].pcb;
+            let mut files = gerber_files(plot).unwrap().files;
+            files.extend(reda_output::drill_files(plot).files);
+            let read = job_reader::read(&gerber_job_file(plot, &files).bytes);
+            let files_written: Vec<_> = files
+                .iter()
+                .filter_map(|f| {
+                    f.attributes
+                        .as_ref()
+                        .map(|a| (f.name.as_str(), a.function.as_str()))
+                })
+                .collect();
+            assert_eq!(
+                read.files_attributes
+                    .iter()
+                    .map(|f| (f.path.as_str(), f.file_function.as_str()))
+                    .collect::<Vec<_>>(),
+                files_written
+            );
+            assert_eq!(read.general_specs.layer_number, pcb.copper_layers().count());
+            let rows = read.material_stackup;
+            assert_eq!(rows.len(), pcb.stackup().entries.len() + 3);
+            assert_eq!(
+                (&*rows[0].kind, rows[0].color.as_deref()),
+                ("Legend", Some("White"))
+            );
+            for i in [1, rows.len() - 1] {
+                assert_eq!(
+                    (&*rows[i].kind, rows[i].color.as_deref()),
+                    ("SolderMask", Some("Black"))
+                );
+            }
+            for (entry, row) in pcb.stackup().entries.iter().zip(&rows[2..]) {
+                match entry {
+                    StackupEntry::Copper(copper) => {
+                        assert_eq!(row.kind, "Copper");
+                        assert_eq!(row.thickness, Some(copper.thickness.0 as f64 / 1e6));
+                        if copper.layer == inner {
+                            assert_eq!(row.name.as_deref(), Some("Return"));
+                        }
+                    }
+                    StackupEntry::Dielectric(sheet) => {
+                        assert_eq!(row.kind, "Dielectric");
+                        assert_eq!(row.name, sheet.name);
+                        assert_eq!(row.material, sheet.material);
+                        assert_eq!(row.thickness, sheet.thickness.map(|v| v.0 as f64 / 1e6));
+                        assert_eq!(
+                            row.dielectric_constant,
+                            sheet.dk.map(|v| f64::from(v) / 1000.0)
+                        );
+                        assert_eq!(row.loss_tangent, sheet.df.map(|v| f64::from(v) / 1e6));
+                    }
+                }
+            }
+        },
+    );
 }

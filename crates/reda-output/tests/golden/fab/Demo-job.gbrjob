@@ -66,5 +66,32 @@
       "FileFunction": "NonPlated,1,2,NPTH,Mixed",
       "FilePolarity": "Positive"
     }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend",
+      "Color": "White"
+    },
+    {
+      "Type": "SolderMask",
+      "Color": "Matte black"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L1",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "Dielectric"
+    },
+    {
+      "Type": "Copper",
+      "Name": "L2",
+      "Thickness": 0.035
+    },
+    {
+      "Type": "SolderMask",
+      "Color": "Matte black"
+    }
   ]
 }
