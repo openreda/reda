@@ -948,10 +948,8 @@ fn double_clicking_a_single_board_object_selects_it_and_opens_properties() {
     let free = free_pad(&mut w, "8mm");
     let before = journal_len(&w);
     let at = on_screen(&w, Point::new(mm(8.0), mm(0.0)));
-    w.h.input_mut().time = Some(w.h.ctx.input(|i| i.time) + 1.0);
-    for _ in 0..2 {
-        click(&mut w, at);
-    }
+    click_after(&mut w, at, 1.0);
+    click_after(&mut w, at, 0.05);
     assert_eq!(shell(&w).selection().objects, [free]);
     assert!(
         shell(&w).engine().journal()[before..]
