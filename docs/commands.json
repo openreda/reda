@@ -42208,6 +42208,42 @@
                 "type": "object"
               },
               {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
                 "properties": {
                   "island": {
@@ -42470,6 +42506,42 @@
                 "type": "object"
               },
               {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
                 "description": "One island (connected piece) of a Zone's fill, numbered in fill order.",
                 "properties": {
                   "island": {
@@ -42628,6 +42700,42 @@
                 "properties": {
                   "kind": {
                     "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
                     "type": "string"
                   },
                   "uuid": {
@@ -55498,6 +55606,42 @@
                 "properties": {
                   "kind": {
                     "const": "track",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "Free text etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "text",
+                    "type": "string"
+                  },
+                  "uuid": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "uuid"
+                ],
+                "type": "object"
+              },
+              {
+                "description": "A free line, arc or rectangle etched on a copper Layer.",
+                "properties": {
+                  "kind": {
+                    "const": "graphic",
                     "type": "string"
                   },
                   "uuid": {
