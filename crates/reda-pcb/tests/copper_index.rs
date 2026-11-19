@@ -465,3 +465,37 @@ fn unused_lands_follow_track_ends_and_zone_outlines_before_filling() {
     f.edit(&mut e, "pcb.zone.delete", json!({"zones":[zone]}));
     assert_eq!(on(&f), [layers[0], layers[3]]);
 }
+
+#[test]
+fn rounded_triangles_in_mirrored_rotated_letters_do_not_extend_their_copper() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-rotated-text");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Small lettering"}),
+    );
+    let id = uuid(
+        &engine.run_ok(
+            "pcb.text.add",
+            json!({
+                "layer":"copper_bottom", "x":0, "y":0, "height":890, "rotation":"37deg",
+                "text":"O    O", "font":"Noto Sans"
+            }),
+        )["result"]["uuid"],
+    );
+    let project = engine.project().unwrap();
+    let layer = project.pcb().unwrap().text(id).unwrap().layer;
+    let copper = Copper::of(project).unwrap();
+    assert_eq!(
+        copper.items_at(layer, Point::new(Nm(-702), Nm(-386))),
+        [Item::Text { uuid: id }]
+    );
+    // Placement rounds one narrow triangle onto a line. This point on that line
+    // is over 300 nm beyond the nearest drawn copper.
+    assert!(
+        copper
+            .items_at(layer, Point::new(Nm(-1323), Nm(511)))
+            .is_empty()
+    );
+}

@@ -80,7 +80,7 @@ pub enum Item {
 
 impl Item {
     /// Free text and graphics have physical copper but can never carry a connection.
-    pub(crate) fn is_artwork(self) -> bool {
+    pub fn is_artwork(self) -> bool {
         matches!(self, Self::Text { .. } | Self::Graphic { .. })
     }
 

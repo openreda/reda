@@ -113,7 +113,13 @@ pub(super) fn fill_zone(
                 continue;
             }
         }
+        // Even at zero rule clearance the fill must not touch a netless drawing.
         let clearance = clearance_to(pcb, zone, net);
+        let clearance = if item.is_artwork() {
+            clearance.max(Nm(1))
+        } else {
+            clearance
+        };
         if !near(shape, clearance.0, lo, hi) {
             continue;
         }
