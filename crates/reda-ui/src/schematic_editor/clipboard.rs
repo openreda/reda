@@ -25,6 +25,7 @@ use serde_json::{Value, json};
 use super::{Cx, Interaction, P, restate};
 use crate::canvas::interact::Pointer;
 use crate::shell::Shell;
+use crate::tools::ToolCommand;
 use crate::tr;
 
 /// A clipboard floating on the cursor.
@@ -276,7 +277,7 @@ struct ToolCopy;
 
 impl Command for ToolCopy {
     const META: Meta = Meta {
-        id: "tool.copy",
+        id: ToolCommand::Copy.id(),
         title: "Copy",
         description: "Copies (or with `cut`, cuts) the selected objects to the clipboard in \
                       the window, with schematic.copy or schematic.cut. With the Clipboard \
@@ -318,7 +319,7 @@ struct ToolPaste;
 
 impl Command for ToolPaste {
     const META: Meta = Meta {
-        id: "tool.paste",
+        id: ToolCommand::Paste.id(),
         title: "Paste",
         description: "Floats the clipboard on the cursor over the sheet, with a hotspot on \
                       the snap grid, until a click pastes it with schematic.paste.",
@@ -360,7 +361,7 @@ struct ToolDuplicate;
 
 impl Command for ToolDuplicate {
     const META: Meta = Meta {
-        id: "tool.duplicate",
+        id: ToolCommand::Duplicate.id(),
         title: "Duplicate",
         description: "Picks up a copy of the selected objects as a repeating stamp: each \
                       click pastes another (schematic.paste), Designators keeping theirs \
