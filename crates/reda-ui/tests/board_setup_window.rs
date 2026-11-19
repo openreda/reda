@@ -661,3 +661,89 @@ fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new
         .preset();
     assert_eq!(preset.construction("Bench").unwrap().thickness.0, 1_500_000);
 }
+
+#[test]
+fn splitting_a_sheet_in_the_cross_section_adds_one_layer_command() {
+    let (home, work) = (TempDir::new("section-home"), TempDir::new("section-work"));
+    let mut h = harness(home.path(), work.path(), "Section");
+    let document = pcb(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::RadioButton, "Schematic")
+        .click();
+    h.run();
+    let sheet = h
+        .get_by_role_and_label(Role::Button, "Select band Dielectric 1")
+        .rect();
+    h.hover_at(egui::pos2(sheet.left() + 8.0, sheet.center().y));
+    h.run();
+    h.get_by_role_and_label(Role::Button, "+ Layer").click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    assert_eq!(pcb(&h).copper_layers().count(), 3);
+    let journal = h.state().shell().engine().journal();
+    assert_eq!(
+        journal
+            .iter()
+            .filter(|entry| entry.id == "pcb.layer.add")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn dragging_a_via_end_in_the_cross_section_changes_its_span_once_at_release() {
+    let (home, work) = (TempDir::new("barrel-home"), TempDir::new("barrel-work"));
+    let mut h = harness(home.path(), work.path(), "Barrel");
+    let original = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("document.delete", json!({"document":original}))
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind":"pcb","layers":4}))
+        .unwrap();
+    let board = pcb(&h);
+    let copper: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    let shell = h.state_mut().shell_mut();
+    shell.run("pcb.via_type.add", json!({"document":board.uuid,"from":copper[0],"to":copper[1],"name":"Laser","micro":true})).unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Select Via type Laser")
+        .click();
+    h.run();
+    let start = h
+        .get_by_role_and_label(Role::Button, "Laser to")
+        .rect()
+        .center();
+    let mid = h
+        .get_by_role_and_label(Role::Button, "Select band L3")
+        .rect();
+    let target = egui::pos2(start.x, mid.center().y);
+    h.drag_at(start);
+    h.run();
+    h.hover_at(start.lerp(target, 0.5));
+    h.run();
+    h.hover_at(target);
+    h.run();
+    let count = |h: &Harness<'static, App>| {
+        h.state()
+            .shell()
+            .engine()
+            .journal()
+            .iter()
+            .filter(|entry| entry.id == "pcb.via_type.set")
+            .count()
+    };
+    assert_eq!(count(&h), 0, "dragging only previews the destination");
+    h.drop_at(target);
+    h.run();
+    assert_eq!(count(&h), 1);
+    assert_eq!(pcb(&h).stackup().via_types[1].to, copper[2]);
+}
