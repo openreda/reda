@@ -1,0 +1,32 @@
+Drill report for SixLayerHdi
+Sizes in mm. Tool travel is left out: the fab plans its own drill path.
+
+SixLayerHdi-PTH.drl (L1-L6, through)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.800  plated     mechanical     1     0  -
+  Total                                    1     0
+
+SixLayerHdi-NPTH.drl (L1-L6, through)
+  No holes: the file is not written.
+
+SixLayerHdi-L1-L2.drl (L1-L2, blind, micro)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.150  plated     via            1     0  -
+  Total                                    1     0
+
+SixLayerHdi-L2-L3.drl (L2-L3, buried, micro)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.150  plated     via            1     0  -
+  Total                                    1     0
+
+SixLayerHdi-L3-L5.drl (L3-L5, buried)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.300  plated     via            1     0  -
+  Total                                    1     0
+
+SixLayerHdi-L5-L6.drl (L5-L6, blind)
+  Tool     Size  Plating    Kind       Holes Slots  Tolerance
+  T1      0.300  plated     via            1     0  -
+  Total                                    1     0
+
+All files: 5 holes, 0 slots

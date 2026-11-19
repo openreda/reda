@@ -27,27 +27,27 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use reda_engine::Engine;
-use reda_engine::command::{FixedClock, SeededIds};
 use reda_engine::format::FORMAT;
 use reda_engine::store;
 use reda_testkit::{
-    TempDir, TestEngine, assert_golden, read_tree, starter_library, test_engine_with_library,
+    TempDir, TestEngine, assert_golden, open_reference_copy, read_tree, starter_library,
+    test_engine_with_library,
 };
 use serde_json::{Value, json};
 
 #[path = "reference_projects/migration.rs"]
 mod migration;
 
-/// Reference Projects shipped with format 1, also the inputs for its migration tests.
-const V1_PROJECTS: &[(&str, &str)] = &[
+/// Every current reference Project, in release order: its folder and Project file.
+const PROJECTS: &[(&str, &str)] = &[
     ("minimal_board", "Minimal.reda"),
     ("blinky_555", "Blinky.reda"),
     ("usb_c_mcu", "UsbMcu.reda"),
+    ("six_layer_hdi", "SixLayerHdi.reda"),
 ];
 
-/// Every current reference Project: its folder and its Project file.
-const PROJECTS: &[(&str, &str)] = V1_PROJECTS;
+/// The three Projects shipped with format 1 and frozen for its migration tests.
+const V1_PROJECTS: &[(&str, &str)] = PROJECTS.split_at(3).0;
 
 /// Folders under `tests/projects/` that are not Projects.
 const NOT_PROJECTS: &[&str] = &["goldens", "formats"];
@@ -72,30 +72,7 @@ fn copy_tree(from: &Path, to: &Path) {
 /// Opens a copy of the reference Project in a fresh folder, so runs never write into
 /// the repo.
 fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
-    open_copy_from(&projects_dir().join(dir), file)
-}
-
-fn open_copy_from(source: &Path, file: &str) -> (TempDir, TestEngine) {
-    let dir = source.file_name().unwrap().to_string_lossy();
-    let work = TempDir::new(&format!("reference-{dir}"));
-    copy_tree(source, work.path());
-    // The Projects were made on seed 0; another seed keeps new objects' UUIDs clear of
-    // theirs.
-    let mut engine = TestEngine(
-        Engine::builder()
-            .version(reda_testkit::TEST_VERSION)
-            .ids(SeededIds::new(1 << 32))
-            .clock(FixedClock::EPOCH)
-            .user_dirs(None)
-            .starter_library(Some(starter_library()))
-            .build(),
-    );
-    let opened = engine.run_ok("project.open", json!({"path": work.path().join(file)}));
-    assert!(
-        opened.get("missing").is_none(),
-        "{dir}: Documents are missing: {opened}"
-    );
-    (work, engine)
+    open_reference_copy(&projects_dir().join(dir), file)
 }
 
 /// Pretty JSON with a final newline, for goldens.
@@ -377,4 +354,84 @@ fn time_drc_after_a_track_edit() {
             engine.run_ok("drc.run", json!({}))
         });
     }
+}
+
+#[test]
+fn six_layer_hdi_is_a_clean_six_layer_board() {
+    let (_work, mut engine) = open_copy("six_layer_hdi", "SixLayerHdi.reda");
+    assert_eq!(
+        engine
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .copper_layers()
+            .count(),
+        6
+    );
+    for check in ["erc.run", "drc.run"] {
+        let report = engine.run_ok(check, json!({}));
+        assert_eq!(report["violations"], json!([]), "{check}: {report}");
+        assert_eq!(report["waived"], 0, "{check}: {report}");
+    }
+    assert_eq!(engine.run_ok("sync.preview", json!({}))["count"], 0);
+}
+
+#[test]
+fn six_layer_hdi_routes_its_allowed_types_through_a_stacked_laser_pair() {
+    use reda_engine::model::{CopperRole, PadKind, PadShape, RuleKind};
+    use std::collections::BTreeSet;
+
+    let (_work, engine) = open_copy("six_layer_hdi", "SixLayerHdi.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let layers: Vec<_> = pcb.copper_layers().collect();
+    assert_eq!(layers[2].name.as_deref(), Some("HDI breakout"));
+    assert_eq!(layers[2].role, CopperRole::Mixed);
+
+    let net = pcb.nets().find(|n| n.name == "HDI_PATH").unwrap();
+    let class = pcb.net_class_named("HDI signal").unwrap();
+    assert_eq!(net.classes, [class.uuid]);
+    let allowed = pcb
+        .rules()
+        .find(|r| r.enabled && r.kind == RuleKind::ViaSpan && r.scope.net_class == Some(class.uuid))
+        .unwrap()
+        .values
+        .allowed
+        .as_ref()
+        .unwrap();
+    let mut spans = BTreeMap::new();
+    let mut used = BTreeSet::new();
+    for via in pcb.vias() {
+        assert_eq!(via.net, Some(net.uuid));
+        let kind = pcb.stackup().type_for_span(via.span).unwrap();
+        let span = (
+            pcb.copper_number(via.span.from).unwrap(),
+            pcb.copper_number(via.span.to).unwrap(),
+        );
+        assert!(spans.insert(span, (kind.micro, via.at)).is_none());
+        used.insert(kind.uuid);
+    }
+    assert_eq!(
+        spans.keys().copied().collect::<Vec<_>>(),
+        [(1, 2), (2, 3), (3, 5), (6, 5)]
+    );
+    assert!(spans[&(1, 2)].0 && spans[&(2, 3)].0);
+    assert_eq!(
+        spans[&(1, 2)].1,
+        spans[&(2, 3)].1,
+        "end-to-end Micro Vias share a centre"
+    );
+    assert!(!spans[&(3, 5)].0 && !spans[&(6, 5)].0);
+    assert_eq!(allowed.iter().copied().collect::<BTreeSet<_>>(), used);
+
+    let pad = pcb.free_pads().next().unwrap();
+    assert_eq!(pad.kind, PadKind::PlatedThroughHole);
+    assert_eq!(
+        (
+            pad.shape,
+            pad.middle.unwrap().shape,
+            pad.bottom.unwrap().shape
+        ),
+        (PadShape::Oval, PadShape::Rect, PadShape::Circle)
+    );
 }

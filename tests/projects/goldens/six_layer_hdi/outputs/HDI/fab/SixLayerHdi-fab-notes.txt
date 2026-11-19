@@ -1,0 +1,76 @@
+Fab Notes for SixLayerHdi
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 21 x 12 mm
+  Copper layers: 6
+  Thickness: 1.6 mm
+  Symmetry: Symmetric
+  Thickness check: Within 10% tolerance
+  Finish: ENIG
+  Solder mask colour: Green
+  Silkscreen colour: White
+
+Stackup
+  | Layer           | Kind    | Role   | Thickness    | Material | Dk |
+  | L1 (top)        | Copper  | Signal | 1 oz (35 µm) |          |    |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
+  | L2              | Copper  | Signal | 1 oz (35 µm) |          |    |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
+  | L3 HDI breakout | Copper  | Mixed  | 1 oz (35 µm) |          |    |
+  |                 | Core    |        | 1.13 mm      | FR-4     |    |
+  | L4              | Copper  | Signal | 1 oz (35 µm) |          |    |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
+  | L5              | Copper  | Signal | 1 oz (35 µm) |          |    |
+  |                 | Prepreg |        | 0.065 mm     | FR-4     |    |
+  | L6 (bottom)     | Copper  | Signal | 1 oz (35 µm) |          |    |
+
+Via types
+  | Name         | Span  | Micro | Drill (mm) | Pad (mm) | Vias | Drill file            |
+  | Through      | L1-L6 | No    | 0.3        | 0.7      | 0    |                       |
+  | Outer laser  | L1-L2 | Yes   | 0.15       | 0.35     | 1    | SixLayerHdi-L1-L2.drl |
+  | Inner laser  | L2-L3 | Yes   | 0.15       | 0.35     | 1    | SixLayerHdi-L2-L3.drl |
+  | Buried core  | L3-L5 | No    | 0.3        | 0.7      | 1    | SixLayerHdi-L3-L5.drl |
+  | Bottom blind | L6-L5 | No    | 0.3        | 0.7      | 1    | SixLayerHdi-L5-L6.drl |
+
+Minimum features
+  Clearance: 0.16 mm
+  Track width: 0.2 mm
+  Via diameter: 0.7 mm
+  Via hole: 0.3 mm
+  Hole size: 0.5 mm
+  Annular ring: 0.1 mm
+  Hole to hole: 0.5 mm
+  Copper to board edge: 0.4 mm
+
+Copper files in order
+  SixLayerHdi.gtl
+  SixLayerHdi-L2.ger
+  SixLayerHdi-L3.ger
+  SixLayerHdi-L4.ger
+  SixLayerHdi-L5.ger
+  SixLayerHdi.gbl
+
+Files in the zip
+  SixLayerHdi.gtl
+  SixLayerHdi-L2.ger
+  SixLayerHdi-L3.ger
+  SixLayerHdi-L4.ger
+  SixLayerHdi-L5.ger
+  SixLayerHdi.gbl
+  SixLayerHdi.gts
+  SixLayerHdi.gbs
+  SixLayerHdi.gtp
+  SixLayerHdi.gbp
+  SixLayerHdi.gto
+  SixLayerHdi.gbo
+  SixLayerHdi.gm1
+  SixLayerHdi-PTH.drl
+  SixLayerHdi-L1-L2.drl
+  SixLayerHdi-L2-L3.drl
+  SixLayerHdi-L3-L5.drl
+  SixLayerHdi-L5-L6.drl
+  SixLayerHdi-fab-notes.txt
+  SixLayerHdi-drill-report.txt
+  SixLayerHdi-job.gbrjob
