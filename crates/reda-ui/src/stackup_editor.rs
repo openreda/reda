@@ -1,6 +1,7 @@
 //! A PCB Document's Stackup tab. The tables form one scrolling pane beside its
 //! cross-section. Edits use the same PCB Commands as scripts.
 mod fields;
+mod layer_actions;
 mod preview;
 mod types;
 
@@ -69,6 +70,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             diameter["start"] = params["diameter"].clone();
             params["diameter"] = diameter;
         }
+        if matches!(
+            command,
+            "pcb.layer.add" | "pcb.layer.move" | "pcb.layer.remove"
+        ) && !layer_actions::prepare(shell, &mut view, command, &params)
+        {
+            continue;
+        }
         if command == "pcb.via_type.remove" || matches!(field, Some(Field::Via(_, "from" | "to"))) {
             match shell.run_reporting(
                 "pcb.stackup.change_preview",
@@ -94,13 +102,11 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             let result = shell.run(command, params);
             view.settled(field, result.err().map(|e| e.message));
         } else if let Ok(out) = shell.run_reporting(command, params) {
-            // A newly inserted sheet is ready for its name and material.
-            if let Some(id) = out["result"]["uuid"].as_str().and_then(|s| s.parse().ok()) {
-                view.selected = Some(id);
-            }
+            layer_actions::settle(&mut view, command, &out);
         }
     }
     types::confirm(ui, &mut view, document, shell);
+    layer_actions::confirm(ui, &mut view, document, shell);
     ui.data_mut(|d| d.insert_temp(key, view));
 }
 
@@ -276,6 +282,7 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                 }
             }
         });
+    layer_actions::buttons(ui, pcb, selected, edits);
     let sheet = stack
         .entries
         .iter()

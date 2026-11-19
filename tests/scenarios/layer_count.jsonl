@@ -1,0 +1,6 @@
+{"id":"project.new","source":"cli","params":{"path":"/nonexistent","name":"LayerCount","layers":4}}
+{"id":"pcb.layer.add","source":"cli","params":{"document":"00000000-0000-4000-8000-000000000003","uuid":"5b0909e3-89ce-4a9c-baa2-53926fd1be7d"}}
+{"id":"pcb.layer.set","source":"cli","params":{"layer":"5b0909e3-89ce-4a9c-baa2-53926fd1be7d","name":"Return","role":"plane"}}
+{"id":"pcb.layer.move","source":"cli","params":{"layer":"5b0909e3-89ce-4a9c-baa2-53926fd1be7d","direction":"up"}}
+{"id":"pcb.stackup.change_preview","source":"cli","params":{"change":{"id":"pcb.layer.remove","params":{"layer":"copper_l3"}}}}
+{"id":"pcb.layer.remove","source":"cli","params":{"layer":"copper_l3"}}

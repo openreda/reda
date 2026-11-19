@@ -539,3 +539,50 @@ fn replacing_a_pcb_starts_its_own_layer_view_and_undo_restores_the_old_one() {
     assert_eq!(view.previous, Some(top));
     assert!(view.pinned.contains(&top));
 }
+
+#[test]
+fn removing_active_or_previous_copper_repairs_the_view_once() {
+    let mut b = board();
+    let document = b.pcb;
+    for _ in 0..3 {
+        run(&mut b.shell, "pcb.layer.add", json!({"document":document}));
+    }
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(
+        &mut b.shell,
+        "pcb.layer.activate",
+        json!({"layer":layers[3]}),
+    );
+    run(&mut b.shell, "pcb.layer.pin", json!({"layer":layers[3]}));
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"pcb.view.layer_sets","value":[{"name":"Signal","layers":["inner_1","inner_3","inner_7","copper_bottom"]}]}),
+    );
+    run(&mut b.shell, "pcb.layer.remove", json!({"layer":layers[3]}));
+    assert_eq!(b.shell.board_view().layers.active, Some(layers[2]));
+    assert!(!b.shell.board_view().layers.pinned.contains(&layers[3]));
+    assert_eq!(
+        b.shell.preferences().pcb.view.layer_sets[0].layers,
+        ["inner_1", "inner_7", "copper_bottom"]
+    );
+    run(&mut b.shell, "edit.undo", json!({"document":document}));
+    assert_eq!(b.shell.board_view().layers.active, Some(layers[2]));
+    assert!(!b.shell.board_view().layers.pinned.contains(&layers[3]));
+    run(
+        &mut b.shell,
+        "pcb.layer.activate",
+        json!({"layer":layers[4]}),
+    );
+    run(&mut b.shell, "pcb.layer.remove", json!({"layer":layers[2]}));
+    assert_eq!(b.shell.board_view().layers.previous, Some(layers[0]));
+}
