@@ -422,8 +422,8 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
         edge_clearance: Nm(0),
         preferred: PreferredSeeds {
             track_width: Nm(0),
-            via_diameter: Nm(0),
-            via_hole: Nm(0),
+            // Every board carries a physical through Via type, including this preview board.
+            ..reda_output::generic().rules.preferred
         },
     };
     let copy = FootprintCopy {
