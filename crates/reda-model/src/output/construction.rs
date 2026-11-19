@@ -281,6 +281,23 @@ impl Construction {
         }
     }
 
+    /// Capture the board for a particular preset. Replacing a row retains its notes,
+    /// and the first build for a copper count becomes its default.
+    pub fn capture(name: String, stack: &crate::Stackup, builds: &[Self]) -> Self {
+        let mut build = Self::from_stackup(name, stack);
+        let count = build.layer_count();
+        build.default = !builds.iter().any(|b| {
+            b.default && b.layer_count() == count && !b.name.eq_ignore_ascii_case(&build.name)
+        });
+        if let Some(old) = builds
+            .iter()
+            .find(|b| b.name.eq_ignore_ascii_case(&build.name))
+        {
+            build.notes = old.notes.clone();
+        }
+        build
+    }
+
     /// Whether a board still has this physical build. Names, roles, appearance and the
     /// Via type table are independent of the ordered Construction.
     pub fn matches_stackup(&self, stack: &crate::Stackup) -> bool {

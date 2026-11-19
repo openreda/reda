@@ -266,3 +266,29 @@ fn placement_grid_edits_reorders_and_removes_rows_in_the_project_copy() {
     h.run();
     assert_eq!(copy(&h).placement_corrections.len(), 1);
 }
+
+#[test]
+fn a_construction_can_be_duplicated_and_made_default_on_the_stackup_page() {
+    let (home, work) = (
+        TempDir::new("construction-page-home"),
+        TempDir::new("construction-page"),
+    );
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Stackup");
+    retype(&mut h, "Construction name", "Prototype");
+    h.get_by_role_and_label(Role::Button, "Duplicate Construction")
+        .click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Set as default")
+        .click();
+    h.run();
+    h.get_by_label("Apply").click();
+    h.run();
+    let preset = copy(&h).preset();
+    assert_eq!(preset.default_construction(2).unwrap().name, "Prototype");
+    assert_eq!(
+        preset.construction("Prototype").unwrap().entries,
+        preset.construction("2 Layer").unwrap().entries
+    );
+}

@@ -47,17 +47,12 @@ impl Command for Save {
             .fab_preset(p.preset)
             .ok_or_else(|| CommandError::not_found("no such Project Fab Preset"))?
             .clone();
-        let mut build = Construction::from_stackup(name.to_owned(), pcb.stackup());
-        let count = build.layer_count();
         let builds = &mut preset.constructions;
-        build.default = !builds.iter().any(|other| {
-            other.default && other.layer_count() == count && !other.name.eq_ignore_ascii_case(name)
-        });
+        let build = Construction::capture(name.to_owned(), pcb.stackup(), builds);
         if let Some(previous) = builds
             .iter_mut()
             .find(|b| b.name.eq_ignore_ascii_case(name))
         {
-            build.notes = previous.notes.clone();
             *previous = build;
         } else {
             builds.push(build);

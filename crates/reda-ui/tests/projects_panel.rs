@@ -228,6 +228,9 @@ fn the_pcb_document_is_deleted_and_added_back() {
     assert!(!pcb(&h));
 
     menu(&mut h, "PCB", "Add PCB Document");
+    h.get_by_role_and_label(Role::ComboBox, "Fab Preset");
+    h.get_by_role_and_label(Role::ComboBox, "Construction");
+    h.get_by_role_and_label(Role::Button, "2");
     h.get_by_role_and_label(Role::TextInput, "Copper Layers")
         .set_text_value_accesskit("33");
     h.run();

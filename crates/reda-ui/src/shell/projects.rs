@@ -206,7 +206,7 @@ impl Shell {
 
     /// The Fab Presets a new Project can start from (shipped, then the user's) and the
     /// default pick: the last one used, else Generic.
-    pub fn fab_preset_choices(&mut self) -> (Vec<String>, String) {
+    pub fn fab_preset_choices(&mut self) -> (Vec<reda_engine::model::FabPreset>, String) {
         use reda_engine::commands::fab_preset::PresetListResult;
         let list = self
             .engine
@@ -215,10 +215,10 @@ impl Shell {
             .and_then(|v| serde_json::from_value::<PresetListResult>(v).ok());
         match list {
             Some(list) => (
-                list.presets.into_iter().map(|p| p.preset.name).collect(),
+                list.presets.into_iter().map(|p| p.preset).collect(),
                 list.default,
             ),
-            None => (Vec::new(), "Generic".to_owned()),
+            None => (vec![reda_engine::output::generic()], "Generic".to_owned()),
         }
     }
 
