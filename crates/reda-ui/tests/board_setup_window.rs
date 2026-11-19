@@ -661,3 +661,60 @@ fn the_stackup_editor_shows_a_modified_construction_and_saves_the_board_as_a_new
         .preset();
     assert_eq!(preset.construction("Bench").unwrap().thickness.0, 1_500_000);
 }
+
+#[test]
+fn via_types_table_marks_a_drill_below_the_minimum_and_a_land_above_the_maximum() {
+    let (home, work) = (
+        TempDir::new("via-limits-home"),
+        TempDir::new("via-limits-project"),
+    );
+    let mut h = harness(home.path(), work.path(), "ViaLimits");
+    let old = pcb(&h).uuid;
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run("document.delete", json!({"document":old}))
+        .unwrap();
+    shell
+        .run("document.add", json!({"kind":"pcb","layers":4}))
+        .unwrap();
+    let board = pcb(&h);
+    let document = board.uuid;
+    let layers: Vec<_> = board.copper_layers().map(|l| l.uuid).collect();
+    let shell = h.state_mut().shell_mut();
+    shell
+        .run(
+            "pcb.via_type.add",
+            json!({"document":document, "name":"Laser", "micro":true,
+        "from":layers[2], "to":layers[0], "diameter":{"start":"0.5mm","middle":"0.8mm"}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"via_size","values":{"hole":{"min":"0.4mm"}}}),
+        )
+        .unwrap();
+    shell
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"microvia_size","values":{"diameter":{"max":"0.7mm"}}}),
+        )
+        .unwrap();
+    shell
+        .run("pcb.stackup.open", json!({"document":document}))
+        .unwrap();
+    h.run();
+    let warning = |name| format!("{name} has a drill or pad outside the board’s size limits.");
+    h.get_by_label(&warning("Through"));
+    h.get_by_label(&warning("Laser"));
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "pcb.rules.set",
+            json!({"kind":"microvia_size","enabled":false}),
+        )
+        .unwrap();
+    h.run();
+    h.get_by_label(&warning("Through"));
+    assert!(h.query_by_label(&warning("Laser")).is_none());
+}

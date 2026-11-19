@@ -909,9 +909,15 @@ violation-via-span = { $reason ->
         [micro_too_long] The micro Via type spans more than a micro Via can
        *[no_type] No Via type matches this span
     }
-violation-microvia-size = The micro Via diameter or hole is outside its size limits
-violation-aspect-ratio = The Via depth exceeds the aspect ratio allowed for its drill diameter
-violation-max-stack = The Via Stack contains more micro Vias than the allowed maximum
+violation-microvia-size = Micro Via { $part ->
+        [hole] hole
+       *[diameter] diameter
+    } { $actual } is { $limit ->
+        [max] above { $maximum }
+       *[min] below { $minimum }
+    }
+violation-aspect-ratio = Via depth-to-hole ratio { $actual }:1 exceeds the { $maximum }:1 limit
+violation-max-stack = The Via Stack contains { $actual } micro Vias and allows at most { $maximum }
 violation-silk-width = The silkscreen stroke is narrower than the minimum width
 violation-silk-text-height = The silkscreen text is shorter than the minimum height
 violation-via-size = Via { $part ->
@@ -3076,7 +3082,7 @@ via-from-field = { $name } from
 via-to-field = { $name } to
 via-drill-field = { $name } drill
 via-pad-field = { $name } pad
-via-limits = { $name } exceeds the board’s Via size limits.
+via-limits = { $name } has a drill or pad outside the board’s size limits.
 via-add-type = Add Via type
 via-remove-type = Remove Via type
 via-move-up = Move up

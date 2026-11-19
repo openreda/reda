@@ -514,11 +514,7 @@ pub fn violation_text(violation: &Violation) -> String {
         .iter()
         .map(|(name, value)| {
             let value = match value {
-                ViolationArg::Int(n)
-                    if reda_engine::model::LENGTH_ARGS.contains(&name.as_str()) =>
-                {
-                    FluentValue::from(mm(*n))
-                }
+                ViolationArg::Int(n) if violation.arg_is_length(name) => FluentValue::from(mm(*n)),
                 ViolationArg::Int(n) => FluentValue::from(*n),
                 ViolationArg::Text(s) => FluentValue::from(s.as_str()),
             };

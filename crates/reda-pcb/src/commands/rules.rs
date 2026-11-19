@@ -116,6 +116,7 @@ pub struct ValuesParam {
     pub hole: Option<BoundsParam>,
     #[serde(default)]
     pub aspect_ratio: Option<AspectRatioParam>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
     #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<u8>")]
     pub max_stack: Option<Option<u8>>,

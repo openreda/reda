@@ -49,7 +49,11 @@ impl Depths {
 }
 
 pub(super) fn check(pcb: &PcbDocument, report: &mut Report) {
-    if !report.is_off(DrcCheck::AspectRatio) {
+    if !report.is_off(DrcCheck::AspectRatio)
+        && pcb
+            .rules()
+            .any(|r| r.enabled && r.values.get(RuleField::AspectRatioMax).is_some())
+    {
         let mut depths = None;
         for via in pcb.vias() {
             let micro = pcb
@@ -72,24 +76,30 @@ pub(super) fn check(pcb: &PcbDocument, report: &mut Report) {
                 let millionths = (depth * 1_000_000 + hole / 2) / hole;
                 let actual = i64::try_from(millionths).unwrap_or(i64::MAX);
                 let required = i64::from(max) * 1000;
-                report.add(DrcCheck::AspectRatio, |mut v| {
-                    v.measured = Some(Measurement::RatioMillionths(actual));
-                    v.required = Some(Measurement::RatioMillionths(required));
-                    v.limit = Some(Limit::Max);
-                    v.with_rule(source.rule)
-                        .located(pcb.uuid, via.at)
-                        .on_layers(pcb.span_layers(via.span))
-                        .object(via.uuid)
-                        .arg("actual", reda_model::geom::exact_decimal(actual, 1_000_000))
-                        .arg(
-                            "maximum",
-                            reda_model::geom::exact_decimal(required, 1_000_000),
-                        )
+                report.add(DrcCheck::AspectRatio, |v| {
+                    v.comparison(
+                        Measurement::RatioMillionths(actual),
+                        Measurement::RatioMillionths(required),
+                        Limit::Max,
+                        source.rule,
+                    )
+                    .located(pcb.uuid, via.at)
+                    .on_layers(pcb.span_layers(via.span))
+                    .object(via.uuid)
+                    .arg("actual", reda_model::geom::exact_decimal(actual, 1_000_000))
+                    .arg(
+                        "maximum",
+                        reda_model::geom::exact_decimal(required, 1_000_000),
+                    )
                 });
             }
         }
     }
-    if !report.is_off(DrcCheck::MaxStack) {
+    if !report.is_off(DrcCheck::MaxStack)
+        && pcb
+            .rules()
+            .any(|r| r.enabled && r.values.max_stack.is_some())
+    {
         stack_limits(pcb, report);
     }
 }
@@ -156,16 +166,18 @@ fn stack_limits(pcb: &PcbDocument, report: &mut Report) {
             if starts.contains(&last) || path.lasers <= max {
                 continue;
             }
-            report.add(DrcCheck::MaxStack, |mut v| {
-                v.measured = Some(Measurement::Count(path.lasers));
-                v.required = Some(Measurement::Count(max));
-                v.limit = Some(Limit::Max);
-                v.with_rule(source.rule)
-                    .located(pcb.uuid, at)
-                    .on_layers(copper[path.first..=last].iter().copied())
-                    .objects(path.holes)
-                    .arg("actual", i64::from(path.lasers))
-                    .arg("maximum", i64::from(max))
+            report.add(DrcCheck::MaxStack, |v| {
+                v.comparison(
+                    Measurement::Count(path.lasers),
+                    Measurement::Count(max),
+                    Limit::Max,
+                    source.rule,
+                )
+                .located(pcb.uuid, at)
+                .on_layers(copper[path.first..=last].iter().copied())
+                .objects(path.holes)
+                .arg("actual", i64::from(path.lasers))
+                .arg("maximum", i64::from(max))
             });
         }
     }

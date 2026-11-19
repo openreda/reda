@@ -297,13 +297,17 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
             if left(j) - right(i) >= reach.0 {
                 break;
             }
-            if let (Some(a), Some(b)) = (holes[i].via, holes[j].via)
-                && a.at == b.at
-                && holes[i].net.is_some()
-                && holes[i].net == holes[j].net
-                && (a.last == b.first || b.last == a.first)
-            {
-                continue;
+            if let (Some(a), Some(b)) = (holes[i].via, holes[j].via) {
+                if a.last < b.first || b.last < a.first {
+                    continue;
+                }
+                if a.at == b.at
+                    && holes[i].net.is_some()
+                    && holes[i].net == holes[j].net
+                    && (a.last == b.first || b.last == a.first)
+                {
+                    continue;
+                }
             }
             let Some(required) = hole_to_hole_between(pcb, holes[i].net, holes[j].net) else {
                 continue;

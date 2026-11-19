@@ -1074,6 +1074,7 @@ fn hole_spacing_exempts_end_to_end_vias_of_one_net_at_the_same_centre() {
     };
     via(1_000_000, a, 2, 1);
     via(1_000_000, a, 3, 2);
+    via(1_000_000, a, 4, 3);
     let overlap = vec![via(4_000_000, a, 1, 3), via(4_000_000, a, 2, 4)];
     let different_nets = vec![via(8_000_000, a, 1, 2), via(8_000_000, b, 2, 3)];
     let offset = vec![via(12_000_000, a, 1, 2), via(12_050_000, a, 2, 3)];
@@ -1177,8 +1178,16 @@ fn via_aspect_ratio_uses_each_span_depth_and_max_stack_counts_only_laser_holes()
     let pcb = engine.project().unwrap().pcb().unwrap();
     let document = pcb.uuid;
     let layers: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
-    // Five equal blank sheets share 1,390,001nm. L1:L2 includes two 35µm outer copper faces.
-    engine.run_ok("pcb.stackup.set", json!({"thickness":1600001}));
+    // Five equal blank sheets share 1,390,001 nm. L1:L2 includes both 35 µm copper foils.
+    let sheets: Vec<_> = pcb
+        .stackup()
+        .dielectrics()
+        .map(|d| json!({"uuid":d.uuid, "thickness":null}))
+        .collect();
+    engine.run_ok(
+        "pcb.stackup.set",
+        json!({"thickness":1600001, "dielectrics":sheets}),
+    );
     let signal = net(&mut engine, "HDI");
     for (a, b, micro) in [(0, 1, true), (1, 2, true), (2, 3, false), (3, 4, true)] {
         engine.run_ok(

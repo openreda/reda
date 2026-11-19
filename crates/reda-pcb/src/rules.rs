@@ -491,7 +491,7 @@ pub(crate) fn triples(kind: RuleKind) -> &'static [[Option<RuleField>; 3]] {
     match kind {
         RuleKind::TrackWidth => &[[Some(Min), Some(Preferred), Some(Max)]],
         RuleKind::HoleSize => &[[Some(Min), None, Some(Max)]],
-        RuleKind::ViaSize => &[
+        RuleKind::ViaSize | RuleKind::MicroviaSize => &[
             [
                 Some(DiameterMin),
                 Some(DiameterPreferred),

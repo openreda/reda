@@ -79,6 +79,7 @@ pub struct MicroviaLimits {
     pub hole: Option<FabSizeLimits>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aspect_ratio: Option<crate::AspectRatioLimit>,
+    /// Maximum number of micro Vias meeting end to end in one Via Stack.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_stack: Option<u8>,
 }

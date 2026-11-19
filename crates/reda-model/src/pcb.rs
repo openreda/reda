@@ -162,7 +162,7 @@ crate::check::severities! {
     track_width => TrackWidth = Error,
     /// A Via diameter or hole outside the `via_size` range.
     via_size => ViaSize = Error,
-    /// A Via span with no matching type, or one outside the Net Class’s allowed list.
+    /// An unmatched Via span, a disallowed type, or a micro span longer than two copper intervals.
     via_span => ViaSpan = Error,
     /// A micro Via diameter or hole outside the configured size limits.
     microvia_size => MicroviaSize = Error,

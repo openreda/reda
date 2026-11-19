@@ -105,12 +105,40 @@ impl Violation {
     }
 
     /// Records a length comparison and the rule record that supplied the limit.
-    pub fn length(mut self, measured: Nm, required: Nm, limit: Limit, rule: Uuid) -> Self {
-        self.measured = Some(Measurement::Length(measured));
-        self.required = Some(Measurement::Length(required));
+    pub fn length(self, measured: Nm, required: Nm, limit: Limit, rule: Uuid) -> Self {
+        self.comparison(
+            Measurement::Length(measured),
+            Measurement::Length(required),
+            limit,
+            rule,
+        )
+    }
+
+    /// Records measurements in the units of the rule field.
+    pub fn comparison(
+        mut self,
+        measured: Measurement,
+        required: Measurement,
+        limit: Limit,
+        rule: Uuid,
+    ) -> Self {
+        self.measured = Some(measured);
+        self.required = Some(required);
         self.limit = Some(limit);
         self.rule = Some(rule);
         self
+    }
+
+    /// Whether a message argument holds a length in nanometres.
+    pub fn arg_is_length(&self, name: &str) -> bool {
+        if matches!(
+            name,
+            "board" | "actual" | "minimum" | "maximum" | "required" | "preset_limit"
+        ) && let Some(measured) = self.measured
+        {
+            return matches!(measured, Measurement::Length(_));
+        }
+        LENGTH_ARGS.contains(&name)
     }
 
     /// Names the rule record the Violation is about, with no measurement.
@@ -120,12 +148,13 @@ impl Violation {
     }
 
     /// Records an area comparison in square nanometres.
-    pub fn area(mut self, measured: i64, required: i64, limit: Limit, rule: Uuid) -> Self {
-        self.measured = Some(Measurement::Area(measured));
-        self.required = Some(Measurement::Area(required));
-        self.limit = Some(limit);
-        self.rule = Some(rule);
-        self
+    pub fn area(self, measured: i64, required: i64, limit: Limit, rule: Uuid) -> Self {
+        self.comparison(
+            Measurement::Area(measured),
+            Measurement::Area(required),
+            limit,
+            rule,
+        )
     }
 
     pub fn located(mut self, document: Uuid, at: Point) -> Self {

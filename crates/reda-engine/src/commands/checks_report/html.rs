@@ -4,7 +4,7 @@
 use std::fmt::Write as _;
 
 use reda_model::geom::exact_decimal;
-use reda_model::{LENGTH_ARGS, Measurement, Violation, ViolationArg, Waiver};
+use reda_model::{Measurement, Violation, ViolationArg, Waiver};
 use serde_json::Value;
 
 use super::{Header, Report, is_health};
@@ -191,7 +191,7 @@ fn args(v: &Violation) -> String {
     let parts: Vec<String> = (v.args.iter())
         .map(|(name, value)| {
             let value = match value {
-                ViolationArg::Int(n) if LENGTH_ARGS.contains(&name.as_str()) => mm(*n),
+                ViolationArg::Int(n) if v.arg_is_length(name) => mm(*n),
                 ViolationArg::Int(n) => n.to_string(),
                 ViolationArg::Text(t) => t.clone(),
             };

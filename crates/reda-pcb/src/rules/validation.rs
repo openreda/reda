@@ -221,7 +221,13 @@ pub fn validate(pcb: &PcbDocument, presets: &[PresetRules]) -> Validation {
                 f.record.kind.id(),
                 class_name(f.record),
                 f.preset,
-                mm(f.preset_limit)
+                match f.preset_limit {
+                    reda_model::Measurement::Length(n) => mm(n),
+                    reda_model::Measurement::Count(n) => n.to_string(),
+                    reda_model::Measurement::RatioMillionths(n) =>
+                        format!("{}:1", reda_model::geom::exact_decimal(n, 1_000_000)),
+                    reda_model::Measurement::Area(n) => format!("{n} nm²"),
+                }
             ),
         )
         .on(f.record)
@@ -408,7 +414,12 @@ pub fn validate(pcb: &PcbDocument, presets: &[PresetRules]) -> Validation {
 fn net_range_notes(pcb: &PcbDocument, problems: &[Problem]) -> Vec<Note> {
     let mut notes = Vec::new();
     for net in pcb.nets().filter(|n| !n.classes.is_empty()) {
-        for kind in [RuleKind::TrackWidth, RuleKind::ViaSize, RuleKind::HoleSize] {
+        for kind in [
+            RuleKind::TrackWidth,
+            RuleKind::ViaSize,
+            RuleKind::MicroviaSize,
+            RuleKind::HoleSize,
+        ] {
             if problems
                 .iter()
                 .any(|p| p.kind == kind && p.net_class.is_none_or(|c| net.classes.contains(&c)))
@@ -421,10 +432,12 @@ fn net_range_notes(pcb: &PcbDocument, problems: &[Problem]) -> Vec<Note> {
                         super::resolve_on(pcb, Some(net.uuid), Some(layer.uuid), kind, field)
                             .and_then(|s| s.value.length())
                             .or_else(|| match field {
-                                RuleField::DiameterPreferred => {
+                                RuleField::DiameterPreferred if kind == RuleKind::ViaSize => {
                                     Some(pcb.stackup().through_type().diameter.start)
                                 }
-                                RuleField::HolePreferred => Some(pcb.stackup().through_type().hole),
+                                RuleField::HolePreferred if kind == RuleKind::ViaSize => {
+                                    Some(pcb.stackup().through_type().hole)
+                                }
                                 _ => None,
                             })
                     };
