@@ -226,120 +226,6 @@ fn a_bad_zone_connection_value_is_flagged_on_its_page() {
 }
 
 #[test]
-fn the_stackup_page_edits_thicknesses_with_live_totals_finish_colours_and_fab_notes() {
-    use reda_ui::engine::model::geom::Nm;
-    use reda_ui::settings::board_setup::Band;
-    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
-    let mut shell = shell_with_board(&home, &work);
-    let top = pcb(&shell).stackup().copper().next().unwrap().layer;
-    let mut d = dialog(&shell);
-    {
-        let mut board = d.page::<DrcPage>().unwrap().board();
-        let stackup = board.stackup_mut();
-        let rows: Vec<(String, bool, String)> = stackup
-            .rows()
-            .iter()
-            .map(|r| (r.name.clone(), r.copper, r.thickness().to_owned()))
-            .collect();
-        assert_eq!(
-            rows,
-            [
-                ("Top Copper".to_owned(), true, "0.035".to_owned()),
-                ("Dielectric 1".to_owned(), false, String::new()),
-                ("Bottom Copper".to_owned(), true, "0.035".to_owned()),
-            ]
-        );
-        assert_eq!(stackup.target(), "1.6");
-        let totals = stackup.totals().unwrap();
-        assert_eq!(totals.copper, Nm::from_um(70));
-        assert_eq!(totals.remainder, Some(Nm::from_um(1530)));
-        // Copper takes oz; the blank dielectric's remainder follows as you type.
-        stackup.set_row(0, "2oz");
-        let totals = stackup.totals().unwrap();
-        assert_eq!(totals.copper, Nm::from_um(105));
-        assert_eq!(totals.remainder, Some(Nm::from_um(1495)));
-        assert_eq!(totals.total, Nm::from_um(1600));
-        assert!(stackup.warning().is_none());
-        // Every dielectric typed in: the total shows against the target, with a warning.
-        stackup.set_row(1, "1.6");
-        assert_eq!(stackup.totals().unwrap().total, Nm::from_um(1705));
-        assert!(stackup.warning().is_some());
-        stackup.set_row(1, "");
-        // The cross-section lists mask and silkscreen outside the copper.
-        let bands: Vec<(Band, String)> = stackup
-            .cross_section()
-            .into_iter()
-            .map(|b| (b.band, b.thickness))
-            .collect();
-        assert_eq!(
-            bands,
-            [
-                (Band::Silkscreen, String::new()),
-                (Band::Mask, String::new()),
-                (Band::Copper, "0.07".to_owned()),
-                (Band::Dielectric, "1.495".to_owned()),
-                (Band::Copper, "0.035".to_owned()),
-                (Band::Mask, String::new()),
-                (Band::Silkscreen, String::new()),
-            ]
-        );
-        assert!(!stackup.suggestions().finish.is_empty());
-        stackup.set_finish("ENIG");
-        stackup.set_mask_color("Green");
-        stackup.set_fab_notes("Impedance control not needed.");
-    }
-    assert!(d.problems().is_empty(), "{:?}", d.problems());
-    assert_eq!(
-        d.steps(),
-        [
-            Step::new(
-                "pcb.stackup.set",
-                json!({"copper": [{"layer": top, "thickness": 70_000}],
-                       "finish": "ENIG", "mask_color": "Green"})
-            ),
-            Step::new(
-                "pcb.fab_notes.set",
-                json!({"text": "Impedance control not needed."})
-            ),
-        ]
-    );
-    d.apply(&mut shell).unwrap();
-    let board = pcb(&shell);
-    assert_eq!(board.stackup().finish.as_deref(), Some("ENIG"));
-    assert_eq!(
-        board.setup().fab_notes.as_deref(),
-        Some("Impedance control not needed.")
-    );
-    assert!(!d.has_changes());
-}
-
-#[test]
-fn a_stackup_that_leaves_nothing_for_the_blank_dielectric_is_flagged() {
-    let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
-    let shell = shell_with_board(&home, &work);
-    let d = dialog(&shell);
-    {
-        let mut board = d.page::<DrcPage>().unwrap().board();
-        let stackup = board.stackup_mut();
-        stackup.set_target("0.06");
-        stackup.set_row(0, "2oz");
-        stackup.set_row(2, "thick");
-    }
-    let flagged: Vec<(String, String)> = d
-        .problems()
-        .into_iter()
-        .map(|(page, p)| (page, p.field))
-        .collect();
-    assert_eq!(
-        flagged,
-        [
-            ("Stackup".to_owned(), "stackup/row/2".to_owned()),
-            ("Stackup".to_owned(), "stackup/thickness".to_owned()),
-        ]
-    );
-}
-
-#[test]
 fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
     let (home, work) = (TempDir::new("bsp-home"), TempDir::new("bsp-work"));
     let mut shell = shell_with_board(&home, &work);
@@ -353,7 +239,7 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
     {
         let mut board = d.page::<DrcPage>().unwrap().board();
         board.set_rule(RuleField::TrackWidth, "0.3");
-        board.stackup_mut().set_finish("ENIG");
+        *board.fab_notes_mut() = "Do not panelize".into();
     }
     d.checkpoint();
     // A check with no change in between adds no step.
@@ -366,7 +252,7 @@ fn stepping_back_undoes_pending_edits_one_at_a_time_and_apply_clears_them() {
             json!({"kind": "clearance", "values": {"value": 200_000}})
         )]
     );
-    assert_eq!(d.page::<DrcPage>().unwrap().board().stackup().finish(), "");
+    assert_eq!(d.page::<DrcPage>().unwrap().board().fab_notes_mut(), "");
     assert!(d.step_back());
     assert!(!d.has_changes());
     assert!(!d.step_back());

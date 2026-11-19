@@ -106,11 +106,26 @@ fn the_new_project_form_creates_and_opens_a_project() {
         .set_text_value_accesskit("Blinky");
     h.get_by_role_and_label(Role::TextInput, "Location")
         .set_text_value_accesskit(&work.path().display().to_string());
+    h.get_by_role_and_label(Role::TextInput, "Copper Layers")
+        .set_text_value_accesskit("5");
     h.run();
     h.get_by_label("Create").click();
     h.run();
 
     assert!(work.path().join("Blinky/Blinky.reda").is_file());
+    assert_eq!(
+        h.state()
+            .shell()
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .stackup()
+            .copper()
+            .count(),
+        5
+    );
     h.get_by_role_and_label(Role::Canvas, "Schematic canvas: Sheet 1");
     assert!(h.query_by_label("New Project").is_none(), "the form closed");
 }
