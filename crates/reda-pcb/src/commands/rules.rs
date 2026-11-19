@@ -81,6 +81,9 @@ pub struct ConnectionParam {
 #[serde(deny_unknown_fields)]
 pub struct ValuesParam {
     #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Vec<Uuid>>")]
+    pub allowed: Option<Option<Vec<Uuid>>>,
+    #[serde(default, deserialize_with = "nullable")]
     #[schemars(with = "Option<Length>")]
     pub value: Option<Option<Length>>,
     #[serde(default, deserialize_with = "nullable")]
@@ -281,6 +284,26 @@ pub(super) fn set_record(
         enabled,
         comment,
     } = edit;
+    if let Some(allowed) = &values.allowed {
+        if kind != RuleKind::ViaSpan || scope.net_class.is_none() {
+            return Err(CommandError::invalid_params(
+                "/values/allowed",
+                "only a Net Class Via Span record takes an allowed list",
+            ));
+        }
+        if let Some(list) = allowed {
+            let mut unique = std::collections::BTreeSet::new();
+            for (i, id) in list.iter().enumerate() {
+                if !pcb.stackup().via_types.iter().any(|v| v.uuid == *id) || !unique.insert(id) {
+                    return Err(CommandError::invalid_params(
+                        &format!("/values/allowed/{i}"),
+                        "expected a distinct Via type on this board",
+                    ));
+                }
+            }
+        }
+        rule.values.allowed.clone_from(allowed);
+    }
     for (field, value) in values.changes() {
         let pointer = format!("/values/{}", field.path().replace('.', "/"));
         if matches!(kind, RuleKind::ViaSize | RuleKind::MicroviaSize)

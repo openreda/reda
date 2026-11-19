@@ -507,6 +507,9 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
         objects.push(Object::Via(InDocument::new(
             doc,
             Via {
+                unused_layers: Default::default(),
+                teardrop: true,
+                zone_connection: None,
                 locked: false,
                 mask: None,
                 uuid: id(),

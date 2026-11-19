@@ -68,13 +68,24 @@ impl TrackGeometry {
 }
 
 /// The copper Layers a Via joins: every copper Layer from `from` to `to` in Layer order.
-/// `from` is the upper Layer, so a through Via is stored top to bottom. `from` is also the
-/// side it is drilled from, which matters only once blind Vias come.
+/// `from` is the side the drill or laser enters.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LayerSpan {
     pub from: Uuid,
     pub to: Uuid,
+}
+
+impl LayerSpan {
+    pub fn reaches(self, pcb: &super::PcbDocument, side: crate::Side) -> bool {
+        pcb.layers()
+            .find(crate::LayerKind::Copper, Some(side))
+            .is_some_and(|layer| layer.uuid == self.from || layer.uuid == self.to)
+    }
+
+    pub fn joins(self, other: Self) -> bool {
+        self == other || (self.from == other.to && self.to == other.from)
+    }
 }
 
 /// A plated hole joining copper on the Layers of its span.
@@ -98,6 +109,12 @@ pub struct Via {
     pub span: LayerSpan,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mask: Option<crate::Mask>,
+    #[serde(default, skip_serializing_if = "super::UnusedLayers::is_keep")]
+    pub unused_layers: super::UnusedLayers,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone_connection: Option<crate::ZoneConnection>,
+    #[serde(default = "super::yes", skip_serializing_if = "super::is_true")]
+    pub teardrop: bool,
 }
 
 fn is_false(b: &bool) -> bool {

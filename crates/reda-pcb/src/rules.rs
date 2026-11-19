@@ -155,6 +155,23 @@ fn range(
     }
 }
 
+/// Starting sizes of a single Via. Class preferences override the type field by field.
+pub fn via_starting_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let kind = if via_type.micro {
+        RuleKind::MicroviaSize
+    } else {
+        RuleKind::ViaSize
+    };
+    let mut diameter = via_type.diameter;
+    diameter.start = limit(pcb, net, kind, RuleField::DiameterPreferred).unwrap_or(diameter.start);
+    let hole = limit(pcb, net, kind, RuleField::HolePreferred).unwrap_or(via_type.hole);
+    (diameter, hole)
+}
+
 /// Every rule value that applies to copper on one Net.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NetRules {
@@ -309,7 +326,7 @@ pub fn largest(pcb: &PcbDocument, kind: RuleKind, field: RuleField) -> Nm {
 /// The values of `record` as they apply: its own, and for a Net Class record those of
 /// `board` (the board-wide record of its kind) where it sets none.
 pub fn effective_values(board: &DesignRule, record: &DesignRule) -> RuleValues {
-    let mut values = record.values;
+    let mut values = record.values.clone();
     if !record.scope.is_board_wide() {
         for &field in record.kind.fields() {
             if record.kind == RuleKind::PasteExpansion && !record.values.is_empty() {
