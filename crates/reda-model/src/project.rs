@@ -394,7 +394,7 @@ impl Project {
     /// already owns this identity.
     pub fn identity_in_use(&self, uuid: Uuid) -> bool {
         self.pcb_documents.values().any(|pcb| {
-            pcb.layers().layer(uuid).is_some()
+            pcb.layer_sets.values().any(|set| set.layer(uuid).is_some())
                 || pcb.stackups().any(|stack| {
                     stack.dielectrics().any(|d| d.uuid == uuid)
                         || stack.via_types.iter().any(|v| v.uuid == uuid)

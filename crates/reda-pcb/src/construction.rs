@@ -4,6 +4,9 @@ use reda_model::{
     StackupSeeds, geom::Nm,
 };
 
+/// Copper counts for which Generic supplies a named physical build.
+pub const GENERIC_LAYER_COUNTS: [u8; 4] = [2, 4, 6, 8];
+
 /// Preserve the automatically sized Core of a format-1 Stackup seed.
 pub fn two_layer(seeds: StackupSeeds) -> Construction {
     with_core_gaps(2, seeds, |_| None)
@@ -12,7 +15,7 @@ pub fn two_layer(seeds: StackupSeeds) -> Construction {
 /// Plain copper and Core gaps. At its four supported counts Generic specifies
 /// the gaps in whole nanometres. Other counts use the Stackup's equal-share rule.
 pub fn evenly_spaced(layers: u8, seeds: StackupSeeds) -> Construction {
-    let fixed_gaps = matches!(layers, 2 | 4 | 6 | 8) && seeds.is_empty();
+    let fixed_gaps = GENERIC_LAYER_COUNTS.contains(&layers) && seeds.is_empty();
     let gaps = i64::from(layers) - 1;
     let insulation = DEFAULT_BOARD_THICKNESS.0 - i64::from(layers) * DEFAULT_COPPER.0;
     // Round successive boundaries to preserve the exact total and mirrored gaps.

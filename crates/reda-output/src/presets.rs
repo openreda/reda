@@ -81,7 +81,7 @@ pub fn generic() -> FabPreset {
             },
         },
         placement_corrections: Vec::new(),
-        constructions: [2, 4, 6, 8]
+        constructions: reda_pcb::construction::GENERIC_LAYER_COUNTS
             .map(|n| reda_pcb::construction::evenly_spaced(n, StackupSeeds::default()))
             .to_vec(),
         gerber: GerberSettings::default(),

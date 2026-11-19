@@ -255,6 +255,21 @@ fn stretched_micro_vias_keep_their_flag_and_drilling_ends() {
     let t = p.stackup().type_for_span(span).unwrap();
     assert!(t.micro);
     assert_eq!(t.uuid, kind);
+    // A route from either direction cannot use the stretched type, including
+    // as the first or last member of an otherwise permitted stack.
+    let next = created(e.run_ok(
+        "pcb.via_type.add",
+        json!({"document":doc,"from":l[2],"to":l[3]}),
+    ));
+    let net = created(e.run_ok("test.net.add", json!({"name":"Restricted"})));
+    let class = created(e.run_ok("pcb.net_class.add", json!({"name":"Laser","nets":[net]})));
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"via_span","scope":{"net_class":class},"values":{"allowed":[kind,next]}}),
+    );
+    for (from, to) in [(l[0], l[2]), (l[0], l[3]), (l[3], l[0])] {
+        assert!(reda_pcb::route::ViaCandidates::between(pcb(&e), Some(net), from, to).is_empty());
+    }
 }
 
 use proptest::prelude::*;
