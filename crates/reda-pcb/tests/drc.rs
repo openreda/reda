@@ -1047,7 +1047,29 @@ fn via_size_checks_each_physical_diameter_with_the_actual_drilling_method() {
         "diameter":{"start":"0.8mm","middle":"0.45mm","end":"0.5mm"},"hole":"0.3mm"}),
         )["result"]["uuid"],
     );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"annular_ring","values":{"min":"0.2mm"}}),
+    );
     let run = drc(&mut engine);
+    let mut rings: Vec<_> = of(&run, "annular_ring")
+        .into_iter()
+        .filter(|v| objects(v) == [drilled])
+        .map(|v| {
+            (
+                v["measured"]["length"].as_i64().unwrap(),
+                v["layers"].clone(),
+            )
+        })
+        .collect();
+    rings.sort_by_key(|(actual, _)| *actual);
+    assert_eq!(
+        rings,
+        [
+            (75_000, json!(&layers[3..5])),
+            (100_000, json!([layers[5]]))
+        ]
+    );
     let sizes = |id, check| {
         let mut result: Vec<_> = of(&run, check)
             .into_iter()

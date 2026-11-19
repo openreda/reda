@@ -41,18 +41,17 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         });
     }
     for hole in &holes {
-        let Some(ring) = hole.ring else {
+        let Some(pad_ring) = hole.ring else {
             continue;
         };
-        let layers = if hole.via {
-            board
-                .pcb
-                .span_layers(board.pcb.via(hole.objects[0]).expect("Via hole").span)
-        } else {
-            board.pcb.copper_layers().map(|l| l.uuid).collect()
+        let via = hole.via.and_then(|_| board.pcb.via(hole.objects[0]));
+        let layers = match via {
+            Some(via) => board.pcb.span_layers(via.span),
+            None => board.pcb.copper_layers().map(|l| l.uuid).collect(),
         };
         let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
         for layer in layers {
+            let ring = via.map_or(pad_ring, |v| Nm((v.diameter_on(layer).0 - v.hole.0) / 2));
             if let Some(source) = crate::rules::resolve_on(
                 board.pcb,
                 hole.net,
@@ -62,10 +61,13 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
             ) && let Some(min) = source.value.length()
                 && ring < min
             {
-                breaches.entry((source.rule, min)).or_default().push(layer);
+                breaches
+                    .entry((source.rule, min, ring))
+                    .or_default()
+                    .push(layer);
             }
         }
-        for ((rule, minimum), layers) in breaches {
+        for ((rule, minimum, ring), layers) in breaches {
             report.add(DrcCheck::AnnularRing, |v| {
                 v.length(ring, minimum, Limit::Min, rule)
                     .located(board.pcb.uuid, hole.shape.closest_points(&hole.shape)[0])
