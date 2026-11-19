@@ -238,6 +238,10 @@ _Avoid_: Trace, wire (wires are on Schematic Sheets), route
 A plated hole that joins copper on different Layers within one Net.
 _Avoid_: Through-hole (that describes parts), feedthrough
 
+**Teardrop**:
+Extra copper that widens a Track where it meets a Pad, a Via or a wider Track, generated from the design rules rather than drawn.
+_Avoid_: Fillet, tear
+
 **Zone**:
 A Net-assigned area on a copper Layer that is filled with copper around everything it must keep clear of.
 _Avoid_: Pour, polygon, plane, fill
