@@ -13,6 +13,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::Serialize;
 
+mod lands;
 mod obstacles;
 mod path;
 
@@ -51,10 +52,11 @@ struct Junction<'a> {
     path_tracks: Vec<Uuid>,
 }
 
-fn key(location: TeardropLocation) -> (Uuid, Uuid, Uuid, i64, i64) {
+fn key(location: TeardropLocation) -> (Uuid, Uuid, Option<Uuid>, Uuid, i64, i64) {
     (
         location.track,
         location.target,
+        location.pad,
         location.layer,
         location.at.x.0,
         location.at.y.0,
@@ -65,9 +67,6 @@ fn candidates<'a>(pcb: &'a PcbDocument, copper: &Copper) -> Vec<Junction<'a>> {
     let mut out = Vec::new();
     for track in pcb.tracks().filter(|t| t.teardrop) {
         let rule = teardrop(pcb, track.net, track.layer, TeardropKind::WidthChange);
-        if !rule.enabled {
-            continue;
-        }
         let (from, to) = track.geometry.ends();
         for at in [from, to] {
             let others: Vec<_> = copper
@@ -86,6 +85,18 @@ fn candidates<'a>(pcb: &'a PcbDocument, copper: &Copper) -> Vec<Junction<'a>> {
                     _ => true,
                 })
                 .collect();
+            for &target in &others {
+                if matches!(
+                    target,
+                    Item::Pad { .. } | Item::FreePad { .. } | Item::Via { .. }
+                ) && let Some(junction) = lands::junction(pcb, copper, track, at, target)
+                {
+                    out.push(junction);
+                }
+            }
+            if !rule.enabled {
+                continue;
+            }
             let [target @ Item::Track { uuid }] = others[..] else {
                 continue;
             };
@@ -109,6 +120,7 @@ fn candidates<'a>(pcb: &'a PcbDocument, copper: &Copper) -> Vec<Junction<'a>> {
                     location: TeardropLocation {
                         track: track.uuid,
                         target: uuid,
+                        pad: None,
                         layer: track.layer,
                         at,
                     },
@@ -145,9 +157,11 @@ pub(crate) fn update(
     if !pcb.rules().any(|r| {
         r.kind == RuleKind::Teardrop
             && r.enabled
-            && r.values
-                .width_change
-                .is_some_and(|v| v.enabled == Some(true))
+            && TeardropKind::ALL.into_iter().any(|k| {
+                r.values
+                    .teardrop_values(k)
+                    .is_some_and(|v| v.enabled == Some(true))
+            })
     }) {
         return Some((Vec::new(), saved.len()));
     }
@@ -156,7 +170,9 @@ pub(crate) fn update(
     let mut drops = Vec::new();
     let mut stale = 0;
     let mut saved = saved;
-    let junctions = candidates(pcb, &copper);
+    let mut solid = crate::zone::SolidPours::new(pcb, &copper, &holes);
+    let mut junctions = candidates(pcb, &copper);
+    junctions.retain(|j| !solid.connects(j.track.net, j.track.layer, j.target));
     for (index, j) in junctions.iter().enumerate() {
         if !step(index, junctions.len()) {
             return None;
