@@ -36,7 +36,7 @@ This file gives the Command ids, the additions to `.redapcb`, `.redafab`, `.reda
 
 ### Via type and Via
 
-One pair of names is used everywhere a Via's size appears: `hole` and `diameter`. The other v0.2 files say `drill` and `pad` for a Via type's fields; those are column headings in the Stackup editor, not stored names.
+One pair of names is used everywhere a Via's size appears: `hole` and `diameter`. The [Stackup editor](stackup-editor.md#via-types-table) labels these columns **Drill** and **Pad**.
 
 - **Via type:** `{uuid, name?, from, to, micro?, hole, diameter {start, middle?, end?}, unused_layers?}`. `from` and `to` are Layer UUIDs.
 - **Via** gains to its v0.1 fields:
@@ -232,4 +232,3 @@ View Commands, in the app's registry.
 
 - Goldens for the migration step, the new schema and the new Commands: [Which tests does v0.2 add for multilayer boards?](https://github.com/openreda/reda/issues/353).
 - The values in the shipped presets' `constructions`, `silk_width` and `silk_text_height`: the shipped Fab Preset data on the [v0.2 map](https://github.com/openreda/reda/issues/319).
-- Replacing `drill` and `pad` with `hole` and `diameter` where [via-types](via-types.md) and [inner-layers](inner-layers.md) name a Via type's stored fields: when the spec is assembled.

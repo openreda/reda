@@ -184,7 +184,7 @@ pub fn multilayer_rules(document: Uuid) -> Vec<DesignRule> {
                 ..Default::default()
             },
         ),
-        (RuleKind::SilkWidth, silk),
+        (RuleKind::SilkWidth, silk.clone()),
         (RuleKind::SilkTextHeight, silk),
     ]
     .into_iter()
@@ -229,8 +229,8 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
             .length(field)
             .expect("the board-wide record holds every required value")
     };
-    let mask = pcb.board_rule(RuleKind::MaskExpansion).values;
-    let paste = pcb.board_rule(RuleKind::PasteExpansion).values;
+    let mask = &pcb.board_rule(RuleKind::MaskExpansion).values;
+    let paste = &pcb.board_rule(RuleKind::PasteExpansion).values;
     FabRules {
         clearance_hole: reda_model::HoleClearance::GENERIC,
         clearance: length(RuleKind::Clearance, Value),

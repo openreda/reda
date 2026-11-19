@@ -39,6 +39,8 @@ pub fn register_all(registry: &mut Registry) {
     registry.add(ObjectTypeSet);
     registry.add(NetColors);
     registry.add(Labels);
+    registry.add(ViaSpans);
+    registry.add(PickViaType);
 }
 
 fn needs_pcb(cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -680,5 +682,71 @@ impl Command for Labels {
             via_nets: labels.via_nets,
             repeated_net_names: labels.repeated_net_names,
         })
+    }
+}
+
+struct ViaSpans;
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ViaSpanLabelParams {
+    on: Option<bool>,
+}
+impl Command for ViaSpans {
+    const META: Meta = Meta {
+        id: "pcb.view.via_spans",
+        title: "Via Span Labels",
+        description: "Shows each Via’s span in copper positions inside its pad.",
+        category: "pcb_view",
+        icon: "via",
+        kind: Kind::View,
+    };
+    type Params = ViaSpanLabelParams;
+    type Output = NetColorsNow;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Self::Output, CommandError> {
+        let labels = &mut board_view(cx)?.layers.labels;
+        labels.via_spans = p.on.unwrap_or(!labels.via_spans);
+        Ok(NetColorsNow {
+            on: labels.via_spans,
+        })
+    }
+}
+
+struct PickViaType;
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PickViaTypeParams {
+    via_type: Uuid,
+}
+impl Command for PickViaType {
+    const META: Meta = Meta {
+        id: "pcb.via.pick_type",
+        title: "Select Stitching Via Type",
+        description: "Chooses a listed Via type for the standalone Via Tool.",
+        category: "pcb_view",
+        icon: "via",
+        kind: Kind::View,
+    };
+    type Params = PickViaTypeParams;
+    type Output = ();
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<(), CommandError> {
+        if !cx.project()?.pcb().is_some_and(|pcb| {
+            pcb.stackup()
+                .via_types
+                .iter()
+                .any(|kind| kind.uuid == p.via_type)
+        }) {
+            return Err(CommandError::invalid_params(
+                "/via_type",
+                "the PCB has no such Via type",
+            ));
+        }
+        board_view(cx)?.stitching_type = Some(p.via_type);
+        Ok(())
     }
 }
