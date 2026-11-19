@@ -1,13 +1,13 @@
 Drill report for Blinky
 Sizes in mm. Tool travel is left out: the fab plans its own drill path.
 
-Blinky-PTH.drl
+Blinky-PTH.drl (L1-L2, through)
   Tool     Size  Plating    Kind       Holes Slots  Tolerance
   T1      0.300  plated     via            7     0  -
   T2      1.150  plated     component      2     0  -
   Total                                    9     0
 
-Blinky-NPTH.drl
+Blinky-NPTH.drl (L1-L2, through)
   Tool     Size  Plating    Kind       Holes Slots  Tolerance
   T1      1.000  non-plated mechanical     0     1  -
   T2      3.200  non-plated mechanical     2     0  -

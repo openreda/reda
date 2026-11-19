@@ -53,7 +53,7 @@ pub struct WrittenFile {
     /// What it holds: `copper_top`, `copper_inner`, `copper_bottom`, `solder_mask_top`,
     /// `solder_mask_bottom`, `paste_top`, `paste_bottom`, `silkscreen_top`,
     /// `silkscreen_bottom`, `profile`, `drill_plated`, `drill_non_plated`, `drill_mixed`
-    /// (with `merge_drill`), `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
+    /// (with `merge_drill`), `drill_blind`, `drill_buried`, `fab_notes`, `drill_report`, `gerber_job`, `bom`, `cpl`, `zip`,
     /// `schematic_pdf`, `erc_report`, `drc_report` or `change_list_report`.
     pub function: &'static str,
 }
@@ -105,9 +105,10 @@ impl Command for JobRun {
                       Profile; an empty Silkscreen or Paste is left out and listed in \
                       `skipped`), named by the preset's `naming` (`classic`: `<project>.gtl` \
                       … `.gm1`; `descriptive`: `<project>-<Layer>.gbr`) and `file_names`, \
-                      and the Excellon drill files (plated and non-plated, or one file with \
-                      the preset's `merge_drill`; a drill file with no holes is left out and \
-                      listed in `skipped`), then the files for the fab: \
+                      and one Excellon drill file per occupied blind or buried Via Span. Plated \
+                      and non-plated through holes use separate files or share one file with \
+                      the preset's `merge_drill`. Empty through files are listed in `skipped`. \
+                      The job also writes the files for the fab: \
                       `<project>-fab-notes.txt` (board, Stackup, minimum features, hole \
                       tolerances, Net Ties as deliberate shorts, the files in the zip and \
                       the board's `fab_notes` text), `<project>-drill-report.txt` (each \
@@ -291,7 +292,7 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
     // its old file.
     let mut known: Vec<String> = Vec::new();
     known.extend(gerbers.skipped.iter().map(|f| f.name.clone()));
-    // Every drill name, so switching `merge_drill` drops the other form's old files.
+    // Switching `merge_drill` drops the other form's through files.
     known.extend(reda_output::drill_file_names(&name));
     let fab_notes_name = reda_output::fab_notes_name(&name);
     known.extend([
