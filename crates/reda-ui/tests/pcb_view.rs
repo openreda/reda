@@ -511,3 +511,31 @@ fn a_position_jump_shows_hidden_copper_and_keeps_the_previous_layer_on_reopen() 
     again.open_project(&b.project).unwrap();
     assert_eq!(stored(&again)["previous"], json!(top));
 }
+
+#[test]
+fn replacing_a_pcb_starts_its_own_layer_view_and_undo_restores_the_old_one() {
+    let mut b = board();
+    let top = layer(&b, LayerKind::Copper, Some(Side::Top));
+    let bottom = layer(&b, LayerKind::Copper, Some(Side::Bottom));
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    run(&mut b.shell, "pcb.layer.pin", json!({"layer": top}));
+    run(&mut b.shell, "document.delete", json!({"document": b.pcb}));
+    run(
+        &mut b.shell,
+        "document.add",
+        json!({"kind":"pcb", "layers": 4}),
+    );
+
+    let new_bottom = layer(&b, LayerKind::Copper, Some(Side::Bottom));
+    let view = &b.shell.board_view().layers;
+    assert_eq!(view.previous, Some(new_bottom));
+    assert!(view.pinned.is_empty());
+
+    for _ in 0..2 {
+        run(&mut b.shell, "edit.undo", json!({"document":"project"}));
+    }
+    let view = &b.shell.board_view().layers;
+    assert_eq!(view.active, Some(bottom));
+    assert_eq!(view.previous, Some(top));
+    assert!(view.pinned.contains(&top));
+}

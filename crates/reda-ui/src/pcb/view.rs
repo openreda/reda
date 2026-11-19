@@ -17,7 +17,7 @@ use reda_engine::render::{
 };
 
 use crate::canvas::PaletteHandle;
-use crate::view_state::LayerView;
+use crate::view_state::{DocumentView, LayerView};
 
 /// The kinds of board object the Layers panel can hide, in its order.
 pub const VIEW_TYPES: [ObjectType; 9] = [
@@ -35,6 +35,7 @@ pub const VIEW_TYPES: [ObjectType; 9] = [
 /// The PCB view: the Layer state and units.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardView {
+    pub(crate) document: Option<Uuid>,
     pub layers: LayerView,
     /// Session selection for standalone Via placement.
     pub stitching_type: Option<Uuid>,
@@ -56,12 +57,46 @@ impl BoardView {
     /// A fresh view in `units`.
     pub fn new(units: Units) -> BoardView {
         BoardView {
+            document: None,
             layers: LayerView::default(),
             stitching_type: None,
             units,
             pick_requested: false,
             hover_solo: None,
         }
+    }
+
+    /// Restores this Document's view, with the opposite outer copper as its
+    /// first Previous Layer for a fresh board or an older view file.
+    pub(crate) fn for_document(
+        pcb: &PcbDocument,
+        saved: Option<&DocumentView>,
+        default_units: Units,
+    ) -> Self {
+        let mut view = Self::new(saved.and_then(|v| v.units).unwrap_or(default_units));
+        view.document = Some(pcb.uuid);
+        if let Some(saved) = saved {
+            view.layers = saved.layers.clone();
+        }
+        let set = pcb.layers();
+        if view
+            .layers
+            .previous
+            .and_then(|id| set.layer(id))
+            .is_none_or(|l| l.kind != LayerKind::Copper)
+        {
+            let opposite = match view
+                .layers
+                .active
+                .and_then(|id| set.layer(id))
+                .and_then(|l| l.side)
+            {
+                Some(Side::Bottom) => Side::Top,
+                _ => Side::Bottom,
+            };
+            view.layers.previous = set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid);
+        }
+        view
     }
 
     pub fn stitching_type<'p>(

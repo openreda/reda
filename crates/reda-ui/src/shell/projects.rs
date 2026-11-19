@@ -273,36 +273,12 @@ impl Shell {
             }
             None => (self.default_layout(first_sheet), BTreeMap::new()),
         };
-        let pcb = self.engine.project().and_then(|p| p.pcb()).map(|p| p.uuid);
         let prefs = preferences::current(self.engine.user_dirs());
         let units = prefs.pcb.default_units;
-        let mut board = BoardView::new(units);
-        if let Some(view) = pcb.and_then(|pcb| views.get(&pcb)) {
-            board.layers = view.layers.clone();
-            board.units = view.units.unwrap_or(units);
-        }
-        if let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) {
-            let set = pcb.layers();
-            if board
-                .layers
-                .previous
-                .and_then(|id| set.layer(id))
-                .is_none_or(|l| l.kind != reda_engine::model::LayerKind::Copper)
-            {
-                use reda_engine::model::{LayerKind, Side};
-                let active_is_bottom = board
-                    .layers
-                    .active
-                    .and_then(|id| set.layer(id))
-                    .is_some_and(|l| l.side == Some(Side::Bottom));
-                let opposite = if active_is_bottom {
-                    Side::Top
-                } else {
-                    Side::Bottom
-                };
-                board.layers.previous = set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid);
-            }
-        }
+        let board = project.pcb().map_or_else(
+            || BoardView::new(units),
+            |pcb| BoardView::for_document(pcb, views.get(&pcb.uuid), units),
+        );
         *self.board_view_mut() = board;
         // Views start on the grids the Preferences pick, unless view.json has their own.
         let kinds: BTreeMap<Uuid, DocumentKind> = self
