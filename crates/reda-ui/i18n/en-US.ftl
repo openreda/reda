@@ -1308,6 +1308,7 @@ preset-file-origin-note = The file origin also places the drill and CPL coordina
 preset-outline-every = Board Outline on every plot
 preset-inner-copper = Inner copper file name
 preset-inner-copper-tokens = Use ${"{"}position{"}"} or ${"{"}inner{"}"} for the Layer number. ${"{"}project{"}"} adds the Project name. Leave blank to use the naming setting.
+preset-four-layer-preview = Four-Layer copper file preview
 preset-file-names = File names by Layer
 preset-layer = Layer
 preset-file-name = File name

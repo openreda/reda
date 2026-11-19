@@ -284,3 +284,48 @@ fn placement_grid_edits_reorders_and_removes_rows_in_the_project_copy() {
     h.run();
     assert_eq!(copy(&h).placement_corrections.len(), 1);
 }
+
+#[test]
+fn gerber_preset_previews_a_four_layer_boards_copper_files_as_the_pattern_changes() {
+    let (home, work) = (
+        TempDir::new("inner-preview-home"),
+        TempDir::new("inner-preview"),
+    );
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    for name in ["Board.gtl", "Board.g2l", "Board.g3l", "Board.gbl"] {
+        h.get_by_label(name);
+    }
+    choose(&mut h, "File naming", "Project and Layer name (.gbr)");
+    for name in [
+        "Board-Top_Copper.gbr",
+        "Board-L2.gbr",
+        "Board-L3.gbr",
+        "Board-Bottom_Copper.gbr",
+    ] {
+        h.get_by_label(name);
+    }
+    retype(
+        &mut h,
+        "Inner copper file name",
+        "${project}-${position}-${inner}.ger",
+    );
+    h.get_by_label("Board-2-1.ger");
+    h.get_by_label("Board-3-2.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    h.get_by_role_and_label(Role::TextInput, "Inner copper file name")
+        .click();
+    h.run();
+    h.key_press_modifiers(Modifiers::COMMAND, Key::A);
+    h.key_press(Key::Backspace);
+    h.run();
+    h.get_by_label("Board-L2.gbr");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!([])
+    );
+}

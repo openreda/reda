@@ -133,7 +133,9 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     };
     let project = &plot.project.props().name;
     let mut add = |file: FileName, function, rendered: Rendered, optional: bool| {
-        let name = file.name(project, plot.gerber)?;
+        let name = file
+            .name(project, plot.gerber)
+            .map_err(GerberError::InvalidFileName)?;
         out.layers.push((name.clone(), file.label()));
         if let Some(at) = rendered.out_of_range {
             return Err(GerberError::CoordinateOutOfRange(CoordinateOutOfRange {
@@ -155,22 +157,11 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     };
     for (i, layer) in first.pcb.copper_layers().enumerate() {
         let number = i + 1;
-        let (file, function, face) = match layer.side {
-            Some(Side::Top) => (FileName::new("gtl", "Top Copper"), "copper_top", "Top"),
-            Some(Side::Bottom) => (
-                FileName::new("gbl", "Bottom Copper"),
-                "copper_bottom",
-                "Bot",
-            ),
-            None => (
-                FileName {
-                    extension: format!("g{number}l"),
-                    layer: layer.name.clone().unwrap_or_default(),
-                    inner_position: Some(number),
-                },
-                "copper_inner",
-                "Inr",
-            ),
+        let file = FileName::copper(number, layer.side, layer.name.as_deref());
+        let (function, face) = match layer.side {
+            Some(Side::Top) => ("copper_top", "Top"),
+            Some(Side::Bottom) => ("copper_bottom", "Bot"),
+            None => ("copper_inner", "Inr"),
         };
         let role = match layer.role {
             CopperRole::Signal => "Signal",
@@ -254,6 +245,18 @@ pub fn gerber_files(plot: &Plot<'_>) -> Result<Gerbers, GerberError> {
     Ok(out)
 }
 
+/// Resolves the copper Gerber for a Layer without plotting it. The preset editor uses
+/// the plotter's naming conventions to preview a board before a Project is open.
+pub fn copper_file_name(
+    project: &str,
+    settings: &GerberSettings,
+    position: usize,
+    side: Option<Side>,
+    layer_name: Option<&str>,
+) -> Result<String, String> {
+    FileName::copper(position, side, layer_name).name(project, settings)
+}
+
 /// What a Gerber file's name is made from: its classic extension and its Layer's name.
 struct FileName {
     /// Lowercase, such as `gtl`.
@@ -270,6 +273,18 @@ impl FileName {
             extension: extension.into(),
             layer: layer.into(),
             inner_position: None,
+        }
+    }
+
+    fn copper(position: usize, side: Option<Side>, layer_name: Option<&str>) -> Self {
+        match side {
+            Some(Side::Top) => Self::new("gtl", "Top Copper"),
+            Some(Side::Bottom) => Self::new("gbl", "Bottom Copper"),
+            None => Self {
+                extension: format!("g{position}l"),
+                layer: layer_name.unwrap_or_default().into(),
+                inner_position: Some(position),
+            },
         }
     }
 
@@ -292,7 +307,7 @@ impl FileName {
     /// The file's name under `settings`: a `file_names` entry for its Layer, else
     /// `<project>.<ext>` (`classic`) or `<project>-<Layer>.gbr` with spaces as
     /// underscores (`descriptive`).
-    fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, GerberError> {
+    fn name(&self, project: &str, settings: &GerberSettings) -> Result<String, String> {
         let layer = if self.layer.is_empty() {
             self.label()
         } else {
@@ -304,8 +319,7 @@ impl FileName {
         if let Some(position) = self.inner_position
             && let Some(pattern) = &settings.file_names.inner_copper
         {
-            return GerberSettings::inner_copper_file_name(pattern, project, position)
-                .map_err(GerberError::InvalidFileName);
+            return GerberSettings::inner_copper_file_name(pattern, project, position);
         }
         Ok(match settings.naming {
             FileNaming::Classic => format!("{project}.{}", self.extension),
