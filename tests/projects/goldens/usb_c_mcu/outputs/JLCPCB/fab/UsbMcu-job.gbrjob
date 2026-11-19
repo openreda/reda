@@ -67,7 +67,7 @@
     },
     {
       "Path": "UsbMcu-PTH.drl",
-      "FileFunction": "Plated,1,2,PTH",
+      "FileFunction": "Plated,1,2,PTH,Mixed",
       "FilePolarity": "Positive"
     },
     {

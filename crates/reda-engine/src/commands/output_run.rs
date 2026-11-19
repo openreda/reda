@@ -20,7 +20,7 @@ use reda_command::{
     AvailabilityContext, Command, CommandError, Context, Kind, Meta, NO_PROJECT, Registry,
     Unavailable,
 };
-use reda_model::{Uuid, Violation};
+use reda_model::{Severity, Uuid, Violation};
 use reda_output::{OutputFile, Plot};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -137,8 +137,9 @@ impl Command for JobRun {
                       preset, and for a `relative` one the Output Origin, or the lower-left \
                       of the Board Outline while none is placed. The checks \
                       that block read only the job's PCB: duplicate Designators, an open \
-                      Board Outline, a Footprint the PCB cannot resolve and a coordinate \
-                      beyond ±2147.483647 mm (`coordinate_out_of_range`) block the run \
+                      Board Outline, a Footprint the PCB cannot resolve, a coordinate \
+                      beyond ±2147.483647 mm (`coordinate_out_of_range`) and two output \
+                      files that resolve to one name (`file_name_clash`) block the run \
                       (`rejected`, `details.blockers`). Other problems, such as an \
                       out-of-sync PCB or a Component without a Footprint, are listed as \
                       `warnings`. \
@@ -340,8 +341,19 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
         zipped.push(reda_output::fab_notes_file(&plot, &zipped, &after));
     }
     zipped.extend(after);
-    check_zip_names(zipped.iter().map(OutputFile::name_and_function))
-        .map_err(CommandError::rejected)?;
+    check_zip_names(zipped.iter().map(OutputFile::name_and_function)).map_err(|problem| {
+        let mut err = CommandError::rejected(problem.to_string());
+        // A clash blocks the run, as the other pre-run checks do.
+        if let ZipNameProblem::Clash { first, second } = &problem {
+            let blocker = Violation::new("file_name_clash", Severity::Error)
+                .arg("first", first.0.as_str())
+                .arg("first_function", first.1.as_str())
+                .arg("second", second.0.as_str())
+                .arg("second_function", second.1.as_str());
+            err.details = Some(json!({"blockers": [blocker], "warnings": warnings}));
+        }
+        err
+    })?;
 
     cx.progress(3.0, Some(STEPS), "Zipping");
     cx.check_cancelled()?;
@@ -438,19 +450,46 @@ pub(crate) fn run_job(cx: &mut Context<'_>, job_id: Uuid) -> Result<JobRunResult
 /// Checks that the active zip entries have usable, distinct filenames.
 pub(crate) fn check_zip_names<'a>(
     entries: impl IntoIterator<Item = (&'a str, &'a str)>,
-) -> Result<(), String> {
+) -> Result<(), ZipNameProblem> {
     let mut names = BTreeMap::new();
     for (name, function) in entries {
-        super::project::check_file_stem(name)
-            .map_err(|why| format!("Output file {function} cannot use {name:?}: {why}"))?;
+        super::project::check_file_stem(name).map_err(|why| {
+            ZipNameProblem::Invalid(format!("Output file {function} cannot use {name:?}: {why}"))
+        })?;
         if let Some((previous, previous_name)) = names.insert(name.to_lowercase(), (function, name))
         {
-            return Err(format!(
-                "Output filenames clash between {previous} ({previous_name:?}) and {function} ({name:?})"
-            ));
+            return Err(ZipNameProblem::Clash {
+                first: (previous_name.to_owned(), previous.to_owned()),
+                second: (name.to_owned(), function.to_owned()),
+            });
         }
     }
     Ok(())
+}
+
+/// Why the files of a run can't take their names.
+#[derive(Debug)]
+pub(crate) enum ZipNameProblem {
+    /// A name that is not a usable file name.
+    Invalid(String),
+    /// Two files, each `(name, function)`, that resolve to the same name.
+    Clash {
+        first: (String, String),
+        second: (String, String),
+    },
+}
+
+impl std::fmt::Display for ZipNameProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Invalid(why) => f.write_str(why),
+            Self::Clash { first, second } => write!(
+                f,
+                "Output filenames clash between {} ({:?}) and {} ({:?})",
+                first.1, first.0, second.1, second.0
+            ),
+        }
+    }
 }
 
 /// The folder in the destination that holds loose copies of the zip's files.

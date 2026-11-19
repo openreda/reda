@@ -386,9 +386,9 @@ fn drill_spans_follow_through_rows_and_old_span_files_are_removed_on_rerun() {
     let manifest = read("manifest.json");
     let job_file = read("fab/Demo-job.gbrjob");
     for (name, function) in [
-        ("Demo-PTH.drl", "Plated,1,6,PTH"),
-        ("Demo-L1-L2.drl", "Plated,1,2,Blind"),
-        ("Demo-L3-L5.drl", "Plated,3,5,Buried"),
+        ("Demo-PTH.drl", "Plated,1,6,PTH,Drill"),
+        ("Demo-L1-L2.drl", "Plated,1,2,Blind,Drill"),
+        ("Demo-L3-L5.drl", "Plated,3,5,Buried,Drill"),
     ] {
         let i = preview.zip.iter().position(|f| f == name).unwrap();
         assert_eq!(archive.by_index(i).unwrap().name().unwrap(), name);

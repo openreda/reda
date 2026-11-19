@@ -153,8 +153,8 @@ fn the_four_layer_assembly_coupon_exports_its_routed_copper_and_corrected_placem
     assert_eq!(
         drill_files,
         BTreeMap::from([
-            ("FourLayer-PTH.drl", "Plated,1,4,PTH"),
-            ("FourLayer-NPTH.drl", "NonPlated,1,4,NPTH")
+            ("FourLayer-PTH.drl", "Plated,1,4,PTH,Drill"),
+            ("FourLayer-NPTH.drl", "NonPlated,1,4,NPTH,Drill")
         ])
     );
     for (name, expected) in [

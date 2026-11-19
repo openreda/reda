@@ -192,7 +192,8 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
             zip.iter()
                 .map(|(name, function)| (name.as_str(), function.as_str())),
         )
-        .err();
+        .err()
+        .map(|problem| problem.to_string());
     }
     Some(JobPreview {
         stem,

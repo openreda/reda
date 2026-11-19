@@ -62,7 +62,7 @@
     },
     {
       "Path": "Blinky-PTH.drl",
-      "FileFunction": "Plated,1,2,PTH",
+      "FileFunction": "Plated,1,2,PTH,Drill",
       "FilePolarity": "Positive"
     },
     {

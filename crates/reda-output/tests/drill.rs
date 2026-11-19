@@ -119,7 +119,7 @@ fn plated_and_non_plated_holes_go_to_separate_files() {
 
     let pth = read(&file(&files, "Demo-PTH.drl").bytes);
     assert!(pth.metric && pth.ended);
-    assert_eq!(pth.file["FileFunction"], "Plated,1,2,PTH");
+    assert_eq!(pth.file["FileFunction"], "Plated,1,2,PTH,Drill");
     assert_eq!(pth.file["FilePolarity"], "Positive");
     assert_eq!(
         sorted(pth.hits),
@@ -364,7 +364,7 @@ fn the_file_function_label_says_drill_rout_or_mixed() {
         read(&file(files, name).bytes).file["FileFunction"].clone()
     };
     let files = plot(&engine);
-    assert_eq!(function(&files, "Demo-PTH.drl"), "Plated,1,2,PTH");
+    assert_eq!(function(&files, "Demo-PTH.drl"), "Plated,1,2,PTH,Drill");
     assert_eq!(function(&files, "Demo-NPTH.drl"), "NonPlated,1,2,NPTH,Rout");
     engine.run_ok(
         "pcb.free_pad.add",
@@ -567,10 +567,14 @@ fn every_hole_reads_back_once_in_its_physical_span_with_or_without_through_mergi
             )]
         } else {
             vec![
-                ("Demo-PTH.drl", "Plated,1,6,PTH", vec![through.clone()]),
+                (
+                    "Demo-PTH.drl",
+                    "Plated,1,6,PTH,Drill",
+                    vec![through.clone()],
+                ),
                 (
                     "Demo-NPTH.drl",
-                    "NonPlated,1,6,NPTH",
+                    "NonPlated,1,6,NPTH,Rout",
                     vec![mounting_slot.clone()],
                 ),
             ]
@@ -578,7 +582,7 @@ fn every_hole_reads_back_once_in_its_physical_span_with_or_without_through_mergi
         expected.extend([
             (
                 "Demo-L1-L2.drl",
-                "Plated,1,2,Blind",
+                "Plated,1,2,Blind,Drill",
                 vec![
                     hit(0.2, (4.0, 5.0), "ViaDrill"),
                     hit(0.2, (7.0, 5.0), "ViaDrill"),
@@ -586,12 +590,12 @@ fn every_hole_reads_back_once_in_its_physical_span_with_or_without_through_mergi
             ),
             (
                 "Demo-L2-L3.drl",
-                "Plated,2,3,Buried",
+                "Plated,2,3,Buried,Drill",
                 vec![hit(0.2, (7.0, 5.0), "ViaDrill")],
             ),
             (
                 "Demo-L3-L5.drl",
-                "Plated,3,5,Buried",
+                "Plated,3,5,Buried,Drill",
                 vec![hit(0.2, (12.0, 5.0), "ViaDrill")],
             ),
         ]);

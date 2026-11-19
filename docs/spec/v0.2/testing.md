@@ -28,7 +28,7 @@ The step from format 1 to 2 is in [commands](commands.md#format-version).
   - one of each Library file kind.
 - **Goldens:** the migrated files.
 - **Unchanged outputs:** a test runs the outputs of each migrated board and compares them with the outputs `0.1.0` wrote.
-  - The Gerber, drill, BOM and CPL files must be byte-identical apart from what [outputs](outputs.md) says a 2-Layer board gains: the copper type in the file function and the `PTH` file function on the plated drill file.
+  - The Gerber, drill, BOM and CPL files must be byte-identical apart from what [outputs](outputs.md) says a 2-Layer board gains: the copper type in the copper file function.
   - The job file, Fab Notes and the Output Manifest may differ, and are goldens of their own.
 - `proptest` covers the migration with the new fields, as it covers save → load → save identity.
 

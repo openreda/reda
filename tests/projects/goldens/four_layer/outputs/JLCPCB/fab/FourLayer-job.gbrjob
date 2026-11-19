@@ -77,12 +77,12 @@
     },
     {
       "Path": "FourLayer-PTH.drl",
-      "FileFunction": "Plated,1,4,PTH",
+      "FileFunction": "Plated,1,4,PTH,Drill",
       "FilePolarity": "Positive"
     },
     {
       "Path": "FourLayer-NPTH.drl",
-      "FileFunction": "NonPlated,1,4,NPTH",
+      "FileFunction": "NonPlated,1,4,NPTH,Drill",
       "FilePolarity": "Positive"
     }
   ],

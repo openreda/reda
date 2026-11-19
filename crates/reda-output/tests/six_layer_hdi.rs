@@ -179,15 +179,15 @@ fn check_drills(pcb: &PcbDocument, fab: &Path, job: &job_reader::Job) {
         expected
             .entry((
                 format!("SixLayerHdi-L{first}-L{last}.drl"),
-                format!("Plated,{first},{last},{kind}"),
+                format!("Plated,{first},{last},{kind},Drill"),
             ))
             .or_insert_with(Vec::new)
             .push((xy(via.at), via.hole.0, "ViaDrill".to_string()));
     }
     for pad in pcb.free_pads() {
         let (name, function) = match pad.kind {
-            PadKind::PlatedThroughHole => ("SixLayerHdi-PTH.drl", "Plated,1,6,PTH"),
-            PadKind::NonPlated => ("SixLayerHdi-NPTH.drl", "NonPlated,1,6,NPTH"),
+            PadKind::PlatedThroughHole => ("SixLayerHdi-PTH.drl", "Plated,1,6,PTH,Drill"),
+            PadKind::NonPlated => ("SixLayerHdi-NPTH.drl", "NonPlated,1,6,NPTH,Drill"),
             PadKind::Smd => continue,
         };
         expected

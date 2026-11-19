@@ -969,5 +969,9 @@ fn colliding_output_names_identify_both_files_and_preserve_the_last_run() {
             error.message
         );
     }
+    // The clash blocks the run like the other pre-run checks.
+    let details = error.details.as_ref().expect("blockers");
+    let blocker = &details["blockers"][0];
+    assert_eq!(blocker["check"], "file_name_clash", "{details}");
     assert_eq!(reda_testkit::read_tree(destination), files);
 }

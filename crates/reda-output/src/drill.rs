@@ -141,17 +141,15 @@ pub(crate) fn drill_sets(plot: &Plot<'_>) -> Vec<DrillSet> {
     } else {
         let (plated, non_plated): (Vec<_>, Vec<_>) =
             through.into_iter().partition(|hole| hole.plated);
-        let mut non_plated_function = format!("NonPlated,1,{layers},NPTH");
-        // Version 0.1's two-Layer non-plated files retain their drill/route qualifier.
-        if layers == 2 {
-            let _ = write!(non_plated_function, ",{}", label(&non_plated));
-        }
+        // Every drill file function keeps v0.1's trailing Drill, Rout or Mixed qualifier.
+        let plated_function = format!("Plated,1,{layers},PTH,{}", label(&plated));
+        let non_plated_function = format!("NonPlated,1,{layers},NPTH,{}", label(&non_plated));
         vec![
             DrillSet {
                 name: pth,
                 span_description: through_span.clone(),
                 function: "drill_plated",
-                file_function: format!("Plated,1,{layers},PTH"),
+                file_function: plated_function,
                 holes: plated,
             },
             DrillSet {
@@ -178,7 +176,7 @@ pub(crate) fn drill_sets(plot: &Plot<'_>) -> Vec<DrillSet> {
             name: partial_file_name(name, from, to),
             span_description: format!("L{from}-L{to}, {}{micro}", kind.to_ascii_lowercase()),
             function,
-            file_function: format!("Plated,{from},{to},{kind}"),
+            file_function: format!("Plated,{from},{to},{kind},{}", label(&holes)),
             holes,
         });
     }
