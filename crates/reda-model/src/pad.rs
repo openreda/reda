@@ -67,6 +67,14 @@ impl Pad {
     pub fn problem(&self) -> Option<(String, String)> {
         self.form()
             .stack_problem(self.middle, self.bottom)
+            .or_else(|| self.stored_problem())
+    }
+
+    /// Structural errors on a stored Pad. Its dimensional checks also run in the
+    /// Library checker, so an authored Footprint can be opened for repair.
+    pub fn stored_problem(&self) -> Option<(String, String)> {
+        self.form()
+            .stack_kind_problem(self.middle, self.bottom)
             .or_else(|| {
                 crate::opening_problem(
                     self.kind,
@@ -501,22 +509,36 @@ impl PadForm {
         }
     }
 
+    fn stack_kind_problem(
+        self,
+        middle: Option<PadCopperShape>,
+        bottom: Option<PadCopperShape>,
+    ) -> Option<(String, String)> {
+        if self.kind != PadKind::PlatedThroughHole {
+            let group = middle
+                .map(|_| "/middle")
+                .or_else(|| bottom.map(|_| "/bottom"))?;
+            return Some((
+                group.into(),
+                "only plated through-hole Pads have a Pad Stack".into(),
+            ));
+        }
+        None
+    }
+
     pub(crate) fn stack_problem(
         self,
         middle: Option<PadCopperShape>,
         bottom: Option<PadCopperShape>,
     ) -> Option<(String, String)> {
-        if let Some(problem) = self.problem() {
+        if let Some(problem) = self
+            .problem()
+            .or_else(|| self.stack_kind_problem(middle, bottom))
+        {
             return Some(problem);
         }
         for (group, copper) in [("middle", middle), ("bottom", bottom)] {
             let Some(copper) = copper else { continue };
-            if self.kind != PadKind::PlatedThroughHole {
-                return Some((
-                    format!("/{group}"),
-                    "only plated through-hole Pads have a Pad Stack".into(),
-                ));
-            }
             if let Some((pointer, message)) = self.with_copper(Some(copper)).problem() {
                 return Some((format!("/{group}{pointer}"), message));
             }

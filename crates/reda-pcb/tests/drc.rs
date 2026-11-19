@@ -933,3 +933,43 @@ fn annular_ring_measures_each_inner_land_against_the_shared_hole() {
     assert_eq!(violations[0]["measured"]["length"], 50000);
     assert_eq!(violations[0]["layers"], json!(inner));
 }
+
+#[test]
+fn a_different_inner_via_land_is_not_duplicate_copper() {
+    let dir = TempDir::new("pad-stack-duplicate");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    for middle in ["0.7mm", "1.4mm"] {
+        engine.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"hole":"0.3mm",
+            "diameter":{"start":"0.7mm","middle":middle}}),
+        );
+    }
+    assert!(of(&drc(&mut engine), "duplicate_copper").is_empty());
+}
+
+#[test]
+fn only_the_oversized_inner_lands_break_board_edge_clearance() {
+    let dir = TempDir::new("pad-stack-edge");
+    let mut engine = probe_engine();
+    engine.run_ok("project.new",json!({"name":"Demo","path":dir.path(),"layers":4,"board":{"width":"20mm","height":"10mm"}}));
+    let inner: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .filter(|l| l.side.is_none())
+        .map(|l| l.uuid)
+        .collect();
+    engine.run_ok("pcb.free_pad.add",json!({"kind":"plated_through_hole","width":"1mm","at":{"x":"1.5mm","y":"5mm"},"hole":{"width":"0.5mm"},
+        "middle":{"shape":"rect","width":"2.4mm","height":"1mm"}}));
+    let violations = of(&drc(&mut engine), "edge_clearance");
+    assert_eq!(violations.len(), 1, "{violations:?}");
+    assert_eq!(violations[0]["measured"]["length"], 300000);
+    assert_eq!(violations[0]["layers"], json!(inner));
+}
