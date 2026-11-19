@@ -74,7 +74,7 @@ impl Selected {
     }
 }
 
-fn mode_label(mode: UnusedLayers) -> String {
+pub(crate) fn mode_label(mode: UnusedLayers) -> String {
     match mode {
         UnusedLayers::Keep => tr!("unused-lands-keep"),
         UnusedLayers::Remove => tr!("unused-lands-remove"),

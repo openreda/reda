@@ -89,6 +89,35 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, element: Uuid) -> Vec<Invocation> {
         let before = tool_settings(shell);
         let mut settings = before.clone();
         tool_settings_ui(ui, id, &mut settings);
+        let before_layer = super::preview_layer(shell.engine(), &footprint);
+        let mut layer = before_layer;
+        widgets::form(id.with("copper-preview")).show(ui, |ui| {
+            use super::CopperLayer::*;
+            let layers: &[super::CopperLayer] = if Middle.available(&footprint) {
+                &[Top, Middle, Bottom]
+            } else {
+                &[Top, Bottom]
+            };
+            combo(
+                ui,
+                id.with("copper-layer"),
+                &tr!("footprint-copper-layer"),
+                &mut layer,
+                layers,
+                |l| match l {
+                    Top => tr!("pad-side-top"),
+                    Middle => tr!("pad-copper-middle"),
+                    Bottom => tr!("pad-side-bottom"),
+                },
+            );
+            ui.end_row();
+        });
+        if layer != before_layer {
+            out.push(cmd(
+                "view.footprint_tool.set",
+                json!({"preview":{"footprint":element,"layer":layer}}),
+            ));
+        }
         if (&settings.pad, settings.layer) != (&before.pad, before.layer) {
             out.push(cmd(
                 "view.footprint_tool.set",
@@ -343,20 +372,42 @@ fn selection(
     let fp = footprint.uuid;
     if let Some(pad) = footprint.pads.iter().find(|p| p.uuid == selected) {
         crate::settings::strong(ui, tr!("footprint-selected-pad"));
-        let edits = crate::pad_form::draw::rows(
-            ui,
-            id.with(("pad", selected)),
-            pad,
-            true,
-            true,
-            reda_engine::preferences::Units::Mm,
-        );
+        let id = id.with(("pad", selected));
+        let units = reda_engine::preferences::Units::Mm;
+        let edits = crate::pad_form::draw::rows(ui, id, pad, true, true, units);
         out.extend(
             edits
                 .iter()
                 .filter_map(|e| crate::pad_form::footprint_command(fp, pad, e))
                 .map(|(id, params)| cmd(id, params)),
         );
+        for (group, copper) in crate::pad_form::draw::groups::rows(ui, id, pad, units) {
+            out.push(cmd(
+                "library.footprint.pad.edit",
+                json!({"footprint":fp, "pad":pad.uuid, (group):copper}),
+            ));
+        }
+        if pad.kind == PadKind::PlatedThroughHole {
+            use reda_engine::model::UnusedLayers;
+            let mut mode = pad.unused_layers;
+            widgets::form(id.with("unused-lands")).show(ui, |ui| {
+                combo(
+                    ui,
+                    id.with("unused-layers"),
+                    &tr!("unused-lands-pads"),
+                    &mut mode,
+                    &[UnusedLayers::Keep, UnusedLayers::Remove],
+                    crate::pcb::unused_layers::mode_label,
+                );
+                ui.end_row();
+            });
+            if mode != pad.unused_layers {
+                out.push(cmd(
+                    "library.footprint.pad.edit",
+                    json!({"footprint":fp, "pad":selected, "unused_layers":mode}),
+                ));
+            }
+        }
     } else if let Some(text) = footprint.texts.iter().find(|t| t.uuid == selected) {
         crate::settings::strong(
             ui,

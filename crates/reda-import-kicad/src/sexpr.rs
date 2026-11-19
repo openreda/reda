@@ -89,12 +89,15 @@ impl Sexp {
         self.args().iter().find(|c| c.head() == Some(name))
     }
 
-    /// Whether a bare `word` appears among the items, as in `(effects … hide)`, or a child
-    /// `(word yes)` does, as newer files write it.
+    /// A bare flag or an empty flag list is enabled. An explicit value may use
+    /// either KiCad boolean spelling: `yes`/`no` or `true`/`false`.
     pub fn flag(&self, word: &str) -> bool {
         self.args().iter().any(|c| match c {
             Sexp::Atom(s, _) => s == word,
-            Sexp::List(..) => c.head() == Some(word) && c.arg(0) != Some("no"),
+            Sexp::List(..) => {
+                c.head() == Some(word)
+                    && (c.args().is_empty() || matches!(c.arg(0), Some("yes" | "true")))
+            }
             Sexp::Str(..) => false,
         })
     }
