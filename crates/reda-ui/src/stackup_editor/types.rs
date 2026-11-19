@@ -20,8 +20,8 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
         .width(ui.available_width().max(t.size.of(super::TABLE_WIDTH)))
         .columns([
             Column::fill(),
-            Column::fixed(t.size.of(140.0)),
-            Column::fixed(t.size.of(140.0)),
+            Column::fixed(t.size.of(160.0)),
+            Column::fixed(t.size.of(160.0)),
             Column::fixed(t.size.of(64.0)),
             Column::fixed(t.size.of(64.0)),
         ])

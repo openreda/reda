@@ -23,7 +23,7 @@ use reda_engine::model::{
 use serde_json::json;
 
 // Room for the editable Via name beside both copper Layer selectors.
-const TABLE_WIDTH: f32 = 596.0;
+const TABLE_WIDTH: f32 = 636.0;
 const POSITION: f32 = 32.0;
 const KIND: f32 = 96.0;
 const THICKNESS: f32 = 87.0;
