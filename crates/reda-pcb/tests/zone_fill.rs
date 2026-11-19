@@ -1028,3 +1028,35 @@ fn a_zero_clearance_zone_does_not_touch_netless_artwork() {
     );
     assert!(hits.is_empty(), "{hits:?}");
 }
+
+#[test]
+fn a_zone_reaching_the_edge_of_a_land_restores_its_copper() {
+    let dir = TempDir::new("zone-reaching-land-edge");
+    let mut engine = engine_with_pcb(&dir);
+    let net = add_net(&mut engine, "GND");
+    let via = uuid(
+        &engine.run_ok(
+            "pcb.via.add",
+            json!({"at":at(5.,5.), "net":net, "hole":"0.4mm", "diameter":"2mm",
+               "unused_layers":"remove","zone_connection":{"style":"solid"}}),
+        )["result"]["uuid"],
+    );
+    let z = zone(&mut engine, Some(net), rect(5.5, 4., 9., 6.), json!({}));
+    let layer = pcb(&engine).zone(z).unwrap().layer;
+    let has_land = |engine: &TestEngine| {
+        Copper::build(pcb(engine))
+            .items_at(layer, at(5., 5.))
+            .contains(&Item::Via { uuid: via })
+    };
+    assert!(has_land(&engine));
+    assert!(
+        filled(shapes(&fill(&engine), z), at(8., 5.)),
+        "the Zone connects through that edge"
+    );
+    engine.run_ok(
+        "pcb.zone_cutout.add",
+        json!({"layer":layer,"vertices":rect(4.,3.,6.1,7.)}),
+    );
+    assert!(!has_land(&engine));
+    assert!(shapes(&fill(&engine), z).is_empty());
+}

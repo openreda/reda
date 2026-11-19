@@ -29,7 +29,7 @@ impl UnusedLands {
                         pcb,
                         (layer.uuid, net),
                         &pad_shape(pad, layer.side),
-                        pad.at,
+                        pad.copper_center(),
                         ConnectionTarget::ThroughHole,
                         pad.zone_connection.as_ref(),
                     )
@@ -109,7 +109,20 @@ pub(super) fn pad_shape(pad: &PlacedPad, side: Option<Side>) -> Shape {
 #[derive(Default)]
 struct Connections {
     ends: BTreeMap<(Uuid, Uuid), RTree<P>>,
-    outlines: BTreeMap<(Uuid, Uuid), Vec<poly::Area>>,
+    outlines: BTreeMap<(Uuid, Uuid), Vec<ZoneOutline>>,
+}
+
+struct ZoneOutline {
+    area: poly::Area,
+    edges: Shape,
+    bounds: (P, P),
+}
+
+impl ZoneOutline {
+    fn covers(&self, land: &Shape, center: Point, bounds: (P, P)) -> bool {
+        poly::boxes_within(self.bounds, bounds, 0)
+            && (poly::inside(&self.area, center) || self.edges.touches(land))
+    }
 }
 
 impl Connections {
@@ -123,11 +136,17 @@ impl Connections {
             tree.insert([to.x.0, to.y.0]);
         }
         for zone in pcb.active_zones() {
-            if let Some(net) = zone.net {
+            let Some(net) = zone.net else { continue };
+            let area = fill::outline_area(pcb, zone);
+            if let Some(bounds) = poly::bounds(&area) {
                 out.outlines
                     .entry((zone.layer, net))
                     .or_default()
-                    .push(fill::outline_area(pcb, zone));
+                    .push(ZoneOutline {
+                        edges: poly::boundary(&area),
+                        bounds,
+                        area,
+                    });
             }
         }
         out
@@ -138,7 +157,7 @@ impl Connections {
         pcb: &PcbDocument,
         (layer, net): (Uuid, Uuid),
         land: &Shape,
-        anchor: Point,
+        center: Point,
         target: ConnectionTarget,
         own: Option<&ZoneConnection>,
     ) -> bool {
@@ -148,9 +167,11 @@ impl Connections {
         }) {
             return true;
         }
-        self.outlines
-            .get(&(layer, net))
-            .is_some_and(|zones| zones.iter().any(|area| poly::inside(area, anchor)))
+        let Some(zones) = self.outlines.get(&(layer, net)) else {
+            return false;
+        };
+        let bounds = land.bounds();
+        zones.iter().any(|zone| zone.covers(land, center, bounds))
             && crate::rules::zone_connection_on(pcb, Some(net), Some(layer), target, own).style
                 != ConnectionStyle::None
     }
