@@ -43,6 +43,8 @@ pub fn generic() -> FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
@@ -106,6 +108,8 @@ fn jlcpcb() -> FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(0),
@@ -181,6 +185,8 @@ fn pcbway() -> FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),

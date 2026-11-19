@@ -59,6 +59,30 @@ impl InnerFabRules {
     }
 }
 
+/// Published minimum and maximum dimensions for a laser-drilled hole or its land.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FabSizeLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<Nm>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<Nm>,
+}
+
+/// A Fab Preset's optional limits for laser drilling. Omitted values seed no limit.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MicroviaLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diameter: Option<FabSizeLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hole: Option<FabSizeLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<crate::AspectRatioLimit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_stack: Option<u8>,
+}
+
 /// A Fab Preset's design rules: flat limits with no scope, which a job compares the board
 /// with, and the preferred values a new board's routing starts from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -66,6 +90,10 @@ impl InnerFabRules {
 pub struct FabRules {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner: Option<InnerFabRules>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub microvia_size: Option<MicroviaLimits>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via_aspect_ratio: Option<crate::AspectRatioLimit>,
     pub clearance_hole: HoleClearance,
     /// Minimum clearance between copper of different Nets.
     pub clearance: Nm,

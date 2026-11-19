@@ -594,6 +594,9 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
     for (kind, seeds) in seed_rules(preset) {
         let board = &pcb.board_rule(kind).values;
         for field in seeds.set_fields() {
+            if field == RuleField::AspectRatioMax {
+                continue;
+            }
             let Some(to) = seeds.get(field) else {
                 continue;
             };
@@ -607,6 +610,47 @@ fn rule_changes(pcb: &PcbDocument, preset: &FabRules) -> Vec<RuleChange> {
                     layers: None,
                     limit: limits.iter().any(|l| l.0 == kind && l.1 == field),
                     ticked: !field.is_preferred(),
+                });
+            }
+        }
+    }
+    // Optional drilling limits also appear when applying a preset would clear them.
+    let laser = crate::board::microvia_seeds(preset);
+    let mechanical = reda_model::RuleValues {
+        aspect_ratio: preset.via_aspect_ratio,
+        ..Default::default()
+    };
+    for (kind, seeds, fields) in [
+        (
+            RuleKind::ViaSize,
+            mechanical,
+            &[RuleField::AspectRatioMax][..],
+        ),
+        (
+            RuleKind::MicroviaSize,
+            laser,
+            &[
+                RuleField::DiameterMin,
+                RuleField::DiameterMax,
+                RuleField::HoleMin,
+                RuleField::HoleMax,
+                RuleField::AspectRatioMax,
+                RuleField::MaxStack,
+            ][..],
+        ),
+    ] {
+        for &field in fields {
+            let board = pcb.board_rule(kind).values.get(field);
+            let to = seeds.get(field);
+            if board != to {
+                out.push(RuleChange {
+                    kind,
+                    field,
+                    board,
+                    preset: to,
+                    layers: None,
+                    limit: true,
+                    ticked: true,
                 });
             }
         }
