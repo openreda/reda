@@ -359,7 +359,63 @@ fn time_drc_after_a_track_edit() {
 
 #[test]
 fn six_layer_hdi_is_a_clean_six_layer_board() {
-    let (_work, mut engine) = open_copy("six_layer_hdi", "SixLayerHdi.reda");
+    check_clean_board("six_layer_hdi", "SixLayerHdi.reda", 6);
+}
+
+#[test]
+fn four_layer_is_clean_and_uses_the_signal_to_return_clearance() {
+    use reda_engine::model::{RuleKind, RuleScope, UnusedLayers, geom::Nm};
+    use reda_engine::pcb::rules::{clearance_between_on, net_rules_on};
+
+    check_clean_board("four_layer", "FourLayer.reda", 4);
+    let (_work, engine) = open_copy("four_layer", "FourLayer.reda");
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let net = |name| pcb.nets().find(|n| n.name == name).unwrap();
+    let signal = net("SIGNAL");
+    let ret = net("RETURN");
+    let mut classes = [
+        pcb.net_class_named("Signal").unwrap().uuid,
+        pcb.net_class_named("Return").unwrap().uuid,
+    ];
+    assert_eq!(signal.classes, [classes[0]]);
+    assert_eq!(ret.classes, [classes[1]]);
+    classes.sort();
+    assert!(
+        pcb.scoped_rule(
+            RuleKind::Clearance,
+            &RuleScope {
+                net_class_pair: Some(classes),
+                ..RuleScope::BOARD
+            }
+        )
+        .unwrap()
+        .enabled
+    );
+    assert!(
+        pcb.scoped_rule(RuleKind::TrackWidth, &RuleScope::INNER)
+            .unwrap()
+            .enabled
+    );
+    let layer = pcb.copper_layers().nth(1).unwrap().uuid;
+    let width = net_rules_on(pcb, Some(signal.uuid), Some(layer)).track_width;
+    assert_eq!(
+        (width.min, width.preferred),
+        (Some(Nm(150_000)), Nm(250_000))
+    );
+    assert_eq!(
+        clearance_between_on(pcb, Some(signal.uuid), Some(ret.uuid), Some(layer)),
+        Some(Nm(250_000))
+    );
+    assert_eq!(pcb.stackup().via_types.len(), 1);
+    assert_eq!(pcb.vias().count(), 2);
+    for via in pcb.vias() {
+        assert_eq!(via.span, pcb.stackup().through_type().span());
+        assert_eq!(via.unused_layers, UnusedLayers::Remove);
+    }
+}
+
+fn check_clean_board(name: &str, file: &str, expected_layers: usize) {
+    let (_work, mut engine) = open_copy(name, file);
     assert_eq!(
         engine
             .project()
@@ -368,7 +424,7 @@ fn six_layer_hdi_is_a_clean_six_layer_board() {
             .unwrap()
             .copper_layers()
             .count(),
-        6
+        expected_layers
     );
     for check in ["erc.run", "drc.run"] {
         let report = engine.run_ok(check, json!({}));
