@@ -677,3 +677,58 @@ fn a_track_from_a_removed_land_takes_its_owners_net_and_brings_the_land_back() {
     assert!(!copper.unused_lands().contains(item, inner));
     assert!(copper.items_at(inner, centre).contains(&item));
 }
+
+#[test]
+fn stacked_micro_vias_keep_the_lands_they_join_on() {
+    use reda_model::geom::{Nm, Point};
+    let dir = TempDir::new("copper-stacked-micro-vias");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4,"board":{"width":"20mm","height":"20mm"}}),
+    );
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let document = pcb.uuid;
+    let l: Vec<_> = pcb.copper_layers().map(|l| l.uuid).collect();
+    let net = uuid(&e.run_ok("test.net.add", json!({"name":"HDI"}))["result"]["uuid"]);
+    let mut f = Follower::new(&e);
+    let mut vias = Vec::new();
+    for (from, to) in [(l[0], l[1]), (l[1], l[2])] {
+        f.edit(
+            &mut e,
+            "pcb.via_type.add",
+            json!({"document":document,"from":from,"to":to,"micro":true,
+            "hole":"0.1mm","diameter":"0.3mm"}),
+        );
+        vias.push(uuid(
+            &f.edit(
+                &mut e,
+                "pcb.via.add",
+                json!({"at":{"x":"5mm","y":"5mm"},"from":from,"to":to,"net":net,
+                "unused_layers":"remove"}),
+            )["result"]["uuid"],
+        ));
+    }
+    for (layer, x) in [(l[0], "8mm"), (l[2], "2mm")] {
+        f.edit(
+            &mut e,
+            "pcb.track.add",
+            json!({"layer":layer,"net":net,"points":[{"x":"5mm","y":"5mm"},{"x":x,"y":"5mm"}]}),
+        );
+    }
+    let at = Point::new(Nm::from_mm(5), Nm::from_mm(5));
+    for via in &vias {
+        assert!(
+            f.copper
+                .items_at(l[1], at)
+                .contains(&Item::Via { uuid: *via }),
+            "a Via stacked end to end on another keeps its land where they join"
+        );
+    }
+    f.edit(&mut e, "pcb.via.delete", json!({"vias":[vias[1]]}));
+    assert!(
+        f.copper
+            .unused_lands()
+            .contains(Item::Via { uuid: vias[0] }, l[1])
+    );
+}
