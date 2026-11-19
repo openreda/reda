@@ -23,6 +23,9 @@ pub enum Target {
 #[serde(deny_unknown_fields)]
 pub struct Params {
     pub document: Uuid,
+    /// Apply to changed locked objects too. A matching mode needs no edit.
+    #[serde(default)]
+    pub include_locked: bool,
     /// Omit for the whole board. An empty selection changes nothing.
     pub objects: Option<BTreeSet<Target>>,
     /// Through-hole Pads support keep or remove. Their two solder lands always stay.
@@ -148,6 +151,11 @@ impl Command for Set {
                 counts.vias += 1;
             }
         }
+        let owners = replacements
+            .iter()
+            .map(Object::uuid)
+            .chain(footprints.iter().map(|(id, _)| *id));
+        reda_pcb::lock::refuse(pcb, owners, p.include_locked, "change unused copper on")?;
         for object in replacements {
             cx.tx()?.replace(object)?;
         }

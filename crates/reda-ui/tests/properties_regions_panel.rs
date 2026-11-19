@@ -320,17 +320,21 @@ fn mixed_via_land_modes_edit_together_and_the_tools_dialog_can_include_the_whole
     assert_eq!(id, "pcb.unused_layers.set");
     assert_eq!(p["objects"], json!([a, b]));
     assert_eq!(p["vias"], "remove_keep_ends");
+    run(&mut h, "pcb.lock", json!({"objects":[c],"locked":true}));
     h.get_by_label("Tools").click();
     h.run();
     h.get_by_label("Set Unused Copper…").click();
     h.run();
     h.get_by_label("Whole board").click();
     h.run();
+    h.get_by_label("Include locked objects").click();
+    h.run();
     h.get_by_role_and_label(Role::Button, "Apply").click();
     h.run();
     let (id, p) = last_entry(&h);
     assert_eq!(id, "pcb.unused_layers.set");
     assert!(p.get("objects").is_none());
+    assert_eq!(p["include_locked"], true);
     assert_eq!(p["vias"], "remove");
     let project = h.state().shell().engine().project().unwrap();
     for uuid in [a, b, c] {

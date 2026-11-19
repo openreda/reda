@@ -3192,6 +3192,7 @@ plane-create-zone = Create Zone
 rule-via-hole-clearance = Via hole clearance
 rule-pad-hole-clearance = Plated Pad hole clearance
 unused-lands-title = Set Unused Copper…
+unused-lands-include-locked = Include locked objects
 unused-lands-board = Whole board
 unused-lands-selection = Selection
 unused-lands-pads = Unconnected Pad lands

@@ -839,3 +839,41 @@ fn unused_copper_edits_only_the_requested_instances_pads_and_vias_in_one_undo_st
     assert_eq!(bad.code, ErrorCode::InvalidParams);
     assert!(query(&mut engine, "via")[0].get("unused_layers").is_none());
 }
+
+#[test]
+fn locked_lands_refuse_the_whole_edit_and_allow_an_explicit_override() {
+    let dir = TempDir::new("locked-unused");
+    let mut e = board(&dir, 0);
+    let via = e.run_ok("pcb.via.add", json!({"at":{"x":0,"y":0}}))["result"]["uuid"].clone();
+    let free = e.run_ok(
+        "pcb.free_pad.add",
+        json!({"kind":"plated_through_hole","at":{"x":"4mm","y":0},
+        "width":"2mm","hole":{"width":"0.8mm"}}),
+    )["result"]["uuid"]
+        .clone();
+    e.run_ok("pcb.lock", json!({"objects":[via],"locked":true}));
+    let mut change = json!({"document":PCB,"objects":[free,via],"pads":"remove","vias":"remove"});
+    assert_eq!(
+        e.run_err("pcb.unused_layers.set", change.clone()).code,
+        ErrorCode::Rejected
+    );
+    assert!(query(&mut e, "free_pad")[0].get("unused_layers").is_none());
+    assert!(query(&mut e, "via")[0].get("unused_layers").is_none());
+    let same = e.run_ok(
+        "pcb.unused_layers.set",
+        json!({"document":PCB,"vias":"keep"}),
+    );
+    assert_eq!(same["result"]["vias"], 0);
+    assert_eq!(
+        e.run_err(
+            "pcb.via.set",
+            json!({"vias":[via],"unused_layers":"remove"})
+        )
+        .code,
+        ErrorCode::Rejected
+    );
+    change["include_locked"] = json!(true);
+    let changed = e.run_ok("pcb.unused_layers.set", change);
+    assert_eq!(changed["result"], json!({"pads":1,"vias":1}));
+    assert_eq!(query(&mut e, "via")[0]["locked"], true);
+}

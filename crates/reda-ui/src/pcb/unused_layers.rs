@@ -175,12 +175,37 @@ pub(crate) fn register(dialogs: &mut Dialogs) {
     dialogs.register(COMMAND, |shell, _| {
         let board = shell.engine().project().and_then(|p| p.pcb());
         let targets = board
-            .map(|b| Selected::on(b, shell.selection()).targets())
+            .map(|b| {
+                Selected::on(b, shell.selection())
+                    .targets()
+                    .into_iter()
+                    .collect::<BTreeSet<_>>()
+            })
+            .unwrap_or_default();
+        let locked = board
+            .map(|b| {
+                let ids = b
+                    .vias()
+                    .filter(|v| v.locked)
+                    .map(|v| v.uuid)
+                    .chain(b.free_pads().filter(|p| p.locked).map(|p| p.uuid))
+                    .chain(b.footprints().filter(|f| f.locked).map(|f| f.uuid))
+                    .collect();
+                Selected::on(
+                    b,
+                    &Selection {
+                        objects: ids,
+                        ..Default::default()
+                    },
+                )
+            })
             .unwrap_or_default();
         Box::new(Bulk {
             document: board.map(|b| b.uuid),
             selection: !targets.is_empty(),
             targets,
+            locked,
+            include_locked: false,
             pads: Some(UnusedLayers::Remove),
             vias: Some(UnusedLayers::Remove),
             error: None,
@@ -190,7 +215,9 @@ pub(crate) fn register(dialogs: &mut Dialogs) {
 
 struct Bulk {
     document: Option<Uuid>,
-    targets: Vec<Target>,
+    targets: BTreeSet<Target>,
+    locked: Selected,
+    include_locked: bool,
     selection: bool,
     pads: Option<UnusedLayers>,
     vias: Option<UnusedLayers>,
@@ -245,6 +272,24 @@ impl ParamsDialog for Bulk {
                     });
                 }
             });
+            let changes_locked = [
+                (&self.locked.pads, self.pads),
+                (&self.locked.vias, self.vias),
+            ]
+            .into_iter()
+            .any(|(locked, mode)| {
+                mode.is_some_and(|mode| {
+                    locked.iter().any(|(target, old)| {
+                        mode != *old && (!self.selection || self.targets.contains(target))
+                    })
+                })
+            });
+            if changes_locked {
+                ui.add(widgets::checkbox(
+                    &mut self.include_locked,
+                    tr!("unused-lands-include-locked"),
+                ));
+            }
             if let Some(error) = &self.error {
                 crate::settings::layout::error(ui, error);
             }
@@ -265,6 +310,9 @@ impl ParamsDialog for Bulk {
                     }
                     if self.selection {
                         params["objects"] = json!(self.targets);
+                    }
+                    if changes_locked && self.include_locked {
+                        params["include_locked"] = json!(true);
                     }
                     outcome = Outcome::Run(params);
                 }

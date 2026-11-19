@@ -53235,6 +53235,11 @@
             ],
             "description": "`null` removes the hole."
           },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Footprint's unused Pad copper to be changed.",
+            "type": "boolean"
+          },
           "instance": {
             "description": "The placed Footprint instance.",
             "format": "uuid",
@@ -63910,6 +63915,11 @@
             "format": "uuid",
             "type": "string"
           },
+          "include_locked": {
+            "default": false,
+            "description": "Apply to changed locked objects too. A matching mode needs no edit.",
+            "type": "boolean"
+          },
           "objects": {
             "description": "Omit for the whole board. An empty selection changes nothing.",
             "items": {
@@ -64641,6 +64651,11 @@
             ],
             "default": null,
             "description": "The drilled hole."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Via's unused copper to be changed.",
+            "type": "boolean"
           },
           "mask": {
             "anyOf": [

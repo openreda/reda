@@ -170,6 +170,9 @@ pub struct PcbPadEditParams {
     #[serde(default, deserialize_with = "present")]
     pub bottom: Option<Option<reda_command::PadCopperParam>>,
     pub unused_layers: Option<reda_model::UnusedLayers>,
+    /// Allow a locked Footprint's unused Pad copper to be changed.
+    #[serde(default)]
+    pub include_locked: bool,
     /// `null` returns a rounded rectangle to the default ratio.
     #[serde(default, deserialize_with = "present")]
     pub corner_ratio: Option<Option<RatioParam>>,
@@ -243,6 +246,16 @@ impl Command for PcbPadEdit {
                     instance.designator, p.pad
                 ))
             })?;
+        if p.unused_layers
+            .is_some_and(|mode| mode != footprint.pads[index].unused_layers)
+        {
+            reda_pcb::lock::refuse(
+                pcb,
+                [instance.uuid],
+                p.include_locked,
+                "change unused copper on",
+            )?;
+        }
         let patch = PadPatch {
             kind: p.kind,
             shape: p.shape,
