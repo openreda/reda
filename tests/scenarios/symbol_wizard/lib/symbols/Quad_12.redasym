@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-000000000035","name":"Quad_12","designator_prefix":"U"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-000000000036","name":"A"}

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"e2a20189-4b01-467b-a2c0-1e5ddd811319","name":"Capacitor","designator_prefix":"C","description":"Capacitor"},
   "units": [
     {"uuid":"5066b805-cd8b-4a7e-9d84-c514cbd67273","name":"A"}

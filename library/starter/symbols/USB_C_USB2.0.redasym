@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"24e98ca8-cb3a-4783-8160-ba8b5b9c5e39","name":"USB_C_USB2.0","designator_prefix":"J","description":"USB 2.0 Type-C receptacle"},
   "units": [
     {"uuid":"9919a2a8-f6a2-464d-b4cf-570a33905f82","name":"A"}

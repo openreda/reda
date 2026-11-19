@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "part": {"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},
   "footprints": [
     "cece716c-4fd0-42c8-900c-0f3bc3c14225",

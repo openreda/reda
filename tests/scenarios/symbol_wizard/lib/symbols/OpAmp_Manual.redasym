@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-00000000005c","name":"OpAmp_Manual","designator_prefix":"U"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-00000000005d","name":"A"},

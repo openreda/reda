@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"fdb702da-85e5-4425-9155-369e83063697","name":"PNP","designator_prefix":"Q","description":"PNP bipolar transistor"},
   "units": [
     {"uuid":"05b0a8ec-fa5e-4d75-81e1-2dcf254d0dba","name":"A"}

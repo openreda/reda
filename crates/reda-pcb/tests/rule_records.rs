@@ -59,7 +59,8 @@ fn a_new_board_has_one_board_wide_record_per_kind_seeded_from_the_preset() {
         (Some(um(200)), Some(um(250)), None)
     );
     let via = pcb.board_rule(RuleKind::ViaSize).values;
-    assert_eq!(via.diameter.unwrap().preferred, Some(um(700)));
+    assert_eq!(via.diameter.unwrap().preferred, None);
+    assert_eq!(pcb.stackup().through_type().diameter.start, um(700));
     assert_eq!(via.hole.unwrap().min, Some(um(300)));
     let holes = pcb.board_rule(RuleKind::HoleSize).values;
     assert_eq!((holes.min, holes.max), (Some(um(500)), Some(um(6300))));
@@ -81,7 +82,7 @@ fn new_tracks_and_vias_take_the_preferred_size() {
     assert_eq!(pcb(&engine).track(track).unwrap().width, um(250));
     let out = engine.run_ok("pcb.via.add", json!({"at": {"x": "10mm", "y": "0mm"}}));
     let via = pcb(&engine).via(uuid(&out)).unwrap().clone();
-    assert_eq!((via.diameter, via.hole), (um(700), um(300)));
+    assert_eq!((via.diameter.start, via.hole), (um(700), um(300)));
 }
 
 #[test]

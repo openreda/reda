@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"8cef86d0-5480-4597-8542-ac0c2cbd9774","name":"MountingHole_M3_Pad","description":"Mounting hole for M3, 3.2 mm plated, 5.5 mm copper ring. Hole per ISO 273 fine, head per ISO 4762","height":3000000},
   "pads": [
     {"uuid":"2006a74a-2b8a-4eb2-bf0f-eb2847ea7dfd","number":"1","kind":"plated_through_hole","shape":"circle","at":{"x":0,"y":0},"rotation":0,"width":5500000,"height":5500000,"hole":{"width":3200000,"height":3200000}}

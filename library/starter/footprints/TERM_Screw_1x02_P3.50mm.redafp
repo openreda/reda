@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"df89425e-24b7-466d-a207-2644c9443b67","name":"TERM_Screw_1x02_P3.50mm","description":"Screw terminal block, 2 positions, 3.5 mm pitch. Per Würth Elektronik 691214110002 datasheet","height":8500000},
   "pads": [
     {"uuid":"2928f8e3-5d42-4aee-b758-827095b66f92","number":"1","kind":"plated_through_hole","shape":"rect","at":{"x":-1750000,"y":300000},"rotation":0,"width":2300000,"height":2300000,"hole":{"width":1300000,"height":1300000}},

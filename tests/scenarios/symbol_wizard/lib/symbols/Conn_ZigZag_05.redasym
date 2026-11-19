@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-00000000004d","name":"Conn_ZigZag_05","designator_prefix":"J"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-00000000004e","name":"A"}
