@@ -12,7 +12,7 @@ use reda_model::geom::{Nm, Point};
 use reda_model::{FillShape, Uuid, ZoneFill, ZoneFills};
 
 const MAGIC: &[u8; 8] = b"REDAFILL";
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 /// The cache bytes of `fills`.
 pub fn encode(fills: &ZoneFills) -> Vec<u8> {
@@ -36,13 +36,21 @@ pub fn encode(fills: &ZoneFills) -> Vec<u8> {
             }
         }
     }
+    // A length-delimited extension keeps version 2 Zone-only caches readable.
+    let drops = serde_json::to_vec(&fills.teardrops).expect("derived copper serializes");
+    put_u32(&mut out, drops.len() as u32);
+    out.extend_from_slice(&drops);
     out
 }
 
 /// The fills in cache bytes, or `None` when they are not a cache this REDA wrote.
 pub fn decode(bytes: &[u8]) -> Option<ZoneFills> {
     let mut r = Reader { bytes, at: 0 };
-    if r.take(8)? != MAGIC || r.u32()? != VERSION {
+    if r.take(8)? != MAGIC {
+        return None;
+    }
+    let version = r.u32()?;
+    if !(2..=VERSION).contains(&version) {
         return None;
     }
     let mut zones = BTreeMap::new();
@@ -75,7 +83,13 @@ pub fn decode(bytes: &[u8]) -> Option<ZoneFills> {
         }
         zones.insert(uuid, ZoneFill { inputs, shapes });
     }
-    (r.left() == 0).then_some(ZoneFills { zones })
+    let teardrops = if version >= 3 {
+        let size = r.u32()? as usize;
+        serde_json::from_slice(r.take(size)?).ok()?
+    } else {
+        Vec::new()
+    };
+    (r.left() == 0).then_some(ZoneFills { zones, teardrops })
 }
 
 fn put_u32(out: &mut Vec<u8>, v: u32) {

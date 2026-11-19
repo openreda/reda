@@ -69,6 +69,7 @@ pub struct ZoneFillResult {
     /// Whether the fills were written to the `.reda/` cache (not when the Project has no
     /// folder or the write failed).
     pub cached: bool,
+    pub teardrops: reda_pcb::teardrop::TeardropStatus,
 }
 
 impl Command for ZoneFill {
@@ -152,9 +153,10 @@ impl Command for ZoneFill {
                 .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
                 && write_atomic(&path, &reda_pcb::zone::encode(&fills)).is_ok()
         });
+        let teardrops = reda_pcb::teardrop::status(Some(&fills));
         if let Some(project) = session.project.as_mut() {
             project.set_zone_fills(pcb.uuid, Some(fills));
         }
-        Ok(ZoneFillResult { zones, cached })
+        Ok(ZoneFillResult { zones, cached, teardrops })
     }
 }

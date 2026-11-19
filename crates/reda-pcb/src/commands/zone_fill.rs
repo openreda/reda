@@ -15,6 +15,7 @@ use crate::zone::{self, FillState, FillStatus};
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(FillStatusQuery);
     registry.add(Fills);
+    registry.add(TeardropStatusQuery);
 }
 
 pub struct FillStatusQuery;
@@ -122,5 +123,35 @@ impl Command for Fills {
             })
             .collect();
         Ok(FillsResult { zones })
+    }
+}
+
+pub struct TeardropStatusQuery;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropStatusParams {
+    #[serde(default)]
+    pub document: Option<Uuid>,
+}
+
+impl Command for TeardropStatusQuery {
+    const META: Meta = Meta {
+        id: "pcb.teardrop.status",
+        title: "Teardrop Status",
+        description: "Counts generated, shortened and left-out Teardrops from the last fill, and lists the shortened and left-out junctions.",
+        category: "pcb",
+        icon: "zone_fill",
+        kind: Kind::Query,
+    };
+    type Params = TeardropStatusParams;
+    type Output = crate::teardrop::TeardropStatus;
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> { needs_pcb(cx) }
+    fn run(&self,cx: &mut Context<'_>,p: Self::Params) -> Result<Self::Output,CommandError> {
+        let board = pcb(cx)?;
+        if p.document.is_some_and(|doc| doc != board.uuid) {
+            return Err(CommandError::invalid_params("/document","unknown PCB Document"));
+        }
+        Ok(crate::teardrop::status(cx.project()?.zone_fills(board.uuid)))
     }
 }

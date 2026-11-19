@@ -127,6 +127,7 @@ pub fn refill_with_fonts(
     fonts: &Fonts,
     step: &mut dyn FnMut(usize, usize) -> bool,
 ) -> Option<ZoneFills> {
+    let (teardrops, _) = crate::teardrop::update(pcb, stored, fonts, true);
     let hashes = input_hashes_with_fonts(pcb, fonts);
     let forced = only.map(|only| dependents(pcb, only));
     let current = |zone: &Zone| {
@@ -138,7 +139,12 @@ pub fn refill_with_fonts(
     };
     let zones = fill_order(pcb);
     let total = zones.iter().filter(|z| current(z).is_none()).count();
-    let copper = (total > 0).then(|| Copper::build_with_fonts(pcb, fonts));
+    let mut fills = ZoneFills { teardrops, zones: BTreeMap::new() };
+    let copper = (total > 0).then(|| {
+        let mut copper = Copper::build_with_fonts(pcb, fonts);
+        copper.set_zone_fills(pcb, Some(&fills));
+        copper
+    });
     let holes = if total > 0 {
         crate::drill::holes(pcb)
     } else {
@@ -183,7 +189,8 @@ pub fn refill_with_fonts(
     if !step(total, total) {
         return None;
     }
-    Some(ZoneFills { zones: out })
+    fills.zones = out;
+    Some(fills)
 }
 
 /// Each Zone's input hash, by UUID: everything its fill depends on. That is the Zone
@@ -273,6 +280,8 @@ pub struct FillStatus {
     /// Whether the status bar should say "Zones need refilling": some Zone has no fill
     /// yet or has changed inputs since it was filled.
     pub needs_refill: bool,
+    /// Junctions added, changed or removed since the last fill.
+    pub stale_teardrops: usize,
     /// Every Zone, sorted by UUID.
     pub zones: Vec<ZoneStatus>,
 }
@@ -326,8 +335,10 @@ pub fn status_with_fonts(
             }
         })
         .collect();
+    let (_, stale_teardrops) = crate::teardrop::update(pcb, fills, fonts, false);
     FillStatus {
-        needs_refill: zones
+        stale_teardrops,
+        needs_refill: stale_teardrops > 0 || zones
             .iter()
             .any(|z| matches!(z.state, FillState::Stale | FillState::Unfilled)),
         zones,

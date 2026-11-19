@@ -294,6 +294,9 @@ pub struct FillShape {
 pub struct ZoneFills {
     /// Each Zone's fill, by Zone UUID.
     pub zones: BTreeMap<Uuid, ZoneFill>,
+    /// Derived junctions in deterministic Track and target order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub teardrops: Vec<TeardropFill>,
 }
 
 /// One Zone's fill and the hash of what it depends on.
@@ -303,5 +306,26 @@ pub struct ZoneFill {
     /// The hash of everything this Zone's fill depends on.
     pub inputs: String,
     /// The pieces of fill; empty for a Zone with nothing left to fill.
+    pub shapes: Vec<FillShape>,
+}
+
+/// A junction on a Track, shared by cache entries and Board Setup's jump list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropLocation {
+    pub track: Uuid,
+    pub target: Uuid,
+    pub layer: Uuid,
+    pub at: Point,
+}
+
+/// Generated copper and the local inputs used to produce it. An empty set of
+/// shapes records a junction left out because it had no room.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TeardropFill {
+    pub location: TeardropLocation,
+    pub inputs: String,
+    pub shortened: bool,
     pub shapes: Vec<FillShape>,
 }

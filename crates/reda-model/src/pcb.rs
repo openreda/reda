@@ -49,7 +49,7 @@ pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbTe
 
 pub use zone::{
     FillShape, Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, PourOver, Restriction, Zone,
-    ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    ZoneCutout, ZoneFill, ZoneFills, TeardropFill, TeardropLocation, ZoneNameScheme,
 };
 
 /// Which face of the board a sided Layer is on.
