@@ -17,7 +17,7 @@ pub(super) fn table(ui: &mut Ui, pcb: &PcbDocument, view: &mut View, edits: &mut
     let through = stack.through_type().uuid;
     strong(ui, tr!("via-types"));
     widgets::table("via-types")
-        .width(ui.available_width().max(t.size.of(502.0)))
+        .width(ui.available_width().max(t.size.of(super::TABLE_WIDTH)))
         .columns([
             Column::fill(),
             Column::fixed(t.size.of(140.0)),
