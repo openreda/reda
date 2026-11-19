@@ -333,6 +333,35 @@ impl Shell {
                 saved.units = Some(old.units);
             }
         }
+        if let Some(pcb) = self.engine.project().and_then(|p| p.pcb())
+            && !self
+                .board_view()
+                .layers
+                .copper_order
+                .iter()
+                .copied()
+                .eq(pcb.copper_layers().map(|l| l.uuid))
+        {
+            let current = pcb.copper_layers().map(|l| l.uuid).collect();
+            let mut sets = self
+                .engine
+                .user_dirs()
+                .map(|dirs| preferences::current(Some(dirs)).pcb.view.layer_sets)
+                .unwrap_or_default();
+            let before = sets.clone();
+            self.board_view_mut()
+                .update_copper_order(current, &mut sets);
+            if before != sets
+                && let Some(dirs) = self.engine.user_dirs()
+            {
+                match preferences::set(dirs, "pcb.view.layer_sets", json!(sets)) {
+                    Ok(_) => {
+                        self.reload_preferences();
+                    }
+                    Err(e) => self.set_note(e.message),
+                }
+            }
+        }
         let Some(pcb) = document else { return };
         let layers = self.board_view().layers.clone();
         if self.document_tab(pcb).is_some_and(|t| t.layers != layers) {

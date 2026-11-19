@@ -43,7 +43,7 @@ fn adding_splits_the_selected_material_and_preserves_the_outer_copper() {
     let counts = preview(&mut e, "pcb.layer.add", params.clone());
     assert_eq!(counts["via_types_changed"], 1);
     assert_eq!(copper(&e), original);
-    e.run_ok("pcb.layer.add", params);
+    let added = e.run_ok("pcb.layer.add", params);
     assert_eq!(copper(&e), [original[0], new, original[1]]);
     let stack = pcb(&e).stackup();
     let halves: Vec<_> = stack
@@ -53,6 +53,10 @@ fn adding_splits_the_selected_material_and_preserves_the_outer_copper() {
     assert_eq!(halves, [(Some("FR408"), 250000), (Some("FR408"), 250001)]);
     assert_eq!(stack.copper_of(new).unwrap().thickness.0, 35000);
     assert_eq!(stack.dielectrics().next().unwrap().uuid, sheet);
+    assert_eq!(
+        added["result"]["dielectric"],
+        json!(stack.dielectrics().nth(1).unwrap().uuid)
+    );
     assert_eq!(pcb(&e).layers().layer(new).unwrap().name, None);
     e.run_ok("edit.undo", json!({"document":doc}));
     assert_eq!(copper(&e), original);
@@ -103,16 +107,30 @@ fn removing_an_endpoint_repairs_copper_types_allowed_lists_and_named_rules_in_on
         "pcb.graphic.add_line",
         json!({"layer":l[2],"from":{"x":0,"y":0},"to":{"x":1000000,"y":0},"width":200000}),
     ));
+    let pts = json!([{"x":0,"y":0},{"x":3000000,"y":0},{"x":3000000,"y":3000000}]);
+    e.run_ok(
+        "pcb.track.add",
+        json!({"layer":l[2],"width":200000,"points":pts}),
+    );
+    e.run_ok("pcb.zone.add", json!({"layer":l[2],"vertices":pts}));
+    e.run_ok(
+        "pcb.text.add",
+        json!({"layer":l[2],"x":0,"y":0,"text":"Ground"}),
+    );
     let bytes = saved(&mut e, &dir);
     let params = json!({"layer":l[2]});
     let counts = preview(&mut e, "pcb.layer.remove", params.clone());
-    assert_eq!(counts["objects_deleted"], json!({"graphic":1}));
+    assert_eq!(
+        counts["objects_deleted"],
+        json!({"graphic":1,"track":2,"zone":1,"text":1})
+    );
     assert_eq!(counts["vias_shortened"], 1);
     assert_eq!(counts["vias_deleted"], 1);
     assert_eq!(counts["via_types_removed"], 2);
     assert_eq!(counts["rules_changed"], 3);
     assert_eq!(counts["rules_removed"], 1);
     assert_eq!(counts["allowed_lists_emptied"], 1);
+    assert_eq!(counts["classes_allowing_all"], json!(["Power"]));
     e.run_ok("pcb.layer.remove", params);
     let p = pcb(&e);
     assert!(p.graphic(line).is_none());
@@ -294,4 +312,50 @@ proptest! {
         for _ in 0..edits {e.run_ok("edit.undo",json!({"document":doc}));}
         prop_assert_eq!(saved(&mut e,&dir),original);
     }
+}
+
+#[test]
+fn removal_joins_the_two_neighbouring_sheets_at_their_physical_thickness() {
+    let dir = TempDir::new("layer-join");
+    let mut e = board(&dir, 4);
+    let l = copper(&e);
+    let d = pcb(&e)
+        .stackup()
+        .dielectrics()
+        .map(|d| d.uuid)
+        .collect::<Vec<_>>();
+    e.run_ok("pcb.stackup.set",json!({"dielectrics":[{"uuid":d[0],"thickness":500000,"material":"Glass"},{"uuid":d[1],"thickness":null},{"uuid":d[2],"thickness":null}]}));
+    let doc = pcb(&e).uuid;
+    e.run_ok("pcb.layer.remove", json!({"layer":l[1]}));
+    let stack = pcb(&e).stackup();
+    let merged = stack.dielectrics().next().unwrap();
+    assert_eq!(merged.uuid, d[0]);
+    assert_eq!(merged.material.as_deref(), Some("Glass"));
+    assert_eq!(stack.info().entries[1].thickness, 980000.);
+    assert_eq!(stack.info().entries[3].thickness, 480000.);
+    assert_eq!(stack.totals().total.0, 1565000);
+    e.run_ok("edit.undo", json!({"document":doc}));
+    assert!(
+        pcb(&e)
+            .stackup()
+            .dielectrics()
+            .nth(1)
+            .unwrap()
+            .thickness
+            .is_none()
+    );
+}
+
+#[test]
+fn previewing_an_unassigned_layer_does_not_reserve_or_reuse_an_existing_id() {
+    let dir = TempDir::new("layer-preview-id");
+    let mut e = board(&dir, 2);
+    let doc = pcb(&e).uuid;
+    e.run_ok(
+        "pcb.layer.add",
+        json!({"document":doc,"uuid":doc.child("preview-copper")}),
+    );
+    let counts = preview(&mut e, "pcb.layer.add", json!({"document":doc}));
+    assert_eq!(counts["via_types_changed"], 1);
+    assert_eq!(copper(&e).len(), 3);
 }

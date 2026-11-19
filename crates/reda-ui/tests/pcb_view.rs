@@ -586,3 +586,40 @@ fn removing_active_or_previous_copper_repairs_the_view_once() {
     run(&mut b.shell, "pcb.layer.remove", json!({"layer":layers[2]}));
     assert_eq!(b.shell.board_view().layers.previous, Some(layers[0]));
 }
+
+#[test]
+fn reopening_after_a_headless_removal_finds_the_active_layers_surviving_neighbour() {
+    let mut b = board();
+    let doc = b.pcb;
+    for _ in 0..3 {
+        run(&mut b.shell, "pcb.layer.add", json!({"document":doc}));
+    }
+    let l: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(&mut b.shell, "pcb.layer.activate", json!({"layer":l[3]}));
+    run(&mut b.shell, "pcb.layer.pin", json!({"layer":l[3]}));
+    run(&mut b.shell, "project.save", json!({}));
+    b.shell.save_view();
+
+    let mut script = engine_in(b._home.path());
+    script
+        .run("project.open", json!({"path":b.project}))
+        .unwrap();
+    script
+        .run("pcb.layer.remove", json!({"layer":l[3]}))
+        .unwrap();
+    script.run("project.save", json!({})).unwrap();
+    let mut reopened = Shell::new(engine_in(b._home.path()));
+    reopened.open_project(&b.project).unwrap();
+    let view = &reopened.board_view().layers;
+    assert_eq!(view.active, Some(l[2]));
+    assert!(!view.pinned.contains(&l[3]));
+}

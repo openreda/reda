@@ -6,9 +6,9 @@ use reda_model::{
     Stackup, StackupEntry, Transaction, Uuid,
 };
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use super::{Created, needs_pcb, stackup::preview::Counts};
+use super::{needs_pcb, stackup::preview::Counts};
 
 pub(crate) struct Plan {
     document: Uuid,
@@ -66,6 +66,13 @@ pub struct AddParams {
     pub uuid: Option<Uuid>,
 }
 
+#[derive(Serialize, JsonSchema)]
+pub struct AddedLayer {
+    pub uuid: Uuid,
+    /// New sheet below the inserted Layer. The upper sheet keeps its UUID.
+    pub dielectric: Uuid,
+}
+
 pub(super) struct Add;
 impl Command for Add {
     const META: Meta = Meta {
@@ -77,14 +84,17 @@ impl Command for Add {
         kind: Kind::Edit,
     };
     type Params = AddParams;
-    type Output = Created;
+    type Output = AddedLayer;
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
     }
-    fn run(&self, cx: &mut Context<'_>, p: AddParams) -> Result<Created, CommandError> {
+    fn run(&self, cx: &mut Context<'_>, p: AddParams) -> Result<AddedLayer, CommandError> {
         let uuid = p.uuid.unwrap_or_else(|| cx.new_id());
-        add_plan(cx.project()?, p.document, p.split, uuid)?.apply(cx.tx()?)?;
-        Ok(Created { uuid })
+        add_plan(cx.project()?, p.document, p.split, Some(uuid))?.apply(cx.tx()?)?;
+        Ok(AddedLayer {
+            uuid,
+            dielectric: uuid.child("dielectric"),
+        })
     }
 }
 
@@ -92,7 +102,7 @@ pub(crate) fn add_plan(
     project: &Project,
     document: Uuid,
     split: Option<Uuid>,
-    uuid: Uuid,
+    uuid: Option<Uuid>,
 ) -> Result<Plan, CommandError> {
     let pcb = project
         .pcb_document(document)
@@ -105,19 +115,30 @@ pub(crate) fn add_plan(
             "the board already has 32 copper Layers",
         ));
     }
-    let lower = uuid.child("dielectric");
-    for id in [uuid, lower] {
-        if project.object(id).is_some()
-            || pcb.layers().layer(id).is_some()
-            || stack.entries.iter().any(|e| e.uuid() == id)
-            || stack.via_types.iter().any(|t| t.uuid == id)
-        {
+    let available = |uuid: Uuid| {
+        [uuid, uuid.child("dielectric")].into_iter().all(|id| {
+            project.object(id).is_none()
+                && pcb.layers().layer(id).is_none()
+                && !stack.dielectrics().any(|sheet| sheet.uuid == id)
+                && !stack.via_types.iter().any(|kind| kind.uuid == id)
+        })
+    };
+    let uuid = match uuid {
+        Some(id) if available(id) => id,
+        Some(_) => {
             return Err(CommandError::invalid_params(
                 "/uuid",
                 "that UUID is already in use",
             ));
         }
-    }
+        // A preview with an unspecified UUID must neither reserve an identity nor
+        // reject an otherwise valid edit because its placeholder is in use.
+        None => (0..)
+            .map(Uuid::from_u128)
+            .find(|id| available(*id))
+            .unwrap(),
+    };
+    let lower = uuid.child("dielectric");
     let index = match split {
         Some(id) => stack
             .entries
@@ -163,7 +184,12 @@ pub(crate) fn add_plan(
 
     // Capture the physical sizes before adding copper. Otherwise the target thickness
     // would silently absorb the new copper by shrinking the remaining blank sheets.
-    resolve_blanks(stack)?;
+    resolve_blanks(stack);
+    if stack.dielectrics().any(|d| d.thickness.is_none()) {
+        return Err(CommandError::rejected(
+            "give the blank dielectric sheets a positive physical thickness first",
+        ));
+    }
     let StackupEntry::Dielectric(upper) = &mut stack.entries[index] else {
         unreachable!()
     };
@@ -212,30 +238,25 @@ pub(crate) fn add_plan(
 }
 
 /// Store equal shares to whole nanometres, distributing the remainder from the top.
-fn resolve_blanks(stack: &mut Stackup) -> Result<(), CommandError> {
+fn resolve_blanks(stack: &mut Stackup) {
     let Some(total) = stack.totals().remainder else {
-        return Ok(());
+        return;
     };
     let blanks = stack
         .dielectrics()
         .filter(|d| d.thickness.is_none())
         .count() as i64;
     let share = total.0 / blanks;
-    if share == 0 {
-        return Err(CommandError::rejected(
-            "give the blank dielectric sheets a positive physical thickness first",
-        ));
-    }
     let mut extra = total.0 % blanks;
     for e in &mut stack.entries {
         if let StackupEntry::Dielectric(d) = e
             && d.thickness.is_none()
         {
-            d.thickness = Some(Nm(share + i64::from(extra > 0)));
+            let size = share + i64::from(extra > 0);
+            d.thickness = (size > 0).then_some(Nm(size));
             extra -= 1;
         }
     }
-    Ok(())
 }
 
 mod removal;

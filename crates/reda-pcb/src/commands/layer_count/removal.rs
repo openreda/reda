@@ -147,6 +147,7 @@ pub(crate) fn remove_plan(pcb: &PcbDocument, layer: Uuid) -> Result<Plan, Comman
             .filter(|o| o.layer == layer)
             .map(|o| o.uuid),
     );
+    resolve_blanks(&mut plan.stack);
     let entries = &mut plan.stack.entries;
     let at = entries.iter().position(|e| e.uuid() == layer).unwrap();
     let StackupEntry::Dielectric(lower) = entries.remove(at + 1) else {
@@ -156,7 +157,8 @@ pub(crate) fn remove_plan(pcb: &PcbDocument, layer: Uuid) -> Result<Plan, Comman
     let StackupEntry::Dielectric(upper) = &mut entries[at - 1] else {
         unreachable!()
     };
-    upper.thickness = upper.thickness.zip(lower.thickness).map(|(a, b)| a + b);
+    let joined = upper.thickness.unwrap_or(Nm::ZERO) + lower.thickness.unwrap_or(Nm::ZERO);
+    upper.thickness = (joined > Nm::ZERO).then_some(joined);
     plan.layers.layers.retain(|l| l.uuid != layer);
     Ok(plan)
 }

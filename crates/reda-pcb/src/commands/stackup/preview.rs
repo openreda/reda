@@ -61,8 +61,7 @@ impl Command for Preview {
         let pcb = pcb(cx)?;
         match p.change {
             Change::LayerAdd(p) => {
-                let uuid = p.uuid.unwrap_or_else(|| p.document.child("preview-copper"));
-                Ok(layer_count::add_plan(cx.project()?, p.document, p.split, uuid)?.counts)
+                Ok(layer_count::add_plan(cx.project()?, p.document, p.split, p.uuid)?.counts)
             }
             Change::LayerMove(p) => Ok(layer_count::move_plan(pcb, p)?.counts),
             Change::LayerRemove(p) => {

@@ -61,13 +61,28 @@ pub(super) struct Pending {
 }
 
 pub fn prepare(shell: &mut Shell, view: &mut View, command: &'static str, params: &Value) -> bool {
-    let out = match shell.run_reporting(
-        "pcb.stackup.change_preview",
-        json!({"change":{"id":command,"params":params}}),
-    ) {
-        Ok(counts) => counts,
-        Err(_) => return false,
+    let Some(lines) = impact(shell, command, params) else {
+        return false;
     };
+    if lines.is_empty() {
+        true
+    } else {
+        view.layer_change = Some(Pending {
+            command,
+            params: params.clone(),
+            lines,
+        });
+        false
+    }
+}
+
+fn impact(shell: &mut Shell, command: &str, params: &Value) -> Option<Vec<String>> {
+    let out = shell
+        .run_reporting(
+            "pcb.stackup.change_preview",
+            json!({"change":{"id":command,"params":params}}),
+        )
+        .ok()?;
     let mut lines = Vec::new();
     // An empty removal and a move that crosses no Via span are immediate.
     let mut line = |key: &str, format: fn(i64) -> String| {
@@ -117,16 +132,7 @@ pub fn prepare(shell: &mut Shell, view: &mut View, command: &'static str, params
                 .map(|name| tr!("layer-class-all", name = name)),
         );
     }
-    if lines.is_empty() {
-        true
-    } else {
-        view.layer_change = Some(Pending {
-            command,
-            params: params.clone(),
-            lines,
-        });
-        false
-    }
+    Some(lines)
 }
 
 pub fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut Shell) {
@@ -157,7 +163,20 @@ pub fn confirm(ui: &Ui, view: &mut View, document: Uuid, shell: &mut Shell) {
         .or_else(|| dialog.should_close().then_some(false))
     {
         let p = view.layer_change.take().unwrap();
-        if apply && let Ok(out) = shell.run_reporting(p.command, p.params) {
+        if !apply {
+            return;
+        }
+        let Some(current) = impact(shell, p.command, &p.params) else {
+            return;
+        };
+        if !current.is_empty() && current != p.lines {
+            view.layer_change = Some(Pending {
+                lines: current,
+                ..p
+            });
+            return;
+        }
+        if let Ok(out) = shell.run_reporting(p.command, p.params) {
             settle(view, p.command, &out);
         }
     }

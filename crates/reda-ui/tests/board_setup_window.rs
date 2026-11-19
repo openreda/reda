@@ -588,9 +588,13 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
         .click();
     h.run();
     h.get_by_label("Graphics deleted: 1");
+    h.state_mut().shell_mut().run("pcb.graphic.add_line",json!({"layer":inner,"from":{"x":0,"y":1000},"to":{"x":500000,"y":1000},"width":100000})).unwrap();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    h.get_by_label("Graphics deleted: 2");
     h.get_by_role_and_label(Role::Button, "Cancel").click();
     h.run();
-    assert_eq!(pcb(&h).graphics().count(), 1);
+    assert_eq!(pcb(&h).graphics().count(), 2);
     h.get_by_role_and_label(Role::Button, "Remove Layer")
         .click();
     h.run();
@@ -601,8 +605,12 @@ fn layer_table_previews_add_and_delete_then_commits_each_once() {
         .shell_mut()
         .run("edit.undo", json!({"document":doc}))
         .unwrap();
-    assert_eq!(pcb(&h).graphics().count(), 1);
+    assert_eq!(pcb(&h).graphics().count(), 2);
     assert_eq!(pcb(&h).copper_layers().count(), 3);
+    let entries = h.state().shell().engine().journal();
+    for id in ["pcb.layer.add", "pcb.layer.remove"] {
+        assert_eq!(entries.iter().filter(|entry| entry.id == id).count(), 1);
+    }
 }
 
 #[test]
