@@ -228,6 +228,15 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
     };
     for (key, value) in values {
         match (target.get_mut(key), value) {
+            (Some(current), patch) if key == "constructions" => {
+                let patch = patch.as_object().ok_or_else(|| {
+                    CommandError::invalid_params(
+                        "/values/constructions",
+                        "expected an object keyed by Construction name",
+                    )
+                })?;
+                *current = serde_json::json!(patch_constructions(&preset.constructions, patch)?);
+            }
             (Some(Value::Object(section)), Value::Object(keys)) => {
                 for (k, v) in keys {
                     if key == "gerber"
@@ -272,6 +281,72 @@ pub fn edited(preset: &FabPreset, values: &serde_json::Value) -> Result<FabPrese
     }
     serde_json::from_value(merged)
         .map_err(|e| CommandError::invalid_params("/values", format!("not a preset value: {e}")))
+}
+
+/// A Construction is replaced as a whole at its existing position. New names follow the
+/// existing rows, and a null entry removes only the named Construction.
+fn patch_constructions(
+    current: &[reda_model::Construction],
+    patch: &serde_json::Map<String, serde_json::Value>,
+) -> Result<Vec<reda_model::Construction>, CommandError> {
+    let pointer = "/values/constructions";
+    let mut rows = current.to_vec();
+    let mut names = std::collections::BTreeSet::new();
+    for (name, value) in patch {
+        if name.trim().is_empty() || !names.insert(name.to_ascii_lowercase()) {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!("Construction name {name:?} is empty or repeated"),
+            ));
+        }
+        let at = rows
+            .iter()
+            .position(|row| row.name.eq_ignore_ascii_case(name));
+        if value.is_null() {
+            if let Some(at) = at {
+                rows.remove(at);
+            }
+            continue;
+        }
+        let mut values = value.as_object().cloned().ok_or_else(|| {
+            CommandError::invalid_params(
+                pointer,
+                format!("expected an object or null for {name:?}"),
+            )
+        })?;
+        if let Some(stored) = values.get("name")
+            && !stored
+                .as_str()
+                .is_some_and(|stored| stored.eq_ignore_ascii_case(name))
+        {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!("the Construction name must match its key {name:?}"),
+            ));
+        }
+        values.insert("name".into(), serde_json::json!(name));
+        let build = serde_json::from_value(serde_json::Value::Object(values)).map_err(|error| {
+            CommandError::invalid_params(pointer, format!("invalid Construction {name:?}: {error}"))
+        })?;
+        if let Some(at) = at {
+            rows[at] = build;
+        } else {
+            rows.push(build);
+        }
+    }
+    let mut defaults = std::collections::BTreeSet::new();
+    for build in &rows {
+        if build.default && !defaults.insert(build.layer_count()) {
+            return Err(CommandError::invalid_params(
+                pointer,
+                format!(
+                    "more than one default Construction for {} Layers",
+                    build.layer_count()
+                ),
+            ));
+        }
+    }
+    Ok(rows)
 }
 
 /// The pattern can be patched by itself. A supplied Layer list replaces the ordinary overrides.

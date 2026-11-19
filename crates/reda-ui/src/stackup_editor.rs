@@ -1,5 +1,6 @@
 //! A PCB Document's Stackup tab. The tables form one scrolling pane beside its
 //! cross-section. Edits use the same PCB Commands as scripts.
+mod construction;
 mod fields;
 mod preview;
 mod types;
@@ -50,6 +51,22 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             types::table(ui, pcb, &mut view, &mut edits);
             ui.add_space(t.space.section);
             board(ui, project, pcb, &info, &mut view, &mut edits);
+            if let Some(name) = &pcb.stackup().construction {
+                if project.construction_matches(pcb.stackup()) {
+                    layout::text(ui, tr!("construction-started", name = name.as_str()));
+                } else {
+                    layout::text(ui, tr!("construction-modified", name = name.as_str()));
+                }
+            }
+            if ui
+                .add(widgets::button(tr!("construction-save-action")))
+                .clicked()
+            {
+                view.save_construction = Some(construction::SaveForm::new(
+                    project,
+                    shell.engine().user_dirs(),
+                ));
+            }
         });
     });
     pane(ui, right, (document, "drawing"), |ui| {
@@ -101,6 +118,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         }
     }
     types::confirm(ui, &mut view, document, shell);
+    if view
+        .save_construction
+        .as_mut()
+        .is_some_and(|form| form.show(ui, document, shell))
+    {
+        view.save_construction = None;
+    }
     ui.data_mut(|d| d.insert_temp(key, view));
 }
 

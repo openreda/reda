@@ -295,6 +295,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
     let preferred = fab_rules(seed.rules).preferred;
     let stackup = Stackup {
         uuid: stack_id,
+        construction: None,
         via_types: vec![reda_model::ViaType::through(
             stack_id,
             layers.layers[0].uuid,

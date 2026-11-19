@@ -2,6 +2,7 @@
 //! colours; and `pcb.fab_notes.set`, the free text for the Fab Notes, which sits beside
 //! them on the Stackup page of Board Setup.
 
+mod construction;
 pub(super) mod preview;
 mod sheets;
 
@@ -19,6 +20,7 @@ use super::{needs_pcb, nullable, pcb};
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
     registry.add(Info);
+    registry.add(construction::Save);
     registry.add(preview::Preview);
     registry.add(sheets::SheetAdd);
     registry.add(sheets::SheetRemove);
@@ -264,6 +266,16 @@ pub struct InfoParams {
     pub document: Uuid,
 }
 
+#[derive(Serialize, JsonSchema)]
+pub struct InfoOutput {
+    #[serde(flatten)]
+    physical: reda_model::StackupInfo,
+    /// Original Construction name, including while the Stackup is modified.
+    construction: Option<String>,
+    /// Whether a Project copy still offers the named physical build.
+    construction_matches: bool,
+}
+
 impl Command for Info {
     const META: Meta = Meta {
         id: "pcb.stackup.info",
@@ -274,7 +286,7 @@ impl Command for Info {
         kind: Kind::Query,
     };
     type Params = InfoParams;
-    type Output = reda_model::StackupInfo;
+    type Output = InfoOutput;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
         needs_pcb(cx)
@@ -284,7 +296,12 @@ impl Command for Info {
         let pcb = cx.project()?.pcb_document(p.document).ok_or_else(|| {
             CommandError::not_found(format!("no PCB Document has UUID {}", p.document))
         })?;
-        Ok(pcb.stackup().info())
+        let stack = pcb.stackup();
+        Ok(InfoOutput {
+            physical: stack.info(),
+            construction: stack.construction.clone(),
+            construction_matches: cx.project()?.construction_matches(stack),
+        })
     }
 }
 
