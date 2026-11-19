@@ -145,6 +145,10 @@ pub struct Copper {
 }
 
 impl Copper {
+    pub(crate) fn teardrops(&self) -> &[reda_model::TeardropFill] {
+        self.fills.as_ref().map_or(&[], |f| &f.teardrops)
+    }
+
     /// The copper of `project`'s PCB Document with the Zone fills the Project holds for it
     /// (stale ones too: they stay copper until the next fill), or `None` without a PCB
     /// Document. The index is kept in the Project and built again only after the board or

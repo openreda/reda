@@ -45,6 +45,7 @@ pub(super) fn outcomes(ui: &mut Ui, cx: &mut PageCx<'_>) {
                     (
                         item.track,
                         item.target,
+                        item.pad,
                         item.layer,
                         item.at.x.0,
                         item.at.y.0,
