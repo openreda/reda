@@ -44,6 +44,7 @@ impl Shell {
             self.save_view();
         }
         let kind = self.engine.registry().get(base).map(|meta| meta.kind);
+        let tool_command = ToolCommand::from_id(base);
         let params = self.with_wiring(base, params);
         if base == "selection.cycle"
             && let Some(document) = params
@@ -53,7 +54,7 @@ impl Shell {
         {
             selection::picking::prepare_cycle(self, document);
         }
-        if base == "tool.activate" {
+        if tool_command == Some(ToolCommand::Activate) {
             // The Tool stack needs to know whether a run is in flight.
             let run = self
                 .active_sheet()
@@ -73,7 +74,11 @@ impl Shell {
             }
             return Ok(out);
         }
-        if matches!(base, "tool.mirror_x" | "tool.mirror_y") && self.board_mirror_refused() {
+        if matches!(
+            tool_command,
+            Some(ToolCommand::MirrorX | ToolCommand::MirrorY)
+        ) && self.board_mirror_refused()
+        {
             return Err(CommandError::rejected(
                 reda_engine::pcb::place::MIRROR_REFUSED,
             ));
@@ -111,7 +116,12 @@ impl Shell {
         if base == "pcb.route.unroute" {
             pcb::placing::ask_about_locked_unroute(self, &params, &out);
         }
-        self.after_edit(base, &out);
+        if let Some(command) = tool_command {
+            self.after_tool(command, &out);
+        } else {
+            self.after_edit(base, &out);
+        }
+        self.prune_selection_and_highlight(base == "schematic.delete");
         self.after_run(id);
         if matches!(base, "library.element.open" | "library.element.new") {
             crate::element_editor::after_open(self, &out);
