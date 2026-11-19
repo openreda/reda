@@ -375,6 +375,7 @@ fn six_layer_hdi_is_a_clean_six_layer_board() {
         assert_eq!(report["waived"], 0, "{check}: {report}");
     }
     assert_eq!(engine.run_ok("sync.preview", json!({}))["count"], 0);
+    assert_eq!(engine.run_ok("pcb.ratsnest", json!({}))["lines"], json!([]));
 }
 
 #[test]
@@ -424,8 +425,10 @@ fn six_layer_hdi_routes_its_allowed_types_through_a_stacked_laser_pair() {
     assert!(!spans[&(3, 5)].0 && !spans[&(6, 5)].0);
     assert_eq!(allowed.iter().copied().collect::<BTreeSet<_>>(), used);
 
-    let pad = pcb.free_pads().next().unwrap();
-    assert_eq!(pad.kind, PadKind::PlatedThroughHole);
+    let pad = pcb
+        .free_pads()
+        .find(|p| p.kind == PadKind::PlatedThroughHole)
+        .unwrap();
     assert_eq!(
         (
             pad.shape,

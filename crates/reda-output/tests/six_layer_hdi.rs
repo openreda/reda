@@ -32,7 +32,7 @@ fn the_six_layer_hdi_job_describes_the_board() {
     let job = job_reader::read(&fs::read(fab.join("SixLayerHdi-job.gbrjob")).unwrap());
     check_materials(pcb, &job);
     check_copper(pcb, &fab, &job);
-    check_drills(pcb, &fab);
+    check_drills(pcb, &fab, &job);
     check_placements(pcb, &output.join("SixLayerHdi-HDI-CPL.csv"));
 }
 
@@ -98,7 +98,25 @@ fn check_copper(pcb: &PcbDocument, fab: &Path, job: &job_reader::Job) {
     for (layer, file) in pcb.copper_layers().zip(copper_files) {
         let artwork = gerber_reader::read(&fs::read(fab.join(&file.path)).unwrap());
         assert!(artwork.ended);
+        let position = pcb.copper_number(layer.uuid).unwrap();
+        let side = match layer.side {
+            Some(Side::Top) => "Top",
+            Some(Side::Bottom) => "Bot",
+            None => "Inr",
+        };
+        let role = layer.role;
+        assert_eq!(
+            file.file_function,
+            format!("Copper,L{position},{side},{role:?}")
+        );
         assert_eq!(artwork.file[".FileFunction"], file.file_function);
+        assert_eq!(artwork.file[".FilePolarity"], "Positive");
+        assert_eq!(
+            artwork.regions().count(),
+            0,
+            "unexpected copper in {}",
+            file.path
+        );
         let form = pad.form_on(layer.side);
         let land = match form.shape {
             PadShape::Circle => Aperture::Circle(form.width.0 as f64),
@@ -181,7 +199,7 @@ fn check_copper(pcb: &PcbDocument, fab: &Path, job: &job_reader::Job) {
     }
 }
 
-fn check_drills(pcb: &PcbDocument, fab: &Path) {
+fn check_drills(pcb: &PcbDocument, fab: &Path, job: &job_reader::Job) {
     let mut expected = BTreeMap::new();
     for via in pcb.vias() {
         let a = pcb.copper_number(via.span.from).unwrap();
@@ -193,22 +211,36 @@ fn check_drills(pcb: &PcbDocument, fab: &Path) {
             "Buried"
         };
         expected
-            .entry(format!("Plated,{first},{last},{kind}"))
+            .entry((
+                format!("SixLayerHdi-L{first}-L{last}.drl"),
+                format!("Plated,{first},{last},{kind}"),
+            ))
             .or_insert_with(Vec::new)
             .push((xy(via.at), via.hole.0, "ViaDrill".to_string()));
     }
     for pad in pcb.free_pads() {
-        let function = match pad.kind {
-            PadKind::PlatedThroughHole => "Plated,1,6,PTH",
-            PadKind::NonPlated => "NonPlated,1,6,NPTH",
+        let (name, function) = match pad.kind {
+            PadKind::PlatedThroughHole => ("SixLayerHdi-PTH.drl", "Plated,1,6,PTH"),
+            PadKind::NonPlated => ("SixLayerHdi-NPTH.drl", "NonPlated,1,6,NPTH"),
             PadKind::Smd => continue,
         };
-        expected.entry(function.into()).or_default().push((
-            xy(pad.at),
-            pad.hole.unwrap().width.0,
-            "MechanicalDrill".into(),
-        ));
+        expected
+            .entry((name.into(), function.into()))
+            .or_default()
+            .push((
+                xy(pad.at),
+                pad.hole.unwrap().width.0,
+                "MechanicalDrill".into(),
+            ));
     }
+    let mut listed: Vec<_> = job
+        .files_attributes
+        .iter()
+        .filter(|f| f.path.ends_with(".drl"))
+        .map(|f| (f.path.clone(), f.file_function.clone()))
+        .collect();
+    listed.sort();
+    assert_eq!(listed, expected.keys().cloned().collect::<Vec<_>>());
     let mut actual = BTreeMap::new();
     for path in fs::read_dir(fab)
         .unwrap()
@@ -226,11 +258,8 @@ fn check_drills(pcb: &PcbDocument, fab: &Path) {
             })
             .collect::<Vec<_>>();
         let function = drill.file["FileFunction"].clone();
-        assert!(
-            actual.insert(function, hits).is_none(),
-            "span and plating repeated in {}",
-            path.display()
-        );
+        let name = path.file_name().unwrap().to_str().unwrap().to_owned();
+        actual.insert((name, function), hits);
     }
     assert_eq!(actual, expected);
 }
