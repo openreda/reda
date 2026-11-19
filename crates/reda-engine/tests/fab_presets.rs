@@ -662,6 +662,7 @@ fn shipped_presets_describe_the_fabs_complete_output_conventions() {
                 json!([])
             }
         );
+        assert_eq!(preset["placement_corrections"], json!([]));
         let standard = preset["constructions"]
             .as_array()
             .unwrap()
@@ -707,6 +708,10 @@ fn custom_output_conventions_survive_user_and_project_file_roundtrips() {
     file["cpl"]["bottom_rotation"] = json!("stored");
     file["cpl"]["bottom_position"] = json!("negate_x");
     file["cpl"]["exclude_through_hole"] = json!(true);
+    file["placement_corrections"] = json!([
+        {"footprint": "SOT-23*", "rotation": 90000},
+        {"field": "LCSC", "value": "C123", "rotation": -45000, "offset": {"x": 125000, "y": -200000}}
+    ]);
     file["zip_assembly"] = json!(true);
     std::fs::write(&source, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
     let destination = TempDir::new("fab-conventions-project");
@@ -812,4 +817,70 @@ fn a_user_preset_file_is_edited_key_by_key() {
         ErrorCode::NotFound,
         "a shipped preset is not edited"
     );
+}
+
+#[test]
+fn source_update_keeps_local_placement_rows_and_reports_what_will_be_written() {
+    let (home, work) = (TempDir::new("fab-merge-home"), TempDir::new("fab-merge"));
+    let mut engine = with_user_preset(&home, &work);
+    let preset =
+        engine.run_ok("fab_preset.add", json!({"name":"My JLC"}))["result"]["uuid"].clone();
+    let local = json!({"footprint":"LOCAL*","rotation":0});
+    let shared = json!({"field":"LCSC","value":" C12 ","rotation":10000});
+    let changed = json!({"field":"lcsc","value":"c12","rotation":20000});
+    let new = json!({"footprint":"NEW","rotation":30000});
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"placement_corrections":[shared,local]}}),
+    );
+    engine.run_ok(
+        "fab_preset.set_user",
+        json!({"name":"My JLC","values":{"placement_corrections":[new,changed]}}),
+    );
+    let diff = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    let expected = json!([changed, local, new]);
+    assert_eq!(diff["kept_placement_corrections"], json!([local]));
+    assert_eq!(diff["changes"][0]["source"], expected);
+    let applied = engine.run_ok("fab_preset.update_from_source", json!({"preset":preset}));
+    assert_eq!(applied["result"], diff);
+    let copy = engine
+        .project()
+        .unwrap()
+        .fab_preset(serde_json::from_value(preset.clone()).unwrap())
+        .unwrap();
+    assert_eq!(json!(copy.placement_corrections), expected);
+    let again = engine.run_ok("fab_preset.source_diff", json!({"preset":preset}));
+    assert_eq!(again["changes"], json!([]));
+    assert_eq!(again["kept_placement_corrections"], json!([local]));
+}
+
+#[test]
+fn placement_edits_accept_unit_strings_and_require_one_match_kind() {
+    let dir = TempDir::new("placement-units");
+    let mut engine = test_engine();
+    new_project(&mut engine, &dir, json!({}));
+    let preset = only_preset(&engine).uuid;
+    engine.run_ok(
+        "fab_preset.set",
+        json!({"preset":preset,"values":{"placement_corrections":[
+            {"footprint":"*","rotation":"-22.5deg","offset":{"x":"1.25mm","y":"-10mil"}}
+        ]}}),
+    );
+    assert_eq!(
+        json!(only_preset(&engine).placement_corrections),
+        json!([
+            {"footprint":"*","rotation":-22500,"offset":{"x":1250000,"y":-254000}}
+        ])
+    );
+    for invalid in [
+        json!({"footprint":"*","field":"LCSC","value":"C7","rotation":0}),
+        json!({"field":"LCSC","rotation":0}),
+        json!({"footprint":"*","rotation":0,"other":1}),
+    ] {
+        let err = engine.run_err(
+            "fab_preset.set",
+            json!({"preset":preset,"values":{"placement_corrections":[invalid]}}),
+        );
+        assert_eq!(err.code, ErrorCode::InvalidParams);
+    }
 }

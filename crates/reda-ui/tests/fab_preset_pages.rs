@@ -34,7 +34,7 @@ fn last_journal_id(shell: &Shell) -> String {
 }
 
 #[test]
-fn every_copy_has_the_seven_pages_under_its_name() {
+fn every_copy_has_the_preset_pages_under_its_name() {
     let (home, work) = (TempDir::new("fpp-home"), TempDir::new("fpp-work"));
     let shell = shell_with_project(&home, &work);
     let d = project::dialog(shell.engine().project().unwrap());
@@ -52,6 +52,7 @@ fn every_copy_has_the_seven_pages_under_its_name() {
             "Drill",
             "BOM",
             "CPL",
+            "Placement",
             "Packaging"
         ]
     );
@@ -197,4 +198,42 @@ fn update_from_source_on_the_fab_presets_page_refreshes_the_copy_pages() {
         .unwrap();
     let editor = drill.editor().borrow();
     assert_eq!(editor.value().gerber.slot_command, SlotCommand::Route);
+}
+
+#[test]
+fn resetting_cpl_preserves_placement_and_placement_has_its_own_reset() {
+    let (home, work) = (
+        TempDir::new("placement-home"),
+        TempDir::new("placement-pages"),
+    );
+    let mut shell = shell_with_project(&home, &work);
+    let uuid = copy(&shell).uuid;
+    shell
+        .run(
+            "fab_preset.set",
+            json!({"preset":uuid,"values":{
+                "placement_corrections":[{"footprint":"SOT-*","rotation":90000}],
+                "cpl":{"bottom_rotation":"negate"}
+            }}),
+        )
+        .unwrap();
+    let mut d = project::dialog(shell.engine().project().unwrap());
+    let page = d.pages().iter().position(|p| p.title() == "CPL").unwrap();
+    d.select(page);
+    d.reset_page(&mut shell);
+    d.apply(&mut shell).unwrap();
+    assert_eq!(copy(&shell).placement_corrections.len(), 1);
+    let page = d
+        .pages()
+        .iter()
+        .position(|p| p.title() == "Placement")
+        .expect("a Placement page");
+    d.select(page);
+    d.reset_page(&mut shell);
+    assert_eq!(
+        d.steps()[0].params["values"],
+        json!({"placement_corrections":[]})
+    );
+    d.apply(&mut shell).unwrap();
+    assert!(copy(&shell).placement_corrections.is_empty());
 }

@@ -38,6 +38,7 @@ pub fn page(ui: &mut Ui, editor: &mut PresetEditor, page: PresetPage) {
         PresetPage::Drill => drill(ui, editor),
         PresetPage::Bom => bom(ui, editor),
         PresetPage::Cpl => cpl(ui, editor),
+        PresetPage::Placement => super::placement::grid(ui, editor),
         PresetPage::Packaging => packaging(ui, editor),
     }
 }

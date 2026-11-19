@@ -53,6 +53,8 @@ pub struct JobPreview {
     pub bom: Table,
     /// The CPL's rows as the writer makes them.
     pub cpl: Table,
+    /// Placement details in CPL row order.
+    pub placements: Vec<reda_output::CplPlacement>,
     /// A coordinate a Gerber file can't hold, which would block the run: the file.
     pub out_of_range: Option<String>,
 }
@@ -163,7 +165,7 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         }
     }
     let bom = reda_output::bom_file(project, pcb, &preset.bom);
-    let cpl = reda_output::cpl_table(project, &instances, &preset.cpl, &preset.bom.mount_values);
+    let cpl = reda_output::Cpl::for_preset(&instances, &preset);
     let mut beside = Vec::new();
     let shown_stem = stem.clone().unwrap_or_else(|_| name.clone());
     beside.push(format!("{shown_stem}.zip"));
@@ -188,7 +190,8 @@ pub fn job_preview(engine: &Engine, job: &OutputJob) -> Option<JobPreview> {
         zip,
         beside,
         bom: bom.table,
-        cpl,
+        cpl: cpl.table,
+        placements: cpl.placements,
         out_of_range,
     })
 }

@@ -47,8 +47,8 @@ pub use output::{
     Construction, ConstructionEntry, CplSettings, CplUnits, FabPreset, FabRules, FileNaming,
     FileOrigin, GerberSettings, HoleClearance, LayerFileName, LineNumbers, MountValues,
     NAME_TEMPLATE_TOKENS, NameTemplate, NameTemplateError, NotFittedBom, NotFittedPaste, OutputJob,
-    Outputs, PdfColour, PreferredSeeds, ProjectFabPreset, SideValues, SlotCommand,
-    StackupSuggestions,
+    Outputs, PdfColour, PlacementAdjustment, PlacementCorrection, PlacementMatch, PreferredSeeds,
+    ProjectFabPreset, SideValues, SlotCommand, StackupSuggestions,
 };
 pub use pad::{
     ConnectionStyle, Corner, Corners, Hole, HoleTolerance, MaskExpansion, Pad, PadForm, PadKind,

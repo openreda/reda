@@ -222,6 +222,8 @@ pub struct JobDraft {
     /// The last preview, with what it was worked out from (the Journal's length and the
     /// drafted job).
     preview: Option<(PreviewKey, Option<JobPreview>)>,
+    correction: Option<(Uuid, super::fab_preset::placement::CorrectionForm)>,
+    correction_error: Option<String>,
     /// The last manifest read, with its path and modification time.
     last_run: Option<(PathBuf, Option<SystemTime>, LastRun)>,
 }
@@ -253,6 +255,8 @@ impl JobDraft {
             pcbs: Vec::new(),
             presets: Vec::new(),
             preview: None,
+            correction: None,
+            correction_error: None,
             last_run: None,
         }
     }
