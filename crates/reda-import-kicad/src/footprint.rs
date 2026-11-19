@@ -7,8 +7,8 @@
 
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{
-    ConnectionStyle, Corner, Corners, Footprint, FootprintGraphic, FootprintLayer, FootprintText,
-    Hole, Pad, PadKind, PadShape, Provenance, Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
+    ConnectionStyle, Footprint, FootprintGraphic, FootprintLayer, FootprintText, Hole, Pad,
+    PadKind, PadShape, Provenance, Ratio, Shape, Side, TextStyle, Uuid, ZoneConnection,
 };
 
 use crate::node::{self, Read, fail};
@@ -16,25 +16,7 @@ use crate::provenance::is_copyright;
 use crate::sexpr::Sexp;
 use crate::shapes;
 
-#[derive(Clone, Debug)]
-pub struct PadSource {
-    pub number: String,
-    pub kind: PadKind,
-    pub shape: PadShape,
-    pub at: Point,
-    pub rotation: Millideg,
-    pub width: Nm,
-    pub height: Nm,
-    pub corner_ratio: Option<Ratio>,
-    pub chamfer_ratio: Option<Ratio>,
-    pub corners: Option<Corners>,
-    pub offset: Option<Point>,
-    pub hole: Option<Hole>,
-    pub side: Option<Side>,
-    pub mask: Option<reda_model::Mask>,
-    pub paste: Option<reda_model::Paste>,
-    pub zone_connection: Option<ZoneConnection>,
-}
+mod pad_stack;
 
 #[derive(Clone, Debug)]
 pub struct GraphicSource {
@@ -49,7 +31,7 @@ pub struct GraphicSource {
 pub struct FootprintSource {
     pub name: String,
     pub description: String,
-    pub pads: Vec<PadSource>,
+    pub pads: Vec<Pad>,
     pub graphics: Vec<GraphicSource>,
     pub designator: FootprintText,
     pub value: FootprintText,
@@ -204,7 +186,7 @@ fn pad_layers(pad: &Sexp) -> Vec<&str> {
         .unwrap_or_default()
 }
 
-fn attach_window(window: PadSource, out: &mut FootprintSource) {
+fn attach_window(window: Pad, out: &mut FootprintSource) {
     if window.shape == PadShape::ChamferedRect {
         out.warnings.push(
             "dropped a paste-only Pad: its chamfers cannot be represented by a paste window".into(),
@@ -235,30 +217,7 @@ fn attach_window(window: PadSource, out: &mut FootprintSource) {
                 window.corner_ratio
             },
         };
-        let copper_outline = Pad {
-            uuid: Uuid::NIL,
-            number: String::new(),
-            kind: copper.kind,
-            shape: copper.shape,
-            at: copper.at,
-            rotation: copper.rotation,
-            width: copper.width,
-            height: copper.height,
-            middle: None,
-            bottom: None,
-            unused_layers: Default::default(),
-            corner_ratio: copper.corner_ratio,
-            chamfer_ratio: copper.chamfer_ratio,
-            corners: copper.corners,
-            offset: copper.offset,
-            hole: copper.hole,
-            side: copper.side,
-            mask: None,
-            paste: None,
-            zone_connection: None,
-        }
-        .outline();
-        if candidate.fits(&copper_outline) {
+        if candidate.fits(&copper.outline()) {
             if !matches!(copper.paste, Some(reda_model::Paste::Windows { .. })) {
                 copper.paste = Some(reda_model::Paste::Windows { windows: vec![] });
             }
@@ -402,7 +361,7 @@ fn read_arc(item: &Sexp) -> Read<Shape> {
     })
 }
 
-fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
+fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<Pad> {
     let number = node::text(pad, 0)?.to_owned();
     let kind = match node::text(pad, 1)? {
         "smd" | "connect" => PadKind::Smd,
@@ -410,78 +369,7 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
         "np_thru_hole" => PadKind::NonPlated,
         other => return fail(pad, format!("unknown pad type {other:?}")),
     };
-    let shape_word = node::text(pad, 2)?;
-    let shape = match shape_word {
-        "circle" => PadShape::Circle,
-        "rect" => PadShape::Rect,
-        "oval" => PadShape::Oval,
-        "roundrect" => PadShape::RoundedRect,
-        "trapezoid" => {
-            warnings.push(format!(
-                "pad {number:?}: a trapezoid was imported as a rectangle"
-            ));
-            PadShape::Rect
-        }
-        "custom" => {
-            let anchor = pad
-                .child("options")
-                .and_then(|o| o.child("anchor"))
-                .and_then(|a| a.arg(0));
-            warnings.push(format!(
-                "pad {number:?}: a custom shape was imported as its anchor pad"
-            ));
-            match anchor {
-                Some("circle") => PadShape::Circle,
-                _ => PadShape::Rect,
-            }
-        }
-        other => return fail(pad, format!("unknown pad shape {other:?}")),
-    };
     let at = node::need(pad, "at")?;
-    let size = node::need(pad, "size")?;
-    let width = node::mm(size, 0)?;
-    let height = if shape == PadShape::Circle {
-        width
-    } else {
-        node::mm(size, 1)?
-    };
-    if width.0 <= 0 || height.0 <= 0 {
-        return fail(size, format!("pad {number:?} has no size"));
-    }
-    // KiCad's ratios are shares of the shorter side, at most 0.5; REDA's are shares of
-    // half of it.
-    let ratio = |name: &str| -> Read<Option<Ratio>> {
-        let Some(r) = pad.child(name) else {
-            return Ok(None);
-        };
-        let value =
-            crate::number::fixed(node::text(r, 0)?, 6).filter(|r| (0..=500_000).contains(r));
-        match value {
-            Some(v) => Ok(Some(Ratio((v / 5) as u32))),
-            None => fail(r, format!("the {name} must be between 0 and 0.5")),
-        }
-    };
-    let rounding = ratio("roundrect_rratio")?;
-    let chamfers = chamfer_corners(pad)?;
-    let chamfer = ratio("chamfer_ratio")?.filter(|r| r.0 > 0);
-    let (shape, corner_ratio, chamfer_ratio, corners) = match (shape, chamfers, chamfer) {
-        (PadShape::RoundedRect | PadShape::Rect, Some(corners), Some(chamfer)) => {
-            let rounding = if shape == PadShape::RoundedRect {
-                rounding.filter(|r| r.0 > 0)
-            } else {
-                None
-            };
-            let corners = (corners != Corners::ALL).then_some(corners);
-            (PadShape::ChamferedRect, rounding, Some(chamfer), corners)
-        }
-        (PadShape::RoundedRect, _, _) => (
-            shape,
-            Some(rounding.unwrap_or(Ratio::percent(50))),
-            None,
-            None,
-        ),
-        _ => (shape, None, None, None),
-    };
     let (hole, offset) = match pad.child("drill") {
         None => (None, None),
         Some(drill) => {
@@ -562,50 +450,34 @@ fn read_pad(pad: &Sexp, warnings: &mut Vec<String>) -> Read<PadSource> {
         }
         None
     };
-    Ok(PadSource {
+    let stack = pad_stack::read(pad, kind, &number, offset, warnings)?;
+    let copper = stack.top;
+    Ok(Pad {
+        uuid: Uuid::NIL,
+        middle: stack.middle,
+        bottom: stack.bottom,
+        unused_layers: if kind == PadKind::PlatedThroughHole && pad.flag("remove_unused_layers") {
+            reda_model::UnusedLayers::Remove
+        } else {
+            reda_model::UnusedLayers::Keep
+        },
         number,
         kind,
-        shape,
+        shape: copper.shape,
         at: flip(node::point(at)?),
         rotation: node::degrees_or_zero(at, 2)?,
-        width,
-        height,
-        corner_ratio,
-        chamfer_ratio,
-        corners,
-        offset,
+        width: copper.width,
+        height: copper.height,
+        corner_ratio: copper.corner_ratio,
+        chamfer_ratio: copper.chamfer_ratio,
+        corners: copper.corners,
+        offset: stack.offset,
         hole: if kind == PadKind::Smd { None } else { hole },
         side,
         mask: (mask != reda_model::Mask::default()).then_some(mask),
         paste,
         zone_connection,
     })
-}
-
-/// The corners a `(chamfer …)` list names, or `None` without one.
-///
-/// KiCad's pad frame has y down, and the import negates y, which mirrors the frame
-/// top-bottom. A corner keeps the place it is seen in: KiCad's `top_left` is its corner
-/// of negative y, which the flip moves to positive y, REDA's top. So the flip of the flags
-/// undoes KiCad's own y-down naming, and each name maps to the REDA corner of that name.
-fn chamfer_corners(pad: &Sexp) -> Read<Option<Corners>> {
-    let Some(list) = pad.child("chamfer") else {
-        return Ok(None);
-    };
-    let mut corners = Corners::NONE;
-    for word in list.args().iter().filter_map(Sexp::text) {
-        // The corner in KiCad's y-down frame, by the signs of its coordinates.
-        let kicad = match word {
-            "top_left" => Corner::BottomLeft,
-            "top_right" => Corner::BottomRight,
-            "bottom_left" => Corner::TopLeft,
-            "bottom_right" => Corner::TopRight,
-            other => return fail(list, format!("unknown chamfer corner {other:?}")),
-        };
-        // Negating y mirrors it top-bottom.
-        corners = corners.with(kicad.flipped());
-    }
-    Ok((corners != Corners::NONE).then_some(corners))
 }
 
 /// `(zone_connect n)` with `(thermal_bridge_width)`, `(thermal_gap)` and
@@ -669,25 +541,7 @@ pub fn build(
         .into_iter()
         .map(|p| Pad {
             uuid: new_id(),
-            number: p.number,
-            kind: p.kind,
-            shape: p.shape,
-            at: p.at,
-            rotation: p.rotation,
-            width: p.width,
-            height: p.height,
-            middle: None,
-            bottom: None,
-            unused_layers: Default::default(),
-            corner_ratio: p.corner_ratio,
-            chamfer_ratio: p.chamfer_ratio,
-            corners: p.corners,
-            offset: p.offset,
-            hole: p.hole,
-            side: p.side,
-            mask: p.mask,
-            paste: p.paste,
-            zone_connection: p.zone_connection,
+            ..p
         })
         .collect();
     pads.sort_by_key(|p| p.uuid);
