@@ -2,7 +2,9 @@
 //! and writes text back, or says why the text is not a value.
 
 use reda_engine::model::geom::Nm;
-use reda_engine::model::{BomGroup, ColumnSource, FabPreset, PasteExpansion};
+use reda_engine::model::{
+    BomGroup, ColumnSource, FabPreset, GerberSettings, LayerFileName, PasteExpansion,
+};
 
 use super::PresetPage;
 use crate::footprint_editor::inspector::format_mm;
@@ -34,6 +36,7 @@ pub enum Field {
     SuggestFinish,
     SuggestMaskColour,
     SuggestSilkColour,
+    InnerCopper,
     GroupBy,
     Sort,
     LineStart,
@@ -43,7 +46,7 @@ pub enum Field {
 
 impl Field {
     /// Every typed field, in page order.
-    pub const ALL: [Field; 27] = [
+    pub const ALL: [Field; 28] = [
         Field::Clearance,
         Field::TrackWidth,
         Field::ViaDiameter,
@@ -66,6 +69,7 @@ impl Field {
         Field::SuggestFinish,
         Field::SuggestMaskColour,
         Field::SuggestSilkColour,
+        Field::InnerCopper,
         Field::GroupBy,
         Field::Sort,
         Field::LineStart,
@@ -99,6 +103,7 @@ impl Field {
             Field::SuggestFinish => "stackup_suggestions.finish",
             Field::SuggestMaskColour => "stackup_suggestions.mask_color",
             Field::SuggestSilkColour => "stackup_suggestions.silk_color",
+            Field::InnerCopper => "gerber.file_names.inner_copper",
             Field::GroupBy => "bom.group_by",
             Field::Sort => "bom.sort",
             Field::LineStart => "bom.line_numbers.start",
@@ -154,6 +159,13 @@ impl Field {
             Field::SuggestFinish => list(&preset.stackup_suggestions.finish),
             Field::SuggestMaskColour => list(&preset.stackup_suggestions.mask_color),
             Field::SuggestSilkColour => list(&preset.stackup_suggestions.silk_color),
+            Field::InnerCopper => preset
+                .gerber
+                .file_names
+                .iter()
+                .find(|f| f.layer == "inner_copper")
+                .map(|f| f.name.clone())
+                .unwrap_or_default(),
             Field::GroupBy => preset
                 .bom
                 .group_by
@@ -262,6 +274,19 @@ impl Field {
             Field::SuggestFinish => preset.stackup_suggestions.finish = names(text),
             Field::SuggestMaskColour => preset.stackup_suggestions.mask_color = names(text),
             Field::SuggestSilkColour => preset.stackup_suggestions.silk_color = names(text),
+            Field::InnerCopper => {
+                if !text.is_empty() {
+                    GerberSettings::inner_copper_file_name(text, "Board", 2)?;
+                }
+                let names = &mut preset.gerber.file_names;
+                names.retain(|row| row.layer != "inner_copper");
+                if !text.is_empty() {
+                    names.push(LayerFileName {
+                        layer: "inner_copper".into(),
+                        name: text.into(),
+                    });
+                }
+            }
             Field::GroupBy => preset.bom.group_by = each(text, group)?,
             Field::Sort => preset.bom.sort = each(text, source)?,
             Field::LineStart => preset.bom.line_numbers.start = count(text, 0)?,

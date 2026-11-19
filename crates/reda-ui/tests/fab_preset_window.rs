@@ -131,6 +131,24 @@ fn the_gerber_page_sets_the_file_origin_and_the_drill_and_cpl_pages_show_it() {
 }
 
 #[test]
+fn the_gerber_page_validates_inner_copper_patterns_before_apply() {
+    let (home, work) = (TempDir::new("inner-home"), TempDir::new("inner-work"));
+    let mut h = harness(home.path(), Some(work.path()));
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    retype(&mut h, "Inner copper file name", "plane.ger");
+    h.get_by_label_contains("must include ${position} or ${inner}");
+    assert!(h.get_by_label("Apply").accesskit_node().is_disabled());
+    retype(&mut h, "Inner copper file name", "plane${inner}.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!({"inner_copper": "plane${inner}.ger"})
+    );
+}
+
+#[test]
 fn the_stackup_page_edits_finish_and_colour_suggestions_as_free_text() {
     let (home, work) = (TempDir::new("fpw-home"), TempDir::new("fpw-work"));
     let mut h = harness(home.path(), Some(work.path()));

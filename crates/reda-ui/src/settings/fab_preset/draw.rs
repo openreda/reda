@@ -197,8 +197,8 @@ fn stackup(ui: &mut Ui, editor: &mut PresetEditor) {
 }
 
 fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
-    let g = &mut editor.value_mut().gerber;
     rows(ui, "preset-gerber", |ui| {
+        let g = &mut editor.value_mut().gerber;
         choice(
             ui,
             tr!("preset-naming"),
@@ -223,11 +223,15 @@ fn gerber(ui: &mut Ui, editor: &mut PresetEditor) {
             tr!("preset-outline-every"),
             &mut g.outline_on_every_plot,
         );
+        typed(ui, editor, Field::InnerCopper, tr!("preset-inner-copper"));
+        ui.label("");
+        layout::muted(ui, tr!("preset-inner-copper-tokens"));
+        ui.end_row();
     });
     let t = ui.tokens();
     ui.add_space(t.space.section);
     strong(ui, tr!("preset-file-names"));
-    file_names(ui, &mut g.file_names);
+    file_names(ui, &mut editor.value_mut().gerber.file_names);
 }
 
 fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {
@@ -241,6 +245,9 @@ fn file_names(ui: &mut Ui, names: &mut Vec<LayerFileName>) {
                 h.empty();
             });
             for (i, row) in names.iter_mut().enumerate() {
+                if row.layer == "inner_copper" {
+                    continue;
+                }
                 let n = i + 1;
                 table.row(|cells| {
                     cells.ui(|ui| {
