@@ -305,6 +305,7 @@ impl Command for ClearanceVia {
             span: pcb.stackup().through_type().span(),
             at: p.at.point(),
             diameter: diameter.into(),
+            hole: net_rules(pcb, net).via_hole.default_size(),
             net,
         };
         Ok(check(

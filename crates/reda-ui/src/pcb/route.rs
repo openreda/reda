@@ -634,11 +634,12 @@ impl Router {
                     .into_iter()
                     .find_map(|l| c.net_at(l, at))
             });
-            let diameter = reda_engine::pcb::rules::via_starting_size(pcb, net, kind).0;
+            let (diameter, hole) = reda_engine::pcb::rules::via_starting_size(pcb, net, kind);
             let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
             let proposal = Proposal::Via {
                 at,
                 diameter,
+                hole,
                 net,
                 span,
             };

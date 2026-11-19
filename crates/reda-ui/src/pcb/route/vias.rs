@@ -141,7 +141,7 @@ impl Router {
             return false;
         };
         for via in &members {
-            let proposal = Proposal::Via { at, diameter: via.diameter, span: via.span, net };
+            let proposal = Proposal::Via { at, diameter: via.diameter, hole: via.hole, span: via.span, net };
             if let Some(why) = self.blocked_by(shell, &proposal) {
                 shell.report(why);
                 return false;
