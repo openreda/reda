@@ -33,7 +33,7 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
 | **v0.6 Libraries & import** | KiCad project + library import; supplier part search (stock, price); library extras | `reda-import-kicad` |
 | **v0.7 Outputs** | assembly PDFs; IPC-D-356; ODB++; Gerber Document (built-in Gerber viewer) | Output Jobs; the Gerber read-back test |
 | **v1.0 Public release** | signing and notarization; updater; user docs; first translations and a language picker | packaging, i18n keys |
-| **After 1.0** (unordered) | SPICE; autorouter; plug-ins; built-in git (commit/branch UI); KiCad export; WebAssembly build | see below |
+| **After 1.0** (unordered) | SPICE; autorouter; plug-ins; built-in git (commit/branch UI); KiCad export; WebAssembly build; flex and advanced board fabrication | see below |
 
 ## Modules after v0.1
 
@@ -106,6 +106,10 @@ Each milestone after v0.1 is a themed release that gives hobbyists a usable step
   - A visual Document diff (two versions overlaid in the canvas).
   - A `reda merge` git merge driver in `reda-cli`.
   - A built-in git client (commit/branch UI) in `reda-ui`.
+- **Flex and advanced board fabrication**, in `reda-pcb` and `reda-output`. The [v0.2 map](https://github.com/openreda/reda/issues/319) ruled these out of Multilayer:
+  - Flex and rigid-flex boards, with several stacks and regions on one board, coverlay and stiffeners. v0.1 already [reserves the names](v0.1/architecture.md#reserved-names).
+  - Back-drilling.
+  - Via filling and protection options (the reserved Via `protection`), including filled via-in-pad.
 - **WebAssembly** (`reda-web`): a full editing build if feasible, otherwise a read-only viewer (open a Project, browse the sheets and the board, cross-probe, view Layers). It has low priority. Its only standing cost is keeping the engine crates wasm32-clean.
 
 ## Later fog
