@@ -3,7 +3,7 @@
 use reda_model::geom::{Millideg, Nm, Point};
 use reda_model::{LayerKind, PadKind, Side, TrackGeometry};
 
-use super::{BoardOpening, BoardPad, Builder, capsule};
+use super::{BoardGeometry, BoardPad, Builder, capsule};
 use crate::arc;
 use crate::color::BoardColor;
 use crate::polygon::triangulate;
@@ -28,8 +28,13 @@ pub(super) fn tracks(b: &mut Builder) {
 
 /// Each Pad's copper, and its mask and paste: the `openings` given, else the copper's
 /// shape on its mask and paste Layers.
-pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardOpening]>) {
-    for pad in pads {
+pub(super) fn pads(b: &mut Builder, geometry: &BoardGeometry) {
+    let openings = geometry.openings.as_deref();
+    for pad in &geometry.pads {
+        let child = match pad.child {
+            Some(crate::Child::Pad { pad, .. }) => Some(pad),
+            _ => None,
+        };
         let both = [Some(Side::Top), Some(Side::Bottom)];
         let (copper, mask, paste): (Vec<_>, Vec<_>, Vec<_>) = match (pad.kind, pad.side) {
             (PadKind::Smd, side) => (
@@ -50,6 +55,9 @@ pub(super) fn pads(b: &mut Builder, pads: &[BoardPad], openings: Option<&[BoardO
         };
         let first = b.scene.items.len();
         for layer in copper.iter().copied().flatten() {
+            if geometry.omitted_lands.contains(&(pad.object, child, layer)) {
+                continue;
+            }
             let side = b.pcb.layers().layer(layer).expect("Pad Layer").side;
             b.on_layer(
                 pad.object,
@@ -121,11 +129,14 @@ fn outline_shape(at: Point, rotation: Millideg, o: &reda_model::geom::CornerRect
 /// How far a drawn Pad's chords may stray from its rounded corners.
 const PAD_ARC_TOLERANCE: Nm = Nm(1_000);
 
-pub(super) fn vias(b: &mut Builder) {
+pub(super) fn vias(b: &mut Builder, geometry: &BoardGeometry) {
     let pcb = b.pcb;
     for via in pcb.vias() {
         let first = b.scene.items.len();
         for layer in pcb.span_layers(via.span) {
+            if geometry.omitted_lands.contains(&(via.uuid, None, layer)) {
+                continue;
+            }
             let disc = Primitive::Ring {
                 center: via.at,
                 outer: Nm(via.diameter_on(layer).0 / 2),

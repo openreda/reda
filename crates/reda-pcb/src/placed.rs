@@ -184,6 +184,7 @@ pub struct PlacedPad {
     /// Physical inner and bottom copper, omitted when identical to the top.
     pub middle: Option<(PadShape, CornerRect)>,
     pub bottom: Option<(PadShape, CornerRect)>,
+    pub unused_layers: reda_model::UnusedLayers,
     /// The hole, its slot turned in the Pad's frame on the board.
     pub hole: Option<Hole>,
     /// The copper side of an SMD Pad; `None` for a Pad with a hole, which is on both.
@@ -271,6 +272,7 @@ pub fn placed_pads(pcb: &PcbDocument, instance: &FootprintInstance) -> Vec<Place
             });
             PlacedPad {
                 pad: pad.uuid,
+                unused_layers: pad.unused_layers,
                 number: pad.number.clone(),
                 kind: pad.kind,
                 shape: top.0,
@@ -321,6 +323,7 @@ pub fn placed_pads_on(
 pub fn placed_free_pad(pad: &FreePad) -> PlacedPad {
     PlacedPad {
         pad: pad.uuid,
+        unused_layers: pad.unused_layers,
         number: String::new(),
         kind: pad.kind,
         shape: pad.shape,

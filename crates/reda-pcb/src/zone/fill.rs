@@ -41,14 +41,8 @@ pub(super) fn min_width(pcb: &PcbDocument, zone: &Zone) -> Nm {
     })
 }
 
-/// The fill of `zone`, as `i_overlay` shapes.
-pub(super) fn fill_zone(
-    pcb: &PcbDocument,
-    copper: &Copper,
-    zone: &Zone,
-    before: &[Filled<'_>],
-    holes: &[crate::drill::DrillHole],
-) -> Area {
+/// The area the Zone is intended to cover, before any copper or thermal clearances.
+pub(crate) fn outline_area(pcb: &PcbDocument, zone: &Zone) -> Area {
     let layer = zone.layer;
     let vertices = pcb.zone_vertices(zone);
     if vertices.is_empty() {
@@ -76,6 +70,19 @@ pub(super) fn fill_zone(
     if !keepouts.is_empty() {
         area = difference(&area, &union(keepouts));
     }
+    area
+}
+
+/// The fill of `zone`, as `i_overlay` shapes.
+pub(super) fn fill_zone(
+    pcb: &PcbDocument,
+    copper: &Copper,
+    zone: &Zone,
+    before: &[Filled<'_>],
+    holes: &[crate::drill::DrillHole],
+) -> Area {
+    let layer = zone.layer;
+    let area = outline_area(pcb, zone);
     let Some((lo, hi)) = bounds(&area) else {
         return Vec::new();
     };

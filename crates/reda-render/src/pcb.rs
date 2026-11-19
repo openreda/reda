@@ -9,7 +9,7 @@ mod drawing;
 mod labels;
 mod zones;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use reda_model::geom::{CornerRect, Millideg, Nm, Point};
 use reda_model::{Hole, Layer, LayerKind, PadKind, PcbDocument, Project, Shape, Side, Uuid};
@@ -23,6 +23,8 @@ use crate::scene::{Primitive, Scene, SceneLayer, SceneSource};
 pub struct BoardGeometry {
     /// Every Pad on the board: Footprint Pads and Free Pads.
     pub pads: Vec<BoardPad>,
+    /// Copper omitted on the board, as (owner, child Pad if placed, Layer).
+    pub omitted_lands: BTreeSet<(Uuid, Option<Uuid>, Uuid)>,
     /// Every Footprint's drawing, on board Layers.
     pub graphics: Vec<BoardGraphic>,
     /// Every text on the board, laid out: free text, Designators and Footprint text.
@@ -265,8 +267,8 @@ pub fn pcb_scene_styled(
     };
     zones::build(&mut b, project.zone_fills(document), &geometry.zones);
     copper::tracks(&mut b);
-    copper::pads(&mut b, &geometry.pads, geometry.openings.as_deref());
-    copper::vias(&mut b);
+    copper::pads(&mut b, geometry);
+    copper::vias(&mut b, geometry);
     drawing::graphics(&mut b, &geometry.graphics);
     drawing::texts(&mut b, &geometry.texts);
     drawing::outline(&mut b);

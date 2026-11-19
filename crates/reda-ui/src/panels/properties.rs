@@ -139,6 +139,7 @@ fn content(ui: &mut Ui, shell: &Shell) -> Vec<Out> {
         .show(ui, |ui| {
             ui.label(tr!("properties-selected", count = properties.count));
             chips(ui, shell, &properties, &mut out);
+            out.extend(crate::pcb::unused_layers::properties(ui, shell));
             for uuid in &shell.selection().objects {
                 if let Some(reda_engine::model::Object::PcbText(text)) = project.object(*uuid) {
                     let omitted = reda_engine::pcb::text_geometry(&text, shell.engine().fonts())

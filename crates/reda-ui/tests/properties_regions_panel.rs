@@ -290,3 +290,62 @@ fn a_collapsed_region_stays_collapsed_in_state_json() {
     let state = reda_ui::engine::state::read(&UserDirs::under(home.path()));
     assert!(state.properties_collapsed.is_empty());
 }
+
+#[test]
+fn mixed_via_land_modes_edit_together_and_the_tools_dialog_can_include_the_whole_board() {
+    let (home, work) = (
+        TempDir::new("unused-ui-home"),
+        TempDir::new("unused-ui-work"),
+    );
+    let mut h = harness(&home, &work);
+    let via = |h: &mut Harness<'_, App>, x, mode| {
+        run(
+            h,
+            "pcb.via.add",
+            json!({"at":{"x":x,"y":0},"unused_layers":mode}),
+        )["uuid"]
+            .clone()
+    };
+    let a = via(&mut h, 0, "keep");
+    let b = via(&mut h, 3_000_000, "remove");
+    let c = via(&mut h, 6_000_000, "remove_keep_ends");
+    run(&mut h, "selection.set", json!({"objects":[a,b]}));
+    h.run();
+    h.get_by_role_and_label(Role::ComboBox, "Unconnected Via lands")
+        .click();
+    h.run();
+    h.get_by_label("Remove and keep both ends").click();
+    h.run();
+    let (id, p) = last_entry(&h);
+    assert_eq!(id, "pcb.unused_layers.set");
+    assert_eq!(p["objects"], json!([a, b]));
+    assert_eq!(p["vias"], "remove_keep_ends");
+    run(&mut h, "pcb.lock", json!({"objects":[c],"locked":true}));
+    h.get_by_label("Tools").click();
+    h.run();
+    h.get_by_label("Set Unused Copper…").click();
+    h.run();
+    h.get_by_label("Whole board").click();
+    h.run();
+    h.get_by_label("Include locked objects").click();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Apply").click();
+    h.run();
+    let (id, p) = last_entry(&h);
+    assert_eq!(id, "pcb.unused_layers.set");
+    assert!(p.get("objects").is_none());
+    assert_eq!(p["include_locked"], true);
+    assert_eq!(p["vias"], "remove");
+    let project = h.state().shell().engine().project().unwrap();
+    for uuid in [a, b, c] {
+        let via = project
+            .pcb()
+            .unwrap()
+            .via(uuid.as_str().unwrap().parse().unwrap())
+            .unwrap();
+        assert_eq!(
+            via.unused_layers,
+            reda_ui::engine::model::UnusedLayers::Remove
+        );
+    }
+}

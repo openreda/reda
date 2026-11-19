@@ -22,6 +22,7 @@ use super::edge::Edge;
 use super::placement::{corners, polyline};
 use super::{Board, Report};
 use crate::copper::shape::{Core, Prim, Shape as Copper, arc_points};
+use crate::copper::{Item, UnusedLands};
 use crate::placed::{PlacedPad, placed_graphics};
 use crate::rules::resolve;
 use crate::text::{PlacedText, footprint_texts, text_geometry};
@@ -70,7 +71,7 @@ fn silk_to_mask(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
     let mode = resolve(pcb, None, RuleKind::SilkToMask, RuleField::Mode)
         .and_then(|m| m.value.mode())
         .unwrap_or_default();
-    let targets = targets(pcb, mode);
+    let targets = targets(pcb, mode, board.copper.unused_lands());
     let mut seen = BTreeSet::new();
     for piece in silk {
         let Some(silk_box) = poly::bounds(&piece.area) else {
@@ -158,7 +159,7 @@ fn silk_to_edge(board: &Board<'_>, silk: &[Silk], report: &mut Report) {
 
 /// What silkscreen keeps clear of in `mode`: each resolved mask opening, or the copper
 /// inside it.
-pub(crate) fn targets(pcb: &PcbDocument, mode: SilkMaskMode) -> Vec<Target> {
+pub(crate) fn targets(pcb: &PcbDocument, mode: SilkMaskMode, unused: &UnusedLands) -> Vec<Target> {
     crate::openings::resolve(pcb)
         .into_iter()
         .filter(|o| o.kind == crate::openings::Kind::Mask)
@@ -166,7 +167,14 @@ pub(crate) fn targets(pcb: &PcbDocument, mode: SilkMaskMode) -> Vec<Target> {
             let opening = pad_area(o.geometry.as_ref()?);
             let area = match mode {
                 SilkMaskMode::MaskOpening => opening,
-                SilkMaskMode::ExposedCopper => poly::intersection(&opening, &pad_area(&o.copper)),
+                SilkMaskMode::ExposedCopper => {
+                    let layer = pcb.layers().find(LayerKind::Copper, Some(o.side))?;
+                    // A Via can keep its mask opening while losing its outer land.
+                    if unused.contains(Item::Via { uuid: o.copper.pad }, layer.uuid) {
+                        return None;
+                    }
+                    poly::intersection(&opening, &pad_area(&o.copper))
+                }
             };
             (!area.is_empty()).then_some(Target {
                 objects: o.objects,

@@ -27,6 +27,9 @@ pub struct FreePad {
     /// Optional bottom copper, in the Pad's frame. Omitted groups inherit the top.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<PadCopperShape>,
+    /// Whether unused inner lands of a plated through-hole Pad are removed.
+    #[serde(default, skip_serializing_if = "crate::UnusedLayers::is_keep")]
+    pub unused_layers: crate::UnusedLayers,
     /// The Pad's anchor: the hole sits there, Tracks connect there and it turns about it.
     pub at: Point,
     /// Counter-clockwise.
@@ -99,7 +102,11 @@ impl FreePad {
 
     /// What is wrong with this Pad, if anything: a JSON pointer to the field and a message.
     pub fn problem(&self) -> Option<(String, String)> {
-        if let Some(problem) = self.form().stack_problem(self.middle, self.bottom) {
+        if let Some(problem) = self
+            .form()
+            .stack_problem(self.middle, self.bottom)
+            .or_else(|| self.unused_layers.pad_problem(self.kind))
+        {
             return Some(problem);
         }
         if let Some(problem) = crate::opening_problem(

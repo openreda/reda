@@ -30,6 +30,8 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 mod clearance;
+mod lands;
+pub use lands::UnusedLands;
 mod ratsnest;
 pub(crate) mod shape;
 pub(crate) mod ties;
@@ -129,6 +131,7 @@ struct Info {
 /// keep it current with [`Copper::apply`] after each committed change set.
 #[derive(Clone, Debug)]
 pub struct Copper {
+    unused: UnusedLands,
     fonts: Fonts,
     pieces: Vec<Option<Piece>>,
     free: Vec<usize>,
@@ -184,7 +187,12 @@ impl Copper {
 
     /// The copper of `pcb`, with free text in the fonts used for plotting.
     pub fn build_with_fonts(pcb: &PcbDocument, fonts: &Fonts) -> Copper {
+        Self::with_lands(pcb, fonts, UnusedLands::of(pcb))
+    }
+
+    pub(crate) fn with_lands(pcb: &PcbDocument, fonts: &Fonts, unused: UnusedLands) -> Copper {
         let mut copper = Copper {
+            unused,
             fonts: fonts.clone(),
             pieces: Vec::new(),
             free: Vec::new(),
@@ -264,6 +272,24 @@ impl Copper {
                 _ => {}
             }
         }
+        // An edit to a Track end, Zone outline or its connection rules can also
+        // change a land on a different object. Re-index just the affected owners.
+        let unused = UnusedLands::of(pcb);
+        for &(item, _) in self.unused.0.symmetric_difference(&unused.0) {
+            match item {
+                Item::Pad { footprint, .. } => {
+                    footprints.insert(footprint);
+                }
+                Item::FreePad { uuid } => {
+                    free_pads.insert(uuid);
+                }
+                Item::Via { uuid } => {
+                    vias.insert(uuid);
+                }
+                _ => unreachable!("only Pads and Vias have unused lands"),
+            }
+        }
+        self.unused = unused;
         for footprint in footprints {
             for item in self.pads.remove(&footprint).unwrap_or_default() {
                 self.remove(item);
@@ -320,6 +346,11 @@ impl Copper {
         for zone in zones {
             self.add_zone(pcb, zone);
         }
+    }
+
+    /// The Pad and Via lands omitted from this index.
+    pub fn unused_lands(&self) -> &UnusedLands {
+        &self.unused
     }
 
     /// Every piece of copper, sorted.
@@ -549,17 +580,9 @@ impl Copper {
         let pieces = pcb
             .copper_layers()
             .filter(|l| pad.side.is_none() || pad.side == l.side)
-            .map(|l| {
-                let (_, outline) = pad.copper_on(l.side);
-                let shape = Shape::outline(&outline, |p| {
-                    let q = pad.point(Point::new(
-                        reda_model::geom::Nm(p[0]),
-                        reda_model::geom::Nm(p[1]),
-                    ));
-                    [q.x.0, q.y.0]
-                });
-                (l.uuid, shape)
-            });
+            .filter(|l| !self.unused.contains(item, l.uuid))
+            .map(|l| (l.uuid, lands::pad_shape(pad, l.side)))
+            .collect::<Vec<_>>();
         self.insert(item, info, pieces);
     }
 
@@ -623,11 +646,16 @@ impl Copper {
             net: via.net,
             anchors: vec![via.at],
         };
+        let item = Item::Via { uuid };
         let pieces = pcb
             .span_layers(via.span)
             .into_iter()
-            .map(|l| (l, Shape::disc(via.at, via.diameter_on(l))));
-        self.insert(Item::Via { uuid }, info, pieces);
+            .filter(|l| !self.unused.contains(item, *l))
+            .map(|l| (l, Shape::disc(via.at, via.diameter_on(l))))
+            .collect::<Vec<_>>();
+        if !pieces.is_empty() {
+            self.insert(item, info, pieces);
+        }
     }
 
     fn add_zone(&mut self, pcb: &PcbDocument, uuid: Uuid) {

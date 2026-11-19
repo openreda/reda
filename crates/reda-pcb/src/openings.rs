@@ -43,6 +43,7 @@ pub fn resolve(pcb: &PcbDocument) -> Vec<Opening> {
     for via in pcb.vias() {
         let pad = PlacedPad {
             pad: via.uuid,
+            unused_layers: via.unused_layers,
             number: String::new(),
             kind: PadKind::PlatedThroughHole,
             shape: PadShape::Circle,
@@ -75,6 +76,7 @@ pub fn element_openings(pcb: &PcbDocument, footprint: &reda_model::Footprint) ->
     for pad in &footprint.pads {
         let placed = PlacedPad {
             pad: pad.uuid,
+            unused_layers: pad.unused_layers,
             number: pad.number.clone(),
             kind: pad.kind,
             shape: pad.shape,

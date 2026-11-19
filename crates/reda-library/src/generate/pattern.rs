@@ -177,6 +177,7 @@ impl PadSpec {
             height: self.height,
             middle: None,
             bottom: None,
+            unused_layers: Default::default(),
             corner_ratio,
             chamfer_ratio: None,
             corners: None,
