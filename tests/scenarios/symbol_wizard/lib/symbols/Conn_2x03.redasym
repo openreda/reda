@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-000000000044","name":"Conn_2x03","designator_prefix":"J"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-000000000045","name":"A"}

@@ -324,7 +324,10 @@ impl BoardSetupDraft {
                 Some(((class, r.kind), r.uuid))
             })
             .collect();
-        for field in RuleField::ALL {
+        for field in RuleField::ALL
+            .into_iter()
+            .filter(|f| f.applies_board_wide())
+        {
             let draft = self.rules.entry(field).or_default();
             load_text(field, draft, field.board_text(pcb), reset);
             let kind = field.rule().0;
@@ -546,7 +549,9 @@ impl BoardSetupDraft {
             }
             return;
         }
-        self.rules.entry(rule).or_default().set(text);
+        if let Some(draft) = self.rules.get_mut(&rule) {
+            draft.set(text);
+        }
     }
 
     /// Whether the top and bottom mask expansions are edited together.
@@ -597,8 +602,11 @@ impl BoardSetupDraft {
         self.zone_scheme.set(scheme);
     }
 
-    pub fn rule_mut(&mut self, rule: RuleField) -> &mut String {
-        self.rules.entry(rule).or_default().value_mut()
+    pub(super) fn rule_mut(&mut self, rule: RuleField) -> &mut String {
+        self.rules
+            .get_mut(&rule)
+            .expect("a board-wide field")
+            .value_mut()
     }
 
     /// The severity drafted for `check`.

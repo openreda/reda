@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"595b8b5e-8c78-4efa-b9ad-91bead0c60bf","name":"XTAL_SMD_3225_4Pad","description":"SMD crystal, 3.2 × 2.5 mm ceramic package, 4 pads. Lands per Abracon ABM8 datasheet, Recommended land pattern","height":800000},
   "pads": [
     {"uuid":"60ec9f5d-fba4-44d6-8b9b-e81f0a6c4855","number":"2","kind":"smd","shape":"rounded_rect","at":{"x":1150000,"y":-875000},"rotation":0,"width":1300000,"height":1050000,"corner_ratio":50000},

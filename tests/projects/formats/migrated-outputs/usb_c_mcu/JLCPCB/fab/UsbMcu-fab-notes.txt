@@ -1,0 +1,39 @@
+Fab Notes for UsbMcu
+Revision: A
+Written by REDA 0.0.0-test
+
+Board
+  Size: 30 x 27 mm
+  Copper layers: 2
+  Thickness: 1.6 mm
+  Copper L1 (top): 1 oz (35 µm)
+  Copper L2 (bottom): 1 oz (35 µm)
+
+Minimum features
+  Clearance: 0.1 mm
+  Track width: 0.1 mm
+  Via diameter: 0.51 mm
+  Via hole: 0.15 mm
+  Hole size: 0.2 mm
+  Annular ring: 0.18 mm
+  Hole to hole: 0.45 mm
+  Copper to board edge: 0.2 mm
+
+Deliberate shorts (Net Ties)
+  NT1: joins GND and SHIELD on purpose; this short is deliberate
+
+Files in the zip
+  UsbMcu.gtl
+  UsbMcu.gbl
+  UsbMcu.gts
+  UsbMcu.gbs
+  UsbMcu.gtp
+  UsbMcu.gbp
+  UsbMcu.gto
+  UsbMcu.gbo
+  UsbMcu.gm1
+  UsbMcu-PTH.drl
+  UsbMcu-NPTH.drl
+  UsbMcu-fab-notes.txt
+  UsbMcu-drill-report.txt
+  UsbMcu-job.gbrjob

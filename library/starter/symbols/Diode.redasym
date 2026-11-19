@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"4b324015-989b-4479-95fe-83588e1620c6","name":"Diode","designator_prefix":"D","description":"Diode"},
   "units": [
     {"uuid":"0267a7a6-55ea-44f8-96a4-4bbce172401d","name":"A"}

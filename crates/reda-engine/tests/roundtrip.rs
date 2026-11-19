@@ -278,9 +278,28 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
             comment: None,
         });
     }
+    let mut added = reda_engine::pcb::multilayer_rules(doc);
+    let teardrop = added
+        .iter_mut()
+        .find(|r| r.kind == RuleKind::Teardrop)
+        .unwrap();
+    let pad = teardrop.values.through_hole_pad.as_mut().unwrap();
+    pad.enabled = seed.base & 1 != 0;
+    pad.curved = seed.base & 2 != 0;
+    pad.length = 1 + (seed.base % 100) as u32;
+    rules.extend(added);
     let ([top, bottom], dielectric, [finish, mask_color, silk_color]) = seed.stackup;
+    let stack_id = id();
+    let preferred = fab_rules(seed.rules).preferred;
     let stackup = Stackup {
-        uuid: id(),
+        uuid: stack_id,
+        via_types: vec![reda_model::ViaType::through(
+            stack_id,
+            layers.layers[0].uuid,
+            layers.layers[1].uuid,
+            preferred.via_hole,
+            preferred.via_diameter,
+        )],
         thickness: Nm(top.0 + bottom.0 + 1_000_000),
         entries: vec![
             StackupEntry::Copper(CopperEntry {
@@ -288,6 +307,7 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 thickness: top,
             }),
             StackupEntry::Dielectric(DielectricEntry {
+                kind: reda_model::DielectricKind::Core,
                 uuid: id(),
                 thickness: dielectric,
             }),
@@ -491,7 +511,11 @@ fn pcb_objects(seed: PcbSeed) -> (DocumentEntry, Vec<Object>) {
                 uuid: id(),
                 at: from,
                 net,
-                diameter: Nm(width.0 + 1),
+                diameter: reda_model::ViaDiameter {
+                    start: Nm(width.0 + 1),
+                    middle: Some(Nm(width.0 + 2)),
+                    end: Some(Nm(width.0 + 3)),
+                },
                 hole: width,
                 span: LayerSpan {
                     from: layer_ids[0],
@@ -629,7 +653,12 @@ prop_compose! {
     ) -> (ProjectFabPreset, OutputJob) {
         let rules = fab_rules(lengths);
         let gerber = GerberSettings { x2_attributes, naming: FileNaming::Classic, ..Default::default() };
-        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, stackup: Default::default(), stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
+        let mut construction = reda_model::Construction::two_layer(reda_model::StackupSeeds {
+            thickness: Some(Nm(1_000_000 + lengths[0].0.unsigned_abs() as i64)),
+            copper: Some(Nm(1 + lengths[1].0.unsigned_abs() as i64 % 200_000)),
+        });
+        construction.name = job_name.clone();
+        let copy = ProjectFabPreset::new(preset, FabPreset { name, rules, constructions: vec![construction], stackup_suggestions: Default::default(), zip_assembly: false, gerber, bom: reda_engine::model::BomSettings { columns: bom, ..Default::default() }, cpl: reda_engine::model::CplSettings { columns: cpl, ..Default::default() } });
         let [gerber, drill, bom, cpl] = outputs;
         let job = OutputJob {
             uuid: job,
@@ -1035,6 +1064,7 @@ fn fab_rules(lengths: [Nm; 7]) -> FabRules {
         edge_clearance,
     ] = lengths;
     FabRules {
+        clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),
         clearance,

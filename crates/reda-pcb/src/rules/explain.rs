@@ -17,6 +17,12 @@ pub fn check_of(kind: RuleKind) -> Option<DrcCheck> {
         RuleKind::Clearance => Some(DrcCheck::Clearance),
         RuleKind::TrackWidth => Some(DrcCheck::TrackWidth),
         RuleKind::ViaSize => Some(DrcCheck::ViaSize),
+        RuleKind::ViaSpan => Some(DrcCheck::ViaSpan),
+        RuleKind::MicroviaSize => Some(DrcCheck::MicroviaSize),
+        RuleKind::Teardrop => None,
+        RuleKind::SilkWidth => Some(DrcCheck::SilkWidth),
+        RuleKind::SilkTextHeight => Some(DrcCheck::SilkTextHeight),
+
         RuleKind::HoleSize => Some(DrcCheck::HoleSize),
         RuleKind::AnnularRing => Some(DrcCheck::AnnularRing),
         RuleKind::HoleToHole => Some(DrcCheck::HoleToHole),

@@ -198,6 +198,17 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -1400,6 +1411,17 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -1632,6 +1654,17 @@
           "DrcCheck": {
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
@@ -2170,6 +2203,17 @@
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
                 "type": "string"
@@ -2457,6 +2501,17 @@
           "DrcCheck": {
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
@@ -4150,6 +4205,74 @@
               }
             ]
           },
+          "Construction": {
+            "additionalProperties": false,
+            "description": "One named physical build offered by a Fab Preset.",
+            "properties": {
+              "default": {
+                "type": "boolean"
+              },
+              "entries": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionEntry"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "thickness": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "default",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "ConstructionEntry": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "copper": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "copper"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "$ref": "#/$defs/DielectricKind"
+                  },
+                  "thickness": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "CplSettings": {
             "additionalProperties": false,
             "description": "A Fab Preset's CPL: its columns and position conventions.",
@@ -4217,6 +4340,13 @@
               }
             ]
           },
+          "DielectricKind": {
+            "enum": [
+              "core",
+              "prepreg"
+            ],
+            "type": "string"
+          },
           "FabPreset": {
             "additionalProperties": false,
             "description": "What a fab wants: seed design rules, the Gerber and drill switches, and the BOM and CPL\ncolumns. The same shape is a shipped preset, a user's `.redafab` file and the body of a\nProject copy.",
@@ -4224,6 +4354,13 @@
               "bom": {
                 "$ref": "#/$defs/BomSettings",
                 "description": "The BOM table form, columns and row conventions."
+              },
+              "constructions": {
+                "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither.",
+                "items": {
+                  "$ref": "#/$defs/Construction"
+                },
+                "type": "array"
               },
               "cpl": {
                 "$ref": "#/$defs/CplSettings",
@@ -4241,10 +4378,6 @@
                 "$ref": "#/$defs/FabRules",
                 "description": "The limits a job checks the board against, and the seeds of a new board's rules."
               },
-              "stackup": {
-                "$ref": "#/$defs/StackupSeeds",
-                "description": "The thickness and copper a new board's Stackup starts with; left out when the\npreset seeds neither."
-              },
               "stackup_suggestions": {
                 "$ref": "#/$defs/StackupSuggestions",
                 "description": "The Stackup options the fab offers; never checked against the board."
@@ -4257,6 +4390,7 @@
             "required": [
               "name",
               "rules",
+              "constructions",
               "gerber",
               "stackup_suggestions",
               "zip_assembly",
@@ -4278,6 +4412,9 @@
                 "description": "Minimum clearance between copper of different Nets.",
                 "format": "int64",
                 "type": "integer"
+              },
+              "clearance_hole": {
+                "$ref": "#/$defs/HoleClearance"
               },
               "edge_clearance": {
                 "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
@@ -4328,6 +4465,7 @@
               }
             },
             "required": [
+              "clearance_hole",
               "clearance",
               "track_width",
               "via_diameter",
@@ -4417,6 +4555,27 @@
               "merge_drill",
               "outline_on_every_plot",
               "file_names"
+            ],
+            "type": "object"
+          },
+          "HoleClearance": {
+            "additionalProperties": false,
+            "description": "Clearance to the plated holes of another Net.",
+            "properties": {
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "via",
+              "pad"
             ],
             "type": "object"
           },
@@ -4641,29 +4800,6 @@
                 "type": "string"
               }
             ]
-          },
-          "StackupSeeds": {
-            "additionalProperties": false,
-            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
-            "properties": {
-              "copper": {
-                "description": "The copper thickness of every copper Layer.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "thickness": {
-                "description": "The finished board thickness.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              }
-            },
-            "type": "object"
           },
           "StackupSuggestions": {
             "additionalProperties": false,
@@ -22016,6 +22152,74 @@
               }
             ]
           },
+          "Construction": {
+            "additionalProperties": false,
+            "description": "One named physical build offered by a Fab Preset.",
+            "properties": {
+              "default": {
+                "type": "boolean"
+              },
+              "entries": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionEntry"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "thickness": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "default",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "ConstructionEntry": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "copper": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "copper"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "$ref": "#/$defs/DielectricKind"
+                  },
+                  "thickness": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "CopperEntry": {
             "additionalProperties": false,
             "description": "The copper of one copper Layer.",
@@ -22139,6 +22343,9 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "kind": {
+                "$ref": "#/$defs/DielectricKind"
+              },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
                 "format": "int64",
@@ -22153,9 +22360,17 @@
               }
             },
             "required": [
-              "uuid"
+              "uuid",
+              "kind"
             ],
             "type": "object"
+          },
+          "DielectricKind": {
+            "enum": [
+              "core",
+              "prepreg"
+            ],
+            "type": "string"
           },
           "DimensionEnd": {
             "additionalProperties": false,
@@ -22334,6 +22549,10 @@
                 "default": "error",
                 "description": "An annular ring below the minimum."
               },
+              "aspect_ratio": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
+              },
               "clearance": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -22394,10 +22613,18 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "max_stack": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
+              },
               "micro_segment": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "Health check: a Track no longer than the `micro_segment` length."
+              },
+              "microvia_size": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
               },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
@@ -22444,6 +22671,10 @@
                 "default": "error",
                 "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
               },
+              "silk_text_height": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning"
+              },
               "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -22453,6 +22684,10 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
+              },
+              "silk_width": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning"
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -22468,6 +22703,10 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "A Via diameter or hole outside the `via_size` range."
+              },
+              "via_span": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -22492,6 +22731,12 @@
               "net_tie_not_joined",
               "track_width",
               "via_size",
+              "via_span",
+              "microvia_size",
+              "aspect_ratio",
+              "max_stack",
+              "silk_width",
+              "silk_text_height",
               "hole_size",
               "annular_ring",
               "hole_to_hole",
@@ -22685,6 +22930,9 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "clearance_hole": {
+                "$ref": "#/$defs/HoleClearance"
+              },
               "edge_clearance": {
                 "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
                 "format": "int64",
@@ -22734,6 +22982,7 @@
               }
             },
             "required": [
+              "clearance_hole",
               "clearance",
               "track_width",
               "via_diameter",
@@ -23235,6 +23484,27 @@
             "required": [
               "width",
               "height"
+            ],
+            "type": "object"
+          },
+          "HoleClearance": {
+            "additionalProperties": false,
+            "description": "Clearance to the plated holes of another Net.",
+            "properties": {
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "via",
+              "pad"
             ],
             "type": "object"
           },
@@ -24205,9 +24475,8 @@
                 "description": "The centre."
               },
               "diameter": {
-                "description": "The copper pad diameter.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/ViaDiameter",
+                "description": "The copper pad diameter."
               },
               "hole": {
                 "description": "The drilled hole diameter.",
@@ -24466,12 +24735,20 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "via_types": {
+                "description": "The ordered Via types, including the through type.",
+                "items": {
+                  "$ref": "#/$defs/ViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
               "thickness",
-              "entries"
+              "entries",
+              "via_types"
             ],
             "type": "object"
           },
@@ -25443,6 +25720,12 @@
                   "bom": {
                     "$ref": "#/$defs/BomSettings"
                   },
+                  "constructions": {
+                    "items": {
+                      "$ref": "#/$defs/Construction"
+                    },
+                    "type": "array"
+                  },
                   "cpl": {
                     "$ref": "#/$defs/CplSettings"
                   },
@@ -25455,9 +25738,6 @@
                   },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
-                  },
-                  "stackup": {
-                    "$ref": "#/$defs/StackupSeeds"
                   },
                   "stackup_suggestions": {
                     "$ref": "#/$defs/StackupSuggestions"
@@ -25479,6 +25759,7 @@
                   "uuid",
                   "name",
                   "rules",
+                  "constructions",
                   "gerber",
                   "stackup_suggestions",
                   "zip_assembly",
@@ -27427,6 +27708,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -27648,6 +27939,16 @@
                 ],
                 "description": "`zone_connection` only: how fills join SMD Pads."
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -27670,6 +27971,16 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join through-hole Pads."
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -27698,13 +28009,23 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ZoneConnection"
+                    "$ref": "#/$defs/ViaRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "zero_keepout_clearance": {
                 "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -28164,29 +28485,6 @@
             ],
             "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
           },
-          "StackupSeeds": {
-            "additionalProperties": false,
-            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
-            "properties": {
-              "copper": {
-                "description": "The copper thickness of every copper Layer.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "thickness": {
-                "description": "The finished board thickness.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              }
-            },
-            "type": "object"
-          },
           "StackupSuggestions": {
             "additionalProperties": false,
             "description": "Suggestions never validate the board or seed its finish or colours.",
@@ -28333,6 +28631,53 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TeardropTarget": {
+            "additionalProperties": false,
+            "description": "The shape and enable switch for one Teardrop target.",
+            "properties": {
+              "curved": {
+                "type": "boolean"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "length": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "max_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "skip_ratio": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "width": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
             ],
             "type": "object"
           },
@@ -28623,6 +28968,81 @@
             "required": [
               "x",
               "y"
+            ],
+            "type": "object"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
+            ],
+            "type": "object"
+          },
+          "ViaRuleValues": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneConnection"
+              },
+              {
+                "$ref": "#/$defs/TeardropTarget"
+              }
+            ],
+            "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
+          },
+          "ViaType": {
+            "additionalProperties": false,
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "from",
+              "to",
+              "hole",
+              "diameter"
             ],
             "type": "object"
           },
@@ -29518,6 +29938,74 @@
               }
             ]
           },
+          "Construction": {
+            "additionalProperties": false,
+            "description": "One named physical build offered by a Fab Preset.",
+            "properties": {
+              "default": {
+                "type": "boolean"
+              },
+              "entries": {
+                "items": {
+                  "$ref": "#/$defs/ConstructionEntry"
+                },
+                "type": "array"
+              },
+              "name": {
+                "type": "string"
+              },
+              "thickness": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "default",
+              "thickness",
+              "entries"
+            ],
+            "type": "object"
+          },
+          "ConstructionEntry": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "copper": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "copper"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "$ref": "#/$defs/DielectricKind"
+                  },
+                  "thickness": {
+                    "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                    "format": "int64",
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
           "CopperEntry": {
             "additionalProperties": false,
             "description": "The copper of one copper Layer.",
@@ -29641,6 +30129,9 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "kind": {
+                "$ref": "#/$defs/DielectricKind"
+              },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
                 "format": "int64",
@@ -29655,9 +30146,17 @@
               }
             },
             "required": [
-              "uuid"
+              "uuid",
+              "kind"
             ],
             "type": "object"
+          },
+          "DielectricKind": {
+            "enum": [
+              "core",
+              "prepreg"
+            ],
+            "type": "string"
           },
           "DimensionEnd": {
             "additionalProperties": false,
@@ -29836,6 +30335,10 @@
                 "default": "error",
                 "description": "An annular ring below the minimum."
               },
+              "aspect_ratio": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
+              },
               "clearance": {
                 "$ref": "#/$defs/Severity",
                 "default": "error",
@@ -29896,10 +30399,18 @@
                 "default": "error",
                 "description": "An object inside a Keepout that forbids it."
               },
+              "max_stack": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
+              },
               "micro_segment": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "Health check: a Track no longer than the `micro_segment` length."
+              },
+              "microvia_size": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
               },
               "net_tie_not_joined": {
                 "$ref": "#/$defs/Severity",
@@ -29946,6 +30457,10 @@
                 "default": "error",
                 "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
               },
+              "silk_text_height": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning"
+              },
               "silk_to_edge": {
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
@@ -29955,6 +30470,10 @@
                 "$ref": "#/$defs/Severity",
                 "default": "warning",
                 "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
+              },
+              "silk_width": {
+                "$ref": "#/$defs/Severity",
+                "default": "warning"
               },
               "track_width": {
                 "$ref": "#/$defs/Severity",
@@ -29970,6 +30489,10 @@
                 "$ref": "#/$defs/Severity",
                 "default": "error",
                 "description": "A Via diameter or hole outside the `via_size` range."
+              },
+              "via_span": {
+                "$ref": "#/$defs/Severity",
+                "default": "error"
               },
               "via_under_smd": {
                 "$ref": "#/$defs/Severity",
@@ -29994,6 +30517,12 @@
               "net_tie_not_joined",
               "track_width",
               "via_size",
+              "via_span",
+              "microvia_size",
+              "aspect_ratio",
+              "max_stack",
+              "silk_width",
+              "silk_text_height",
               "hole_size",
               "annular_ring",
               "hole_to_hole",
@@ -30187,6 +30716,9 @@
                 "format": "int64",
                 "type": "integer"
               },
+              "clearance_hole": {
+                "$ref": "#/$defs/HoleClearance"
+              },
               "edge_clearance": {
                 "description": "Minimum clearance from copper to the Board Outline and Board Cutouts.",
                 "format": "int64",
@@ -30236,6 +30768,7 @@
               }
             },
             "required": [
+              "clearance_hole",
               "clearance",
               "track_width",
               "via_diameter",
@@ -30737,6 +31270,27 @@
             "required": [
               "width",
               "height"
+            ],
+            "type": "object"
+          },
+          "HoleClearance": {
+            "additionalProperties": false,
+            "description": "Clearance to the plated holes of another Net.",
+            "properties": {
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "via",
+              "pad"
             ],
             "type": "object"
           },
@@ -31707,9 +32261,8 @@
                 "description": "The centre."
               },
               "diameter": {
-                "description": "The copper pad diameter.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/ViaDiameter",
+                "description": "The copper pad diameter."
               },
               "hole": {
                 "description": "The drilled hole diameter.",
@@ -31968,12 +32521,20 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "via_types": {
+                "description": "The ordered Via types, including the through type.",
+                "items": {
+                  "$ref": "#/$defs/ViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
               "thickness",
-              "entries"
+              "entries",
+              "via_types"
             ],
             "type": "object"
           },
@@ -32945,6 +33506,12 @@
                   "bom": {
                     "$ref": "#/$defs/BomSettings"
                   },
+                  "constructions": {
+                    "items": {
+                      "$ref": "#/$defs/Construction"
+                    },
+                    "type": "array"
+                  },
                   "cpl": {
                     "$ref": "#/$defs/CplSettings"
                   },
@@ -32957,9 +33524,6 @@
                   },
                   "rules": {
                     "$ref": "#/$defs/FabRules"
-                  },
-                  "stackup": {
-                    "$ref": "#/$defs/StackupSeeds"
                   },
                   "stackup_suggestions": {
                     "$ref": "#/$defs/StackupSuggestions"
@@ -32981,6 +33545,7 @@
                   "uuid",
                   "name",
                   "rules",
+                  "constructions",
                   "gerber",
                   "stackup_suggestions",
                   "zip_assembly",
@@ -34950,6 +35515,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -35171,6 +35746,16 @@
                 ],
                 "description": "`zone_connection` only: how fills join SMD Pads."
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -35193,6 +35778,16 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join through-hole Pads."
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -35221,13 +35816,23 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ZoneConnection"
+                    "$ref": "#/$defs/ViaRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "zero_keepout_clearance": {
                 "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -35687,29 +36292,6 @@
             ],
             "description": "One entry of a [`Stackup`]. Solder mask, silkscreen and paste are not entries."
           },
-          "StackupSeeds": {
-            "additionalProperties": false,
-            "description": "A new board's Stackup values, from its Fab Preset. A value left out uses the fallback:\n[`DEFAULT_BOARD_THICKNESS`] and [`DEFAULT_COPPER`].",
-            "properties": {
-              "copper": {
-                "description": "The copper thickness of every copper Layer.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              },
-              "thickness": {
-                "description": "The finished board thickness.",
-                "format": "int64",
-                "type": [
-                  "integer",
-                  "null"
-                ]
-              }
-            },
-            "type": "object"
-          },
           "StackupSuggestions": {
             "additionalProperties": false,
             "description": "Suggestions never validate the board or seed its finish or colours.",
@@ -35856,6 +36438,53 @@
               "unit",
               "shape",
               "width"
+            ],
+            "type": "object"
+          },
+          "TeardropTarget": {
+            "additionalProperties": false,
+            "description": "The shape and enable switch for one Teardrop target.",
+            "properties": {
+              "curved": {
+                "type": "boolean"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "length": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "max_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "skip_ratio": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "width": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
             ],
             "type": "object"
           },
@@ -36146,6 +36775,81 @@
             "required": [
               "x",
               "y"
+            ],
+            "type": "object"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
+            ],
+            "type": "object"
+          },
+          "ViaRuleValues": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneConnection"
+              },
+              {
+                "$ref": "#/$defs/TeardropTarget"
+              }
+            ],
+            "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
+          },
+          "ViaType": {
+            "additionalProperties": false,
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "from",
+              "to",
+              "hole",
+              "diameter"
             ],
             "type": "object"
           },
@@ -41034,9 +41738,8 @@
                 "description": "The centre."
               },
               "diameter": {
-                "description": "The copper pad diameter.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/ViaDiameter",
+                "description": "The copper pad diameter."
               },
               "hole": {
                 "description": "The drilled hole diameter.",
@@ -41080,6 +41783,37 @@
               "diameter",
               "hole",
               "span"
+            ],
+            "type": "object"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
             ],
             "type": "object"
           },
@@ -48033,6 +48767,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -50681,9 +51425,8 @@
                 "description": "The centre."
               },
               "diameter": {
-                "description": "The copper pad diameter.",
-                "format": "int64",
-                "type": "integer"
+                "$ref": "#/$defs/ViaDiameter",
+                "description": "The copper pad diameter."
               },
               "hole": {
                 "description": "The drilled hole diameter.",
@@ -50727,6 +51470,37 @@
               "diameter",
               "hole",
               "span"
+            ],
+            "type": "object"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
             ],
             "type": "object"
           },
@@ -51945,6 +52719,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -52224,6 +53008,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -52475,6 +53269,16 @@
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
@@ -52852,6 +53656,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -53027,6 +53841,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -53201,6 +54025,17 @@
           "DrcCheck": {
             "description": "One DRC check, named as in [`DrcSeverities`].",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "aspect_ratio",
+                  "max_stack",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets.",
@@ -53410,6 +54245,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -53616,6 +54461,16 @@
                 ],
                 "description": "`zone_connection` only: how fills join SMD Pads."
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -53638,6 +54493,16 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join through-hole Pads."
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -53666,13 +54531,23 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ZoneConnection"
+                    "$ref": "#/$defs/ViaRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "zero_keepout_clearance": {
                 "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -53727,6 +54602,64 @@
                 "type": "string"
               }
             ]
+          },
+          "TeardropTarget": {
+            "additionalProperties": false,
+            "description": "The shape and enable switch for one Teardrop target.",
+            "properties": {
+              "curved": {
+                "type": "boolean"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "length": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "max_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "skip_ratio": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "width": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
+            ],
+            "type": "object"
+          },
+          "ViaRuleValues": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneConnection"
+              },
+              {
+                "$ref": "#/$defs/TeardropTarget"
+              }
+            ],
+            "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
           },
           "ZoneConnection": {
             "additionalProperties": false,
@@ -54046,6 +54979,16 @@
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
@@ -54513,6 +55456,16 @@
             "description": "What a rule record limits.",
             "oneOf": [
               {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
+              {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
                 "type": "string"
@@ -54734,6 +55687,16 @@
                 ],
                 "description": "`zone_connection` only: how fills join SMD Pads."
               },
+              "smd_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "tent_vias_bottom": {
                 "type": [
                   "boolean",
@@ -54756,6 +55719,16 @@
                   }
                 ],
                 "description": "`zone_connection` only: how fills join through-hole Pads."
+              },
+              "through_hole_pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "tolerance": {
                 "description": "`dangling` only: stubs up to this long pass.",
@@ -54784,13 +55757,23 @@
               "via": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/ZoneConnection"
+                    "$ref": "#/$defs/ViaRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
                 "description": "`zone_connection` only: how fills join Vias."
+              },
+              "width_change": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/TeardropTarget"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "zero_keepout_clearance": {
                 "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -54816,6 +55799,64 @@
                 "type": "string"
               }
             ]
+          },
+          "TeardropTarget": {
+            "additionalProperties": false,
+            "description": "The shape and enable switch for one Teardrop target.",
+            "properties": {
+              "curved": {
+                "type": "boolean"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "length": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_length": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "max_width": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "skip_ratio": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "width": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "enabled",
+              "length",
+              "max_length",
+              "width",
+              "max_width",
+              "curved",
+              "skip_ratio"
+            ],
+            "type": "object"
+          },
+          "ViaRuleValues": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ZoneConnection"
+              },
+              {
+                "$ref": "#/$defs/TeardropTarget"
+              }
+            ],
+            "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
           },
           "ZoneConnection": {
             "additionalProperties": false,
@@ -55070,6 +56111,16 @@
           "RuleKind": {
             "description": "What a rule record limits.",
             "oneOf": [
+              {
+                "enum": [
+                  "via_span",
+                  "microvia_size",
+                  "teardrop",
+                  "silk_width",
+                  "silk_text_height"
+                ],
+                "type": "string"
+              },
               {
                 "const": "clearance",
                 "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
@@ -55497,6 +56548,9 @@
             "additionalProperties": false,
             "description": "A dielectric between two copper Layers. Dielectrics are Stackup entries, not Layers.",
             "properties": {
+              "kind": {
+                "$ref": "#/$defs/DielectricKind"
+              },
               "thickness": {
                 "description": "Its thickness; left out, it takes the remainder of the Stackup's thickness.",
                 "format": "int64",
@@ -55511,9 +56565,17 @@
               }
             },
             "required": [
-              "uuid"
+              "uuid",
+              "kind"
             ],
             "type": "object"
+          },
+          "DielectricKind": {
+            "enum": [
+              "core",
+              "prepreg"
+            ],
+            "type": "string"
           },
           "Stackup": {
             "additionalProperties": false,
@@ -55555,12 +56617,20 @@
               "uuid": {
                 "format": "uuid",
                 "type": "string"
+              },
+              "via_types": {
+                "description": "The ordered Via types, including the through type.",
+                "items": {
+                  "$ref": "#/$defs/ViaType"
+                },
+                "type": "array"
               }
             },
             "required": [
               "uuid",
               "thickness",
-              "entries"
+              "entries",
+              "via_types"
             ],
             "type": "object"
           },
@@ -55609,6 +56679,70 @@
               "dielectric",
               "remainder",
               "total"
+            ],
+            "type": "object"
+          },
+          "ViaDiameter": {
+            "additionalProperties": false,
+            "description": "Diameters at the start, middle and end of a Via. A missing shape inherits start.",
+            "properties": {
+              "end": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "middle": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "start": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "start"
+            ],
+            "type": "object"
+          },
+          "ViaType": {
+            "additionalProperties": false,
+            "properties": {
+              "diameter": {
+                "$ref": "#/$defs/ViaDiameter"
+              },
+              "from": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "hole": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": "integer"
+              },
+              "to": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "uuid": {
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "uuid",
+              "from",
+              "to",
+              "hole",
+              "diameter"
             ],
             "type": "object"
           }

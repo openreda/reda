@@ -60,6 +60,10 @@
           "default": "error",
           "description": "An annular ring below the minimum."
         },
+        "aspect_ratio": {
+          "$ref": "#/$defs/Severity",
+          "default": "error"
+        },
         "clearance": {
           "$ref": "#/$defs/Severity",
           "default": "error",
@@ -120,10 +124,18 @@
           "default": "error",
           "description": "An object inside a Keepout that forbids it."
         },
+        "max_stack": {
+          "$ref": "#/$defs/Severity",
+          "default": "error"
+        },
         "micro_segment": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "Health check: a Track no longer than the `micro_segment` length."
+        },
+        "microvia_size": {
+          "$ref": "#/$defs/Severity",
+          "default": "error"
         },
         "net_tie_not_joined": {
           "$ref": "#/$defs/Severity",
@@ -170,6 +182,10 @@
           "default": "error",
           "description": "Pads with different numbers touching on a Part that isn't a Net Tie."
         },
+        "silk_text_height": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning"
+        },
         "silk_to_edge": {
           "$ref": "#/$defs/Severity",
           "default": "warning",
@@ -179,6 +195,10 @@
           "$ref": "#/$defs/Severity",
           "default": "warning",
           "description": "Silkscreen closer than `silk_to_mask` to exposed copper or a mask opening."
+        },
+        "silk_width": {
+          "$ref": "#/$defs/Severity",
+          "default": "warning"
         },
         "track_width": {
           "$ref": "#/$defs/Severity",
@@ -194,6 +214,10 @@
           "$ref": "#/$defs/Severity",
           "default": "error",
           "description": "A Via diameter or hole outside the `via_size` range."
+        },
+        "via_span": {
+          "$ref": "#/$defs/Severity",
+          "default": "error"
         },
         "via_under_smd": {
           "$ref": "#/$defs/Severity",
@@ -263,6 +287,16 @@
     "RuleKind": {
       "description": "What a rule record limits.",
       "oneOf": [
+        {
+          "enum": [
+            "via_span",
+            "microvia_size",
+            "teardrop",
+            "silk_width",
+            "silk_text_height"
+          ],
+          "type": "string"
+        },
         {
           "const": "clearance",
           "description": "Clearance between copper of different Nets: `value`, `ignore_pad_to_pad`,\n`zero_keepout_clearance` (board-wide only).",
@@ -470,6 +504,16 @@
           ],
           "description": "`zone_connection` only: how fills join SMD Pads."
         },
+        "smd_pad": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "tent_vias_bottom": {
           "type": [
             "boolean",
@@ -492,6 +536,16 @@
             }
           ],
           "description": "`zone_connection` only: how fills join through-hole Pads."
+        },
+        "through_hole_pad": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "tolerance": {
           "description": "`dangling` only: stubs up to this long pass.",
@@ -520,13 +574,23 @@
         "via": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ZoneConnection"
+              "$ref": "#/$defs/ViaRuleValues"
             },
             {
               "type": "null"
             }
           ],
           "description": "`zone_connection` only: how fills join Vias."
+        },
+        "width_change": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeardropTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "zero_keepout_clearance": {
           "description": "Clearance only, board-wide only: every Keepout edge is exact, with no clearance.",
@@ -561,6 +625,64 @@
           "type": "string"
         }
       ]
+    },
+    "TeardropTarget": {
+      "additionalProperties": false,
+      "description": "The shape and enable switch for one Teardrop target.",
+      "properties": {
+        "curved": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "length": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_length": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "max_width": {
+          "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "skip_ratio": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "width": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled",
+        "length",
+        "max_length",
+        "width",
+        "max_width",
+        "curved",
+        "skip_ratio"
+      ],
+      "type": "object"
+    },
+    "ViaRuleValues": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ZoneConnection"
+        },
+        {
+          "$ref": "#/$defs/TeardropTarget"
+        }
+      ],
+      "description": "The two rule kinds with a nested `via` value use distinct typed shapes."
     },
     "ZoneConnection": {
       "additionalProperties": false,
@@ -619,7 +741,7 @@
   "description": "A REDA rules file (`.redarules`).",
   "properties": {
     "format": {
-      "const": 1,
+      "const": 2,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

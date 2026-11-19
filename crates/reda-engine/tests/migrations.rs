@@ -1,12 +1,9 @@
 //! The migration chain: raw-JSON steps that run before typed deserialisation.
 //!
-//! Every real step in `format::MIGRATIONS` gets a golden pair per file kind under
-//! `tests/golden/migrations/v<n>-to-v<n+1>/`: `<ext>.before.json` (a file of format n) and
-//! `<ext>.after.json` (what the chain turns it into). The scaffold step below exercises the
-//! same harness while REDA is still on its first format.
-//!
-//! On every `FORMAT` bump, a copy of the Demo Project in the old format is frozen under
-//! `tests/golden/formats/v<n>/`; each one must open and save as today's goldens.
+//! Release inputs live under `tests/projects/formats/v<n>`. Their canonical successors
+//! live beside them in `migrated-v<n+1>`. The standalone codec tests in `format::v2`
+//! exercise the same file pairs for Library files, user presets and Rules Files.
+//! The Demo under `tests/golden/formats` also opens as today's canonical new Project.
 
 use std::path::{Path, PathBuf};
 
@@ -20,7 +17,7 @@ const CURRENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/golden/new_pro
 
 #[test]
 fn every_frozen_format_opens_and_saves_as_the_current_goldens() {
-    for n in 1..=FORMAT {
+    for n in 1..FORMAT {
         let frozen = PathBuf::from(FORMATS).join(format!("v{n}"));
         let files = read_tree(&frozen);
         assert!(
@@ -90,13 +87,51 @@ fn the_scaffold_step_matches_its_goldens() {
 
 #[test]
 fn every_real_step_has_goldens_for_every_file_kind() {
-    for n in 1..=MIGRATIONS.len() {
-        let dir = PathBuf::from(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
+    for (i, _) in MIGRATIONS.iter().enumerate() {
+        let n = i + 1;
         let steps = &MIGRATIONS[..n];
         for kind in FileKind::ALL {
-            check_step_golden(&dir, steps, kind);
+            if n == 1 {
+                check_release_step(kind, steps);
+            } else {
+                let dir = Path::new(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
+                check_step_golden(&dir, steps, kind);
+            }
         }
     }
+}
+
+fn check_release_step(kind: FileKind, steps: &[Migration]) {
+    let file = match kind {
+        FileKind::Project => "blinky_555/Blinky.reda",
+        FileKind::Pcb => "blinky_555/Blinky.redapcb",
+        FileKind::Sheet => "blinky_555/Blinky.redasch",
+        FileKind::Library => "standalone/Starter.redalib",
+        FileKind::Symbol => "standalone/Resistor.redasym",
+        FileKind::Footprint => "standalone/CAPC1005X40N.redafp",
+        FileKind::Part => "standalone/Resistor.redapart",
+        FileKind::FabPreset => "standalone/Blinky.redafab",
+        FileKind::Rules => "standalone/Blinky.redarules",
+    };
+    let root = Path::new(V1);
+    let read = |path| serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap();
+    let original = read(root.join(file));
+    let mut expected = read(root.parent().unwrap().join("migrated-v2").join(file));
+    let mut migrated = migrate_with(kind, original.clone(), steps).unwrap();
+
+    // A typed save writes default severities even for the new checks omitted in v1.
+    // The raw step leaves the user's severity table alone. The writer also sorts PCB
+    // rule records by UUID.
+    if matches!(kind, FileKind::Pcb | FileKind::Rules) {
+        expected["severities"] = original["severities"].clone();
+    }
+    if kind == FileKind::Pcb {
+        migrated["rules"]
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["uuid"].as_str().cmp(&b["uuid"].as_str()));
+    }
+    assert_eq!(migrated, expected, "{file}");
 }
 
 #[test]
@@ -149,4 +184,336 @@ fn files_without_a_format_or_with_format_zero_are_refused() {
             "{value}"
         );
     }
+}
+
+#[test]
+fn every_released_library_kind_moves_to_format_two_without_changing_contents() {
+    for (kind, file) in [
+        (FileKind::Library, "standalone/Starter.redalib"),
+        (FileKind::Symbol, "standalone/Resistor.redasym"),
+        (FileKind::Footprint, "standalone/CAPC1005X40N.redafp"),
+        (FileKind::Part, "standalone/Resistor.redapart"),
+        (FileKind::Sheet, "blinky_555/Blinky.redasch"),
+    ] {
+        let before = std::fs::read(Path::new(V1).join(file)).unwrap();
+        let mut expected: Value = serde_json::from_slice(&before).unwrap();
+        let migrated = migrate(kind, expected.clone()).unwrap();
+        expected["format"] = json!(2);
+        assert_eq!(migrated, expected, "{}", kind.extension());
+    }
+}
+
+const V1: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tests/projects/formats/v1"
+);
+
+proptest::proptest! {
+    #[test]
+    fn missing_preset_seeds_default_independently_in_files_and_in_each_project_copy(
+        thickness in proptest::option::of(400_000i64..3_000_000),
+        copper in proptest::option::of(10_000i64..210_000),
+    ) {
+        let bytes = std::fs::read(Path::new(V1).join("standalone/Blinky.redafab")).unwrap();
+        let mut preset: Value = serde_json::from_slice(&bytes).unwrap();
+        let mut seeds = json!({});
+        if let Some(n) = thickness { seeds["thickness"] = json!(n); }
+        if let Some(n) = copper { seeds["copper"] = json!(n); }
+        preset["stackup"] = seeds;
+        let mut embedded = preset.clone();
+        embedded.as_object_mut().unwrap().remove("format");
+        let mut empty = embedded.clone();
+        empty.as_object_mut().unwrap().remove("stackup");
+        let project = json!({"format":1,"fab_presets":[empty, embedded]});
+        let migrated = migrate(FileKind::Project, project).unwrap();
+        let standalone = migrate(FileKind::FabPreset, preset).unwrap();
+        let construction = &standalone["constructions"][0];
+        assert_eq!(construction["thickness"], thickness.unwrap_or(1_600_000));
+        let mut entries = construction["entries"].as_array().unwrap().iter();
+        assert_eq!(entries.next().unwrap()["copper"], copper.unwrap_or(35_000));
+        assert_eq!(entries.next().unwrap(), &json!({"kind":"core"}));
+        assert_eq!(entries.next().unwrap()["copper"], copper.unwrap_or(35_000));
+        assert_eq!(migrated["fab_presets"][1]["constructions"], standalone["constructions"]);
+        assert_eq!(migrated["fab_presets"][1]["rules"], standalone["rules"]);
+        assert_eq!(migrated["fab_presets"][0]["constructions"][0]["thickness"], 1_600_000);
+        assert_eq!(migrated["fab_presets"][0]["constructions"][0]["entries"][0]["copper"], 35_000);
+    }
+
+    #[test]
+    fn migrating_a_board_moves_only_the_board_preferences_into_its_through_type(
+        start in 510_000i64..5_000_000,
+        hole in 150_000i64..500_001,
+        class_hole in 150_000i64..400_000,
+    ) {
+        let original = std::fs::read(Path::new(V1).join("blinky_555/Blinky.redapcb")).unwrap();
+        let mut pcb: Value = serde_json::from_slice(&original).unwrap();
+        pcb["net_classes"].as_array_mut().unwrap().push(json!({"uuid":"afffffff-0000-4000-8000-000000000002","name":"Power","rank":1}));
+        let rules = pcb["rules"].as_array_mut().unwrap();
+        let board = rules.iter_mut().find(|r| r["kind"] == "via_size" && r["scope"] == json!({})).unwrap();
+        board["values"]["diameter"]["preferred"] = json!(start);
+        board["values"]["hole"]["preferred"] = json!(hole);
+        let class = json!({"uuid":"afffffff-0000-4000-8000-000000000001", "kind":"via_size",
+            "scope":{"net_class":"afffffff-0000-4000-8000-000000000002"}, "values":{"hole":{"preferred":class_hole}}});
+        rules.push(class.clone());
+
+        let migrated = migrate(FileKind::Pcb, pcb).unwrap();
+        let stack = &migrated["stackups"][0];
+        let through = &stack["via_types"][0];
+        assert_eq!(through["from"], stack["entries"][0]["layer"]);
+        assert_eq!(through["to"], stack["entries"][2]["layer"]);
+        assert_eq!(through["diameter"], json!({"start":start}));
+        assert_eq!(through["hole"], hole);
+        assert!(through.get("name").is_none() && stack.get("construction").is_none());
+        assert_eq!(stack["entries"][1]["kind"], "core");
+        let rules = migrated["rules"].as_array().unwrap();
+        let via_size = rules.iter().find(|r| r["kind"] == "via_size" && r["scope"] == json!({})).unwrap();
+        assert!(via_size["values"]["diameter"].get("preferred").is_none());
+        assert!(via_size["values"]["hole"].get("preferred").is_none());
+        assert!(rules.contains(&class));
+        assert!(rules.iter().all(|r| r["scope"].get("layers").is_none() && r["scope"].get("net_class_pair").is_none()));
+        assert!(stack["entries"][1].get("material").is_none());
+        assert!(stack["entries"][1].get("dk").is_none());
+        assert!(stack["entries"][1].get("df").is_none());
+        assert!(stack["entries"][1].get("test_frequency").is_none());
+    }
+}
+
+#[test]
+fn a_released_via_keeps_its_own_size_after_save_and_reopen() {
+    let dir = TempDir::new("released-via");
+    let source = Path::new(V1).join("usb_c_mcu");
+    for (rel, bytes) in read_tree(&source) {
+        std::fs::write(dir.path().join(rel), bytes).unwrap();
+    }
+    let file = dir.path().join("UsbMcu.redapcb");
+    let pcb: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let original = &pcb["vias"].as_array().unwrap()[0];
+    for _ in 0..2 {
+        let mut engine = test_engine();
+        engine.run_ok(
+            "project.open",
+            json!({"path":dir.path().join("UsbMcu.reda")}),
+        );
+        engine.run_ok("project.save", json!({}));
+        let saved: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        let via = saved["vias"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["uuid"] == original["uuid"])
+            .unwrap();
+        assert_eq!(via["diameter"], json!({"start":original["diameter"]}));
+        assert_eq!(via["hole"], original["hole"]);
+        assert_eq!(via["span"], original["span"]);
+        for key in ["unused_layers", "zone_connection", "teardrop", "via_type"] {
+            assert!(via.get(key).is_none(), "{key}");
+        }
+    }
+}
+
+#[test]
+fn standalone_and_embedded_presets_get_the_same_construction_and_hole_clearances() {
+    for (path, kind) in [
+        ("standalone/Blinky.redafab", FileKind::FabPreset),
+        ("minimal_board/Minimal.reda", FileKind::Project),
+    ] {
+        let bytes = std::fs::read(Path::new(V1).join(path)).unwrap();
+        let file = serde_json::from_slice(&bytes).unwrap();
+        let out = migrate(kind, file).unwrap();
+        let preset = if kind == FileKind::Project {
+            &out["fab_presets"][0]
+        } else {
+            &out
+        };
+        assert!(preset.get("stackup").is_none());
+        assert_eq!(
+            preset["constructions"],
+            json!([{"name":"2 Layer","default":true,"thickness":1600000,"entries":[{"copper":35000},{"kind":"core"},{"copper":35000}]}])
+        );
+        assert_eq!(
+            preset["rules"]["clearance_hole"],
+            json!({"via":250000,"pad":250000})
+        );
+    }
+}
+
+#[test]
+fn a_migrated_board_has_the_new_board_rules_with_each_teardrop_target_off() {
+    let bytes = std::fs::read(Path::new(V1).join("blinky_555/Blinky.redapcb")).unwrap();
+    let pcb = migrate(FileKind::Pcb, serde_json::from_slice(&bytes).unwrap()).unwrap();
+    let rules = pcb["rules"].as_array().unwrap();
+    let values = |kind: &str| {
+        &rules
+            .iter()
+            .find(|r| r["kind"] == kind && r["scope"] == json!({}))
+            .unwrap()["values"]
+    };
+    assert_eq!(values("via_span"), &json!({}));
+    assert_eq!(values("microvia_size"), &json!({}));
+    assert_eq!(values("silk_width"), &json!({"min":0}));
+    assert_eq!(values("silk_text_height"), &json!({"min":0}));
+    for target in ["through_hole_pad", "smd_pad", "via", "width_change"] {
+        assert_eq!(
+            values("teardrop")[target],
+            json!({"enabled":false,"length":50,"max_length":1000000,"width":100,"max_width":2000000,"curved":false,"skip_ratio":90})
+        );
+    }
+}
+
+#[test]
+fn a_released_rules_file_changes_only_its_version_and_boardwide_via_preferences() {
+    let file = std::fs::read(Path::new(V1).join("standalone/Blinky.redarules")).unwrap();
+    let mut original: Value = serde_json::from_slice(&file).unwrap();
+    let scoped = json!({"kind":"via_size", "net_class":"Power","values":{"diameter":{"preferred":2345000},"hole":{"preferred":555000}}});
+    original["rules"].as_array_mut().unwrap().push(scoped);
+    let mut expected = original.clone();
+    expected["format"] = json!(2);
+    expected["rules"][2]["values"] = json!({"diameter":{"min":510000},"hole":{"min":150000}});
+    assert_eq!(migrate(FileKind::Rules, original).unwrap(), expected);
+}
+
+#[test]
+fn released_projects_migrate_to_canonical_goldens_and_save_identically_on_reopen() {
+    let frozen = Path::new(V1);
+    let goldens = frozen.parent().unwrap().join("migrated-v2");
+    for (folder, manifest) in [
+        ("minimal_board", "Minimal.reda"),
+        ("blinky_555", "Blinky.reda"),
+        ("usb_c_mcu", "UsbMcu.reda"),
+    ] {
+        let source = frozen.join(folder);
+        let (project, _) = reda_engine::store::load(&source.join(manifest)).unwrap();
+        let files = reda_engine::store::encode(&project).unwrap();
+        let reopened = TempDir::new("canonical-migration");
+        for (rel, bytes) in &files {
+            let file = reopened.path().join(rel);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(&file, bytes).unwrap();
+            if !rel.starts_with(".reda/") {
+                assert_golden(goldens.join(folder).join(rel), bytes);
+            }
+        }
+        let (again, _) = reda_engine::store::load(&reopened.path().join(manifest)).unwrap();
+        assert_eq!(reda_engine::store::encode(&again).unwrap(), files);
+    }
+}
+
+#[test]
+fn board_wide_via_preferences_cannot_be_set_or_cleared_after_migration() {
+    let dir = TempDir::new("v2-rule-edit");
+    let mut engine = test_engine();
+    for (rel, bytes) in read_tree(&Path::new(V1).join("blinky_555")) {
+        std::fs::write(dir.path().join(rel), bytes).unwrap();
+    }
+    engine.run_ok(
+        "project.open",
+        json!({"path": dir.path().join("Blinky.reda")}),
+    );
+    for dimension in ["hole", "diameter"] {
+        for value in [json!(800000), Value::Null] {
+            let error = engine.run_err(
+                "pcb.rules.set",
+                json!({"kind":"via_size", "values":{dimension:{"preferred":value}}}),
+            );
+            assert_eq!(error.code, reda_engine::command::ErrorCode::InvalidParams);
+            assert_eq!(
+                error.details.unwrap()["pointer"],
+                format!("/values/{dimension}/preferred")
+            );
+        }
+    }
+}
+
+#[test]
+fn generated_migration_ids_do_not_replace_existing_objects() {
+    let bytes = std::fs::read(Path::new(V1).join("minimal_board/Minimal.redapcb")).unwrap();
+    let mut pcb: Value = serde_json::from_slice(&bytes).unwrap();
+    let ordinary = migrate(FileKind::Pcb, pcb.clone()).unwrap();
+    let generated = ordinary["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["kind"] == "via_span")
+        .unwrap()["uuid"]
+        .clone();
+    let through = ordinary["stackups"][0]["via_types"][0]["uuid"].clone();
+    pcb["rules"][0]["uuid"] = generated.clone();
+    pcb["rules"][1]["uuid"] = through.clone();
+    let migrated = migrate(FileKind::Pcb, pcb.clone()).unwrap();
+    let rules = migrated["rules"].as_array().unwrap();
+    assert_eq!(rules.iter().filter(|r| r["uuid"] == generated).count(), 1);
+    assert_ne!(migrated["stackups"][0]["via_types"][0]["uuid"], through);
+    assert_eq!(migrate(FileKind::Pcb, pcb).unwrap(), migrated);
+}
+
+#[test]
+fn placing_an_unchanged_library_part_reuses_its_released_document_copies() {
+    let mut engine = reda_testkit::TestEngine(
+        reda_engine::Engine::builder()
+            .ids(reda_engine::command::SeededIds::new(1 << 32))
+            .user_dirs(None)
+            .starter_library(Some(reda_testkit::starter_library()))
+            .build(),
+    );
+    let source = Path::new(V1).join("blinky_555");
+    let tmp = TempDir::new("reuse-library-copies");
+    for (file, bytes) in read_tree(&source) {
+        std::fs::write(tmp.path().join(file), bytes).unwrap();
+    }
+    let sheet = tmp.path().join("Blinky.redasch");
+    let released: Value = serde_json::from_slice(&std::fs::read(&sheet).unwrap()).unwrap();
+    engine.run_ok(
+        "project.open",
+        json!({"path":tmp.path().join("Blinky.reda")}),
+    );
+    // This is the resistor and its fitted Footprint in the released Blinky board.
+    engine.run_ok("schematic.component.place", json!({"document":released["sheet"]["uuid"],
+        "part":"84d5651a-bf4b-462e-9480-39e8f454a042", "footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e",
+        "at":{"x":"20mm","y":"20mm"}}));
+    engine.run_ok("project.save", json!({}));
+    let saved: Value = serde_json::from_slice(&std::fs::read(sheet).unwrap()).unwrap();
+    assert_eq!(
+        saved["units"].as_array().unwrap().len(),
+        released["units"].as_array().unwrap().len() + 1
+    );
+    for table in ["parts", "footprints"] {
+        assert_eq!(
+            saved[table].as_array().unwrap().len(),
+            released[table].as_array().unwrap().len(),
+            "{table}"
+        );
+    }
+}
+
+#[test]
+fn a_legacy_board_with_an_explicit_null_net_class_saves_as_the_same_migrated_board() {
+    let source = Path::new(V1).join("blinky_555");
+    let project = reda_engine::store::load_from(&source.join("Blinky.reda"), |path| {
+        let bytes = std::fs::read(path).unwrap();
+        if path.extension().is_some_and(|ext| ext == "redapcb") {
+            let mut file: Value = serde_json::from_slice(&bytes).unwrap();
+            let board_via = file["rules"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|r| r["kind"] == "via_size" && r["scope"] == json!({}))
+                .unwrap();
+            board_via["scope"]["net_class"] = Value::Null;
+            Ok(serde_json::to_vec(&file).unwrap())
+        } else {
+            Ok(bytes)
+        }
+    })
+    .unwrap()
+    .0;
+    let (_, migrated) = reda_engine::store::encode(&project)
+        .unwrap()
+        .into_iter()
+        .find(|(name, _)| name == "Blinky.redapcb")
+        .unwrap();
+    let golden = Path::new(V1)
+        .parent()
+        .unwrap()
+        .join("migrated-v2/blinky_555/Blinky.redapcb");
+    assert_eq!(migrated, std::fs::read(golden).unwrap());
 }

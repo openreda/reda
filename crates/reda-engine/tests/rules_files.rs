@@ -48,7 +48,7 @@ fn an_exported_rules_file_holds_records_severities_and_class_names_but_no_nets()
     let path = exported(&dir);
     let text = std::fs::read_to_string(&path).unwrap();
     let file: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(file["format"], 1);
+    assert_eq!(file["format"], reda_engine::format::FORMAT);
     assert_eq!(
         file["net_classes"],
         json!([{"name": "Power"}, {"name": "Spare"}])

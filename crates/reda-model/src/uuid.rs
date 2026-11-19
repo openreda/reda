@@ -19,6 +19,17 @@ impl Uuid {
         Uuid(value)
     }
 
+    /// Stable identity for a named child created both on a fresh board and by migration.
+    /// FNV-1a-128 over the parent bytes and the UTF-8 name, with the UUID v8 layout.
+    pub fn child(self, name: &str) -> Self {
+        let mut hash = 0x6c62272e07bb014262b821756295c58du128;
+        for byte in self.0.to_be_bytes().into_iter().chain(name.bytes()) {
+            hash ^= u128::from(byte);
+            hash = hash.wrapping_mul(0x0000000001000000000000000000013b);
+        }
+        Self::v8_from_bits(hash)
+    }
+
     pub const fn as_u128(self) -> u128 {
         self.0
     }

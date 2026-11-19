@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"00000000-0000-4000-8000-000000000059","name":"Rubber_Foot","designator_prefix":"MP","description":"A mechanical item for the BOM, with no Pins"},
   "units": [
     {"uuid":"00000000-0000-4000-8000-00000000005a","name":"A"}

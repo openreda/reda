@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "part": {"uuid":"73fcfd38-18b1-4ff4-aff9-662d7bccba99","name":"Socket_1x02","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"0d12434e-5c88-4016-a415-e4bec26351fe"},
   "footprints": [
     "34805675-75a8-4a17-8bb8-62b1961d1d43",

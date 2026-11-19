@@ -408,6 +408,7 @@ fn board_holding(footprint: &Footprint) -> (Project, Uuid, Uuid) {
     });
     let document = new_id();
     let rules = FabRules {
+        clearance_hole: reda_model::HoleClearance::GENERIC,
         mask_expansion: Default::default(),
         paste_expansion: Default::default(),
         clearance: Nm(0),

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "footprint": {"uuid":"00000030-0000-4000-8000-000000000000","name":"SOIC-8","height":1750000},
   "generator": {"command":"library.footprint.generate.soic","params":{"library":"00000001-0000-4000-8000-000000000000","pins":8}},
   "pads": [

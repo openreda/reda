@@ -184,7 +184,7 @@ impl Target {
                 v.object.uuid,
                 &[("diameter", Length, Set), ("hole", Length, Set)][..],
                 vec![
-                    ("diameter", Some(Attr::Length(v.object.diameter))),
+                    ("diameter", Some(Attr::Length(v.object.diameter.start))),
                     ("hole", Some(Attr::Length(v.object.hole))),
                 ],
             ),

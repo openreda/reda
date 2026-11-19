@@ -283,6 +283,18 @@ pub(super) fn set_record(
     } = edit;
     for (field, value) in values.changes() {
         let pointer = format!("/values/{}", field.path().replace('.', "/"));
+        if matches!(kind, RuleKind::ViaSize | RuleKind::MicroviaSize)
+            && scope.is_board_wide()
+            && matches!(
+                field,
+                RuleField::DiameterPreferred | RuleField::HolePreferred
+            )
+        {
+            return Err(CommandError::invalid_params(
+                &pointer,
+                "preferred Via sizes belong to a Via type or Net Class",
+            ));
+        }
         if !kind.fields().contains(&field) {
             return Err(CommandError::invalid_params(
                 &pointer,

@@ -173,8 +173,8 @@ fn a_new_board_seeds_the_zone_connection_and_dead_copper_rules() {
     assert_eq!(values.through_hole, Some(relief));
     assert_eq!(values.smd, Some(relief));
     assert_eq!(
-        values.via,
-        Some(ZoneConnection {
+        values.connection(ConnectionTarget::Via),
+        Some(&ZoneConnection {
             style: Some(ConnectionStyle::Solid),
             ..relief
         })

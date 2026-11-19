@@ -176,7 +176,7 @@ fn a_route_takes_the_net_of_the_pad_it_starts_on() {
 }
 
 #[test]
-fn a_through_via_spans_the_outer_copper_layers_and_sizes_from_the_net_class() {
+fn a_through_via_spans_the_outer_copper_layers_and_uses_the_through_type_size() {
     let dir = TempDir::new("via-add");
     let mut engine = engine_with_pcb(&dir);
     let net = add_net(&mut engine, "SIG");
@@ -199,9 +199,9 @@ fn a_through_via_spans_the_outer_copper_layers_and_sizes_from_the_net_class() {
     );
     assert_eq!(via.net, Some(net));
     assert_eq!(
-        (via.diameter, via.hole),
+        (via.diameter.start, via.hole),
         (Nm::from_um(700), Nm::from_um(300)),
-        "the board-wide preferred size"
+        "the through Via type’s starting size"
     );
 
     let err = engine.run_err(

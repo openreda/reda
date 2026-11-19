@@ -27,7 +27,7 @@
   "description": "A REDA Library file (`.redalib`), which marks its folder as a Library.",
   "properties": {
     "format": {
-      "const": 1,
+      "const": 2,
       "description": "The file-format version. REDA writes only the current one.",
       "type": "integer"
     },

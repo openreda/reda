@@ -36,12 +36,18 @@ use reda_testkit::{
 };
 use serde_json::{Value, json};
 
-/// Every reference Project: its folder under `tests/projects/` and its Project file.
-const PROJECTS: &[(&str, &str)] = &[
+#[path = "reference_projects/migration.rs"]
+mod migration;
+
+/// Reference Projects shipped with format 1, also the inputs for its migration tests.
+const V1_PROJECTS: &[(&str, &str)] = &[
     ("minimal_board", "Minimal.reda"),
     ("blinky_555", "Blinky.reda"),
     ("usb_c_mcu", "UsbMcu.reda"),
 ];
+
+/// Every current reference Project: its folder and its Project file.
+const PROJECTS: &[(&str, &str)] = V1_PROJECTS;
 
 /// Folders under `tests/projects/` that are not Projects.
 const NOT_PROJECTS: &[&str] = &["goldens", "formats"];
@@ -66,8 +72,13 @@ fn copy_tree(from: &Path, to: &Path) {
 /// Opens a copy of the reference Project in a fresh folder, so runs never write into
 /// the repo.
 fn open_copy(dir: &str, file: &str) -> (TempDir, TestEngine) {
+    open_copy_from(&projects_dir().join(dir), file)
+}
+
+fn open_copy_from(source: &Path, file: &str) -> (TempDir, TestEngine) {
+    let dir = source.file_name().unwrap().to_string_lossy();
     let work = TempDir::new(&format!("reference-{dir}"));
-    copy_tree(&projects_dir().join(dir), work.path());
+    copy_tree(source, work.path());
     // The Projects were made on seed 0; another seed keeps new objects' UUIDs clear of
     // theirs.
     let mut engine = TestEngine(
@@ -294,7 +305,8 @@ fn every_older_format_has_a_frozen_copy_that_opens_and_saves() {
     // Empty while REDA is on its first format.
     #[allow(clippy::reversed_empty_ranges)]
     for n in 1..FORMAT {
-        for (dir, file) in PROJECTS {
+        let released_projects = if n == 1 { V1_PROJECTS } else { PROJECTS };
+        for (dir, file) in released_projects {
             let frozen = projects_dir()
                 .join("formats")
                 .join(format!("v{n}"))

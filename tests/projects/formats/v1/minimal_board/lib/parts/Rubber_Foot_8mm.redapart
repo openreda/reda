@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "part": {"uuid":"00000000-0000-4000-8000-00000000005d","name":"Rubber_Foot_8mm","component_type":"mechanical","in_bom":true,"in_cpl":false,"symbol":"00000000-0000-4000-8000-000000000059"},
+  "footprints": [],
+  "fields": {"value":"Rubber foot","description":"Stick-on rubber foot, 8 mm across, 2.5 mm high","keywords":"foot bumper mechanical"},
+  "pin_map": {}
+}

@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
     {"uuid":"00000000-0000-4000-8000-00000000002c","hash":"f94e8072b327b62048ce8ea635afa40e","part":{"uuid":"6ad2a4fb-15fe-4c32-b244-29a4bee87635","name":"Timer_555","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"eebdad0d-b78a-4f9b-be97-ae74568d41ed"},"footprints":["7afee21e-6914-4820-8f71-a396e8dd3ac1","a3c5aa5c-0015-43fb-8fe0-b72305a1157d"],"copies":["00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b"],"fields":{"value":"NE555","description":"555 timer","keywords":"U timer 555 oscillator"},"pin_map":{},"symbol":{"uuid":"eebdad0d-b78a-4f9b-be97-ae74568d41ed","name":"Timer_555","designator_prefix":"U","description":"555 timer"},"units":[

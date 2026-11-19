@@ -112,7 +112,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
 
     let diameter_a = {
         let project = shell.engine().project().unwrap();
-        project.pcb().unwrap().via(a).unwrap().diameter.0
+        project.pcb().unwrap().via(a).unwrap().diameter.start.0
     };
     let command = p
         .numbers
@@ -131,7 +131,7 @@ fn via_and_track_sizes_take_numeric_expressions() {
     );
     commit(&mut shell, command);
     let pcb = shell.engine().project().unwrap().pcb().unwrap();
-    assert_eq!(pcb.via(b).unwrap().diameter.0, 900_000);
+    assert_eq!(pcb.via(b).unwrap().diameter.start.0, 900_000);
 
     let t = track(&mut shell, None);
     run(&mut shell, "selection.set", json!({"objects": [t]}));

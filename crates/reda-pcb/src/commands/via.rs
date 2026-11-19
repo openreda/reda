@@ -114,7 +114,7 @@ impl Command for ViaAdd {
             uuid,
             at,
             net,
-            diameter,
+            diameter: diameter.into(),
             hole,
             span,
             mask: reda_command::mask(p.mask),
@@ -225,9 +225,9 @@ impl Command for ViaSet {
                 )
             })?;
             let mut via = before.clone();
-            via.diameter = diameter.unwrap_or(via.diameter);
+            via.diameter.start = diameter.unwrap_or(via.diameter.start);
             via.hole = hole.unwrap_or(via.hole);
-            if via.diameter <= via.hole {
+            if via.diameter.start <= via.hole {
                 let pointer = if hole.is_some() { "/hole" } else { "/diameter" };
                 return Err(CommandError::invalid_params(
                     pointer,

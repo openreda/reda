@@ -427,7 +427,7 @@ fn copper_layer(plot: &BoardPlot<'_>, layer: Uuid, g: &mut Gerber) {
         if pcb.span_layers(via.span).contains(&layer) {
             let net = net_name(pcb, via.net);
             g.flash(
-                Template::Circle(via.diameter),
+                Template::Circle(via.diameter.start),
                 "ViaPad",
                 via.at,
                 &net_attribute(&net),

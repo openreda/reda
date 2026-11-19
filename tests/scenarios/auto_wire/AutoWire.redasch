@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "sheet": {"uuid":"00000000-0000-4000-8000-000000000002"},
   "parts": [
     {"uuid":"00000000-0000-4000-8000-00000000002e","hash":"d915f0c8f0498ad93b81a3b445c5976d","part":{"uuid":"84d5651a-bf4b-462e-9480-39e8f454a042","name":"Resistor","component_type":"standard","in_bom":true,"in_cpl":true,"symbol":"06c71621-e7e4-49a4-9b90-88485bb936b5"},"footprints":["cece716c-4fd0-42c8-900c-0f3bc3c14225","0691e5e7-9eb6-49f3-9f3e-d4159258693e","71936419-d9da-4a2b-8429-13c6a21ecace","e80f4a40-24ca-407b-844c-e5cab9631e1c","afd4eee0-373d-4487-aade-3ad89f20f99d"],"copies":["00000000-0000-4000-8000-000000000029","00000000-0000-4000-8000-00000000002a","00000000-0000-4000-8000-00000000002b","00000000-0000-4000-8000-00000000002c","00000000-0000-4000-8000-00000000002d"],"fields":{"value":"10k","description":"Resistor","keywords":"R resistor"},"pin_map":{},"symbol":{"uuid":"06c71621-e7e4-49a4-9b90-88485bb936b5","name":"Resistor","designator_prefix":"R","description":"Resistor"},"units":[

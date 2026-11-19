@@ -19,7 +19,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::library::ContentHash;
+pub(crate) use crate::library::footprint_hash;
 use crate::sync::NO_PCB;
 
 pub(crate) fn register_all(registry: &mut Registry) {
@@ -45,16 +45,6 @@ pub(crate) fn pcb<'a>(cx: &'a Context<'_>) -> Result<&'a PcbDocument, CommandErr
     cx.project()?
         .pcb()
         .ok_or_else(|| CommandError::unavailable(NO_PCB))
-}
-
-/// The content hash of a Footprint as a Document copies it: over its canonical file bytes,
-/// as [`crate::library::copy_part`] hashes a Library Footprint.
-pub(crate) fn footprint_hash(footprint: &Footprint) -> Result<String, CommandError> {
-    let bytes = crate::format::library::write_footprint(footprint)
-        .map_err(|e| CommandError::internal(e.to_string()))?;
-    let mut hasher = ContentHash::new();
-    hasher.write(&bytes);
-    Ok(hasher.finish())
 }
 
 /// The copy a PCB copy came from: its `edited_from` copy, or itself when it isn't edited.

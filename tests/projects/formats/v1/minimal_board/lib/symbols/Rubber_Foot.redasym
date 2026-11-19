@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "symbol": {"uuid":"00000000-0000-4000-8000-000000000059","name":"Rubber_Foot","designator_prefix":"MP","description":"A mechanical item for the BOM, with no Pins"},
+  "units": [
+    {"uuid":"00000000-0000-4000-8000-00000000005a","name":"A"}
+  ],
+  "pins": [],
+  "graphics": [
+    {"uuid":"00000000-0000-4000-8000-00000000005b","unit":"00000000-0000-4000-8000-00000000005a","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":1270000},"width":254000},
+    {"uuid":"00000000-0000-4000-8000-00000000005c","unit":"00000000-0000-4000-8000-00000000005a","shape":{"kind":"circle","center":{"x":0,"y":0},"radius":635000},"width":254000}
+  ]
+}

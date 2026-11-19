@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "symbol": {"uuid":"564c90dd-a9d3-4873-aa1e-2783bc197ba5","name":"LED","designator_prefix":"D","description":"Light-emitting diode"},
   "units": [
     {"uuid":"013d7abf-7f42-4a91-ae35-fa69fbdb0cc5","name":"A"}

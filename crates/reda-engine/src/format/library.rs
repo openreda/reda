@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! {
-//!   "format": 1,
+//!   "format": 2,
 //!   "symbol": {"uuid":"…","name":"OpAmp_Dual","designator_prefix":"U"},
 //!   "units": [
 //!     {"uuid":"…","name":"A"}
@@ -222,7 +222,11 @@ impl SymbolRow {
 }
 
 pub fn write_symbol(symbol: &Symbol) -> Result<Vec<u8>, CanonicalError> {
-    let mut w = CanonicalWriter::new(FORMAT);
+    encode_symbol(symbol, FORMAT)
+}
+
+pub(crate) fn encode_symbol(symbol: &Symbol, format: u32) -> Result<Vec<u8>, CanonicalError> {
+    let mut w = CanonicalWriter::new(format);
     w.field("symbol", &SymbolRow::of(symbol))?;
     write_provenance(&mut w, &symbol.provenance)?;
     w.list("units", &symbol.units)?;
@@ -295,7 +299,14 @@ impl FootprintRow {
 
 /// The `.redafp` file of `footprint`, its `generator` included.
 pub fn write_footprint(footprint: &Footprint) -> Result<Vec<u8>, CanonicalError> {
-    let mut w = CanonicalWriter::new(FORMAT);
+    encode_footprint(footprint, FORMAT)
+}
+
+pub(crate) fn encode_footprint(
+    footprint: &Footprint,
+    format: u32,
+) -> Result<Vec<u8>, CanonicalError> {
+    let mut w = CanonicalWriter::new(format);
     w.field("footprint", &FootprintRow::of(footprint))?;
     write_provenance(&mut w, &footprint.provenance)?;
     if let Some(generator) = &footprint.generator {
@@ -357,7 +368,11 @@ impl PartRow {
 }
 
 pub fn write_part(part: &Part) -> Result<Vec<u8>, CanonicalError> {
-    let mut w = CanonicalWriter::new(FORMAT);
+    encode_part(part, FORMAT)
+}
+
+pub(crate) fn encode_part(part: &Part, format: u32) -> Result<Vec<u8>, CanonicalError> {
+    let mut w = CanonicalWriter::new(format);
     w.field("part", &PartRow::of(part))?;
     write_provenance(&mut w, &part.provenance)?;
     w.list("footprints", &part.footprints)?;

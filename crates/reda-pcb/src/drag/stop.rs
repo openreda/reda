@@ -35,7 +35,7 @@ pub fn hits(pcb: &PcbDocument, copper: &Copper, plan: &Plan) -> BTreeSet<Item> {
     for via in &plan.vias {
         let proposal = Proposal::Via {
             at: via.at,
-            diameter: via.diameter,
+            diameter: via.diameter.start,
             net: via.net,
         };
         out.extend(

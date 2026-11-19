@@ -91,7 +91,7 @@ pub struct Via {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net: Option<Uuid>,
     /// The copper pad diameter.
-    pub diameter: Nm,
+    pub diameter: super::ViaDiameter,
     /// The drilled hole diameter.
     pub hole: Nm,
     /// The copper Layers it joins.

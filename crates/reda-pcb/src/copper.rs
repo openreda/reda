@@ -502,7 +502,7 @@ impl Copper {
             net: via.net,
             anchors: vec![via.at],
         };
-        let shape = Shape::disc(via.at, via.diameter);
+        let shape = Shape::disc(via.at, via.diameter.start);
         self.insert(Item::Via { uuid }, info, pcb.span_layers(via.span), shape);
     }
 

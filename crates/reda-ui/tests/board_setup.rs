@@ -228,7 +228,7 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
     shell
         .run(
             "pcb.rules.set",
-            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm", "preferred": "0.4mm"}}}),
+            json!({"kind": "via_size", "values": {"hole": {"min": "0.4mm"}}}),
         )
         .unwrap();
     let mut d = dialog(&shell);
@@ -244,13 +244,11 @@ fn apply_fab_preset_rules_previews_then_drafts_the_presets_values() {
             .iter()
             .map(|c| (c.rule, c.board.as_str(), c.preset.as_str(), c.ticked))
             .collect();
-        // The preferred hole stays inside the new range, so it starts unticked.
         assert_eq!(
             changes,
             [
                 (RuleField::Clearance, "0.3", "0.16", true),
                 (RuleField::ViaHole, "0.4", "0.3", true),
-                (RuleField::ViaHolePreferred, "0.4", "0.3", false),
             ]
         );
     }
@@ -434,7 +432,7 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
             let sections = r
                 .sections()
                 .iter()
-                .map(|s| (s.check, s.fields.to_vec()))
+                .map(|s| (s.check, s.board_fields().collect()))
                 .collect();
             (*r, sections)
         })
@@ -457,14 +455,7 @@ fn each_rule_page_holds_its_checks_with_their_board_wide_values() {
                 Rule::Vias,
                 vec![(
                     Some(DrcCheck::ViaSize),
-                    vec![
-                        F::ViaDiameter,
-                        F::ViaDiameterPreferred,
-                        F::ViaDiameterMax,
-                        F::ViaHole,
-                        F::ViaHolePreferred,
-                        F::ViaHoleMax
-                    ]
+                    vec![F::ViaDiameter, F::ViaDiameterMax, F::ViaHole, F::ViaHoleMax]
                 )]
             ),
             (
@@ -835,6 +826,37 @@ fn grid_rows_copy_and_paste_as_tab_separated_values_and_delete_clears_them() {
     board.clear_rows();
     assert_eq!(board.cell(p, RuleField::Clearance), "");
     assert_eq!(board.cell(s, RuleField::TrackPreferred), "");
+}
+
+#[test]
+fn pasting_via_sizes_sets_preferred_values_only_on_named_net_classes() {
+    let (home, work) = (TempDir::new("bs-home"), TempDir::new("bs-work"));
+    let mut shell = shell_with_board(&home, &work);
+    let power = add_class(&mut shell, json!({"name": "Power"}));
+    let mut d = dialog(&shell);
+    {
+        let mut board = d.page::<NetClassesPage>().unwrap().board();
+        board.selected_rows = [ClassKey::Default].into();
+        let row = "0.16\t0.2\t0.25\t\t0.5\t0.9\t1\t0.3\t0.4\t0.5";
+        board.paste_rows(&format!("{row}\n{row}"));
+    }
+    d.apply(&mut shell).unwrap();
+    let pcb = pcb(&shell);
+    let board = pcb.board_rule(RuleKind::ViaSize).values;
+    let class = pcb.class_rule(RuleKind::ViaSize, power).unwrap().values;
+    let (diameter, hole) = (board.diameter.unwrap(), board.hole.unwrap());
+    assert_eq!(
+        (diameter.max, hole.max),
+        (Some(Nm(1_000_000)), Some(Nm(500_000)))
+    );
+    assert_eq!((diameter.preferred, hole.preferred), (None, None));
+    assert_eq!(
+        (
+            class.diameter.unwrap().preferred,
+            class.hole.unwrap().preferred
+        ),
+        (Some(Nm(900_000)), Some(Nm(400_000)))
+    );
 }
 
 #[test]

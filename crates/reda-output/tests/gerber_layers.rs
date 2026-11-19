@@ -638,7 +638,7 @@ fn every_copper_layer_gets_a_file_with_inner_copper_between_top_and_bottom() {
         entries.insert(2 + 2 * i, json!({"layer": uuid, "thickness": 17_500}));
         entries.insert(
             3 + 2 * i,
-            json!({"uuid": format!("00000000-0000-4000-8000-0000000000b{i}")}),
+            json!({"uuid": format!("00000000-0000-4000-8000-0000000000b{i}"), "kind": "core"}),
         );
     }
     std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();

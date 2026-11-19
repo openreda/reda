@@ -381,6 +381,12 @@ impl RuleField {
         }
     }
 
+    /// Whether a board-wide record can hold this field. A Via type supplies its
+    /// starting size unless a Net Class overrides it.
+    pub fn applies_board_wide(self) -> bool {
+        !matches!(self, Self::ViaDiameterPreferred | Self::ViaHolePreferred)
+    }
+
     /// Whether the board-wide record must hold it.
     pub fn required(self) -> bool {
         let (kind, field) = self.rule();

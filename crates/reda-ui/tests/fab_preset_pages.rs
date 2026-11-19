@@ -128,13 +128,13 @@ fn typed_values_are_parsed_and_bad_ones_flagged_on_their_page() {
     editor.set_text(Field::Clearance, "0.2");
     assert_eq!(editor.value().rules.clearance, Nm::from_um(200));
     editor.set_text(Field::SeedCopper, "2oz");
-    assert_eq!(editor.value().stackup.copper, Some(Nm(70_000)));
+    assert_eq!(editor.value().stackup_seeds().copper, Some(Nm(70_000)));
     assert_eq!(editor.text(Field::SeedCopper), "2oz");
     editor.set_text(Field::SeedThickness, "");
     assert_eq!(
-        editor.value().stackup.thickness,
-        None,
-        "blank seeds nothing"
+        editor.value().stackup_seeds().thickness,
+        Some(Nm::from_um(1600)),
+        "clearing the field restores the default Construction thickness"
     );
     editor.set_text(Field::GroupBy, "part, field:LCSC");
     assert_eq!(
