@@ -26,6 +26,14 @@ pub use footprint::{
 /// (`LINE_PITCH.0 / LINE_PITCH.1`).
 pub const LINE_PITCH: (i64, i64) = (8, 5);
 
+/// Glyphs remaining after wrapping and clipping, before knockout flattens the artwork.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Glyphs {
+    Empty,
+    OutlineOnly,
+    WithStrokes,
+}
+
 /// A text object's geometry in board coordinates.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct PlacedText {
@@ -41,10 +49,10 @@ pub struct PlacedText {
     pub missing_font: bool,
     /// Wrapped lines omitted because their whole capital height or width did not fit.
     pub dropped_lines: usize,
-    /// Whether any visible glyph uses the pen, including strokes cut out of a knockout.
+    /// The visible glyphs, including those cut out of a knockout.
     #[serde(skip)]
     #[schemars(skip)]
-    pub(crate) has_stroke_glyphs: bool,
+    pub(crate) glyphs: Glyphs,
     /// The pen width of the strokes.
     pub stroke_width: Nm,
     /// Stroke-font glyphs: capsules of `stroke_width` from `a` to `b`.
@@ -231,7 +239,13 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
             .extend(geometry.fill.indices.iter().map(|i| i + base));
         regions.extend(geometry.regions.iter().map(|r| r.map(at)));
     }
-    let has_stroke_glyphs = !strokes.is_empty();
+    let glyphs = if !strokes.is_empty() {
+        Glyphs::WithStrokes
+    } else if !fill.indices.is_empty() {
+        Glyphs::OutlineOnly
+    } else {
+        Glyphs::Empty
+    };
     if let Some(knockout) = text.knockout {
         let frame = text.frame.map(|frame| Bounds {
             min: Point::new(Nm(left), Nm(bottom)),
@@ -256,7 +270,7 @@ pub fn text_geometry(text: &PcbText, fonts: &Fonts) -> PlacedText {
         drawn_font,
         missing_font: matches!(resolved, Resolved::Missing),
         dropped_lines,
-        has_stroke_glyphs,
+        glyphs,
         stroke_width: text.thickness,
         strokes,
         fill,

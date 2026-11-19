@@ -23,7 +23,7 @@ use crate::copper::shape::{Core, Prim, Shape as Copper, arc_points};
 use crate::copper::{Item, UnusedLands};
 use crate::placed::{PlacedPad, placed_graphics};
 use crate::rules::resolve;
-use crate::text::{PlacedText, footprint_texts, text_geometry};
+use crate::text::{Glyphs, PlacedText, footprint_texts, text_geometry};
 use crate::zone::poly::{self, Area, Contour, ip};
 
 /// One piece of silkscreen: the objects it belongs to, its side and its area.
@@ -42,7 +42,7 @@ pub(super) struct Silk {
 impl Silk {
     fn text(owner: Uuid, side: Side, text: &reda_model::PcbText, fonts: &Fonts) -> Self {
         let laid_out = text_geometry(text, fonts);
-        let width = laid_out.has_stroke_glyphs.then_some(laid_out.stroke_width);
+        let width = (laid_out.glyphs == Glyphs::WithStrokes).then_some(laid_out.stroke_width);
         Self {
             owner,
             element: (text.uuid != owner).then_some(text.uuid),
@@ -50,10 +50,28 @@ impl Silk {
             side,
             area: text_area(&laid_out),
             width,
-            height: (laid_out.has_stroke_glyphs || !laid_out.fill.indices.is_empty())
-                .then_some(text.height),
+            height: (laid_out.glyphs != Glyphs::Empty).then_some(text.height),
         }
     }
+
+    fn size(&self, kind: RuleKind) -> Option<Nm> {
+        match kind {
+            RuleKind::SilkWidth => self.width,
+            RuleKind::SilkTextHeight => self.height,
+            _ => None,
+        }
+    }
+}
+
+/// Placed objects whose artwork has the measurement checked by a silkscreen minimum.
+pub(crate) fn affected(pcb: &PcbDocument, fonts: &Fonts, kinds: &[RuleKind]) -> Vec<Uuid> {
+    silkscreen(pcb, fonts)
+        .into_iter()
+        .filter(|piece| kinds.iter().any(|kind| piece.size(*kind).is_some()))
+        .map(|piece| piece.owner)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 /// What silkscreen keeps clear of on one side: the objects that name it and its area.
@@ -87,13 +105,14 @@ pub(super) fn check(board: &Board<'_>, fonts: &Fonts, report: &mut Report) {
             continue;
         };
         let required = rule.value.length().expect("silkscreen minimum is a length");
-        for piece in &silk {
-            let value = if check == DrcCheck::SilkWidth {
-                piece.width
-            } else {
-                piece.height
-            };
-            let Some(actual) = value.filter(|v| *v < required) else {
+        // A Dimension plots as several lines and a label with one stored object and Waiver.
+        for pieces in silk.chunk_by(|a, b| (a.owner, a.element) == (b.owner, b.element)) {
+            let Some((actual, piece)) = pieces
+                .iter()
+                .filter_map(|p| p.size(kind).map(|size| (size, p)))
+                .min_by_key(|(size, _)| *size)
+                .filter(|(size, _)| *size < required)
+            else {
                 continue;
             };
             let at = poly::bounds(&piece.area).map_or(piece.anchor, |(lo, hi)| {
@@ -295,7 +314,15 @@ pub(super) fn silkscreen(pcb: &PcbDocument, fonts: &Fonts) -> Vec<Silk> {
                 anchor: graphic.shape.bounds().map_or(instance.at, |b| b.center()),
                 side,
                 area: drawing_area(&graphic.shape, graphic.width.0, graphic.fill),
-                width: (graphic.width > Nm::ZERO).then_some(graphic.width),
+                width: match graphic.shape {
+                    Shape::Line { .. } => Some(graphic.width),
+                    Shape::Arc { sweep, .. } if sweep.0 != 0 => Some(graphic.width),
+                    Shape::Circle { .. } if !graphic.fill => Some(graphic.width),
+                    Shape::Rect { .. } | Shape::Polygon { .. } if graphic.width > Nm::ZERO => {
+                        Some(graphic.width)
+                    }
+                    _ => None,
+                },
                 height: None,
             });
         }

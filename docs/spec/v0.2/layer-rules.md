@@ -141,6 +141,8 @@ The shipped presets use the following standard-service values.
 | PCBWay | 0.15 mm | 0.8 mm | [Positive legend design instructions](https://www.pcbway.com/helpcenter/design_instruction/How_to_make_my_silkscreen_clear_and_beautiful_on_PCB__.html) |
 | OSH Park | 0.127 mm | Unspecified | OSH Park recommends a 0.127 mm stroke and leaves text height to the designer. [Service guidance](https://docs.oshpark.com/services/six-layer/) and [DRC setup](https://docs.oshpark.com/design-tools/kicad/kicad-design-rules/) |
 
+PCBWay gives separate guidance of 0.25 mm width and 1.25 mm height for negative text. Its board-wide preset uses the positive legend figures in the table.
+
 OSH Park also publishes a 0.0762 mm exception for short lines, text and graphics. REDA uses the general recommendation for its single board-wide width rule. Applying a preset with no published height leaves that minimum at zero.
 
 ## Left to other tickets

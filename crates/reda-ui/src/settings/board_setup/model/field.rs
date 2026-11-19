@@ -528,7 +528,9 @@ impl RuleField {
     fn plain(self) -> bool {
         matches!(
             self.rule().0,
-            RuleKind::CourtyardClearance
+            RuleKind::SilkWidth
+                | RuleKind::SilkTextHeight
+                | RuleKind::CourtyardClearance
                 | RuleKind::Dangling
                 | RuleKind::MicroSegment
                 | RuleKind::MaskExpansion
