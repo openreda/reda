@@ -11,9 +11,11 @@ use crate::placed::{self, PlacedPad};
 use crate::rules::{breach, hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
+    via_spans(board.pcb, report);
     via_size(board, report);
+    super::hdi::check(board.pcb, report);
     let holes = holes(board);
-    for hole in holes.iter().filter(|h| !h.via) {
+    for hole in holes.iter().filter(|h| h.via.is_none()) {
         let rules = net_rules(board.pcb, hole.net);
         let (narrow, wide) = (
             hole.size.width.min(hole.size.height),
@@ -43,12 +45,10 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(rings) = hole.ring else {
             continue;
         };
-        let layers = if hole.via {
-            board
-                .pcb
-                .span_layers(board.pcb.via(hole.objects[0]).expect("Via hole").span)
-        } else {
-            board.pcb.copper_layers().map(|l| l.uuid).collect()
+        let via = hole.via.and_then(|_| board.pcb.via(hole.objects[0]));
+        let layers = match via {
+            Some(via) => board.pcb.span_layers(via.span),
+            None => board.pcb.copper_layers().map(|l| l.uuid).collect(),
         };
         let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
         for layer in layers {
@@ -98,33 +98,83 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     }
 }
 
-/// Vias whose diameter or hole lies outside the `via_size` range of their Net: one
-/// Violation per Via and part, the diameter first, `part` naming which.
+fn via_spans(pcb: &PcbDocument, report: &mut Report) {
+    if report.is_off(DrcCheck::ViaSpan) {
+        return;
+    }
+    let board_rule = pcb.board_rule(RuleKind::ViaSpan);
+    for via in pcb.vias() {
+        let layers = pcb.span_layers(via.span);
+        let (reason, rule) = match pcb.stackup().type_for_span(via.span) {
+            None if board_rule.enabled => ("no_type", board_rule.uuid),
+            Some(kind) if kind.micro && layers.len() > 3 && board_rule.enabled => {
+                ("micro_too_long", board_rule.uuid)
+            }
+            Some(kind) => {
+                let Some((rule, allowed)) = crate::rules::via_span_permission(pcb, via.net) else {
+                    continue;
+                };
+                if allowed.is_empty() || allowed.contains(&kind.uuid) {
+                    continue;
+                }
+                ("not_allowed", rule)
+            }
+            None => continue,
+        };
+        report.add(DrcCheck::ViaSpan, |v| {
+            v.arg("reason", reason)
+                .with_rule(rule)
+                .object(via.uuid)
+                .located(pcb.uuid, via.at)
+                .on_layers(layers)
+        });
+    }
+}
+
+/// Applies the drilling method's limits to the hole and each distinct physical pad size.
+/// A uniform Via produces the same single diameter measurement on its span as before.
 fn via_size(board: &Board<'_>, report: &mut Report) {
     use RuleField::*;
     let pcb = board.pcb;
     for via in pcb.vias() {
-        let rules = net_rules(pcb, via.net);
-        for (part, size, range, [min, max]) in [
-            (
-                "diameter",
-                via.diameter.start,
-                rules.via_diameter,
-                [DiameterMin, DiameterMax],
-            ),
-            ("hole", via.hole, rules.via_hole, [HoleMin, HoleMax]),
-        ] {
+        let stack = pcb.stackup();
+        let via_type = stack
+            .type_for_span(via.span)
+            .unwrap_or_else(|| stack.through_type());
+        let (kind, check) = if via_type.micro {
+            (RuleKind::MicroviaSize, DrcCheck::MicroviaSize)
+        } else {
+            (RuleKind::ViaSize, DrcCheck::ViaSize)
+        };
+        if report.is_off(check) {
+            continue;
+        }
+        let (pads, hole) = crate::rules::via_ranges(pcb, via.net, via_type);
+        let layers = pcb.span_layers(via.span);
+        let mut by_size = std::collections::BTreeMap::<Nm, Vec<Uuid>>::new();
+        for &layer in &layers {
+            by_size
+                .entry(via.diameter_on(layer))
+                .or_default()
+                .push(layer);
+        }
+        let diameters = by_size
+            .into_iter()
+            .map(|(size, on)| ("diameter", size, on, pads, [DiameterMin, DiameterMax]));
+        for (part, size, on, range, [min, max]) in
+            diameters.chain([("hole", via.hole, layers, hole, [HoleMin, HoleMax])])
+        {
             let Some(found) = range.breach(size) else {
                 continue;
             };
             let field = if found.0 == Limit::Min { min } else { max };
-            let rule = resolve(pcb, via.net, RuleKind::ViaSize, field)
+            let rule = resolve(pcb, via.net, kind, field)
                 .expect("a breached limit applies")
                 .rule;
-            report.add(DrcCheck::ViaSize, |v| {
+            report.add(check, |v| {
                 super::copper::breach(v, size, found, rule)
                     .located(pcb.uuid, via.at)
-                    .on_layers(pcb.copper_layers().map(|l| l.uuid))
+                    .on_layers(on)
                     .arg("part", part)
                     .object(via.uuid)
             });
@@ -139,8 +189,8 @@ pub(super) struct DrillHole {
     size: Hole,
     /// Its Net, which picks its rules.
     net: Option<Uuid>,
-    /// Whether it is a Via's, which `via_size` limits rather than `hole_size`.
-    via: bool,
+    /// A Via's centre and its normalized physical span, used to recognize a stacked pair.
+    via: Option<ViaBore>,
     /// The copper ring around a plated hole; `None` for a bare (non-plated) hole.
     pub(super) ring: Option<Rings>,
     pub shape: Shape,
@@ -153,17 +203,32 @@ pub(super) enum Rings {
     Pad { top: Nm, middle: Nm, bottom: Nm },
 }
 
+#[derive(Clone, Copy)]
+struct ViaBore {
+    at: Point,
+    first: usize,
+    last: usize,
+}
+
 /// Every hole, Vias first, then Footprint Pads, then Free Pads, each in UUID order.
 pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
     let pcb = board.pcb;
     let mut out = Vec::new();
     for via in pcb.vias() {
         let size = Hole::new(via.hole, via.hole);
+        let from = pcb
+            .copper_number(via.span.from)
+            .expect("Via starts on copper");
+        let to = pcb.copper_number(via.span.to).expect("Via ends on copper");
         out.push(DrillHole {
             objects: vec![via.uuid],
             size,
             net: via.net,
-            via: true,
+            via: Some(ViaBore {
+                at: via.at,
+                first: from.min(to),
+                last: from.max(to),
+            }),
             ring: Some(Rings::Via),
             shape: hole_shape((via.at, via.at), size),
         });
@@ -182,7 +247,7 @@ pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
             objects,
             size,
             net: pad.net,
-            via: false,
+            via: None,
             ring,
             shape: hole_shape(pad.hole_ends()?, size),
         })
@@ -231,6 +296,14 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
         for &j in &order[k + 1..] {
             if left(j) - right(i) >= reach.0 {
                 break;
+            }
+            if let (Some(a), Some(b)) = (holes[i].via, holes[j].via)
+                && a.at == b.at
+                && holes[i].net.is_some()
+                && holes[i].net == holes[j].net
+                && (a.last == b.first || b.last == a.first)
+            {
+                continue;
             }
             let Some(required) = hole_to_hole_between(pcb, holes[i].net, holes[j].net) else {
                 continue;

@@ -67,6 +67,7 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
             RuleValues {
                 diameter: Some(bounds(rules.via_diameter)),
                 hole: Some(bounds(rules.via_hole)),
+                aspect_ratio: rules.via_aspect_ratio,
                 ..RuleValues::default()
             },
         ),
@@ -106,6 +107,22 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
             },
         ),
     ]
+}
+
+pub(crate) fn microvia_seeds(rules: &FabRules) -> RuleValues {
+    let micro = rules.microvia_size.unwrap_or_default();
+    let bounds = |v: reda_model::FabSizeLimits| Bounds {
+        min: v.min,
+        preferred: None,
+        max: v.max,
+    };
+    RuleValues {
+        diameter: micro.diameter.map(bounds),
+        hole: micro.hole.map(bounds),
+        aspect_ratio: micro.aspect_ratio,
+        max_stack: micro.max_stack,
+        ..Default::default()
+    }
 }
 
 /// The board-wide values of the rule kinds no Fab Preset seeds, which start at fixed
@@ -239,8 +256,24 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
         clearance: inner_limit(RuleKind::Clearance, Value),
         annular_ring_min: inner_limit(RuleKind::AnnularRing, Min),
     };
+    let laser = &pcb.board_rule(RuleKind::MicroviaSize).values;
+    let bounds = |v: Bounds| {
+        let limit = reda_model::FabSizeLimits {
+            min: v.min,
+            max: v.max,
+        };
+        (limit != Default::default()).then_some(limit)
+    };
+    let micro = reda_model::MicroviaLimits {
+        diameter: laser.diameter.and_then(bounds),
+        hole: laser.hole.and_then(bounds),
+        aspect_ratio: laser.aspect_ratio,
+        max_stack: laser.max_stack,
+    };
     FabRules {
         inner: (inner != Default::default()).then_some(inner),
+        microvia_size: (micro != Default::default()).then_some(micro),
+        via_aspect_ratio: pcb.board_rule(RuleKind::ViaSize).values.aspect_ratio,
         clearance_hole: reda_model::HoleClearance::GENERIC,
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
@@ -395,11 +428,12 @@ fn build_board(
         };
         objects.push(Object::DesignRule(InDocument::new(document, rule)));
     }
-    objects.extend(
-        multilayer_rules(document)
-            .into_iter()
-            .map(|rule| Object::DesignRule(InDocument::new(document, rule))),
-    );
+    objects.extend(multilayer_rules(document).into_iter().map(|mut rule| {
+        if rule.kind == RuleKind::MicroviaSize {
+            rule.values = microvia_seeds(rules);
+        }
+        Object::DesignRule(InDocument::new(document, rule))
+    }));
     for (kind, field, min) in rules.inner.unwrap_or_default().limits() {
         if let Some(value) = min {
             let mut values = RuleValues::default();

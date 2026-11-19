@@ -569,6 +569,11 @@ fn key_kind(key: LineKey) -> Option<CheckKind> {
 pub fn measurement(m: &Measurement) -> String {
     match m {
         Measurement::Length(n) => mm(n.0),
+        Measurement::RatioMillionths(n) => format!(
+            "{}:1",
+            reda_engine::model::geom::exact_decimal(*n, 1_000_000)
+        ),
+        Measurement::Count(n) => n.to_string(),
         Measurement::Area(a) => {
             let text = mm(*a / 1_000_000);
             format!("{}mm²", text.trim_end_matches("mm"))

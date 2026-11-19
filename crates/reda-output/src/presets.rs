@@ -49,6 +49,8 @@ pub fn generic() -> FabPreset {
         name: GENERIC_NAME.into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance::GENERIC,
             mask_expansion: reda_model::MaskExpansion {
                 top: Nm(50_000),
@@ -124,6 +126,8 @@ fn jlcpcb() -> FabPreset {
         name: "JLCPCB".into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
                 pad: Nm(300_000),
@@ -198,6 +202,8 @@ fn pcbway() -> FabPreset {
         name: "PCBWay".into(),
         rules: FabRules {
             inner: None,
+            microvia_size: None,
+            via_aspect_ratio: None,
             clearance_hole: reda_model::HoleClearance {
                 via: Nm(200_000),
                 pad: Nm(200_000),
@@ -284,6 +290,8 @@ fn osh_park() -> FabPreset {
         constructions: serde_json::from_str(include_str!("../data/constructions/osh-park.json"))
             .expect("shipped OSH Park Construction catalogue"),
         rules: FabRules {
+            microvia_size: None,
+            via_aspect_ratio: None,
             track_width: Nm(152_400),
             clearance: Nm(152_400),
             annular_ring: Nm(127_000),

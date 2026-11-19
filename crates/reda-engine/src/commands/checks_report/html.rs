@@ -212,6 +212,10 @@ fn objects(objects: &[reda_model::Uuid]) -> String {
 fn measure(m: &Measurement) -> String {
     match m {
         Measurement::Length(n) => mm(n.0),
+        Measurement::RatioMillionths(n) => {
+            format!("{}:1", reda_model::geom::exact_decimal(*n, 1_000_000))
+        }
+        Measurement::Count(n) => n.to_string(),
         Measurement::Area(a) => format!("{} mm²", exact_decimal(*a, 1_000_000_000_000)),
     }
 }

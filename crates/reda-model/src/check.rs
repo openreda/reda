@@ -173,6 +173,9 @@ impl Violation {
 pub enum Measurement {
     Length(Nm),
     Area(i64),
+    /// Dimensionless depth-to-hole ratio in millionths.
+    RatioMillionths(i64),
+    Count(u8),
 }
 
 /// Which limit the measured value violates.

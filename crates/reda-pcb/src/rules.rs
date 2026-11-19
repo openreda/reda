@@ -198,19 +198,20 @@ fn range(
 
 /// The first enabled Via Span permission list in Net Class rank order applies.
 pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool {
-    ranked_classes(pcb, net)
-        .into_iter()
-        .find_map(|class| {
-            pcb.class_rule(RuleKind::ViaSpan, class)
-                .filter(|r| r.enabled)?
-                .values
-                .allowed
-                .as_ref()
-        })
-        .is_none_or(|list| list.is_empty() || list.contains(&id))
+    via_span_permission(pcb, net).is_none_or(|(_, list)| list.is_empty() || list.contains(&id))
 }
 
-fn via_ranges(
+/// The rule and list used for both routing permission and DRC attribution.
+pub(crate) fn via_span_permission(pcb: &PcbDocument, net: Option<Uuid>) -> Option<(Uuid, &[Uuid])> {
+    ranked_classes(pcb, net).into_iter().find_map(|class| {
+        let rule = pcb
+            .class_rule(RuleKind::ViaSpan, class)
+            .filter(|r| r.enabled)?;
+        Some((rule.uuid, rule.values.allowed.as_deref()?))
+    })
+}
+
+pub(crate) fn via_ranges(
     pcb: &PcbDocument,
     net: Option<Uuid>,
     via_type: &reda_model::ViaType,
