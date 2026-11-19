@@ -43,7 +43,9 @@ use vias::PairCandidates;
 #[derive(Clone, Debug)]
 struct Route {
     net: Option<Uuid>,
-    follows_preferred_width: bool,
+    /// The width the user chose, which each new Layer clips into its range; `None`
+    /// while the route follows each Layer's preferred width.
+    chosen_width: Option<Nm>,
     /// Earlier legs and Vias.
     steps: Vec<Step>,
     /// The leg being routed; its last point is where the path ahead starts.
@@ -580,7 +582,7 @@ impl Router {
         let Some(route) = self.route.as_mut() else {
             return;
         };
-        route.follows_preferred_width = follows_preferred;
+        route.chosen_width = (!follows_preferred).then_some(width);
         if width == route.leg.width {
             return;
         }
@@ -912,7 +914,7 @@ impl Router {
         self.hovered_layer = None;
         self.route = Some(Route {
             net,
-            follows_preferred_width,
+            chosen_width: (!follows_preferred_width).then_some(width),
             steps: Vec::new(),
             leg: Leg {
                 layer,
