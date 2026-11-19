@@ -113,7 +113,7 @@ fn a_new_board_holds_the_rules_no_preset_seeds_at_their_defaults() {
             .rules()
             .find(|r| r.kind.id() == kind && r.scope.is_board_wide())
             .unwrap_or_else(|| panic!("no board-wide `{kind}` rule"));
-        serde_json::to_value(rule.values).unwrap()
+        serde_json::to_value(&rule.values).unwrap()
     };
     assert_eq!(values("silk_to_edge"), json!({"value": 254_000}));
     assert_eq!(

@@ -194,7 +194,7 @@ mod tests {
         );
         assert_eq!(imported.board[0].1.value, length(200));
         assert_eq!(imported.board[1].1.preferred, length(250));
-        let via = imported.board[2].1;
+        let via = &imported.board[2].1;
         assert_eq!(via.diameter.unwrap().preferred, length(600));
         assert_eq!(via.hole.unwrap().preferred, length(300));
 

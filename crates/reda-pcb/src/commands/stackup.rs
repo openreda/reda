@@ -2,6 +2,7 @@
 //! colours; and `pcb.fab_notes.set`, the free text for the Fab Notes, which sits beside
 //! them on the Stackup page of Board Setup.
 
+pub(super) mod preview;
 mod sheets;
 
 use reda_command::{
@@ -18,6 +19,7 @@ use super::{needs_pcb, nullable, pcb};
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
     registry.add(Info);
+    registry.add(preview::Preview);
     registry.add(sheets::SheetAdd);
     registry.add(sheets::SheetRemove);
     registry.add(FabNotesSet);

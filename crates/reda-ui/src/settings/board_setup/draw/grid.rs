@@ -43,9 +43,58 @@ pub fn net_classes_page(ui: &mut Ui, cx: &mut PageCx<'_>, board: &mut BoardSetup
     ui.add_space(t.space.stack);
     class_grid(ui, cx, board);
     grid_keys(ui, board);
+    allowed_types(ui, cx, board);
     layout::muted(ui, tr!("board-setup-grid-note"));
     ui.add_space(t.space.section);
     net_table(ui, board);
+}
+
+fn allowed_types(ui: &mut Ui, cx: &PageCx<'_>, board: &mut BoardSetupDraft) {
+    let Some(pcb) = cx.shell.engine().project().and_then(|p| p.pcb()) else {
+        return;
+    };
+    if pcb.stackup().via_types.len() < 2 {
+        return;
+    }
+    let selected: Vec<_> = board
+        .selected_rows
+        .iter()
+        .copied()
+        .filter(|k| *k != ClassKey::Default)
+        .collect();
+    for key in selected {
+        ui.push_id(("via-permissions", key), |ui| {
+            strong(ui, tr!("via-allowed", class = board.class_name(key)));
+            ui.horizontal_wrapped(|ui| {
+                for kind in &pcb.stackup().via_types {
+                    let allowed = board.allowed_types(key);
+                    let mut on = allowed.is_empty() || allowed.contains(&kind.uuid);
+                    if ui
+                        .add(widgets::checkbox(
+                            &mut on,
+                            tr!("via-allow", name = kind.display_name(pcb)),
+                        ))
+                        .changed()
+                    {
+                        let mut list = if allowed.is_empty() {
+                            pcb.stackup().via_types.iter().map(|v| v.uuid).collect()
+                        } else {
+                            allowed.to_vec()
+                        };
+                        if on {
+                            list.push(kind.uuid);
+                        } else {
+                            list.retain(|id| *id != kind.uuid);
+                        }
+                        if list.len() == pcb.stackup().via_types.len() {
+                            list.clear();
+                        }
+                        board.set_allowed_types(key, list);
+                    }
+                }
+            });
+        });
+    }
 }
 
 fn toolbar(ui: &mut Ui, board: &mut BoardSetupDraft) {

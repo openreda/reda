@@ -141,18 +141,73 @@ fn range(
     net: Option<Uuid>,
     kind: RuleKind,
     [min, preferred, max]: [RuleField; 3],
+    fallback: Option<Nm>,
 ) -> SizeRange {
     SizeRange {
         min: limit(pcb, net, kind, min),
-        preferred: resolve(pcb, net, kind, preferred)
-            .and_then(|s| s.value.length())
-            .unwrap_or_else(|| match preferred {
-                RuleField::DiameterPreferred => pcb.stackup().through_type().diameter.start,
-                RuleField::HolePreferred => pcb.stackup().through_type().hole,
-                _ => unreachable!("the board-wide Track rule holds a preferred width"),
-            }),
+        preferred: limit(pcb, net, kind, preferred)
+            .or(fallback)
+            .expect("Track rules and Via types supply a starting size"),
         max: limit(pcb, net, kind, max),
     }
+}
+
+/// The first enabled Via Span permission list in Net Class rank order applies.
+pub fn via_type_allowed(pcb: &PcbDocument, net: Option<Uuid>, id: Uuid) -> bool {
+    ranked_classes(pcb, net)
+        .into_iter()
+        .find_map(|class| {
+            pcb.class_rule(RuleKind::ViaSpan, class)
+                .filter(|r| r.enabled)?
+                .values
+                .allowed
+                .as_ref()
+        })
+        .is_none_or(|list| list.is_empty() || list.contains(&id))
+}
+
+fn via_ranges(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (SizeRange, SizeRange) {
+    use RuleField::*;
+    let kind = if via_type.micro {
+        RuleKind::MicroviaSize
+    } else {
+        RuleKind::ViaSize
+    };
+    (
+        range(
+            pcb,
+            net,
+            kind,
+            [DiameterMin, DiameterPreferred, DiameterMax],
+            Some(via_type.diameter.start),
+        ),
+        range(
+            pcb,
+            net,
+            kind,
+            [HoleMin, HolePreferred, HoleMax],
+            Some(via_type.hole),
+        ),
+    )
+}
+
+/// Class preferences override the type's starting sizes. Every pad and the hole
+/// are clipped to the effective limits for the drilling method.
+pub fn via_starting_size(
+    pcb: &PcbDocument,
+    net: Option<Uuid>,
+    via_type: &reda_model::ViaType,
+) -> (reda_model::ViaDiameter, Nm) {
+    let (pads, hole) = via_ranges(pcb, net, via_type);
+    let mut diameter = via_type.diameter;
+    diameter.start = pads.default_size();
+    diameter.middle = diameter.middle.map(|d| pads.clip(d));
+    diameter.end = diameter.end.map(|d| pads.clip(d));
+    (diameter, hole.default_size())
 }
 
 /// Every rule value that applies to copper on one Net.
@@ -176,24 +231,15 @@ pub struct NetRules {
 /// The rules for copper on `net` (or on no Net, which takes the board-wide records).
 pub fn net_rules(pcb: &PcbDocument, net: Option<Uuid>) -> NetRules {
     use RuleField::*;
+    let (via_diameter, via_hole) = via_ranges(pcb, net, pcb.stackup().through_type());
     NetRules {
         clearance: limit(pcb, net, RuleKind::Clearance, Value),
         ignore_pad_to_pad: resolve(pcb, net, RuleKind::Clearance, IgnorePadToPad)
             .and_then(|s| s.value.flag())
             .unwrap_or(false),
-        track_width: range(pcb, net, RuleKind::TrackWidth, [Min, Preferred, Max]),
-        via_diameter: range(
-            pcb,
-            net,
-            RuleKind::ViaSize,
-            [DiameterMin, DiameterPreferred, DiameterMax],
-        ),
-        via_hole: range(
-            pcb,
-            net,
-            RuleKind::ViaSize,
-            [HoleMin, HolePreferred, HoleMax],
-        ),
+        track_width: range(pcb, net, RuleKind::TrackWidth, [Min, Preferred, Max], None),
+        via_diameter,
+        via_hole,
         hole_min: limit(pcb, net, RuleKind::HoleSize, Min),
         hole_max: limit(pcb, net, RuleKind::HoleSize, Max),
         annular_ring: limit(pcb, net, RuleKind::AnnularRing, Min),
@@ -309,7 +355,7 @@ pub fn largest(pcb: &PcbDocument, kind: RuleKind, field: RuleField) -> Nm {
 /// The values of `record` as they apply: its own, and for a Net Class record those of
 /// `board` (the board-wide record of its kind) where it sets none.
 pub fn effective_values(board: &DesignRule, record: &DesignRule) -> RuleValues {
-    let mut values = record.values;
+    let mut values = record.values.clone();
     if !record.scope.is_board_wide() {
         for &field in record.kind.fields() {
             if record.kind == RuleKind::PasteExpansion && !record.values.is_empty() {

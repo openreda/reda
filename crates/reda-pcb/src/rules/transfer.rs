@@ -17,7 +17,7 @@ pub fn export(pcb: &PcbDocument) -> RuleSet {
     let portable = |record: &DesignRule, class: Option<&NetClass>| PortableRule {
         kind: record.kind,
         net_class: class.map(|c| c.name.clone()),
-        values: record.values,
+        values: record.values.clone(),
         enabled: record.enabled,
         comment: record.comment.clone(),
     };
@@ -72,7 +72,7 @@ pub fn problem(set: &RuleSet) -> Option<String> {
             } else {
                 RuleScope::BOARD
             },
-            values: rule.values,
+            values: rule.values.clone(),
             enabled: rule.enabled,
             comment: None,
         };
@@ -178,7 +178,7 @@ pub fn plan(
             uuid: existing.map_or_else(&mut new_id, |r| r.uuid),
             kind: rule.kind,
             scope,
-            values: rule.values,
+            values: rule.values.clone(),
             enabled: rule.enabled,
             comment: rule.comment.clone(),
         };
@@ -186,8 +186,8 @@ pub fn plan(
             kind: rule.kind,
             net_class: rule.net_class.clone(),
             rule: existing.map(|r| r.uuid),
-            before: existing.map(|r| r.values),
-            after: rule.values,
+            before: existing.map(|r| r.values.clone()),
+            after: rule.values.clone(),
             enabled: rule.enabled,
         });
         records.push((record, existing.is_some()));

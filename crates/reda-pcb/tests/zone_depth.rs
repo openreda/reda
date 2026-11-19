@@ -162,7 +162,7 @@ fn a_new_board_seeds_the_zone_connection_and_dead_copper_rules() {
     let dir = TempDir::new("depth-seeds");
     let engine = engine_with_pcb(&dir);
     let pcb = pcb(&engine);
-    let values = pcb.board_rule(RuleKind::ZoneConnection).values;
+    let values = &pcb.board_rule(RuleKind::ZoneConnection).values;
     let relief = ZoneConnection {
         style: Some(ConnectionStyle::Relief),
         spokes: Some(4),
