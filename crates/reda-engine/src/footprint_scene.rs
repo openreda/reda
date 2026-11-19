@@ -1,4 +1,4 @@
-//! The Scene the Footprint editor draws: one Footprint, unplaced, on the fixed v0.1 board
+//! The Scene the Footprint editor draws: one Footprint, unplaced, on its copper and drawing
 //! Layers, through the same PCB Scene builder as a board, so Pads, mask, paste, holes,
 //! drawing and text look exactly as they will once placed.
 //!
@@ -9,7 +9,7 @@ use reda_command::Fonts;
 use reda_model::{
     DocumentEntry, DocumentKind, Footprint, Layer, Project, ProjectProps, Shape, Side, Uuid,
 };
-use reda_pcb::{board_layer, element_texts, new_board, text_geometry};
+use reda_pcb::{board_layer, element_texts, new_board_with_layers, text_geometry};
 use reda_render::{
     BoardGeometry, BoardGraphic, BoardOpening, BoardPad, BoardText, Mesh, Scene, Segment,
 };
@@ -32,7 +32,12 @@ pub struct FootprintScene {
 /// and text, with the Designator as
 /// [`DESIGNATOR_PLACEHOLDER`] and the value as the Footprint's name.
 pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
-    let (project, document) = board_for(footprint.uuid);
+    let layers = if footprint.pads.iter().any(|p| p.middle.is_some()) {
+        3
+    } else {
+        2
+    };
+    let (project, document) = board_for(footprint.uuid, layers);
     let pcb = project.pcb_document(document).expect("just added");
     let mut geometry = BoardGeometry::default();
     for pad in &footprint.pads {
@@ -114,9 +119,9 @@ pub fn footprint_scene(footprint: &Footprint, fonts: &Fonts) -> FootprintScene {
     }
 }
 
-/// A blank Project holding one empty board with the v0.1 Layers, whose UUIDs follow from
+/// A blank Project holding one empty board with the preview Layers, whose UUIDs follow from
 /// `seed` so a Footprint's Scene is the same on every build.
-fn board_for(seed: Uuid) -> (Project, Uuid) {
+fn board_for(seed: Uuid, layers: u8) -> (Project, Uuid) {
     let mut next = seed.as_u128();
     let mut new_id = move || {
         next = next.wrapping_add(1);
@@ -146,7 +151,9 @@ fn board_for(seed: Uuid) -> (Project, Uuid) {
         title: String::new(),
     };
     add_document(&mut tx, entry).expect("a blank Project takes a board");
-    for object in new_board(document, &rules, Default::default(), &mut new_id) {
+    for object in new_board_with_layers(document, &rules, Default::default(), layers, &mut new_id)
+        .expect("two outer copper Layers and at most one middle")
+    {
         tx.insert(object).expect("a new board's objects fit");
     }
     tx.commit().expect("a new board commits");

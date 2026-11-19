@@ -24,7 +24,7 @@ impl Shell {
         self.prepare_route_command();
         let mut out = self.engine.run_from(source, id, params, signals)?;
         self.apply_route_command(base, &mut out);
-        self.after_run(id);
+        self.after_run(id, &out);
         if let Some(tool) = &self.tool
             && tool.touched_by(&out)
         {
@@ -127,7 +127,7 @@ impl Shell {
             self.after_edit(base, &out);
         }
         self.prune_selection_and_highlight(base == "schematic.delete");
-        self.after_run(id);
+        self.after_run(id, &out);
         if matches!(base, "library.element.open" | "library.element.new") {
             crate::element_editor::after_open(self, &out);
         }
@@ -224,7 +224,7 @@ impl Shell {
     }
 
     /// Refreshes what a successful run of `id` may have changed.
-    pub(super) fn after_run(&mut self, id: &str) {
+    pub(super) fn after_run(&mut self, id: &str, out: &Value) {
         let base = id.split(':').next().unwrap_or(id);
         // First, so the Scenes the refresh below rebuilds are drawn with them.
         if matches!(
@@ -263,6 +263,16 @@ impl Shell {
                 }
                 _ => self.refresh(),
             },
+        }
+        if base == "view.footprint_tool.set"
+            && let Some(uuid) = out["preview"]["footprint"]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+        {
+            let scene = self.scene_of(uuid);
+            if let Some(tab) = self.document_tab_mut(uuid) {
+                tab.scene = scene;
+            }
         }
         if base.starts_with("library.")
             || base.starts_with("project.")
