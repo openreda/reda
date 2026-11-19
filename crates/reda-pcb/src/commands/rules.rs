@@ -50,6 +50,27 @@ pub struct AspectRatioParam {
     pub max: Option<Option<u32>>,
 }
 
+/// Either the Via size range or plated hole clearance values, according to rule kind.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HoleParam {
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub min: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub preferred: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub max: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub via: Option<Option<Length>>,
+    #[serde(default, deserialize_with = "nullable")]
+    #[schemars(with = "Option<Length>")]
+    pub pad: Option<Option<Length>>,
+}
+
 /// A Zone connection's values to change; `null` clears one.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -76,7 +97,7 @@ pub struct ConnectionParam {
 }
 
 /// The values to change; those left out keep theirs, and `null` clears one. Which a kind
-/// holds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)
+/// holds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)
 /// `zero_keepout_clearance`; `track_width` `min`, `preferred`
 /// and `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;
 /// `hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;
@@ -113,7 +134,7 @@ pub struct ValuesParam {
     #[serde(default)]
     pub diameter: Option<BoundsParam>,
     #[serde(default)]
-    pub hole: Option<BoundsParam>,
+    pub hole: Option<HoleParam>,
     #[serde(default)]
     pub aspect_ratio: Option<AspectRatioParam>,
     /// Maximum number of micro Vias meeting end to end in one Via Stack.
@@ -180,6 +201,8 @@ impl ValuesParam {
         put(RuleField::DiameterMax, d.max);
         let h = self.hole.clone().unwrap_or_default();
         put(RuleField::HoleMin, h.min);
+        put(RuleField::HoleVia, h.via);
+        put(RuleField::HolePad, h.pad);
         put(RuleField::HolePreferred, h.preferred);
         put(RuleField::HoleMax, h.max);
         put(RuleField::Top, self.top);

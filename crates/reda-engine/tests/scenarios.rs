@@ -138,3 +138,50 @@ fn via_types_reopen_with_the_broken_spans_sizes_and_stack_in_the_drc_report() {
         text.as_bytes(),
     );
 }
+
+#[test]
+fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements() {
+    let dir = repo().join("tests/scenarios/inner_layers");
+    let mut engine = reda_testkit::test_engine_with_library(&reda_testkit::starter_library());
+    engine.run_ok(
+        "project.open",
+        serde_json::json!({"path":dir.join("InnerLayers.reda")}),
+    );
+    let pcb = engine.project().unwrap().pcb().unwrap();
+    let plane = pcb.copper_layers().nth(1).unwrap();
+    assert_eq!(plane.role, reda_engine::model::CopperRole::Plane);
+    assert!(
+        pcb.zones()
+            .any(|z| z.layer == plane.uuid && z.follows_outline && z.vertices.is_empty())
+    );
+    let via = pcb.vias().next().unwrap();
+    let relief = via.zone_connection.unwrap();
+    assert_eq!(
+        relief.style,
+        Some(reda_engine::model::ConnectionStyle::Relief)
+    );
+    assert_eq!(relief.spokes, Some(2));
+    let plane = plane.uuid;
+    let report = engine.run_ok("drc.run", serde_json::json!({"checks":["clearance"]}));
+    let mut holes: Vec<_> = report["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| {
+            Some((
+                v["args"]["part"].as_str()?,
+                v["layers"].clone(),
+                v["measured"]["length"].as_i64()?,
+                v["required"]["length"].as_i64()?,
+            ))
+        })
+        .collect();
+    holes.sort_by_key(|r| r.0);
+    assert_eq!(
+        holes,
+        [
+            ("hole.pad", serde_json::json!([plane]), 650000, 1100000),
+            ("hole.via", serde_json::json!([plane]), 650000, 1200000)
+        ]
+    );
+}

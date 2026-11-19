@@ -240,3 +240,42 @@ fn a_rule_allowing_less_than_a_job_preset_is_reported_once_per_record_and_preset
     );
     assert!(of(&drc(&mut engine), "rule_outside_preset").is_empty());
 }
+
+#[test]
+fn plated_hole_clearance_is_measured_from_the_drill_on_the_rule_layer() {
+    let dir = TempDir::new("plated-hole-layer");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Board","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let via = uuid(&e.run_ok("pcb.via.add",json!({"at":{"x":"5mm","y":"5mm"},"from":layers[0],"to":layers[1],"hole":"0.4mm","diameter":{"start":"0.5mm"}}))["result"]["uuid"]);
+    let limit = e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"hole":{"via":"0.6mm"}}}),
+    )["result"]["rule"]["uuid"]
+        .clone();
+    for layer in &layers {
+        e.run_ok("pcb.track.add",json!({"layer":layer,"width":"0.2mm","points":[{"x":"5.7mm","y":"4mm"},{"x":"5.7mm","y":"6mm"}]}));
+    }
+    let found = of(&drc(&mut e), "clearance");
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert_eq!(found[0]["layers"], json!([layers[1]]));
+    assert_eq!(found[0]["rule"], limit);
+    assert!(
+        found[0]["objects"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(via))
+    );
+    assert_eq!(found[0]["measured"]["length"], 400000);
+    assert_eq!(found[0]["required"]["length"], 600000);
+}

@@ -18,6 +18,7 @@ mod hdi;
 pub mod health;
 mod holes;
 pub(crate) mod placement;
+mod plated_clearance;
 pub(crate) mod silkscreen;
 mod zones;
 

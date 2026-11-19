@@ -25019,6 +25019,53 @@
             ],
             "type": "object"
           },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "HoleTolerance": {
             "additionalProperties": false,
             "description": "How far a finished hole may come out larger (`plus`) or smaller (`minus`).",
@@ -29732,13 +29779,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -33426,6 +33473,53 @@
               "via",
               "pad"
             ],
+            "type": "object"
+          },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
             "type": "object"
           },
           "HoleTolerance": {
@@ -38162,13 +38256,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -51789,6 +51883,68 @@
               }
             ]
           },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "Either the Via size range or plated hole clearance values, according to rule kind.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
           "Length": {
             "description": "A length: integer nanometres, or a number and a unit (nm, um, mm, mil or in) such as \"1.27mm\", \"10mil\" or \"0.5in\".",
             "oneOf": [
@@ -51915,7 +52071,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "allowed": {
                 "default": null,
@@ -51980,7 +52136,7 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/BoundsParam"
+                    "$ref": "#/$defs/HoleParam"
                   },
                   {
                     "type": "null"
@@ -56075,6 +56231,13 @@
                 ],
                 "description": "For two objects and a kind that applies between them (`clearance`,\n`hole_to_hole`): the larger value, which applies."
               },
+              "between_holes": {
+                "description": "Plated hole clearances that apply to the selected pair on these Layers.",
+                "items": {
+                  "$ref": "#/$defs/Between"
+                },
+                "type": "array"
+              },
               "kind": {
                 "$ref": "#/$defs/RuleKind"
               },
@@ -56487,6 +56650,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -56776,6 +56941,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -57195,6 +57362,8 @@
             "description": "One value of a rule record, by where it sits in `values`.",
             "enum": [
               "value",
+              "hole_via",
+              "hole_pad",
               "ignore_pad_to_pad",
               "zero_keepout_clearance",
               "min",
@@ -57818,6 +57987,53 @@
               }
             ]
           },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "Overwrite": {
             "description": "One record an import writes.",
             "properties": {
@@ -58022,13 +58238,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",
@@ -58634,6 +58850,68 @@
               }
             ]
           },
+          "HoleParam": {
+            "additionalProperties": false,
+            "description": "Either the Via size range or plated hole clearance values, according to rule kind.",
+            "properties": {
+              "max": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "min": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "pad": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "preferred": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              },
+              "via": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Length"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null
+              }
+            },
+            "type": "object"
+          },
           "LayerGroup": {
             "enum": [
               "outer",
@@ -58821,7 +59099,7 @@
           },
           "ValuesParam": {
             "additionalProperties": false,
-            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
+            "description": "The values to change; those left out keep theirs, and `null` clears one. Which a kind\nholds: `clearance` `value`, `hole {via, pad}`, `ignore_pad_to_pad` and (board-wide only)\n`zero_keepout_clearance`; `track_width` `min`, `preferred`\nand `max`; `via_size` `diameter` and `hole`, each `{min, preferred, max}`;\n`hole_size` `min` and `max`; `annular_ring` and `hole_to_hole` `min`;\n`edge_clearance`, `silk_to_edge` and `courtyard_clearance` `value`; `silk_to_mask`\n`value` and `mode` (`exposed_copper` or `mask_opening`); `dangling` `tolerance`;\n`micro_segment` `max_length`; `dead_copper` `min_area`; `zone_connection`\n`through_hole`, `smd` and `via`, each `{style, spokes, spoke_width, gap, angle}`; `mask_expansion` top/bottom lengths and hole-edge/Via-tenting\nflags; `paste_expansion` either `expansion` or signed area `percent`.",
             "properties": {
               "allowed": {
                 "default": null,
@@ -58886,7 +59164,7 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/BoundsParam"
+                    "$ref": "#/$defs/HoleParam"
                   },
                   {
                     "type": "null"
@@ -59216,6 +59494,53 @@
             ],
             "type": "object"
           },
+          "HoleRuleValues": {
+            "additionalProperties": false,
+            "description": "A drilled size range (Via size rules) or per-object edge clearances (clearance rules).",
+            "properties": {
+              "max": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "min": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pad": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "preferred": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "via": {
+                "description": "A length or coordinate in integer nanometres. Serialises as a bare integer.",
+                "format": "int64",
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
           "LayerGroup": {
             "enum": [
               "outer",
@@ -59432,13 +59757,13 @@
               "hole": {
                 "anyOf": [
                   {
-                    "$ref": "#/$defs/Bounds"
+                    "$ref": "#/$defs/HoleRuleValues"
                   },
                   {
                     "type": "null"
                   }
                 ],
-                "description": "Via size only: the Via's drilled hole."
+                "description": "Via size limits or clearance to a plated hole."
               },
               "ignore_pad_to_pad": {
                 "description": "Clearance only: Pads within one Footprint need no clearance from each other.",

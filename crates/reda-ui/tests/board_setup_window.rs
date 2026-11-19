@@ -718,3 +718,46 @@ fn via_types_table_marks_a_drill_below_the_minimum_and_a_land_above_the_maximum(
     h.get_by_label(&warning("Through"));
     assert!(h.query_by_label(&warning("Laser")).is_none());
 }
+
+#[test]
+fn a_plane_role_offers_an_outline_zone_only_until_one_is_created() {
+    let (home, work) = (TempDir::new("plane-ui-home"), TempDir::new("plane-ui-work"));
+    let mut h = harness(home.path(), work.path(), "First");
+    let shell = h.state_mut().shell_mut();
+    shell.run("project.new",json!({"name":"Planes","path":work.path(),"layers":4,"board":{"width":"20mm","height":"20mm"}})).unwrap();
+    let gnd = shell.run("test.net.add", json!({"name":"GND"})).unwrap()["result"]["uuid"].clone();
+    let board = pcb(&h);
+    let layer = board.copper_layers().nth(1).unwrap().uuid;
+    h.state_mut()
+        .shell_mut()
+        .run("pcb.stackup.open", json!({"document":board.uuid}))
+        .unwrap();
+    h.run();
+    choose(&mut h, "L2 kind", "Plane");
+    assert_eq!(pcb(&h).zones().count(), 0);
+    h.get_by_role_and_label(Role::Button, "Fill Layer with plane…")
+        .click();
+    h.run();
+    choose(&mut h, "Plane Net", "GND");
+    h.get_by_role_and_label(Role::Button, "Create Zone").click();
+    h.run();
+    let board = pcb(&h);
+    let zone = board.zones().next().unwrap();
+    assert!(zone.follows_outline);
+    assert_eq!(zone.layer, layer);
+    assert_eq!(json!(zone.net), gnd);
+    choose(&mut h, "L2 kind", "Signal");
+    choose(&mut h, "L2 kind", "Plane");
+    assert_eq!(pcb(&h).zones().count(), 1);
+    assert!(
+        h.query_by_role_and_label(Role::Button, "Fill Layer with plane…")
+            .is_none()
+    );
+    h.get_by_role_and_label(Role::Row, "L2").click_secondary();
+    h.run();
+    h.get_by_label("Fill Layer with plane…").click();
+    h.run();
+    h.get_by_label("Cancel").click();
+    h.run();
+    assert_eq!(pcb(&h).zones().count(), 1);
+}

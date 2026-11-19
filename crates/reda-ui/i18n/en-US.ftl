@@ -3164,3 +3164,10 @@ board-rule-layers = Layer rules
 board-rule-named = Pick Layers
 board-rule-add = Add
 board-rule-pair-lower = Below a class's own clearance
+
+plane-fill-layer = Fill Layer with plane…
+plane-net = Plane Net
+plane-select-net = Choose a Net
+plane-create-zone = Create Zone
+rule-via-hole-clearance = Via hole clearance
+rule-pad-hole-clearance = Plated Pad hole clearance

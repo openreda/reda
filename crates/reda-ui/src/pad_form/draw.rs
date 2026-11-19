@@ -7,6 +7,7 @@ use egui::{Id, Role, Ui, WidgetInfo};
 use reda_engine::model::geom::{Millideg, Nm};
 use reda_engine::model::{
     ConnectionStyle, Corner, Corners, HoleTolerance, Pad, PadKind, PadShape, Paste, Side,
+    ZoneConnection,
 };
 use reda_engine::preferences::Units;
 
@@ -163,7 +164,9 @@ pub fn rows(
                 }
             }
             opening_rows(&mut row, pad, &mut out);
-            zone_rows(&mut row, pad, &mut out);
+            if pad.kind != PadKind::NonPlated {
+                zone_rows(&mut row, pad.zone_connection.unwrap_or_default(), &mut out);
+            }
         });
     });
     out
@@ -386,11 +389,29 @@ fn opening_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {
     }
 }
 
-fn zone_rows(row: &mut Row<'_>, pad: &Pad, out: &mut Vec<PadEdit>) {
-    if pad.kind == PadKind::NonPlated {
-        return;
+/// Draws per-field Zone connection overrides for a placed Pad or Via. Clearing the
+/// last override restores inheritance for the whole connection.
+pub(crate) fn zone_override(
+    ui: &mut Ui,
+    id: Id,
+    units: Units,
+    before: Option<ZoneConnection>,
+) -> Option<Option<ZoneConnection>> {
+    let mut z = before.unwrap_or_default();
+    let mut edits = Vec::new();
+    widgets::form(id).show(ui, |ui| {
+        zone_rows(&mut Row { ui, id, units }, z, &mut edits);
+    });
+    if edits.is_empty() {
+        return None;
     }
-    let z = pad.zone_connection.unwrap_or_default();
+    for edit in edits {
+        super::apply_zone_edit(&mut z, &edit);
+    }
+    Some((z != ZoneConnection::default()).then_some(z))
+}
+
+fn zone_rows(row: &mut Row<'_>, z: ZoneConnection, out: &mut Vec<PadEdit>) {
     let styles = [
         None,
         Some(ConnectionStyle::Relief),

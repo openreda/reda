@@ -2,20 +2,20 @@
 //! of placed Footprints and Free Pads.
 
 use crate::copper::shape::BoardShape as _;
-use reda_model::geom::{CornerRect, Nm, Point};
-use reda_model::{DrcCheck, Hole, Limit, PadKind, PcbDocument, RuleField, RuleKind, Uuid};
+use reda_model::geom::Nm;
+use reda_model::{DrcCheck, Limit, PcbDocument, RuleField, RuleKind, Uuid};
 
 use super::{Board, Report};
-use crate::copper::shape::{Core, Prim, Shape};
-use crate::placed::{self, PlacedPad};
+use crate::drill::{DrillHole, Rings, holes};
 use crate::rules::{breach, hole_to_hole_between, largest, net_rules, resolve, resolve_pair};
 
 pub(super) fn check(board: &Board<'_>, report: &mut Report) {
     via_spans(board.pcb, report);
     via_size(board, report);
     super::hdi::check(board.pcb, report);
-    let holes = holes(board);
-    for hole in holes.iter().filter(|h| h.via.is_none()) {
+    let holes = holes(board.pcb);
+    super::plated_clearance::check(board, &holes, report);
+    for hole in holes.iter().filter(|h| !h.is_via()) {
         let rules = net_rules(board.pcb, hole.net);
         let (narrow, wide) = (
             hole.size.width.min(hole.size.height),
@@ -45,11 +45,7 @@ pub(super) fn check(board: &Board<'_>, report: &mut Report) {
         let Some(rings) = hole.ring else {
             continue;
         };
-        let via = hole.via.and_then(|_| board.pcb.via(hole.objects[0]));
-        let layers = match via {
-            Some(via) => board.pcb.span_layers(via.span),
-            None => board.pcb.copper_layers().map(|l| l.uuid).collect(),
-        };
+        let layers = hole.layers(board.pcb);
         let mut breaches = std::collections::BTreeMap::<_, Vec<_>>::new();
         for layer in layers {
             let ring = match rings {
@@ -182,107 +178,6 @@ fn via_size(board: &Board<'_>, report: &mut Report) {
     }
 }
 
-/// One drilled hole on the board.
-pub(super) struct DrillHole {
-    /// The Via, or the Footprint instance then the Pad, or the Free Pad.
-    pub objects: Vec<Uuid>,
-    size: Hole,
-    /// Its Net, which picks its rules.
-    net: Option<Uuid>,
-    /// A Via's centre and its normalized physical span, used to recognize a stacked pair.
-    via: Option<ViaBore>,
-    /// The copper ring around a plated hole; `None` for a bare (non-plated) hole.
-    pub(super) ring: Option<Rings>,
-    pub shape: Shape,
-}
-
-/// A Via follows its drilling span. Pad rings are measured in board-side order.
-#[derive(Clone, Copy)]
-pub(super) enum Rings {
-    Via,
-    Pad { top: Nm, middle: Nm, bottom: Nm },
-}
-
-#[derive(Clone, Copy)]
-struct ViaBore {
-    at: Point,
-    first: usize,
-    last: usize,
-}
-
-/// Every hole, Vias first, then Footprint Pads, then Free Pads, each in UUID order.
-pub(super) fn holes(board: &Board<'_>) -> Vec<DrillHole> {
-    let pcb = board.pcb;
-    let mut out = Vec::new();
-    for via in pcb.vias() {
-        let size = Hole::new(via.hole, via.hole);
-        let from = pcb
-            .copper_number(via.span.from)
-            .expect("Via starts on copper");
-        let to = pcb.copper_number(via.span.to).expect("Via ends on copper");
-        out.push(DrillHole {
-            objects: vec![via.uuid],
-            size,
-            net: via.net,
-            via: Some(ViaBore {
-                at: via.at,
-                first: from.min(to),
-                last: from.max(to),
-            }),
-            ring: Some(Rings::Via),
-            shape: hole_shape((via.at, via.at), size),
-        });
-    }
-    let pad_hole = |objects: Vec<Uuid>, pad: &PlacedPad| {
-        let size = pad.hole?;
-        let ring = (pad.kind == PadKind::PlatedThroughHole).then(|| {
-            let top = annular_ring(&pad.outline, size);
-            Rings::Pad {
-                top,
-                middle: pad.middle.map_or(top, |(_, o)| annular_ring(&o, size)),
-                bottom: pad.bottom.map_or(top, |(_, o)| annular_ring(&o, size)),
-            }
-        });
-        Some(DrillHole {
-            objects,
-            size,
-            net: pad.net,
-            via: None,
-            ring,
-            shape: hole_shape(pad.hole_ends()?, size),
-        })
-    };
-    for instance in pcb.footprints() {
-        for pad in placed::placed_pads(pcb, instance) {
-            out.extend(pad_hole(vec![instance.uuid, pad.pad], &pad));
-        }
-    }
-    for pad in pcb.free_pads() {
-        out.extend(pad_hole(vec![pad.uuid], &placed::placed_free_pad(pad)));
-    }
-    out
-}
-
-/// The narrowest copper between a Pad's hole and the edge of its copper, negative when
-/// the hole reaches outside it. The copper is convex, so the narrowest point is at an end
-/// of the slot's centre line.
-fn annular_ring(outline: &CornerRect, hole: Hole) -> Nm {
-    let (a, b) = hole.ends();
-    let inside = outline.edge_distance(a).min(outline.edge_distance(b));
-    Nm((inside - hole.diameter().0 as f64 / 2.0).floor() as i64)
-}
-
-/// A hole's outline: a disc, or a slot between the `ends` of its centre line.
-fn hole_shape(ends: (Point, Point), size: Hole) -> Shape {
-    let end = |p: Point| [p.x.0, p.y.0];
-    Shape {
-        prims: vec![Prim {
-            core: Core::Seg(end(ends.0), end(ends.1)),
-            radius: size.diameter().0 / 2,
-        }],
-    }
-}
-
 /// Holes whose edges come closer than the spacing their Nets require (the larger of the
 /// two), overlapping ones included. One Violation per pair, in the order of [`holes`].
 fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
@@ -297,17 +192,8 @@ fn hole_to_hole(pcb: &PcbDocument, holes: &[DrillHole], report: &mut Report) {
             if left(j) - right(i) >= reach.0 {
                 break;
             }
-            if let (Some(a), Some(b)) = (holes[i].via, holes[j].via) {
-                if a.last < b.first || b.last < a.first {
-                    continue;
-                }
-                if a.at == b.at
-                    && holes[i].net.is_some()
-                    && holes[i].net == holes[j].net
-                    && (a.last == b.first || b.last == a.first)
-                {
-                    continue;
-                }
+            if !holes[i].needs_spacing(&holes[j]) {
+                continue;
             }
             let Some(required) = hole_to_hole_between(pcb, holes[i].net, holes[j].net) else {
                 continue;

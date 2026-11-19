@@ -109,18 +109,23 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     )));
                 }
             }
-            if let Some((field, value, None)) = &kind.between
-                && let Some(pair) = &kind.pair
+            for model::PairLimit {
+                field,
+                value,
+                object,
+                pair,
+            } in kind.between.iter().chain(&kind.between_holes)
             {
-                ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
-            }
-            if let Some((field, value, Some(object))) = &kind.between {
-                ui.weak(tr!(
-                    "properties-rules-between",
-                    field = field.clone(),
-                    value = value_text(value, units),
-                    object = (object + 1) as i64
-                ));
+                if let Some(pair) = pair {
+                    ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
+                } else if let Some(object) = object {
+                    ui.weak(tr!(
+                        "properties-rules-between",
+                        field = field.clone(),
+                        value = value_text(value, units),
+                        object = (object + 1) as i64
+                    ));
+                }
             }
             ui.add_space(t.space.gap / 2.0);
         }

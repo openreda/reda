@@ -53,7 +53,18 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
     };
     let p = rules.preferred;
     vec![
-        (RuleKind::Clearance, value(rules.clearance)),
+        (
+            RuleKind::Clearance,
+            RuleValues {
+                value: Some(rules.clearance),
+                hole: Some(reda_model::HoleRuleValues {
+                    via: Some(rules.clearance_hole.via),
+                    pad: Some(rules.clearance_hole.pad),
+                    ..Default::default()
+                }),
+                ..RuleValues::default()
+            },
+        ),
         (
             RuleKind::TrackWidth,
             RuleValues {
@@ -66,7 +77,10 @@ pub fn seed_rules(rules: &FabRules) -> Vec<(RuleKind, RuleValues)> {
             RuleKind::ViaSize,
             RuleValues {
                 diameter: Some(bounds(rules.via_diameter)),
-                hole: Some(bounds(rules.via_hole)),
+                hole: Some(reda_model::HoleRuleValues {
+                    min: Some(rules.via_hole),
+                    ..Default::default()
+                }),
                 aspect_ratio: rules.via_aspect_ratio,
                 ..RuleValues::default()
             },
@@ -118,7 +132,11 @@ pub(crate) fn microvia_seeds(rules: &FabRules) -> RuleValues {
     };
     RuleValues {
         diameter: micro.diameter.map(bounds),
-        hole: micro.hole.map(bounds),
+        hole: micro.hole.map(|h| reda_model::HoleRuleValues {
+            min: h.min,
+            max: h.max,
+            ..Default::default()
+        }),
         aspect_ratio: micro.aspect_ratio,
         max_stack: micro.max_stack,
         ..Default::default()
@@ -257,16 +275,13 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
         annular_ring_min: inner_limit(RuleKind::AnnularRing, Min),
     };
     let laser = &pcb.board_rule(RuleKind::MicroviaSize).values;
-    let bounds = |v: Bounds| {
-        let limit = reda_model::FabSizeLimits {
-            min: v.min,
-            max: v.max,
-        };
+    let bounds = |min, max| {
+        let limit = reda_model::FabSizeLimits { min, max };
         (limit != Default::default()).then_some(limit)
     };
     let micro = reda_model::MicroviaLimits {
-        diameter: laser.diameter.and_then(bounds),
-        hole: laser.hole.and_then(bounds),
+        diameter: laser.diameter.and_then(|b| bounds(b.min, b.max)),
+        hole: laser.hole.and_then(|h| bounds(h.min, h.max)),
         aspect_ratio: laser.aspect_ratio,
         max_stack: laser.max_stack,
     };
@@ -274,7 +289,18 @@ pub fn board_fab_rules(pcb: &PcbDocument) -> FabRules {
         inner: (inner != Default::default()).then_some(inner),
         microvia_size: (micro != Default::default()).then_some(micro),
         via_aspect_ratio: pcb.board_rule(RuleKind::ViaSize).values.aspect_ratio,
-        clearance_hole: reda_model::HoleClearance::GENERIC,
+        clearance_hole: reda_model::HoleClearance {
+            via: pcb
+                .board_rule(RuleKind::Clearance)
+                .values
+                .length(HoleVia)
+                .unwrap_or(reda_model::HoleClearance::GENERIC.via),
+            pad: pcb
+                .board_rule(RuleKind::Clearance)
+                .values
+                .length(HolePad)
+                .unwrap_or(reda_model::HoleClearance::GENERIC.pad),
+        },
         clearance: length(RuleKind::Clearance, Value),
         track_width: length(RuleKind::TrackWidth, Min),
         via_diameter: length(RuleKind::ViaSize, DiameterMin),

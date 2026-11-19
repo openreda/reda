@@ -520,7 +520,7 @@ fn grid_rows_copy_paste_and_clear_from_the_keyboard() {
             _ => None,
         })
         .collect();
-    assert_eq!(copied, ["0.3\t\t\t\t\t\t\t\t\t"]);
+    assert_eq!(copied, ["0.3\t\t\t\t\t\t\t\t\t\t\t"]);
     h.run();
     h.get_by_label("Select or drag Signal").click();
     h.run();
@@ -624,12 +624,23 @@ fn the_clearance_pair_grid_commits_its_edited_cell() {
     h.get_by_label("Class pairs").click();
     h.run();
     type_into(&mut h, "HV / HV", "0.125");
+    type_into(&mut h, "HV / HV Via hole clearance", "0.35");
     h.get_by_label("OK").click();
     h.run();
     let scope = reda_ui::engine::model::RuleScope {
         net_class_pair: Some([hv, hv]),
         ..Default::default()
     };
+    assert_eq!(
+        pcb(&h)
+            .scoped_rule(RuleKind::Clearance, &scope)
+            .unwrap()
+            .values
+            .hole
+            .unwrap()
+            .via,
+        Some(Nm(350000))
+    );
     assert_eq!(
         pcb(&h)
             .scoped_rule(RuleKind::Clearance, &scope)

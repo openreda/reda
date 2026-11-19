@@ -48,6 +48,16 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             ui.set_width(table_width);
             strong(ui, tr!("panel-layers"));
             layers(ui, pcb, &info, &mut view, &mut edits);
+            if let Some(layer) = view.plane_offer
+                && pcb
+                    .layers()
+                    .layer(layer)
+                    .is_some_and(|l| l.role == CopperRole::Plane)
+                && !pcb.zones().any(|z| z.layer == layer)
+                && ui.add(widgets::button(tr!("plane-fill-layer"))).clicked()
+            {
+                view.plane_picker = Some(crate::pcb::plane::Picker::new(layer));
+            }
             ui.add_space(t.space.section);
             types::table(ui, pcb, &mut view, &mut edits);
             ui.add_space(t.space.section);
@@ -74,6 +84,9 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
         preview::show(ui, pcb, &info)
     });
     ui.allocate_rect(full, Sense::hover());
+    if let Some(params) = crate::pcb::plane::Picker::show(ui, pcb, &mut view.plane_picker) {
+        let _ = shell.run_reporting("pcb.zone.add_from_board_outline", params);
+    }
     for (field, command, mut params) in edits.commands {
         if let Some(Field::Via(id, "diameter")) = field
             && let Some(kind) = shell
@@ -116,7 +129,13 @@ pub fn show(ui: &mut Ui, shell: &mut Shell, document: Uuid) {
             }
         }
         if let Some(field) = field {
+            let plane = params["role"] == "plane";
             let result = shell.run(command, params);
+            if let Field::Layer(layer, "role") = field
+                && result.is_ok()
+            {
+                view.plane_offer = plane.then_some(layer);
+            }
             view.settled(field, result.err().map(|e| e.message));
         } else if let Ok(out) = shell.run_reporting(command, params) {
             layer_actions::settle(&mut view, command, &out);
@@ -301,6 +320,11 @@ fn layers(ui: &mut Ui, pcb: &PcbDocument, info: &StackupInfo, view: &mut View, e
                     }
                 });
                 row.widget_info(|| WidgetInfo::labeled(Role::Row, true, &name));
+                if let StackupEntry::Copper(c) = entry
+                    && let Some(picker) = crate::pcb::plane::Picker::menu(&row, c.layer)
+                {
+                    view.plane_picker = Some(picker);
+                }
                 if row.clicked() || interacted {
                     selected = Some(uuid);
                 }

@@ -14,6 +14,18 @@ pub fn preset_limits(rules: &FabRules) -> Vec<(RuleKind, RuleField, Limit, Measu
     use RuleField::*;
     let mut limits: Vec<_> = [
         (RuleKind::Clearance, Value, Limit::Min, rules.clearance),
+        (
+            RuleKind::Clearance,
+            HoleVia,
+            Limit::Min,
+            rules.clearance_hole.via,
+        ),
+        (
+            RuleKind::Clearance,
+            HolePad,
+            Limit::Min,
+            rules.clearance_hole.pad,
+        ),
         (RuleKind::TrackWidth, Min, Limit::Min, rules.track_width),
         (
             RuleKind::ViaSize,

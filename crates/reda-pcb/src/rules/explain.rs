@@ -107,15 +107,19 @@ pub struct KindRules {
     /// `hole_to_hole`): the larger value, which applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub between: Option<Between>,
+    /// Plated hole clearances that apply to the selected pair on these Layers.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub between_holes: Vec<Between>,
 }
 
 /// The rules for copper on each of the Nets `nets` (one or two), kind by kind.
 pub fn applicable(pcb: &PcbDocument, nets: &[Option<Uuid>]) -> Vec<KindRules> {
-    applicable_on(pcb, nets, &vec![None; nets.len()], true)
+    applicable_on(pcb, nets, &vec![None; nets.len()], true, &[])
 }
 
 /// Selected copper and the Layers where it is measured.
 pub struct Measured {
+    hole_field: Option<RuleField>,
     pub net: Option<Uuid>,
     pub layers: Vec<Uuid>,
 }
@@ -125,18 +129,21 @@ impl Measured {
         if let Some(t) = pcb.track(id) {
             return Some(Self {
                 net: t.net,
+                hole_field: None,
                 layers: vec![t.layer],
             });
         }
         if let Some(z) = pcb.zone(id) {
             return Some(Self {
                 net: z.net,
+                hole_field: None,
                 layers: vec![z.layer],
             });
         }
         if let Some(v) = pcb.via(id) {
             return Some(Self {
                 net: v.net,
+                hole_field: Some(RuleField::HoleVia),
                 layers: pcb.span_layers(v.span),
             });
         }
@@ -145,6 +152,7 @@ impl Measured {
         }
         pcb.net(id).map(|n| Self {
             net: Some(n.uuid),
+            hole_field: None,
             layers: pcb.copper_layers().map(|l| l.uuid).collect(),
         })
     }
@@ -152,6 +160,8 @@ impl Measured {
     pub fn pad(pcb: &PcbDocument, p: &crate::placed::PlacedPad) -> Self {
         Self {
             net: p.net,
+            hole_field: (p.kind == reda_model::PadKind::PlatedThroughHole)
+                .then_some(RuleField::HolePad),
             layers: pcb
                 .copper_layers()
                 .filter(|l| p.side.is_none() || p.side == l.side)
@@ -173,6 +183,9 @@ impl Measured {
 /// Layer retain their own winners and have no between-objects measurement.
 pub fn applicable_objects(pcb: &PcbDocument, objects: &[Measured]) -> Vec<KindRules> {
     let nets: Vec<_> = objects.iter().map(|o| o.net).collect();
+    let mut hole_fields: Vec<_> = objects.iter().filter_map(|o| o.hole_field).collect();
+    hole_fields.sort();
+    hole_fields.dedup();
     let common: Vec<_> = pcb
         .copper_layers()
         .map(|l| l.uuid)
@@ -180,11 +193,17 @@ pub fn applicable_objects(pcb: &PcbDocument, objects: &[Measured]) -> Vec<KindRu
         .collect();
     if common.is_empty() {
         let layers: Vec<_> = objects.iter().map(|o| o.layers.first().copied()).collect();
-        return applicable_on(pcb, &nets, &layers, false);
+        return applicable_on(pcb, &nets, &layers, false, &[]);
     }
     let mut groups: Vec<(KindRules, Vec<Uuid>)> = Vec::new();
     for &layer in &common {
-        for result in applicable_on(pcb, &nets, &vec![Some(layer); nets.len()], true) {
+        for result in applicable_on(
+            pcb,
+            &nets,
+            &vec![Some(layer); nets.len()],
+            true,
+            &hole_fields,
+        ) {
             if let Some((_, layers)) = groups.iter_mut().find(|(r, _)| r == &result) {
                 layers.push(layer);
             } else {
@@ -209,6 +228,7 @@ fn applicable_on(
     nets: &[Option<Uuid>],
     layers: &[Option<Uuid>],
     shared: bool,
+    hole_fields: &[RuleField],
 ) -> Vec<KindRules> {
     RuleKind::ALL
         .into_iter()
@@ -218,22 +238,23 @@ fn applicable_on(
                 RuleKind::HoleToHole => Some(RuleField::Min),
                 _ => None,
             };
-            let between = match (nets, pair_field) {
-                ([a, b], Some(field)) if shared => {
-                    resolve_pair_on(pcb, *a, *b, layers[0], kind, field).map(|s| {
-                        let first = resolve_on(pcb, *a, layers[0], kind, field);
-                        let pair = pcb.rule(s.rule).and_then(|r| r.scope.net_class_pair);
-                        Between {
-                            field: field.path().to_owned(),
-                            value: s.value,
-                            rule: s.rule,
-                            object: pair.is_none().then_some(usize::from(first != Some(s))),
-                            net_class_pair: pair,
-                            layers: pcb.rule(s.rule).and_then(|r| r.scope.layers.clone()),
-                        }
-                    })
+            let between = |field| {
+                let [a, b] = nets else { return None };
+                if !shared {
+                    return None;
                 }
-                _ => None,
+                let source = resolve_pair_on(pcb, *a, *b, layers[0], kind, field)?;
+                let first = resolve_on(pcb, *a, layers[0], kind, field);
+                let record = pcb.rule(source.rule)?;
+                let pair = record.scope.net_class_pair;
+                Some(Between {
+                    field: field.path().to_owned(),
+                    value: source.value,
+                    rule: source.rule,
+                    object: pair.is_none().then_some(usize::from(first != Some(source))),
+                    net_class_pair: pair,
+                    layers: record.scope.layers.clone(),
+                })
             };
             KindRules {
                 kind,
@@ -244,7 +265,12 @@ fn applicable_on(
                     .zip(layers)
                     .map(|(net, layer)| object_rules(pcb, *net, *layer, kind))
                     .collect(),
-                between,
+                between: pair_field.and_then(between),
+                between_holes: if kind == RuleKind::Clearance {
+                    hole_fields.iter().copied().filter_map(between).collect()
+                } else {
+                    Vec::new()
+                },
             }
         })
         .collect()
