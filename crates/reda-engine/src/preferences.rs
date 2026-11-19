@@ -395,8 +395,23 @@ pub struct Editing {
     pub place: PlacePreferences,
     /// The Ratsnest.
     pub ratsnest: RatsnestPreferences,
+    /// PCB Layer control and panel gestures.
+    pub layer: LayerPreferences,
     /// The board view: Net colours on copper and saved Layer sets.
     pub view: BoardViewPreferences,
+}
+
+/// Layer inspection gestures.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+pub struct LayerPreferences {
+    /// Resting the pointer on a Layer chip solos it until the pointer leaves.
+    pub hover_solo: bool,
+}
+impl Default for LayerPreferences {
+    fn default() -> Self {
+        Self { hover_solo: true }
+    }
 }
 
 /// The Ratsnest.
@@ -496,6 +511,7 @@ impl Default for Editing {
             drag: DragPreferences::default(),
             ratsnest: RatsnestPreferences::default(),
             view: BoardViewPreferences::default(),
+            layer: LayerPreferences::default(),
             place: PlacePreferences::default(),
         }
     }
@@ -941,6 +957,7 @@ impl Default for SchematicEditing {
             drag: _,
             ratsnest: _,
             view: _,
+            layer: _,
             place: _,
         } = Editing::default();
         SchematicEditing {
@@ -1076,6 +1093,67 @@ layer_colors! {
     copper_top,
     /// Bottom Copper.
     copper_bottom,
+    // Inner copper overrides, one per physical position.
+    /// Inner copper L2.
+    inner_1,
+    /// Inner copper L3.
+    inner_2,
+    /// Inner copper L4.
+    inner_3,
+    /// Inner copper L5.
+    inner_4,
+    /// Inner copper L6.
+    inner_5,
+    /// Inner copper L7.
+    inner_6,
+    /// Inner copper L8.
+    inner_7,
+    /// Inner copper L9.
+    inner_8,
+    /// Inner copper L10.
+    inner_9,
+    /// Inner copper L11.
+    inner_10,
+    /// Inner copper L12.
+    inner_11,
+    /// Inner copper L13.
+    inner_12,
+    /// Inner copper L14.
+    inner_13,
+    /// Inner copper L15.
+    inner_14,
+    /// Inner copper L16.
+    inner_15,
+    /// Inner copper L17.
+    inner_16,
+    /// Inner copper L18.
+    inner_17,
+    /// Inner copper L19.
+    inner_18,
+    /// Inner copper L20.
+    inner_19,
+    /// Inner copper L21.
+    inner_20,
+    /// Inner copper L22.
+    inner_21,
+    /// Inner copper L23.
+    inner_22,
+    /// Inner copper L24.
+    inner_23,
+    /// Inner copper L25.
+    inner_24,
+    /// Inner copper L26.
+    inner_25,
+    /// Inner copper L27.
+    inner_26,
+    /// Inner copper L28.
+    inner_27,
+    /// Inner copper L29.
+    inner_28,
+    /// Inner copper L30.
+    inner_29,
+    /// Inner copper L31.
+    inner_30,
     /// Top Silkscreen.
     silkscreen_top,
     /// Bottom Silkscreen.

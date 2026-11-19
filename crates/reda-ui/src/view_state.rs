@@ -38,6 +38,12 @@ pub struct LayerView {
     /// The Layer edited; unset is the top copper.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub active: Option<Uuid>,
+    /// The copper Layer edited before the current one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous: Option<Uuid>,
+    /// The most recently active copper while a non-copper Layer is active.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_copper: Option<Uuid>,
     /// The board is seen from below: mirrored, with the physical Layer order reversed.
     #[serde(skip_serializing_if = "is_default")]
     pub from_bottom: bool,

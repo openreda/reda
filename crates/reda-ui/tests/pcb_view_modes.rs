@@ -57,10 +57,18 @@ fn uuid(v: &Value) -> Uuid {
 /// Two one-Pad Footprints on Net SIG, 10 mm apart, with a Track from the left Pad 6 mm
 /// towards the right one; the PCB open.
 fn board() -> Board {
+    board_with_layers(2)
+}
+
+fn board_with_layers(count: usize) -> Board {
     let home = TempDir::new("pcb-modes-home");
     let work = TempDir::new("pcb-modes-work");
     let mut shell = Shell::new(engine_in(home.path()));
-    shell.new_project(work.path(), "Board").unwrap();
+    run(
+        &mut shell,
+        "project.new",
+        json!({"path":work.path(), "name":"Board", "layers":count}),
+    );
     let net = uuid(&run(&mut shell, "test.net.add", json!({"name": "SIG"}))["result"]["uuid"]);
     let mut footprint = |x: &str| {
         let out = run(
@@ -520,4 +528,201 @@ fn board_markers_sit_where_the_check_put_them_even_after_the_objects_change() {
     );
     run(&mut b.shell, "pcb.track.delete", json!({"tracks": [track]}));
     assert_eq!(markers(&b), placed);
+}
+
+#[test]
+fn role_sets_and_saved_inner_positions_narrow_the_copper_layers() {
+    let mut b = board_with_layers(6);
+    let copper: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    for &layer in &copper[1..3] {
+        run(
+            &mut b.shell,
+            "pcb.layer.set",
+            json!({"layer":layer, "role":"plane"}),
+        );
+    }
+    run(
+        &mut b.shell,
+        "pcb.layer.set",
+        json!({"layer":copper[4], "role":"mixed"}),
+    );
+    let plane = run(&mut b.shell, "pcb.view.layer_set.apply:plane", json!({}));
+    assert_eq!(plane["layers"], json!([copper[1], copper[2], copper[4]]));
+    run(
+        &mut b.shell,
+        "pcb.layer.show",
+        json!({"layer":copper[2], "visible":false}),
+    );
+    let saved = run(
+        &mut b.shell,
+        "pcb.view.layer_set.save",
+        json!({"name":"Power"}),
+    );
+    assert_eq!(saved["layers"], json!(["inner_1", "inner_4"]));
+    assert_eq!(
+        run(&mut b.shell, "pcb.view.layer_set.apply:signal", json!({}))["layers"],
+        json!([copper[0], copper[3], copper[4], copper[5]])
+    );
+    assert_eq!(
+        run(
+            &mut b.shell,
+            "pcb.view.layer_set.apply",
+            json!({"set":"Power"})
+        )["layers"],
+        json!([copper[1], copper[4]])
+    );
+}
+
+#[test]
+fn themed_inner_copper_repeats_every_eight_and_an_override_addresses_only_one_position() {
+    use reda_ui::engine::render::Theme;
+    let mut b = board_with_layers(12);
+    let mut keys = Vec::new();
+    for n in 1..=12 {
+        let track = run(
+            &mut b.shell,
+            "pcb.track.add",
+            json!({"layer":format!("copper_l{n}"),"net":b.net,"width":"0.2mm","points":[{"x":0,"y":n*1000000},{"x":"5mm","y":n*1000000}]}),
+        );
+        let id = uuid(&track["result"]["tracks"][0]);
+        keys.push(scene(&b).items_of(id).next().unwrap().color);
+    }
+    let colors = |b: &Board, theme| {
+        let palette = b.shell.palette().palette(theme);
+        keys.iter()
+            .map(|&key| palette.color(key))
+            .collect::<Vec<_>>()
+    };
+    for theme in [Theme::Dark, Theme::Light] {
+        let c = colors(&b, theme);
+        assert_eq!(
+            c[1..9]
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            8
+        );
+        assert!(!c[1..9].contains(&c[0]));
+        assert!(!c[1..9].contains(&c[11]));
+        assert_eq!(c[1..3], c[9..11]);
+    }
+    let light = colors(&b, Theme::Light);
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"display.layer_colors.dark.inner_9","value":"#010203"}),
+    );
+    let dark = colors(&b, Theme::Dark);
+    assert_eq!(dark[9], Rgba::rgb(1, 2, 3));
+    assert_ne!(dark[1], dark[9]);
+    assert_eq!(colors(&b, Theme::Light), light);
+}
+
+#[test]
+fn flipping_the_board_reverses_the_whole_copper_stack_and_keeps_the_active_layer_last() {
+    let mut b = board_with_layers(6);
+    let c: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(&mut b.shell, "pcb.layer.activate", json!({"position":3}));
+    let copper = |b: &Board| {
+        drawn(b)
+            .into_iter()
+            .filter(|l| c.contains(l))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(copper(&b), [c[5], c[4], c[3], c[1], c[0], c[2]]);
+    run(&mut b.shell, "pcb.view.from_bottom", json!({}));
+    assert_eq!(copper(&b), [c[0], c[1], c[3], c[4], c[5], c[2]]);
+}
+
+#[test]
+fn holes_and_their_labels_follow_the_copper_span_in_single_layer_mode() {
+    let mut b = board_with_layers(6);
+    let via = uuid(
+        &run(
+            &mut b.shell,
+            "pcb.via.add",
+            json!({"at":{"x":"3mm","y":0},"net":b.net}),
+        )["result"]["uuid"],
+    );
+    let pad = uuid(
+        &run(
+            &mut b.shell,
+            "pcb.free_pad.add",
+            json!({"kind":"plated_through_hole","at":{"x":0,"y":"4mm"},"width":"1mm","hole":{"width":"0.5mm"},"net":b.net}),
+        )["result"]["uuid"],
+    );
+    // Open a six-layer board with a blind Via from L1 to L3.
+    run(&mut b.shell, "project.save", json!({}));
+    let file = b.project.with_extension("redapcb");
+    let mut board: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let copper: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    board["vias"][0]["span"]["to"] = json!(copper[2]);
+    std::fs::write(&file, serde_json::to_vec_pretty(&board).unwrap()).unwrap();
+    b.shell = reopen(&mut b);
+    let opacity = |b: &Board, id| {
+        scene(b)
+            .items_of(id)
+            .filter(|i| i.layer == SceneLayer::Drill)
+            .map(|i| 100 - i.look.transparency)
+            .collect::<Vec<_>>()
+    };
+    run(&mut b.shell, "pcb.layer.activate", json!({"position":3}));
+    run(
+        &mut b.shell,
+        "pcb.view.inactive_layers",
+        json!({"mode":"hidden"}),
+    );
+    for id in [pad, via] {
+        let strength = opacity(&b, id);
+        assert!(!strength.is_empty());
+        assert!(strength.iter().all(|x| *x == 100));
+    }
+    run(&mut b.shell, "pcb.layer.activate", json!({"position":4}));
+    assert!(opacity(&b, via).is_empty());
+    assert!(opacity(&b, pad).contains(&100));
+    run(&mut b.shell, "pcb.layer.pin", json!({"layer":copper[1]}));
+    assert!(opacity(&b, via).contains(&70));
+    run(&mut b.shell, "pcb.layer.pin", json!({"layer":copper[1]}));
+    let silk = layer(&b, LayerKind::Silkscreen, Some(Side::Top));
+    run(&mut b.shell, "pcb.layer.activate", json!({"layer":silk}));
+    for id in [pad, via] {
+        assert!(opacity(&b, id).is_empty());
+    }
+    run(
+        &mut b.shell,
+        "pcb.view.inactive_layers",
+        json!({"mode":"dimmed"}),
+    );
+    for id in [pad, via] {
+        let strength = opacity(&b, id);
+        assert!(!strength.is_empty());
+        assert!(strength.iter().all(|x| *x == 25));
+    }
 }

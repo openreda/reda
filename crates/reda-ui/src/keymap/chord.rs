@@ -12,6 +12,7 @@ use egui::{Event, Key, ModifierNames, Modifiers};
 pub enum KeyName {
     Key(Key),
     Char(char),
+    Keypad(u8),
 }
 
 /// A key with modifiers. `Mod` is Cmd on macOS and Ctrl elsewhere; on other platforms
@@ -85,7 +86,7 @@ impl Chord {
                     && name.starts_with('F')
                     && name[1..].chars().all(|c| c.is_ascii_digit())
             }
-            KeyName::Char(_) => false,
+            KeyName::Char(_) | KeyName::Keypad(_) => false,
         };
         self.command || self.ctrl || self.alt || function_key
     }
@@ -138,8 +139,18 @@ impl Chord {
                 key,
                 pressed: true,
                 modifiers,
+                physical_key,
                 ..
-            } => (KeyName::Key(*key), *modifiers),
+            } => {
+                // The native adapter preserves the digit's logical key and text.
+                let digit = (physical_key == &Some(Key::F24))
+                    .then(|| key.name().parse::<u8>().ok())
+                    .flatten();
+                (
+                    digit.map_or(KeyName::Key(*key), KeyName::Keypad),
+                    *modifiers,
+                )
+            }
             // Characters egui has no key for come only as text.
             Event::Text(text) => {
                 let mut chars = text.chars();
@@ -182,6 +193,7 @@ impl KeyName {
     /// A key typed as a character other than a letter or digit.
     fn is_punctuation(self) -> bool {
         match self {
+            KeyName::Keypad(_) => false,
             KeyName::Char(_) => true,
             KeyName::Key(key) => {
                 let name = key.symbol_or_name();
@@ -199,6 +211,7 @@ impl fmt::Display for KeyName {
             KeyName::Key(Key::Minus) => f.write_str("-"),
             KeyName::Key(Key::Slash) => f.write_str("/"),
             KeyName::Key(key) => f.write_str(key.name()),
+            KeyName::Keypad(d) => write!(f, "Keypad{d}"),
             KeyName::Char(c) => write!(f, "{c}"),
         }
     }
@@ -213,6 +226,14 @@ impl fmt::Display for Chord {
 /// The key a name stands for: egui's names (`"Z"`, `"Delete"`, `"Del"`, `"Space"`, `"F6"`,
 /// `"+"`), and any other single printable character that is not a letter or digit.
 fn key_name(name: &str) -> Option<KeyName> {
+    if let Some(n) = name
+        .to_ascii_lowercase()
+        .strip_prefix("keypad")
+        .and_then(|n| n.parse().ok())
+        .filter(|n| *n < 10)
+    {
+        return Some(KeyName::Keypad(n));
+    }
     let alias = match name.to_ascii_lowercase().as_str() {
         "del" => "Delete",
         "esc" => "Escape",

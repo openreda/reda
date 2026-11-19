@@ -17,6 +17,7 @@
 mod chord;
 mod file;
 pub mod modifiers;
+pub(crate) mod native;
 
 use std::fmt;
 
@@ -379,8 +380,27 @@ impl Keymap {
         wanted: impl Fn(&Chord) -> bool,
     ) -> Vec<Action> {
         let mut actions = Vec::new();
+        let mut shifted_main_key = false;
         input.events.retain(|event| {
-            let found = Chord::from_event(event)
+            // A main-row punctuation key can need Shift just to type its
+            // character (e.g. Shift+8 for "*"). Keypad multiply produces
+            // the text alone, so Shift there remains a shortcut modifier.
+            let shift_for_text = input.modifiers.shift && !shifted_main_key;
+            shifted_main_key = matches!(event, egui::Event::Key { pressed:true, physical_key:Some(_), modifiers, .. } if modifiers.shift);
+            let mut chords = Chord::from_event(event);
+            if matches!(event, egui::Event::Text(_))
+                && shift_for_text
+                && let Some(first) = chords.first().copied()
+            {
+                chords.insert(
+                    0,
+                    Chord {
+                        shift: true,
+                        ..first
+                    },
+                );
+            }
+            let found = chords
                 .iter()
                 .filter(|chord| wanted(chord))
                 .find_map(|chord| self.lookup(chord, active));

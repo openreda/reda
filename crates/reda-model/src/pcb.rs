@@ -126,6 +126,15 @@ impl LayerSet {
         self.layers.iter().find(|l| l.uuid == uuid)
     }
 
+    /// Copper position counted from the top, starting at one.
+    pub fn copper_number(&self, id: Uuid) -> Option<usize> {
+        self.layers
+            .iter()
+            .filter(|l| l.kind == LayerKind::Copper)
+            .position(|l| l.uuid == id)
+            .map(|i| i + 1)
+    }
+
     /// The first Layer of this kind and side.
     pub fn find(&self, kind: LayerKind, side: Option<Side>) -> Option<&Layer> {
         self.layers
@@ -635,9 +644,20 @@ impl PcbDocument {
     /// numbers (`L1`, `L2`, …) come from position and are never stored. `None` for a
     /// Layer that is not copper.
     pub fn copper_number(&self, layer: Uuid) -> Option<usize> {
-        self.copper_layers()
-            .position(|l| l.uuid == layer)
-            .map(|i| i + 1)
+        self.layers().copper_number(layer)
+    }
+
+    /// An inner copper Layer's position and optional name, such as `L2 GND`.
+    pub fn inner_layer_label(&self, layer: Uuid) -> Option<String> {
+        let l = self.layers().layer(layer)?;
+        if l.kind != LayerKind::Copper || l.side.is_some() {
+            return None;
+        }
+        let n = self.copper_number(layer)?;
+        Some(match &l.name {
+            Some(name) => format!("L{n} {name}"),
+            None => format!("L{n}"),
+        })
     }
 
     /// The copper Layers a Via's span joins, top to bottom; empty when the span names a

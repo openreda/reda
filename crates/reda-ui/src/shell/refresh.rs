@@ -376,9 +376,10 @@ impl Shell {
         .unwrap_or_default();
         let layers = project.pcb_document(document).map(|pcb| {
             board.filter_scene(project, &mut scene);
-            board
-                .composites(pcb, self.preferences.values().display.inactive_layer_mode)
-                .into()
+            let layers =
+                board.composites(pcb, self.preferences.values().display.inactive_layer_mode);
+            crate::pcb::view::filter_drills(pcb, &mut scene, &layers);
+            layers.into()
         });
         SceneHandle {
             generation: 0,

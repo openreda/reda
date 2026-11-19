@@ -85,7 +85,16 @@ pub fn board_composites(layers: &[Layer], view: &LayerView) -> Vec<Composite> {
                 .iter()
                 .find(|t| t.kind == l.kind && t.side == Some(other))
         };
-        physical = physical.iter().map(|l| twin(l).unwrap_or(l)).collect();
+        // The opposite face sees the entire copper stack in reverse, including
+        // inner Layers with no opposite-side twin.
+        let mut copper = layers.iter().filter(|l| l.kind == LayerKind::Copper);
+        for l in &mut physical {
+            *l = if l.kind == LayerKind::Copper {
+                copper.next().expect("each copper position is visited once")
+            } else {
+                twin(l).unwrap_or(l)
+            };
+        }
     }
     let others = layers.iter().filter(|l| !physical.contains(l));
     let mut order: Vec<&Layer> = physical

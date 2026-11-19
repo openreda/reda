@@ -308,7 +308,7 @@ impl Builder<'_> {
     /// Pushes onto a board Layer in that Layer's colour; nothing for an unknown Layer.
     fn on_layer(&mut self, object: Uuid, layer: Uuid, primitive: Primitive) {
         if let Some(l) = self.layers.get(&layer) {
-            let color = BoardColor::layer(l.kind, l.side);
+            let color = BoardColor::for_layer(self.pcb, l);
             self.push(object, SceneLayer::Board(layer), color, primitive);
         }
     }

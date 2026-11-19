@@ -472,3 +472,42 @@ fn a_layer_colour_preference_reaches_the_canvas() {
         "per theme"
     );
 }
+
+#[test]
+fn a_position_jump_shows_hidden_copper_and_keeps_the_previous_layer_on_reopen() {
+    let mut b = board();
+    run(&mut b.shell, "project.save", json!({}));
+    let top = layer(&b, LayerKind::Copper, Some(Side::Top));
+    let bottom = layer(&b, LayerKind::Copper, Some(Side::Bottom));
+    let stored = |s: &Shell| serde_json::to_value(&s.board_view().layers).unwrap();
+    assert_eq!(stored(&b.shell)["previous"], json!(bottom));
+    run(
+        &mut b.shell,
+        "pcb.layer.show",
+        json!({"layer": bottom, "visible": false}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    assert!(drawn(&b, bottom));
+    assert_eq!(stored(&b.shell)["active"], json!(bottom));
+    for position in [2, 9] {
+        run(
+            &mut b.shell,
+            "pcb.layer.activate",
+            json!({"position":position}),
+        );
+        assert_eq!(stored(&b.shell)["previous"], json!(top));
+        assert_eq!(stored(&b.shell)["active"], json!(bottom));
+    }
+    let silk = layer(&b, LayerKind::Silkscreen, Some(Side::Top));
+    run(&mut b.shell, "pcb.layer.activate", json!({"layer":silk}));
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    assert_eq!(
+        stored(&b.shell)["previous"],
+        json!(top),
+        "a silkscreen detour did not change the copper Layer"
+    );
+    b.shell.save_view();
+    let mut again = Shell::new(engine_in(b._home.path()));
+    again.open_project(&b.project).unwrap();
+    assert_eq!(stored(&again)["previous"], json!(top));
+}

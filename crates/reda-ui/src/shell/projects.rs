@@ -281,6 +281,28 @@ impl Shell {
             board.layers = view.layers.clone();
             board.units = view.units.unwrap_or(units);
         }
+        if let Some(pcb) = self.engine.project().and_then(|p| p.pcb()) {
+            let set = pcb.layers();
+            if !board
+                .layers
+                .previous
+                .and_then(|id| set.layer(id))
+                .is_some_and(|l| l.kind == reda_engine::model::LayerKind::Copper)
+            {
+                use reda_engine::model::{LayerKind, Side};
+                let active_is_bottom = board
+                    .layers
+                    .active
+                    .and_then(|id| set.layer(id))
+                    .is_some_and(|l| l.side == Some(Side::Bottom));
+                let opposite = if active_is_bottom {
+                    Side::Top
+                } else {
+                    Side::Bottom
+                };
+                board.layers.previous = set.find(LayerKind::Copper, Some(opposite)).map(|l| l.uuid);
+            }
+        }
         *self.board_view_mut() = board;
         // Views start on the grids the Preferences pick, unless view.json has their own.
         let kinds: BTreeMap<Uuid, DocumentKind> = self
