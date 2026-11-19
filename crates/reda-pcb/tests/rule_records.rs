@@ -562,3 +562,62 @@ fn saving_rules_as_a_fab_preset_writes_board_wide_values_only() {
     let err = engine.run_err("pcb.rules.save_as_preset", json!({"name": " "}));
     assert_eq!(err.code, ErrorCode::InvalidParams);
 }
+
+#[test]
+fn new_tracks_take_the_preferred_width_on_their_copper_layer() {
+    let dir = TempDir::new("preferred-by-layer");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let layers: Vec<_> = pcb(&engine).copper_layers().map(|l| l.uuid).collect();
+    set(
+        &mut engine,
+        json!({"kind":"track_width","scope":{"layers":"inner"},
+                            "values":{"preferred":"0.4mm"}}),
+    );
+    for (layer, width) in [(layers[0], 250), (layers[1], 400), (layers[3], 250)] {
+        let out = engine.run_ok(
+            "pcb.track.add",
+            json!({"layer":layer,
+                "points":[{"x":"0mm","y":"0mm"},{"x":"1mm","y":"0mm"}]}),
+        );
+        let track: Uuid = serde_json::from_value(out["result"]["tracks"][0].clone()).unwrap();
+        assert_eq!(pcb(&engine).track(track).unwrap().width, um(width));
+    }
+}
+
+#[test]
+fn drc_measures_other_net_clearance_on_the_tracks_layer() {
+    let dir = TempDir::new("clearance-drc-layer");
+    let mut engine = engine(&dir);
+    let a = net(&mut engine, "A");
+    let b = net(&mut engine, "B");
+    class(&mut engine, "Power", &[a, b]);
+    let board = pcb(&engine);
+    let bottom = board.copper_layers().last().unwrap().uuid;
+    let record = set(
+        &mut engine,
+        json!({"kind":"clearance","scope":{"layers":[bottom],"net_class_pair":["Power","Power"]},"values":{"value":"1mm"}}),
+    );
+    for layer in ["copper_top", "copper_bottom"] {
+        for (n, y) in [(a, 0), (b, 500_000)] {
+            engine.run_ok("pcb.track.add",json!({"layer":layer,"net":n,"width":"0.2mm","points":[{"x":0,"y":y},{"x":"2mm","y":y}]}));
+        }
+    }
+    let out = engine.run_ok("drc.run", json!({}));
+    let hits: Vec<_> = out["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["check"] == "clearance")
+        .collect();
+    assert_eq!(hits.len(), 1, "{out}");
+    assert_eq!(hits[0]["layers"], json!([bottom]));
+    assert!(
+        hits[0]
+            .to_string()
+            .contains(record["uuid"].as_str().unwrap())
+    );
+}

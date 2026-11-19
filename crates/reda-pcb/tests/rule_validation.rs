@@ -121,3 +121,74 @@ fn a_net_whose_classes_combine_into_an_invalid_range_is_a_note_naming_it() {
         "{out:#}"
     );
 }
+
+#[test]
+fn named_layer_ranges_inherit_the_plane_and_inner_values() {
+    let dir = TempDir::new("validate-layer-ranges");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Four","layers":4}),
+    );
+    let inner = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    engine.run_ok("pcb.layer.set", json!({"layer":inner,"role":"plane"}));
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"inner"},"values":{"preferred":"0.4mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"plane"},"values":{"preferred":"0.5mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":[inner]},"values":{"min":"0.45mm"}}),
+    );
+    let invalid = engine.run_err(
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":"plane"},"values":{"preferred":null}}),
+    );
+    assert_eq!(invalid.code, reda_command::ErrorCode::InvalidParams);
+    assert_eq!(
+        engine.run_ok("pcb.rules.validate", json!({}))["problems"],
+        json!([])
+    );
+}
+
+#[test]
+fn validation_explains_an_empty_layer_group_and_a_relaxed_pair() {
+    let dir = TempDir::new("layer-pair-notes");
+    let mut engine = engine(&dir);
+    let power = class(&mut engine, "Power", &[]);
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"net_class":power},"values":{"value":"1mm"}}),
+    );
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":{"layers":"inner"},"values":{"value":"0.2mm"}}),
+    );
+    let scope = json!({"net_class_pair":["Default","Power"]});
+    engine.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","scope":scope,"values":{"value":"0.4mm"}}),
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":scope}));
+    assert!(
+        notes(&out).iter().any(|(n, _)| n == "pair_below_class"),
+        "{out}"
+    );
+    let out = engine.run_ok("pcb.rules.validate", json!({"scope":{"layers":"inner"}}));
+    assert!(
+        notes(&out).iter().any(|(n, _)| n == "no_matching_layers"),
+        "{out}"
+    );
+}

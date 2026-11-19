@@ -230,6 +230,51 @@ impl ValuesParam {
     }
 }
 
+#[derive(Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ScopeParam {
+    #[serde(default)]
+    net_class: Option<Uuid>,
+    #[serde(default)]
+    layers: Option<reda_model::RuleLayers>,
+    /// Two class names. Default matches every Net.
+    #[serde(default)]
+    net_class_pair: Option<[String; 2]>,
+}
+
+impl ScopeParam {
+    fn resolve(self, pcb: &PcbDocument) -> Result<RuleScope, CommandError> {
+        let class = |name: &str| {
+            if name.eq_ignore_ascii_case(crate::DEFAULT_NET_CLASS) {
+                return Ok(Uuid::NIL);
+            }
+            pcb.net_class_named(name).map(|c| c.uuid).ok_or_else(|| {
+                CommandError::invalid_params(
+                    "/scope/net_class_pair",
+                    format!("unknown Net Class {name:?}"),
+                )
+            })
+        };
+        let pair = match self.net_class_pair {
+            Some([a, b]) => {
+                let mut pair = [class(&a)?, class(&b)?];
+                pair.sort();
+                Some(pair)
+            }
+            None => None,
+        };
+        let mut layers = self.layers;
+        if let Some(reda_model::RuleLayers::Named(ids)) = &mut layers {
+            ids.sort();
+        }
+        Ok(RuleScope {
+            net_class: self.net_class,
+            net_class_pair: pair,
+            layers,
+        })
+    }
+}
+
 pub struct RulesSet;
 
 #[derive(Deserialize, JsonSchema)]
@@ -238,7 +283,7 @@ pub struct RulesSetParams {
     pub kind: RuleKind,
     /// Left out, the board-wide record; `{net_class}` names a Net Class's.
     #[serde(default)]
-    pub scope: RuleScope,
+    pub scope: ScopeParam,
     #[serde(default)]
     pub values: ValuesParam,
     /// Whether the record counts.
@@ -338,42 +383,41 @@ pub(super) fn set_record(
         rule.comment = comment.filter(|c| !c.trim().is_empty());
     }
     if !scope.is_board_wide() && rule.values.is_empty() {
+        refuse_blocking(pcb, &rule, true)?;
         return Ok(None);
     }
     if let Some(problem) = rule.problem() {
         return Err(CommandError::invalid_params("/values", problem));
     }
-    refuse_blocking(pcb, &rule)?;
+    refuse_blocking(pcb, &rule, false)?;
     Ok(Some(rule))
 }
 
 /// Refuses `rule` if it has a blocking problem, or (for a board-wide record) if judging
 /// a class record over it brings that record a problem it did not have. A class record a
 /// merge left broken does not stop other edits, so the user can fix it.
-fn refuse_blocking(pcb: &PcbDocument, rule: &DesignRule) -> Result<(), CommandError> {
-    let board = if rule.scope.is_board_wide() {
-        rule
-    } else {
-        pcb.board_rule(rule.kind)
-    };
-    let old_board = pcb.board_rule(rule.kind);
-    let classes = pcb
-        .rules()
-        .filter(|r| r.kind == rule.kind && !r.scope.is_board_wide() && r.uuid != rule.uuid)
-        .filter(|_| rule.scope.is_board_wide())
-        .filter(|r| blocking_problems(old_board, r).is_empty());
-    for record in std::iter::once(rule).chain(classes) {
-        if let Some(problem) = blocking_problems(board, record).into_iter().next() {
-            let (field, why) = (problem.field, problem.message());
-            let whose = match record.scope.net_class.and_then(|c| pcb.net_class(c)) {
-                Some(class) => format!("Net Class {:?}", class.name),
-                None => "the board".to_owned(),
-            };
-            return Err(CommandError::invalid_params(
-                &format!("/values/{}", field.path().replace('.', "/")),
-                format!("{why} for {whose}"),
-            ));
+fn refuse_blocking(pcb: &PcbDocument, rule: &DesignRule, remove: bool) -> Result<(), CommandError> {
+    let mut records: Vec<_> = pcb.rules().filter(|r| r.kind == rule.kind).collect();
+    let before = crate::rules::validation::problems_for(pcb, &records);
+    records.retain(|r| r.uuid != rule.uuid);
+    if !remove {
+        records.push(rule);
+    }
+    for problem in crate::rules::validation::problems_for(pcb, &records) {
+        if problem.rule != rule.uuid && before.contains(&problem) {
+            continue;
         }
+        let whose = problem
+            .net_class
+            .and_then(|id| pcb.net_class(id))
+            .map_or_else(
+                || "the board".to_owned(),
+                |class| format!("Net Class {:?}", class.name),
+            );
+        return Err(CommandError::invalid_params(
+            &format!("/values/{}", problem.value.replace('.', "/")),
+            format!("{} for {whose}", problem.message),
+        ));
     }
     Ok(())
 }
@@ -402,21 +446,26 @@ impl Command for RulesSet {
     fn run(&self, cx: &mut Context<'_>, p: RulesSetParams) -> Result<RuleResult, CommandError> {
         let pcb = pcb(cx)?;
         let document = pcb.uuid;
-        if let Some(class) = p.scope.net_class
+        let scope = p.scope.resolve(pcb)?;
+        if let Some(class) = scope.net_class
             && pcb.net_class(class).is_none()
         {
             return Err(CommandError::not_found(format!(
                 "no Net Class has UUID {class} (`scope.net_class`)"
             )));
         }
-        let existing = pcb.scoped_rule(p.kind, p.scope).cloned();
+        let existing = pcb.scoped_rule(p.kind, &scope).cloned();
+        if let Some(why) = pcb.rule_layer_problem(p.kind, &scope, existing.as_ref().map(|r| r.uuid))
+        {
+            return Err(CommandError::invalid_params("/scope/layers", why));
+        }
         let found = existing.is_some();
         let base = match existing {
             Some(rule) => rule,
             None => DesignRule {
                 uuid: cx.new_id(),
                 kind: p.kind,
-                scope: p.scope,
+                scope: scope.clone(),
                 values: Default::default(),
                 enabled: true,
                 comment: None,
@@ -425,7 +474,7 @@ impl Command for RulesSet {
         let uuid = base.uuid;
         let edit = RecordEdit {
             kind: p.kind,
-            scope: p.scope,
+            scope: scope,
             values: &p.values,
             enabled: p.enabled,
             comment: p.comment,
@@ -720,6 +769,15 @@ impl Command for FabPresetApply {
     }
 }
 
+#[derive(Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ValidateParams {
+    #[serde(default)]
+    kind: Option<RuleKind>,
+    #[serde(default)]
+    scope: Option<ScopeParam>,
+}
+
 pub struct RulesValidate;
 
 impl Command for RulesValidate {
@@ -739,7 +797,7 @@ impl Command for RulesValidate {
         icon: "rules",
         kind: Kind::Query,
     };
-    type Params = reda_command::NoParams;
+    type Params = ValidateParams;
     type Output = crate::rules::validation::Validation;
 
     fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
@@ -749,11 +807,23 @@ impl Command for RulesValidate {
     fn run(
         &self,
         cx: &mut Context<'_>,
-        _: reda_command::NoParams,
+        p: ValidateParams,
     ) -> Result<crate::rules::validation::Validation, CommandError> {
         let pcb = pcb(cx)?;
         let presets = crate::rules::presets::job_presets(cx.project()?, pcb);
-        Ok(crate::rules::validation::validate(pcb, &presets))
+        let mut result = crate::rules::validation::validate(pcb, &presets);
+        if p.kind.is_some() || p.scope.is_some() {
+            let scope = p.scope.map(|s| s.resolve(pcb)).transpose()?;
+            let matches = |id| {
+                pcb.rule(id).is_some_and(|r| {
+                    p.kind.is_none_or(|k| k == r.kind)
+                        && scope.as_ref().is_none_or(|s| s == &r.scope)
+                })
+            };
+            result.problems.retain(|p| matches(p.rule));
+            result.notes.retain(|n| n.rule.is_some_and(matches));
+        }
+        Ok(result)
     }
 }
 
@@ -779,52 +849,6 @@ pub struct ApplicableResult {
     pub nets: Vec<Option<Uuid>>,
     /// Every rule kind, in file order.
     pub kinds: Vec<crate::rules::explain::KindRules>,
-}
-
-/// The Net of a copper object, or `pointer`'s error.
-fn net_of(
-    pcb: &PcbDocument,
-    object: RuleObject,
-    pointer: &str,
-) -> Result<Option<Uuid>, CommandError> {
-    match object {
-        RuleObject::Pad(pad) => {
-            let instance = pcb.footprint(pad.footprint).ok_or_else(|| {
-                CommandError::not_found(format!(
-                    "no Footprint has UUID {} ({pointer})",
-                    pad.footprint
-                ))
-            })?;
-            crate::placed::placed_pads(pcb, instance)
-                .into_iter()
-                .find(|p| p.pad == pad.pad)
-                .map(|p| p.net)
-                .ok_or_else(|| {
-                    CommandError::not_found(format!(
-                        "the Footprint has no Pad {} ({pointer})",
-                        pad.pad
-                    ))
-                })
-        }
-        RuleObject::Object(uuid) => {
-            if pcb.net(uuid).is_some() {
-                Ok(Some(uuid))
-            } else if let Some(t) = pcb.track(uuid) {
-                Ok(t.net)
-            } else if let Some(v) = pcb.via(uuid) {
-                Ok(v.net)
-            } else if let Some(p) = pcb.free_pad(uuid) {
-                Ok(p.net)
-            } else if let Some(z) = pcb.zone(uuid) {
-                Ok(z.net)
-            } else {
-                Err(CommandError::invalid_params(
-                    pointer,
-                    format!("{uuid} is not a Track, Via, Free Pad, Zone, Pad or Net of the PCB"),
-                ))
-            }
-        }
-    }
 }
 
 pub struct RulesApplicable;
@@ -862,15 +886,27 @@ impl Command for RulesApplicable {
             ));
         }
         let pcb = pcb(cx)?;
-        let nets = p
+        use crate::rules::explain::{Measured, applicable_objects};
+        let objects = p
             .objects
             .iter()
             .enumerate()
-            .map(|(i, o)| net_of(pcb, *o, &format!("/objects/{i}")))
+            .map(|(i, o)| {
+                match o {
+                    RuleObject::Object(id) => Measured::object(pcb, *id),
+                    RuleObject::Pad(pad) => Measured::placed(pcb, *pad),
+                }
+                .ok_or_else(|| {
+                    CommandError::invalid_params(
+                        &format!("/objects/{i}"),
+                        "unknown copper object or Net",
+                    )
+                })
+            })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(ApplicableResult {
-            kinds: crate::rules::explain::applicable(pcb, &nets),
-            nets,
+            kinds: applicable_objects(pcb, &objects),
+            nets: objects.iter().map(|o| o.net).collect(),
         })
     }
 }
@@ -878,6 +914,10 @@ impl Command for RulesApplicable {
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AffectedParams {
+    #[serde(default)]
+    pub kind: Option<RuleKind>,
+    #[serde(default)]
+    pub scope: Option<ScopeParam>,
     /// A rule record.
     #[serde(default)]
     pub rule: Option<Uuid>,
@@ -915,18 +955,25 @@ impl Command for RulesAffected {
         p: AffectedParams,
     ) -> Result<crate::rules::explain::Affected, CommandError> {
         let pcb = pcb(cx)?;
-        let records: Vec<&DesignRule> = match (p.rule, p.net_class) {
-            (Some(rule), None) => vec![pcb.rule(rule).ok_or_else(|| {
+        let records: Vec<&DesignRule> = match (p.rule, p.net_class, p.kind, p.scope) {
+            (None, None, Some(kind), scope) => {
+                let scope = scope.unwrap_or_default().resolve(pcb)?;
+                pcb.scoped_rule(kind, &scope).into_iter().collect()
+            }
+            (Some(rule), None, None, None) => vec![pcb.rule(rule).ok_or_else(|| {
                 CommandError::not_found(format!("no rule record has UUID {rule} (`rule`)"))
             })?],
-            (None, Some(class)) => {
+            (None, Some(class), None, None) => {
                 if pcb.net_class(class).is_none() {
                     return Err(CommandError::not_found(format!(
                         "no Net Class has UUID {class} (`net_class`)"
                     )));
                 }
                 pcb.rules()
-                    .filter(|r| r.scope.net_class == Some(class))
+                    .filter(|r| {
+                        r.scope.net_class == Some(class)
+                            || r.scope.net_class_pair.is_some_and(|p| p.contains(&class))
+                    })
                     .collect()
             }
             _ => {

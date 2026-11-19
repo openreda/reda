@@ -360,7 +360,7 @@ impl Router {
         route.leg.points.extend_from_slice(&path[1..]);
         let next = Leg {
             layer: other,
-            width: route.leg.width,
+            width: route::width::changed_layer(pcb, net, route.leg.layer, other, route.leg.width),
             points: vec![at],
         };
         let done = std::mem::replace(&mut route.leg, next);
@@ -451,8 +451,14 @@ impl Router {
                 };
                 let pcb = project.pcb().expect("a board");
                 let net = self.route.as_ref().and_then(|r| r.net);
-                let next = route::width::next_mode(pcb, net, prefs.width_mode, self.user_width);
-                let width = route::width::mode_width(pcb, net, next, self.user_width);
+                let layer = self
+                    .route
+                    .as_ref()
+                    .map(|r| r.leg.layer)
+                    .or_else(|| shell.board_view().active_layer(project));
+                let next =
+                    route::width::next_mode_on(pcb, net, layer, prefs.width_mode, self.user_width);
+                let width = route::width::mode_width_on(pcb, net, layer, next, self.user_width);
                 set(shell, "width_mode", json!(next));
                 if let Some(width) = width {
                     self.apply_width(shell, width);
@@ -486,9 +492,13 @@ impl Router {
         let pcb = project.pcb().expect("a board");
         let net = self.route.as_ref().and_then(|r| r.net);
         self.chooser = Some(match kind {
-            ChooserKind::Width => Chooser::Width(route::width::width_choices(
+            ChooserKind::Width => Chooser::Width(route::width::width_choices_on(
                 pcb,
                 net,
+                self.route
+                    .as_ref()
+                    .map(|r| r.leg.layer)
+                    .or_else(|| shell.board_view().active_layer(project)),
                 &shell.preferences().pcb.route.favourites(),
             )),
             ChooserKind::Via => Chooser::Via(route::width::via_choices(pcb, net)),
@@ -534,7 +544,12 @@ impl Router {
                     return;
                 };
                 let net = self.route.as_ref().and_then(|r| r.net);
-                let clipped = route::width::clip_width(project.pcb().expect("a board"), net, w);
+                let clipped = route::width::clip_width_on(
+                    project.pcb().expect("a board"),
+                    net,
+                    self.route.as_ref().map(|r| r.leg.layer),
+                    w,
+                );
                 if let Some(limit) = clipped.limit {
                     let units = shell.board_view().units;
                     shell.report(tr!(
@@ -556,7 +571,13 @@ impl Router {
                 } else {
                     widths.iter().rev().copied().find(|w| *w < current)
                 };
-                found.unwrap_or(current)
+                route::width::clip_width_on(
+                    project.pcb().expect("a board"),
+                    self.route.as_ref().and_then(|r| r.net),
+                    self.route.as_ref().map(|r| r.leg.layer),
+                    found.unwrap_or(current),
+                )
+                .width
             }
             (None, None) => return,
         };

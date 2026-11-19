@@ -13,7 +13,7 @@ use serde::Serialize;
 
 use super::shape::Shape;
 use super::{Copper, Item};
-use crate::rules::{clearance_between, largest};
+use crate::rules::{clearance_between_on, largest, resolve_pair_on};
 use reda_model::{RuleField, RuleKind};
 
 /// Copper the routing Tool is about to add.
@@ -93,7 +93,8 @@ impl Copper {
                 {
                     continue;
                 }
-                let required = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
+                let required =
+                    clearance_between_on(pcb, net, other, Some(layer)).unwrap_or(Nm::ZERO);
                 let gap = shape.distance(&piece.shape);
                 // A Net Tie's other Pads need no clearance, but touching one is a short.
                 if ties.tie_pad_on(net, piece.item) && !shape.touches(&piece.shape) {
@@ -157,7 +158,7 @@ impl Copper {
             {
                 continue;
             }
-            let clearance = clearance_between(pcb, net, other).unwrap_or(Nm::ZERO);
+            let clearance = clearance_between_on(pcb, net, other, Some(layer)).unwrap_or(Nm::ZERO);
             let mut shape = piece.shape.clone();
             for prim in &mut shape.prims {
                 prim.radius += clearance.0;
@@ -174,8 +175,10 @@ impl Copper {
 }
 
 /// Two pieces of stored copper closer than the clearance rules allow, without touching.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Gap {
+    pub layers: Vec<Uuid>,
+    pub rule: Uuid,
     /// The lesser item of the pair.
     pub a: Item,
     pub b: Item,
@@ -193,7 +196,7 @@ impl Copper {
     pub(crate) fn gaps(&self, pcb: &PcbDocument) -> Vec<Gap> {
         let reach = max_clearance(pcb).0;
         let ties = super::ties::Ties::of(pcb);
-        let mut found: std::collections::BTreeMap<(Item, Item), Gap> = Default::default();
+        let mut found: std::collections::BTreeMap<(Item, Item, Uuid), Gap> = Default::default();
         for (&layer, tree) in &self.index {
             for entry in tree.iter() {
                 let piece = self.piece(entry.slot);
@@ -218,9 +221,17 @@ impl Copper {
                     {
                         continue;
                     }
-                    let Some(required) = clearance_between(pcb, na, nb) else {
+                    let Some(source) = resolve_pair_on(
+                        pcb,
+                        na,
+                        nb,
+                        Some(layer),
+                        RuleKind::Clearance,
+                        RuleField::Value,
+                    ) else {
                         continue;
                     };
+                    let required = source.value.length().expect("clearance is a length");
                     if same_footprint_pads(piece.item, other.item)
                         && ignores_pad_to_pad(pcb, na, nb)
                     {
@@ -232,14 +243,21 @@ impl Copper {
                     }
                     let actual = Nm(gap.max(0.0).floor() as i64);
                     let gap = Gap {
+                        layers: vec![layer],
+                        rule: source.rule,
                         a: piece.item,
                         b: other.item,
                         required,
                         actual,
                     };
                     found
-                        .entry((piece.item, other.item))
-                        .and_modify(|g| g.actual = g.actual.min(actual))
+                        .entry((piece.item, other.item, source.rule))
+                        .and_modify(|g| {
+                            g.actual = g.actual.min(actual);
+                            if !g.layers.contains(&layer) {
+                                g.layers.push(layer);
+                            }
+                        })
                         .or_insert(gap);
                 }
             }

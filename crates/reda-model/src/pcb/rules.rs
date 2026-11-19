@@ -60,6 +60,13 @@ pub enum RuleKind {
 }
 
 impl RuleKind {
+    pub fn accepts_layers(self) -> bool {
+        matches!(
+            self,
+            Self::Clearance | Self::TrackWidth | Self::AnnularRing | Self::ZoneConnection
+        )
+    }
+
     /// Every kind, in file order.
     pub const ALL: [RuleKind; 21] = [
         RuleKind::Clearance,
@@ -782,41 +789,73 @@ const ALL_FIELDS: [RuleField; 38] = [
     RuleField::ViaAngle,
 ];
 
-/// Where a rule record applies: filters that must all match. Empty is board-wide; v0.1
-/// accepts only empty or `{net_class}`.
+/// Copper Layers selected by a design rule.
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    JsonSchema,
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(untagged)]
+pub enum RuleLayers {
+    Group(LayerGroup),
+    Named(Vec<Uuid>),
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum LayerGroup {
+    Outer,
+    Inner,
+    Plane,
+}
+
+impl RuleLayers {
+    /// Specificity on the measured Layer, highest for an explicit Layer UUID.
+    pub fn priority(&self, layer: &super::Layer) -> Option<u8> {
+        if layer.kind != super::LayerKind::Copper {
+            return None;
+        }
+        match self {
+            Self::Named(ids) if ids.contains(&layer.uuid) => Some(3),
+            Self::Group(LayerGroup::Plane) if layer.role == super::CopperRole::Plane => Some(2),
+            Self::Group(LayerGroup::Inner) if layer.side.is_none() => Some(1),
+            Self::Group(LayerGroup::Outer) if layer.side.is_some() => Some(1),
+            _ => None,
+        }
+    }
+}
+
+/// All the filters of one design rule. An empty scope is the board-wide fallback.
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct RuleScope {
-    /// The Net Class whose Nets it applies to.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub net_class: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layers: Option<RuleLayers>,
+    /// Two sorted class UUIDs. The nil UUID denotes the implicit Default class.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub net_class_pair: Option<[Uuid; 2]>,
 }
 
 impl RuleScope {
-    /// The board-wide scope.
-    pub const BOARD: RuleScope = RuleScope { net_class: None };
+    pub const BOARD: RuleScope = RuleScope {
+        net_class: None,
+        layers: None,
+        net_class_pair: None,
+    };
 
     pub fn class(class: Uuid) -> RuleScope {
         RuleScope {
             net_class: Some(class),
+            ..Self::BOARD
         }
     }
 
     pub fn is_board_wide(&self) -> bool {
-        self.net_class.is_none()
+        *self == Self::BOARD
     }
 }
 
@@ -850,6 +889,23 @@ impl DesignRule {
     /// hold, or a board-wide record missing a value its kind requires.
     pub fn problem(&self) -> Option<String> {
         let kind = self.kind.id();
+        if self.scope.layers.is_some() && !self.kind.accepts_layers() {
+            return Some(format!("a {kind} rule has no Layer scope"));
+        }
+        if self.scope.layers.is_some() && self.values.ignore_pad_to_pad.is_some() {
+            return Some("ignore_pad_to_pad does not take a Layer scope".into());
+        }
+        if let Some(pair) = self.scope.net_class_pair {
+            if self.scope.net_class.is_some() || self.kind != RuleKind::Clearance {
+                return Some("a class pair scopes only clearance, without a single class".into());
+            }
+            if pair[0] > pair[1] {
+                return Some("class pair UUIDs must be sorted".into());
+            }
+            if self.values.ignore_pad_to_pad.is_some() {
+                return Some("ignore_pad_to_pad is not a class pair value".into());
+            }
+        }
         let targets = [
             self.values.through_hole_pad,
             self.values.smd_pad,

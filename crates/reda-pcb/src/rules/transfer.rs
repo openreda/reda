@@ -173,7 +173,7 @@ pub fn plan(
             }
         };
         let scope = class.map_or(RuleScope::BOARD, RuleScope::class);
-        let existing = pcb.scoped_rule(rule.kind, scope);
+        let existing = pcb.scoped_rule(rule.kind, &scope);
         let record = DesignRule {
             uuid: existing.map_or_else(&mut new_id, |r| r.uuid),
             kind: rule.kind,

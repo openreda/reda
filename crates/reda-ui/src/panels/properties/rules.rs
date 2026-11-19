@@ -49,6 +49,15 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
             let page = model::page(kind.kind);
             ui.horizontal(|ui| {
                 ui.label(t.ty.body_strong.rich(kind.kind.id()));
+                if !kind.layer_numbers.is_empty() {
+                    ui.label(
+                        kind.layer_numbers
+                            .iter()
+                            .map(|n| format!("L{n}"))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    );
+                }
                 if let Some(severity) = kind.severity {
                     severity_dot(ui, severity);
                     ui.weak(severity_label(severity));
@@ -96,7 +105,12 @@ pub(super) fn show(ui: &mut Ui, shell: &Shell, rules: &Rules, units: Units, out:
                     )));
                 }
             }
-            if let Some((field, value, object)) = &kind.between {
+            if let Some((field, value, None)) = &kind.between
+                && let Some(pair) = &kind.pair
+            {
+                ui.weak(format!("{pair} · {field} = {}", value_text(value, units)));
+            }
+            if let Some((field, value, Some(object))) = &kind.between {
                 ui.weak(tr!(
                     "properties-rules-between",
                     field = field.clone(),
