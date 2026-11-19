@@ -355,6 +355,36 @@ fn undoing_a_via_at_the_route_start_restores_the_layer_width() {
 }
 
 #[test]
+fn a_chosen_width_survives_a_via_round_trip_through_a_layer_that_clips_it() {
+    let mut b = board();
+    let bottom = copper(&b, Side::Bottom);
+    run(
+        &mut b.shell,
+        "pcb.rules.set",
+        json!({"kind":"track_width","values":{"min":"0.1mm"}}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.rules.set",
+        json!({"kind":"track_width","scope":{"layers":[bottom]},"values":{"min":"0.15mm"}}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0.0, 0.0));
+    run(&mut b.shell, "pcb.route.width", json!({"width":"0.12mm"}));
+    assert_eq!(b.shell.route_preview().unwrap().width, Nm::from_um(120));
+    b.shell.route_hover(mm(3.0, 0.0));
+    run(&mut b.shell, "pcb.route.add_via", json!({}));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.layer, bottom);
+    assert_eq!(preview.width, Nm::from_um(150));
+    b.shell.route_hover(mm(3.0, 3.0));
+    run(&mut b.shell, "pcb.route.add_via", json!({}));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.layer, copper(&b, Side::Top));
+    assert_eq!(preview.width, Nm::from_um(120));
+}
+
+#[test]
 fn backspace_takes_back_the_last_corner_and_escape_drops_the_route() {
     let mut b = board();
     run(&mut b.shell, "tool.activate:route", json!({}));

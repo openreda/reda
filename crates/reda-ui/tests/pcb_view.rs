@@ -573,7 +573,7 @@ fn removing_active_or_previous_copper_repairs_the_view_once() {
     assert!(!b.shell.board_view().layers.pinned.contains(&layers[3]));
     assert_eq!(
         b.shell.preferences().pcb.view.layer_sets[0].layers,
-        ["inner_1", "inner_7", "copper_bottom"]
+        ["inner_1", "inner_3", "inner_7", "copper_bottom"]
     );
     run(&mut b.shell, "edit.undo", json!({"document":document}));
     assert_eq!(b.shell.board_view().layers.active, Some(layers[2]));
@@ -585,6 +585,58 @@ fn removing_active_or_previous_copper_repairs_the_view_once() {
     );
     run(&mut b.shell, "pcb.layer.remove", json!({"layer":layers[2]}));
     assert_eq!(b.shell.board_view().layers.previous, Some(layers[0]));
+}
+
+#[test]
+fn layer_count_changes_and_their_undo_leave_saved_layer_sets_alone() {
+    let mut b = board();
+    let document = b.pcb;
+    for _ in 0..3 {
+        run(&mut b.shell, "pcb.layer.add", json!({"document":document}));
+    }
+    let saved = json!([{"name":"Signal","layers":["inner_1","inner_2","inner_3","copper_bottom"]}]);
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"pcb.view.layer_sets","value":saved}),
+    );
+    let sets =
+        |b: &Board| serde_json::to_value(&b.shell.preferences().pcb.view.layer_sets).unwrap();
+    let on_disk = |b: &Board| {
+        let dirs = b.shell.engine().user_dirs().unwrap();
+        serde_json::to_value(
+            reda_ui::engine::preferences::current(Some(dirs))
+                .pcb
+                .view
+                .layer_sets,
+        )
+        .unwrap()
+    };
+
+    // Add, then undo the add: the undo removes a Layer.
+    run(&mut b.shell, "pcb.layer.add", json!({"document":document}));
+    assert_eq!(sets(&b), saved);
+    run(&mut b.shell, "edit.undo", json!({"document":document}));
+    assert_eq!(sets(&b), saved);
+    assert_eq!(on_disk(&b), saved);
+
+    // Remove, then undo the remove.
+    let inner = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(2)
+        .unwrap()
+        .uuid;
+    run(&mut b.shell, "pcb.layer.remove", json!({"layer":inner}));
+    assert_eq!(sets(&b), saved);
+    run(&mut b.shell, "edit.undo", json!({"document":document}));
+    assert_eq!(sets(&b), saved);
+    assert_eq!(on_disk(&b), saved);
 }
 
 #[test]

@@ -123,12 +123,7 @@ impl BoardView {
 
     /// Repair references while the previous physical order still identifies the copper
     /// above a removed active Layer. Undo restores document data only.
-    pub(crate) fn update_copper_order(
-        &mut self,
-        current: Vec<Uuid>,
-        opposite_outer: Option<Uuid>,
-        sets: &mut [reda_engine::preferences::SavedLayerSet],
-    ) {
+    pub(crate) fn update_copper_order(&mut self, current: Vec<Uuid>, opposite_outer: Option<Uuid>) {
         let old = std::mem::replace(&mut self.layers.copper_order, current);
         let current = &self.layers.copper_order;
         // Choices are saved by position. Move them with their physical Layers,
@@ -168,26 +163,6 @@ impl BoardView {
         self.hover_solo = self.hover_solo.filter(|id| !gone(id));
         self.layers.hidden.retain(|id| !gone(id));
         self.layers.pinned.retain(|id| !gone(id));
-        // Saved sets use portable inner positions. Translate only positions on this
-        // board, leaving entries for larger boards and legacy kind/sided keys intact.
-        for set in sets {
-            set.layers.retain_mut(|key| {
-                let Some(position) = key
-                    .strip_prefix("inner_")
-                    .and_then(|n| n.parse::<usize>().ok())
-                else {
-                    return true;
-                };
-                if position == 0 || position >= old.len() - 1 {
-                    return true;
-                }
-                let Some(now) = current.iter().position(|id| *id == old[position]) else {
-                    return false;
-                };
-                *key = format!("inner_{now}");
-                true
-            });
-        }
     }
 
     pub fn stitching_type<'p>(

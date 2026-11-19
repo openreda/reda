@@ -317,24 +317,10 @@ impl Shell {
         {
             let current = pcb.copper_layers().map(|l| l.uuid).collect();
             let opposite_outer = self.board_view().opposite_outer(pcb.layers());
-            let mut sets = self
-                .engine
-                .user_dirs()
-                .map(|dirs| preferences::current(Some(dirs)).pcb.view.layer_sets)
-                .unwrap_or_default();
-            let before = sets.clone();
+            // Saved Layer Sets record inner Layers by position and are never
+            // rewritten here: they apply to the positions this board has.
             self.board_view_mut()
-                .update_copper_order(current, opposite_outer, &mut sets);
-            if before != sets
-                && let Some(dirs) = self.engine.user_dirs()
-            {
-                match preferences::set(dirs, "pcb.view.layer_sets", json!(sets)) {
-                    Ok(_) => {
-                        self.reload_preferences();
-                    }
-                    Err(e) => self.set_note(e.message),
-                }
-            }
+                .update_copper_order(current, opposite_outer);
         }
         let Some(pcb) = document else { return };
         let layers = self.board_view().layers.clone();

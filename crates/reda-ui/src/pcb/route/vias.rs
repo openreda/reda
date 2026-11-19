@@ -318,12 +318,7 @@ impl Router {
         };
         let route = self.route.as_mut().expect("a route");
         route.leg.layer = next;
-        route.leg.width = route::width::changed_layer(
-            pcb,
-            route.net,
-            next,
-            (!route.follows_preferred_width).then_some(route.leg.width),
-        );
+        route.leg.width = route::width::changed_layer(pcb, route.net, next, route.chosen_width);
         activate(shell, next);
         self.depend_on(shell, at);
         self.recheck(shell);
@@ -419,12 +414,7 @@ impl Router {
         let layer = if switch { to } else { from };
         let next = Leg {
             layer,
-            width: route::width::changed_layer(
-                pcb,
-                net,
-                layer,
-                (!route.follows_preferred_width).then_some(route.leg.width),
-            ),
+            width: route::width::changed_layer(pcb, net, layer, route.chosen_width),
             points: vec![at],
         };
         let done = std::mem::replace(&mut route.leg, next);
