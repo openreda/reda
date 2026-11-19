@@ -87,27 +87,51 @@ fn the_scaffold_step_matches_its_goldens() {
 
 #[test]
 fn every_real_step_has_goldens_for_every_file_kind() {
-    for n in 1..=MIGRATIONS.len() {
-        let root = Path::new(V1).parent().unwrap();
-        let input = root.join(format!("v{n}"));
-        let expected = root.join(format!("migrated-v{}", n + 1));
+    for (i, _) in MIGRATIONS.iter().enumerate() {
+        let n = i + 1;
+        let steps = &MIGRATIONS[..n];
         for kind in FileKind::ALL {
-            let file = ["standalone", "blinky_555"]
-                .into_iter()
-                .flat_map(|dir| {
-                    read_tree(&input.join(dir))
-                        .into_keys()
-                        .map(move |name| Path::new(dir).join(name))
-                })
-                .find(|file| file.extension().is_some_and(|ext| ext == kind.extension()))
-                .unwrap_or_else(|| panic!("no frozen format {n} {}", kind.extension()));
-            assert!(
-                expected.join(&file).is_file(),
-                "no migrated golden for {}",
-                file.display()
-            );
+            if n == 1 {
+                check_release_step(kind, steps);
+            } else {
+                let dir = Path::new(GOLDEN).join(format!("v{n}-to-v{}", n + 1));
+                check_step_golden(&dir, steps, kind);
+            }
         }
     }
+}
+
+fn check_release_step(kind: FileKind, steps: &[Migration]) {
+    let file = match kind {
+        FileKind::Project => "blinky_555/Blinky.reda",
+        FileKind::Pcb => "blinky_555/Blinky.redapcb",
+        FileKind::Sheet => "blinky_555/Blinky.redasch",
+        FileKind::Library => "standalone/Starter.redalib",
+        FileKind::Symbol => "standalone/Resistor.redasym",
+        FileKind::Footprint => "standalone/CAPC1005X40N.redafp",
+        FileKind::Part => "standalone/Resistor.redapart",
+        FileKind::FabPreset => "standalone/Blinky.redafab",
+        FileKind::Rules => "standalone/Blinky.redarules",
+    };
+    let root = Path::new(V1);
+    let read = |path| serde_json::from_slice::<Value>(&std::fs::read(path).unwrap()).unwrap();
+    let original = read(root.join(file));
+    let mut expected = read(root.parent().unwrap().join("migrated-v2").join(file));
+    let mut migrated = migrate_with(kind, original.clone(), steps).unwrap();
+
+    // A typed save writes default severities even for the new checks omitted in v1.
+    // The raw step leaves the user's severity table alone. The writer also sorts PCB
+    // rule records by UUID.
+    if matches!(kind, FileKind::Pcb | FileKind::Rules) {
+        expected["severities"] = original["severities"].clone();
+    }
+    if kind == FileKind::Pcb {
+        migrated["rules"]
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["uuid"].as_str().cmp(&b["uuid"].as_str()));
+    }
+    assert_eq!(migrated, expected, "{file}");
 }
 
 #[test]
@@ -420,4 +444,43 @@ fn generated_migration_ids_do_not_replace_existing_objects() {
     assert_eq!(rules.iter().filter(|r| r["uuid"] == generated).count(), 1);
     assert_ne!(migrated["stackups"][0]["via_types"][0]["uuid"], through);
     assert_eq!(migrate(FileKind::Pcb, pcb).unwrap(), migrated);
+}
+
+#[test]
+fn placing_an_unchanged_library_part_reuses_its_released_document_copies() {
+    let mut engine = reda_testkit::TestEngine(
+        reda_engine::Engine::builder()
+            .ids(reda_engine::command::SeededIds::new(1 << 32))
+            .user_dirs(None)
+            .starter_library(Some(reda_testkit::starter_library()))
+            .build(),
+    );
+    let source = Path::new(V1).join("blinky_555");
+    let tmp = TempDir::new("reuse-library-copies");
+    for (file, bytes) in read_tree(&source) {
+        std::fs::write(tmp.path().join(file), bytes).unwrap();
+    }
+    let sheet = tmp.path().join("Blinky.redasch");
+    let released: Value = serde_json::from_slice(&std::fs::read(&sheet).unwrap()).unwrap();
+    engine.run_ok(
+        "project.open",
+        json!({"path":tmp.path().join("Blinky.reda")}),
+    );
+    // This is the resistor and its fitted Footprint in the released Blinky board.
+    engine.run_ok("schematic.component.place", json!({"document":released["sheet"]["uuid"],
+        "part":"84d5651a-bf4b-462e-9480-39e8f454a042", "footprint":"0691e5e7-9eb6-49f3-9f3e-d4159258693e",
+        "at":{"x":"20mm","y":"20mm"}}));
+    engine.run_ok("project.save", json!({}));
+    let saved: Value = serde_json::from_slice(&std::fs::read(sheet).unwrap()).unwrap();
+    assert_eq!(
+        saved["units"].as_array().unwrap().len(),
+        released["units"].as_array().unwrap().len() + 1
+    );
+    for table in ["parts", "footprints"] {
+        assert_eq!(
+            saved[table].as_array().unwrap().len(),
+            released[table].as_array().unwrap().len(),
+            "{table}"
+        );
+    }
 }
