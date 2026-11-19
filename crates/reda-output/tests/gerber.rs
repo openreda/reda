@@ -958,7 +958,8 @@ fn all_four_targets_read_back_as_plain_conductor_regions_only_on_their_copper_la
     for (name, x, y, base, tip) in [
         ("Drops.gtl", 5., 3., 1., 6.),
         ("Drops.g2l", 5.7, 7., 1., 6.2),
-        ("Drops.g3l", 5.4, 11., 0.8, 5.8),
+        // A round land meets its Teardrop at the tangent points, above and below its centre.
+        ("Drops.g3l", 5., 11., 0.8, 5.8),
         ("Drops.gbl", 5.5, 15., 1.2, 6.1),
     ] {
         let artwork = read(&file(&after, name).bytes);

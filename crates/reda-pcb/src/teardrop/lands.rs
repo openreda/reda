@@ -98,8 +98,15 @@ fn pad_kind(kind: PadKind, allow: bool) -> Option<TeardropKind> {
 }
 
 /// The projected width of a grown shape is the width of its core plus its diameter.
-/// Coordinates relative to the Track end avoid subtracting large absolute projections.
 fn transverse_extent(shape: &Shape, at: Point, normal: [f64; 2]) -> Nm {
+    let (low, high) = transverse_range(shape, at, normal);
+    Nm((high - low).round() as i64)
+}
+
+/// How far a grown shape reaches on either side of the line through `at` along which
+/// `normal` is zero, as the lowest and highest projections on `normal`. Coordinates
+/// relative to `at` avoid subtracting large absolute projections.
+pub(super) fn transverse_range(shape: &Shape, at: Point, normal: [f64; 2]) -> (f64, f64) {
     let mut low = f64::INFINITY;
     let mut high = f64::NEG_INFINITY;
     for p in &shape.prims {
@@ -117,7 +124,7 @@ fn transverse_extent(shape: &Shape, at: Point, normal: [f64; 2]) -> Nm {
             Core::Poly(points) => points.iter().copied().for_each(add),
         }
     }
-    Nm((high - low).round() as i64)
+    (low, high)
 }
 
 /// Plated and SMD lands are convex. The segment starts inside and ends outside,

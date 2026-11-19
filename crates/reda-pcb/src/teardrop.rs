@@ -13,6 +13,7 @@ use reda_model::{
 use schemars::JsonSchema;
 use serde::Serialize;
 
+mod base;
 mod lands;
 mod obstacles;
 mod path;
@@ -179,7 +180,7 @@ pub(crate) fn update(
         }
         let obstacles = obstacles::near(pcb, &copper, &holes, j, &drops);
         let mut hash = Fingerprint::new();
-        hash.add(&2u32)
+        hash.add(&3u32)
             .add(&j.location)
             .add(&j.target)
             .add(&j.track.geometry)
