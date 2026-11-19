@@ -62,10 +62,11 @@ pub use pcb::{
     FootprintTextRef, FreePad, GraphicShape, HERSHEY_FONT, Hotspot, HotspotRef, InDocument,
     Keepout, KeepoutRecord, KeepoutShape, KeepoutShapeKind, Layer, LayerKind, LayerSet, LayerSpan,
     NOTO_SANS_FONT, Net, NetClass, OutputOrigin, PadNet, PadRef, PcbDocument, PcbGraphic, PcbText,
-    PortableClass, PortableRule, PourOver, Restriction, RuleField, RuleKind, RuleScope, RuleSet,
-    RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry, StackupSeeds, StackupTotals,
-    TeardropTarget, TextAutoposition, TextOverride, Track, TrackGeometry, Via, ViaDiameter,
-    ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill, ZoneFills, ZoneNameScheme,
+    PortableClass, PortableRule, PourOver, ResolvedEntry, Restriction, RuleField, RuleKind,
+    RuleScope, RuleSet, RuleValue, RuleValues, Side, SilkMaskMode, Stackup, StackupEntry,
+    StackupInfo, StackupSeeds, StackupTotals, TeardropTarget, TextAutoposition, TextOverride,
+    Track, TrackGeometry, Via, ViaDiameter, ViaRuleValues, ViaType, Zone, ZoneCutout, ZoneFill,
+    ZoneFills, ZoneNameScheme,
 };
 #[cfg(feature = "test-objects")]
 pub use probe::Probe;

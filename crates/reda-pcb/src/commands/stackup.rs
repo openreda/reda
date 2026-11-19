@@ -2,6 +2,8 @@
 //! colours; and `pcb.fab_notes.set`, the free text for the Fab Notes, which sits beside
 //! them on the Stackup page of Board Setup.
 
+mod sheets;
+
 use reda_command::{
     AvailabilityContext, Command, CommandError, Context, CopperThickness, Kind, Length, Meta,
     Registry, Unavailable,
@@ -15,6 +17,9 @@ use super::{needs_pcb, nullable, pcb};
 
 pub(super) fn register_all(registry: &mut Registry) {
     registry.add(StackupSet);
+    registry.add(Info);
+    registry.add(sheets::SheetAdd);
+    registry.add(sheets::SheetRemove);
     registry.add(FabNotesSet);
 }
 
@@ -243,6 +248,39 @@ impl Command for StackupSet {
             totals,
             warnings,
         })
+    }
+}
+
+struct Info;
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InfoParams {
+    /// The PCB Document whose Stackup to inspect.
+    pub document: Uuid,
+}
+
+impl Command for Info {
+    const META: Meta = Meta {
+        id: "pcb.stackup.info",
+        title: "Stackup Information",
+        description: "Resolves each entry's physical thickness and reports the symmetry and ordered-thickness checks.",
+        category: "pcb",
+        icon: "inspect",
+        kind: Kind::Query,
+    };
+    type Params = InfoParams;
+    type Output = reda_model::StackupInfo;
+
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
+
+    fn run(&self, cx: &mut Context<'_>, p: Self::Params) -> Result<Self::Output, CommandError> {
+        let pcb = cx.project()?.pcb_document(p.document).ok_or_else(|| {
+            CommandError::not_found(format!("no PCB Document has UUID {}", p.document))
+        })?;
+        Ok(pcb.stackup().info())
     }
 }
 

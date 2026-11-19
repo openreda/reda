@@ -40,8 +40,9 @@ pub use rules::{
     ViaRuleValues,
 };
 pub use stackup::{
-    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind, Stackup,
-    StackupEntry, StackupSeeds, StackupTotals, ViaDiameter, ViaType,
+    CopperEntry, DEFAULT_BOARD_THICKNESS, DEFAULT_COPPER, DielectricEntry, DielectricKind,
+    ResolvedEntry, Stackup, StackupEntry, StackupInfo, StackupSeeds, StackupTotals, ViaDiameter,
+    ViaType,
 };
 
 pub use graphics::{GraphicShape, HERSHEY_FONT, NOTO_SANS_FONT, PcbGraphic, PcbText};

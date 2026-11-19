@@ -15,8 +15,7 @@ pub struct Stackup {
     pub uuid: Uuid,
     /// The finished thickness you order.
     pub thickness: Nm,
-    /// The copper and dielectric entries, top to bottom: copper, dielectric, copper, and so
-    /// on, with one copper entry per copper Layer in Layer order.
+    /// The copper Layers in physical order, with one or more dielectric sheets in every gap.
     pub entries: Vec<StackupEntry>,
     /// The ordered Via types, including the through type.
     pub via_types: Vec<ViaType>,
@@ -39,6 +38,23 @@ pub enum StackupEntry {
     Copper(CopperEntry),
     /// Board material between two copper Layers.
     Dielectric(DielectricEntry),
+}
+
+impl StackupEntry {
+    /// The copper Layer or dielectric sheet represented by this entry.
+    pub fn uuid(&self) -> Uuid {
+        match self {
+            Self::Copper(c) => c.layer,
+            Self::Dielectric(d) => d.uuid,
+        }
+    }
+
+    fn thickness(&self) -> Option<Nm> {
+        match self {
+            Self::Copper(c) => Some(c.thickness),
+            Self::Dielectric(d) => d.thickness,
+        }
+    }
 }
 
 /// The copper of one copper Layer.
@@ -174,14 +190,83 @@ pub struct StackupTotals {
     pub copper: Nm,
     /// The dielectrics typed in.
     pub dielectric: Nm,
-    /// What each dielectric left blank takes: the thickness left over, shared evenly. `None`
-    /// when every dielectric is typed in.
+    /// The total thickness left for all blank sheets to share. None when all are specified.
     pub remainder: Option<Nm>,
     /// Copper and dielectric together, the blank ones at their share of the remainder.
     pub total: Nm,
 }
 
+/// The resolved physical thickness of a copper Layer or dielectric sheet.
+#[derive(Clone, Debug, PartialEq, Serialize, JsonSchema)]
+pub struct ResolvedEntry {
+    pub uuid: Uuid,
+    /// Nanometres, including the fractional share of a blank sheet.
+    pub thickness: f64,
+}
+
+/// The readouts and checks for a single Stackup.
+#[derive(Clone, Debug, PartialEq, Serialize, JsonSchema)]
+pub struct StackupInfo {
+    pub entries: Vec<ResolvedEntry>,
+    pub totals: StackupTotals,
+    pub symmetric: bool,
+    /// Pairs of mirrored entries whose kind, material or resolved thickness differs.
+    pub symmetry_mismatches: Vec<[Uuid; 2]>,
+    /// The total differs from the ordered thickness by more than ten percent.
+    pub thickness_warning: bool,
+}
+
 impl Stackup {
+    /// Resolve blank sheets at exactly equal shares and compare mirrored entries. The
+    /// thickness comparison uses integer numerators over a common denominator; only the
+    /// final readout converts a fractional nanometre to floating point.
+    pub fn info(&self) -> StackupInfo {
+        let totals = self.totals();
+        let blanks = self
+            .dielectrics()
+            .filter(|s| s.thickness.is_none())
+            .count()
+            .max(1) as i128;
+        let numerator = |entry: &StackupEntry| match entry.thickness() {
+            Some(nm) => i128::from(nm.0) * blanks,
+            None => i128::from(totals.remainder.expect("blank sheet has a remainder").0),
+        };
+        let entries = self
+            .entries
+            .iter()
+            .map(|e| ResolvedEntry {
+                uuid: e.uuid(),
+                thickness: numerator(e) as f64 / blanks as f64,
+            })
+            .collect();
+        let mut symmetry_mismatches = Vec::new();
+        for (top, bottom) in self
+            .entries
+            .iter()
+            .zip(self.entries.iter().rev())
+            .take(self.entries.len() / 2)
+        {
+            let material_matches = match (top, bottom) {
+                (StackupEntry::Copper(_), StackupEntry::Copper(_)) => true,
+                (StackupEntry::Dielectric(a), StackupEntry::Dielectric(b)) => {
+                    a.kind == b.kind && a.material == b.material
+                }
+                _ => false,
+            };
+            if !material_matches || numerator(top) != numerator(bottom) {
+                symmetry_mismatches.push([top.uuid(), bottom.uuid()]);
+            }
+        }
+        let deviation = (i128::from(totals.total.0) - i128::from(self.thickness.0)).abs();
+        StackupInfo {
+            entries,
+            totals,
+            symmetric: self.copper().count().is_multiple_of(2) && symmetry_mismatches.is_empty(),
+            symmetry_mismatches,
+            thickness_warning: deviation * 10 > i128::from(self.thickness.0),
+        }
+    }
+
     pub fn through_type(&self) -> &ViaType {
         let first = self.copper().next().expect("a board has top copper").layer;
         let last = self
@@ -247,34 +332,32 @@ impl Stackup {
         if self.thickness <= Nm::ZERO {
             return Some("the Stackup thickness must be positive".into());
         }
-        let mut expect_copper = true;
-        for entry in &self.entries {
-            match (entry, expect_copper) {
-                (StackupEntry::Copper(c), true) => {
-                    if c.thickness <= Nm::ZERO {
-                        return Some(format!(
-                            "the copper of Layer {} must have a positive thickness",
-                            c.layer
-                        ));
-                    }
-                }
-                (StackupEntry::Dielectric(d), false) => {
-                    if d.thickness.is_some_and(|t| t <= Nm::ZERO) {
-                        return Some(format!(
-                            "dielectric {} must have a positive thickness or none",
-                            d.uuid
-                        ));
-                    }
-                }
-                _ => {
-                    return Some(
-                        "Stackup entries must alternate copper and dielectric, starting and \
-                         ending with copper"
-                            .into(),
-                    );
-                }
-            }
-            expect_copper = !expect_copper;
+        if !matches!(self.entries.first(), Some(StackupEntry::Copper(_)))
+            || !matches!(self.entries.last(), Some(StackupEntry::Copper(_)))
+        {
+            return Some("the Stackup must start and end with copper".into());
+        }
+        if self
+            .entries
+            .windows(2)
+            .any(|pair| matches!(pair, [StackupEntry::Copper(_), StackupEntry::Copper(_)]))
+        {
+            return Some("copper Layers must alternate with one or more dielectric sheets".into());
+        }
+        if let Some(c) = self.copper().find(|c| c.thickness <= Nm::ZERO) {
+            return Some(format!(
+                "the copper of Layer {} must have a positive thickness",
+                c.layer
+            ));
+        }
+        if let Some(d) = self
+            .dielectrics()
+            .find(|d| d.thickness.is_some_and(|t| t <= Nm::ZERO))
+        {
+            return Some(format!(
+                "dielectric {} must have a positive thickness or none",
+                d.uuid
+            ));
         }
         if !self
             .copper()
@@ -294,7 +377,8 @@ impl Stackup {
                 "the Stackup needs a through Via type joining the outer copper Layers".into(),
             );
         }
-        let mut seen = std::collections::BTreeSet::new();
+        let mut seen: std::collections::BTreeSet<Uuid> = copper_layers.iter().copied().collect();
+        seen.extend(self.via_types.iter().map(|v| v.uuid));
         if let Some(d) = self.dielectrics().find(|d| !seen.insert(d.uuid)) {
             return Some(format!("dielectric {} appears twice", d.uuid));
         }
