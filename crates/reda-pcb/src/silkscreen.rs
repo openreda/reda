@@ -440,7 +440,11 @@ impl<'a> Env<'a> {
         };
         let mut sided: [Vec<Area>; 2] = [Vec::new(), Vec::new()];
         if mask.is_some() {
-            for target in targets(pcb, mode) {
+            let unused = match mode {
+                SilkMaskMode::ExposedCopper => crate::copper::UnusedLands::of(pcb),
+                SilkMaskMode::MaskOpening => Default::default(),
+            };
+            for target in targets(pcb, mode, &unused) {
                 sided[side_index(target.side)].push(target.area);
             }
         }

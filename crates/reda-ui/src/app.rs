@@ -150,6 +150,7 @@ impl App {
                 schematic_dialogs::register_dialogs(&mut dialogs);
                 projects_panel::register_package_dialog(&mut dialogs);
                 crate::pcb::silkscreen::register_dialogs(&mut dialogs);
+                crate::pcb::unused_layers::register(&mut dialogs);
                 dialogs
             },
             schematic_dialog: None,

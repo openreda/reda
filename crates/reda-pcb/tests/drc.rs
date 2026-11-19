@@ -1387,3 +1387,112 @@ fn a_free_graphic_keeps_plated_and_nonplated_hole_clearance_on_its_layer() {
         );
     }
 }
+
+#[test]
+fn only_retained_lands_have_annular_ring_checks_but_an_omitted_layer_keeps_hole_clearance() {
+    let dir = TempDir::new("unused-ring-and-hole");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    let layers: Vec<_> = e
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let sig = net(&mut e, "SIG");
+    let via = e.run_ok(
+        "pcb.via.add",
+        json!({"net":sig,"at":{"x":"5mm","y":"5mm"},
+        "hole":"0.4mm","diameter":"0.5mm","unused_layers":"remove_keep_ends"}),
+    )["result"]["uuid"]
+        .clone();
+    e.run_ok(
+        "pcb.rules.set",
+        json!({"kind":"clearance","values":{"hole":{"via":"0.4mm"}}}),
+    );
+    e.run_ok("pcb.track.add",json!({"layer":layers[1],"net":sig,"width":"0.1mm","points":[{"x":"4mm","y":"5.5mm"},{"x":"6mm","y":"5.5mm"}]}));
+    let connected = e.run_ok("pcb.track.add",json!({"layer":layers[2],"net":sig,"width":"0.1mm","points":[{"x":"5mm","y":"5mm"},{"x":"6mm","y":"5mm"}]}));
+    let report = drc(&mut e);
+    let rings = of(&report, "annular_ring");
+    assert_eq!(rings.len(), 1);
+    assert_eq!(rings[0]["objects"], json!([via]));
+    assert_eq!(rings[0]["layers"], json!([layers[0], layers[2], layers[3]]));
+    let hits = of(&report, "clearance");
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0]["args"]["part"], "hole.via");
+    assert_eq!(hits[0]["layers"], json!([layers[1]]));
+    assert_eq!(hits[0]["measured"]["length"], 250000);
+
+    // With every land removed the drill remains subject to the same clearance.
+    e.run_ok(
+        "pcb.track.delete",
+        json!({"tracks":connected["result"]["tracks"]}),
+    );
+    e.run_ok(
+        "pcb.via.set",
+        json!({"vias":[via],"unused_layers":"remove"}),
+    );
+    let report = drc(&mut e);
+    assert!(of(&report, "annular_ring").is_empty());
+    let holes = of(&report, "clearance");
+    assert!(holes.iter().any(|hit| hit["args"]["part"] == "hole.via"
+        && hit["layers"] == json!([layers[1]])
+        && hit["measured"]["length"] == 250_000));
+}
+
+#[test]
+fn a_via_with_missing_lands_is_not_duplicate_copper() {
+    let dir = TempDir::new("drc-duplicate-unused");
+    let mut e = probe_engine();
+    e.run_ok(
+        "project.new",
+        json!({"path":dir.path(),"name":"Demo","layers":4}),
+    );
+    for mode in ["remove_keep_ends", "keep"] {
+        e.run_ok(
+            "pcb.via.add",
+            json!({"at":{"x":"5mm","y":"5mm"},"unused_layers":mode}),
+        );
+    }
+    assert!(of(&drc(&mut e), "duplicate_copper").is_empty());
+}
+
+#[test]
+fn markers_locate_a_via_with_all_lands_removed_by_its_bore() {
+    let dir = TempDir::new("drc-landless-via-marker");
+    let mut engine = probe_engine();
+    engine.run_ok(
+        "project.new",
+        json!({"name":"Demo","path":dir.path(),"layers":4}),
+    );
+    let inner: Vec<_> = engine
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .filter(|layer| layer.side.is_none())
+        .map(|layer| layer.uuid)
+        .collect();
+    let at = json!({"x":5_000_000, "y":7_000_000});
+    let via = engine.run_ok(
+        "pcb.via.add",
+        json!({
+            "at":at, "from":inner[0], "to":inner[1], "unused_layers":"remove"
+        }),
+    )["result"]["uuid"]
+        .clone();
+    let run = drc(&mut engine);
+    for check in ["dangling", "copper_without_net"] {
+        let hits = of(&run, check);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["objects"], json!([via]));
+        assert_eq!(hits[0]["at"], at);
+        assert_eq!(hits[0]["layers"], json!(inner));
+    }
+}

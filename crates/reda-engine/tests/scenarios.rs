@@ -155,6 +155,19 @@ fn inner_layers_reopens_an_outline_plane_and_both_drill_clearance_measurements()
             .any(|z| z.layer == plane.uuid && z.follows_outline && z.vertices.is_empty())
     );
     let via = pcb.vias().next().unwrap();
+    let copper = reda_engine::pcb::Copper::of(engine.project().unwrap()).unwrap();
+    let pad = pcb.free_pads().next().unwrap();
+    for (item, at) in [
+        (reda_engine::pcb::Item::Via { uuid: via.uuid }, via.at),
+        (reda_engine::pcb::Item::FreePad { uuid: pad.uuid }, pad.at),
+    ] {
+        assert!(!copper.items_at(plane.uuid, at).contains(&item));
+        assert!(
+            copper
+                .items_at(pcb.copper_layers().next().unwrap().uuid, at)
+                .contains(&item)
+        );
+    }
     let relief = via.zone_connection.unwrap();
     assert_eq!(
         relief.style,

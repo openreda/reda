@@ -17919,6 +17919,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -18129,6 +18137,16 @@
               }
             ],
             "description": "An SMD Pad's side in the Footprint's frame; top when left out."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "$ref": "#/$defs/Length"
@@ -18584,6 +18602,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -18832,6 +18858,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -26473,6 +26509,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -28451,6 +28491,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -34929,6 +34973,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -36928,6 +36976,10 @@
                   }
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -43646,6 +43698,10 @@
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -48551,6 +48607,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -48784,6 +48848,16 @@
             ],
             "default": null,
             "description": "The copper side of an SMD Pad; top when left out. Pads with a hole have none."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "$ref": "#/$defs/Length"
@@ -49288,6 +49362,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -49532,6 +49614,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -53095,6 +53187,14 @@
             ],
             "type": "string"
           },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          },
           "ZoneConnectionParam": {
             "additionalProperties": false,
             "description": "A Zone connection param. Each value left out inherits from the `zone_connection` rule.",
@@ -53243,6 +53343,11 @@
             ],
             "description": "`null` removes the hole."
           },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Footprint's unused Pad copper to be changed.",
+            "type": "boolean"
+          },
           "instance": {
             "description": "The placed Footprint instance.",
             "format": "uuid",
@@ -53340,6 +53445,16 @@
             ],
             "default": null,
             "description": "`null` returns an SMD Pad to the Footprint's top."
+          },
+          "unused_layers": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "width": {
             "anyOf": [
@@ -53920,6 +54035,10 @@
                   }
                 ],
                 "description": "The board side of an SMD Pad. Left out, the top. Pads with a hole have none."
+              },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
               },
               "uuid": {
                 "format": "uuid",
@@ -63884,6 +64003,133 @@
     },
     {
       "category": "pcb",
+      "description": "Choose which unconnected lands plated Pads and Vias retain on the board or selection. Returns the number of Pads and Vias changed.",
+      "icon": "pad",
+      "id": "pcb.unused_layers.set",
+      "kind": "edit",
+      "params": {
+        "$defs": {
+          "PadRef": {
+            "additionalProperties": false,
+            "description": "A Pad of a Footprint instance on the PCB. Such a Pad has no UUID of its own: it is\nnamed by its instance and the Pad of the instance's Footprint copy.",
+            "properties": {
+              "footprint": {
+                "description": "The Footprint instance.",
+                "format": "uuid",
+                "type": "string"
+              },
+              "pad": {
+                "description": "The Pad of its Footprint copy.",
+                "format": "uuid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "footprint",
+              "pad"
+            ],
+            "type": "object"
+          },
+          "Target": {
+            "anyOf": [
+              {
+                "description": "A Via, Free Pad, or Footprint instance. An instance includes all its plated Pads.",
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/PadRef",
+                "description": "One Pad of one Footprint instance."
+              }
+            ]
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Apply to changed locked objects too. A matching mode needs no edit.",
+            "type": "boolean"
+          },
+          "objects": {
+            "description": "Omit for the whole board. An empty selection changes nothing.",
+            "items": {
+              "$ref": "#/$defs/Target"
+            },
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          },
+          "pads": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Through-hole Pads support keep or remove. Their two solder lands always stay."
+          },
+          "vias": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/UnusedLayers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Vias also support remove_keep_ends to retain both ends of the span."
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "Params",
+        "type": "object"
+      },
+      "presets": [],
+      "result": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "pads": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "vias": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pads",
+          "vias"
+        ],
+        "title": "Counts",
+        "type": "object"
+      },
+      "title": "Set Unused Copper"
+    },
+    {
+      "category": "pcb",
       "description": "Places a Via on the requested span. Its Net defaults to the copper under it.",
       "icon": "via",
       "id": "pcb.via.add",
@@ -64549,6 +64795,11 @@
             ],
             "default": null,
             "description": "The drilled hole."
+          },
+          "include_locked": {
+            "default": false,
+            "description": "Allow a locked Via's unused copper to be changed.",
+            "type": "boolean"
           },
           "mask": {
             "anyOf": [
@@ -71813,6 +72064,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -73015,6 +73270,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,
@@ -74038,6 +74301,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -75240,6 +75507,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,
@@ -78673,6 +78948,10 @@
                 ],
                 "description": "The side of an SMD Pad, in the Footprint's frame. Left out, the top. Pads with a\nhole have none: their copper is on every Layer."
               },
+              "unused_layers": {
+                "$ref": "#/$defs/UnusedLayers",
+                "description": "Whether unused inner lands of a plated through-hole Pad are removed."
+              },
               "uuid": {
                 "format": "uuid",
                 "type": "string"
@@ -79873,6 +80152,14 @@
               "in_cpl"
             ],
             "type": "object"
+          },
+          "UnusedLayers": {
+            "enum": [
+              "keep",
+              "remove",
+              "remove_keep_ends"
+            ],
+            "type": "string"
           },
           "Wire": {
             "additionalProperties": false,

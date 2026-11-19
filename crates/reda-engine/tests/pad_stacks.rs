@@ -171,3 +171,34 @@ fn adding_an_inner_layer_uses_the_local_pad_stack_and_undo_restores_the_copy() {
     assert_eq!(copy(&engine), edited);
     assert_eq!(indexed_layers(&engine), [inner]);
 }
+
+#[test]
+fn the_board_canvas_skips_unused_lands_while_the_holes_remain_visible() {
+    let dir = TempDir::new("omitted-land-scene");
+    let (mut e, pad, via) = board(&dir);
+    e.run_ok(
+        "pcb.free_pad.edit",
+        json!({"pad":pad,"unused_layers":"remove"}),
+    );
+    e.run_ok(
+        "pcb.via.set",
+        json!({"vias":[via],"unused_layers":"remove"}),
+    );
+    let pcb = e.project().unwrap().pcb().unwrap();
+    let scene = e.board_scene(pcb.uuid, &Default::default()).unwrap();
+    for (object, outer, inner) in [(pad, true, false), (via, false, false)] {
+        for layer in pcb.copper_layers() {
+            let land = scene
+                .items
+                .iter()
+                .any(|i| i.object == object && i.layer == SceneLayer::Board(layer.uuid));
+            assert_eq!(land, if layer.side.is_some() { outer } else { inner });
+        }
+        assert!(
+            scene
+                .items
+                .iter()
+                .any(|i| i.object == object && i.layer == SceneLayer::Drill)
+        );
+    }
+}
