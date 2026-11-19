@@ -32,7 +32,7 @@ pub use names::{NO_NET, name, names};
 use crate::copper::{Copper, UnusedLands};
 
 /// Bumped whenever the fill algorithm changes, so fills made by an older REDA are stale.
-const FILL_VERSION: u32 = 4;
+const FILL_VERSION: u32 = 5;
 
 /// How far a chord of a flattened arc may stray from the arc: a fixed 0.001 mm. It only
 /// trades size against fidelity, far below what a fab resolves, so it is no setting.

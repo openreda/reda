@@ -1,6 +1,7 @@
 //! Resolve solid connections against the actual poured copper before fitting Teardrops.
 use super::{fill, layer_order, poly};
 use crate::{Copper, Item, drill::DrillHole};
+use reda_model::geom::Point;
 use reda_model::{ConnectionStyle, PcbDocument, Uuid};
 use std::collections::BTreeMap;
 
@@ -8,7 +9,7 @@ pub(crate) struct SolidPours<'a> {
     pcb: &'a PcbDocument,
     copper: &'a Copper,
     holes: &'a [DrillHole],
-    layers: BTreeMap<Uuid, Vec<fill::Filled<'a>>>,
+    layers: BTreeMap<Uuid, Vec<(Uuid, poly::ZoneArea)>>,
 }
 
 impl<'a> SolidPours<'a> {
@@ -21,14 +22,21 @@ impl<'a> SolidPours<'a> {
         }
     }
 
-    pub(crate) fn connects(&mut self, net: Option<Uuid>, layer: Uuid, target: Item) -> bool {
+    pub(crate) fn connects(
+        &mut self,
+        net: Option<Uuid>,
+        layer: Uuid,
+        target: Item,
+        at: Point,
+    ) -> bool {
+        let Some(net) = net else { return false };
         if matches!(target, Item::Track { .. })
-            || net.is_none()
             || !self
                 .pcb
                 .active_zones()
-                .any(|z| z.layer == layer && z.net == net)
-            || fill::connection_style(self.pcb, net, layer, target) != Some(ConnectionStyle::Solid)
+                .any(|z| z.layer == layer && z.net == Some(net))
+            || fill::connection_style(self.pcb, Some(net), layer, target)
+                != Some(ConnectionStyle::Solid)
         {
             return false;
         }
@@ -50,10 +58,13 @@ impl<'a> SolidPours<'a> {
                 poured.push(fill::Filled { zone, area });
             }
             poured
+                .into_iter()
+                .filter_map(|f| Some((f.zone.net?, poly::ZoneArea::new(f.area)?)))
+                .collect()
         });
-        let land = poly::union(poly::grown(land, 1));
+        let bounds = land.bounds();
         poured
             .iter()
-            .any(|f| f.zone.net == net && poly::overlaps(&land, &f.area))
+            .any(|(zone_net, area)| *zone_net == net && area.covers(land, at, bounds))
     }
 }

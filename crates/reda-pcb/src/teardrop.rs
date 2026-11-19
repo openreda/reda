@@ -172,7 +172,7 @@ pub(crate) fn update(
     let mut saved = saved;
     let mut solid = crate::zone::SolidPours::new(pcb, &copper, &holes);
     let mut junctions = candidates(pcb, &copper);
-    junctions.retain(|j| !solid.connects(j.track.net, j.track.layer, j.target));
+    junctions.retain(|j| !solid.connects(j.track.net, j.track.layer, j.target, j.location.at));
     for (index, j) in junctions.iter().enumerate() {
         if !step(index, junctions.len()) {
             return None;

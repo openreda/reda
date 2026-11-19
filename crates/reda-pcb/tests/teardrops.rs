@@ -567,6 +567,30 @@ fn only_a_solid_connection_to_actual_poured_copper_suppresses_the_pad_taper() {
 }
 
 #[test]
+fn a_solid_pour_must_reach_the_round_land_to_suppress_its_teardrop() {
+    let dir = TempDir::new("solid-round-land-contact");
+    let (mut e, net) = board(&dir);
+    let zone = pad_with_zone(&mut e, net, "solid");
+    // The 2 mm Pad ends at x = 11 mm. Both outlines are within the filler's
+    // polygon flattening tolerance of its copper edge.
+    for (x, expected) in [(11_000_100, 1), (10_999_900, 0)] {
+        e.run_ok(
+            "pcb.zone.set",
+            json!({"zone": zone, "min_width": 1, "pour_over":"all", "vertices": [
+                {"x":x, "y":"5mm"}, {"x":"15mm", "y":"5mm"},
+                {"x":"15mm", "y":"15mm"}, {"x":x, "y":"15mm"}
+            ]}),
+        );
+        e.run_ok("pcb.zone.fill", json!({}));
+        assert_eq!(
+            e.run_ok("pcb.teardrop.status", json!({}))["generated"],
+            expected,
+            "x={x}"
+        );
+    }
+}
+
+#[test]
 fn the_zone_gap_includes_the_taper_of_a_relieved_or_disconnected_pad() {
     for style in ["relief", "none"] {
         let dir = TempDir::new("gap-pad-teardrop");
