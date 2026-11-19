@@ -165,7 +165,9 @@ fn request_layer(set: &LayerSet, view: &mut BoardView, target: Uuid) -> ActiveLa
     if !view.defer_layer_activation {
         view.activate(set, target);
     }
-    ActiveLayer { layer: Some(target) }
+    ActiveLayer {
+        layer: Some(target),
+    }
 }
 
 struct LayerActivate;

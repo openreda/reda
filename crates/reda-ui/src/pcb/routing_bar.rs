@@ -20,6 +20,7 @@ use crate::bars::{self, Action, Binding, DocumentType};
 use crate::shell::Shell;
 use crate::theme::TokensExt as _;
 use crate::tools::Tool;
+use crate::widgets::Tooltip as _;
 use crate::{tr, widgets};
 
 /// The least width of the chooser's typed field.
@@ -165,9 +166,12 @@ fn chooser_ui(
     };
     // Each row's text and what it runs.
     let rows: Vec<(String, Invocation)> = match chooser {
-        Chooser::Candidates { target, selected, page, count } => {
-            return candidate_list(ui, shell, id, at, *target, *selected, *page, *count)
-        }
+        Chooser::Candidates {
+            target,
+            selected,
+            page,
+            count,
+        } => return candidate_list(ui, shell, id, at, *target, *selected, *page, *count),
         Chooser::Width(rows) => rows
             .iter()
             .map(|row| {
@@ -200,7 +204,7 @@ fn chooser_ui(
             .collect(),
     };
     let (title, hint) = match chooser {
-        Chooser::Candidates {..} => unreachable!("candidate list returned above"),
+        Chooser::Candidates { .. } => unreachable!("candidate list returned above"),
         Chooser::Width(_) => (tr!("route-chooser-width"), tr!("route-chooser-type-width")),
         Chooser::Via(_) => (tr!("route-chooser-via"), tr!("route-chooser-type-via")),
     };
@@ -260,7 +264,7 @@ fn text_width(ui: &Ui, style: &crate::theme::Text, text: &str) -> f32 {
 /// (`0.6mm 0.3mm`).
 fn typed_invocation(chooser: &Chooser, typed: &str) -> Option<Invocation> {
     match chooser {
-        Chooser::Candidates {..} => None,
+        Chooser::Candidates { .. } => None,
         Chooser::Width(_) => Some(("pcb.route.width".to_owned(), json!({ "width": typed }))),
         Chooser::Via(_) => {
             let mut parts = typed.split(|c: char| c == '/' || c.is_whitespace());
@@ -276,8 +280,16 @@ fn typed_invocation(chooser: &Chooser, typed: &str) -> Option<Invocation> {
 
 /// Page the ranked DAG so even a dense 32-Layer board can show its last choice.
 #[allow(clippy::too_many_arguments)]
-fn candidate_list(ui: &Ui, shell: &Shell, id: Id, at: egui::Pos2, target: reda_engine::model::Uuid,
-                  selected: usize, page: usize, count: usize) -> Option<Invocation> {
+fn candidate_list(
+    ui: &Ui,
+    shell: &Shell,
+    id: Id,
+    at: egui::Pos2,
+    target: reda_engine::model::Uuid,
+    selected: usize,
+    page: usize,
+    count: usize,
+) -> Option<Invocation> {
     use super::route::PAGE_SIZE;
     let project = shell.engine().project()?;
     let pcb = project.pcb()?;
@@ -287,55 +299,108 @@ fn candidate_list(ui: &Ui, shell: &Shell, id: Id, at: egui::Pos2, target: reda_e
     let t = ui.tokens();
     let mut action = None;
     let invoke = |params| ("pcb.route.pick_via".to_string(), params);
-    egui::Area::new(id).order(Order::Foreground).fixed_pos(at).pivot(Align2::CENTER_BOTTOM)
-        .show(ui.ctx(), |ui| widgets::floating_frame(&t).show(ui, |ui| {
-            let width = (ui.ctx().content_rect().width() * 0.55).clamp(180.,440.);
-            ui.set_width(width);
-            ui.horizontal(|ui| {
-                ui.label(tr!("route-via-destination"));
-                let mut to = target;
-                let dropdown = widgets::dropdown(id.with("layer"), &name).show(ui, |ui| {
-                    egui::ScrollArea::vertical().max_height(10.0 * t.row_height()).show(ui, |ui| {
-                        for layer in pcb.copper_layers().filter(|l| l.uuid != from) {
-                            widgets::choice_value(ui, &mut to, layer.uuid, &super::layer_control::chip_name(pcb,layer));
+    egui::Area::new(id)
+        .order(Order::Foreground)
+        .fixed_pos(at)
+        .pivot(Align2::CENTER_BOTTOM)
+        .show(ui.ctx(), |ui| {
+            widgets::floating_frame(&t).show(ui, |ui| {
+                let width = (ui.ctx().content_rect().width() * 0.55).clamp(180., 440.);
+                ui.set_width(width);
+                ui.horizontal(|ui| {
+                    ui.label(tr!("route-via-destination"));
+                    let mut to = target;
+                    let dropdown = widgets::dropdown(id.with("layer"), &name).show(ui, |ui| {
+                        egui::ScrollArea::vertical()
+                            .max_height(10.0 * t.row_height())
+                            .show(ui, |ui| {
+                                for layer in pcb.copper_layers().filter(|l| l.uuid != from) {
+                                    widgets::choice_value(
+                                        ui,
+                                        &mut to,
+                                        layer.uuid,
+                                        super::layer_control::chip_name(pcb, layer),
+                                    );
+                                }
+                            });
+                    });
+                    a11y::name(
+                        &dropdown.response,
+                        Role::ComboBox,
+                        true,
+                        &tr!("route-via-destination"),
+                        None,
+                        None,
+                    );
+                    if to != target {
+                        action = Some(invoke(json!({"target":to})));
+                    }
+                });
+                if count == 0 {
+                    ui.label(tr!("route-no-via"));
+                }
+                egui::ScrollArea::vertical()
+                    .id_salt((target, page))
+                    .max_height(8.0 * t.row_height())
+                    .show(ui, |ui| {
+                        for rank in page * PAGE_SIZE..((page + 1) * PAGE_SIZE).min(count) {
+                            if let Some(label) = shell.router().candidate_label(pcb, rank) {
+                                let row = ui.add(
+                                    widgets::list_row(&label)
+                                        .selected(selected == rank)
+                                        .width(width),
+                                );
+                                a11y::name(&row, Role::ListItem, true, &label, None, None);
+                                if row.clicked() {
+                                    action = Some(invoke(json!({"target":target,"index":rank})));
+                                }
+                                row.tooltip(label);
+                            }
                         }
                     });
-                });
-                a11y::name(&dropdown.response,Role::ComboBox,true,&tr!("route-via-destination"),None,None);
-                if to != target {action = Some(invoke(json!({"target":to})));}
-            });
-            if count == 0 {ui.label(tr!("route-no-via"));}
-            egui::ScrollArea::vertical().id_salt((target,page)).max_height(8.0*t.row_height()).show(ui, |ui| {
-                for rank in page*PAGE_SIZE..((page+1)*PAGE_SIZE).min(count) {
-                    if let Some(label) = shell.router().candidate_label(pcb,rank) {
-                        let row = ui.add(widgets::list_row(&label).selected(selected==rank).width(width));
-                        a11y::name(&row,Role::ListItem,true,&label,None,None);
-                        if row.clicked() {action = Some(invoke(json!({"target":target,"index":rank})));}
-                        row.on_hover_text(label);
-                    }
+                if count > PAGE_SIZE {
+                    ui.horizontal(|ui| {
+                        let pages = count.div_ceil(PAGE_SIZE);
+                        if ui
+                            .add_enabled(page > 0, widgets::button(tr!("route-via-previous-page")))
+                            .clicked()
+                        {
+                            action = Some(invoke(json!({"target":target,"page":page-1})));
+                        }
+                        let key = id.with(("page", target, page));
+                        let mut number = ui
+                            .data(|d| d.get_temp::<String>(key))
+                            .unwrap_or_else(|| (page + 1).to_string());
+                        let field = ui.add(widgets::text_field(&mut number).width(72.));
+                        a11y::name(
+                            &field,
+                            Role::TextInput,
+                            true,
+                            &tr!("route-via-page"),
+                            None,
+                            None,
+                        );
+                        if field.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && let Ok(n) = number.parse::<usize>()
+                            && (1..=pages).contains(&n)
+                        {
+                            action = Some(invoke(json!({"target":target,"page":n-1})));
+                        }
+                        ui.data_mut(|d| d.insert_temp(key, number));
+                        ui.label(format!("/ {pages}"));
+                        if ui
+                            .add_enabled(
+                                page + 1 < pages,
+                                widgets::button(tr!("route-via-next-page")),
+                            )
+                            .clicked()
+                        {
+                            action = Some(invoke(json!({"target":target,"page":page+1})));
+                        }
+                    });
                 }
-            });
-            if count > PAGE_SIZE {
-                ui.horizontal(|ui| {
-                    let pages = count.div_ceil(PAGE_SIZE);
-                    if ui.add_enabled(page>0, widgets::button(tr!("route-via-previous-page"))).clicked() {
-                        action = Some(invoke(json!({"target":target,"page":page-1})));
-                    }
-                    let key = id.with(("page", target, page));
-                    let mut number = ui.data(|d| d.get_temp::<String>(key)).unwrap_or_else(|| (page+1).to_string());
-                    let field = ui.add(widgets::text_field(&mut number).width(72.));
-                    a11y::name(&field,Role::TextInput,true,&tr!("route-via-page"),None,None);
-                    if field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) &&
-                        let Ok(n) = number.parse::<usize>() && (1..=pages).contains(&n) {
-                        action = Some(invoke(json!({"target":target,"page":n-1})));
-                    }
-                    ui.data_mut(|d| d.insert_temp(key,number));
-                    ui.label(format!("/ {pages}"));
-                    if ui.add_enabled(page+1 < pages, widgets::button(tr!("route-via-next-page"))).clicked() {
-                        action=Some(invoke(json!({"target":target,"page":page+1})));
-                    }
-                });
-            }
-        }));
+            })
+        });
     action
 }

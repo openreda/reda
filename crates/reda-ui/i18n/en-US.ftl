@@ -3207,3 +3207,4 @@ route-via-destination = Via to Layer
 route-via-previous-page = Previous
 route-via-next-page = Next
 route-via-page = Candidate page
+route-via-invalid-size = The Via hole must fit inside every land after applying the size limits.

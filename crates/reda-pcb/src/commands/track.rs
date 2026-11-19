@@ -60,8 +60,10 @@ pub struct TrackAddParams {
     /// The Net's UUID. Left out, the route takes the Net of the copper under its first
     /// point on this Layer (a Pad, Track or Via), or else of the copper under its last
     /// point; on neither, it is on no Net.
-    #[serde(default)]
-    pub net: Option<Uuid>,
+    /// Explicit `null` keeps a route on no Net.
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<Uuid>")]
+    pub net: Option<Option<Uuid>>,
     /// The width; left out, the Net Class's track width, else the board's rule.
     #[serde(default)]
     pub width: Option<Length>,
@@ -111,8 +113,8 @@ impl Command for TrackAdd {
                 "the point repeats the one before it",
             ));
         }
-        let net = match existing_net(pcb, p.net, "/net")? {
-            Some(net) => Some(net),
+        let net = match p.net {
+            Some(net) => existing_net(pcb, net, "/net")?,
             None => {
                 let copper = super::board_copper(cx)?;
                 let first = points[0];

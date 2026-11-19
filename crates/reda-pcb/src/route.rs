@@ -291,20 +291,33 @@ fn check(copper: &Copper, pcb: &PcbDocument, r: &Request, from: Point, to: Point
 /// The Board Outline and Board Cutouts `proposal` comes closer to than the Net's
 /// `edge_clearance`, or crosses to the wrong side of.
 pub fn edges_hit(pcb: &PcbDocument, proposal: &Proposal) -> Vec<Uuid> {
-    let Proposal::Track {
-        geometry,
-        width,
-        net,
-        ..
-    } = *proposal
-    else {
-        return Vec::new();
+    use crate::copper::shape::Shape;
+    let (shape, (a, b), net) = match *proposal {
+        Proposal::Track {
+            geometry,
+            width,
+            net,
+            ..
+        } => (Shape::track(&geometry, width), geometry.ends(), net),
+        Proposal::Via {
+            span,
+            diameter,
+            at,
+            net,
+            ..
+        } => {
+            let largest = pcb
+                .span_layers(span)
+                .into_iter()
+                .map(|l| diameter.on(span, l))
+                .max()
+                .unwrap_or(diameter.start);
+            (Shape::disc(at, largest), (at, at), net)
+        }
     };
     let Some(required) = crate::rules::net_rules(pcb, net).edge_clearance else {
         return Vec::new();
     };
-    let shape = crate::copper::shape::Shape::track(&geometry, width);
-    let (a, b) = geometry.ends();
     crate::drc::edge::Edge::all(pcb)
         .into_iter()
         .filter(|edge| {
@@ -458,22 +471,16 @@ pub fn commit(
         out.removes = removes;
         out.note = note;
     }
-    let net_param = |params: &mut Value| {
-        if let Some(net) = net {
-            params["net"] = json!(net);
-        }
-    };
     if !out.removes.objects.is_empty() {
         out.steps.push(json!({"id": "pcb.copper.delete",
                               "params": {"objects": out.removes.objects}}));
     }
     for piece in &out.removes.keep {
-        let mut params = json!({
-            "layer": piece.layer,
+        let params = json!({
+            "net": net, "layer": piece.layer,
             "points": [point(piece.from), point(piece.to)],
             "width": piece.width.0,
         });
-        net_param(&mut params);
         out.steps
             .push(json!({"id": "pcb.track.add", "params": params}));
     }
@@ -481,10 +488,9 @@ pub fn commit(
         match step {
             Step::Leg(leg) if leg.points.len() > 1 => {
                 let points: Vec<Value> = leg.points.iter().map(|p| point(*p)).collect();
-                let mut params = json!({
-                    "layer": leg.layer, "points": points, "width": leg.width.0
+                let params = json!({
+                    "net": net, "layer": leg.layer, "points": points, "width": leg.width.0
                 });
-                net_param(&mut params);
                 out.steps
                     .push(json!({"id": "pcb.track.add", "params": params}));
             }

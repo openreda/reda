@@ -744,9 +744,26 @@ fn a_layer_jump_places_a_stack_as_one_route_step_and_one_edit() {
     let top = copper(&b, Side::Top);
     let bottom = copper(&b, Side::Bottom);
     run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
-    let inner = b.shell.engine().project().unwrap().pcb().unwrap().copper_layers().nth(1).unwrap().uuid;
-    for (from, to, hole, diameter) in [(inner,top, "0.2mm", "0.45mm"), (inner,bottom, "0.3mm", "0.85mm")] {
-        run(&mut b.shell, "pcb.via_type.add", json!({"document":b.pcb,"from":from,"to":to,"micro":to==top,"hole":hole,"diameter":diameter}));
+    let inner = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .nth(1)
+        .unwrap()
+        .uuid;
+    for (from, to, hole, diameter) in [
+        (inner, top, "0.2mm", "0.45mm"),
+        (inner, bottom, "0.3mm", "0.85mm"),
+    ] {
+        run(
+            &mut b.shell,
+            "pcb.via_type.add",
+            json!({"document":b.pcb,"from":from,"to":to,"micro":to==top,"hole":hole,"diameter":diameter}),
+        );
     }
     run(&mut b.shell, "tool.activate:route", json!({}));
     route_to(&mut b, mm(0.0, 0.0));
@@ -763,7 +780,10 @@ fn a_layer_jump_places_a_stack_as_one_route_step_and_one_edit() {
     assert_eq!(id, "batch");
     let steps = params["commands"].as_array().unwrap();
     assert_eq!(steps.len(), 3);
-    for (entry, from, to, diameter) in [(&steps[1], inner, top, 450_000), (&steps[2], inner, bottom, 850_000)] {
+    for (entry, from, to, diameter) in [
+        (&steps[1], inner, top, 450_000),
+        (&steps[2], inner, bottom, 850_000),
+    ] {
         assert_eq!(entry["id"], "pcb.via.add");
         let p = &entry["params"];
         assert_eq!(p["from"], json!(from));
@@ -774,5 +794,317 @@ fn a_layer_jump_places_a_stack_as_one_route_step_and_one_edit() {
     }
     run(&mut b.shell, "edit.undo", json!({"document":b.pcb}));
     let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
-    assert_eq!((pcb.vias().count(), pcb.tracks().count()), (0,0));
+    assert_eq!((pcb.vias().count(), pcb.tracks().count()), (0, 0));
+}
+
+#[test]
+fn the_candidate_shows_its_drilling_direction_lands_and_the_obstruction_on_another_layer() {
+    let mut b = board();
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let copper: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(
+        &mut b.shell,
+        "pcb.via_type.add",
+        json!({"document":b.pcb, "from":copper[1], "to":copper[0],
+        "micro":true, "diameter":{"start":"2mm","end":"0.4mm"},"hole":"0.1mm"}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.track.add",
+        json!({"layer":copper[1],"points":[{"x":"5mm","y":"0.8mm"},{"x":"9mm","y":"0.8mm"}],"width":"0.2mm"}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    run(&mut b.shell, "pcb.layer.activate:1", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    b.shell.route_hover(mm(5., 0.));
+    let proposed = b.shell.route_preview().unwrap().via_candidate.unwrap();
+    assert_eq!(proposed.target, copper[1]);
+    assert_eq!(proposed.members[0].span.from, copper[1]);
+    assert_eq!(proposed.members[0].diameter.end, Some(Nm::from_um(400)));
+    assert!(proposed.blocked.is_some());
+    assert!(
+        !b.shell.router().halos().is_empty(),
+        "the inner Layer has the only obstacle"
+    );
+    run(&mut b.shell, "pcb.route.previous_layer", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, copper[0]);
+    assert!(b.shell.route_preview().unwrap().vias.is_empty());
+    b.shell.route_hover(mm(5., 4.));
+    assert!(
+        b.shell
+            .route_preview()
+            .unwrap()
+            .via_candidate
+            .unwrap()
+            .blocked
+            .is_none()
+    );
+}
+
+#[test]
+fn microvia_limits_apply_to_the_user_size_and_each_size_mode_in_a_stay_or_end_jump() {
+    let mut b = board();
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(
+        &mut b.shell,
+        "pcb.via_type.add",
+        json!({"document":b.pcb,"from":layers[0],"to":layers[1],"micro":true,"diameter":"0.4mm","hole":"0.15mm"}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.rules.set",
+        json!({"kind":"microvia_size","values":{"diameter":{"min":"0.25mm","max":"0.8mm"},"hole":{"min":"0.12mm","max":"0.22mm"}}}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:1", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    b.shell.route_hover(mm(2., 0.));
+    run(
+        &mut b.shell,
+        "pcb.route.pick_via",
+        json!({"target":layers[1],"index":0}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.route.via_size",
+        json!({"diameter":"0.35mm","hole":"0.1mm"}),
+    );
+    let sizes = |s: &Shell| {
+        let v = s.route_preview().unwrap().via_candidate.unwrap().members[0];
+        (v.diameter.start.0, v.hole.0)
+    };
+    assert_eq!(sizes(&b.shell), (350_000, 120_000));
+    for expected in [
+        (250_000, 120_000),
+        (400_000, 150_000),
+        (800_000, 220_000),
+        (350_000, 120_000),
+    ] {
+        run(&mut b.shell, "pcb.route.mode:via_size", json!({}));
+        assert_eq!(sizes(&b.shell), expected);
+    }
+    run(&mut b.shell, "pcb.route.via_stay", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, layers[0]);
+    b.shell.route_hover(mm(4., 2.));
+    run(
+        &mut b.shell,
+        "pcb.route.pick_via",
+        json!({"target":layers[1],"index":0}),
+    );
+    run(&mut b.shell, "pcb.route.via_end", json!({}));
+    assert!(b.shell.route_preview().is_none());
+    assert_eq!(b.shell.board_view().layers.active, Some(layers[0]));
+    assert_eq!(last_entry(&b).0, "batch");
+    assert_eq!(
+        b.shell
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .vias()
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn a_no_net_route_across_other_copper_keeps_its_net_on_the_track_and_via() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "app.preferences.set",
+        json!({"key":"pcb.route.obstacle_mode","value":"ignore"}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 4.));
+    b.shell.route_hover(mm(0., 0.));
+    run(&mut b.shell, "pcb.route.via_end", json!({}));
+    let pcb = b.shell.engine().project().unwrap().pcb().unwrap();
+    assert_eq!(pcb.vias().next().unwrap().net, None);
+    assert_eq!(pcb.tracks().next().unwrap().net, None);
+}
+
+#[test]
+fn picking_up_copper_on_another_layer_sets_previous_and_l_changes_only_the_start() {
+    let mut b = board();
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(
+        &mut b.shell,
+        "pcb.via_type.add",
+        json!({"document":b.pcb,"from":layers[2],"to":layers[1]}),
+    );
+    run(
+        &mut b.shell,
+        "pcb.via.add",
+        json!({"at":{"x":"4mm","y":"4mm"},"net":b.net,"from":layers[2],"to":layers[1]}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(4., 4.));
+    assert_eq!(b.shell.route_preview().unwrap().layer, layers[1]);
+    assert_eq!(b.shell.board_view().layers.previous, Some(layers[0]));
+    run(&mut b.shell, "pcb.route.start_layer", json!({}));
+    let preview = b.shell.route_preview().unwrap();
+    assert_eq!(preview.layer, layers[2]);
+    assert_eq!(preview.net, Some(b.net));
+    assert_eq!(b.shell.board_view().layers.previous, Some(layers[1]));
+    assert!(preview.vias.is_empty());
+    run(&mut b.shell, "pcb.route.finish", json!({}));
+    assert_eq!(
+        b.shell
+            .engine()
+            .project()
+            .unwrap()
+            .pcb()
+            .unwrap()
+            .vias()
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn a_land_on_the_far_end_of_the_candidate_keeps_the_board_edge_clear() {
+    let mut b = board();
+    run(
+        &mut b.shell,
+        "pcb.board_outline.add_rect",
+        json!({"width":"20mm","height":"20mm"}),
+    );
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    run(
+        &mut b.shell,
+        "pcb.via_type.add",
+        json!({"document":b.pcb,"from":layers[0],"to":layers[1],"micro":true,
+        "diameter":{"start":"0.4mm","end":"2.5mm"},"hole":"0.1mm"}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:2", json!({}));
+    run(&mut b.shell, "pcb.layer.activate:1", json!({}));
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(5., 5.));
+    b.shell.route_hover(mm(1., 5.));
+    let preview = b.shell.route_preview().unwrap();
+    assert!(!preview.blocked, "the Track fits");
+    assert!(
+        preview.via_candidate.unwrap().blocked.is_some(),
+        "the far-side land crosses the outline"
+    );
+    run(&mut b.shell, "pcb.layer.next", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, layers[0]);
+}
+
+#[test]
+fn reopening_reuses_the_reverse_pair_choice_and_restricted_nets_only_see_allowed_candidates() {
+    let mut b = board();
+    run(&mut b.shell, "pcb.layer.add", json!({"document":b.pcb}));
+    let layers: Vec<_> = b
+        .shell
+        .engine()
+        .project()
+        .unwrap()
+        .pcb()
+        .unwrap()
+        .copper_layers()
+        .map(|l| l.uuid)
+        .collect();
+    let mut kinds = Vec::new();
+    for pair in layers.windows(2) {
+        kinds.push(
+            run(
+                &mut b.shell,
+                "pcb.via_type.add",
+                json!({"document":b.pcb,"from":pair[0],"to":pair[1]}),
+            )["result"]["uuid"]
+                .clone(),
+        );
+    }
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    run(&mut b.shell, "pcb.route.cycle_via", json!({}));
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    run(&mut b.shell, "pcb.layer.activate:3", json!({}));
+    run(&mut b.shell, "project.save", json!({}));
+    let path = b.shell.engine().location().unwrap().to_owned();
+    run(&mut b.shell, "project.close", json!({}));
+    b.shell.open_project(&path).unwrap();
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(5., 5.));
+    let preview = b.shell.route_preview().unwrap().via_candidate.unwrap();
+    assert_eq!(preview.target, layers[0]);
+    assert_eq!(preview.members.len(), 2);
+    run(&mut b.shell, "tool.activate:select", json!({}));
+    let class = run(
+        &mut b.shell,
+        "pcb.net_class.add",
+        json!({"name":"Restricted","rules":[{"kind":"via_span","values":{"allowed":[kinds[0]]}}]}),
+    )["result"]["uuid"]
+        .clone();
+    run(
+        &mut b.shell,
+        "pcb.net.add_to_class",
+        json!({"nets":[b.net],"class":class}),
+    );
+    run(&mut b.shell, "pcb.layer.activate:1", json!({}));
+    run(
+        &mut b.shell,
+        "pcb.layer.show",
+        json!({"layer":layers[2],"visible":false}),
+    );
+    run(&mut b.shell, "tool.activate:route", json!({}));
+    route_to(&mut b, mm(0., 0.));
+    b.shell.route_hover(mm(5., 0.));
+    let prior = b.shell.board_view().layers.clone();
+    run(&mut b.shell, "pcb.layer.activate:3", json!({}));
+    assert_eq!(
+        b.shell.board_view().layers,
+        prior,
+        "a refused jump does not even reveal the Layer"
+    );
+    assert!(b.shell.message().unwrap().contains("No permitted Via"));
+    let p = b.shell.route_preview().unwrap();
+    assert!(p.vias.is_empty());
+    assert_eq!(p.placed, [mm(0., 0.)]);
+    assert_eq!(p.net, Some(b.net));
+    run(&mut b.shell, "pcb.layer.next", json!({}));
+    assert_eq!(b.shell.route_preview().unwrap().layer, layers[1]);
 }

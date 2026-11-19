@@ -738,6 +738,21 @@ command = "pcb.route.previous_layer"
 
 [[bind]]
 context = "tool:route"
+key = "2"
+command = "pcb.route.via_stay"
+
+[[bind]]
+context = "tool:route"
+key = "L"
+command = "pcb.route.start_layer"
+
+[[bind]]
+context = "tool:route"
+key = "4"
+command = "pcb.route.mode:via_size"
+
+[[bind]]
+context = "tool:route"
 key = "6"
 command = "pcb.route.cycle_via"
 

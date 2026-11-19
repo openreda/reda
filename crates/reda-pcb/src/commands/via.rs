@@ -34,8 +34,10 @@ pub struct ViaAddParams {
     pub to: Option<Uuid>,
     /// The Net's UUID. Left out, the Via takes the Net of the copper under its centre on
     /// a copper Layer in its span, or else no Net.
-    #[serde(default)]
-    pub net: Option<Uuid>,
+    /// Explicit `null` keeps a route on no Net.
+    #[serde(default, deserialize_with = "super::nullable")]
+    #[schemars(with = "Option<Uuid>")]
+    pub net: Option<Option<Uuid>>,
     /// The copper diameters in drilling order, defaulting to the type with the Net Class preference.
     #[serde(default)]
     pub diameter: Option<DiameterParam>,
@@ -81,8 +83,8 @@ impl Command for ViaAdd {
         let kind = pcb.stackup().type_for_span(span);
         let span = kind.map_or(span, |v| v.span());
         let at = p.at.point();
-        let net = match existing_net(pcb, p.net, "/net")? {
-            Some(net) => Some(net),
+        let net = match p.net {
+            Some(net) => existing_net(pcb, net, "/net")?,
             None => {
                 let copper = super::board_copper(cx)?;
                 pcb.span_layers(span)

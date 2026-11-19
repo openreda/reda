@@ -22,6 +22,9 @@ pub(crate) fn finish(ctx: &Context, shell: &mut Shell) {
         d.remove_temp::<Option<(Id, Uuid)>>(Id::unique("hovered-layer-chip"))
             .flatten()
     });
+    if shell.router().routing() {
+        shell.route_hover_layer(chip.map(|(_, layer)| layer));
+    }
     let chip = chip.filter(|_| {
         shell.preferences().pcb.layer.hover_solo
             && !shell.pcb_tool().in_progress()

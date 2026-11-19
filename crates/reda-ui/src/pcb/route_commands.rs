@@ -23,6 +23,8 @@ use crate::tools::{ActiveTool, Tool};
 pub fn register_all(registry: &mut Registry) {
     registry.add(AddVia);
     registry.add(PreviousLayer);
+    registry.add(ViaStay);
+    registry.add(StartLayer);
     registry.add(CycleVia);
     registry.add(PickVia);
     registry.add(Finish);
@@ -96,8 +98,34 @@ route_key!(
      of the board.",
     "via"
 );
-route_key!(PreviousLayer, "pcb.route.previous_layer", "Route to Previous Layer", "Places the proposed Via or stack and continues on the Previous Layer.", "via");
-route_key!(CycleVia, "pcb.route.cycle_via", "Next Via Candidate", "Previews the next permitted Via or stack for this pair of Layers.", "via");
+route_key!(
+    StartLayer,
+    "pcb.route.start_layer",
+    "Next Route Start Layer",
+    "Starts on the next copper Layer of the same Pad or Via before placing a segment.",
+    "layer_next"
+);
+route_key!(
+    ViaStay,
+    "pcb.route.via_stay",
+    "Place Via on This Layer",
+    "Places the proposed Via or stack and continues routing on the current Layer.",
+    "via"
+);
+route_key!(
+    PreviousLayer,
+    "pcb.route.previous_layer",
+    "Route to Previous Layer",
+    "Places the proposed Via or stack and continues on the Previous Layer.",
+    "via"
+);
+route_key!(
+    CycleVia,
+    "pcb.route.cycle_via",
+    "Next Via Candidate",
+    "Previews the next permitted Via or stack for this pair of Layers.",
+    "via"
+);
 route_key!(
     Finish,
     "pcb.route.finish",
@@ -133,6 +161,8 @@ pub enum RouteMode {
     Posture,
     /// `3`: the next width mode, `pcb.route.width_mode`.
     WidthMode,
+    /// `4`: the next available Via size mode.
+    ViaSize,
     /// Shift+R: the next obstacle mode, `pcb.route.obstacle_mode`.
     ObstacleMode,
     /// Shift+A: `pcb.route.auto_terminate`.
@@ -144,10 +174,11 @@ pub enum RouteMode {
 }
 
 impl RouteMode {
-    pub const ALL: [RouteMode; 7] = [
+    pub const ALL: [RouteMode; 8] = [
         RouteMode::Lookahead,
         RouteMode::Posture,
         RouteMode::WidthMode,
+        RouteMode::ViaSize,
         RouteMode::ObstacleMode,
         RouteMode::AutoTerminate,
         RouteMode::LoopRemoval,
@@ -160,6 +191,7 @@ impl RouteMode {
             RouteMode::Lookahead => "lookahead",
             RouteMode::Posture => "posture",
             RouteMode::WidthMode => "width_mode",
+            RouteMode::ViaSize => "via_size",
             RouteMode::ObstacleMode => "obstacle_mode",
             RouteMode::AutoTerminate => "auto_terminate",
             RouteMode::LoopRemoval => "loop_removal",
@@ -172,6 +204,7 @@ impl RouteMode {
             RouteMode::Lookahead => ("Toggle Look-Ahead", "route_lookahead"),
             RouteMode::Posture => ("Flip Posture", "route_corner_45"),
             RouteMode::WidthMode => ("Next Width Mode", "rule"),
+            RouteMode::ViaSize => ("Next Via Size Mode", "via"),
             RouteMode::ObstacleMode => ("Next Obstacle Mode", "route_obstacle_stop"),
             RouteMode::AutoTerminate => ("Toggle Auto-Terminate", "route_auto_terminate"),
             RouteMode::LoopRemoval => ("Toggle Loop Removal", "route_loop_removal"),
@@ -427,20 +460,37 @@ pub struct PickViaParams {
 struct PickVia;
 impl Command for PickVia {
     const META: Meta = Meta {
-        id: "pcb.route.pick_via", title: "Choose Via or Stack",
+        id: "pcb.route.pick_via",
+        title: "Choose Via or Stack",
         description: "Lists permitted Vias and stacks for a destination Layer or selects one by rank.",
-        category: "tool", icon: "via", kind: Kind::View,
+        category: "tool",
+        icon: "via",
+        kind: Kind::View,
     };
     type Params = PickViaParams;
     type Output = PickViaParams;
-    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> { needs_pcb(cx) }
+    fn available(&self, cx: &AvailabilityContext<'_>) -> Result<(), Unavailable> {
+        needs_pcb(cx)
+    }
     fn run(&self, cx: &mut Context<'_>, p: PickViaParams) -> Result<PickViaParams, CommandError> {
         routing(cx)?;
         if p.page.is_some() && p.index.is_some() {
-            return Err(CommandError::invalid_params("/page","choose a page or a candidate"));
+            return Err(CommandError::invalid_params(
+                "/page",
+                "choose a page or a candidate",
+            ));
         }
-        if let Some(to) = p.target && cx.project()?.pcb().and_then(|p| p.copper_number(to)).is_none() {
-            return Err(CommandError::invalid_params("/target","choose a copper Layer"));
+        if let Some(to) = p.target
+            && cx
+                .project()?
+                .pcb()
+                .and_then(|p| p.copper_number(to))
+                .is_none()
+        {
+            return Err(CommandError::invalid_params(
+                "/target",
+                "choose a copper Layer",
+            ));
         }
         Ok(p)
     }
