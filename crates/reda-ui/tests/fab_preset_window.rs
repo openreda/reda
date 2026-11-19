@@ -329,3 +329,34 @@ fn gerber_preset_previews_a_four_layer_boards_copper_files_as_the_pattern_change
         serde_json::json!([])
     );
 }
+
+#[test]
+fn removing_the_last_layer_override_reveals_and_preserves_the_copper_pattern() {
+    let (home, work) = (TempDir::new("override-home"), TempDir::new("override-work"));
+    let mut h = harness(home.path(), Some(work.path()));
+    let preset = copy(&h).uuid;
+    h.state_mut()
+        .shell_mut()
+        .run(
+            "fab_preset.set",
+            serde_json::json!({"preset":preset,"values":{"gerber":{"file_names":{
+                "inner_copper":"plane${inner}.ger","layers":[{"layer":"L2","name":"ground.ger"}]
+            }}}}),
+        )
+        .unwrap();
+    open_settings(&mut h);
+    page(&mut h, "Gerber");
+    h.get_by_label("ground.ger");
+    h.get_by_role_and_label(Role::Button, "Remove")
+        .scroll_to_me();
+    h.run();
+    h.get_by_role_and_label(Role::Button, "Remove").click();
+    h.run();
+    h.get_by_label("plane1.ger");
+    h.get_by_label("Apply").click();
+    h.run();
+    assert_eq!(
+        serde_json::json!(copy(&h).gerber)["file_names"],
+        serde_json::json!({"inner_copper":"plane${inner}.ger"})
+    );
+}

@@ -221,6 +221,15 @@ impl PresetEditor {
                 }
             }
         }
+        // A stored pattern omits empty Layer overrides. In a command patch, omitting
+        // them means "keep the old rows", so removing the last one needs an explicit [].
+        if let Some(Value::Object(names)) =
+            out.get_mut("gerber").and_then(|g| g.get_mut("file_names"))
+        {
+            names
+                .entry("layers")
+                .or_insert_with(|| Value::Array(Vec::new()));
+        }
         (!out.is_empty()).then_some(Value::Object(out))
     }
 
