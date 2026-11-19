@@ -103,11 +103,7 @@ pub fn footprints(pcb: &PcbDocument, search: &str) -> Vec<FootprintRow> {
 
 /// The Zones per copper Layer in pour order, as `pcb.zone.list` gives them, keeping the
 /// ones whose name or Net name matches `search`. Layers with no Zones are left out.
-pub fn zones(pcb: &PcbDocument, fills: Option<&ZoneFills>, search: &str) -> ZoneListing {
-    zones_with_fonts(pcb, fills, search, &Default::default())
-}
-
-pub(super) fn zones_with_fonts(
+pub(super) fn zones(
     pcb: &PcbDocument,
     fills: Option<&ZoneFills>,
     search: &str,
