@@ -662,3 +662,42 @@ fn arcs_are_flattened_to_chords_within_a_micrometre() {
     // Not needlessly finer either: the chords use the tolerance.
     assert!(worst >= 500.0, "chords {worst} nm from the arc");
 }
+
+#[test]
+fn via_zone_connection_is_inherited_per_field_and_overridden_in_the_fill() {
+    let dir = TempDir::new("via-zone-override");
+    let mut engine = engine_with_pcb(&dir);
+    let net = add_net(&mut engine, "GND");
+    connection(
+        &mut engine,
+        json!({"via":{"style":"relief","gap":"0.5mm","spokes":4,"angle":"0deg"}}),
+    );
+    let z = zone(
+        &mut engine,
+        Some(net),
+        rect(0.0, 0.0, 20.0, 12.0),
+        json!({"remove_unconnected":false}),
+    );
+    let id = via(&mut engine, 5.0, 5.0, net);
+    let contains = |e: &TestEngine, x, y| filled(shapes(&fill(e), z), at(x, y));
+    assert!(!contains(&engine, 5.6, 5.4));
+    assert!(contains(&engine, 5.6, 5.0));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"style":"solid"}}),
+    );
+    assert!(contains(&engine, 5.6, 5.4));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"style":"none"}}),
+    );
+    assert!(!contains(&engine, 5.6, 5.0));
+    engine.run_ok(
+        "pcb.via.set",
+        json!({"vias":[id],"zone_connection":{"spokes":2}}),
+    );
+    assert!(contains(&engine, 5.6, 5.0));
+    assert!(!contains(&engine, 5.0, 5.6));
+    engine.run_ok("pcb.via.set", json!({"vias":[id],"zone_connection":null}));
+    assert!(contains(&engine, 5.0, 5.6));
+}

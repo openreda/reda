@@ -258,7 +258,7 @@ fn frame(pcb: &PcbDocument, zone: &Zone, item: Item) -> Option<Frame> {
                     zone.net,
                     Some(zone.layer),
                     ConnectionTarget::Via,
-                    None,
+                    via.zone_connection.as_ref(),
                 ),
             });
         }
