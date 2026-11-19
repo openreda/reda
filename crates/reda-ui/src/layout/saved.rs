@@ -117,7 +117,10 @@ impl SavedLayout {
             .filter(|t| matches!(t, TabKey::Start | TabKey::Document(_) | TabKey::Stackup(_)))
             .cloned()
             .collect();
-        let active = current.active_document().map(TabKey::Document);
+        let active = match &current.focus {
+            Some(key @ TabKey::Stackup(_)) => Some(key.clone()),
+            _ => current.active_document().map(TabKey::Document),
+        };
         let mut placed = false;
         let mut fill = |g: &Group<Slot>| {
             let mut out = Group::new(g.id, Vec::new());

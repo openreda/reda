@@ -1252,7 +1252,7 @@ fn snapshot_of_board_setup_zone_connections() {
 }
 
 #[test]
-fn snapshot_of_board_setup_stackup_with_its_cross_section() {
+fn snapshot_of_board_setup_stackup_summary() {
     board_setup_snapshot("Stackup", "board_setup_stackup_dark");
 }
 

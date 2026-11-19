@@ -304,7 +304,10 @@ pub fn layer_name(pcb: &PcbDocument, layer: &Layer) -> String {
         && layer.side.is_none()
         && let Some(number) = pcb.copper_number(layer.uuid)
     {
-        return tr!("layer-inner-copper", number = number);
+        return layer
+            .name
+            .clone()
+            .unwrap_or_else(|| tr!("layer-inner-copper", number = number));
     }
     let kind = match layer.kind {
         LayerKind::Copper => tr!("layer-copper"),
