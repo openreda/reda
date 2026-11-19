@@ -30,9 +30,35 @@ pub enum Proposal {
     Via {
         span: reda_model::LayerSpan,
         at: Point,
-        diameter: Nm,
+        diameter: reda_model::ViaDiameter,
         net: Option<Uuid>,
     },
+}
+
+impl Proposal {
+    /// The copper this placement would actually add, one land or Track per Layer.
+    pub(crate) fn pieces(&self, pcb: &PcbDocument) -> (Vec<(Uuid, Shape)>, Option<Uuid>) {
+        match *self {
+            Proposal::Track {
+                layer,
+                geometry,
+                width,
+                net,
+            } => (vec![(layer, Shape::track(&geometry, width))], net),
+            Proposal::Via {
+                at,
+                diameter,
+                span,
+                net,
+            } => (
+                pcb.span_layers(span)
+                    .into_iter()
+                    .map(|layer| (layer, Shape::disc(at, diameter.on(span, layer))))
+                    .collect(),
+                net,
+            ),
+        }
+    }
 }
 
 /// Copper of another Net that a proposal comes too close to.
@@ -62,30 +88,17 @@ impl Copper {
         proposal: &Proposal,
         ignore: &[Uuid],
     ) -> Vec<ClearanceHit> {
-        let (layers, shape, net) = match *proposal {
-            Proposal::Track {
-                layer,
-                geometry,
-                width,
-                net,
-            } => (vec![layer], Shape::track(&geometry, width), net),
-            Proposal::Via {
-                at,
-                diameter,
-                net,
-                span,
-            } => (pcb.span_layers(span), Shape::disc(at, diameter), net),
-        };
+        let (pieces, net) = proposal.pieces(pcb);
         let reach = max_clearance(pcb).0;
-        let env = shape.envelope();
-        let (lo, hi) = (env.lower(), env.upper());
-        let search = AABB::from_corners(
-            [lo[0] - reach, lo[1] - reach],
-            [hi[0] + reach, hi[1] + reach],
-        );
         let ties = super::ties::Ties::of(pcb);
         let mut hits = Vec::new();
-        for layer in layers {
+        for (layer, shape) in pieces {
+            let env = shape.envelope();
+            let (lo, hi) = (env.lower(), env.upper());
+            let search = AABB::from_corners(
+                [lo[0] - reach, lo[1] - reach],
+                [hi[0] + reach, hi[1] + reach],
+            );
             for piece in self.candidates(layer, search) {
                 let other = self.net(piece.item);
                 // Zone fills make way for new copper when they are refilled.

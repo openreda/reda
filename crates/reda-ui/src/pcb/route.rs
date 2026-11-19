@@ -350,7 +350,7 @@ impl Router {
         let diameter = self.via_diameter(pcb, net);
         let proposal = Proposal::Via {
             at,
-            diameter,
+            diameter: diameter.into(),
             net,
             span: pcb.stackup().through_type().span(),
         };
@@ -702,9 +702,7 @@ impl Router {
                     .into_iter()
                     .find_map(|l| c.net_at(l, at))
             });
-            let diameter = reda_engine::pcb::rules::via_starting_size(pcb, net, kind)
-                .0
-                .start;
+            let diameter = reda_engine::pcb::rules::via_starting_size(pcb, net, kind).0;
             let allowed = reda_engine::pcb::rules::via_type_allowed(pcb, net, kind.uuid);
             let proposal = Proposal::Via {
                 at,
@@ -716,7 +714,13 @@ impl Router {
             let (hits, keepouts) = self.query(shell, &proposal, &[]);
             self.via = Some(ViaCursor {
                 at,
-                diameter,
+                diameter: diameter.on(
+                    span,
+                    shell
+                        .board_view()
+                        .active_layer(project)
+                        .unwrap_or(span.from),
+                ),
                 blocked: !allowed || !hits.is_empty() || !keepouts.is_empty(),
             });
             self.hits = hits;

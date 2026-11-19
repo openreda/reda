@@ -304,7 +304,7 @@ impl Command for ClearanceVia {
         let proposal = Proposal::Via {
             span: pcb.stackup().through_type().span(),
             at: p.at.point(),
-            diameter,
+            diameter: diameter.into(),
             net,
         };
         Ok(check(

@@ -20,6 +20,8 @@ use crate::copper::{ClearanceHit, Copper, Item, Proposal};
 
 pub mod loops;
 pub mod path;
+mod vias;
+pub use vias::ViaCandidates;
 pub mod width;
 
 pub use loops::{LoopOptions, Piece, Removal};
